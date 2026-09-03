@@ -27,7 +27,7 @@ export const GROUPS: Group[] = [
   { name: 'Seniors', x: 48, y: 62, tag: 'Open register', bib: '#e34948', lines: [['GK', 3], ['DEF', 8], ['MID', 9], ['FWD', 5]], note: 'Twenty-five. Adults send their own page; nothing here needed a parent.' },
 ];
 
-export const POS: Record<string, [number, number]> = { GK: [8, 50], CB: [28, 50], LB: [26, 18], RB: [26, 82], CM: [50, 50], AM: [64, 50], LW: [72, 18], RW: [72, 82], ST: [88, 50] };
+export const POS: Record<string, [number, number]> = { GK: [8, 50], CB: [28, 50], LB: [26, 18], RB: [26, 82], DM: [38, 50], CM: [52, 50], CAM: [66, 50], LW: [72, 18], RW: [72, 82], ST: [88, 50] };
 
 export const FILM_SRC = ['/assets/hl-1.webp', '/assets/hl-2.webp', '/assets/hl-3.webp', '/assets/hl-4.webp', '/assets/hl-5.webp'];
 

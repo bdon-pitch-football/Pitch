@@ -52,7 +52,7 @@ const Wordmark = ({ size }: { size: number }) => (
 export default function ComingSoon() {
   const [s, setS] = useState<S>({
     persona: 'player', px: 0, py: 0,
-    number: 9, pos: ['AM', 'LW'], goals: 0, shots: 0, ball: { x: 50, y: 74 }, drag: false, flying: false, flash: null, netHit: 0,
+    number: 9, pos: ['CAM', 'LW'], goals: 0, shots: 0, ball: { x: 50, y: 74 }, drag: false, flying: false, flash: null, netHit: 0,
     formation: '4-3-3', magnets: FORMS['4-3-3'].map((v) => [...v] as XY), mdrag: -1, moved: 0, runs: [], drawing: null,
     group: 0, whistled: false,
     linkOn: true, paused: false, pauseP: 0, slide: 0, sliding: false, approved: false, reqKey: 0,
@@ -1141,7 +1141,7 @@ export default function ComingSoon() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('kcvs') }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#121b16', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 22, height: 22, borderRadius: 7, background: '#3ddc84', color: '#06130c', fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>9</div>Deniz K. · AM / LW</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 22, height: 22, borderRadius: 7, background: '#3ddc84', color: '#06130c', fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>9</div>Deniz K. · CAM / LW</div>
                       <div style={{ color: '#3ddc84', fontSize: 10.5 }}>Live page</div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#121b16', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
@@ -1162,7 +1162,7 @@ export default function ComingSoon() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#121b16', borderRadius: 12, padding: '10px 11px', outlineOffset: 3, transition: 'opacity .3s', ...lk('pchild') }}>
                     <div style={{ width: 34, height: 34, borderRadius: 11, background: '#3ddc84', color: '#06130c', fontWeight: 900, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>9</div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 13, fontWeight: 900 }}>Deniz · 14 · AM / LW</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>Kingsway Rovers U15 · his page, your keys</div></div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 13, fontWeight: 900 }}>Deniz · 14 · CAM / LW</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>Kingsway Rovers U15 · his page, your keys</div></div>
                     <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.1em', color: '#a479e2', border: '1px solid rgba(164,121,226,.4)', borderRadius: 999, padding: '3px 7px' }}>U18</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'rgba(164,121,226,.1)', border: '1px solid rgba(164,121,226,.3)', borderRadius: 12, padding: '10px 11px', outlineOffset: 3, transition: 'opacity .3s', ...lk('preq') }}>

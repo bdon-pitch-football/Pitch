@@ -24,7 +24,7 @@
 | `LB` | Left back | DEF |
 | `DM` | Defensive midfielder | MID |
 | `CM` | Central midfielder | MID |
-| `AM` | Attacking midfielder | MID |
+| `CAM` | Attacking midfielder | MID |
 | `RW` | Right wing | FWD |
 | `LW` | Left wing | FWD |
 | `ST` | Striker | FWD |
@@ -33,7 +33,7 @@
 
 - **Wing back** — a coach's word for a role, not a position a junior is picked in. A kid who plays there picks full back or wide.
 - **Right and left midfield** — increasingly folded into the wide-forward roles at junior level. A player who plays wide midfield picks `RW` or `LW`, which is also how a TD reads it.
-- **Second striker** — a tactical description, not something anyone gets selected as at junior level. That player is an `AM` or an `ST`.
+- **Second striker** — a tactical description, not something anyone gets selected as at junior level. That player is a `CAM` or an `ST`.
 - **Sweeper** was already out of the draft and stays out.
 
 **One normalisation Leo applied and is flagging:** the labels are rendered in consistent sentence case (`Right back`, not `Right Back`; `Attacking midfielder`, not `Attacking Midfielder`). The codes and the set are exactly as BUZ gave them. If the capitalisation matters, it is a one-line change.
@@ -93,7 +93,7 @@ All three are **fictional and clearly fictional**. No real minor's data appears 
 | | |
 |---|---|
 | **Age band** | u16 — exercises guardian approval, no search surface, guardian-held link |
-| **Positions** | `AM`, `LW` (two of three used) |
+| **Positions** | `CAM`, `LW` (two of three used) |
 | **Number** | 10 · **Foot** Right |
 | **Club** | Riverside FC — U15s, Melbourne VIC |
 | **Stats 2026** | Apps 18 · Goals 11 · Assists 7 — all `self_reported` |
