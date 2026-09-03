@@ -32,6 +32,12 @@ const chipStyle = (on: boolean, c: string) => ({
   border: `1px solid ${on ? c : 'rgba(255,255,255,.12)'}`,
 });
 
+// Pricing section hidden (BUZ, 3 Sep, on reader feedback): the page flows
+// closer-look -> waitlist. The under-18-free promise still appears on the
+// roadmap card; the only price left is the club-scene note. Flip to true to
+// restore the full section.
+const SHOW_PRICING = false;
+
 const Check = ({ color, size = 13 }: { color: string; size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
     <path d="M5 12.5 l4.5 4.5 L19 7" />
@@ -352,6 +358,9 @@ export default function ComingSoon() {
     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6, paddingTop: small ? 6 : 8 }}>
       {SEATS.map(([k, label]) => {
         const on = P === k;
+        // Chips carry the plain role AND the seat metaphor (BUZ, 3 Sep, on
+        // reader feedback) — matches the scene headers ("Players · on the pitch")
+        const role = k === 'parent' ? 'Parent' : k[0].toUpperCase() + k.slice(1);
         return (
           <div key={k} onClick={(e) => pick(k, { anchor: e.currentTarget })} style={{
             cursor: 'pointer', borderRadius: 999, padding: small ? '9px 14px' : '10px 16px', fontSize: small ? 12.5 : 13, fontWeight: 800,
@@ -359,7 +368,7 @@ export default function ComingSoon() {
             border: `1px solid ${on ? ACC[k] : 'rgba(255,255,255,.1)'}`, transition: 'all .2s', display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <div style={{ width: small ? 6 : 7, height: small ? 6 : 7, borderRadius: 999, background: ACC[k] }} />
-            {label}
+            <span>{role}<span style={{ color: on ? '#7d8f85' : '#5a6a61', fontWeight: 700 }}> · {label}</span></span>
           </div>
         );
       })}
@@ -388,7 +397,7 @@ export default function ComingSoon() {
             <div className="navlink" onClick={() => go(hiRef)} style={{ cursor: 'pointer' }}>Highlights</div>
             <div className="navlink" onClick={() => go(seatRef)} style={{ cursor: 'pointer' }}>Pick your seat</div>
             <div className="navlink" onClick={() => go(lookRef)} style={{ cursor: 'pointer' }}>A closer look</div>
-            <div className="navlink" onClick={() => go(priceRef)} style={{ cursor: 'pointer' }}>What it costs</div>
+            {SHOW_PRICING && <div className="navlink" onClick={() => go(priceRef)} style={{ cursor: 'pointer' }}>What it costs</div>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 800, color: '#b9c8bf', fontVariantNumeric: 'tabular-nums' }}>
@@ -440,6 +449,12 @@ export default function ComingSoon() {
                 ] as [number, React.ReactNode][]).map(([i, node]) => (
                   <div key={i} style={{ position: 'absolute', left: 0, bottom: 0, ...cap(i), transition: 'opacity .25s, transform .25s', textWrap: 'balance' as never }}>{node}</div>
                 ))}
+              </div>
+              {/* Always-visible product clarity line (BUZ, 3 Sep, on reader feedback) —
+                  reuses the highlight-card wording so the visitor knows what
+                  Pitch is at first paint, on every scroll beat */}
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#b9c8bf', letterSpacing: '.02em' }}>
+                <span style={{ color: '#3ddc84' }}>Pitch</span> — your football, finally on the record.
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 18 }}>
                 <div style={{ position: 'relative', flex: '1 1 320px', minHeight: '3.2em', maxWidth: 520, fontSize: 'clamp(15px, 1.4vw, 19px)', color: '#dfe8e2', fontWeight: 500, lineHeight: 1.5, textShadow: '0 2px 16px rgba(0,0,0,.6)' }}>
@@ -506,6 +521,14 @@ export default function ComingSoon() {
               <div style={{ fontSize: 12.5, color: '#7d8f85', fontWeight: 500, lineHeight: 1.5 }}>{d}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Mid-page conversion moment (BUZ, 3 Sep, on reader feedback) */}
+      <div data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '70px 24px 0 24px', ...reveal }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '18px 28px', background: 'linear-gradient(90deg, rgba(61,220,132,.1), rgba(61,220,132,.03))', border: '1px solid rgba(61,220,132,.28)', borderRadius: 20, padding: '26px 28px', textAlign: 'center' }}>
+          <div style={{ fontSize: 'clamp(20px, 2.6vw, 28px)', fontWeight: 900, letterSpacing: '-.02em', textWrap: 'balance' as never }}>Your football history shouldn’t disappear.</div>
+          <div onClick={() => go(formRef)} style={{ cursor: 'pointer', background: '#3ddc84', color: '#06130c', fontWeight: 800, fontSize: 15, borderRadius: 14, padding: '0 22px', height: 50, display: 'flex', alignItems: 'center' }}>Join the waitlist</div>
         </div>
       </div>
 
@@ -1203,6 +1226,7 @@ export default function ComingSoon() {
       </div>
 
       {/* ===== WHAT IT COSTS ===== */}
+      {SHOW_PRICING && (
       <div ref={priceRef} data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '100px 24px 80px 24px', display: 'flex', flexDirection: 'column', gap: 28, ...reveal }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
           <div style={{ ...kicker, color: accent, transition: 'color .4s' }}>{PRICE[P][0]}</div>
@@ -1238,6 +1262,7 @@ export default function ComingSoon() {
           ))}
         </div>
       </div>
+      )}
 
       {/* ===== WAITLIST ===== */}
       <div ref={formRef} style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 60px 24px', boxSizing: 'border-box' }}>
