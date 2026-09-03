@@ -524,6 +524,170 @@ export default function ComingSoon() {
         </div>
       </div>
 
+      {/* ===== A CLOSER LOOK ===== */}
+      <div ref={lookRef} style={{ padding: '110px 24px 40px 24px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40 }}>
+          <div data-reveal="1" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12, ...reveal }}>
+            <div style={{ ...kicker, color: accent, transition: 'color .4s' }}>{LOOKS[P][0]}</div>
+            <div style={{ fontSize: 'clamp(34px, 4.6vw, 56px)', fontWeight: 900, letterSpacing: '-.035em', lineHeight: 1 }}>Take a closer look.</div>
+            <div style={{ fontSize: 15, color: '#b9c8bf', fontWeight: 500, maxWidth: 520, lineHeight: 1.55, textWrap: 'pretty' as never }}>{LOOKS[P][1]}</div>
+            {seatChips(true)}
+          </div>
+          <div data-reveal="1" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 48, ...reveal }}>
+            {/* phone */}
+            <div style={{ width: 320, background: '#0b120e', border: '1px solid #24322a', borderRadius: 40, padding: 14, boxShadow: '0 60px 120px -40px rgba(0,0,0,1), inset 0 0 0 6px #050806' }}>
+              <div key={P} style={{ borderRadius: 28, overflow: 'hidden', background: '#0b120e', display: 'flex', flexDirection: 'column', gap: 10, padding: '18px 14px 20px 14px', animation: 'rise .5s both' }}>
+                <div style={{ display: 'flex', justifyContent: 'center' }}><div style={{ width: 90, height: 24, borderRadius: 999, background: '#050806' }} /></div>
+
+                {P === 'player' && (<>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px', borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('head') }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 14, background: '#3ddc84', color: '#06130c', fontWeight: 900, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><div style={{ fontSize: 15, fontWeight: 900 }}>Nate Okafor</div><div style={{ fontSize: 11.5, color: '#7d8f85', fontWeight: 600 }}>19 · Goalkeeper · Melbourne</div></div>
+                  </div>
+                  <div style={{ position: 'relative', height: 96, borderRadius: 12, background: '#135a34', border: '2px solid rgba(255,255,255,.4)', overflow: 'hidden', outlineOffset: 3, transition: 'opacity .3s', ...lk('pos') }}>
+                    <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, background: 'rgba(255,255,255,.4)' }} />
+                    <div style={{ position: 'absolute', left: '8%', top: '50%', width: 22, height: 22, margin: -11, borderRadius: 999, background: '#3ddc84', color: '#06130c', fontSize: 8.5, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>GK</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('clubs') }}>
+                    <div style={phoneRow}><div>Brunswick City</div><div style={{ color: '#7d8f85' }}>Seniors · 2 seasons</div></div>
+                    <div style={phoneRow}><div>Kingsway Rovers</div><div style={{ color: '#7d8f85' }}>U18 · 3 seasons</div></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('nums') }}>
+                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>38</div><div style={phoneStatK}>APPS</div></div>
+                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>14</div><div style={phoneStatK}>CLEAN</div></div>
+                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>6</div><div style={phoneStatK}>PENS</div></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('clips') }}>
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} style={{ flex: 1, aspectRatio: '16/10', borderRadius: 10, background: 'linear-gradient(140deg, #1d3a2b, #0f1f17)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#eef5f0"><path d="M8 5 l11 7 -11 7z" /></svg>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121b16', borderRadius: 12, padding: '10px 12px', outlineOffset: 3, transition: 'opacity .3s', ...lk('link') }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 800 }}>Link is on</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>2 clubs can open it · 61 days left</div></div>
+                    <div style={{ width: 38, height: 22, borderRadius: 999, background: '#3ddc84', position: 'relative' }}><div style={{ position: 'absolute', top: 3, left: 19, width: 16, height: 16, borderRadius: 999, background: '#fff' }} /></div>
+                  </div>
+                </>)}
+
+                {P === 'coach' && (<>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px', borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('chead') }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 14, background: '#d95926', color: '#14080a', fontWeight: 900, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>SH</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><div style={{ fontSize: 15, fontWeight: 900 }}>Sarah Hale</div><div style={{ fontSize: 11.5, color: '#7d8f85', fontWeight: 600 }}>Head coach · 11 seasons · Melbourne</div></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('clic') }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, background: '#121b16', borderRadius: 10, padding: '9px 10px', fontSize: 11.5, fontWeight: 800 }}><Check color="#3ddc84" size={12} />WWCC checked</div>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, background: '#121b16', borderRadius: 10, padding: '9px 10px', fontSize: 11.5, fontWeight: 800 }}><Check color="#3ddc84" size={12} />C Licence</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('csquads') }}>
+                    <div style={phoneRow}><div>Kingsway Rovers · U15 Boys</div><div style={{ color: '#7d8f85' }}>2024–26</div></div>
+                    <div style={phoneRow}><div>Brunswick City · U13 Girls</div><div style={{ color: '#7d8f85' }}>2021–23</div></div>
+                    <div style={phoneRow}><div>Northcote FC · Seniors asst.</div><div style={{ color: '#7d8f85' }}>2015–20</div></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('cplayers') }}>
+                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>11</div><div style={phoneStatK}>SEASONS</div></div>
+                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>9</div><div style={phoneStatK}>SQUADS</div></div>
+                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>140</div><div style={phoneStatK}>PLAYERS</div></div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('cword') }}>
+                    <div style={{ background: '#121b16', borderRadius: 10, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.1em', color: '#d95926' }}>HER WORD · ON A PLAYER&apos;S PAGE</div>
+                      <div style={{ fontSize: 11.5, color: '#c8d6cd', fontWeight: 500, lineHeight: 1.4 }}>&quot;Deniz — two seasons, never missed a session. Reads the game early.&quot;</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121b16', borderRadius: 12, padding: '10px 12px', outlineOffset: 3, transition: 'opacity .3s', ...lk('clink') }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 800 }}>Link is on</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>1 club can open it · 30 days left</div></div>
+                    <div style={{ width: 38, height: 22, borderRadius: 999, background: '#d95926', position: 'relative' }}><div style={{ position: 'absolute', top: 3, left: 19, width: 16, height: 16, borderRadius: 999, background: '#fff' }} /></div>
+                  </div>
+                </>)}
+
+                {P === 'club' && (<>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px', borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('khead') }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 14, background: '#eda100', color: '#14100a', fontWeight: 900, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>KR</div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}><div style={{ fontSize: 15, fontWeight: 900 }}>Kingsway Rovers FC</div><div style={{ fontSize: 11.5, color: '#7d8f85', fontWeight: 600 }}>Est. 1979 · 14 squads · Melbourne</div></div>
+                    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.1em', color: '#eda100', border: '1px solid rgba(237,161,0,.4)', borderRadius: 999, padding: '3px 7px' }}>FOUNDING</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('ksquads') }}>
+                    <div style={{ flex: 1, background: '#121b16', borderRadius: 10, padding: '8px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 900 }}>U13 G</div><div style={{ fontSize: 9, fontWeight: 800, color: '#7d8f85' }}>18 players</div></div>
+                    <div style={{ flex: 1, background: '#121b16', borderRadius: 10, padding: '8px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, border: '1px solid #eda100' }}><div style={{ fontSize: 12, fontWeight: 900 }}>U15 B</div><div style={{ fontSize: 9, fontWeight: 800, color: '#eda100' }}>Trial live</div></div>
+                    <div style={{ flex: 1, background: '#121b16', borderRadius: 10, padding: '8px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 900 }}>Seniors</div><div style={{ fontSize: 9, fontWeight: 800, color: '#7d8f85' }}>25 players</div></div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('kreg') }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(160deg, #2b2415, #14170f)', border: '1px solid #4a3a12', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}><div>Interest Register · U15 Boys</div><div style={{ fontSize: 10.5, color: '#b9aa7a', fontWeight: 600 }}>16 want in · 4 new this week</div></div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#eda100' }}>16</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 5 }}>
+                      {([['GK', 2], ['DEF', 6], ['MID', 5], ['FWD', 3]] as [string, number][]).map(([k, n]) => (
+                        <div key={k} style={{ flex: 1, background: '#121b16', borderRadius: 10, padding: 7, display: 'flex', flexDirection: 'column', alignItems: 'center' }}><div style={{ fontSize: 15, fontWeight: 900 }}>{n}</div><div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '.1em', color: '#7d8f85' }}>{k}</div></div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('kcvs') }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#121b16', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 22, height: 22, borderRadius: 7, background: '#3ddc84', color: '#06130c', fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>9</div>Deniz K. · CAM / LW</div>
+                      <div style={{ color: '#3ddc84', fontSize: 10.5 }}>Live page</div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#121b16', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 22, height: 22, borderRadius: 7, background: '#3ddc84', color: '#06130c', fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</div>Nate O. · GK</div>
+                      <div style={{ color: '#3ddc84', fontSize: 10.5 }}>Live page</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121b16', borderRadius: 12, padding: '10px 12px', outlineOffset: 3, transition: 'opacity .3s', ...lk('keyes') }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 800 }}>Two sets of eyes</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>TD reads the record · registrar sees names and squads</div></div>
+                    <div style={{ display: 'flex' }}><div style={{ width: 22, height: 22, borderRadius: 999, background: '#eda100', border: '2px solid #0b120e' }} /><div style={{ width: 22, height: 22, borderRadius: 999, background: '#7d8f85', border: '2px solid #0b120e', marginLeft: -8 }} /></div>
+                  </div>
+                </>)}
+
+                {P === 'parent' && (<>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px', borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('phead') }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 14, background: '#a479e2', color: '#120a1e', fontWeight: 900, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>AK</div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}><div style={{ fontSize: 15, fontWeight: 900 }}>Ayşe Kaya</div><div style={{ fontSize: 11.5, color: '#7d8f85', fontWeight: 600 }}>Guardian of 1 page · holds every key</div></div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#121b16', borderRadius: 12, padding: '10px 11px', outlineOffset: 3, transition: 'opacity .3s', ...lk('pchild') }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 11, background: '#3ddc84', color: '#06130c', fontWeight: 900, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>9</div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 13, fontWeight: 900 }}>Deniz · 14 · CAM / LW</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>Kingsway Rovers U15 · his page, your keys</div></div>
+                    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.1em', color: '#a479e2', border: '1px solid rgba(164,121,226,.4)', borderRadius: 999, padding: '3px 7px' }}>U18</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'rgba(164,121,226,.1)', border: '1px solid rgba(164,121,226,.3)', borderRadius: 12, padding: '10px 11px', outlineOffset: 3, transition: 'opacity .3s', ...lk('preq') }}>
+                    <div style={{ fontSize: 12, fontWeight: 800 }}>Deniz wants to send his page</div>
+                    <div style={{ fontSize: 10.5, color: '#b9aecc', fontWeight: 600 }}>to Kingsway Rovers FC · U15 Boys</div>
+                    <div style={{ height: 30, borderRadius: 999, background: 'rgba(255,255,255,.07)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 800, color: '#d6cde6' }}>
+                      <div style={{ position: 'absolute', left: 3, top: 3, width: 24, height: 24, borderRadius: 999, background: '#a479e2' }} />
+                      Slide to send →
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('pkeys') }}>
+                    <div style={{ ...phoneRow, alignItems: 'center' }}><div>The page · 2 clubs can open it</div><div style={{ width: 32, height: 18, borderRadius: 999, background: '#3ddc84', position: 'relative' }}><div style={{ position: 'absolute', top: 2, left: 16, width: 14, height: 14, borderRadius: 999, background: '#fff' }} /></div></div>
+                    <div style={{ ...phoneRow, alignItems: 'center' }}><div>Every send · read by you first</div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a479e2" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11 V8 a4 4 0 0 1 8 0 v3" /></svg></div>
+                    <div style={{ ...phoneRow, alignItems: 'center' }}><div>Pause everything</div><div style={{ fontSize: 10.5, color: '#7d8f85' }}>Hold 1s</div></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('pfeed') }}>
+                    {['FEED', 'MESSAGES', 'RANKING'].map((k) => (
+                      <div key={k} style={phoneStat}><div style={{ fontSize: 16, fontWeight: 900, color: '#7d8f85' }}>—</div><div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '.1em', color: '#7d8f85' }}>{k}</div></div>
+                    ))}
+                  </div>
+                </>)}
+              </div>
+            </div>
+            {/* tabs */}
+            <div style={{ flex: '1 1 300px', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {LOOKS[P][2].map(([k, title, desc]) => {
+                const on = s.look === k;
+                return (
+                  <div key={k} onClick={() => set({ look: k })} style={{ cursor: 'pointer', borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4, background: on ? '#0d1411' : 'transparent', border: `1px solid ${on ? accent : 'transparent'}`, transition: 'all .25s' }}>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: on ? '#eef5f0' : '#7d8f85' }}>{title}</div>
+                    <div style={{ fontSize: 13, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.5, maxHeight: on ? 80 : 0, overflow: 'hidden', opacity: on ? 1 : 0, transition: 'all .3s' }}>{desc}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
       {/* Mid-page conversion moment (BUZ, 3 Sep, on reader feedback) */}
       <div data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '70px 24px 0 24px', ...reveal }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '18px 28px', background: 'linear-gradient(90deg, rgba(61,220,132,.1), rgba(61,220,132,.03))', border: '1px solid rgba(61,220,132,.28)', borderRadius: 20, padding: '26px 28px', textAlign: 'center' }}>
@@ -1062,169 +1226,6 @@ export default function ComingSoon() {
           </div>
         </div>
       </div>
-
-      {/* ===== A CLOSER LOOK ===== */}
-      <div ref={lookRef} style={{ padding: '110px 24px 40px 24px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40 }}>
-          <div data-reveal="1" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12, ...reveal }}>
-            <div style={{ ...kicker, color: accent, transition: 'color .4s' }}>{LOOKS[P][0]}</div>
-            <div style={{ fontSize: 'clamp(34px, 4.6vw, 56px)', fontWeight: 900, letterSpacing: '-.035em', lineHeight: 1 }}>Take a closer look.</div>
-            <div style={{ fontSize: 15, color: '#b9c8bf', fontWeight: 500, maxWidth: 520, lineHeight: 1.55, textWrap: 'pretty' as never }}>{LOOKS[P][1]}</div>
-            {seatChips(true)}
-          </div>
-          <div data-reveal="1" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 48, ...reveal }}>
-            {/* phone */}
-            <div style={{ width: 320, background: '#0b120e', border: '1px solid #24322a', borderRadius: 40, padding: 14, boxShadow: '0 60px 120px -40px rgba(0,0,0,1), inset 0 0 0 6px #050806' }}>
-              <div key={P} style={{ borderRadius: 28, overflow: 'hidden', background: '#0b120e', display: 'flex', flexDirection: 'column', gap: 10, padding: '18px 14px 20px 14px', animation: 'rise .5s both' }}>
-                <div style={{ display: 'flex', justifyContent: 'center' }}><div style={{ width: 90, height: 24, borderRadius: 999, background: '#050806' }} /></div>
-
-                {P === 'player' && (<>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px', borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('head') }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 14, background: '#3ddc84', color: '#06130c', fontWeight: 900, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><div style={{ fontSize: 15, fontWeight: 900 }}>Nate Okafor</div><div style={{ fontSize: 11.5, color: '#7d8f85', fontWeight: 600 }}>19 · Goalkeeper · Melbourne</div></div>
-                  </div>
-                  <div style={{ position: 'relative', height: 96, borderRadius: 12, background: '#135a34', border: '2px solid rgba(255,255,255,.4)', overflow: 'hidden', outlineOffset: 3, transition: 'opacity .3s', ...lk('pos') }}>
-                    <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, background: 'rgba(255,255,255,.4)' }} />
-                    <div style={{ position: 'absolute', left: '8%', top: '50%', width: 22, height: 22, margin: -11, borderRadius: 999, background: '#3ddc84', color: '#06130c', fontSize: 8.5, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>GK</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('clubs') }}>
-                    <div style={phoneRow}><div>Brunswick City</div><div style={{ color: '#7d8f85' }}>Seniors · 2 seasons</div></div>
-                    <div style={phoneRow}><div>Kingsway Rovers</div><div style={{ color: '#7d8f85' }}>U18 · 3 seasons</div></div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('nums') }}>
-                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>38</div><div style={phoneStatK}>APPS</div></div>
-                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>14</div><div style={phoneStatK}>CLEAN</div></div>
-                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>6</div><div style={phoneStatK}>PENS</div></div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('clips') }}>
-                    {[0, 1, 2].map((i) => (
-                      <div key={i} style={{ flex: 1, aspectRatio: '16/10', borderRadius: 10, background: 'linear-gradient(140deg, #1d3a2b, #0f1f17)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#eef5f0"><path d="M8 5 l11 7 -11 7z" /></svg>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121b16', borderRadius: 12, padding: '10px 12px', outlineOffset: 3, transition: 'opacity .3s', ...lk('link') }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 800 }}>Link is on</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>2 clubs can open it · 61 days left</div></div>
-                    <div style={{ width: 38, height: 22, borderRadius: 999, background: '#3ddc84', position: 'relative' }}><div style={{ position: 'absolute', top: 3, left: 19, width: 16, height: 16, borderRadius: 999, background: '#fff' }} /></div>
-                  </div>
-                </>)}
-
-                {P === 'coach' && (<>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px', borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('chead') }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 14, background: '#d95926', color: '#14080a', fontWeight: 900, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>SH</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><div style={{ fontSize: 15, fontWeight: 900 }}>Sarah Hale</div><div style={{ fontSize: 11.5, color: '#7d8f85', fontWeight: 600 }}>Head coach · 11 seasons · Melbourne</div></div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('clic') }}>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, background: '#121b16', borderRadius: 10, padding: '9px 10px', fontSize: 11.5, fontWeight: 800 }}><Check color="#3ddc84" size={12} />WWCC checked</div>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, background: '#121b16', borderRadius: 10, padding: '9px 10px', fontSize: 11.5, fontWeight: 800 }}><Check color="#3ddc84" size={12} />C Licence</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('csquads') }}>
-                    <div style={phoneRow}><div>Kingsway Rovers · U15 Boys</div><div style={{ color: '#7d8f85' }}>2024–26</div></div>
-                    <div style={phoneRow}><div>Brunswick City · U13 Girls</div><div style={{ color: '#7d8f85' }}>2021–23</div></div>
-                    <div style={phoneRow}><div>Northcote FC · Seniors asst.</div><div style={{ color: '#7d8f85' }}>2015–20</div></div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('cplayers') }}>
-                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>11</div><div style={phoneStatK}>SEASONS</div></div>
-                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>9</div><div style={phoneStatK}>SQUADS</div></div>
-                    <div style={phoneStat}><div style={{ fontSize: 18, fontWeight: 900 }}>140</div><div style={phoneStatK}>PLAYERS</div></div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('cword') }}>
-                    <div style={{ background: '#121b16', borderRadius: 10, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.1em', color: '#d95926' }}>HER WORD · ON A PLAYER&apos;S PAGE</div>
-                      <div style={{ fontSize: 11.5, color: '#c8d6cd', fontWeight: 500, lineHeight: 1.4 }}>&quot;Deniz — two seasons, never missed a session. Reads the game early.&quot;</div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121b16', borderRadius: 12, padding: '10px 12px', outlineOffset: 3, transition: 'opacity .3s', ...lk('clink') }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 800 }}>Link is on</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>1 club can open it · 30 days left</div></div>
-                    <div style={{ width: 38, height: 22, borderRadius: 999, background: '#d95926', position: 'relative' }}><div style={{ position: 'absolute', top: 3, left: 19, width: 16, height: 16, borderRadius: 999, background: '#fff' }} /></div>
-                  </div>
-                </>)}
-
-                {P === 'club' && (<>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px', borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('khead') }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 14, background: '#eda100', color: '#14100a', fontWeight: 900, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>KR</div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}><div style={{ fontSize: 15, fontWeight: 900 }}>Kingsway Rovers FC</div><div style={{ fontSize: 11.5, color: '#7d8f85', fontWeight: 600 }}>Est. 1979 · 14 squads · Melbourne</div></div>
-                    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.1em', color: '#eda100', border: '1px solid rgba(237,161,0,.4)', borderRadius: 999, padding: '3px 7px' }}>FOUNDING</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('ksquads') }}>
-                    <div style={{ flex: 1, background: '#121b16', borderRadius: 10, padding: '8px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 900 }}>U13 G</div><div style={{ fontSize: 9, fontWeight: 800, color: '#7d8f85' }}>18 players</div></div>
-                    <div style={{ flex: 1, background: '#121b16', borderRadius: 10, padding: '8px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, border: '1px solid #eda100' }}><div style={{ fontSize: 12, fontWeight: 900 }}>U15 B</div><div style={{ fontSize: 9, fontWeight: 800, color: '#eda100' }}>Trial live</div></div>
-                    <div style={{ flex: 1, background: '#121b16', borderRadius: 10, padding: '8px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 900 }}>Seniors</div><div style={{ fontSize: 9, fontWeight: 800, color: '#7d8f85' }}>25 players</div></div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('kreg') }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(160deg, #2b2415, #14170f)', border: '1px solid #4a3a12', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}><div>Interest Register · U15 Boys</div><div style={{ fontSize: 10.5, color: '#b9aa7a', fontWeight: 600 }}>16 want in · 4 new this week</div></div>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: '#eda100' }}>16</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 5 }}>
-                      {([['GK', 2], ['DEF', 6], ['MID', 5], ['FWD', 3]] as [string, number][]).map(([k, n]) => (
-                        <div key={k} style={{ flex: 1, background: '#121b16', borderRadius: 10, padding: 7, display: 'flex', flexDirection: 'column', alignItems: 'center' }}><div style={{ fontSize: 15, fontWeight: 900 }}>{n}</div><div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '.1em', color: '#7d8f85' }}>{k}</div></div>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('kcvs') }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#121b16', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 22, height: 22, borderRadius: 7, background: '#3ddc84', color: '#06130c', fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>9</div>Deniz K. · CAM / LW</div>
-                      <div style={{ color: '#3ddc84', fontSize: 10.5 }}>Live page</div>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#121b16', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 22, height: 22, borderRadius: 7, background: '#3ddc84', color: '#06130c', fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</div>Nate O. · GK</div>
-                      <div style={{ color: '#3ddc84', fontSize: 10.5 }}>Live page</div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121b16', borderRadius: 12, padding: '10px 12px', outlineOffset: 3, transition: 'opacity .3s', ...lk('keyes') }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 800 }}>Two sets of eyes</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>TD reads the record · registrar sees names and squads</div></div>
-                    <div style={{ display: 'flex' }}><div style={{ width: 22, height: 22, borderRadius: 999, background: '#eda100', border: '2px solid #0b120e' }} /><div style={{ width: 22, height: 22, borderRadius: 999, background: '#7d8f85', border: '2px solid #0b120e', marginLeft: -8 }} /></div>
-                  </div>
-                </>)}
-
-                {P === 'parent' && (<>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px', borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('phead') }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 14, background: '#a479e2', color: '#120a1e', fontWeight: 900, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>AK</div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}><div style={{ fontSize: 15, fontWeight: 900 }}>Ayşe Kaya</div><div style={{ fontSize: 11.5, color: '#7d8f85', fontWeight: 600 }}>Guardian of 1 page · holds every key</div></div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#121b16', borderRadius: 12, padding: '10px 11px', outlineOffset: 3, transition: 'opacity .3s', ...lk('pchild') }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 11, background: '#3ddc84', color: '#06130c', fontWeight: 900, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>9</div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}><div style={{ fontSize: 13, fontWeight: 900 }}>Deniz · 14 · CAM / LW</div><div style={{ fontSize: 10.5, color: '#7d8f85', fontWeight: 600 }}>Kingsway Rovers U15 · his page, your keys</div></div>
-                    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.1em', color: '#a479e2', border: '1px solid rgba(164,121,226,.4)', borderRadius: 999, padding: '3px 7px' }}>U18</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'rgba(164,121,226,.1)', border: '1px solid rgba(164,121,226,.3)', borderRadius: 12, padding: '10px 11px', outlineOffset: 3, transition: 'opacity .3s', ...lk('preq') }}>
-                    <div style={{ fontSize: 12, fontWeight: 800 }}>Deniz wants to send his page</div>
-                    <div style={{ fontSize: 10.5, color: '#b9aecc', fontWeight: 600 }}>to Kingsway Rovers FC · U15 Boys</div>
-                    <div style={{ height: 30, borderRadius: 999, background: 'rgba(255,255,255,.07)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 800, color: '#d6cde6' }}>
-                      <div style={{ position: 'absolute', left: 3, top: 3, width: 24, height: 24, borderRadius: 999, background: '#a479e2' }} />
-                      Slide to send →
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('pkeys') }}>
-                    <div style={{ ...phoneRow, alignItems: 'center' }}><div>The page · 2 clubs can open it</div><div style={{ width: 32, height: 18, borderRadius: 999, background: '#3ddc84', position: 'relative' }}><div style={{ position: 'absolute', top: 2, left: 16, width: 14, height: 14, borderRadius: 999, background: '#fff' }} /></div></div>
-                    <div style={{ ...phoneRow, alignItems: 'center' }}><div>Every send · read by you first</div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a479e2" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11 V8 a4 4 0 0 1 8 0 v3" /></svg></div>
-                    <div style={{ ...phoneRow, alignItems: 'center' }}><div>Pause everything</div><div style={{ fontSize: 10.5, color: '#7d8f85' }}>Hold 1s</div></div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('pfeed') }}>
-                    {['FEED', 'MESSAGES', 'RANKING'].map((k) => (
-                      <div key={k} style={phoneStat}><div style={{ fontSize: 16, fontWeight: 900, color: '#7d8f85' }}>—</div><div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '.1em', color: '#7d8f85' }}>{k}</div></div>
-                    ))}
-                  </div>
-                </>)}
-              </div>
-            </div>
-            {/* tabs */}
-            <div style={{ flex: '1 1 300px', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {LOOKS[P][2].map(([k, title, desc]) => {
-                const on = s.look === k;
-                return (
-                  <div key={k} onClick={() => set({ look: k })} style={{ cursor: 'pointer', borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4, background: on ? '#0d1411' : 'transparent', border: `1px solid ${on ? accent : 'transparent'}`, transition: 'all .25s' }}>
-                    <div style={{ fontSize: 15, fontWeight: 900, color: on ? '#eef5f0' : '#7d8f85' }}>{title}</div>
-                    <div style={{ fontSize: 13, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.5, maxHeight: on ? 80 : 0, overflow: 'hidden', opacity: on ? 1 : 0, transition: 'all .3s' }}>{desc}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
 
       {/* ===== WHAT IT COSTS ===== */}
       {SHOW_PRICING && (
