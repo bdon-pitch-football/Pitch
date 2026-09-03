@@ -1,0 +1,24 @@
+{
+  "name": "pitch-coming-soon",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pitch Football — pre-launch site at pitchfootball.com.au (doc 29)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "marked": "^15.0.6",
+    "next": "^15.5.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.1",
+    "@types/react-dom": "^19.1.1",
+    "typescript": "^5.9.2"
+  }
+}

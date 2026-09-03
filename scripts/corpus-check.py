@@ -35,7 +35,14 @@ import os, re, sys, html
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else '.'
 SKIP = ('_superseded', '_archive', '13-Board-Room', '_to_delete', 'repo', 'content')
-FALSE_POSITIVES_FIXED = 8   # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain)
+FALSE_POSITIVES_FIXED = 9   # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
+                            # 1 in v3 (S2 exempting by filename, so the register stopped being exempt when renamed)
+FALSE_NEGATIVES_FIXED = 1   # v3: S4 joined ROOT to a guessed 'legal/' and skipped the whole pack in the repo.
+# The v3 pair are the same defect wearing two faces: this file identified documents
+# by the name of their file rather than by which document they are. Run from the
+# corpus root it was clean; run from the handover repo -- the copy that actually
+# goes to CI -- it produced 26 false failures and one silent skip. A check that
+# only passes where it was written is not a check.
 # Predicted next: S10. A legitimate do-not-publish warning and a banner that has
 # outlived its subject look identical to a regex, and doc 22 carries three of the
 # first kind. When it cries wolf, make the legitimate ones structurally
@@ -67,7 +74,24 @@ def text(p):
 rel = lambda p: os.path.relpath(p, ROOT)
 base = lambda p: os.path.basename(p)
 
-REG = os.path.join(ROOT, '06-Design-Decisions-Register.html')
+# The register is the only file this check cannot work without, and it is named
+# differently in the corpus root (06-Design-Decisions-Register.html) and in the
+# handover repo (docs/06-Register.html). Find it rather than assume the name --
+# a hardcoded path here made the check pass at the root and crash in the repo,
+# which is the same defect class this file exists to catch.
+def find_register(root):
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP and not d.startswith('.')]
+        for f in sorted(filenames):
+            if f.startswith('06-') and f.endswith('.html'):
+                return os.path.join(dirpath, f)
+    return None
+
+
+REG = find_register(ROOT)
+if REG is None:
+    print('corpus check: no register (06-*.html) found under', ROOT)
+    raise SystemExit(2)
 reg_raw = open(REG, encoding='utf-8').read()
 
 DECISIONS = {m.group(1): {'lk': 'locked', 'pr': 'proposed', 'op': 'open'}[m.group(2)]
@@ -175,15 +199,20 @@ COMMITMENT = re.compile(
     r'(?:on|by|is|date\s+is)?\s*(?:the\s+)?'
     r'(\d{1,2}\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*)', re.I)
 
-DATE_EXEMPT = ('06-Design-Decisions-Register.html', '12-Social-Brief-ANNA.md',
-               '07-Mission-Goals-Values.html', '27-Club-Verification-Call.md',
-               '15-Message-Copy.md')
+# Exempt by DOCUMENT NUMBER, not filename. The same document is called
+# 06-Design-Decisions-Register.html in the corpus and docs/06-Register.html in
+# the handover repo, and a filename-keyed exemption silently stopped exempting
+# the moment the file was renamed -- 26 false failures, all on the register,
+# which quotes dead dates by design because that is what a supersession record
+# is. A document number survives a rename; a filename does not.
+DATE_EXEMPT_DOCS = {'06', '07', '12', '15', '27'}
+docnum = lambda p: (base(p).split('-', 1) + [''])[0]
 
 
 def s2():
     for p in live_files():
         r = rel(p)
-        if base(p) in DATE_EXEMPT or r.startswith('design-screens/'):
+        if docnum(p) in DATE_EXEMPT_DOCS or 'design-screens' in r.split(os.sep):
             continue
         body = text(p)
         for rx, label in ((DEAD_DATES, 'a date from the dead runway'),
@@ -221,9 +250,26 @@ def s6():
 
 
 # ---------------------------------------------------------------- S4 cross-refs
+def doc_index():
+    """Every live document, keyed by its number.
+
+    Built by walking rather than by joining ROOT to a guessed directory name:
+    the legal pack sits at legal/ in the corpus and docs/legal/ in the handover
+    repo, and a hardcoded join skipped the whole pack in the repo -- S4 warned
+    'doc 18 not found' and every cross-reference went unchecked, silently.
+    """
+    idx = {}
+    for f in live_files():
+        n = docnum(f)
+        if n.isdigit():
+            idx.setdefault(int(n), []).append(f)
+    return idx
+
+
 def s4():
-    d18 = os.path.join(ROOT, 'legal', '18-Solicitor-Brief-D27.html')
-    if not os.path.exists(d18):
+    idx = doc_index()
+    d18 = next((f for f in idx.get(18, []) if f.endswith('.html')), None)
+    if d18 is None:
         warn('S4', 'doc 18 not found — cross-reference check skipped')
         return
     qs = {int(n) for n in re.findall(r'class="qnum">\s*Question\s+(\d+)', open(d18, encoding='utf-8').read())}
@@ -234,9 +280,7 @@ def s4():
         body = text(p)
         for m in re.finditer(r'\[LEGAL[:\s]*doc\s*(\d+)[,\s]*Q?\s*(\d+)?', body, re.I):
             doc_n, q_n = m.group(1), m.group(2)
-            hits = [f for f in os.listdir(ROOT) + os.listdir(os.path.join(ROOT, 'legal'))
-                    if f.startswith(f'{int(doc_n):02d}-')]
-            if not hits:
+            if not idx.get(int(doc_n)):
                 fail('S4', f'{rel(p)} points at doc {doc_n}, which does not exist')
             elif q_n and int(q_n) not in qs:
                 fail('S4', f'{rel(p)} points at doc {doc_n} question {q_n}, which does not exist '

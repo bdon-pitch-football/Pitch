@@ -1,0 +1,57 @@
+# Doc 29 §8 — CI. The corpus check asserts the documents agree with each
+# other; the build job asserts the site compiles; the static checks assert the
+# security posture (service-role key in exactly one file, no committed secrets).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  corpus:
+    name: Corpus check (doc 14 §S)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Twelve assertions that the documents agree with each other
+        run: python3 scripts/corpus-check.py .
+
+  web:
+    name: Build + static security checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Service-role key referenced in exactly one source file (D-80 pattern)
+        run: |
+          set -e
+          FILES=$(grep -rl "SUPABASE_SERVICE_ROLE_KEY" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' app components lib || true)
+          COUNT=$(echo "$FILES" | grep -c . || true)
+          echo "Files referencing the service-role key:"; echo "$FILES"
+          if [ "$COUNT" != "1" ] || [ "$FILES" != "lib/waitlist-db.ts" ]; then
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY must appear in lib/waitlist-db.ts and nowhere else."
+            exit 1
+          fi
+      - name: No secret ever prefixed NEXT_PUBLIC_
+        run: |
+          set -e
+          if grep -rn "NEXT_PUBLIC_[A-Z_]*\(SECRET\|SERVICE\|KEY\)" --include='*.ts' --include='*.tsx' app components lib | grep -v "NEXT_PUBLIC_SUPABASE_ANON_KEY"; then
+            echo "::error::A secret-looking name is prefixed NEXT_PUBLIC_ — that ships it to the client."
+            exit 1
+          fi
+      - name: No .env files committed
+        run: |
+          set -e
+          if git ls-files | grep -E '^\.env($|\.local|\..*\.local)'; then
+            echo "::error::A .env file is committed."
+            exit 1
+          fi
+      - run: npm run typecheck
+      - run: npm run build
