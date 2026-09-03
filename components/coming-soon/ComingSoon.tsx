@@ -66,6 +66,7 @@ export default function ComingSoon() {
   const boardRef = useRef<HTMLDivElement>(null);
   const slideRef = useRef<HTMLDivElement>(null);
   const filmRef = useRef<HTMLDivElement>(null);
+  const planRef = useRef<HTMLDivElement>(null);
   const hiRail = useRef<HTMLDivElement>(null);
   const hiRef = useRef<HTMLDivElement>(null);
   const seatRef = useRef<HTMLDivElement>(null);
@@ -79,6 +80,7 @@ export default function ComingSoon() {
   const ballDragRef = useRef(false);
   const ballPosRef = useRef({ x: 50, y: 74 }); // mirrors s.ball — shoot() must see the LAST move, not the last render
   const slidingRef = useRef(false);
+  const shootRef = useRef<() => void>(() => {});
 
   // -- scroll progress (hero film + nav clock), rAF-throttled -----------------
   useEffect(() => {
@@ -141,12 +143,20 @@ export default function ComingSoon() {
       }
     });
   }, []);
-  const step = useCallback((d: number) => {
+  const step = useCallback((d: number, anchor?: HTMLElement | null) => {
     setS((prev) => {
       const i = ORDER.indexOf(prev.persona);
       const persona = ORDER[(i + d + 4) % 4];
       return { ...prev, persona, role: persona, look: LOOKS[persona][2][0][0] };
     });
+    // keep the tapped control stationary — scene heights differ per persona
+    if (anchor) {
+      const top = anchor.getBoundingClientRect().top;
+      requestAnimationFrame(() => {
+        const delta = anchor.getBoundingClientRect().top - top;
+        if (delta) window.scrollTo({ top: window.scrollY + delta, behavior: 'instant' as ScrollBehavior });
+      });
+    }
   }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'ArrowRight') step(1); if (e.key === 'ArrowLeft') step(-1); };
@@ -196,6 +206,60 @@ export default function ComingSoon() {
       }, 1000);
     }, 620);
   };
+  shootRef.current = shoot;
+
+  // -- global drag plumbing ---------------------------------------------------
+  // Ball and slider gestures are driven from WINDOW-level pointer listeners:
+  // element-level move/up handlers proved unreliable on iOS (capture quirks,
+  // gesture stealing). The non-passive touchmove blocker is what actually
+  // stops Safari from scrolling/cancelling mid-drag — touch-action alone is
+  // not honoured consistently.
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      if (ballDragRef.current && rangeRef.current) {
+        const r = rangeRef.current.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width) * 100, y = ((e.clientY - r.top) / r.height) * 100;
+        const nb = { x: Math.max(0, Math.min(100, x)), y: Math.max(40, Math.min(100, y)) };
+        ballPosRef.current = nb;
+        setS((prev) => ({ ...prev, ball: nb }));
+      } else if (slidingRef.current && slideRef.current) {
+        const r = slideRef.current.getBoundingClientRect();
+        const f = Math.max(0, Math.min(1, (e.clientX - r.left - 26) / (r.width - 52)));
+        setS((prev) => ({ ...prev, slide: f }));
+      }
+    };
+    const up = () => {
+      if (ballDragRef.current) shootRef.current();
+      if (slidingRef.current) {
+        slidingRef.current = false;
+        setS((prev) => (prev.slide > 0.92 ? { ...prev, sliding: false, approved: true, slide: 0 } : { ...prev, sliding: false, slide: 0 }));
+      }
+    };
+    const cancelAll = () => {
+      if (ballDragRef.current) {
+        ballDragRef.current = false;
+        ballPosRef.current = { x: 50, y: 74 };
+        setS((prev) => ({ ...prev, drag: false, ball: { x: 50, y: 74 } }));
+      }
+      if (slidingRef.current) {
+        slidingRef.current = false;
+        setS((prev) => ({ ...prev, sliding: false, slide: 0 }));
+      }
+    };
+    const blockScroll = (e: TouchEvent) => {
+      if (ballDragRef.current || slidingRef.current) e.preventDefault();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancelAll);
+    document.addEventListener('touchmove', blockScroll, { passive: false });
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancelAll);
+      document.removeEventListener('touchmove', blockScroll);
+    };
+  }, []);
 
   // -- hold-to-pause ----------------------------------------------------------
   const hold = (on: boolean, done?: () => void) => {
@@ -604,19 +668,6 @@ export default function ComingSoon() {
                   <div style={{ width: '100%', maxWidth: 300 }}>
                     <div
                       ref={rangeRef}
-                      onPointerMove={(e) => {
-                        if (!ballDragRef.current) return;
-                        const [x, y] = pct(rangeRef, e);
-                        const nb = { x: Math.max(0, Math.min(100, x)), y: Math.max(40, Math.min(100, y)) };
-                        ballPosRef.current = nb;
-                        set({ ball: nb });
-                      }}
-                      onPointerUp={() => { if (ballDragRef.current) shoot(); }}
-                      onPointerLeave={() => { if (ballDragRef.current) shoot(); }}
-                      onPointerCancel={() => {
-                        // iOS fires cancel when it steals the gesture — reset, never leave a stuck drag
-                        if (ballDragRef.current) { ballDragRef.current = false; ballPosRef.current = { x: 50, y: 74 }; set({ drag: false, ball: { x: 50, y: 74 } }); }
-                      }}
                       style={{ position: 'relative', width: '100%', aspectRatio: '1 / 0.9', userSelect: 'none', WebkitUserSelect: 'none' }}
                     >
                       <div style={{ position: 'absolute', left: '22%', right: '22%', top: '4%', height: '28%', border: '5px solid #f4f6f4', borderBottom: 'none', borderRadius: '3px 3px 0 0', boxShadow: '0 0 50px rgba(255,255,255,.14)' }}>
@@ -633,9 +684,8 @@ export default function ComingSoon() {
                         <line x1="50%" y1="74%" x2={`${50 + (50 - s.ball.x) * 2.6}%`} y2={`${74 + (74 - s.ball.y) * 2.6}%`} stroke="#3ddc84" strokeWidth="3" strokeDasharray="6 8" strokeLinecap="round" opacity={s.drag && pull > 4 ? 0.9 : 0} />
                       </svg>
                       <div
-                        onPointerDown={(e) => {
+                        onPointerDown={() => {
                           if (s.flying) return;
-                          capture(e.currentTarget.parentElement, e.pointerId);
                           ballDragRef.current = true;
                           set({ drag: true });
                         }}
@@ -883,30 +933,9 @@ export default function ComingSoon() {
                         // is a miserable touch target, and starting from the track is
                         // what a thumb naturally does.
                         onPointerDown={(e) => {
-                          capture(slideRef.current, e.pointerId);
                           slidingRef.current = true;
                           const r = slideRef.current!.getBoundingClientRect();
                           set({ sliding: true, slide: Math.max(0, Math.min(1, (e.clientX - r.left - 26) / (r.width - 52))) });
-                        }}
-                        onPointerMove={(e) => {
-                          if (!slidingRef.current) return;
-                          const r = slideRef.current!.getBoundingClientRect();
-                          set({ slide: Math.max(0, Math.min(1, (e.clientX - r.left - 26) / (r.width - 52))) });
-                        }}
-                        onPointerUp={() => {
-                          if (!slidingRef.current) return;
-                          slidingRef.current = false;
-                          setS((prev) => (prev.slide > 0.92 ? { ...prev, sliding: false, approved: true, slide: 0 } : { ...prev, sliding: false, slide: 0 }));
-                        }}
-                        onPointerLeave={() => {
-                          if (!slidingRef.current) return;
-                          slidingRef.current = false;
-                          setS((prev) => (prev.slide > 0.92 ? { ...prev, sliding: false, approved: true, slide: 0 } : { ...prev, sliding: false, slide: 0 }));
-                        }}
-                        onPointerCancel={() => {
-                          if (!slidingRef.current) return;
-                          slidingRef.current = false;
-                          setS((prev) => ({ ...prev, sliding: false, slide: 0 }));
                         }}
                         style={{ position: 'relative', height: 54, borderRadius: 999, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', overflow: 'hidden', cursor: 'grab' }}
                       >
@@ -979,17 +1008,18 @@ export default function ComingSoon() {
             </>
           )}
 
-          {/* ground plan */}
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 8, display: 'flex', justifyContent: 'center', padding: '0 16px 18px 16px', pointerEvents: 'none' }}>
-            <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 14, background: 'rgba(7,11,9,.82)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 18, padding: '8px 14px 8px 10px', boxShadow: '0 30px 60px -20px rgba(0,0,0,.9)' }}>
+          {/* ground plan — absolute overlay on desktop, in-flow on mobile so it
+              never covers the scene content (BUZ, 3 Sep) */}
+          <div className="ground-plan">
+            <div ref={planRef} style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 14, background: 'rgba(7,11,9,.82)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 18, padding: '8px 14px 8px 10px', boxShadow: '0 30px 60px -20px rgba(0,0,0,.9)' }}>
               <svg width="120" height="66" viewBox="0 0 200 110">
                 <rect x="50" y="20" width="100" height="70" rx="2" fill="#0f3a24" stroke="rgba(255,255,255,.5)" strokeWidth="1.5" />
                 <line x1="100" y1="20" x2="100" y2="90" stroke="rgba(255,255,255,.4)" strokeWidth="1.2" />
                 <circle cx="100" cy="55" r="9" fill="none" stroke="rgba(255,255,255,.4)" strokeWidth="1.2" />
-                <g onClick={() => pick('player')} style={{ cursor: 'pointer' }}><rect x="52" y="22" width="96" height="66" fill={P === 'player' ? 'rgba(61,220,132,.3)' : 'transparent'} /></g>
-                <g onClick={() => pick('coach')} style={{ cursor: 'pointer' }}><rect x="34" y="30" width="12" height="50" rx="2" fill={P === 'coach' ? 'rgba(217,89,38,.6)' : '#182420'} stroke="rgba(255,255,255,.35)" strokeWidth="1.2" /></g>
-                <g onClick={() => pick('club')} style={{ cursor: 'pointer' }}><rect x="158" y="14" width="30" height="82" rx="4" fill={P === 'club' ? 'rgba(237,161,0,.5)' : '#182420'} stroke="rgba(255,255,255,.35)" strokeWidth="1.2" /></g>
-                <g onClick={() => pick('parent')} style={{ cursor: 'pointer' }}><rect x="50" y="4" width="100" height="10" rx="1" fill={P === 'parent' ? 'rgba(164,121,226,.6)' : '#182420'} stroke="rgba(255,255,255,.35)" strokeWidth="1.2" strokeDasharray="3 3" /></g>
+                <g onClick={() => pick('player', { anchor: planRef.current })} style={{ cursor: 'pointer' }}><rect x="52" y="22" width="96" height="66" fill={P === 'player' ? 'rgba(61,220,132,.3)' : 'transparent'} /></g>
+                <g onClick={() => pick('coach', { anchor: planRef.current })} style={{ cursor: 'pointer' }}><rect x="34" y="30" width="12" height="50" rx="2" fill={P === 'coach' ? 'rgba(217,89,38,.6)' : '#182420'} stroke="rgba(255,255,255,.35)" strokeWidth="1.2" /></g>
+                <g onClick={() => pick('club', { anchor: planRef.current })} style={{ cursor: 'pointer' }}><rect x="158" y="14" width="30" height="82" rx="4" fill={P === 'club' ? 'rgba(237,161,0,.5)' : '#182420'} stroke="rgba(255,255,255,.35)" strokeWidth="1.2" /></g>
+                <g onClick={() => pick('parent', { anchor: planRef.current })} style={{ cursor: 'pointer' }}><rect x="50" y="4" width="100" height="10" rx="1" fill={P === 'parent' ? 'rgba(164,121,226,.6)' : '#182420'} stroke="rgba(255,255,255,.35)" strokeWidth="1.2" strokeDasharray="3 3" /></g>
                 <circle cx={DOT[P][0]} cy={DOT[P][1]} r="5" fill={accent} style={{ transition: 'cx .5s cubic-bezier(.22,1,.36,1), cy .5s cubic-bezier(.22,1,.36,1), fill .4s' }} />
                 <circle cx={DOT[P][0]} cy={DOT[P][1]} r="9" fill="none" stroke={accent} strokeWidth="1.5" style={{ transition: 'cx .5s cubic-bezier(.22,1,.36,1), cy .5s cubic-bezier(.22,1,.36,1), stroke .4s', animation: 'pulse 2s infinite', transformBox: 'fill-box', transformOrigin: 'center' }} />
               </svg>
@@ -998,10 +1028,10 @@ export default function ComingSoon() {
                 <div style={{ fontSize: 14, fontWeight: 900, color: accent }}>{SEATS.find((x) => x[0] === P)![1]}</div>
               </div>
               <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
-                <div className="iconbtn" onClick={() => step(-1)} style={{ cursor: 'pointer', width: 32, height: 32, borderRadius: 10, border: '1px solid rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="iconbtn" onClick={() => step(-1, planRef.current)} style={{ cursor: 'pointer', width: 32, height: 32, borderRadius: 10, border: '1px solid rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eef5f0" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5 L8 12 l7 7" /></svg>
                 </div>
-                <div className="iconbtn" onClick={() => step(1)} style={{ cursor: 'pointer', width: 32, height: 32, borderRadius: 10, border: '1px solid rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="iconbtn" onClick={() => step(1, planRef.current)} style={{ cursor: 'pointer', width: 32, height: 32, borderRadius: 10, border: '1px solid rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eef5f0" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5 l7 7 -7 7" /></svg>
                 </div>
               </div>
