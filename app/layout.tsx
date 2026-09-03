@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: 'Pitch Football — every season on the record. Coming soon.',
   description:
-    'A goal lasts a second. The run took a season. Pitch keeps a footballer’s development on the record — for players, coaches, clubs and parents. Australia first, Melbourne first. Join the waitlist.',
+    'A goal lasts a second. The run took a season. Pitch keeps a footballer’s development on the record — for players, coaches, clubs and parents. Australia first. Join the waitlist.',
   keywords: ['football', 'soccer', 'player development', 'football CV', 'grassroots football', 'Australia', 'Melbourne'],
   openGraph: {
     title: 'Pitch Football — every season on the record.',
