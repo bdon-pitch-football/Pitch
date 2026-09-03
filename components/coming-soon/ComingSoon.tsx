@@ -114,10 +114,14 @@ export default function ComingSoon() {
   }, []);
 
   // -- persona ----------------------------------------------------------------
-  const pick = useCallback((persona: Persona) => {
+  // restoreScroll keeps the page still when a chip swaps scene content above
+  // the fold. Callers that immediately navigate (highlight cards) pass false —
+  // otherwise the restore fires a frame later and cancels the smooth scroll,
+  // dumping the user at a seemingly random position.
+  const pick = useCallback((persona: Persona, restoreScroll = true) => {
     const y = window.scrollY;
     setS((prev) => ({ ...prev, persona, role: persona, look: LOOKS[persona][2][0][0] }));
-    requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' as ScrollBehavior }));
+    if (restoreScroll) requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' as ScrollBehavior }));
   }, []);
   const step = useCallback((d: number) => {
     setS((prev) => {
@@ -144,25 +148,31 @@ export default function ComingSoon() {
     return [((e.clientX - r.left) / r.width) * 100, ((e.clientY - r.top) / r.height) * 100];
   };
 
+  // setPointerCapture can throw (stale pointer id, odd browsers) — a throw here
+  // must never kill the drag handler that follows it.
+  const capture = (el: Element | null, pointerId: number) => {
+    try { el?.setPointerCapture?.(pointerId); } catch { /* drag still works uncaptured */ }
+  };
+
   // -- shooting range ---------------------------------------------------------
+  // The timeline runs OUTSIDE the state updater — React may invoke updaters
+  // twice (StrictMode), so a setTimeout inside one double-counts goals.
   const shoot = () => {
-    setS((prev) => {
-      const b = prev.ball, dx = 50 - b.x, dy = 74 - b.y, dist = Math.hypot(dx, dy);
-      if (dist < 4) return { ...prev, drag: false, ball: { x: 50, y: 74 } };
-      const k = 2.6, tx = Math.max(-10, Math.min(110, 50 + dx * k)), ty = Math.max(-10, 74 + dy * k);
-      setTimeout(() => {
-        const goal = ty <= 32 && tx >= 24 && tx <= 76;
-        const post = !goal && ty <= 32 && tx >= 19 && tx <= 81;
-        setS((st) => ({
-          ...st,
-          flash: goal ? 'GOAL' : post ? 'POST!' : ty <= 32 ? 'WIDE' : 'SHORT',
-          goals: st.goals + (goal ? 1 : 0),
-          netHit: goal ? st.netHit + 1 : st.netHit,
-        }));
-        setTimeout(() => setS((st) => ({ ...st, flying: false, flash: null, ball: { x: 50, y: 74 } })), 1000);
-      }, 620);
-      return { ...prev, drag: false, flying: true, ball: { x: tx, y: ty }, shots: prev.shots + 1 };
-    });
+    const b = s.ball, dx = 50 - b.x, dy = 74 - b.y, dist = Math.hypot(dx, dy);
+    if (dist < 4) { set({ drag: false, ball: { x: 50, y: 74 } }); return; }
+    const k = 2.6, tx = Math.max(-10, Math.min(110, 50 + dx * k)), ty = Math.max(-10, 74 + dy * k);
+    setS((prev) => ({ ...prev, drag: false, flying: true, ball: { x: tx, y: ty }, shots: prev.shots + 1 }));
+    setTimeout(() => {
+      const goal = ty <= 32 && tx >= 24 && tx <= 76;
+      const post = !goal && ty <= 32 && tx >= 19 && tx <= 81;
+      setS((st) => ({
+        ...st,
+        flash: goal ? 'GOAL' : post ? 'POST!' : ty <= 32 ? 'WIDE' : 'SHORT',
+        goals: st.goals + (goal ? 1 : 0),
+        netHit: goal ? st.netHit + 1 : st.netHit,
+      }));
+      setTimeout(() => setS((st) => ({ ...st, flying: false, flash: null, ball: { x: 50, y: 74 } })), 1000);
+    }, 620);
   };
 
   // -- hold-to-pause ----------------------------------------------------------
@@ -333,7 +343,7 @@ export default function ComingSoon() {
                 <div style={{ width: 8, height: 8, borderRadius: 999, background: '#e34948', boxShadow: '0 0 10px #e34948', animation: 'pulse 1.6s infinite' }} />
                 <div style={{ ...kicker, color: '#eef5f0' }}>{filmTime}</div>
               </div>
-              <div style={{ position: 'relative', minHeight: '1.85em', fontSize: 'clamp(40px, 7.4vw, 112px)', fontWeight: 900, lineHeight: 0.9, letterSpacing: '-.05em', color: '#fff', textShadow: '0 10px 50px rgba(0,0,0,.6)' }}>
+              <div className="hero-headline" style={{ position: 'relative', fontSize: 'clamp(40px, 7.4vw, 112px)', fontWeight: 900, lineHeight: 0.9, letterSpacing: '-.05em', color: '#fff', textShadow: '0 10px 50px rgba(0,0,0,.6)' }}>
                 {([
                   [0, <>Somebody should be <span style={{ color: '#3ddc84' }}>writing this down.</span></>],
                   [1, <>A goal lasts <span style={{ color: '#3ddc84', opacity: Number(ease(0.19, 0.26, fp).toFixed(2)), transition: 'opacity .3s' }}>a second.</span></>],
@@ -474,7 +484,7 @@ export default function ComingSoon() {
           style={{ display: 'flex', gap: 14, overflowX: 'auto', scrollSnapType: 'x mandatory', scrollBehavior: 'smooth', padding: '0 max(24px, calc((100vw - 1100px) / 2 + 24px)) 20px', scrollPaddingLeft: 'max(24px, calc((100vw - 1100px) / 2 + 24px))' }}
         >
           {HI.map(([k, time, fi, t, d], i) => (
-            <div key={i} className="hlcard" onClick={() => { pick(k); go(seatRef); }} style={{ scrollSnapAlign: 'start', flex: '0 0 min(440px, 84vw)', height: 540, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#0a0f0c', cursor: 'pointer', boxShadow: '0 40px 80px -40px rgba(0,0,0,1)' }}>
+            <div key={i} className="hlcard" onClick={() => { pick(k, false); go(seatRef); }} style={{ scrollSnapAlign: 'start', flex: '0 0 min(440px, 84vw)', height: 540, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#0a0f0c', cursor: 'pointer', boxShadow: '0 40px 80px -40px rgba(0,0,0,1)' }}>
               <div className="hlimg" style={{ position: 'absolute', inset: 0 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={FILM_SRC[fi]} alt={t} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} loading="lazy" />
@@ -515,6 +525,7 @@ export default function ComingSoon() {
         <div
           className="seat-stage"
           onPointerMove={(e) => {
+            if (e.pointerType !== 'mouse') return; // parallax is a mouse affordance; on touch it fights scrolling
             const r = e.currentTarget.getBoundingClientRect();
             const px = ((e.clientX - r.left) / r.width - 0.5) * 2;
             const py = ((e.clientY - r.top) / r.height - 0.5) * 2;
@@ -532,10 +543,8 @@ export default function ComingSoon() {
                   <div style={{ position: 'absolute', right: '14%', top: '6%', width: 3, height: '40%', background: '#1a222a' }} />
                   <div style={{ position: 'absolute', right: '14%', top: '5%', width: 70, height: 14, marginRight: -34, borderRadius: 4, background: '#fff5d6', boxShadow: '0 0 60px 30px rgba(255,238,190,.35), 0 0 220px 90px rgba(255,238,190,.12)', animation: 'flicker 7.3s infinite' }} />
                 </div>
-                <div style={{ position: 'absolute', left: '-20%', right: '-20%', top: '46%', height: '70%', transform: `perspective(700px) rotateX(64deg) translateX(${pxB.toFixed(1)}px)`, transformOrigin: '50% 0', background: 'repeating-linear-gradient(180deg, #17683c 0 60px, #14593a 60px 120px)', border: '4px solid rgba(255,255,255,.65)', boxSizing: 'border-box', transition: 'transform .4s ease-out' }}>
-                  <div style={{ position: 'absolute', left: '30%', right: '30%', top: -4, height: '22%', border: '4px solid rgba(255,255,255,.65)', borderTop: 'none' }} />
-                  <div style={{ position: 'absolute', left: '50%', top: '100%', width: '30%', aspectRatio: '1', margin: '-15% 0 0 -15%', border: '4px solid rgba(255,255,255,.65)', borderRadius: 999 }} />
-                </div>
+                {/* plain ground only — no second set of pitch markings behind the goal toy (BUZ, 3 Sep) */}
+                <div style={{ position: 'absolute', left: '-20%', right: '-20%', top: '46%', height: '70%', transform: `perspective(700px) rotateX(64deg) translateX(${pxB.toFixed(1)}px)`, transformOrigin: '50% 0', background: 'linear-gradient(180deg, #12522f 0%, #0e4327 100%)', transition: 'transform .4s ease-out' }} />
                 <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '18%', background: 'linear-gradient(180deg, transparent, #05080a)' }} />
               </div>
               <div style={sceneWrap}>
@@ -580,13 +589,17 @@ export default function ComingSoon() {
                       }}
                       onPointerUp={() => { if (s.drag) shoot(); }}
                       onPointerLeave={() => { if (s.drag) shoot(); }}
-                      style={{ position: 'relative', width: '100%', aspectRatio: '1 / 0.9', touchAction: 'none', userSelect: 'none' }}
+                      style={{ position: 'relative', width: '100%', aspectRatio: '1 / 0.9', userSelect: 'none', WebkitUserSelect: 'none' }}
                     >
                       <div style={{ position: 'absolute', left: '22%', right: '22%', top: '4%', height: '28%', border: '5px solid #f4f6f4', borderBottom: 'none', borderRadius: '3px 3px 0 0', boxShadow: '0 0 50px rgba(255,255,255,.14)' }}>
                         <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,.28) 0 1px, transparent 1px 9px), repeating-linear-gradient(0deg, rgba(255,255,255,.28) 0 1px, transparent 1px 9px)', transformOrigin: '50% 0', animation: s.netHit ? `net .6s ease ${s.netHit}` : 'none' }} />
                         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 4, background: 'rgba(255,255,255,.7)' }} />
                       </div>
-                      <div style={{ position: 'absolute', left: '8%', right: '8%', top: '32%', height: 2, background: 'rgba(255,255,255,.3)' }} />
+                      {/* penalty-box markings — the ball sits on the spot, like a penalty (BUZ, 3 Sep) */}
+                      <div style={{ position: 'absolute', left: '2%', right: '2%', top: '32%', height: 2, background: 'rgba(255,255,255,.35)' }} />
+                      <div style={{ position: 'absolute', left: '10%', right: '10%', top: '32%', bottom: '14%', border: '2px solid rgba(255,255,255,.35)', borderTop: 'none' }} />
+                      <div style={{ position: 'absolute', left: '28%', right: '28%', top: '32%', height: '17%', border: '2px solid rgba(255,255,255,.35)', borderTop: 'none' }} />
+                      <div style={{ position: 'absolute', left: '50%', top: '86%', width: '26%', aspectRatio: '2 / 1', transform: 'translateX(-50%)', border: '2px solid rgba(255,255,255,.35)', borderTop: 'none', borderRadius: '0 0 999px 999px' }} />
                       <div style={{ position: 'absolute', left: '50%', top: '74%', width: 10, height: 10, margin: -5, borderRadius: 999, background: 'rgba(255,255,255,.5)' }} />
                       <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
                         <line x1="50%" y1="74%" x2={`${50 + (50 - s.ball.x) * 2.6}%`} y2={`${74 + (74 - s.ball.y) * 2.6}%`} stroke="#3ddc84" strokeWidth="3" strokeDasharray="6 8" strokeLinecap="round" opacity={s.drag && pull > 4 ? 0.9 : 0} />
@@ -594,10 +607,13 @@ export default function ComingSoon() {
                       <div
                         onPointerDown={(e) => {
                           if (s.flying) return;
-                          (e.currentTarget.parentElement as HTMLElement).setPointerCapture?.(e.pointerId);
+                          capture(e.currentTarget.parentElement, e.pointerId);
                           set({ drag: true });
                         }}
                         style={{
+                          // touch-action lives on the ball, not the whole range — a full-width
+                          // no-scroll zone is a trap on a phone (README allows touch fallbacks)
+                          touchAction: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
                           position: 'absolute', left: `${s.ball.x}%`, top: `${s.ball.y}%`, width: 42, height: 42, margin: -21, borderRadius: 999, cursor: 'grab',
                           transform: `scale(${s.flying ? 0.55 : s.drag ? 1.08 : 1}) rotate(${s.flying ? 540 : 0}deg)`,
                           transition: s.flying ? 'left .6s cubic-bezier(.2,.7,.3,1), top .6s cubic-bezier(.2,.7,.3,1), transform .6s ease-out' : s.drag ? 'none' : 'left .3s, top .3s, transform .2s',
@@ -682,7 +698,7 @@ export default function ComingSoon() {
                       ref={boardRef}
                       onPointerDown={(e) => {
                         const [x, y] = pct(boardRef, e);
-                        boardRef.current?.setPointerCapture?.(e.pointerId);
+                        capture(boardRef.current, e.pointerId);
                         set({ drawing: [[x, y]] });
                       }}
                       onPointerMove={(e) => {
@@ -704,7 +720,7 @@ export default function ComingSoon() {
                         if (s.mdrag >= 0) set({ mdrag: -1, moved: s.moved + 1 });
                         else if (s.drawing) set({ runs: s.drawing.length > 3 ? [...s.runs, s.drawing] : s.runs, drawing: null });
                       }}
-                      style={{ position: 'relative', aspectRatio: '3 / 4', borderRadius: 10, background: '#135a34', border: '2px solid rgba(255,255,255,.55)', boxSizing: 'border-box', overflow: 'hidden', touchAction: 'none', userSelect: 'none', cursor: 'crosshair' }}
+                      style={{ position: 'relative', aspectRatio: '3 / 4', borderRadius: 10, background: '#135a34', border: '2px solid rgba(255,255,255,.55)', boxSizing: 'border-box', overflow: 'hidden', touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none', cursor: 'crosshair' }}
                     >
                       <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 2, background: 'rgba(255,255,255,.5)', pointerEvents: 'none' }} />
                       <div style={{ position: 'absolute', left: '50%', top: '50%', width: '26%', aspectRatio: '1', margin: '-13% 0 0 -13%', border: '2px solid rgba(255,255,255,.5)', borderRadius: 999, pointerEvents: 'none' }} />
@@ -720,10 +736,10 @@ export default function ComingSoon() {
                           key={i}
                           onPointerDown={(e) => {
                             e.stopPropagation();
-                            boardRef.current?.setPointerCapture?.(e.pointerId);
+                            capture(boardRef.current, e.pointerId);
                             set({ mdrag: i });
                           }}
-                          style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: 30, height: 30, margin: -15, borderRadius: 999, background: i === 0 ? '#eda100' : '#f3f3ee', color: '#14100a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, boxShadow: '0 4px 10px rgba(0,0,0,.5), inset 0 -2px 0 rgba(0,0,0,.25)', cursor: 'grab', transition: s.mdrag === i ? 'none' : 'left .45s cubic-bezier(.22,1,.36,1), top .45s cubic-bezier(.22,1,.36,1), transform .15s', transform: `scale(${s.mdrag === i ? 1.2 : 1})` }}
+                          style={{ touchAction: 'none', WebkitTouchCallout: 'none', position: 'absolute', left: `${x}%`, top: `${y}%`, width: 30, height: 30, margin: -15, borderRadius: 999, background: i === 0 ? '#eda100' : '#f3f3ee', color: '#14100a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, boxShadow: '0 4px 10px rgba(0,0,0,.5), inset 0 -2px 0 rgba(0,0,0,.25)', cursor: 'grab', transition: s.mdrag === i ? 'none' : 'left .45s cubic-bezier(.22,1,.36,1), top .45s cubic-bezier(.22,1,.36,1), transform .15s', transform: `scale(${s.mdrag === i ? 1.2 : 1})` }}
                         >{i === 0 ? 'GK' : i + 1}</div>
                       ))}
                     </div>
@@ -849,16 +865,16 @@ export default function ComingSoon() {
                           if (s.slide > 0.92) set({ sliding: false, approved: true, slide: 0 });
                           else set({ sliding: false, slide: 0 });
                         }}
-                        style={{ position: 'relative', height: 54, borderRadius: 999, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)', touchAction: 'none', userSelect: 'none', overflow: 'hidden' }}
+                        style={{ position: 'relative', height: 54, borderRadius: 999, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)', touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none', overflow: 'hidden' }}
                       >
                         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `calc(${(s.slide * 100).toFixed(1)}% + 54px)`, background: 'rgba(164,121,226,.35)', transition: s.sliding ? 'none' : 'all .3s cubic-bezier(.22,1,.36,1)' }} />
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#d6cde6', opacity: Math.max(0, 1 - s.slide * 1.6), letterSpacing: '.04em' }}>Slide to send it →</div>
                         <div
                           onPointerDown={(e) => {
-                            slideRef.current?.setPointerCapture?.(e.pointerId);
+                            capture(slideRef.current, e.pointerId);
                             set({ sliding: true });
                           }}
-                          style={{ position: 'absolute', top: 3, left: `calc((100% - 52px) * ${s.slide.toFixed(3)} + 3px)`, width: 46, height: 46, borderRadius: 999, background: '#a479e2', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', boxShadow: '0 6px 16px rgba(0,0,0,.5)', transition: s.sliding ? 'none' : 'all .3s cubic-bezier(.22,1,.36,1)' }}
+                          style={{ touchAction: 'none', WebkitTouchCallout: 'none', position: 'absolute', top: 3, left: `calc((100% - 52px) * ${s.slide.toFixed(3)} + 3px)`, width: 46, height: 46, borderRadius: 999, background: '#a479e2', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', boxShadow: '0 6px 16px rgba(0,0,0,.5)', transition: s.sliding ? 'none' : 'all .3s cubic-bezier(.22,1,.36,1)' }}
                         >
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#120a1e" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12 h14 M13 6 l6 6 -6 6" /></svg>
                         </div>
@@ -911,7 +927,7 @@ export default function ComingSoon() {
                       onPointerLeave={() => { if (!s.paused) hold(false); }}
                       onPointerCancel={() => { if (!s.paused) hold(false); }}
                       onClick={() => { if (s.paused) set({ paused: false }); }}
-                      style={{ cursor: 'pointer', userSelect: 'none', touchAction: 'none', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,.05)', border: `1px solid ${s.paused ? '#e34948' : 'rgba(255,255,255,.08)'}`, borderRadius: 16, padding: '13px 14px', transition: 'border-color .3s' }}
+                      style={{ cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'pan-y', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,.05)', border: `1px solid ${s.paused ? '#e34948' : 'rgba(255,255,255,.08)'}`, borderRadius: 16, padding: '13px 14px', transition: 'border-color .3s' }}
                     >
                       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${s.paused ? 100 : s.pauseP * 100}%`, background: 'rgba(227,73,72,.35)', transition: 'width .08s linear' }} />
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s.paused ? '#e34948' : '#b9aecc'} strokeWidth="2.2" strokeLinecap="round" style={{ position: 'relative' }}><path d="M9 6 v12" /><path d="M15 6 v12" /></svg>

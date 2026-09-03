@@ -1,6 +1,14 @@
 # PITCH — Terms of Service
 
-> **Doc 22 · v1.5 draft · 28 August 2026 · NOT YET PUBLISHED.**
+> **⚠️ v1.6, 3 September 2026 — this restores work that was lost, and the loss was my doing.** On 1 September I filed pack v1.5, then revised it **in place, keeping the same version number**, so as not to create a phantom version. **That made the second set of changes invisible.** The corpus was built from the first copy and swept for the domain (D-150), and the contact work never arrived: the named Privacy Officer, the explanation of the two domains, the reason there is no postal address, and — the one that matters — **clause 8.3's plain statement that an appeal is not independently reviewed.** The live terms went back to promising a parent a second pair of eyes that does not exist.
+>
+> **The lesson is against me, not against the sweep.** A pack that has been filed is something somebody else may already have consumed. **Revising it in place under the same number is not a smaller change than a version bump — it is an invisible one.** From here, a filed pack is immutable and a correction is a new version, whether or not anything has been published.
+>
+> **Also in v1.6: A6.2 is corrected against D-149.** It said a tax invoice carries the legal name. **BUZ's call is that the money surfaces carry the trading name**, because the Stripe statement descriptor is `PITCH FOOTBALL` and *an invoice that says something other than the bank statement is an invoice a treasurer cannot reconcile*. The ABN identifies the legal person either way, and clause 0.1 names it. **My drafting was correct in law and wrong in practice, and the practical point is the one that prevents a chargeback.**
+>
+> **v1.7, 3 September 2026.** **D-22 is flipped to guardian opt-in.** BUZ's call, 3 September 2026. A 16- or 17-year-old is **not discoverable to anybody until a guardian turns it on**. The player can ask for it in one tap; the guardian grants it in one tap; everything else about the band is unchanged — verified clubs and coaches only, never general search, and no adult may contact a minor at any age. **The cost is recorded rather than argued away: an opt-in that a disengaged guardian never presses removes the product from exactly the players a pathway platform is worth most to.** BUZ took that cost knowingly. Clause 2.3 rewritten. **Nothing is published, so no family has consented against the old default and nobody has to be re-asked — which is the whole reason this was worth deciding today rather than in December** (D-107, D-144).
+>
+> **Doc 22 · v1.7 draft · 3 September 2026 · NOT YET PUBLISHED.**
 >
 > **v1.5 changes — the entity, GST, and three defects found on the sweep.**
 >
@@ -44,7 +52,7 @@
 
 *We name the company rather than the brand because **a trading name is not a legal person**. A family is entitled to know which entity holds their child's record. A volunteer treasurer is entitled to know who is on the other side of an agreement they are about to sign, and to be able to look it up.*
 
-**[DRAFTED] 0.2 Where to find us.** Registered office: **[address]**. Email: **[privacy@pitchfootball.com.au]**. Everything we send a club about money carries the company name and the ABN, because a GST-registered supplier issues tax invoices — see A6.2.
+**[DRAFTED] 0.2 Where to find us.** Registered office: **Hume Tax Services, [street number] Pascoe Vale Road, Coolaroo VIC 3048** *(street number still needed — take it from the ASIC registration, it must match that record exactly)*. Email: **burak.donmez@pitch-football.com**. Website: **www.pitchfootball.com.au**. *Our website and our email are on different registrations; anything genuinely from us links only to pitchfootball.com.au.* Our registered office is our accountant's, which is ordinary for a company of our size; **it is an address for service, not a place to write about a child**, and the privacy policy gives email for that reason. Everything we send a club about money carries **Pitch Football** and the ABN — see A6.2.
 
 ---
 
@@ -67,7 +75,7 @@ Terms are versioned. Every acceptance writes who accepted, which version, when, 
 
 **[DRAFTED] 2.2 Under 16.** A person under 16 may have a profile only where a person with parental responsibility for them has approved it through the Pitch guardian approval process. Until that approval is recorded, no profile exists.
 
-**[DRAFTED] 2.3 16 and 17.** A person aged 16 or 17 holds their own account. A guardian remains linked to it: the guardian is notified before discoverability begins, holds the switch that turns it off, retains visibility, and receives any contact addressed to the player. Where a person aged 16 or 17 signs up without an existing guardian link, they must supply guardian contact details before the account activates — **[LEGAL: doc 18 Q5. This last sentence is a proposed addition, not current behaviour.]**
+**[DRAFTED] 2.3 16 and 17.** A person aged 16 or 17 holds their own account. **They are not discoverable by anybody until a guardian turns discoverability on.** The player may ask for it; the guardian decides, and may switch it off again at any time. A guardian remains linked to the account throughout: they retain visibility of everything the player sees, and they receive any contact addressed to the player. **No adult may contact a player under 18 through Pitch at any setting** — discoverability governs whether a verified club can find a player, never whether anyone can reach them. Where a person aged 16 or 17 signs up without an existing guardian link, they must supply guardian contact details before the account activates — **[LEGAL: doc 18 Q5. This last sentence is a proposed addition, not current behaviour.]**
 
 **[DRAFTED] 2.4 Adults.** A person aged 18 or over holds their account independently.
 
@@ -178,7 +186,9 @@ Terms are versioned. Every acceptance writes who accepted, which version, when, 
 
 **[LEGAL: doc 18 Q11 — the $2,000 floor is our own construction, not a figure drawn from any authority. Counsel to confirm it is adequate and that the carve-outs at (a) are drawn widely enough.]**
 
-**[DRAFTED] 8.3 Suspension and closure.** We may suspend or close an account for breach of these terms or Schedule C. We will tell you what we have done, and **you may always appeal** — to [appeals contact], answered within 5 business days by someone other than whoever made the original decision where that is possible.
+**[DRAFTED] 8.3 Suspension and closure.** We may suspend or close an account for breach of these terms or Schedule C. We will tell you what we have done, and **you may always appeal** — to the **Privacy Officer, Burak Donmez**, at **burak.donmez@pitch-football.com**, answered within **5 business days**.
+
+**We are not going to tell you the appeal is independent, because today it is not.** Pitch is one person, so the person who made the decision is the person who reviews it. Saying otherwise would be a comfortable sentence that falls apart the first time somebody relies on it. **What we promise instead is something we can actually do:** the appeal is read again from the beginning, against what you have said rather than against the original reasoning; you get an answer within five business days; and **the moment there is a second person to hand a review to, they will get it and this clause will say so.**
 
 Where a child's safety is involved we may act immediately and without notice, and we may withhold the **reason** — because explaining it can identify the person who reported, or tell someone exactly what to do differently next time. **We will not withhold the appeal itself.** Being unable to be told why is bad enough; being unable to be heard at all is not something we are prepared to do to someone. Closing an account does not remove your right to export your data first, unless we are prevented by law.
 
@@ -255,7 +265,7 @@ Where a child's safety is involved we may act immediately and without notice, an
 **[DRAFTED] A6.2 What you get on every charge.** Pitch is registered for GST, so **every charge produces a tax invoice, not a receipt** — issued to the club, not to the individual who held the card (A1.2), and available inside Pitch as well as sent to the billing contact. Each one carries:
 
 - the words **Tax invoice**;
-- **EBSD Enterprises Pty Ltd** and **ABN 65 701 879 718**;
+- **Pitch Football** and **ABN 65 701 879 718** — the same words as the charge on the bank statement, so the two reconcile without anybody having to work out that they are the same supplier. *The ABN identifies the legal person, EBSD Enterprises Pty Ltd, which clause 0.1 names and which we will confirm in writing on request* (D-149);
 - the date, and what was supplied;
 - the total, and **the GST included in it, shown as its own figure** — $4.91 on a monthly charge, $29.91 on an annual one.
 
@@ -342,4 +352,4 @@ Where a child's safety is involved we may act immediately and without notice, an
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v1.5 draft · 28 August 2026 · not yet published · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v1.7 draft · 3 September 2026 · not yet published · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*

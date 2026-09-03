@@ -1,6 +1,12 @@
 # Deed of Assignment of Intellectual Property
 
-> **Doc 28 · v1.0 draft · 28 August 2026 · NOT EXECUTED.** A deed assigning everything created for Pitch before incorporation from BUZ personally to **EBSD Enterprises Pty Ltd (ACN 701 879 718)**.
+> **v1.2, 3 September 2026.** **Schedule 2 is answered: nobody other than BUZ made any part of Pitch**, confirmed by him on 3 September — so the s 35 problem does not arise and this deed does the whole job. Recital A dated to August 2026. Registered office in, less the street number. **One blank left that is not a fact I should hold: the Assignor's residential address, which goes on the paper at signing.**
+>
+> **Doc 28 · v1.2 draft · 3 September 2026 · NOT EXECUTED.**
+>
+> **v1.1: the Assignor is named.** **Burak Donmez**, in all six places — the parties table, both execution blocks and the sole director's resolution. **Three placeholders remain and every one of them is a fact only BUZ holds:** his residential address, the company's registered office street address, and the date the work commenced. *A deed that names the assignor as a bracket is not a deed; a deed missing an address is a deed with a blank to fill in at the table.*
+>
+> **Doc 28 · v1.0 (superseded header retained for the change log).** A deed assigning everything created for Pitch before incorporation from BUZ personally to **EBSD Enterprises Pty Ltd (ACN 701 879 718)**.
 >
 > **Numbering flagged for Leo:** doc 27 is already taken by `27-Club-Verification-Call.md` in the project root, so this is **28**. If the intention was that the `legal/` sequence continues 18–26 and then jumps, say so and I will renumber — the number belongs to placement, which is your lane.
 >
@@ -26,12 +32,12 @@ You made Pitch. The company now sells Pitch. Right now those are two different l
 
 | | |
 |---|---|
-| **Assignor** | **[BUZ — full legal name]** of **[residential address]** (**"the Assignor"**) |
-| **Assignee** | **EBSD Enterprises Pty Ltd** ACN 701 879 718 of **[registered office address]** (**"the Company"**) |
+| **Assignor** | **Burak Donmez** of **[residential address]** (**"the Assignor"**) |
+| **Assignee** | **EBSD Enterprises Pty Ltd** ACN 701 879 718 of **Hume Tax Services, [street number] Pascoe Vale Road, Coolaroo VIC 3048** *(street number still needed — take it from the ASIC registration, it must match that record exactly)* (**"the Company"**) |
 
 ## Background
 
-- **A.** The Assignor has, since **[date work commenced — approximately July 2026]**, conceived, created, commissioned, developed and reduced to material form the concept, name, brand, designs, documents, specifications, software, text and other materials described in Schedule 1, for a player development and pathway platform for Australian football (**"Pitch"**).
+- **A.** The Assignor has, since **approximately August 2026**, conceived, created, commissioned, developed and reduced to material form the concept, name, brand, designs, documents, specifications, software, text and other materials described in Schedule 1, for a player development and pathway platform for Australian football (**"Pitch"**).
 - **B.** The Company was incorporated on **28 August 2026** and carries on the business of operating Pitch, trading under the registered business name *Pitch Football*.
 - **C.** All of that work was done by the Assignor in his personal capacity and before the Company existed, so **no intellectual property in it vested in the Company on incorporation**.
 - **D.** The Assignor wishes to assign all of that intellectual property to the Company, and the Company wishes to accept it, on the terms of this deed.
@@ -147,7 +153,7 @@ You made Pitch. The company now sells Pitch. Right now those are two different l
 
 ### By the Assignor
 
-**SIGNED, SEALED AND DELIVERED** by **[BUZ — full legal name]** in the presence of:
+**SIGNED, SEALED AND DELIVERED** by **Burak Donmez** in the presence of:
 
 <br>
 
@@ -170,7 +176,7 @@ You made Pitch. The company now sells Pitch. Right now those are two different l
 | | |
 |---|---|
 | ................................................ | |
-| **[BUZ — full legal name]** | |
+| **Burak Donmez** | |
 | **Sole Director** | Date: ......../......../.......... |
 
 > **Why this wording matters.** Since 1 April 2022, **a sole director of a proprietary company with no company secretary may execute alone under section 127(1)(c)**, with no seal and no witness, and section 127(3) allows execution as a deed where the document says it is executed as a deed — which clause the heading above does. **The words "sole director" must appear next to the signature**, because that is what lets anyone dealing with the Company rely on the statutory assumptions in section 129.
@@ -205,11 +211,11 @@ You made Pitch. The company now sells Pitch. Right now those are two different l
 
 | Person or business | What they made | Paid? | Written assignment obtained? |
 |---|---|---|---|
-| | | | |
-| | | | |
-| | | | |
+| **None** | — | — | — |
 
-☐ **The Assignor confirms that, other than as listed above, no person other than the Assignor contributed to the Pitch Materials.**
+☑ **The Assignor confirms that no person other than the Assignor contributed to the Pitch Materials.** *Confirmed by Burak Donmez, 3 September 2026.*
+
+> **What this confirmation is doing, so it is not signed lightly.** Everything else in this deed assumes it. Under **section 35 of the *Copyright Act 1968* (Cth)** the author of a work owns the copyright unless they made it as an employee, and **a freelancer, contractor or agency is not an employee** — so if anybody was paid to draw, write, photograph or code any part of Pitch, that copyright is theirs, the Assignor never held it, and no words in clause 2 can move it. **If anything surfaces later — a logo someone drew, a template someone adapted, a font licensed to a person rather than to the Company — tell me and we obtain a short assignment from them. It is a paragraph then and a title problem in a raise.**
 
 ---
 
@@ -217,7 +223,7 @@ You made Pitch. The company now sells Pitch. Right now those are two different l
 
 ## Before signing
 
-1. **Fill in Schedule 2.** See above. Everything else in this deed assumes the answer.
+1. ~~Fill in Schedule 2.~~ **Done — answered "none" on 3 September 2026.**
 2. **Check what is actually in your own name.** Log into ASIC Connect and confirm who holds the business name *Pitch Football*, and check the registrant on `pitchfootball.com.au`. The register records both as sitting with the company; clause 5 exists because that should be verified rather than assumed.
 3. **Fill in the bracketed fields** — your full legal name, your residential address, the Company's registered office, the date, and the approximate date work commenced.
 4. **Find a witness** who is over 18, not a relative with an interest, and available to be in the room.
@@ -246,13 +252,13 @@ You made Pitch. The company now sells Pitch. Right now those are two different l
 
 **RESOLUTION OF THE SOLE DIRECTOR** made on **[date]**
 
-**Present:** [BUZ — full legal name], sole director.
+**Present:** Burak Donmez, sole director.
 
 **Interest disclosed and recorded:** The sole director notes that he is also the Assignor under the Deed of Assignment of Intellectual Property and therefore has a material personal interest in it. There is no other director to whom disclosure could be made, and the interest is recorded here. *[LEGAL] Counsel to confirm that the disclosure obligation in section 191 of the Corporations Act does not apply to a proprietary company with a single director, and that recording the interest in this way is the appropriate treatment.*
 
 **IT IS RESOLVED THAT:**
 
-1. The Company **enter into the Deed of Assignment of Intellectual Property** with [BUZ — full legal name] in the form tabled, under which all intellectual property in the Pitch Materials is assigned to the Company.
+1. The Company **enter into the Deed of Assignment of Intellectual Property** with Burak Donmez in the form tabled, under which all intellectual property in the Pitch Materials is assigned to the Company.
 2. Entry into the deed is in the **best interests of the Company**, which carries on the business of operating Pitch and which would otherwise operate a business it does not own.
 3. The Company **accept the assignment** and the moral rights consent given under it.
 4. The sole director be authorised to **execute the deed on behalf of the Company** under section 127(1)(c) of the *Corporations Act 2001* (Cth), and to do everything else necessary to give effect to it, including taking transfer of the business name, domain names and accounts described in clause 5.
@@ -262,10 +268,10 @@ You made Pitch. The company now sells Pitch. Right now those are two different l
 
 ................................................
 
-**[BUZ — full legal name]** · **Sole Director**
+**Burak Donmez** · **Sole Director**
 
 Date: ......../......../..........
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · deed of assignment of intellectual property · doc 28 · v1.0 draft · 28 August 2026 · NOT EXECUTED · drafted in-house, not reviewed by an Australian solicitor · three clauses marked [LEGAL] · raised at D-148*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · deed of assignment of intellectual property · doc 28 · v1.2 draft · 3 September 2026 · NOT EXECUTED · drafted in-house, not reviewed by an Australian solicitor · three clauses marked [LEGAL] · raised at D-148*

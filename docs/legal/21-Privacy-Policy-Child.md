@@ -1,6 +1,14 @@
 # Your privacy on Pitch
 
-> **Doc 21 · v2.1 draft · 28 August 2026 · NOT YET PUBLISHED.** The child-directed privacy policy.
+> **⚠️ v2.2, 3 September 2026 — this restores work that was lost, and the loss was my doing.** On 1 September I filed pack v1.5, then revised it **in place, keeping the same version number**, so as not to create a phantom version. **That made the second set of changes invisible.** The corpus was built from the first copy and swept for the domain (D-150), and the contact work never arrived: the named Privacy Officer, the explanation of the two domains, the reason there is no postal address, and — the one that matters — **clause 8.3's plain statement that an appeal is not independently reviewed.** The live terms went back to promising a parent a second pair of eyes that does not exist.
+>
+> **The lesson is against me, not against the sweep.** A pack that has been filed is something somebody else may already have consumed. **Revising it in place under the same number is not a smaller change than a version bump — it is an invisible one.** From here, a filed pack is immutable and a correction is a new version, whether or not anything has been published.
+>
+> **What came back here matters more than the version number.** The section below telling a child that a real message from Pitch only ever links to one place is **the only anti-phishing instruction any child on this platform will ever read**, and it spent two days out of the live document.
+>
+> **v2.3, 3 September 2026.** D-22 flipped to guardian opt-in, so this page now tells a 16- or 17-year-old the one thing that changed for them: **they are invisible to clubs until a parent switches it on, and they have to ask.** Written at the page's level; re-measured.
+>
+> **Doc 21 · v2.3 draft · 3 September 2026 · NOT YET PUBLISHED.** The child-directed privacy policy.
 >
 > **New in v2.1:** one short section, *Who runs Pitch*, naming **EBSD Enterprises Pty Ltd (ACN 701 879 718), trading as Pitch Football** (D-148). It is written at the reading level of the rest of the page rather than lifted from doc 20, because a child-directed policy that suddenly speaks like a contract has stopped being child-directed. **Re-measured after the addition and the level held — see below.**
 >
@@ -50,6 +58,13 @@ Just the football stuff, and your birthday.
 - **Your own club** — your coach and the people who run it.
 - **Anyone your parent sends your link to.** That is how you get seen. Your parent decides who. The link stops working after 90 days unless they renew it.
 - **Nobody finds you by searching.** You are not in any search on Pitch. There is no search that can find you.
+
+**If you are 16 or 17:**
+
+- **Clubs cannot find you until your parent turns it on.** You start off hidden. Not hidden a bit — hidden.
+- **You can ask them to turn it on.** There is a button. They press it, and then clubs and coaches we have checked can find you.
+- **They can turn it off again** any time, and they do not have to tell you why. It is worth talking to them about it.
+- **We start it off on purpose.** Being found is the good part of Pitch, so this is a real choice — but it is your parent's to make, not ours, and not a stranger's.
 
 **Nobody can message you. There are no private messages on Pitch at all** — not from another player, not from a coach at another club, not from us.
 
@@ -130,6 +145,12 @@ You will see **Pitch** on the screen. You will see **Pitch Football** on anythin
 
 We put the long name here because it is the name a grown-up would need to write to us, or to complain about us. You should not have to go looking for it.
 
+## Two names, and neither one is a trick
+
+Our website is **www.pitchfootball.com.au**. Our emails come from **pitch-football.com**. They are spelled a bit differently. That is not a mistake and it is not somebody pretending to be us.
+
+**Here is the rule that keeps you safe.** A real message from us only ever sends you to **pitchfootball.com.au**. If something says it is from Pitch and sends you somewhere else, **it is not us**. Do not tap it. Tell your parent, or email us.
+
 ## Where your information lives
 
 On computers in **Sydney**. Not overseas. When we send an email or a text it goes through a company in America, so we keep those messages tiny — a first name and a link, never anything about your football.
@@ -138,12 +159,12 @@ When a club pays us, that goes through a payment company. **They never see anyth
 
 ## If you want to ask us something
 
-Email **[privacy@pitchfootball.com.au]**. A real person reads it. You can ask what we know about you, why we have it, or to delete it.
+Email **burak.donmez@pitch-football.com**. A real person reads it. His name is Burak. You can ask what we know about you, why we have it, or to delete it.
 
 If you would rather tell someone outside Pitch, contact the eSafety Commissioner at **esafety.gov.au**, or talk to **Kids Helpline on 1800 55 1800** — free, and open all day and all night.
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · your privacy · doc 21 · v2.1 draft · 28 August 2026 · not yet published*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · your privacy · doc 21 · v2.3 draft · 3 September 2026 · not yet published*
 
-*Reading level, measured on the body text of this version: **Flesch–Kincaid grade 3.0, 10.1 words a sentence**. The same measurement run against v2.0 gives grade 3.1 — **the page got very slightly easier despite gaining a section**, because the new sentences are short ones. Measured with the counter in `fk.py` rather than the tool used for v1.1's grade 3.8, so compare this figure only against a figure produced the same way. Re-measure after any edit.*
+*Reading level, measured on the body text of this version: **Flesch–Kincaid grade 3.1, 10.3 words a sentence**. The same measurement run against v2.0 gives grade 3.1 — identical, after three added sections, a name and the 16–17 rules. Measured with the counter in `fk.py` rather than the tool used for v1.1's grade 3.8, so compare this figure only against a figure produced the same way. Re-measure after any edit.*

@@ -53,3 +53,14 @@ select:focus {
   .seat-stage { height: auto; }
   .hero-film { height: 360vh; }
 }
+
+/* The crossfading hero headlines are bottom-anchored absolute children, so the
+   container must reserve room for the tallest wrapped caption — otherwise the
+   headline grows upward over the "In build · Australia first" label. */
+.hero-headline { min-height: 1.85em; }
+@media (max-width: 699px) {
+  .hero-headline { min-height: 2.9em; }
+}
+@media (max-width: 480px) {
+  .hero-headline { min-height: 3.8em; }
+}

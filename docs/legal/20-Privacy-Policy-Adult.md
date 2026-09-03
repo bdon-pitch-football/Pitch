@@ -1,6 +1,12 @@
 # PITCH — Privacy Policy
 
-> **Doc 20 · v2.2 draft · 28 August 2026 · NOT YET PUBLISHED.** Rewritten, not patched — v1.1 described a product that no longer exists. Publish at `pitchfootball.com.au/privacy`. The child-directed version is doc 21 and must be linked from this page and from every screen a child sees.
+> **⚠️ v2.3, 3 September 2026 — this restores work that was lost, and the loss was my doing.** On 1 September I filed pack v1.5, then revised it **in place, keeping the same version number**, so as not to create a phantom version. **That made the second set of changes invisible.** The corpus was built from the first copy and swept for the domain (D-150), and the contact work never arrived: the named Privacy Officer, the explanation of the two domains, the reason there is no postal address, and — the one that matters — **clause 8.3's plain statement that an appeal is not independently reviewed.** The live terms went back to promising a parent a second pair of eyes that does not exist.
+>
+> **The lesson is against me, not against the sweep.** A pack that has been filed is something somebody else may already have consumed. **Revising it in place under the same number is not a smaller change than a version bump — it is an invisible one.** From here, a filed pack is immutable and a correction is a new version, whether or not anything has been published.
+>
+> **v2.4, 3 September 2026.** **D-22 is flipped to guardian opt-in.** BUZ's call, 3 September 2026. A 16- or 17-year-old is **not discoverable to anybody until a guardian turns it on**. The player can ask for it in one tap; the guardian grants it in one tap; everything else about the band is unchanged — verified clubs and coaches only, never general search, and no adult may contact a minor at any age. **The cost is recorded rather than argued away: an opt-in that a disengaged guardian never presses removes the product from exactly the players a pathway platform is worth most to.** BUZ took that cost knowingly. **This policy did not previously tell a parent of a 16-year-old whether their child could be found at all** — a gap the flip made obvious. It does now.
+>
+> **Doc 20 · v2.4 draft · 3 September 2026 · NOT YET PUBLISHED.** Rewritten, not patched — v1.1 described a product that no longer exists. Publish at `pitchfootball.com.au/privacy`. The child-directed version is doc 21 and must be linked from this page and from every screen a child sees.
 >
 > **v2.2 change: the policy now names the entity that holds your child's information.** **EBSD Enterprises Pty Ltd (ACN 701 879 718 · ABN 65 701 879 718), trading as Pitch Football** (D-148). Until now this page carried a bracketed placeholder where the company name should be, which is not a thing a parent can look up, complain about, or take to a regulator. **A privacy policy that cannot identify the entity holding the data is not doing the one job the law gives it** — every right described further down this page is a right against a specific legal person, and a brand is not one.
 >
@@ -10,13 +16,13 @@
 >
 > **v2.0 covers what changed:** the Interest Register · card payments through Stripe · guardian approval of share cards · the approved/pending version of an under-16 page · the invitation transport (in-app, never an inbox) · school removed from under-18 pages · a revoked link carrying a request from a verified club · what changes at eighteen · and a plain statement that a club paying us changes nothing about a child.
 >
-> **Three placeholders remain, and they are the only ones:** the **registered office address**, the **privacy contact** (a name or a role), and the **publication date**. The appeals contact in doc 22 §8.3 is the fourth. Everything else is now real.
+> **One placeholder remains in this document: the publication date**, set at deploy and not before. Contact, entity and domains are real. Doc 22 still needs the registered office street address at clause 0.2.
 
 ---
 
 **In one paragraph.** Pitch keeps a record of a footballer's development. For anyone under 16, a parent or guardian creates it, approves it, sees all of it, approves every change to it, and can pause or delete it at any time. Clubs can see a player — that is how pathways work — but **nobody can contact a child through Pitch**, and no club ever gets a child's phone number or email address. We do not track anyone's location, we do not profile children, we do not advertise, and we never sell anybody's information. Some clubs pay us. That changes nothing about any child.
 
-**Last updated:** [date] · **Version:** 2.2 · **Applies to:** everything at pitchfootball.com.au
+**Last updated:** [date] · **Version:** 2.3 · **Applies to:** everything at www.pitchfootball.com.au
 
 ---
 
@@ -30,9 +36,12 @@ Pitch Football is a registered business name of **EBSD Enterprises Pty Ltd**, an
 | **ACN** | 701 879 718 |
 | **ABN** | 65 701 879 718 |
 | **Trading as** | Pitch Football |
-| **Email** | [privacy@pitchfootball.com.au] |
-| **Post** | [address] |
-| **Privacy contact** | [name/role] |
+| **Email** | burak.donmez@pitch-football.com |
+| **Privacy Officer** | Burak Donmez |
+
+**Two domains, and we say so rather than leaving it to be noticed.** Our website is **www.pitchfootball.com.au** and our email comes from **pitch-football.com**. They look different because they are different registrations. **Anything genuinely from us will only ever link to pitchfootball.com.au** — if a message claiming to be from Pitch sends you anywhere else, it is not from us, and you can tell us at the address above.
+
+**There is no postal address on this page, and that is deliberate.** Our registered office is our accountant's, which is normal for a small company and is on the public ASIC record if you ever need it. But **a complaint about a child should not wait for somebody else's mail run.** Email reaches the person who actually deals with it, on the day you send it. If you would rather write to us on paper, ask by email and we will give you an address.
 
 **Why we spell that out.** You will see "Pitch" on the screens and "Pitch Football" on anything to do with money. **The legal person behind both is EBSD Enterprises Pty Ltd**, and that is the entity that holds your child's information, that you can complain about, and that the rights further down this page are exercisable against. A trading name is not a legal person, and you should not have to work out who you are dealing with.
 
@@ -107,6 +116,17 @@ The part most parents want, set out in full.
 **At 16**, your child can be found by clubs and coaches we have verified — not by the public, not in any open search. We tell you 30 days beforehand and you hold the switch. Contact still comes to both of you, and edits become theirs to make.
 
 **At 18**, the account becomes theirs. Your visibility ends automatically. They may choose to give it back.
+
+## If your child is 16 or 17
+
+**They hold their own account, and they are not findable by anyone until you say so.**
+
+- **Discoverability starts off.** Until you turn it on, no club and no coach can find your child on Pitch — not by searching, not by browsing, not at all. Your child can ask you to turn it on. You decide, and **you can turn it off again whenever you like, without explaining why**.
+- **Turning it on means one thing only: clubs and coaches we have verified can find them.** It is never general search, never the open internet, and never anybody we have not checked.
+- **It does not change who can contact them, because nobody can.** There is no messaging on Pitch at any age under 18. An invitation still arrives in your account, and contact still routes to you and your child together.
+- **You keep seeing everything they see**, for as long as they are under 18.
+
+*We start this off rather than on, and we want to be straight that it is a trade. A sixteen-year-old is here to be seen, and a switch you never get round to pressing leaves them unseen. We would rather ask you once than decide for you — but if your child is looking for a pathway, **this is the switch that matters**, and it is one tap.*
 
 ## Registering interest in a trial
 
@@ -235,7 +255,7 @@ If your child appears in content someone else published, tell us and we will rem
 
 ## Complaints
 
-Email **[privacy@pitchfootball.com.au]** with "Privacy complaint" in the subject. We acknowledge within 5 business days and respond within 30.
+Email **burak.donmez@pitch-football.com** with "Privacy complaint" in the subject. It reaches **Burak Donmez**, who is the Privacy Officer and, today, the whole of Pitch. We acknowledge within 5 business days and respond within 30.
 
 If you are not satisfied you can complain to the **Office of the Australian Information Commissioner** at oaic.gov.au or 1300 363 992. You can report online safety concerns to the **eSafety Commissioner** at esafety.gov.au. Young people can call **Kids Helpline on 1800 55 1800**, free, any hour.
 
@@ -245,4 +265,4 @@ If we change something that matters we will tell you before it takes effect and,
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · privacy policy · doc 20 · v2.2 draft · 28 August 2026 · not yet published · entity named per D-148*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · privacy policy · doc 20 · v2.4 draft · 3 September 2026 · not yet published · entity named per D-148*
