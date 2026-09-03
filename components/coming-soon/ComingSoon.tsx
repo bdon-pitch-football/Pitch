@@ -1225,6 +1225,7 @@ export default function ComingSoon() {
         </div>
       </div>
 
+
       {/* ===== WHAT IT COSTS ===== */}
       {SHOW_PRICING && (
       <div ref={priceRef} data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '100px 24px 80px 24px', display: 'flex', flexDirection: 'column', gap: 28, ...reveal }}>
@@ -1365,7 +1366,7 @@ export default function ComingSoon() {
           <div>pitchfootball.com.au</div>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
-          <div>Football, not soccer. Melbourne first, then everywhere the game is played.</div>
+          <div>Football, not soccer. Australia first, then everywhere the game is played.</div>
           {/* Doc 29 §7: the footer links the privacy policy and terms. */}
           <div style={{ display: 'flex', gap: 10 }}>
             <a href="/privacy" style={{ color: '#6b7d73' }}>Privacy</a>
