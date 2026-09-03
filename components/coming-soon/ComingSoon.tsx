@@ -73,6 +73,12 @@ export default function ComingSoon() {
   const priceRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
+  // Transient drag flags live in refs, not state: the first pointermove after
+  // a pointerdown can otherwise read a stale closure and drop the gesture —
+  // the "toys don't work on the phone" bug class.
+  const ballDragRef = useRef(false);
+  const ballPosRef = useRef({ x: 50, y: 74 }); // mirrors s.ball — shoot() must see the LAST move, not the last render
+  const slidingRef = useRef(false);
 
   // -- scroll progress (hero film + nav clock), rAF-throttled -----------------
   useEffect(() => {
@@ -114,14 +120,26 @@ export default function ComingSoon() {
   }, []);
 
   // -- persona ----------------------------------------------------------------
-  // restoreScroll keeps the page still when a chip swaps scene content above
-  // the fold. Callers that immediately navigate (highlight cards) pass false —
-  // otherwise the restore fires a frame later and cancels the smooth scroll,
-  // dumping the user at a seemingly random position.
-  const pick = useCallback((persona: Persona, restoreScroll = true) => {
+  // Swapping persona changes the height of sections above the fold (the seat
+  // stage is auto-height on mobile), so a raw scroll restore still shifts the
+  // page under the finger. Passing the tapped element as `anchor` keeps THAT
+  // element stationary instead. Callers that immediately navigate (highlight
+  // cards) pass restoreScroll false so the restore can't cancel the scroll.
+  const pick = useCallback((persona: Persona, opts?: { anchor?: HTMLElement | null; restoreScroll?: boolean }) => {
+    const anchor = opts?.anchor ?? null;
+    const restore = opts?.restoreScroll ?? true;
+    const anchorTop = anchor?.getBoundingClientRect().top;
     const y = window.scrollY;
     setS((prev) => ({ ...prev, persona, role: persona, look: LOOKS[persona][2][0][0] }));
-    if (restoreScroll) requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' as ScrollBehavior }));
+    if (!restore) return;
+    requestAnimationFrame(() => {
+      if (anchor && anchorTop !== undefined) {
+        const delta = anchor.getBoundingClientRect().top - anchorTop;
+        if (delta) window.scrollTo({ top: window.scrollY + delta, behavior: 'instant' as ScrollBehavior });
+      } else {
+        window.scrollTo({ top: y, behavior: 'instant' as ScrollBehavior });
+      }
+    });
   }, []);
   const step = useCallback((d: number) => {
     setS((prev) => {
@@ -158,8 +176,9 @@ export default function ComingSoon() {
   // The timeline runs OUTSIDE the state updater — React may invoke updaters
   // twice (StrictMode), so a setTimeout inside one double-counts goals.
   const shoot = () => {
-    const b = s.ball, dx = 50 - b.x, dy = 74 - b.y, dist = Math.hypot(dx, dy);
-    if (dist < 4) { set({ drag: false, ball: { x: 50, y: 74 } }); return; }
+    ballDragRef.current = false;
+    const b = ballPosRef.current, dx = 50 - b.x, dy = 74 - b.y, dist = Math.hypot(dx, dy);
+    if (dist < 4) { ballPosRef.current = { x: 50, y: 74 }; set({ drag: false, ball: { x: 50, y: 74 } }); return; }
     const k = 2.6, tx = Math.max(-10, Math.min(110, 50 + dx * k)), ty = Math.max(-10, 74 + dy * k);
     setS((prev) => ({ ...prev, drag: false, flying: true, ball: { x: tx, y: ty }, shots: prev.shots + 1 }));
     setTimeout(() => {
@@ -171,7 +190,10 @@ export default function ComingSoon() {
         goals: st.goals + (goal ? 1 : 0),
         netHit: goal ? st.netHit + 1 : st.netHit,
       }));
-      setTimeout(() => setS((st) => ({ ...st, flying: false, flash: null, ball: { x: 50, y: 74 } })), 1000);
+      setTimeout(() => {
+        ballPosRef.current = { x: 50, y: 74 };
+        setS((st) => ({ ...st, flying: false, flash: null, ball: { x: 50, y: 74 } }));
+      }, 1000);
     }, 620);
   };
 
@@ -267,7 +289,7 @@ export default function ComingSoon() {
       {SEATS.map(([k, label]) => {
         const on = P === k;
         return (
-          <div key={k} onClick={() => pick(k)} style={{
+          <div key={k} onClick={(e) => pick(k, { anchor: e.currentTarget })} style={{
             cursor: 'pointer', borderRadius: 999, padding: small ? '9px 14px' : '10px 16px', fontSize: small ? 12.5 : 13, fontWeight: 800,
             background: on ? 'rgba(255,255,255,.12)' : 'transparent', color: on ? '#eef5f0' : '#7d8f85',
             border: `1px solid ${on ? ACC[k] : 'rgba(255,255,255,.1)'}`, transition: 'all .2s', display: 'flex', alignItems: 'center', gap: 8,
@@ -484,7 +506,7 @@ export default function ComingSoon() {
           style={{ display: 'flex', gap: 14, overflowX: 'auto', scrollSnapType: 'x mandatory', scrollBehavior: 'smooth', padding: '0 max(24px, calc((100vw - 1100px) / 2 + 24px)) 20px', scrollPaddingLeft: 'max(24px, calc((100vw - 1100px) / 2 + 24px))' }}
         >
           {HI.map(([k, time, fi, t, d], i) => (
-            <div key={i} className="hlcard" onClick={() => { pick(k, false); go(seatRef); }} style={{ scrollSnapAlign: 'start', flex: '0 0 min(440px, 84vw)', height: 540, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#0a0f0c', cursor: 'pointer', boxShadow: '0 40px 80px -40px rgba(0,0,0,1)' }}>
+            <div key={i} className="hlcard" onClick={() => { pick(k, { restoreScroll: false }); go(seatRef); }} style={{ scrollSnapAlign: 'start', flex: '0 0 min(440px, 84vw)', height: 540, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#0a0f0c', cursor: 'pointer', boxShadow: '0 40px 80px -40px rgba(0,0,0,1)' }}>
               <div className="hlimg" style={{ position: 'absolute', inset: 0 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={FILM_SRC[fi]} alt={t} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} loading="lazy" />
@@ -583,12 +605,18 @@ export default function ComingSoon() {
                     <div
                       ref={rangeRef}
                       onPointerMove={(e) => {
-                        if (!s.drag) return;
+                        if (!ballDragRef.current) return;
                         const [x, y] = pct(rangeRef, e);
-                        set({ ball: { x: Math.max(0, Math.min(100, x)), y: Math.max(40, Math.min(100, y)) } });
+                        const nb = { x: Math.max(0, Math.min(100, x)), y: Math.max(40, Math.min(100, y)) };
+                        ballPosRef.current = nb;
+                        set({ ball: nb });
                       }}
-                      onPointerUp={() => { if (s.drag) shoot(); }}
-                      onPointerLeave={() => { if (s.drag) shoot(); }}
+                      onPointerUp={() => { if (ballDragRef.current) shoot(); }}
+                      onPointerLeave={() => { if (ballDragRef.current) shoot(); }}
+                      onPointerCancel={() => {
+                        // iOS fires cancel when it steals the gesture — reset, never leave a stuck drag
+                        if (ballDragRef.current) { ballDragRef.current = false; ballPosRef.current = { x: 50, y: 74 }; set({ drag: false, ball: { x: 50, y: 74 } }); }
+                      }}
                       style={{ position: 'relative', width: '100%', aspectRatio: '1 / 0.9', userSelect: 'none', WebkitUserSelect: 'none' }}
                     >
                       <div style={{ position: 'absolute', left: '22%', right: '22%', top: '4%', height: '28%', border: '5px solid #f4f6f4', borderBottom: 'none', borderRadius: '3px 3px 0 0', boxShadow: '0 0 50px rgba(255,255,255,.14)' }}>
@@ -608,6 +636,7 @@ export default function ComingSoon() {
                         onPointerDown={(e) => {
                           if (s.flying) return;
                           capture(e.currentTarget.parentElement, e.pointerId);
+                          ballDragRef.current = true;
                           set({ drag: true });
                         }}
                         style={{
@@ -850,32 +879,40 @@ export default function ComingSoon() {
                       </div>
                       <div
                         ref={slideRef}
+                        // The whole track is the gesture surface — a 46px knob alone
+                        // is a miserable touch target, and starting from the track is
+                        // what a thumb naturally does.
+                        onPointerDown={(e) => {
+                          capture(slideRef.current, e.pointerId);
+                          slidingRef.current = true;
+                          const r = slideRef.current!.getBoundingClientRect();
+                          set({ sliding: true, slide: Math.max(0, Math.min(1, (e.clientX - r.left - 26) / (r.width - 52))) });
+                        }}
                         onPointerMove={(e) => {
-                          if (!s.sliding) return;
+                          if (!slidingRef.current) return;
                           const r = slideRef.current!.getBoundingClientRect();
                           set({ slide: Math.max(0, Math.min(1, (e.clientX - r.left - 26) / (r.width - 52))) });
                         }}
                         onPointerUp={() => {
-                          if (!s.sliding) return;
-                          if (s.slide > 0.92) set({ sliding: false, approved: true, slide: 0 });
-                          else set({ sliding: false, slide: 0 });
+                          if (!slidingRef.current) return;
+                          slidingRef.current = false;
+                          setS((prev) => (prev.slide > 0.92 ? { ...prev, sliding: false, approved: true, slide: 0 } : { ...prev, sliding: false, slide: 0 }));
                         }}
                         onPointerLeave={() => {
-                          if (!s.sliding) return;
-                          if (s.slide > 0.92) set({ sliding: false, approved: true, slide: 0 });
-                          else set({ sliding: false, slide: 0 });
+                          if (!slidingRef.current) return;
+                          slidingRef.current = false;
+                          setS((prev) => (prev.slide > 0.92 ? { ...prev, sliding: false, approved: true, slide: 0 } : { ...prev, sliding: false, slide: 0 }));
                         }}
-                        style={{ position: 'relative', height: 54, borderRadius: 999, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)', touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none', overflow: 'hidden' }}
+                        onPointerCancel={() => {
+                          if (!slidingRef.current) return;
+                          slidingRef.current = false;
+                          setS((prev) => ({ ...prev, sliding: false, slide: 0 }));
+                        }}
+                        style={{ position: 'relative', height: 54, borderRadius: 999, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', overflow: 'hidden', cursor: 'grab' }}
                       >
-                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `calc(${(s.slide * 100).toFixed(1)}% + 54px)`, background: 'rgba(164,121,226,.35)', transition: s.sliding ? 'none' : 'all .3s cubic-bezier(.22,1,.36,1)' }} />
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#d6cde6', opacity: Math.max(0, 1 - s.slide * 1.6), letterSpacing: '.04em' }}>Slide to send it →</div>
-                        <div
-                          onPointerDown={(e) => {
-                            capture(slideRef.current, e.pointerId);
-                            set({ sliding: true });
-                          }}
-                          style={{ touchAction: 'none', WebkitTouchCallout: 'none', position: 'absolute', top: 3, left: `calc((100% - 52px) * ${s.slide.toFixed(3)} + 3px)`, width: 46, height: 46, borderRadius: 999, background: '#a479e2', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', boxShadow: '0 6px 16px rgba(0,0,0,.5)', transition: s.sliding ? 'none' : 'all .3s cubic-bezier(.22,1,.36,1)' }}
-                        >
+                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `calc(${(s.slide * 100).toFixed(1)}% + 54px)`, background: 'rgba(164,121,226,.35)', transition: s.sliding ? 'none' : 'all .3s cubic-bezier(.22,1,.36,1)', pointerEvents: 'none' }} />
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#d6cde6', opacity: Math.max(0, 1 - s.slide * 1.6), letterSpacing: '.04em', pointerEvents: 'none' }}>Slide to send it →</div>
+                        <div style={{ pointerEvents: 'none', position: 'absolute', top: 3, left: `calc((100% - 52px) * ${s.slide.toFixed(3)} + 3px)`, width: 46, height: 46, borderRadius: 999, background: '#a479e2', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(0,0,0,.5)', transition: s.sliding ? 'none' : 'all .3s cubic-bezier(.22,1,.36,1)' }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#120a1e" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12 h14 M13 6 l6 6 -6 6" /></svg>
                         </div>
                       </div>
