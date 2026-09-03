@@ -8,7 +8,7 @@
 >
 > **v1.7, 3 September 2026.** **D-22 is flipped to guardian opt-in.** BUZ's call, 3 September 2026. A 16- or 17-year-old is **not discoverable to anybody until a guardian turns it on**. The player can ask for it in one tap; the guardian grants it in one tap; everything else about the band is unchanged — verified clubs and coaches only, never general search, and no adult may contact a minor at any age. **The cost is recorded rather than argued away: an opt-in that a disengaged guardian never presses removes the product from exactly the players a pathway platform is worth most to.** BUZ took that cost knowingly. Clause 2.3 rewritten. **Nothing is published, so no family has consented against the old default and nobody has to be re-asked — which is the whole reason this was worth deciding today rather than in December** (D-107, D-144).
 >
-> **Doc 22 · v1.7 draft · 3 September 2026 · NOT YET PUBLISHED.**
+> **Doc 22 · v1.7 · published 3 September 2026.**
 >
 > **v1.5 changes — the entity, GST, and three defects found on the sweep.**
 >
@@ -52,7 +52,7 @@
 
 *We name the company rather than the brand because **a trading name is not a legal person**. A family is entitled to know which entity holds their child's record. A volunteer treasurer is entitled to know who is on the other side of an agreement they are about to sign, and to be able to look it up.*
 
-**[DRAFTED] 0.2 Where to find us.** Registered office: **Hume Tax Services, [street number] Pascoe Vale Road, Coolaroo VIC 3048** *(street number still needed — take it from the ASIC registration, it must match that record exactly)*. Email: **burak.donmez@pitch-football.com**. Website: **www.pitchfootball.com.au**. *Our website and our email are on different registrations; anything genuinely from us links only to pitchfootball.com.au.* Our registered office is our accountant's, which is ordinary for a company of our size; **it is an address for service, not a place to write about a child**, and the privacy policy gives email for that reason. Everything we send a club about money carries **Pitch Football** and the ABN — see A6.2.
+**[DRAFTED] 0.2 Where to find us.** Registered office: **Hume Tax Services, 111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Email: **burak.donmez@pitch-football.com**. Website: **www.pitchfootball.com.au**. *Our website and our email are on different registrations; anything genuinely from us links only to pitchfootball.com.au.* Our registered office is our accountant's, which is ordinary for a company of our size; **it is an address for service, not a place to write about a child**, and the privacy policy gives email for that reason. Everything we send a club about money carries **Pitch Football** and the ABN — see A6.2.
 
 ---
 
@@ -352,4 +352,4 @@ Where a child's safety is involved we may act immediately and without notice, an
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v1.7 draft · 3 September 2026 · not yet published · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v1.7 · published 3 September 2026 · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
