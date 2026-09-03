@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Archivo', system-ui, sans-serif; }
+    a { color: #3ddc84; } a:hover { color: #6ce8a3; }
+  </style>
+</helmet>
+<div style="width: 390px; min-height: 1020px; background: #0b120e; color: #eef5f0; font-family: 'Archivo', system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px; padding: 22px 18px 30px 18px; box-sizing: border-box;">
+
+  <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
+    <svg width="26" height="26" viewBox="0 0 26 26" style="flex-shrink: 0;"><rect width="26" height="26" rx="8" fill="#3ddc84"></rect><rect x="5" y="6.5" width="16" height="13" rx="1.5" fill="none" stroke="#06130c" stroke-width="1.6"></rect><line x1="13" y1="6.5" x2="13" y2="19.5" stroke="#06130c" stroke-width="1.6"></line><circle cx="13" cy="13" r="2.7" fill="none" stroke="#06130c" stroke-width="1.6"></circle></svg>
+    <div style="font-weight: 800; font-size: 15px;">Pitch</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 5px;">
+    <div style="font-size: 26px; font-weight: 900; line-height: 1.1; color: #eef5f0;">Trials board</div>
+    <div style="font-size: 13.5px; color: #b9c8bf; font-weight: 500;">Club trials listed below, by trial date.</div>
+  </div>
+
+  <div style="display: flex; gap: 7px; flex-wrap: wrap;">
+    <div style="background: #3ddc84; color: #06130c; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 900;">All ages</div>
+    <div style="border: 1px solid #24322a; background: #121b16; color: #b9c8bf; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700;">U18</div>
+    <div style="border: 1px solid #24322a; background: #121b16; color: #b9c8bf; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700;">Seniors</div>
+    <div style="border: 1px solid #24322a; background: #121b16; color: #b9c8bf; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700;">Reserves</div>
+    <div style="border: 1px solid #24322a; background: #121b16; color: #b9c8bf; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700;">Over 35</div>
+  </div>
+
+  <div style="display: flex; gap: 7px; flex-wrap: wrap; margin-top: -4px;">
+    <div style="border: 1px solid #24322a; background: #121b16; color: #b9c8bf; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700;">Boys</div>
+    <div style="border: 1px solid #24322a; background: #121b16; color: #b9c8bf; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700;">Girls</div>
+    <div style="border: 1px solid #24322a; background: #121b16; color: #b9c8bf; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700;">Mixed</div>
+    <div style="border: 1px solid #24322a; background: #121b16; color: #b9c8bf; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 5px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.4" stroke-linecap="round"><path d="M5 12 H19 M12 5 V19"></path></svg>Position</div>
+    <div style="border: 1px solid #24322a; background: #121b16; color: #b9c8bf; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700;">Region</div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7d8f85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5 V12 L15 14"></path></svg>
+    <div style="font-size: 11.5px; color: #7d8f85; font-weight: 700; line-height: 1.45;">Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which. Last checked 25 Aug.</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 9px;">
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; align-items: center; gap: 13px;">
+      <div style="display: flex; flex-direction: column; align-items: center; background: rgba(61, 220, 132, 0.12); border-radius: 11px; padding: 7px 11px; flex-shrink: 0;"><div style="font-size: 9px; font-weight: 900; letter-spacing: 0.06em; color: #3ddc84;">OCT</div><div style="font-size: 18px; font-weight: 900; color: #eef5f0; line-height: 1;">4</div></div>
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+        <div style="font-size: 14px; font-weight: 800; color: #eef5f0;">Northern United SC · Senior Men</div>
+        <div style="font-size: 12px; color: #7d8f85; font-weight: 500;">Sun 11:00 AM · Dunstan Reserve</div>
+        <div style="font-size: 10px; color: #7d8f85; font-weight: 700;">Listed 18 Aug · checked 25 Aug</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;"><div style="display: flex; align-items: center; gap: 5px;"><div style="width: 6px; height: 6px; border-radius: 999px; background: #3ddc84;"></div><div style="font-size: 10.5px; font-weight: 800; color: #3ddc84;">On Pitch — verified club</div></div><div style="border: 1px solid #24322a; color: #7d8f85; border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 700; flex-shrink: 0;">Your club</div></div>
+      </div>
+    </div>
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; align-items: center; gap: 13px;">
+      <div style="display: flex; flex-direction: column; align-items: center; background: rgba(61, 220, 132, 0.12); border-radius: 11px; padding: 7px 11px; flex-shrink: 0;"><div style="font-size: 9px; font-weight: 900; letter-spacing: 0.06em; color: #3ddc84;">OCT</div><div style="font-size: 18px; font-weight: 900; color: #eef5f0; line-height: 1;">11</div></div>
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+        <div style="font-size: 14px; font-weight: 800; color: #eef5f0;">Riverside FC · Seniors Men</div>
+        <div style="font-size: 12px; color: #7d8f85; font-weight: 500;">Sun 11:30 AM · Riverside Park, Pitch 1</div>
+        <div style="font-size: 10px; color: #7d8f85; font-weight: 700;">Listed 12 Aug · checked 25 Aug</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;"><div style="display: flex; align-items: center; gap: 5px;"><div style="width: 6px; height: 6px; border-radius: 999px; background: #3ddc84;"></div><div style="font-size: 10.5px; font-weight: 800; color: #3ddc84;">On Pitch — verified club</div></div><div style="background: #3ddc84; color: #06130c; border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 900; flex-shrink: 0;">I&rsquo;m interested</div></div>
+      </div>
+    </div>
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; align-items: center; gap: 13px;">
+      <div style="display: flex; flex-direction: column; align-items: center; background: #1a2420; border-radius: 12px; padding: 7px 11px; flex-shrink: 0;"><div style="font-size: 9px; font-weight: 900; letter-spacing: 0.06em; color: #7d8f85;">OCT</div><div style="font-size: 18px; font-weight: 900; color: #eef5f0; line-height: 1;">12</div></div>
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+        <div style="font-size: 14px; font-weight: 800; color: #eef5f0;">Westgate Rangers · Senior Men</div>
+        <div style="font-size: 12px; color: #7d8f85; font-weight: 500;">Mon 7:15 PM · Grant Reserve</div>
+        <div style="font-size: 10px; color: #7d8f85; font-weight: 700;">Listed 2 Aug · checked 25 Aug</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;"><div style="display: flex; align-items: center; gap: 5px;"><div style="width: 6px; height: 6px; border-radius: 999px; background: #6b7d73;"></div><div style="font-size: 10.5px; font-weight: 700; color: #7d8f85;">Unclaimed listing · register via club</div></div><div style="border: 1px solid #24322a; color: #b9c8bf; border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 700; flex-shrink: 0;">Send my CV</div></div>
+      </div>
+    </div>
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; align-items: center; gap: 13px;">
+      <div style="display: flex; flex-direction: column; align-items: center; background: rgba(61, 220, 132, 0.12); border-radius: 11px; padding: 7px 11px; flex-shrink: 0;"><div style="font-size: 9px; font-weight: 900; letter-spacing: 0.06em; color: #3ddc84;">OCT</div><div style="font-size: 18px; font-weight: 900; color: #eef5f0; line-height: 1;">18</div></div>
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+        <div style="font-size: 14px; font-weight: 800; color: #eef5f0;">Riverside FC · Senior Women</div>
+        <div style="font-size: 12px; color: #7d8f85; font-weight: 500;">Sun 12:30 PM · Riverside Park, Pitch 2</div>
+        <div style="font-size: 10px; color: #7d8f85; font-weight: 700;">Listed 12 Aug · checked 25 Aug</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;"><div style="display: flex; align-items: center; gap: 5px;"><div style="width: 6px; height: 6px; border-radius: 999px; background: #3ddc84;"></div><div style="font-size: 10.5px; font-weight: 800; color: #3ddc84;">On Pitch — verified club</div></div><div style="background: #3ddc84; color: #06130c; border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 900; flex-shrink: 0;">I&rsquo;m interested</div></div>
+      </div>
+    </div>
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; align-items: center; gap: 13px;">
+      <div style="display: flex; flex-direction: column; align-items: center; background: #1a2420; border-radius: 12px; padding: 7px 11px; flex-shrink: 0;"><div style="font-size: 9px; font-weight: 900; letter-spacing: 0.06em; color: #7d8f85;">OCT</div><div style="font-size: 18px; font-weight: 900; color: #eef5f0; line-height: 1;">25</div></div>
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+        <div style="font-size: 14px; font-weight: 800; color: #eef5f0;">Sunbury United · Over 35s</div>
+        <div style="font-size: 12px; color: #7d8f85; font-weight: 500;">Sun 11:45 AM · Langama Park</div>
+        <div style="font-size: 10px; color: #7d8f85; font-weight: 700;">Listed 21 Aug · checked 25 Aug</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;"><div style="display: flex; align-items: center; gap: 5px;"><div style="width: 6px; height: 6px; border-radius: 999px; background: #6b7d73;"></div><div style="font-size: 10.5px; font-weight: 700; color: #7d8f85;">Unclaimed listing · register via club</div></div><div style="border: 1px solid #24322a; color: #b9c8bf; border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 700; flex-shrink: 0;">Send my CV</div></div>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch — Privacy Impact Assessment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b120e; --surface:#121b16; --surface-2:#1a2420; --line:#24322a;
+    --ink:#eef5f0; --secondary:#b9c8bf; --muted:#7d8f85; --placeholder:#55665d;
+    --accent:#3ddc84; --on-accent:#06130c;
+    --hero:linear-gradient(160deg,#123326,#0c1d14,#0a1510);
+    --red:#ff8b7a; --amber:#f5c451; --font:"Archivo",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+       font-size:15.5px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:60rem;margin:0 auto;padding:0 1.5rem 6rem}
+  .hero{background:var(--hero);border-radius:22px;padding:3rem 2.6rem 2.6rem;margin:2rem 0 2.5rem;
+        position:relative;overflow:hidden}
+  .mark{position:absolute;top:1.6rem;right:1.6rem;width:38px;height:38px;border-radius:9px;
+        background:var(--accent);display:grid;place-items:center}
+  .mark svg{display:block}
+  .label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+  .hero .label{color:var(--accent)}
+  h1{font-size:2.3rem;font-weight:900;line-height:1.1;letter-spacing:-.02em;margin:.6rem 0 .7rem;max-width:22ch}
+  .lede{color:var(--secondary);font-size:1.02rem;margin:0;max-width:60ch}
+  h2{font-size:1.45rem;font-weight:800;letter-spacing:-.015em;margin:3.2rem 0 .3rem}
+  .h2sub{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h3{font-size:1.05rem;font-weight:700;margin:2.2rem 0 .6rem}
+  h4{font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;
+     color:var(--accent);margin:1.6rem 0 .5rem}
+  p{margin:0 0 .9rem;color:var(--secondary)}
+  p strong,li strong{color:var(--ink);font-weight:700}
+  ul,ol{margin:0 0 1rem;padding-left:1.3rem;color:var(--secondary)}
+  li{margin-bottom:.4rem}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+        padding:1.4rem 1.6rem;margin:1.2rem 0}
+  .card.tight{padding:1.1rem 1.3rem}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.2rem 0}
+  .tablewrap{overflow-x:auto;margin:1.1rem 0 1.5rem;border:1px solid var(--line);border-radius:13px}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:34rem}
+  th,td{text-align:left;vertical-align:top;padding:.7rem .85rem;border-bottom:1px solid var(--line)}
+  th{background:var(--surface-2);font-size:.7rem;font-weight:800;text-transform:uppercase;
+     letter-spacing:.07em;color:var(--muted);white-space:nowrap}
+  td{color:var(--secondary)}
+  td strong{color:var(--ink)}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;font-size:.65rem;font-weight:800;letter-spacing:.06em;
+        text-transform:uppercase;padding:.2em .6em;border-radius:999px;white-space:nowrap}
+  .p-hi{background:rgba(255,139,122,.16);color:var(--red);border:1px solid rgba(255,139,122,.35)}
+  .p-md{background:rgba(245,196,81,.14);color:var(--amber);border:1px solid rgba(245,196,81,.32)}
+  .p-lo{background:rgba(61,220,132,.13);color:var(--accent);border:1px solid rgba(61,220,132,.3)}
+  .p-na{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+  .flag{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 13px 13px 0;
+        padding:1.1rem 1.4rem;margin:1.3rem 0}
+  .flag.warn{border-left-color:var(--amber)}
+  .flag.stop{border-left-color:var(--red)}
+  .flag p:last-child{margin-bottom:0}
+  .flag .ft{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+            color:var(--accent);margin-bottom:.4rem;display:block}
+  .flag.warn .ft{color:var(--amber)} .flag.stop .ft{color:var(--red)}
+  .flow{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:1rem 0 1.4rem;
+        font-size:.82rem;color:var(--secondary)}
+  .node{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;
+        padding:.45rem .8rem;font-weight:700;color:var(--ink);font-size:.78rem}
+  .arrow{color:var(--muted)}
+  .meta-table td:first-child{width:12rem;color:var(--muted);font-size:.72rem;font-weight:800;
+       text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+  footer{margin-top:4rem;padding-top:1.4rem;border-top:1px solid var(--line);
+         color:var(--placeholder);font-size:.8rem}
+  a{color:var(--accent)}
+  @media (max-width:720px){
+    .grid2{grid-template-columns:1fr} h1{font-size:1.7rem} .hero{padding:2.2rem 1.4rem 1.8rem}
+  }
+</style>
+</head>
+<body>
+<div style="background:var(--surface-2);padding:16px 20px;font:400 14px/1.6 system-ui,sans-serif;border-bottom:2px solid var(--line)"><strong>v2.1, 1 September 2026 — what changed and why the previous banner is gone.</strong> This page carried a red notice saying the document had not been revised, that the trial application register was deferred to Phase 1.5 under D-54 — <strong>a decision since displaced</strong> — and that its trial-application sections should not be treated as current. <strong>Two of those three statements were themselves out of date</strong>: the document was revised at v2.0, and D-54 was displaced by <strong>D-130</strong> — the register ships in Phase 1 because there are verified clubs from day one (D-126). The third was correct, and that is the point: <strong>sections 3.3, 3.5 and R19 really did still describe a model in which Pitch transmits a child's CV to a club and the club exports it to a spreadsheet.</strong> Neither happens. The family sends a tokenised link (D-99) and there is no export at any tier (D-122). <em>Those sections are now rewritten, so the warning has been removed rather than left standing. A banner telling a reader to distrust a document is only useful while it is true; left up after the fact it teaches them to distrust the parts that are sound.</em></div>
+
+<div class="wrap">
+
+<div class="hero">
+  <div class="mark" aria-hidden="true">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#06130c" stroke-width="1.6">
+      <rect x="2" y="4" width="18" height="14" rx="1.5"/><line x1="11" y1="4" x2="11" y2="18"/>
+      <circle cx="11" cy="11" r="3"/>
+    </svg>
+  </div>
+  <div class="label">Pitch · doc 19 · D-27 gate · v2.0</div>
+  <h1>Privacy Impact Assessment</h1>
+  <p class="lede">How Pitch handles children's personal information, what could go wrong, and what we have done about it. Prepared before launch, as the Children's Online Privacy Code exposure draft requires and as the Australian Privacy Principles would require if we were bound by them today.</p>
+</div>
+
+<div class="card tight">
+  <table class="meta-table" style="min-width:0">
+    <tr><td>Project</td><td>Pitch — soft-launch scope: three CVs, the guardian consent spine, the family send-link, trial notices, the curated trials index, and the paid Interest Register</td></tr>
+    <tr><td>Entity assessed</td><td><strong>EBSD Enterprises Pty Ltd</strong> ACN 701 879 718 · ABN 65 701 879 718, trading as <strong>Pitch Football</strong> (D-148). The entity holding the information assessed in this document.</td></tr>
+    <tr><td>Assessment date</td><td>25 August 2026 · revised 27 August 2026 · revised 1 September 2026</td></tr>
+    <tr><td>Version</td><td>2.1 — draft for legal review, not yet adopted. Reconciled to register <strong>v4.1 (through D-148)</strong> on the matters listed below; see the reconciliation note at the foot of this table. Assesses the Interest Register, card payments, guardian re-approval on edit, the pre-approval draft, the dead-link request, share-card approval, and the removal of the export.</td></tr>
+    <tr><td>Reconciliation, stated honestly</td><td><strong>v2.1 corrects the specific defects listed in the note above and the dates throughout. It is not a full re-run of the assessment against D-133 to D-148.</strong> Nothing in those decisions changes what is collected or who can see it — the trigger conditions for a fresh assessment — but that is a judgement recorded here rather than a check performed. <strong>A full re-run is due before any soft launch and is listed in the review schedule.</strong></td></tr>
+    <tr><td>Assessor</td><td>Prepared in-house by Pitch. Not legal advice; supplied to counsel for review under the doc 18 brief.</td></tr>
+    <tr><td>Next review</td><td>Before any soft launch, as a full re-run against the register; on registration of the Children's Online Privacy Code; before the search and assessment release; otherwise as §6.</td></tr>
+    <tr><td>Register entry</td><td>PIA-2026-01. To be published on registration of a public PIA register.</td></tr>
+  </table>
+</div>
+
+<!-- 1 -->
+<h2>1 · Executive summary</h2>
+<p class="h2sub">What was assessed, what was found, and what it costs us to fix.</p>
+
+<p>Pitch collects and holds personal information about children, most of them between eight and seventeen, and makes some of it visible to adults who are not their parents. That is the point of the product — a pathway only works if somebody can see the player — and it is also the whole of the privacy risk. This assessment works through what we collect, who can see it, what could go wrong, and whether the safeguards already built are enough.</p>
+
+<p><strong>The finding is that the architecture is sound and the residual risks are concentrated in four places.</strong> The permission model, the guardian consent spine, the deliberate absence of any social layer for minors, and the refusal to collect geolocation, behavioural analytics or health information together put Pitch in a materially better position than a conventional platform retrofitting protections. What remains are risks that architecture alone does not solve.</p>
+
+<div class="flag warn">
+  <span class="ft">What changed at v2.0, and why the risk picture moved</span>
+  <p>The product changed materially on 27 August. Six changes bear on this assessment, and <strong>five of them reduce risk</strong> — which is unusual for a scope expansion and is worth recording as the reason the conclusion below still holds.</p>
+  <ul>
+    <li><strong>The Interest Register was added and is paid</strong> — the first surface on which a child's disclosure reaches a third party. Assessed at R22.</li>
+    <li><strong>The export was removed.</strong> A club can no longer download a list of children. This deletes the only object in the product that survived revocation, and it is the single largest risk reduction in this version.</li>
+    <li><strong>Nothing reaches a club until a human has verified it</strong> — verification is manual, logged and revocable, and can never be set by payment. It also corrected a defect: "verified club" badges had been drawn before any verification existed.</li>
+    <li><strong>Card payments arrived</strong>, and with them a new data class and a set of commercial mechanisms that could reach a child if built carelessly. Assessed at R23.</li>
+    <li><strong>An edit to an under-16 page now returns to the guardian</strong> before it republishes. Closes a real hole and creates a new object — a pending version nobody has approved. Assessed at R24.</li>
+    <li><strong>Share cards are guardian-approved, and a child's school is gone from every under-18 page.</strong> Both close gaps this assessment previously carried.</li>
+  </ul>
+</div>
+
+<p><em>Version 1.1 note: the launch scope narrowed between v1.0 and v1.1 — the ground-status banner, the players-wanted notices and the sponsor route were cut for cost, and a rule was added barring any club from naming a person under 18 on a public page. Those changes were not made for safety reasons and they improved the safety position anyway. They are reflected throughout, most visibly at R6.</em></p>
+
+<div class="tablewrap">
+<table>
+  <tr><th>#</th><th>The five that matter</th><th>Residual</th><th>Treatment status</th></tr>
+  <tr>
+    <td><strong>R1</strong></td>
+    <td><strong>A child's page is indexed by a search engine.</strong> We tell parents there is no search that can find their child. That is true of Pitch's search and false of Google's, from the moment a guardian shares a link.</td>
+    <td><span class="pill p-md">Medium</span></td>
+    <td>Every other control assumes the page is reached by a link. <strong>Search-engine exclusion is still not a build item.</strong> Recommendation 3 — launch-blocking.</td>
+  </tr>
+  <tr>
+    <td><strong>R2</strong></td>
+    <td><strong>A defect in the permission engine exposes a child.</strong> Everything in this document rests on permissions being computed correctly at read time. A single wrong join is the whole risk.</td>
+    <td><span class="pill p-md">Medium</span></td>
+    <td>Exhaustive matrix test suite is the sole launch blocker. <strong>Add:</strong> an automated pre-deploy assertion that no under-16 record is reachable from any unauthenticated route.</td>
+  </tr>
+  <tr>
+    <td><strong>R6</strong></td>
+    <td><strong>A guardian who should not have access has it.</strong> Separated families; a family that has left a violent household.</td>
+    <td><span class="pill p-hi">High</span></td>
+    <td>A guardian can pause a profile and kill a share link today. <strong>There is no way to remove a guardian's access, and no true suppression.</strong> Recommendation 1 — launch-blocking. <em>The locator half of this risk improved substantially when D-74 cut the ground-status banner, the players-wanted notices and the sponsor route from launch — see R6.</em></td>
+  </tr>
+  <tr>
+    <td><strong>R3</strong></td>
+    <td><strong>A child declares an adult age</strong> and receives an adult-band account with public visibility and direct contact, bypassing the guardian gate entirely.</td>
+    <td><span class="pill p-hi">High</span></td>
+    <td>Three mitigations proposed; question 2 of the solicitor brief asks which is required. <strong>At minimum:</strong> lock declared date of birth against upward amendment.</td>
+  </tr>
+  <tr>
+    <td><strong>R10</strong></td>
+    <td><strong>Third-party video embeds on a child's page</strong> hand the viewer's connection to YouTube, Instagram or Veo, and may set cookies, on a page whose subject is a minor.</td>
+    <td><span class="pill p-md">Medium</span></td>
+    <td><strong>Not yet designed.</strong> Recommendation 12 — click-to-play façades, no third-party load before a viewer interacts.</td>
+  </tr>
+</table>
+</div>
+
+<p>Twenty further risks are assessed at §4.6 and sixteen recommendations follow at §4.9. <strong>The four launch-blocking items are unchanged</strong> — recommendations 1, 2, 3 and 12 — and none of the 27 August changes added a fifth.</p>
+
+<div class="flag stop">
+  <span class="ft">The conclusion of this assessment, stated once and stated plainly</span>
+  <p><strong>As things stand today, the safeguards are not sufficient, and this assessment does not clear the product for launch.</strong> Version 1.0 said the safeguards were sufficient <em>provided</em> four things were built, and then said those four things would not be built in time. A Privacy Impact Assessment whose conclusion depends on a condition it expects to fail is useless at the only moment it exists for, which is the go/no-go on the morning of launch. So it is restated as a test that can actually be applied:</p>
+  <p><strong>Four items are launch-blocking</strong> — recommendations 1, 2, 3 and 12 at §4.9. <em>They have not changed since 25 August, and the 27 August scope expansion did not add to them.</em> Each is small except the first. If all four are green on the day, this assessment supports launch. If any is red, this assessment does not, and proceeding is a decision taken against it rather than with it.</p>
+  <p><strong>What that costs, honestly:</strong> the four total roughly three to four engineering days inside a window the register has already cut twice. That is a scope conversation for BUZ and Leo, not a privacy finding — but the privacy finding is that the alternative is opening a product to real children with a known, named, unmitigated hole in it. <em>Recommendation 4, the safety operations layer, is deliberately no longer on this list — see §4.10 for why, and for what replaces it.</em></p>
+</div>
+
+<div class="flag">
+  <span class="ft">Overall conclusion</span>
+  <p><strong>Not yet.</strong> This assessment does not support launch as things stand. It supports launch on the day recommendations 1, 2, 3 and 12 are green — a check that takes a minute to run and can be answered honestly at any go/no-go, on any date. <strong>A soft launch is a real launch: the gate does not move because the audience is small.</strong> Everything else in this document is sequenced work, and none of it is a reason to hold the date.</p>
+</div>
+
+<!-- 2 -->
+<h2>2 · Methodology</h2>
+<p class="h2sub">What we followed, and what we chose ourselves.</p>
+
+<p>This assessment follows the ten steps in the OAIC's <em>Guide to undertaking privacy impact assessments</em> and is reported in the six-section format the Guide suggests. Analysis is presented against all thirteen Australian Privacy Principles even though Pitch is not currently bound by them (see §4.2), because the intention is to operate to that standard and to opt in when the timing is right.</p>
+
+<p>Four further frameworks were adopted voluntarily as benchmarks, because the APPs alone do not address children well:</p>
+
+<ul>
+  <li>The <strong>Children's Online Privacy Code</strong> exposure draft of 31 March 2026 — its collection standard, consent line, best-interests test, PIA requirement and published PIA register are treated as the forward-looking standard even though the Code is not yet registered.</li>
+  <li>The UK ICO's <strong>Children's Code</strong>, fifteen standards, benchmarked at §4.7.</li>
+  <li>eSafety's <strong>Safety by Design</strong> principles, assessed at §4.8.</li>
+  <li><strong>UNCRC General Comment No. 25</strong>, which supplies the best-interests reasoning at §4.5 and its requirement that the criteria applied be stated transparently.</li>
+</ul>
+
+<div class="flag warn">
+  <span class="ft">A note on risk ratings</span>
+  <p>The OAIC prescribes no risk matrix, and this document does not claim its authority for one. Risks below are rated on a likelihood scale (rare · unlikely · possible · likely · almost certain) against a consequence scale expressed in the four harm categories the Children's Online Privacy Code exposure draft uses — <em>physical, emotional, developmental and material</em> — rather than in the financial terms an enterprise register would use. The consequence of a privacy failure here is a child, not a fine.</p>
+</div>
+
+<div class="flag stop">
+  <span class="ft">Two provisions this assessment relies on and could not verify</span>
+  <p>Stated here rather than in a footnote, because a good deal downstream rests on them and a reader is entitled to know which floorboards have not been tested.</p>
+  <p><strong>Rule 4A of the Online Safety (Age-Restricted Social Media Platforms) Rules 2025, as amended in March 2026</strong> — the additional condition requiring a recommender or a logged-in feature. Its operative text <em>was</em> obtained from the Federal Register of Legislation and is quoted accurately in doc 18. It has not been confirmed by a lawyer, and the conclusion that Pitch sits outside the under-16 regime rests on it more than on anything else.</p>
+  <p><strong>Section 45 of the <em>Child Protection (Working with Children) Act 2012</em> (NSW)</strong>, headed "Unauthorised disclosure or dishonest collection of information". Four attempts across three hosts returned only subsection (3), which concerns the Children's Guardian's own disclosures. Subsections (1) and (2) and the penalty <strong>could not be obtained</strong>. The heading alone — "dishonest collection" — is squarely on point for a platform holding check numbers it is not the engaging organisation for. It is the first thing counsel should read.</p>
+</div>
+
+<p><strong>Consultation.</strong> The launch screens were reviewed across five rounds, and the product design through three structured sessions in which the founder argued from the position of each affected person in turn — technical director, coach, parent, and player over eighteen. Warm-network families and coaches will run the full flow unaided during the shakedown weekend before launch, and their difficulties are treated as findings. <strong>Children themselves have not been consulted directly, and that is a gap</strong> — recommendation 11 addresses it.</p>
+
+<!-- 3 -->
+<h2>3 · Project description</h2>
+<p class="h2sub">What the thing is. No analysis in this section, per the Guide.</p>
+
+<p>Pitch is a web application at <code>www.pitchfootball.com.au</code> serving Australian football. At launch it does four things: it lets a player build and share a football CV; it lets a coach build a coaching CV; it lets a club publish a club page; and it publishes one chronological, filterable trials index. Account creation is restricted to Australia. Public CV and club pages are viewable worldwide.</p>
+
+<p>A club page carries the club's philosophy, pathway, teams and age groups, its trial notices, an <em>alumni list</em> of former juniors and where they progressed to, and a sponsorship enquiry route. The trials index carries the trial notices of verified clubs alongside <em>unclaimed listings</em> compiled by Pitch from public club information and marked as unclaimed.</p>
+
+<p>Two waitlists are already live or imminent: an Australian pre-launch page collecting an email address and a role from adults only, and a screen shown to non-Australian visitors collecting a country and, from adults only, an email address — under-18s are never asked for any detail, and only an anonymous count of country, age band and month is retained, with no IP address kept.</p>
+
+<p><strong>A club may subscribe to the Interest Register from launch</strong> (D-109, D-130): a player registers interest in a trial or in the club generally, and appears in a standing list the club works inside Pitch. <strong>The player's record does not travel with it.</strong> The club receives the player's name, age, current club, the squad, a preferred position, one line the player wrote, and a tokenised link to a page the family controls — not a file, not a copy, and no contact details. For a player under 16 the guardian presses send. <strong>There is no export at any tier</strong> (D-122). This is assessed at §3.3 and R19.</p>
+
+<p>A person has one account. Roles are hats: a coach who is also a parent has one login. Date of birth drives an automatic age state machine with three bands — under 16, 16–17, and 18 and over — described in full at doc 09 and summarised in the flows below.</p>
+
+<h3>3.1 Information flows — a child joining</h3>
+<div class="flow">
+  <span class="node">Child or guardian starts</span><span class="arrow">→</span>
+  <span class="node">DOB declared</span><span class="arrow">→</span>
+  <span class="node">Pending invitation<br><span style="font-weight:400;color:var(--muted)">first name · DOB · guardian contact only</span></span><span class="arrow">→</span>
+  <span class="node">Guardian email + separate SMS</span><span class="arrow">→</span>
+  <span class="node">Guardian approves<br><span style="font-weight:400;color:var(--muted)">= terms acceptance, version-stamped</span></span><span class="arrow">→</span>
+  <span class="node">Profile created</span>
+</div>
+<p>An unapproved pending invitation is purged automatically after fourteen days. Nothing beyond the three fields above exists before approval, and no CV is built before approval.</p>
+
+<h3>3.2 Information flows — who can read a child's record</h3>
+<div class="flow">
+  <span class="node">Development record<br><span style="font-weight:400;color:var(--muted)">player-owned</span></span><span class="arrow">→</span>
+  <span class="node">Guardian<br><span style="font-weight:400;color:var(--muted)">everything</span></span>
+  <span class="arrow">·</span>
+  <span class="node">Own club staff + assigned coaches<br><span style="font-weight:400;color:var(--muted)">full record, current players only</span></span>
+  <span class="arrow">·</span>
+  <span class="node">Link-holders<br><span style="font-weight:400;color:var(--muted)">CV only, guardian-shared, 90-day expiry</span></span>
+</div>
+<p>When a player leaves a club, that club drops to aggregate figures and each authoring coach retains read access only to what they personally wrote. There is no sideways visibility: parents see their own child, coaches see their own squads.</p>
+
+<h3>3.3 Information flows — registering interest in a club or a trial</h3>
+<div class="flow">
+  <span class="node">Player composes</span><span class="arrow">→</span>
+  <span class="node">Guardian presses send<br><span style="font-weight:400;color:var(--muted)">U16 — sees recipient and text first</span></span><span class="arrow">→</span>
+  <span class="node">Six fields + a tokenised link<br><span style="font-weight:400;color:var(--muted)">to a verified club only · no record, no file, no contact details</span></span><span class="arrow">→</span>
+  <span class="node">Club's Interest Register<br><span style="font-weight:400;color:var(--muted)">worked inside Pitch · no export</span></span><span class="arrow">→</span>
+  <span class="node">Family revokes at any time<br><span style="font-weight:400;color:var(--muted)">link dies and the note empties, same transaction</span></span>
+</div>
+<p>This is a disclosure of a child's information to a third party outside the child's own club, <strong>initiated by the family and limited to clubs a person at Pitch has verified</strong> (D-126). What is disclosed is six fields and a link, never the development record itself — <strong>the club is given an address, not a copy</strong>. Revocation is immediate and total: the link stops resolving and the line the player wrote is emptied in the same transaction (D-128), so a family who changes their mind removes the disclosure rather than merely withdrawing permission for it. <strong>There is no export</strong> (D-122). The residual risk is a copy taken by hand — assessed at R19.</p>
+
+<h3>3.4 Information flows — leaving</h3>
+<div class="flow">
+  <span class="node">Guardian or child requests deletion</span><span class="arrow">→</span>
+  <span class="node">Cascade<br><span style="font-weight:400;color:var(--muted)">profile · record · photos · links · memberships</span></span><span class="arrow">→</span>
+  <span class="node">Authoring coaches retain<br><span style="font-weight:400;color:var(--muted)">anonymised counts only</span></span><span class="arrow">→</span>
+  <span class="node">Consent log retains the event</span>
+</div>
+
+<h3>3.5 Systems and recipients</h3>
+<div class="tablewrap">
+<table>
+  <tr><th>Recipient</th><th>What it receives</th><th>Location</th><th>Basis</th></tr>
+  <tr><td><strong>Supabase</strong> (database, auth, object storage)</td><td>All personal information</td><td>Sydney, Australia</td><td>Processor under contract</td></tr>
+  <tr><td><strong>Vercel</strong> (application hosting)</td><td>Request data in transit; functions pinned to Sydney</td><td>Sydney; company US</td><td>Processor under contract</td></tr>
+  <tr><td><strong>Resend</strong> (transactional email)</td><td>Recipient address, first name, action link</td><td>United States</td><td>Overseas recipient — see R8</td></tr>
+  <tr><td><strong>Twilio</strong> (SMS)</td><td>Recipient mobile, first name, action link</td><td>United States</td><td>Overseas recipient — see R8</td></tr>
+  <tr><td><strong>YouTube · Instagram · Veo</strong></td><td>Nothing from us. They receive the <em>viewer's</em> connection when an embed loads.</td><td>Various</td><td>See R10 — treatment required</td></tr>
+  <tr><td><strong>Clubs</strong></td><td>Records of their own current players; and, for a subscribing club, registrations of interest — six fields and a tokenised link to a page the family controls. <strong>No record, no file, and no export at any tier</strong> (D-122). Never a phone number or an email address for a player or a family.</td><td>Australia</td><td>Guardian consent at joining; guardian-initiated and revocable for a registration of interest</td></tr>
+</table>
+</div>
+
+<!-- 4 -->
+<h2>4 · Analysis</h2>
+<p class="h2sub">Inventory, compliance, consent, best interests, risk and recommendations.</p>
+
+<h3>4.1 Information inventory</h3>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Held about</th><th>Fields</th><th>Why it is necessary</th><th>Class</th></tr>
+  <tr>
+    <td><strong>Player</strong></td>
+    <td>Name; date of birth; position and secondary position; preferred foot; squad number; current club and age group; region at city level; profile photograph; free-text description; self-reported season statistics; achievements; URLs of externally hosted video</td>
+    <td>Date of birth drives the entire safety architecture and cannot be omitted. Club and age group make the record legible to the people who hand out opportunities. Region at city level is the coarsest granularity at which a trials index is useful.</td>
+    <td>Personal</td>
+  </tr>
+  <tr>
+    <td><strong>Guardian</strong></td>
+    <td>Name; email; mobile; declared relationship to the child</td>
+    <td>Two separate channels are the verification waterfall. Relationship is declared, not evidenced, at launch.</td>
+    <td>Personal</td>
+  </tr>
+  <tr>
+    <td><strong>Coach</strong></td>
+    <td>Name; clubs and coaching history; credentials; philosophy; Working With Children Check number</td>
+    <td>The check number gates the ability to write to a child's record and to see 16–17 year olds. <strong>Its collection is under legal review</strong> — see doc 18 question 4.</td>
+    <td>Personal; the check number is a government related identifier and a barred status would carry criminal-record inference</td>
+  </tr>
+  <tr>
+    <td><strong>Club</strong></td>
+    <td>Entity details; crest; administrator contacts; philosophy and pathway text; trial notices; alumni text</td>
+    <td>Ordinary business information, except one surface that carries privacy weight: <strong>the alumni list names individuals including minors</strong> (R11). <em>Corrected at v2.1: this row previously also listed the ground-status banner, players-wanted notices and the sponsorship enquiry route, and the note beside it assessed two of them as live locator surfaces. <strong>D-74 cut all three</strong>, and the risk register had already recorded the cut at R2 and R6 while this inventory continued to list them as collected. An information inventory naming information the product does not collect is the one table in a Privacy Impact Assessment that must be exactly right, because everything downstream is reasoned from it.</em></td>
+    <td>Personal (of the administrators and of those named)</td>
+  </tr>
+  <tr>
+    <td><strong>Waitlists</strong></td>
+    <td>Australian: email address, role. Overseas: country, and an email address from adults only. Under-18s overseas: nothing — an anonymous count of country, age band and month, no IP retained.</td>
+    <td>To tell people when we launch, and to know where demand exists. The overseas screen exists so that a foreign visitor cannot create an account under a compliance regime we are not built for.</td>
+    <td>Personal (adults); anonymous aggregate (overseas minors) — see R20</td>
+  </tr>
+  <tr>
+    <td colspan="4" style="color:var(--accent);font-weight:700">Deliberately not collected: geolocation — save that a visitor's country is determined in order to route non-Australian visitors away from sign-up, and is not retained · behavioural or analytics events on any account belonging to a person under 18 · health, injury, medical clearance or return-to-play information · government identity documents · any special category information</td>
+  </tr>
+</table>
+</div>
+
+<h3>4.2 Compliance against the Australian Privacy Principles</h3>
+
+<div class="flag warn">
+  <span class="ft">Threshold</span>
+  <p>Pitch expects turnover well under $3,000,000 and on that basis is a small business operator, not an APP entity, and is not bound by the principles below, by the notifiable data breach scheme, or by the Children's Online Privacy Code once registered. <strong>This assessment treats that as a description of our position, not a plan.</strong> The table states what we do, on the assumption we will opt in. Two triggers that would defeat the exemption regardless of turnover are before counsel at doc 18 question 3.</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <tr><th>APP</th><th>Position</th><th>Status</th></tr>
+  <tr><td><strong>1</strong> Open and transparent management</td><td>Two privacy policies published — an adult and guardian version (doc 15) and a child-directed version (doc 16). Practices and procedures documented across docs 06, 09 and 10. Complaints route published.</td><td><span class="pill p-lo">Met</span></td></tr>
+  <tr><td><strong>2</strong> Anonymity and pseudonymity</td><td>Not practicable: the product's function is a verifiable record attributed to a named person, and safety depends on knowing who adults are. Public CVs of under-16s may be reduced to first name and initial — recommendation 5.</td><td><span class="pill p-md">Exception relied on</span></td></tr>
+  <tr><td><strong>3</strong> Collection of solicited information</td><td>Every field justified at §4.1. We hold ourselves to the Children's Online Privacy Code's tighter <em>strictly necessary</em> standard rather than the APP's <em>reasonably necessary</em>. No sensitive information is collected. Collection is from the individual or their guardian.</td><td><span class="pill p-lo">Met</span></td></tr>
+  <tr><td><strong>4</strong> Unsolicited information</td><td>Arises through free-text fields and club-authored content. Destruction path is the report and takedown process.</td><td><span class="pill p-md">Partly — process documented, not yet tested</span></td></tr>
+  <tr><td><strong>5</strong> Notification of collection</td><td>Just-in-time collection notices at each point of collection, in a muted "why we ask" pattern rather than a modal wall. Both privacy policies carry the full set of matters.</td><td><span class="pill p-lo">Met</span></td></tr>
+  <tr><td><strong>6</strong> Use or disclosure</td><td>Primary purpose is the development record and the pathway. Disclosure to a club is within the guardian's expectation, consented at joining. No secondary use. No disclosure to sponsors or advertisers, ever.</td><td><span class="pill p-lo">Met</span></td></tr>
+  <tr><td><strong>7</strong> Direct marketing</td><td>No marketing to any account belonging to a person under 18. Marketing to adults is governed by the Spam Act for email and SMS, with express consent, identified sender and a working unsubscribe. Transactional and marketing sends run on separate streams so a service message never carries an upsell.</td><td><span class="pill p-lo">Met</span></td></tr>
+  <tr><td><strong>8</strong> Cross-border disclosure</td><td>All stored personal information resides in Sydney. Two overseas recipients — Resend and Twilio — receive message payloads only. <strong>Consent is not an appropriate basis where the subject is a child</strong>; we rely on contractual measures and accept that we remain accountable for their handling. Message bodies are minimised to a first name and a link.</td><td><span class="pill p-md">Partly — see R8</span></td></tr>
+  <tr><td><strong>9</strong> Government related identifiers</td><td>The Working With Children Check number is a government related identifier. It is never adopted as an internal identifier, never rendered on any public page, and never displayed even to the coach's own club beyond a verified state. <strong>Whether we may hold it at all is before counsel.</strong></td><td><span class="pill p-md">Under legal review</span></td></tr>
+  <tr><td><strong>10</strong> Quality</td><td>Provenance is a first-class field on every statistic and record entry — self-reported, coach-verified or official import — and the tag is always displayed. A number is never rendered without its source.</td><td><span class="pill p-lo">Met — and better than the standard requires</span></td></tr>
+  <tr><td><strong>11</strong> Security and destruction</td><td>Australian hosting; row-level access control; permissions computed rather than stored; append-only consent log; images stripped of metadata and resized; deletion cascade. Retention statement published. See R12 and R14.</td><td><span class="pill p-md">Partly — see recommendation 7</span></td></tr>
+  <tr><td><strong>12</strong> Access</td><td>A guardian sees everything the child sees, live, by design. A plain data export right for families and clubs is stated in the terms.</td><td><span class="pill p-lo">Met</span></td></tr>
+  <tr><td><strong>13</strong> Correction</td><td>Self-service for self-reported fields. Coach assessments are correctable for 48 hours and thereafter by a visibly linked superseding entry, never a silent edit, with full version history. A family who disputes an assessment may have a statement associated with it — recommendation 8.</td><td><span class="pill p-md">Partly — statement mechanism to be built</span></td></tr>
+</table>
+</div>
+
+<h3>4.3 Children, capacity and consent</h3>
+
+<p>The OAIC's guidance is that the Privacy Act sets no age at which a person may make their own privacy decisions, that capacity turns on whether the individual has sufficient understanding and maturity to understand what is proposed, and that where case-by-case assessment is not practicable an entity may presume capacity at fifteen and its absence below. The Children's Online Privacy Code exposure draft would harden that into a bright line at fifteen.</p>
+
+<p><strong>Pitch draws the line at sixteen, and does not assess capacity case by case.</strong> Below sixteen, consent is given by a person with parental responsibility and the child's profile does not exist until that consent is recorded. Between sixteen and eighteen the player acts for themselves in relation to their own record while the guardian retains visibility and holds an off-switch on discoverability, and contact continues to route to both.</p>
+
+<div class="flag warn">
+  <span class="ft">Open — not yet decided</span>
+  <p>Whether a 16- or 17-year-old may accept the terms and privacy policy <em>for themselves</em>, or whether a guardian must co-accept until eighteen, is an open question before counsel (doc 18, question 7). A minor's contract is generally voidable, and our own inclination is guardian co-acceptance to eighteen. Nothing in this section should be read as settling it.</p>
+</div>
+
+<p>This is more conservative than both the current guidance and the draft Code, and deliberately so: the line is drawn where the product's own safety architecture already splits, which means a single mechanism enforces both. We record two consequences honestly. A fifteen-year-old who under the draft Code could consent for themselves cannot do so here. And a child's own wishes about their record are mediated through a guardian until sixteen — mitigated by the requirement that the child sees everything the guardian sees, and by the child's independent right to trigger deletion.</p>
+
+<h3>4.4 Automated processing</h3>
+
+<p>Nothing at launch. From the December release, two signals are generated automatically over assessment data: an <em>attention flag</em> where competency bands have not moved across blocks, and a <em>progression flag</em> where a player consistently reaches the top band. Both are surfaced only to club staff, are prompts a coach confirms or dismisses rather than verdicts, are measured against age-stage expectations rather than against squad mates, and are always shown with a relative-age context marker. Neither is visible to the player, and a parent sees their own child's progress and targets but never a squad comparison.</p>
+
+<p>These are the automated decisions that would need to be described in a privacy policy under APP 1.7 and 1.8 from 10 December 2026 if Pitch is by then an APP entity. Doc 15 already describes them, ahead of the requirement.</p>
+
+<h3>4.5 Best interests of the child — the criteria applied</h3>
+
+<p>General Comment No. 25 asks not only that best interests be a primary consideration but that the criteria applied be stated transparently. Ours are five, and they are the tests every design decision was put to.</p>
+
+<div class="grid2">
+  <div class="card tight">
+    <h4>1 · Does it help the child be seen?</h4>
+    <p style="margin:0">The product exists because talent goes unseen for reasons of postcode and connection. A privacy control that makes a child invisible to the people who hand out opportunities is not automatically in their interests. Visibility to verified clubs is a benefit, not merely a risk.</p>
+  </div>
+  <div class="card tight">
+    <h4>2 · Can an adult reach the child?</h4>
+    <p style="margin:0">Being seen and being contactable are separable, and separating them is the central design move. Nothing that makes a child reachable by an adult outside their club is acceptable at any age below eighteen.</p>
+  </div>
+  <div class="card tight">
+    <h4>3 · Would the child mind, later?</h4>
+    <p style="margin:0">A record follows a person for years. Anything that could embarrass an adult about their twelve-year-old self is excluded: no rankings, no numeric ratings, no language of deficiency anywhere in the product, and — when match tracking arrives — disciplinary events recorded but never shown on a minor's profile at all, never discoverable anywhere, visible only to club staff and the player's own family.</p>
+  </div>
+  <div class="card tight">
+    <h4>4 · Does the family keep control?</h4>
+    <p style="margin:0">Consent revocable, link pausable, record deletable, everything the child sees visible to the guardian. Control that cannot be exercised in one action is not control.</p>
+  </div>
+  <div class="card tight" style="grid-column:1/-1">
+    <h4>5 · Does it serve the child, or us?</h4>
+    <p style="margin:0">Applied hardest to engagement mechanics. <strong>Pitch never sends a message designed to bring someone back.</strong> No streaks, no "you haven't been on for a while", no notification to a minor that is not strictly functional, and no premium surface rendered on any under-18 account at all. A child's own development record is never behind a paywall, and a minor gets ten highlight clips free where an adult on the free tier gets three — because a cap a child cannot buy their way out of is charging them for being a child. Where a growth tactic and a child's interests conflict, the tactic loses. <em>This is about what Pitch does, not about what a club does: a club ringing a family it has not seen for a month is a club doing its job, and R18 governs how that is presented to it.</em></p>
+  </div>
+</div>
+
+<p><strong>Where the criteria pull against each other</strong> is the sixteen-to-seventeen band, where criterion 1 argues for discoverability by default and criteria 3 and 4 argue for opt-in. We have resolved it in favour of default-on with guardian notification and an off-switch, on the reasoning that a default-off setting would be left off by the least-connected families — the exact children the mission exists for — and that the harm being guarded against is contact, which criterion 2 already forecloses. <strong>We record that this is the assessment we are least confident in, and it is question 4 of the solicitor brief.</strong></p>
+
+<h3>4.6 Risk register</h3>
+
+<div class="tablewrap">
+<table>
+  <tr><th>#</th><th>Risk</th><th>Harm</th><th>Inherent</th><th>Controls in place</th><th>Residual</th></tr>
+
+  <tr><td><strong>R1</strong></td>
+    <td>A child's CV link is forwarded beyond the intended recipient, or the page is indexed by a search engine, making the child findable by name.</td>
+    <td>Emotional; physical</td><td><span class="pill p-hi">High</span></td>
+    <td>Tokenised links, revocable and regenerable; 90-day default expiry for under-16s; guardian may pause the profile; D-77's link-state page shows nothing identifying and cannot be probed for whether a player exists; D-89 strips a minor's social card to a first name, an initial and football. <strong>Gap: search-engine exclusion is still not a build item</strong> — every other control assumes the page is reached by link, and an indexed page is reached by name.</td>
+    <td><span class="pill p-md">Medium</span> → low with rec. 3</td></tr>
+
+  <tr><td><strong>R2</strong></td>
+    <td>A defect in the permission engine exposes an under-16 in a search surface, or to an adult with no relationship to them.</td>
+    <td>Physical; emotional</td><td><span class="pill p-hi">Severe</span></td>
+    <td>Permissions computed from objects, never stored as flags; every matrix cell asserted by test; suite green is the only launch blocker.</td>
+    <td><span class="pill p-md">Medium</span></td></tr>
+
+  <tr><td><strong>R3</strong></td>
+    <td>A child declares an adult date of birth and receives a public profile with direct contact, bypassing the guardian gate.</td>
+    <td>Physical; emotional</td><td><span class="pill p-hi">Severe</span></td>
+    <td>Waterfall engages only on a declared age under 16. <strong>This is the largest unmitigated gap in the design.</strong></td>
+    <td><span class="pill p-hi">High</span></td></tr>
+
+  <tr><td><strong>R4</strong></td>
+    <td>An adult obtains verified club or coach status in order to reach 16–17 year olds.</td>
+    <td>Physical</td><td><span class="pill p-hi">Severe</span></td>
+    <td>Clubs verified manually by us before any minor data flows; coach verification requires club affiliation and a check number; contact still routes to guardian and player together, and is logged.</td>
+    <td><span class="pill p-md">Medium</span></td></tr>
+
+  <tr><td><strong>R5</strong></td>
+    <td>The "guardian" approving a profile is not the child's guardian — an address supplied by the child, or by another adult.</td>
+    <td>Physical; emotional</td><td><span class="pill p-hi">High</span></td>
+    <td>Two separate channels (email and SMS); 14-day purge of unapproved invitations; club roster cross-check once clubs are onboarded. Relationship is declared, not evidenced, at launch.</td>
+    <td><span class="pill p-md">Medium</span></td></tr>
+
+  <tr><td><strong>R6</strong></td>
+    <td><strong>A person with guardian access should not have it</strong> — a separated parent without parental responsibility, or a person the family is escaping. A residual locator risk remains through trial notices, which carry a ground and a time for a named age group at a named club, alongside a CV that names the same club and age group.</td>
+    <td>Physical</td><td><span class="pill p-hi">Severe</span></td>
+    <td><strong>Partial, and materially better than at v1.0.</strong> D-74 cut the ground-status banner, the players-wanted notices and the sponsor route from launch — for cost reasons, but the safety benefit is real and it removes the recurring weekly-pattern surface. D-74 also bars naming anyone under 18 on an alumni wall. A guardian may pause a profile and regenerate or disable the share link; the two-guardian model resolves ordinary disagreements most-restrictively; D-77's link-state page leaks nothing when a link is dead. <strong>But pausing is not suppression, and there is still no capability to remove a guardian's access</strong> — which is the control this case actually needs.</td>
+    <td><span class="pill p-hi">High</span></td></tr>
+
+  <tr><td><strong>R7</strong></td>
+    <td>A coach's written assessment is inaccurate, stigmatising, or read by the child in a way that harms them.</td>
+    <td>Emotional; developmental</td><td><span class="pill p-md">Medium</span></td>
+    <td>Criterion bands against the skill, never against other children; no numeric ratings; the word "struggling" appears nowhere; flags are staff-only and never shown to a player; 48-hour edit window then visible supersession with full history.</td>
+    <td><span class="pill p-lo">Low</span></td></tr>
+
+  <tr><td><strong>R8</strong></td>
+    <td>Children's details pass to United States processors through email and SMS.</td>
+    <td>Material</td><td><span class="pill p-md">Medium</span></td>
+    <td>Message bodies limited to a first name and an action link; no record content in any message; contractual measures with both providers.</td>
+    <td><span class="pill p-lo">Low</span></td></tr>
+
+  <tr><td><strong>R9</strong></td>
+    <td>A child's photograph carries location metadata, or is reused elsewhere.</td>
+    <td>Physical; emotional</td><td><span class="pill p-md">Medium</span></td>
+    <td>Server-side resize, EXIF stripped, originals never served, guardian-controlled, deleted in the cascade.</td>
+    <td><span class="pill p-lo">Low</span></td></tr>
+
+  <tr><td><strong>R10</strong></td>
+    <td><strong>Third-party video embeds</strong> on a minor's CV hand the viewer's connection — and potentially cookies — to YouTube, Instagram or Veo on a page whose subject is a child. <strong>Worse, and this is the part that matters:</strong> a minor's CV carries a live share token in its URL, and a default browser hands that entire URL to the embed host as a referrer. A working key to a child's page then sits permanently in a foreign company's server logs.</td>
+    <td>Material; physical</td><td><span class="pill p-hi">High</span></td>
+    <td><strong>Partial.</strong> D-94 requires <code>Referrer-Policy: no-referrer</code> on every tokenised page, privacy-enhanced embed hosts and sandboxed iframes — which closes the token leak. It does not stop the connection being made at all.</td>
+    <td><span class="pill p-md">Medium</span> → low with rec. 12</td></tr>
+
+  <tr><td><strong>R11</strong></td>
+    <td>Club alumni walls and unclaimed trial listings name identifiable people, some of them minors, who are not our users and have not consented.</td>
+    <td>Emotional</td><td><span class="pill p-md">Medium</span></td>
+    <td>Uploader rights warranty in the terms; removal on request; unclaimed-listing disclaimer; report affordance on every page. Before counsel at doc 18 question 9.</td>
+    <td><span class="pill p-md">Medium</span></td></tr>
+
+  <tr><td><strong>R12</strong></td>
+    <td>Credential compromise or a database breach exposes the whole record set.</td>
+    <td>All four</td><td><span class="pill p-hi">Severe</span></td>
+    <td>Managed Australian infrastructure; row-level security; no secrets committed; least-privilege service roles. <strong>Gap:</strong> no written incident response plan.</td>
+    <td><span class="pill p-md">Medium</span> → low with rec. 7</td></tr>
+
+  <tr><td><strong>R13</strong></td>
+    <td>Records accumulate for people who left football years ago, with no retention trigger.</td>
+    <td>Material</td><td><span class="pill p-md">Medium</span></td>
+    <td>Retention statement published; deletion available on request. <strong>Gap:</strong> no automatic dormancy handling.</td>
+    <td><span class="pill p-md">Medium</span> → low with rec. 9</td></tr>
+
+  <tr><td><strong>R14</strong></td>
+    <td>Deletion does not fully cascade — cached pages, unfurled previews, email logs, backups, a coach's retained copy.</td>
+    <td>Material; emotional</td><td><span class="pill p-md">Medium</span></td>
+    <td>Cascade specified through the record; authoring coaches retain anonymised counts only. <strong>Gap:</strong> cache and preview invalidation not specified.</td>
+    <td><span class="pill p-md">Medium</span> → low with rec. 6</td></tr>
+
+  <tr><td><strong>R15</strong></td>
+    <td>Scope creep — fields added over time without reassessment, eroding the strictly-necessary posture.</td>
+    <td>Material</td><td><span class="pill p-md">Medium</span></td>
+    <td>Design-complete-before-code rule; the decisions register. <strong>Gap:</strong> no privacy gate on new fields.</td>
+    <td><span class="pill p-lo">Low</span> with rec. 10</td></tr>
+
+  <tr><td><strong>R16</strong></td>
+    <td>The platform is used to bully or harass a child — content posted about them, or a record weaponised in a squad.</td>
+    <td>Emotional</td><td><span class="pill p-md">Medium</span></td>
+    <td>No child-to-child interaction of any kind exists; no comments, reactions or messaging; report affordance on every page. <strong>Gap:</strong> no documented takedown timeframe or record retention.</td>
+    <td><span class="pill p-md">Medium</span> → low with rec. 4</td></tr>
+
+  <tr><td><strong>R17</strong></td>
+    <td>A guardian or club treats an automated attention flag as a verdict about a child.</td>
+    <td>Developmental; emotional</td><td><span class="pill p-md">Medium</span></td>
+    <td>Flags are staff-only, never shown to the player, framed as prompts a coach confirms or dismisses, and always carry a relative-age context marker. Parents never see a squad comparison.</td>
+    <td><span class="pill p-lo">Low</span></td></tr>
+
+  <tr><td><strong>R18</strong></td>
+    <td>A club uses engagement data to identify a family as a flight risk, and the family learns of it.</td>
+    <td>Emotional</td><td><span class="pill p-md">Medium</span></td>
+    <td>Retention flags are club-staff-only, never discoverable by the family, and based only on engagement signals — never on the child's performance data. They prompt a club to have a conversation with a family. <em>Note the distinction §4.5 criterion 5 turns on: Pitch never sends a re-engagement message to a user, least of all a child. A club deciding to ring a family is a club doing its job.</em></td>
+    <td><span class="pill p-lo">Low</span></td></tr>
+
+  <tr><td><strong>R19</strong></td>
+    <td><strong>A registration of interest discloses a child to a club that is not their club, and the club copies it by hand.</strong> The export that made this a high risk has been removed, so the architectural channel is closed. What remains is a screenshot, a photograph of a screen, or a transcription — <strong>and that is restrained by a contract term rather than by the design.</strong></td>
+    <td>Material; physical</td><td><span class="pill p-md">Medium</span></td>
+    <td>No export at any tier (D-122). The club receives six fields and a tokenised link, never the record (D-99). Only clubs a person at Pitch has verified (D-126). The family sends and the family revokes; revocation empties the link and the note in the same transaction (D-128), so a hand-made copy decays into a name and a dead link rather than staying useful. Clubs warrant in Schedule A that they will take no copy of any kind — screenshot, photograph or transcription — and that the obligation survives termination. <strong>Gap, stated rather than treated: a screenshot is undetectable and no product control reaches it.</strong> The honest position is that architecture closed the large hole and a contract covers the small one, and a contract is a weaker instrument than a design.</td>
+    <td><span class="pill p-md">Medium</span></td></tr>
+
+  <tr><td><strong>R21</strong></td>
+    <td><strong>The consent funnel is instrumented</strong> — one row per state transition, including whether a guardian opened the email — which sits against the "no behavioural tracking" posture asserted everywhere else in this document.</td>
+    <td>Material</td><td><span class="pill p-md">Medium</span></td>
+    <td>It measures <em>the message</em>, not the person: a fixed vocabulary of twelve delivery states, on the guardian's channel, for the single flow on which a child's account depends. Without it we cannot distinguish a parent who declined from a parent whose email was spam-foldered, and those are opposite problems. <strong>No equivalent instrumentation exists on any account belonging to a person under 18.</strong> Disclosed in the privacy policy rather than buried. <em>The boundary to hold: this table takes new event types only where the same test is met — a flow a child's safety depends on, measured on an adult's channel.</em></td>
+    <td><span class="pill p-lo">Low</span></td></tr>
+
+  <tr><td><strong>R22</strong></td>
+    <td><strong>The Interest Register — a child's disclosure reaching a club.</strong> A family sends a link, a name, an age, a current club, a squad, a position and a line of free text to an organisation that is not the child's club.</td>
+    <td>Physical; material</td><td><span class="pill p-hi">High</span></td>
+    <td><strong>Strong, and better than the design it replaces.</strong> Only a human-verified club receives anything — payment can never be the gate. The guardian presses send on every under-16 registration and sees the club, the trial, the payload in plain words and the child's own note before doing so. What travels is a revocable link, never a file or a copy. <strong>There is no export</strong>, so a family who revokes disappears from the list the same minute. Revocation empties the note in the same transaction. No club ever receives a phone number or an email address for a player or a family.</td>
+    <td><span class="pill p-md">Medium</span></td></tr>
+
+  <tr><td><strong>R23</strong></td>
+    <td><strong>A commercial mechanism reaches a child.</strong> Card payments introduce billing surfaces, dunning, cancellation and a promotional conversion — each of which could touch a minor's account or destroy a minor's data if built without thought.</td>
+    <td>Material; emotional</td><td><span class="pill p-md">Medium</span></td>
+    <td>No billing surface is reachable from any player, family or under-18 view, including portal links and receipts. Card numbers never touch our systems. <strong>Payment failure suspends and never deletes</strong> — a child's registration is hidden during dunning, never destroyed, so no child is lost because a card expired. The payment provider receives a club, a contact and a card, and nothing about any child. <strong>Gap: the founding-cohort conversion from free to paid must be disclosed, reminded and cancellable</strong> — see recommendation 15.</td>
+    <td><span class="pill p-lo">Low</span> with rec. 15</td></tr>
+
+  <tr><td><strong>R24</strong></td>
+    <td><strong>The pending version, and the pre-approval draft.</strong> Two states now exist in which a full record about a child sits in our database with no adult having approved it — a page built before a guardian is asked, and an edit made after approval.</td>
+    <td>Material</td><td><span class="pill p-md">Medium</span></td>
+    <td>Both are unreachable by every query in the system and rendered to exactly two people: the child who typed it and the guardian being asked. Never a club, a coach, a search, a support console, an image or a link. The pre-approval draft purges at 14 days; a pending edit at 60. A club holding a link keeps seeing the last approved version — never the unreviewed edit, and never a blank page. <em>The consent gain is real: a guardian now approves the words, not just the account.</em></td>
+    <td><span class="pill p-lo">Low</span></td></tr>
+
+  <tr><td><strong>R25</strong></td>
+    <td><strong>The dead-link request.</strong> A page that reveals nothing now carries a route back to the guardian, which is a channel that did not previously exist.</td>
+    <td>Physical</td><td><span class="pill p-md">Medium</span></td>
+    <td>Only a signed-in, human-verified club can ask, carrying its own identity rather than typed text — which is the difference between a club channel and a stranger channel. The screen renders identically whether or not the record exists, so a revoked link still looks exactly like a wrong one. The request lands in the guardian's account, never an inbox, rate-limited to one per club per link per day. <strong>Requirement: the guardian's silence must produce no visible state to the club</strong> — no seen, no pending, no counter — or silence stops being silence.</td>
+    <td><span class="pill p-lo">Low</span></td></tr>
+
+  <tr><td><strong>R20</strong></td>
+    <td><strong>The overseas waitlist and worldwide page visibility</strong> reach children and adults in jurisdictions whose children's-privacy regimes we have not built for.</td>
+    <td>Material</td><td><span class="pill p-md">Medium</span></td>
+    <td>Account creation is Australia-only; overseas under-18s are asked for nothing and only anonymous counts are kept; no IP retained. <strong>Gap:</strong> we still serve a page to, and take an email address from, adults in the United Kingdom and European Union, and an Australian child's public page is retrievable there. Before counsel at doc 18 question 10.</td>
+    <td><span class="pill p-md">Medium</span></td></tr>
+</table>
+</div>
+
+<div class="flag warn">
+  <span class="ft">Watching item, not yet a risk entry</span>
+  <p>League benchmarking — comparing a club's age-group development trend against a league average — is a planned enterprise feature built on children's assessment data. It is designed as anonymised and aggregate-only, with no player identifiable and no club named. <strong>Before it is built, this assessment must be revised with a proper de-identification analysis</strong>, because aggregate figures over small squads re-identify easily, and a fifteen-player age group at one club is a small squad. It is on the review schedule at §6.</p>
+</div>
+
+<h3>4.7 Benchmark — the ICO Children's Code, fifteen standards</h3>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Standard</th><th>Position</th></tr>
+  <tr><td>1 Best interests</td><td><span class="pill p-lo">Met</span> Criteria stated at §4.5.</td></tr>
+  <tr><td>2 Impact assessments</td><td><span class="pill p-lo">Met</span> This document; register to be published.</td></tr>
+  <tr><td>3 Age appropriate application</td><td><span class="pill p-md">Partly</span> Three age bands enforced in the data model; the age check itself is the R3 gap.</td></tr>
+  <tr><td>4 Transparency</td><td><span class="pill p-lo">Met</span> Child-directed policy at doc 16; just-in-time notices.</td></tr>
+  <tr><td>5 Detrimental use of data</td><td><span class="pill p-lo">Met</span> No profiling, no advertising, no sale, no secondary use.</td></tr>
+  <tr><td>6 Policies and community standards</td><td><span class="pill p-md">Partly</span> Terms and report route exist; a published code of conduct for adults is recommendation 4.</td></tr>
+  <tr><td>7 Default settings</td><td><span class="pill p-md">Partly</span> High privacy by default under 16; the 16–17 discoverability default is the open question at §4.5.</td></tr>
+  <tr><td>8 Data minimisation</td><td><span class="pill p-lo">Met</span> Strictly-necessary standard adopted; inventory at §4.1.</td></tr>
+  <tr><td>9 Data sharing</td><td><span class="pill p-lo">Met</span> Club disclosure only, consented at joining; no third-party sharing.</td></tr>
+  <tr><td>10 Geolocation</td><td><span class="pill p-lo">Met</span> Not collected at all. Region is a self-entered city.</td></tr>
+  <tr><td>11 Parental controls</td><td><span class="pill p-md">Partly</span> Guardian visibility is total and the child is told so at sign-up; the child should also be told at each significant guardian action — recommendation 11.</td></tr>
+  <tr><td>12 Profiling</td><td><span class="pill p-lo">Met</span> No profiling of any kind. No recommender anywhere in the product.</td></tr>
+  <tr><td>13 Nudge techniques</td><td><span class="pill p-lo">Met</span> No streaks, no re-engagement prompts, no premium surfaces on under-18 accounts.</td></tr>
+  <tr><td>14 Connected toys</td><td><span class="pill p-na">N/A</span></td></tr>
+  <tr><td>15 Online tools</td><td><span class="pill p-md">Partly</span> Deletion and revocation are one action; a child-facing complaints route is recommendation 4.</td></tr>
+</table>
+</div>
+
+<h3>4.8 Benchmark — eSafety Safety by Design</h3>
+
+<p><strong>Service provider responsibility.</strong> Safety is architectural rather than user-managed: a child cannot be contacted, cannot be found in search, and cannot receive a message, whatever they or anyone else does with the settings. Accountability sits with the founder, and will need to be named as a role rather than a person as the company grows. A reporting affordance exists on every public page. <em>Gap: escalation pathways, a law-enforcement protocol, and report record retention are not documented — recommendation 4.</em></p>
+
+<p><strong>User empowerment and autonomy.</strong> Defaults are the most private available for under-16s. Guardian controls are one action each. The consent screen states the promises in plain language rather than burying them in terms. <em>Gap: no appeal path against a takedown or account action — recommendation 4.</em></p>
+
+<p><strong>Transparency and accountability.</strong> Provenance tags on every figure; assessments immutable with visible supersession; an append-only consent log. <em>Gap: no published safety reporting. Committing to an annual transparency note would be cheap and would sell to technical directors — recommendation 11.</em></p>
+
+<p>Completing eSafety's Safety by Design start-up self-assessment tool and attaching the report to this PIA is recommendation 11; it is free and would evidence the documented-risk-assessment element directly.</p>
+
+<h3>4.9 Recommendations</h3>
+
+<div class="flag warn">
+  <span class="ft">Required, or merely prudent</span>
+  <p>Version 1.0 presented all of these at the same weight, which made it impossible to tell an obligation from good practice and would have wasted the solicitor's time working it out. Each is now marked:</p>
+  <p><span class="pill p-hi">Required</span> we believe a law or a locked decision compels it · <span class="pill p-md">Prudent</span> defensible without it, better with it · <span class="pill p-lo">Posture</span> evidences the standard we claim to hold, and costs little.</p>
+  <p><strong>The marking is ours and is exactly the thing counsel should correct.</strong> Where we have called something required, the source is named so it can be checked rather than trusted.</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <tr><th>#</th><th>Recommendation</th><th>Weight</th><th>Owner</th><th>By</th></tr>
+
+  <tr><td><strong>1</strong></td><td><strong>Build suppression, and a guardian-removal path.</strong> A player's record can be made wholly invisible — no public page, no link, no club listing — on request from a guardian or a club, without deleting it. Separately, a documented path to remove one guardian's access. <em>See §4.10 for how that path must work, because it must not require anyone here to adjudicate a family dispute.</em></td><td><span class="pill p-hi">Required</span><br><span style="font-size:.72rem;color:var(--muted)">D-17, D-51; the control R6 needs</span></td><td>Build</td><td><span class="pill p-hi">Launch-blocking</span></td></tr>
+
+  <tr><td><strong>2</strong></td><td><strong>Lock declared date of birth against upward amendment</strong> without guardian or club confirmation, and add the two detection measures at §4.11 — the age-contradiction hold, and a report route for "this account belongs to a child".</td><td><span class="pill p-hi">Required</span><br><span style="font-size:.72rem;color:var(--muted)">R3 is the largest hole in the design</span></td><td>Build</td><td><span class="pill p-hi">Launch-blocking</span></td></tr>
+
+  <tr><td><strong>3</strong></td><td><strong>Search-engine exclusion:</strong> <code>noindex, nofollow</code> on every under-18 page, and exclusion from sitemaps. <em>The social preview stays — D-89 already strips a minor's card to a first name, an initial and football, which is the right answer and a better one than suppressing the card.</em></td><td><span class="pill p-hi">Required</span><br><span style="font-size:.72rem;color:var(--muted)">D-18 promises no search; Google is a search</span></td><td>Build</td><td><span class="pill p-hi">Launch-blocking</span></td></tr>
+
+  <tr><td><strong>12</strong></td><td><strong>Defer third-party video loading.</strong> A click-to-play façade, so nothing reaches YouTube, Instagram or Veo until a viewer presses play. Goes further than D-94's referrer policy, which stops the token leaking but still makes the connection.</td><td><span class="pill p-hi">Required</span><br><span style="font-size:.72rem;color:var(--muted)">D-94; half a day</span></td><td>Build</td><td><span class="pill p-hi">Launch-blocking</span></td></tr>
+
+  <tr><td colspan="5" style="background:var(--surface-2);color:var(--muted);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em">The four above are the launch test. Everything below is sequenced, not blocking.</td></tr>
+
+  <tr><td><strong>4</strong></td><td><strong>Publish the safety operations standard we can actually keep</strong> — not the one best practice describes. Specified in full at §4.10: a published one-business-day response built on the existing support commitment, an unpublished emergency class that reaches a person within hours, and a one-action takedown that works from a phone.</td><td><span class="pill p-hi">Required</span><br><span style="font-size:.72rem;color:var(--muted)">Basic Online Safety Expectations, subject to doc 18 Q6</span></td><td>Founder</td><td>Before launch — the reporting route goes live with it</td></tr>
+
+  <tr><td><strong>13</strong></td><td><strong>Make revocation visible to the club, so the no-copy term is reinforced by experience rather than by trust alone.</strong> The use-limitation and no-copy obligation are now in Schedule A (A8(e), A8.1) and the export is gone, which was the substance of this recommendation as originally written. What is left is the part a document cannot do: when a family revokes, the club should <em>see</em> the entry go — not silently vanish — so that the club learns, early and concretely, that a copy it took by hand is a copy of something that no longer exists. <em>A term a club has watched operate is worth more than a term a club has read.</em></td><td><span class="pill p-md">Prudent</span></td><td>Build + founder</td><td>With the Interest Register</td></tr>
+
+  <tr><td><strong>6</strong></td><td><strong>Extend the deletion cascade</strong> to cache invalidation, social-card purging, search-index removal and a stated backup expiry window — the number now published in doc 23.</td><td><span class="pill p-hi">Required</span><br><span style="font-size:.72rem;color:var(--muted)">D-26; a cascade that misses a cache is not a cascade</span></td><td>Build</td><td>Before the December release</td></tr>
+
+  <tr><td><strong>7</strong></td><td><strong>Write the incident response plan</strong> — detection, assessment, notification decision, notification content — and obtain cyber and professional indemnity cover before the first club signs.</td><td><span class="pill p-md">Prudent</span><br><span style="font-size:.72rem;color:var(--muted)">Required if we opt in under s 6EA</span></td><td>Founder</td><td>Before the first club</td></tr>
+
+  <tr><td><strong>8</strong></td><td><strong>Build the disputed-assessment mechanism:</strong> where a correction is refused, a family may attach a short statement of disagreement so it is apparent to anyone reading the entry.</td><td><span class="pill p-md">Prudent</span><br><span style="font-size:.72rem;color:var(--muted)">APP 13.4 if we opt in</span></td><td>Build</td><td>With assessments</td></tr>
+
+  <tr><td><strong>9</strong></td><td><strong>Define dormancy handling:</strong> a trigger after the period stated in doc 23 that notifies the guardian and offers export, retention or deletion.</td><td><span class="pill p-md">Prudent</span></td><td>Build</td><td>Before the December release</td></tr>
+
+  <tr><td><strong>10</strong></td><td><strong>Put a privacy gate on the register:</strong> any new field or data flow touching a person under 18 carries a recorded strictly-necessary justification before it is built. <em>R21 is the worked example — the consent-funnel table passed that test; the next proposal may not.</em></td><td><span class="pill p-lo">Posture</span></td><td>Founder</td><td>Immediate</td></tr>
+
+  <tr><td><strong>14</strong></td><td><strong>Decide the overseas position.</strong> Pending doc 18 Q10, either geo-restrict the waitlist email capture or accept and document the obligation. Do not leave it undecided once the page is public.</td><td><span class="pill p-md">Prudent</span></td><td>Founder</td><td>Before any marketing reaches the page</td></tr>
+
+  <tr><td><strong>5</strong></td><td><strong>Reduce under-16 public CVs to first name and initial</strong> if counsel supports it, with the full name visible to the child's own club and to link recipients. <em>Weaker now than at v1.0: D-89 already applies exactly this rule to the social card, which is the surface that outlives revocation. The page itself is reached only by a live link.</em></td><td><span class="pill p-md">Prudent</span></td><td>Build</td><td>On advice</td></tr>
+
+  <tr><td><strong>15</strong></td><td><strong>The founding-cohort conversion must be disclosed, reminded and cancellable</strong> — stated at signup in the same visual weight as the offer, a reminder 30 days before it converts naming the date and amount, and a one-click cancel before it happens. <em>This is the most legally exposed item in the product and the cheapest to fix — a free year that silently becomes a charge is exactly the pattern the regulator has named as a priority.</em></td><td><span class="pill p-hi">Required</span><br><span style="font-size:.72rem;color:var(--muted)">ACL; subscription-trap enforcement posture</span></td><td>Build</td><td><span class="pill p-hi">Before the first founding club</span></td></tr>
+
+  <tr><td><strong>16</strong></td><td><strong>A guardian's silence on a dead-link request produces no state visible to the club.</strong> No seen, no pending, no counter, no timestamp. Silence must look identical to a request that was never delivered.</td><td><span class="pill p-hi">Required</span><br><span style="font-size:.72rem;color:var(--muted)">D-77's indistinguishability rule</span></td><td>Build</td><td>With the dead-link screen</td></tr>
+
+  <tr><td><strong>11</strong></td><td><strong>Consult families, publish, and tell the child.</strong> Include under-16 players' <strong>guardians</strong> in the shakedown weekend with their difficulties recorded as findings; complete eSafety's Safety by Design start-up self-assessment (doc 25 appendix) and attach it; commit to an annual transparency note; and tell a child at each significant guardian action, not only at sign-up. <em>Changed at v1.1: consulting under-16s directly is withdrawn from the shakedown — see §4.10.</em></td><td><span class="pill p-lo">Posture</span></td><td>Founder</td><td>Shakedown, then December</td></tr>
+  </table>
+</div>
+
+<h3>4.10 What a company of one person can honestly operate</h3>
+
+<p>Version 1.0 recommended a safety operations layer that included a 24-hour out-of-hours takedown capability, and it was challenged on the ground that a one-person company cannot staff it. <strong>That challenge is correct and the recommendation is rewritten.</strong> The right question is not what best practice describes; it is what we can keep every single time, including on the Sunday of a long weekend — because a published standard we miss once is worse than a smaller one we always meet, both in front of a regulator and in front of the family it was missed on.</p>
+
+<p>Three things, separated because they are different problems:</p>
+
+<div class="grid2">
+  <div class="card tight">
+    <h4>What we publish</h4>
+    <p style="margin:0"><strong>One business day</strong> to respond to any report, with an automated acknowledgment on receipt that says when a human will look. This matches the support commitment already made elsewhere in the project and does not invent a second, competing promise. It is deliberately unambitious and it is always kept.</p>
+  </div>
+  <div class="card tight">
+    <h4>What we build but do not publish</h4>
+    <p style="margin:0">An <strong>emergency class</strong> — a child's identity exposed, an adult attempting contact, a report naming a child at risk — that bypasses the inbox and reaches the founder's phone directly. Target: hours while awake, first thing otherwise. Unpublished, because publishing it converts it into a promise; built, because it is what actually protects someone.</p>
+  </div>
+  <div class="card tight" style="grid-column:1/-1">
+    <h4>What removes the need for a roster</h4>
+    <p style="margin:0"><strong>A one-action takedown that works from a phone.</strong> Any admin can make a page invisible in seconds without judging the merits, from anywhere, and reverse it later. A statutory removal window is met by <em>capability</em>, not by staffing — the answer to "what if a notice arrives at 9pm on a Friday" is that taking the page down takes fifteen seconds and asks no questions. <em>This is the same build as recommendation 1's suppression switch, which is why recommendation 1 carries both.</em> It must be tested from a phone before launch, not assumed.</p>
+  </div>
+</div>
+
+<p><strong>Three further items from v1.0 are withdrawn or changed, and the reasoning was not ours.</strong></p>
+
+<ul>
+  <li><strong>Consulting under-16s directly during the shakedown weekend: withdrawn.</strong> Research with children carries its own consent and welfare requirements and does not belong in the same seventy-two hours as a launch. Recommendation 11 now consults <em>guardians</em> during the shakedown, and a proper child-consultation exercise is designed separately, with its own protocol, for the December sprint. <em>This was a good recommendation put in an indefensible place.</em></li>
+  <li><strong>Adjudicating a guardian dispute: never.</strong> Recommendation 1 asks for the technical capability to remove a guardian's access. It must not ask a founder to weigh two parents' accounts of a family. The process, which is triage and not judgment: act without question on a court order, a parenting order or a police request; short of that, <strong>the immediate no-questions action is suppression, not removal</strong> — the record goes dark for everyone while the family sorts out what it needs — and the family is pointed to 1800RESPECT. Removing a guardian's access permanently happens on an order, or not at all. <em>The person answering that inbox must never be the person deciding who a child's parent is.</em></li>
+  <li><strong>Five-year retention of report records: kept, but split.</strong> It appears to be required — the Basic Online Safety Expectations set a five-year record-keeping expectation for reports, subject to counsel confirming the provision — and the tension with our own minimisation posture is real. The resolution: <strong>retain the report event, the decision, the action taken and the timestamps for five years; minimise the identifying content inside that record; and where reported material itself is held as evidence, hold it separately, with restricted access, on a shorter clock unless a law-enforcement hold applies.</strong> What is required is proof that we handled a report properly. That is not the same as a five-year file about a child.</li>
+</ul>
+
+<h3>4.11 Age assurance — the answer to the question that was actually asked</h3>
+
+<p>R3 is the largest hole in this design, and it has been open since v1.0 without a proposed fix. The question put to this seat was: <em>what does adequate age assurance look like for us, given that we refuse to collect government identity documents?</em> Three parts, answered in order.</p>
+
+<h4>Is the club roster cross-check sound?</h4>
+<p><strong>Yes, and it is the strongest measure available to us — but it must be built as a match, not as a collection.</strong> If a club sends us a roster, we have acquired a list of children from a third party, most of whom are not our users, which is over-collection on any reading. If instead we send the club a name and a date of birth we already hold and receive a yes or a no, we have verified what a guardian told us without acquiring anything. <strong>Build it as a one-bit answer.</strong> The honest limitation: it is worthless at launch, because no club is on the platform on the first day. The third rung of the waterfall does not exist for the first cohort and no document should imply otherwise.</p>
+
+<h4>Should a 16-or-over sign-up require guardian contact before activation?</h4>
+<p><strong>For 16 and 17, yes — required, and not for age-assurance reasons.</strong> The locked architecture gives a 16–17 year old's guardian an off-switch on discoverability and routes all contact to guardian and player together. <em>Neither is buildable if there is no guardian on the record.</em> A 16–17 account without guardian contact is not weakly assured; it is a build that cannot honour two locked decisions. That makes it a defect rather than a question.</p>
+<p><strong>For 18 and over, no.</strong> Demanding a guardian's details from an adult is over-collection and would be refused by every adult who read it.</p>
+
+<h4>So what closes the 18-plus hole?</h4>
+<p>Nothing closes it completely without identity documents, and pretending otherwise would be the worst outcome available. What is left is a shift from prevention to <em>detection</em>, and two of the four are nearly free:</p>
+<ul>
+  <li><strong>Lock the declared date of birth against upward amendment</strong> without guardian or club confirmation. Closes the declare-young-then-age-up path. Cheap. <em>Recommendation 2.</em></li>
+  <li><strong>The age contradiction is visible to us and we are not looking at it.</strong> An account claiming to be 19 that names a U15 squad as its current team is a contradiction the system can see for free, because it is football data we already hold. Hold the account at sign-up and route it to the inbox. This is probably the single highest-yield measure available and nobody has proposed it before now. <em>Recommendation 2.</em></li>
+  <li><strong>A report route for "this account belongs to a child"</strong>, usable without an account and without certainty. Coaches and parents in a football community know who the children are; we do not. <em>Recommendation 2.</em></li>
+  <li><strong>Treat adulthood as a claim until something corroborates it</strong> — an unverified adult gets a reduced surface until a club affiliation or a second signal arrives. This is exactly how coach status is already treated. Design in December; too large for this runway.</li>
+</ul>
+
+<h4>Is refusing government ID right, or merely comfortable?</h4>
+<p><strong>Right, and this seat would hold that line even if counsel said we could.</strong> The Privacy Commissioner's age-assurance guidance requires proportionality and data minimisation and is explicit that age assurance is not a blank cheque to use personal or sensitive information. Collecting an identity document from a child, or from a parent about a child, creates a breach consequence far worse than the one it prevents — and a document store is a target in a way that a football CV is not.</p>
+<p><strong>The honest other half:</strong> refusing identity documents means we cannot achieve high assurance, so <strong>we must never claim it.</strong> No Pitch document, screen or sales conversation may say or imply that we verify age. We ask; we confirm with a guardian on two separate channels; later we check with a club. That is what we do, and it is what the privacy policy says.</p>
+
+<div class="flag stop">
+  <span class="ft">The thing to hold on to about R3</span>
+  <p>A child who lies about their age does not merely slip past the guardian gate. They place themselves in the adult band, where our protections deliberately stop — no guardian visibility, no routed contact, a public profile. <strong>The architecture protects children; it does not protect people it has been told are adults.</strong> That is why detection matters more here than a better front door, and why the age-contradiction hold is worth more than anything else on this list.</p>
+</div>
+
+<!-- 5 -->
+<h2>5 · Conclusion</h2>
+<p class="h2sub">Whether the safeguards are sufficient.</p>
+
+<p>Pitch handles a great deal of information about children and makes some of it visible to adults, which is an unusual thing to build and an unusually consequential thing to get wrong. The assessment finds that the safeguards designed into the product — permissions computed rather than stored, a guardian gate that precedes the existence of a child's profile, an absolute prohibition on adult-to-child contact, the complete absence of a social layer for minors, and the refusal to collect location, behaviour or health data — address the great majority of the privacy risk before it arises, and do so structurally rather than by policy.</p>
+
+<p>Four residual risks are not adequately treated today, and they are the substance of this document: a guardian who should not have access, with no way to remove one (R6); a child who declares an adult age and steps outside the entire architecture (R3); public pages about children that nothing currently stops a search engine indexing (R1); and third-party embeds that reach out from a page whose subject is a minor (R10). Recommendations 1, 2, 3 and 12 address them, and together they are roughly three to four engineering days.</p>
+
+<p>Three further risks are treated but not closed, and each has a date rather than a fix: the safety operations standard, which must be published and operable on the day the reporting route goes live (R16, recommendation 4 and §4.10); the residual hand-copy risk in the Interest Register, now that the export is gone and only a contract term stands between a club and a screenshot (R19, recommendation 13); and the overseas waitlist (R20, recommendation 14).</p>
+
+<p><strong>The conclusion, restated as the test it needs to be:</strong> the safeguards designed into this product address the great majority of the privacy risk structurally, before it arises, and are better than what a platform of this size would ordinarily have. They are <em>not</em> sufficient as things stand. <strong>They become sufficient when recommendations 1, 2, 3 and 12 are green</strong> — and that is a check that can be run on the morning of any soft launch and answered yes or no, which is what a go/no-go needs. Everything else here is sequenced, and none of it is a reason to hold the date.</p>
+
+<p>This assessment remains subject to the legal advice sought at doc 18, and to the two provisions at §2 that could not be verified from a primary source.</p>
+
+<!-- 6 -->
+<h2>6 · Appendices</h2>
+
+<div class="tablewrap">
+<table>
+  <tr><th>&nbsp;</th><th>Document</th></tr>
+  <tr><td>A</td><td>Doc 09 — Stage 0 foundations: the ten objects, the age state machine, the permission matrix in full</td></tr>
+  <tr><td>B</td><td>Doc 06 — Design Decisions Register: every decision by number, with its state</td></tr>
+  <tr><td>C</td><td>Doc 20 and doc 21 — the two privacy policies</td></tr>
+  <tr><td>D</td><td>Doc 22 — terms of service and club terms</td></tr>
+  <tr><td>E</td><td>Doc 23 — the retention statement, with a period for every class of information</td></tr>
+  <tr><td>F</td><td>Doc 24 — code of conduct for adults · Doc 25 — complaints, escalation and appeal, with the Safety by Design self-assessment as its appendix</td></tr>
+  <tr><td>G</td><td>Doc 26 — the plain-English access model, one page</td></tr>
+  <tr><td>H</td><td>Shakedown findings — <em>to follow</em></td></tr>
+</table>
+</div>
+
+<h3>Review schedule</h3>
+<p>This assessment is reviewed on registration of the Children's Online Privacy Code; <strong>before any soft launch</strong>; before the search and assessment release; before the Stage 3 network layer; before any match-day tracking release; <strong>before any league benchmarking feature is built, with a full de-identification analysis</strong>; on any change to the age bands or the permission matrix; and otherwise annually. Each review is entered in the PIA register with its date, trigger and outcome.</p>
+
+<footer>
+  Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · Privacy Impact Assessment · doc 19 · v2.1 · 1 September 2026 · prepared in-house for legal review · not legal advice · reconciled to register v4.1 on the matters listed in the header note
+</footer>
+
+</div>
+</body>
+</html>

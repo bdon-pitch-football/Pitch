@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitch 3.0 — Stage 0 Foundations</title>
+<style>
+  :root{
+    --bg:#0c1110; --card:#141b19; --card2:#1b2421; --line:#2a3531;
+    --ink:#eef3f1; --ink2:#a8b5b0; --muted:#7b8783;
+    --accent:#3ddc84; --accent-ink:#06130c;
+    --safe:#e34948; --gold:#eda100; --blue:#3987e5; --purple:#a479e2; --r:16px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f3f6f4; --card:#fff; --card2:#eef2f0; --line:#e0e6e3;
+      --ink:#101815; --ink2:#4d5854; --muted:#6b7672; --accent:#0e8a4d; --accent-ink:#fff;
+      --safe:#c1332f; --gold:#9a7b1a; --blue:#2a78d6; --purple:#7c5cbf; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5;padding-bottom:60px}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 18px}
+  header{padding:30px 0 4px}
+  .eyebrow{color:var(--accent);font-weight:700;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase}
+  h1{margin:.15em 0 .2em;font-size:1.85rem;line-height:1.1;font-weight:800}
+  .sub{color:var(--ink2);font-size:.96rem;margin:0;max-width:70ch}
+  h2{font-size:1.15rem;margin:34px 0 3px;font-weight:800}
+  .lede{color:var(--muted);font-size:.86rem;margin:0 0 13px;max-width:76ch}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:17px 19px}
+
+  /* entities */
+  .ents{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media(max-width:900px){.ents{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.ents{grid-template-columns:1fr}}
+  .en{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:13px 15px;border-top:4px solid var(--c,var(--accent))}
+  .en h3{margin:0 0 3px;font-size:.95rem;font-weight:800}
+  .en .own{font-size:.62rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--c,var(--accent));margin-bottom:5px}
+  .en p{margin:0;font-size:.78rem;color:var(--ink2)}
+  .en .d{font-size:.68rem;color:var(--muted);margin-top:6px}
+
+  /* state machine */
+  .sm{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:8px;align-items:stretch;margin-top:10px}
+  @media(max-width:760px){.sm{grid-template-columns:1fr}.arrow{transform:rotate(90deg);justify-self:center}}
+  .band{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:13px 15px;border-top:4px solid var(--c)}
+  .band h3{margin:0 0 4px;font-size:.95rem;font-weight:800;color:var(--c)}
+  .band ul{margin:0;padding-left:1.05em}
+  .band li{font-size:.76rem;margin:.24em 0;color:var(--ink2)}
+  .arrow{display:grid;place-items:center;color:var(--muted);font-size:1.2rem;font-weight:800}
+  .tr{font-size:.68rem;color:var(--muted);text-align:center;max-width:110px}
+
+  /* matrix */
+  .mx{overflow-x:auto;margin-top:10px}
+  table{border-collapse:collapse;width:100%;font-size:.78rem;min-width:720px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;color:var(--ink2);vertical-align:top}
+  th{background:var(--card2);color:var(--ink);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  td b{color:var(--ink)}
+  .no{color:var(--safe);font-weight:700}
+  .yes{color:var(--accent);font-weight:700}
+  .cond{color:var(--gold);font-weight:700}
+
+  .note{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--blue);border-radius:14px;padding:14px 17px;margin-top:12px;font-size:.85rem;color:var(--ink2)}
+  .note b{color:var(--ink)}
+  .open{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--gold);border-radius:14px;padding:14px 17px;margin-top:12px;font-size:.85rem;color:var(--ink2)}
+  .open b{color:var(--ink)}
+  .foot{color:var(--muted);font-size:.76rem;text-align:center;margin-top:28px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Pitch 3.0 · doc 09 · Stage 0</div>
+    <h1>Foundations — the data model</h1>
+    <p class="sub">The choices that can never be retrofitted, designed before a line of code. Built on register decisions D-10, D-17–D-26, D-48–D-51, <b>and extended on 27 August by D-101 to D-144</b>. <b>Read §⓪ first — it carries six objects this document was written before, and where it disagrees with anything below it, §⓪ wins.</b> There is no build date: the gate is doc 14 green, not a calendar (D-131).</p>
+  </header>
+
+  <h2>⓪ The 27 August objects — read this before anything below it</h2>
+  <p class="lede"><b>This document was written on 25 August and six objects joined the model on 27 August.</b> Where this section and anything later in the file disagree, <b>this section wins</b> and the later text is stale. Register <b>v3.8 (D-01 &ndash; D-144)</b>.</p>
+  <div class="note"><p><b>One deletion first, because it is the sharpest error in this file.</b> §② below describes a <b>&ldquo;Registrant Record &mdash; trial-applicant row&hellip; ships post-launch&rdquo;</b>. That object is <b>gone</b>, and both halves of the sentence are now wrong: it ships in <b>Phase 1</b> (D-108, D-130), and the words <b>applicant, application, declined, rejected, unsuccessful</b> do not exist in this product for any actor on any surface (D-108 extending D-85). It is replaced by <code>registration</code>, below. <b>A player registers interest in a club. A trial is a tag on that registration, never a separate object.</b></p></div>
+
+  <div class="ents">
+
+    <div class="en" style="--c:var(--gold)"><div class="own">Owned by the club · read by the club</div><h3>registration</h3><p><b>A player&rsquo;s standing interest in a club.</b> Not an application, not a queue, and <b>no verdict is ever owed</b>. Fields: <code>player_id</code> &middot; <code>club_id</code> &middot; <code>squad_target</code> &middot; <code>positions[]</code> &middot; <code>trial_tag</code> (nullable &mdash; a trial is a tag, not a parent object) &middot; <code>note</code> &middot; <code>club_status</code> &middot; <code>created_at</code> &middot; <code>disclosed_by</code> &middot; <code>policy_version</code>.</p>
+      <p><b>Three invariants, each with a doc 14 row:</b><br>&bull; <b><code>club_status</code> has exactly three values and none of them is a verdict</b>, and it <b>never reaches the player</b> (doc 14 §N10). <code>declined</code>, <code>rejected</code> and <code>unsuccessful</code> cannot be written.<br>&bull; <b>Revocation empties <code>note</code> in the same transaction</b> that withdraws the row (D-128, §N7). The note is child-authored content sitting on <i>our</i> row, not behind the token &mdash; killing the link never touched it, and &ldquo;nothing readable survives&rdquo; is only true if this is atomic.<br>&bull; <b>No route serialises more than one registration</b> (D-122, §N12). There is no export, no CSV, no download, not behind a flag.</p>
+      <div class="d">Decisions: D-108, D-122, D-128, D-130</div></div>
+
+    <div class="en" style="--c:var(--safe)"><div class="own">The gate · not a badge</div><h3>club_state &amp; verification_call</h3><p><b>The single most important column in the schema.</b> <code>club_state</code> is <code>unclaimed &middot; claimed &middot; verified &middot; suspended</code>. <b>No fact about a person under 18 reaches a club that is not <code>verified</code></b> (D-126).</p>
+      <p><b><code>verified</code> is written only by an operator action</b> carrying <code>operator</code>, <code>called_at</code> and <code>number_source</code>. <b>Not a webhook, not a payment, not a claim, not a domain match, not a backfill, not a migration.</b> Doc 14 §M4 asserts no automated path exists &mdash; it is the one row that, if it fails, means a card payment is all that stands between an adult and a child&rsquo;s details.</p>
+      <p>The <code>verification_call</code> table is <b>doc 27&rsquo;s thirteen log fields, built as written</b>: <code>club_id &middot; called_at &middot; operator &middot; number_called &middot; number_source &middot; answered_by &middot; club_confirmed &middot; person_confirmed &middot; incorporated &middot; authority_confirmed &middot; outcome &middot; notes &middot; policy_version</code>. <b><code>number_source</code> is NOT NULL</b> &mdash; a blank invalidates the call, because ringing the number on the claim form verifies nothing.</p>
+      <p><b>Held, not rejected:</b> registrations arriving for an unverified club are <b>held</b>. The club sees a count and nothing else, and held rows are <b>indistinguishable by enumeration</b> from an empty club (§J61).</p>
+      <div class="d">Decisions: D-126, D-137, D-139, D-142 &middot; doc 27 is the schema</div></div>
+
+    <div class="en" style="--c:var(--accent)"><div class="own">Owned by the player · gated by the guardian</div><h3>The approved / pending version pair</h3><p><b>An under-16 record now has two versions</b> (D-119). The public page renders the <b>approved</b> one; the child sees their own <b>pending</b> edit and a waiting state.</p>
+      <p><b>Four properties, and the second is the one that gets built wrong:</b><br>&bull; A club holding a link <b>keeps seeing the last approved page</b> while an edit is pending.<br>&bull; <b>The page never blanks and nothing is taken down</b> during pending. An implementation that unpublishes while awaiting approval has quietly punished the child for editing.<br>&bull; <b>No timeout publishes a pending version</b> (§R7). Silence keeps the approved page live, indefinitely.<br>&bull; The guardian reviews <b>what changed</b>, not the whole page again.</p>
+      <p>At 16&ndash;17 and 18+ the original live-page behaviour is unchanged: one version, edited directly.</p>
+      <div class="d">Decisions: D-119, D-103 &middot; doc 14 §R</div></div>
+
+    <div class="en" style="--c:var(--purple)"><div class="own">Owned by the club → answered by the guardian</div><h3>invitation</h3><p><b>The only route from a club to a family, and it never leaves Pitch</b> (D-117). Fields: <code>club_id</code> &middot; <code>registration_id</code> &middot; <code>body</code> &middot; <code>created_at</code> &middot; <code>read_at</code> (<b>private to the family</b>) &middot; <code>reply_id</code>.</p>
+      <p><b>The outbound notification is a bare wake</b> &mdash; no child name, no club name, no message, no action inside it (doc 15 §24). A forwarded notification leaks nothing and a phone face-up on a bench shows nothing.</p>
+      <p><b>Silence produces no state a club can see</b> (D-138): no <i>seen</i>, no <i>pending</i>, no counter, no timestamp, and <b>no difference between ignored and never-arrived</b>. Any visible state turns silence into a signal, and a signal invites a second approach.</p>
+      <p><b>The club never receives a phone number or an email address</b>, before or after. The guardian replies field by field; nothing is shared by default. If they choose to hand over their own contact details, that is an adult&rsquo;s choice about their own data and the conversation leaves Pitch &mdash; that escape hatch is what makes this work without building messaging.</p>
+      <p><b>No club→player message exists outside this path</b>, asserted by route enumeration rather than a permission check (§P11).</p>
+      <div class="d">Decisions: D-117, D-138 &middot; doc 14 §P</div></div>
+
+    <div class="en" style="--c:var(--accent)"><div class="own">Owned by the club · never touches a child</div><h3>subscription</h3><p><b>Stripe hosted Checkout and the hosted Customer Portal only &mdash; never embedded card fields</b>, which is what keeps us at PCI SAQ-A (D-112). Fields on the club record: <code>plan</code> &middot; <code>status</code> &middot; <code>current_period_end</code> &middot; <code>grace_until</code> &middot; <code>stripe_customer_id</code>.</p>
+      <p><b><code>status</code> is written only by webhook.</b> The permission check reads that flag and nothing else.</p>
+      <p><b>Payment failure suspends; it never deletes</b> (D-135). Fourteen days of grace, then the register is suspended &mdash; registrations <b>hidden from the club, not destroyed</b>. Deletion runs only on cancellation, thirty days later. <b>A family&rsquo;s child is never deleted because a club&rsquo;s card expired</b>, and families are never told a club&rsquo;s payment failed. The suspended state <b>reuses the same computed permission as unverified</b>.</p>
+      <p><b>Two hard walls:</b> no billing surface is reachable from any player, family or under-18 view &mdash; including portal links and Stripe receipt emails (D-82, D-88) &mdash; and <b>Stripe never receives child data</b> (§O10). <b>Payment must never be able to set <code>club_state</code>.</b></p>
+      <div class="d">Decisions: D-112, D-135, D-136, D-137 &middot; doc 14 §O</div></div>
+
+    <div class="en" style="--c:var(--gold)"><div class="own">Guardian-gated · irreversible once out</div><h3>share_card_approval</h3><p>A player picks a card; <b>the guardian sees the exact image before it can leave</b> (D-101 as amended, 27 Aug).</p>
+      <p><b>No image is generated or given a URL before approval</b> &mdash; which is why no approval email carries a preview, since a preview is a generated image on a public URL sitting in an inbox before anyone agreed to anything. Byte-identical to what was approved, asserted by hash (§Q2).</p>
+      <p><b>A minor&rsquo;s card carries no URL, QR code or handle that resolves to their record.</b> If it points anywhere it points at <code>pitchfootball.com.au</code>, which is a front door and not a child.</p>
+      <p><b>Once approved it cannot be recalled</b> (§Q8) &mdash; and the product says so plainly rather than implying a control we do not have.</p>
+      <div class="d">Decisions: D-101, D-129 &middot; doc 14 §Q</div></div>
+
+  </div>
+
+  <div class="note"><p><b>Two corrections to objects already in §② below.</b></p>
+  <p><b>Club &mdash; &ldquo;verified status (manual verification in v1)&rdquo; is right in spirit and too vague to build.</b> Use <code>club_state</code> above. A <b>claimed-but-unverified</b> club has a page and can post trial notices; it receives <b>nothing</b> about any minor, and that is true whether or not it has paid.</p>
+  <p><b>The dates in §⑤ and §⑥ are dead</b> &mdash; 14 September, the 9 September gate, the 29 Aug&ndash;3 Sep runway. <b>D-131 replaced the dated runway with a soft launch, gated not dated:</b> doc 14 green or we do not go (D-47), and if the matrix is not green the <b>payment tier is cut rather than the launch being kept</b> (D-113). The irreversibility ranking in §⑤ is unaffected and still correct.</p>
+  <p><b>Three more schema consequences from 27 August</b>, small but not optional: <b>no <code>school</code> field on any under-18 CV</b> (D-114) &mdash; school football lives in <code>experience_entry</code>, which grants access to nobody; <b>free clip limits are ten under 18 and three at 18+</b> (D-120), which looks like a bug and is not; and <b>consent rows carry <code>policy_version</code> as <code>doc@version</code></b> (D-144) &mdash; a published version is <b>immutable</b> once anything is stamped against it, retained forever, because the product must be able to render the exact text a given parent agreed to.</p></div>
+
+  <h2>① One separation everything hangs on</h2>
+  <p class="lede"><b>A person, their profile, and their record are three different objects.</b> The person is the human (one account, even wearing two hats — coach and parent is common). The profile is the public face per role — the CVs. The record is the development history — player-owned, portable (D-10). Keeping them apart is what makes the locked architecture buildable: a U16 profile can be invisible while the record keeps growing; a coach-parent is one login; a club change moves the record without touching the club's own data.</p>
+
+  <h2>② The ten objects</h2>
+  <div class="ents">
+    <div class="en" style="--c:var(--accent)"><div class="own">Owned by the person</div><h3>Person / Account</h3><p>One per human. Roles are hats, not accounts. DOB drives the age state machine. A child's account comes into existence only by verified guardian approval (D-17) — through either door: parent-created, or child-initiated as a <b>pending invitation</b> holding first name + DOB + parent contact only, auto-purged after 14 days if unapproved. The CV gets built after approval, never before.</p><div class="d">Decisions: D-17, D-49</div></div>
+    <div class="en" style="--c:var(--accent)"><div class="own">Owned by the person</div><h3>Profile (per role)</h3><p>PlayerProfile, CoachProfile, ClubProfile — two CVs and a claimed club page (D-74). Each carries a visibility state computed from age band + guardian settings + D-22. Share links are tokenised: revocable and regenerable at any time; U16 links default to 90-day expiry (guardian adjustable, one-tap renew with reminder) and the guardian can pause the profile (D-53).</p><div class="d">Decisions: D-18, D-22</div></div>
+    <div class="en" style="--c:var(--accent)"><div class="own">Owned by the player</div><h3>Development Record</h3><p>The core object (D-10). Assessments, stats, achievements, highlight links. Travels whole between clubs (D-48). Never paywalled to its owner (D-31). Every stat and entry carries a <b>provenance tag</b> — self-reported · coach-verified · official-import (D-62) — a first-class field from day one, so future Dribl/Veo partnerships slot in as a third tier of truth with no migration, and the UI always says honestly where a number came from.</p><p><b>Amended 25 Aug — the atomic unit is a typed entry (D-71).</b> The record holds generic <b>entries</b> with a type discriminator (attendance · participation · effort observation · milestone · coach note · competency observation), not a competency-scores table with other things bolted on — so effort and participation are never second-class. <b>Stats are rows, not columns (D-70):</b> a <b>player_stat</b> table keyed by stat_key, with the position-to-stat-set catalogue held in TypeScript rather than Postgres. Max four tiles; nulls omitted, never rendered as zero. <b>No negative numbers on a minor's public CV, ever (D-67).</b></p><div class="d">Decisions: D-10, D-31, D-48, D-67, D-70, D-71</div></div>
+    <div class="en" style="--c:var(--blue)"><div class="own">Dual-attributed</div><h3>Assessment</h3><p>Authored by a verified coach as <b>criterion-referenced competency bands</b> (Introduced → Developing → Consolidating → Owns it), organised by the Four Corners — never numeric ratings (D-60). Each row references a Competency belonging to either the Pitch <b>spine</b> or a <b>ClubFramework</b> layer; spine rows are cross-club comparable, club rows travel as attributed history. Carries context markers (relative age within band). 48h edit window → immutable; corrections supersede visibly (D-50). Attribution + read-access persist for the author (D-48).</p><p><b>Amended 25 Aug (D-71): the atomic unit is the AssessmentEntry</b> — one player, one competency, one band, one author, one moment. "An assessment", as a parent reads it and as D-50 governs it, is a <b>derived grouping</b> over entries by player and block. This is shape-agnostic: player-major entry, competency-major sweeps, mixed entry and single-tap corrections all work with no migration between them. <b>Two rules that carry the promise:</b> entries reference competencies by <b>(competency_id, framework_version)</b>, never by name; and there is <b>no unique constraint on (record_id, competency_id, block_id)</b> — append-only supersession is what leaves room for a later TD moderation entry.</p><div class="d">Decisions: D-11, D-12, D-50, D-71</div></div>
+    <div class="en" style="--c:var(--safe)"><div class="own">The legal spine</div><h3>Guardianship Link</h3><p>Guardian ↔ child. ≤2 guardians, equal visibility, either approves, both notified, most-restrictive-wins (D-51). Carries consent state; auto-expires at 18 (D-49) with re-grant by the adult player.</p><div class="d">Decisions: D-17, D-49, D-51</div></div>
+    <div class="en" style="--c:var(--safe)"><div class="own">Append-only</div><h3>Consent &amp; Audit Log</h3><p>Every approval, revocation, share, outside-contact attempt and age transition, logged immutably. Powers the parent's "you see everything" promise and the D-26 deletion cascade.</p><div class="d">Decisions: D-19, D-26</div></div>
+    <div class="en" style="--c:var(--gold)"><div class="own">Owned by the club</div><h3>Club</h3><p>Entity with verified status (manual verification in v1 — the gate before any minor data flows to it), admins, and the ClubProfile CV.</p><div class="d">Decisions: D-22 consequence</div></div>
+    <div class="en" style="--c:var(--gold)"><div class="own">The club walls</div><h3>Membership</h3><p>Person ↔ club/squad with role and season. <b>A squad is a lens, not a container</b> — records stay player-owned; squad membership grants access through it. Season-scoped (U14 Girls 2027). U16 squad invites route to the guardian for approval. Coach assignment (verified coaches only, several per squad) is what grants assess + read rights. Defines "inside the club" for contact rules (D-19).</p><p><b>Amended 25 Aug (D-93) — the role list, and the split that matters.</b> <code>role</code> is: player · coach · <b>technical_director</b> · <b>team_manager</b> · club_admin · guardian. <b>Club administrator and Technical Director are different powers:</b> an administrator runs the club page, squads, memberships and notices and holds <b>no development-record access</b>; the TD holds club-wide development access. TD is granted by the club and confirmed at club verification, never self-declared. A person holding both roles gets the union, computed at read time.</p><p><b>Amended 25 Aug.</b> <b>Competition gender lives here, on the squad — never on a child's Person record (D-68).</b> Squad carries competition_gender and age_group; "U15 Girls" is a fact about a competition, not an identity attribute on a minor (D-25). Age groups, tiers and gendered pathways are <b>lookup tables, never enums (D-73)</b>. <b>And the wall:</b> because Membership is what defines "inside the club", the new <b>experience_entry</b> object (D-72) is deliberately kept out of it — see below.</p><div class="d">Decisions: D-19, D-21, D-25, D-68, D-73</div></div>
+    <div class="en" style="--c:var(--gold)"><div class="own">Owned by the club</div><h3><s>Registrant Record</s> → <code>registration</code></h3><p><b>SUPERSEDED 27 August &mdash; see §⓪.</b> <s>Trial-applicant row &mdash; deliberately NOT a player profile. Minimal fields (strictly-necessary, D-25). Can carry an invite; links to a Person only when a guardian consents.</s> <b>Both halves of the original note are now wrong:</b> it ships in <b>Phase 1</b>, not post-launch (D-108, D-130), and <b>&ldquo;applicant&rdquo; is a banned word</b> in this product (D-108 extending D-85) &mdash; there is nothing to be turned down from, and that is load-bearing. Build <code>registration</code> from §⓪.</p><div class="d">Superseded by D-108, D-122, D-128, D-130</div></div>
+    <div class="en" style="--c:var(--blue)"><div class="own">The trust layer</div><h3>Verification Status</h3><p>On adults: club-attested WWCC state + club affiliation (D-28 as narrowed by <b>D-98</b> — the engine keys off a <b>boolean attestation, never a check number</b>) — a permission gate, not a badge: it unlocks assessing and 16–17 discovery (D-22). On clubs: manual verification by us in v1. WWCC numbers are verification-only — never displayed publicly; at most a "verified" state shows (D-53).</p><div class="d">Decisions: D-22, D-28</div></div>
+  </div>
+
+  <h2>③ The age state machine (D-49)</h2>
+  <p class="lede">Birthdays are state transitions, not support tickets. Guardians are notified 30 days before each transition. Everything is automatic, logged, and reversible only where a switch is defined.</p>
+  <div class="sm">
+    <div class="band" style="--c:var(--safe)">
+      <h3>Under 16</h3>
+      <ul>
+        <li>Parent-created, parent-approved (D-17)</li>
+        <li>Visible via parent-controlled link; in no search (D-18)</li>
+        <li>No feed, likes, follows, DMs (D-21)</li>
+        <li>Contact: own club via squad; outside → guardian + child together (D-19)</li>
+      </ul>
+    </div>
+    <div class="arrow"><div><div>→</div><div class="tr">16th birthday · countdown moment (D-20)</div></div></div>
+    <div class="band" style="--c:var(--gold)">
+      <h3>16 – 17</h3>
+      <ul>
+        <li>Network unlocks: follow, connect, feed</li>
+        <li>Discoverable to verified clubs &amp; coaches only (D-22); guardian holds off-switch</li>
+        <li>Contact still routed to guardian + player together (D-20)</li>
+        <li>Guardian visibility continues</li>
+      </ul>
+    </div>
+    <div class="arrow"><div><div>→</div><div class="tr">18th birthday · independence (D-49)</div></div></div>
+    <div class="band" style="--c:var(--accent)">
+      <h3>18 +</h3>
+      <ul>
+        <li>Fully open: public profile, open search, direct contact</li>
+        <li>Guardian visibility auto-expires; player can re-grant by choice</li>
+        <li>Premium eligible (D-33)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>④ The permission matrix</h2>
+  <p class="lede">Who can do what, to a player, by age band. This is the permission engine in one table — every cell traces to a locked decision.</p>
+  <div class="mx">
+    <table>
+      <tr><th>Action on a player</th><th>Under 16</th><th>16 – 17</th><th>18 +</th></tr>
+      <tr><td><b>View profile / CV</b></td><td class="cond">Link-holders (guardian-shared) + own club</td><td class="yes">Anyone with link + own club + verified viewers via search</td><td class="yes">Public</td></tr>
+      <tr><td><b>Appear in search</b></td><td class="no">Never — no search surface exists (D-18)</td><td class="cond">Verified clubs &amp; verified coaches only (D-22)</td><td class="yes">Everyone</td></tr>
+      <tr><td><b>Initiate contact</b></td><td class="no">Outside own club: routed to guardian + child together, logged (D-19). No DMs ever.</td><td class="cond">Routed to guardian + player together until 18 (D-20)</td><td class="yes">Direct</td></tr>
+      <tr><td><b>Assess (write to record)</b></td><td class="cond">Verified coach at their own club only</td><td class="cond">Verified coach at their own club only</td><td class="cond">Verified coach at their own club only</td></tr>
+      <tr><td><b>Share the CV link</b></td><td class="cond">Guardian only (D-18)</td><td class="yes">Player (guardian visible)</td><td class="yes">Player</td></tr>
+      <tr><td><b>Delete the record</b></td><td class="yes">Guardian or child — one tap, cascades (D-26)</td><td class="yes">Guardian or player (most-restrictive-wins, D-51)</td><td class="yes">Player</td></tr>
+    </table>
+  </div>
+
+  <div class="note"><b>Club visibility, precisely:</b> the <b>technical director</b> and squad-assigned <b>verified</b> coaches see the <b>full development records of players currently at their club</b> — <b>a club administrator never does, by any route (D-93)</b> — including the history a new signing brings with them (the record travels whole, D-48; consented by the guardian at joining). When a player leaves, the club drops to aggregates and each authoring coach keeps read-access to what they wrote. No sideways visibility: parents see their own child only; coaches see their own squads only.</div>
+
+  <div class="note"><b>The engine's one rule of construction:</b> permissions are computed from objects (age band + guardianship state + membership + verification), never stored as flags on a user. That's what makes birthdays automatic, "verified" a real gate, and the whole matrix testable — we can assert every cell in code before launch.</div>
+
+  <h2>⑤ The 25 August schema delta</h2>
+  <p class="lede">Seven changes taken on 25 Aug, all of them cheap now and expensive-to-catastrophic later. Ranked honestly — rows 1–3 are the argument, the rest is housekeeping.</p>
+
+  <div class="note"><b>New object — <code>experience_entry</code> ("other football"), and it has zero permission surface (D-72).</b> School football, futsal, representative and NTC programs, tournaments. Fields: kind (school · futsal · representative · ntc_academy · tournament · other), org_name as <b>free text with no foreign key to club — deliberately</b>, competition, season label, dates, positions, notes; provenance always self-reported at launch. <b>Hard invariant with a test that is not optional: experience_entry never participates in the permission engine and grants read access to nobody, ever.</b> The tempting shortcut — a nullable club_id on Membership plus a free-text org name — is a hole into a child's record, because unverified user input would then touch the object that defines "inside the club". <b>No taxonomy:</b> a type chip and free text, never a dropdown of school competitions.</div>
+
+  <div class="note"><b>Changed — player profile positions (D-69).</b> Two scalar columns (primary_position, secondary_position) are replaced by <b>positions[]</b>, ordered, maximum three, TypeScript-validated. Goalkeeper is a pickable position. <b>There is no position_status / "finding" state</b> — position is optional and its absence renders neutrally. <b>position_group</b> (GK/DEF/MID/FWD/UNSET) is <b>derived at read time</b> from positions[0], never stored — same discipline as permissions.</div>
+
+  <div class="note"><b>New — <code>player_stat</code>, and this is the irreversible one (D-70).</b> Keyed by (record_id, season, stat_key, source_experience_id) with provenance (D-62). The <b>stat catalogue lives in TypeScript</b>, so adding "saves" or "minutes" later is a code change with zero migration. If Apps/Goals/Assists ship as columns instead, then from launch day every real family writes into a shape that cannot express "clean sheets", and the fix becomes a live-data migration across minors' records, under a public page, in December. <b>Catalogue honesty limit:</b> appearances, goals, assists, clean sheets, minutes only — self-reported tackles, interceptions, duels and saves are excluded, because nobody counts them and everybody would estimate upward (D-11).</div>
+
+  <div class="note"><b>New — <code>verification_challenges</code> (D-80).</b> channel · hashed token · sent_at · verified_at · attempt count · expiry, read by the permission function. <b>Supabase Auth is used for session only.</b> It models one identity with one primary channel and cannot express "this adult proved an email address <i>and, separately</i>, a phone number, and only then does a child's record unlock". <b>Do not use phone-OTP sign-in as the second factor</b> — it collides with the email identity and costs days in account-linking fights.</div>
+
+  <div class="note"><b>New — the consent funnel event spine (D-78).</b> Append-only, fixed vocabulary, one row per state transition, with <b>email and SMS provider delivery webhooks writing into the same table</b>. Without delivery telemetry, "the parent ignored us" and "Gmail spam-foldered us" are indistinguishable from inside our own logs.</div>
+
+  <div class="note"><b>Anticipated, on empty tables — free to change, specified for clarity not urgency.</b> <b>competency</b> (+ position_scope: all · gk · outfield; band_descriptors as structured JSON; unique on code + framework_version) · <b>assessment_entry</b> (+ entry_type: coach · td_sample · moderation; supersedes_entry_id; context_marker carrying relative age in band, D-61/D-84) · <b>assessment_block</b> · <b>assessment_session</b> (optional header with mode: player_major · competency_major, so we learn empirically which flow coaches use) · <b>match_appearance</b> (D-66 — family sees season totals, staff see per-match, never on the public CV) · <b>growth_note</b> (guardian-entered height and date only, coach-invisible, no classification — D-84).</div>
+
+  <div class="note" style="border-left-color:var(--safe)"><b>Irreversibility ranking — differentiated, not uniform.</b> <b>1. player_stat rows not columns</b> — catastrophic: live minors' data, migrated under a public page, in December. <b>2. assessment_entry as the atomic unit</b> — catastrophic in December, free today, because D-50's immutability and supersession get rebuilt on whatever the unit turns out to be. <b>3. experience_entry outside Membership</b> — catastrophic if done wrong (a permission leak), free if done right. <b>4. positions[] vs two scalars</b> — trivial SQL. <b>5. competition_gender on squad</b> — a small backfill. <b>6. Everything on empty tables</b> — free either way. <b>The schema is not on the cut line at all:</b> features bend, the shape of the data does not.</div>
+
+<div class="note"><b>Added 25 Aug — three decisions with schema consequences that arrived after this document.</b> <b>D-96 (age assurance):</b> Person carries a <code>dob_locked</code> flag (no upward amendment without guardian or verified-club confirmation), a <code>signup_hold</code> state for the age-contradiction hold, and a <b>guardian contact is mandatory on a fresh 16–17 signup</b> — an account without one is <i>incomplete</i>, not merely unverified, because D-22 and D-20 are unbuildable without it. <b>D-88 (clips):</b> every highlight carries <code>added_at</code> and <code>added_as_minor</code> — the 18th-birthday transition grandfathers clips added as a minor permanently, and cannot be implemented without the marker. <b>D-91 (share):</b> the U16 row of the permission matrix is <i>child requests, guardian dispatches</i> — a share-request object, not "guardian only".</div>
+  <h2>⑥ Still to close inside Stage 0</h2>
+  <div class="open" style="border-left-color:var(--purple)"><b>Schema addition from D-60 (24 Aug):</b> two objects join the model for the assessment sprint — <b>Competency</b> (id, corner, age stage, band descriptors, owner = <i>spine</i> or a club) and <b>ClubFramework</b> (a club's selected spine emphasis + its own competencies, versioned so past assessments always resolve against the framework version in force when they were written). Neither is needed for launch, but the record and assessment tables are built to accept them now rather than migrated later.</div>
+
+  <div class="open"><b>Stage 0 design is complete. <b>The permission matrix is the gate and it carries no date</b> (D-131) — doc 14 green, or we do not go.</b> D-52 locked 20 Aug: web-first launch (home-screen installable) with a December native checkpoint, or earlier on funnel evidence · TypeScript · Next.js · Supabase Postgres (Sydney, closing D-29) · Vercel · Resend + Twilio. All Stage 0 decisions are now called: D-22, D-29, D-48–D-52. What remains is execution, not decisions: repo + deploy pipeline stand up 29 Aug–3 Sep per the doc 08 runway, from a build brief drafted from docs 06–09.</div>
+
+  <p class="foot">Pitch 3.0 · Stage 0 foundations · <b>v1.3 · 27 Aug 2026</b> · 25 Aug schema delta per D-67 to D-73, D-78, D-80, D-84 · <b>27 Aug object model (§⓪) per D-101, D-108, D-112, D-114, D-117, D-119, D-120, D-122, D-126, D-128, D-135, D-137, D-138, D-142, D-144</b> · recorded by Leo (CTO)</p>
+</div>
+</body>
+</html>

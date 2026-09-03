@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Archivo', system-ui, sans-serif; }
+    a { color: #3ddc84; } a:hover { color: #6ce8a3; }
+  </style>
+</helmet>
+<div style="width: 390px; min-height: 1060px; background: #0b120e; color: #eef5f0; font-family: 'Archivo', system-ui, sans-serif; display: flex; flex-direction: column; gap: 20px; padding: 22px 18px 30px 18px; box-sizing: border-box;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+    <div style="width: 44px; height: 44px; margin: -11px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b9c8bf" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 l7 7"></path></svg></div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <svg width="26" height="26" viewBox="0 0 26 26" style="flex-shrink: 0;"><rect width="26" height="26" rx="8" fill="#3ddc84"></rect><rect x="5" y="6.5" width="16" height="13" rx="1.5" fill="none" stroke="#06130c" stroke-width="1.6"></rect><line x1="13" y1="6.5" x2="13" y2="19.5" stroke="#06130c" stroke-width="1.6"></line><circle cx="13" cy="13" r="2.7" fill="none" stroke="#06130c" stroke-width="1.6"></circle></svg>
+      <div style="font-weight: 800; font-size: 15px; letter-spacing: 0.02em;">Pitch</div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 7px;">
+    <div style="font-size: 26px; font-weight: 900; line-height: 1.1; letter-spacing: -0.015em; color: #eef5f0;">Which numbers go on your page</div>
+    <div style="font-size: 14px; color: #b9c8bf; font-weight: 500; line-height: 1.55;">Show the ones that say something about how you play. A six who keeps clean sheets doesn't have to lead with goals; a ten doesn't have to carry an empty clean-sheet column.</div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 9px; background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M12 3 v6 M12 3 l-3 3 M12 3 l3 3"></path><circle cx="12" cy="15" r="6"></circle></svg>
+    <div style="font-size: 12.5px; color: #7d8f85; font-weight: 700;">Pre-picked for an attacking midfielder. Change any of them, or turn them all off.</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 9px;">
+
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; align-items: center; gap: 13px;">
+      <div style="display: flex; flex-direction: column; gap: 3px; flex: 1;">
+        <div style="font-size: 15px; font-weight: 800; color: #eef5f0;">Appearances</div>
+        <div style="font-size: 12px; color: #7d8f85; font-weight: 500;">2026 season</div>
+      </div>
+      <div style="font-size: 22px; font-weight: 900; color: #eef5f0;">18</div>
+      <div style="width: 46px; height: 27px; border-radius: 999px; background: #3ddc84; display: flex; align-items: center; justify-content: flex-end; padding: 0 3px; flex-shrink: 0;">
+        <div style="width: 21px; height: 21px; border-radius: 999px; background: #06130c;"></div>
+      </div>
+    </div>
+
+    <div style="background: #121b16; border: 1px solid #eda100; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; gap: 11px;">
+      <div style="display: flex; align-items: center; gap: 13px;">
+        <div style="display: flex; flex-direction: column; gap: 3px; flex: 1;">
+          <div style="font-size: 15px; font-weight: 800; color: #eef5f0;">Clean sheets</div>
+          <div style="font-size: 12px; color: #eda100; font-weight: 700;">Nothing added yet</div>
+        </div>
+        <div style="font-size: 15px; font-weight: 800; color: #6b7d73;">—</div>
+        <div style="width: 46px; height: 27px; border-radius: 999px; background: #3ddc84; display: flex; align-items: center; justify-content: flex-end; padding: 0 3px; flex-shrink: 0;">
+          <div style="width: 21px; height: 21px; border-radius: 999px; background: #06130c;"></div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 9px; background: #1a2420; border-radius: 12px; padding: 10px 12px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eda100" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M12 3.5 L21.5 20 H2.5 Z"></path><path d="M12 10 v4"></path><circle cx="12" cy="17.2" r="0.7" fill="#eda100"></circle></svg>
+        <div style="font-size: 12px; color: #b9c8bf; font-weight: 500;">Switched on, but there's no number. Add one or it won't appear.</div>
+      </div>
+    </div>
+
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; align-items: center; gap: 13px;">
+      <div style="display: flex; flex-direction: column; gap: 3px; flex: 1;">
+        <div style="font-size: 15px; font-weight: 800; color: #eef5f0;">Goals</div>
+        <div style="font-size: 12px; color: #7d8f85; font-weight: 500;">2026 season</div>
+      </div>
+      <div style="font-size: 22px; font-weight: 900; color: #eef5f0;">11</div>
+      <div style="width: 46px; height: 27px; border-radius: 999px; background: #3ddc84; display: flex; align-items: center; justify-content: flex-end; padding: 0 3px; flex-shrink: 0;">
+        <div style="width: 21px; height: 21px; border-radius: 999px; background: #06130c;"></div>
+      </div>
+    </div>
+
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; align-items: center; gap: 13px;">
+      <div style="display: flex; flex-direction: column; gap: 3px; flex: 1;">
+        <div style="font-size: 15px; font-weight: 800; color: #eef5f0;">Assists</div>
+        <div style="font-size: 12px; color: #7d8f85; font-weight: 500;">2026 season</div>
+      </div>
+      <div style="font-size: 22px; font-weight: 900; color: #eef5f0;">7</div>
+      <div style="width: 46px; height: 27px; border-radius: 999px; background: #3ddc84; display: flex; align-items: center; justify-content: flex-end; padding: 0 3px; flex-shrink: 0;">
+        <div style="width: 21px; height: 21px; border-radius: 999px; background: #06130c;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #7d8f85;">On your page</div>
+    <div style="background: linear-gradient(160deg, #123326 0%, #0c1d14 100%); border-radius: 18px; padding: 15px;">
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px;">
+        <div style="background: rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 11px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px;"><div style="font-size: 21px; font-weight: 900; color: #eef5f0;">18</div><div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.7); text-transform: uppercase;">Apps</div></div>
+        <div style="background: rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 11px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px;"><div style="font-size: 21px; font-weight: 900; color: #3ddc84;">11</div><div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.7); text-transform: uppercase;">Goals</div></div>
+        <div style="background: rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 11px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px;"><div style="font-size: 21px; font-weight: 900; color: #eef5f0;">7</div><div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.7); text-transform: uppercase;">Assists</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; justify-content: center; background: #3ddc84; color: #06130c; font-weight: 800; font-size: 15px; border-radius: 14px; height: 50px; margin-top: auto;">Save</div>
+
+</div>
+</x-dc>
+</body>
+</html>

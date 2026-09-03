@@ -1,0 +1,36 @@
+# Secrets — never committed. See .env.example for the full list.
+.env
+.env.local
+.env*.local
+
+# Dependencies / build
+node_modules/
+.next/
+out/
+dist/
+build/
+.vercel/
+*.tsbuildinfo
+
+# Supabase local
+.branches/
+.temp/
+supabase/.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Test / coverage
+coverage/
+playwright-report/
+test-results/
+
+# Never commit anything that could carry real personal data
+*.csv
+*.sql.gz
+/dumps/
+/exports/

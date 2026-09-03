@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Archivo', system-ui, sans-serif; }
+    a { color: #3ddc84; } a:hover { color: #6ce8a3; }
+  </style>
+</helmet>
+<div style="width: 390px; min-height: 880px; background: #0b120e; color: #eef5f0; font-family: 'Archivo', system-ui, sans-serif; display: flex; flex-direction: column; gap: 20px; padding: 22px 18px 30px 18px; box-sizing: border-box; position: relative; overflow: hidden;">
+
+  <div style="position: absolute; left: 50%; top: -260px; width: 620px; height: 620px; margin-left: -310px; border: 2px solid rgba(61, 220, 132, 0.07); border-radius: 999px;"></div>
+  <div style="position: absolute; left: 50%; top: -180px; width: 460px; height: 460px; margin-left: -230px; border: 2px solid rgba(61, 220, 132, 0.05); border-radius: 999px;"></div>
+
+  <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; position: relative;">
+    <svg width="26" height="26" viewBox="0 0 26 26" style="flex-shrink: 0;"><rect width="26" height="26" rx="8" fill="#3ddc84"></rect><rect x="5" y="6.5" width="16" height="13" rx="1.5" fill="none" stroke="#06130c" stroke-width="1.6"></rect><line x1="13" y1="6.5" x2="13" y2="19.5" stroke="#06130c" stroke-width="1.6"></line><circle cx="13" cy="13" r="2.7" fill="none" stroke="#06130c" stroke-width="1.6"></circle></svg>
+    <div style="font-weight: 800; font-size: 15px;">Pitch</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 16px; position: relative; padding-top: 40px;">
+    <div style="width: 72px; height: 72px; border-radius: 999px; background: rgba(61, 220, 132, 0.12); border: 1.5px solid rgba(61, 220, 132, 0.35); display: flex; align-items: center; justify-content: center;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 L10 17.5 L19.5 7"></path></svg></div>
+    <div style="font-size: 30px; font-weight: 900; line-height: 1.08; letter-spacing: -0.015em; text-align: center; color: #eef5f0;">You're on<br>the list.</div>
+    <div style="font-size: 14px; color: #b9c8bf; font-weight: 500; line-height: 1.6; text-align: center; max-width: 300px;">We'll email <b style="color: #eef5f0;">you@example.com</b> once, on the day Pitch opens. Nothing before that.</div>
+  </div>
+
+  <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; gap: 12px; position: relative;">
+    <div style="font-size: 13.5px; font-weight: 800; color: #eef5f0;">What happens between now and then</div>
+    <div style="display: flex; align-items: flex-start; gap: 10px;">
+      <div style="width: 20px; height: 20px; border-radius: 999px; background: #1a2420; border: 1px solid #24322a; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; font-weight: 900; color: #7d8f85;">1</div>
+      <div style="font-size: 12.5px; color: #b9c8bf; font-weight: 500; line-height: 1.55;">Nothing, from us. No newsletter, no countdown, no "only 200 spots left".</div>
+    </div>
+    <div style="display: flex; align-items: flex-start; gap: 10px;">
+      <div style="width: 20px; height: 20px; border-radius: 999px; background: #1a2420; border: 1px solid #24322a; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; font-weight: 900; color: #7d8f85;">2</div>
+      <div style="font-size: 12.5px; color: #b9c8bf; font-weight: 500; line-height: 1.55;">We hold your email address and the role you picked. That's the whole record, and it isn't shared with anyone.</div>
+    </div>
+    <div style="display: flex; align-items: flex-start; gap: 10px;">
+      <div style="width: 20px; height: 20px; border-radius: 999px; background: #1a2420; border: 1px solid #24322a; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; font-weight: 900; color: #7d8f85;">3</div>
+      <div style="font-size: 12.5px; color: #b9c8bf; font-weight: 500; line-height: 1.55;">When we open, you make your own account. Being on this list isn't an account and it doesn't hold a place.</div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: flex-start; gap: 10px; background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; position: relative;">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a479e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z"></path><path d="M9 12 L11 14 L15 9.5"></path></svg>
+    <div style="display: flex; flex-direction: column; gap: 3px;">
+      <div style="font-size: 12.5px; font-weight: 800; color: #eef5f0;">Signed up for your child?</div>
+      <div style="font-size: 12px; color: #b9c8bf; font-weight: 500; line-height: 1.55;">Good — that's the right way round. We don't take a child's details until there's a parent to ask, so nothing about them exists yet. When we open, they build their page and it stays invisible until you approve it.</div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px; position: relative;">
+    <div style="display: flex; align-items: center; justify-content: center; background: #1a2420; border-radius: 14px; height: 46px; font-size: 14px; font-weight: 700; color: #b9c8bf;">Change my email or role</div>
+    <div style="display: flex; align-items: center; justify-content: center; height: 40px; font-size: 13px; font-weight: 700; color: #7d8f85;">Take me off the list</div>
+  </div>
+
+  <div style="font-size: 11px; color: #6b7d73; text-align: center; font-weight: 700; line-height: 1.6; position: relative;">Both of these work without an account, from any device.<br>pitchfootball.com.au</div>
+
+</div>
+</x-dc>
+</body>
+</html>

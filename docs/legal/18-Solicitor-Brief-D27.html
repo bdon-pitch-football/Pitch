@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch — Brief to Solicitor (D-27)</title>
+<style>
+  :root{
+    --ink:#14181c; --ink-2:#3d4750; --line:#d8dee4; --line-2:#eef1f4;
+    --accent:#0d6b3f; --accent-bg:#eef7f1; --warn-bg:#fdf4e7; --warn-line:#e0b877;
+    --paper:#ffffff; --sans:"Helvetica Neue",Arial,system-ui,sans-serif;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f4f6f8;color:var(--ink);font-family:var(--serif);
+       font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  .sheet{max-width:52rem;margin:0 auto;background:var(--paper);padding:4rem 4.5rem 5rem;
+         box-shadow:0 1px 3px rgba(0,0,0,.09)}
+  header{border-bottom:2px solid var(--ink);padding-bottom:1.4rem;margin-bottom:2rem}
+  .eyebrow{font-family:var(--sans);font-size:.68rem;font-weight:700;letter-spacing:.14em;
+           text-transform:uppercase;color:var(--accent)}
+  h1{font-family:var(--sans);font-size:1.85rem;font-weight:700;line-height:1.2;margin:.5rem 0 .6rem;
+     letter-spacing:-.015em}
+  .sub{font-family:var(--sans);font-size:.95rem;color:var(--ink-2);margin:0}
+  h2{font-family:var(--sans);font-size:1.15rem;font-weight:700;margin:2.8rem 0 .9rem;
+     padding-top:1.4rem;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h2:first-of-type{border-top:none;padding-top:0}
+  h3{font-family:var(--sans);font-size:.95rem;font-weight:700;margin:1.8rem 0 .5rem}
+  h4{font-family:var(--sans);font-size:.82rem;font-weight:700;margin:1.2rem 0 .35rem;
+     text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)}
+  p{margin:0 0 .95rem}
+  ul,ol{margin:0 0 1rem;padding-left:1.4rem}
+  li{margin-bottom:.42rem}
+  table{width:100%;border-collapse:collapse;margin:1rem 0 1.4rem;font-family:var(--sans);font-size:.85rem}
+  th,td{text-align:left;vertical-align:top;padding:.6rem .7rem;border-bottom:1px solid var(--line-2)}
+  th{font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;
+     color:var(--ink-2);border-bottom:1.5px solid var(--line)}
+  .meta{font-family:var(--sans);font-size:.88rem;width:100%;margin:0 0 .5rem}
+  .meta td{padding:.4rem .7rem .4rem 0;border-bottom:1px solid var(--line-2)}
+  .meta td:first-child{width:11rem;font-weight:700;color:var(--ink-2);font-size:.74rem;
+                       text-transform:uppercase;letter-spacing:.06em;padding-top:.55rem}
+  .q{border-left:3px solid var(--accent);padding:1.1rem 0 .2rem 1.3rem;margin:1.8rem 0 1.6rem}
+  .q .qnum{font-family:var(--sans);font-size:.7rem;font-weight:800;letter-spacing:.1em;
+           text-transform:uppercase;color:var(--accent);display:block;margin-bottom:.3rem}
+  .q .qtitle{font-family:var(--sans);font-size:1.05rem;font-weight:700;margin:0 0 .7rem;line-height:1.35}
+  .ask{background:var(--accent-bg);border-radius:5px;padding:.85rem 1rem;margin:.9rem 0 .3rem;
+       font-family:var(--sans);font-size:.88rem}
+  .ask strong{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;
+              color:var(--accent);margin-bottom:.35rem}
+  .callout{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:5px;
+           padding:1rem 1.15rem;margin:1.2rem 0;font-family:var(--sans);font-size:.88rem}
+  .callout p:last-child{margin-bottom:0}
+  .note{font-family:var(--sans);font-size:.82rem;color:var(--ink-2);
+        border-top:1px solid var(--line-2);padding-top:.7rem;margin-top:1.6rem}
+  cite{font-style:normal;font-family:var(--sans);font-size:.8rem;color:var(--ink-2)}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85em;background:#f2f4f6;
+       padding:.08em .35em;border-radius:3px}
+  .pri{display:inline-block;font-family:var(--sans);font-size:.63rem;font-weight:800;
+       letter-spacing:.09em;text-transform:uppercase;padding:.18em .5em;border-radius:3px;
+       vertical-align:.15em;margin-left:.5rem}
+  .pri-1{background:#7f1d1d;color:#fff}
+  .pri-2{background:#8a5a00;color:#fff}
+  .pri-3{background:#e8ecef;color:var(--ink-2)}
+  .toc{font-family:var(--sans);font-size:.88rem;background:#f8fafb;border:1px solid var(--line);
+       border-radius:6px;padding:1.1rem 1.4rem;margin:1.5rem 0 0}
+  .toc ol{margin:0;padding-left:1.3rem}
+  .toc li{margin-bottom:.28rem}
+  footer{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--line);
+         font-family:var(--sans);font-size:.78rem;color:var(--ink-2)}
+  @media print{
+    body{background:#fff;font-size:10.5pt}
+    .sheet{box-shadow:none;max-width:none;padding:0}
+    h2{page-break-after:avoid} .q{page-break-inside:avoid} table{page-break-inside:avoid}
+  }
+  @media (max-width:640px){ .sheet{padding:2rem 1.4rem 3rem} }
+</style>
+</head>
+<body>
+
+
+<div class="sheet">
+
+<header>
+  <div class="eyebrow">Brief to Solicitor · Confidential &amp; Privileged</div>
+  <h1>Pitch — request for advice on children's online safety, privacy and launch compliance</h1>
+  <p class="sub">Instructions to counsel · prepared 25 August 2026 · revised 28 August 2026 · soft launch as early as it can honestly be done</p>
+</header>
+
+<table class="meta">
+  <tr><td>Client</td><td><strong>EBSD Enterprises Pty Ltd</strong> · ACN 701 879 718 · ABN 65 701 879 718 · registered for GST · trading as <strong>Pitch Football</strong>, branded <strong>Pitch</strong> in the product — founder, sole director and sole shareholder BUZ, Melbourne VIC</td></tr>
+  <tr><td>Revision note</td><td><strong>v1.3, 28 August 2026.</strong> The client is now a company rather than a name in brackets; the Interest Register prices are GST-inclusive; the fixed September dates have been replaced with periods running from engagement, because there is no longer a launch date; and <strong>question 14 has been rewritten because the previous version described a founding-club free period that does not exist</strong> — it was constructed internally and should not have reached a brief. This document has not been sent to anybody.</td></tr>
+  <tr><td>Product</td><td><code>pitchfootball.com.au</code> — a player development and pathway platform for Australian football</td></tr>
+  <tr><td>Users</td><td>Junior players (from ~age 8) and their guardians, senior players 18+, coaches, and football clubs. Victoria and NSW at launch, Australia-only account creation.</td></tr>
+  <tr><td>Advice sought</td><td>A written opinion on the fifteen questions at Part D, plus review of the Privacy Impact Assessment, privacy policies and terms of service supplied as annexures.</td></tr>
+  <tr><td>Critical deadline</td><td><strong>There is no longer a fixed date.</strong> The plan is a soft launch — no marketing, a small number of warm families and a handful of clubs — as early as it can honestly be done, which may be earlier than mid-September. Every question marked <em>blocks launch</em> should be treated as due now rather than against a calendar.</td></tr>
+  <tr><td>Prepared by</td><td>Pitch, in-house. This brief is a factual and analytical starting point, not a legal opinion, and every proposition in it is offered for counsel to confirm, correct or displace.</td></tr>
+</table>
+
+<div class="toc">
+  <strong style="display:block;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem">Contents</strong>
+  <ol>
+    <li>Part A — What Pitch is, and what it deliberately is not</li>
+    <li>Part B — The architecture, in the detail the questions turn on</li>
+    <li>Part C — Our own view of the regulatory position, for you to test</li>
+    <li>Part D — The fifteen questions</li>
+    <li>Part E — Scope, staging and what we need first</li>
+    <li>Part F — Annexures</li>
+  </ol>
+</div>
+
+<h2>Part A — What Pitch is, and what it deliberately is not</h2>
+
+<p>Pitch gives everyone in Australian football a living record of their development. A player builds a football CV — profile, positions, club, achievements, self-reported season statistics and links to highlight video hosted elsewhere — and shares it as a single tokenised link. Coaches build a coaching CV. Clubs claim a page carrying their crest, philosophy, pathway, teams and trial notices, and an alumni list. A public trials index carries verified clubs' trial notices alongside listings we compile ourselves from public club information and mark as unclaimed.</p>
+
+<p><strong>The family is always the sender.</strong> Pitch never transmits a minor's record to anybody: a player finds a club and their family sends the link to it. That is the launch distribution mechanism and it is free to every club, whether or not the club pays us anything.</p>
+
+<p><strong>One thing is sold.</strong> Clubs may subscribe to an <em>Interest Register</em> — a standing list of players who have registered interest in the club or in a trial it posted — at $54 a month or $329 a year, both inclusive of GST, paid by card through a hosted checkout. What a club receives is the player's name, age, current club, the squad, a preferred position, one line of free text, and a tokenised link to a page the family controls. Not a file, not a copy, and no contact details. There is no export. Nothing else on the club side is purchasable.</p>
+
+<p><strong>Nothing about any minor reaches a club until a person at Pitch has confirmed the club is real and that the individual is who they claim to be within it.</strong> That check is manual, logged, revocable, and can never be set by payment.</p>
+
+<p>Coach-authored assessments and a verified-club search over players aged 16 and over arrive later, currently expected around December. <strong>In the launch product there is no search over players at all</strong> — discovery runs one way, from the family outward.</p>
+
+<p>Three characteristics matter more than anything else in this brief:</p>
+
+<ul>
+  <li><strong>Most of the subjects are children.</strong> A substantial majority of registered players in Australian community football are under 18, and the product's central object is a longitudinal record of a child's development authored by adults.</li>
+  <li><strong>There is no social layer for minors, by design.</strong> At launch there is no feed of any kind, no following or connecting, no likes, comments or reactions, no direct messaging, and no search surface in which an under-16 can appear. These are architectural exclusions recorded in our decisions register, not settings.</li>
+  <li><strong>Adults never contact children directly through Pitch, and no club ever receives a family's contact details.</strong> A club's invitation lands inside the guardian's account inside Pitch — never an email, never a text. We notify the guardian that something is waiting, carrying no club message and no child's name. There is no private adult-to-child channel anywhere in the product and none is planned.</li>
+</ul>
+
+<p>We describe Pitch publicly and consistently as a <em>player development and pathway platform</em>, and never as a social network, in the site, the manifest, the app listing when one exists, and every marketing caption. We understand self-description to be evidence of purpose rather than determinative of it, and we would like that understanding confirmed.</p>
+
+<h2>Part B — The architecture, in the detail the questions turn on</h2>
+
+<h3>B.1 Accounts, age bands and consent</h3>
+
+<p>One account per person; roles are hats, not separate accounts, so a person who is both a coach and a parent has one login. Date of birth drives an automatic age state machine. There are three bands.</p>
+
+<table>
+  <tr><th>Band</th><th>Visibility</th><th>Contact</th><th>Control</th></tr>
+  <tr>
+    <td><strong>Under 16</strong></td>
+    <td>Profile does not exist until a verified guardian approves it. Visible only to holders of a guardian-shared link and to the player's own club. Appears in <strong>no search surface</strong>.</td>
+    <td>None from outside the club. Inside the club, communications route through the squad structure and reach guardian and child together.</td>
+    <td>Guardian holds the share link, can pause the profile, can revoke consent and can delete the record in one action.</td>
+  </tr>
+  <tr>
+    <td><strong>16–17</strong></td>
+    <td>Discoverable to <em>verified clubs and verified coaches only</em>; not in general user search. Guardian is notified and holds an off-switch.</td>
+    <td>Still routed to guardian and player together.</td>
+    <td>Player shares the link; guardian retains visibility.</td>
+  </tr>
+  <tr>
+    <td><strong>18+</strong></td>
+    <td>Public profile, open search.</td>
+    <td>Direct.</td>
+    <td>Guardian visibility expires automatically; the adult may re-grant it.</td>
+  </tr>
+</table>
+
+<p><strong>Guardian verification.</strong> Two entry doors, one gate. Either a guardian creates the child's profile, or the child initiates a <em>pending invitation</em> that holds first name, date of birth and guardian contact only, and is purged automatically after fourteen days if unapproved. The CV is built after approval, never before. Verification is a waterfall: declared date of birth, then an email to the guardian and a separate SMS to a different guardian-supplied channel, then — once clubs are onboarded — a cross-check against the club's own registration roster.</p>
+
+<p><strong>Guardianship.</strong> Up to two guardians, equal visibility, either may approve, both are always notified, and on any disagreement the more restrictive choice prevails. Non-parent guardians are permitted with a declared relationship.</p>
+
+<p><strong>Consent log.</strong> Every approval, revocation, share, outside-contact attempt, terms acceptance and age transition is written to an append-only log with no update or delete path in code.</p>
+
+<h3>B.2 The permission engine</h3>
+
+<p>Permissions are <em>computed</em> at read time from four inputs — age band, guardianship state, club or squad membership, and adult verification status — and are never stored as flags on a user record. Every cell of the matrix below is asserted by an automated test, and the test suite being green is our only launch-blocking condition. We mention this because it is the mechanism on which most of the promises in this brief actually rest.</p>
+
+<table>
+  <tr><th>Action on a player</th><th>Under 16</th><th>16–17</th><th>18+</th></tr>
+  <tr><td>View profile / CV</td><td>Link-holders (guardian-shared) + own club</td><td>Link-holders + own club + verified viewers via search</td><td>Public</td></tr>
+  <tr><td>Appear in search</td><td><strong>Never</strong> — no search surface exists</td><td>Verified clubs and verified coaches only</td><td>Everyone</td></tr>
+  <tr><td>Initiate contact</td><td>Outside own club → guardian + child together, logged. No direct messaging, ever.</td><td>Routed to guardian + player together</td><td>Direct</td></tr>
+  <tr><td>Write to the record</td><td colspan="3">Verified coach at the player's own club only</td></tr>
+  <tr><td>Share the CV link</td><td>Guardian only</td><td>Player (guardian visible)</td><td>Player</td></tr>
+  <tr><td>Delete the record</td><td>Guardian or child, one action, cascades</td><td>Guardian or player, most restrictive wins</td><td>Player</td></tr>
+</table>
+
+<h3>B.3 What we collect</h3>
+
+<p>Player: name, date of birth, primary and secondary position, squad number, preferred foot, current club and age group, region at city level, a profile photograph, a free-text description, self-reported season statistics, achievements, and URLs of video hosted on third-party services. No geolocation is collected or inferred, save that we determine a visitor's country in order to route non-Australian visitors away from sign-up, and do not retain it. No behavioural analytics on any account belonging to a person under 18. No health, injury or medical information at launch or on the current roadmap.</p>
+
+<p>Guardian: name, email, mobile, declared relationship to the child. Coach: name, clubs, coaching history, credentials, coaching philosophy, and a Working With Children Check number (see question 4). Club: entity details, crest, philosophy and pathway text, administrator contacts.</p>
+
+<p><strong>Two waitlists are already collecting information</strong>, ahead of the product itself. An Australian pre-launch page collects an email address and a role, from adults only. A separate screen shown to non-Australian visitors collects a country and, from adults only, an email address; under-18s are never asked for any detail and only an anonymous count of country, age band and month is retained, with no IP address kept. Both are covered by question 10.</p>
+
+<p>Photographs are resized server-side, stripped of EXIF metadata, never served as originals, and deleted in the erasure cascade. For an under-16 the photograph is part of the guardian-controlled profile.</p>
+
+<h3>B.4 Hosting and processors</h3>
+
+<p>Postgres and object storage in Supabase's Sydney region; application hosting on Vercel with functions pinned to Sydney; transactional email through Resend and SMS through Twilio, both of which are United States entities and therefore overseas recipients. Message bodies to and about children are being written to contain no more than a first name and an action link.</p>
+
+<h3>B.5 Publication surfaces we are conscious of</h3>
+
+<ul>
+  <li>A player's public CV is served at a tokenised URL and unfurls as a preview card in messaging apps. <strong>For anyone under 18 that card carries a first name, a surname initial, positions, squad number and their own statistics — and nothing that locates a child.</strong> A guardian approves the exact image before it can be shared. <strong>An under-18 CV carries no school field at all</strong>; it was removed for exactly this reason.</li>
+  <li>Public CV and club pages are viewable worldwide, by design — see question 10.</li>
+  <li>Club pages carry an <strong>alumni list</strong> of former juniors and where they progressed to. <strong>No person under 18 may be named on it</strong>, and the rule is printed on the page where the club types.</li>
+  <li>The trials index carries <strong>unclaimed listings</strong> we compile from public club information and mark as such.</li>
+  <li>Trial notices publish a ground, a date and a time for a named age group at a named club — which, alongside a CV naming the same club and age group, narrows where a child is. We raise it ourselves at question 9.</li>
+  <li>A quiet "report this page" affordance appears on every public page.</li>
+  <li><strong>A link that has expired or been revoked resolves to a page carrying no name, photo, club or age</strong>, rendered identically whether the record exists or never did. A verified club may send one request for access from it, which lands in the guardian's account. A guardian ignoring it produces no state the club can see.</li>
+</ul>
+
+<h3>B.6 What a paying club changes, and what it does not</h3>
+
+<p>Money now moves at launch. It is worth stating plainly for you, because we have written it into our privacy policy as a promise: <strong>a club paying us changes nothing about any child.</strong> A guardian consents to disclosure to a named club, never to "clubs who pay"; the consent does not lapse if a club stops paying; a free club receives the same protections for the same children; and safety verification is never a paid feature. No billing surface of any kind is reachable from any account belonging to a person under 18.</p>
+
+<p>Card details never touch our systems — hosted checkout only — and the payment processor receives a club, a billing contact and a card. <strong>It never receives anything about any child.</strong></p>
+
+<h2>Part C — Our own view of the regulatory position, for you to test</h2>
+
+<p>We set out our working analysis so that you can correct it rather than reconstruct it. Nothing here should be taken as a settled view on our side; we would rather be told we are wrong now than discover it in December. Our research is current to 25 August 2026 and drawn from primary sources, but it is the work of a founder and an AI assistant, not of a lawyer.</p>
+
+<h3>C.1 The social media minimum age regime</h3>
+
+<p>We understand the test to have three parts. First, section 63C of the <em>Online Safety Act 2021</em> (Cth): the service is an age-restricted social media platform where the sole or a significant purpose is to enable online social interaction between two or more end-users, end-users can link to or interact with other end-users, and end-users can post material. Second, rule 4A of the <em>Online Safety (Age-Restricted Social Media Platforms) Rules 2025</em> as amended in March 2026 adds a further condition: the service must have a <em>recommender feature</em> or a <em>logged-in feature</em>, the latter meaning an endless-feed, feedback or time-limited feature gated behind an account. Third, rule 5 excludes services whose sole or primary purpose is messaging, online gaming, information about products or services, professional networking or professional development, supporting education, supporting health, or communication between educational institutions and their students.</p>
+
+<p>Our view is that <strong>Pitch is outside the definition at launch</strong>, and that it is outside on two independent grounds rather than by relying on an exclusion. Online social interaction is not a significant purpose of a product that has no feed, no connections and no interaction primitives; and even if that were arguable, rule 4A is not satisfied because there is no recommender feature and no endless-feed, feedback or time-limited feature of any kind.</p>
+
+<div class="callout">
+  <p><strong>We think doc 05 of our own materials reasons wrongly on one point, and we would like that confirmed.</strong> Our earlier compliance note argued that club-mediated communication "mirrors the schools exemption almost exactly". We now doubt that: the exclusion is for communication between <em>educational institutions</em> and their students, and a community football club is not an educational institution. We would rather rest on the two grounds above than on an exclusion we may not fit.</p>
+</div>
+
+<p>We are also conscious that the assessment is made at the level of the <em>service</em> and not the individual user, and that the consequence of being caught is not a requirement to restrict a feature but a requirement to take reasonable steps to prevent under-16s holding accounts at all — which would remove the majority of our users. That asymmetry is why question 2 carries more consequence than any other in this brief — and why question 1, which is about a child walking past the architecture entirely, sits ahead of it.</p>
+
+<h3>C.2 Privacy Act coverage</h3>
+
+<p><strong>The entity is EBSD Enterprises Pty Ltd, incorporated 28 August 2026, so the turnover test applies to the company rather than to the founder personally.</strong> We expect the company's annual turnover well under $3,000,000 in the first year, which on our reading of sections 6C and 6D of the <em>Privacy Act 1988</em> (Cth) would make it a small business operator and therefore not an APP entity — with the consequence that the Australian Privacy Principles, the notifiable data breach scheme and the forthcoming Children's Online Privacy Code would not bind us at launch. We regard that as a description of our technical position and not as a plan. We intend to build and operate to the standard regardless, and we want advice on whether and when to opt in under section 6EA.</p>
+
+<p>We are alert to two triggers in section 6D(4) that could pull us in irrespective of turnover, and we would like both addressed: whether providing club subscriptions that include access to player development records amounts to disclosing personal information about another individual for a benefit, service or advantage; and whether any future feature touching injury, medical clearance or return-to-play data would make us a provider of a health service holding health information.</p>
+
+<p>We are separately aware that the statutory tort of serious invasions of privacy, which commenced on 10 June 2025, applies regardless of small business status, and that a permission failure exposing a child's information would be the obvious candidate. We treat that as our principal litigation exposure.</p>
+
+<h3>C.3 The Children's Online Privacy Code</h3>
+
+<p>We understand the Code to be at exposure draft stage, with consultation closed on 5 June 2026 and registration required by 10 December 2026, and with its commencement date still undetermined. We have designed toward the exposure draft: our consent line sits at 16 where the draft sits at 15, we hold a strictly-necessary collection posture, our defaults are the most private available, and we have prepared both a child-directed and an adult privacy policy. We would like to know where the draft would still catch us out.</p>
+
+<h3>C.4 Matters we have found, with our confidence in each</h3>
+
+<div class="callout">
+  <p><strong>None of the following should drive a build decision until you confirm it.</strong> Each was obtained from a primary source by a founder and an AI assistant, not by a lawyer, and each is stated with what we actually did to establish it. Two of them — rule 4A and section 45 — carry more weight than the rest, because a great deal downstream rests on them.</p>
+</div>
+
+<table>
+  <tr><th>Finding</th><th>How we established it</th></tr>
+  <tr>
+    <td><strong>Rule 4A of the Online Safety (Age-Restricted Social Media Platforms) Rules 2025</strong>, as amended March 2026, adds a further condition: a recommender feature, or a logged-in feature meaning an endless-feed, feedback or time-limited feature gated behind an account.</td>
+    <td><strong>Operative text obtained from the Federal Register of Legislation</strong> and quoted at C.1. <em>The conclusion that Pitch sits outside the under-16 regime rests on this more than on anything else. Please read it first.</em></td>
+  </tr>
+  <tr>
+    <td><strong>Section 45 of the NSW Working with Children Act</strong> — content unknown.</td>
+    <td><strong>Could not obtain.</strong> Only subsection (3). See question 4.</td>
+  </tr>
+  <tr>
+    <td>The Victorian Child Safe Standards and Reportable Conduct Scheme moved to the <strong>Social Services Regulator on 23 February 2026</strong>.</td>
+    <td>Regulator's own announcement. Several official pages are still stale on this, which is why we say it.</td>
+  </tr>
+  <tr>
+    <td>The unfair contract terms maximum was <strong>doubled on 28 March 2026</strong> to the greatest of $100 million, three times the benefit, or 30% of adjusted turnover, per term.</td>
+    <td>Regulator's published penalties page. Confident, not verified by counsel.</td>
+  </tr>
+  <tr>
+    <td>A new <strong>unfair trading practices regime commences 1 July 2027</strong>, requiring among other things that a subscription taken out online can be cancelled online.</td>
+    <td>Secondary sources only, several and consistent. <strong>Lower confidence than the rest.</strong></td>
+  </tr>
+  <tr>
+    <td><strong>NSW did not abolish trade promotion permits</strong> — it replaced them with a multi-year authority plus a per-promotion notification, above a $10,000 prize-value threshold. The Northern Territory prohibits awarding a prize to a minor.</td>
+    <td>State regulator pages. Confident.</td>
+  </tr>
+  <tr>
+    <td>The <strong>Children's Online Privacy Code is still an exposure draft</strong>, consultation closed 5 June 2026, registration required by 10 December 2026, <strong>commencement date undetermined</strong>.</td>
+    <td>Regulator's own page and the exposure draft, in which the commencement clause is blank. Confident on status; the draft's content may change.</td>
+  </tr>
+  <tr>
+    <td>The <strong>Privacy Act small business exemption survives</strong>, threshold $3 million, and was not removed by the 2024 amendments. The <strong>statutory tort for serious invasions of privacy commenced 10 June 2025</strong> and applies regardless of small business status.</td>
+    <td>Current Act compilation and the regulator's guidance. Confident. <em>Numerous secondary pages assert the exemption was removed; nothing in the Act supports that.</em></td>
+  </tr>
+  <tr>
+    <td>The <strong>Basic Online Safety Expectations apply to designated internet services of any kind with no size threshold</strong>, and set a five-year record-keeping expectation for reports.</td>
+    <td>The Determination itself for the application provision; the five-year period is our reading, and question 6 asks you to check it.</td>
+  </tr>
+</table>
+
+<h3>C.5 Where this brief supersedes our earlier compliance note</h3>
+
+<p>Annexure A, our compliance architecture note of 20 August, was written five days ago and is already wrong in three ways. Please treat it as background to the product and this brief as governing wherever they differ.</p>
+
+<ul>
+  <li><strong>The schools-exemption reasoning at C.1</strong> — we no longer rely on it.</li>
+  <li><strong>It assumes the Children's Online Privacy Code binds us</strong> ("there is no 'we're a sports platform' escape hatch"). That is probably wrong: the Code binds APP entities, and we are probably not one. The <em>build</em> is unchanged, because we intend to meet the standard regardless — but the reasoning in that note should not be relied on.</li>
+  <li><strong>It predates the March 2026 amendment rules</strong>, the regulator change in Victoria and the penalty changes at C.4.</li>
+</ul>
+
+<p>Where a proposition matters, we have restated it in this brief with our confidence in it. Where it appears only in Annexure A, assume it is unverified.</p>
+
+<h2>Part D — The fifteen questions</h2>
+
+<p>The questions are ordered by when we need them, not by subject. Questions 1 to 10 are marked <span class="pri pri-1">Blocks launch</span> and are the stage-one request at Part E. Questions 11 to 14 are <span class="pri pri-2">Before December</span>; question 15 is <span class="pri pri-3">Advisory</span>.</p>
+
+<div class="callout">
+  <p><strong>One thing we would like running through every answer: tell us what is <em>required</em> and what is merely <em>prudent</em>.</strong></p>
+  <p>We have written a great deal of good practice into our own documents and we can no longer reliably tell which parts are obligations. That distinction is probably the highest-value thing an hour of your time can produce for us, because it decides what gets built in a nineteen-day window and what waits. Where our own view is that something is required, we have said so and named what we think requires it, so that you are correcting a proposition rather than forming one.</p>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 1</span>
+  <p class="qtitle">Is our age assurance adequate, and what happens when a child declares an adult date of birth? <span class="pri pri-1">Blocks launch</span></p>
+  <p>Our waterfall engages only when a user declares an age under 16. A 14-year-old who enters a date of birth making them 16 receives discoverability to verified adults; one who enters 18 receives a public profile and direct contact. We are aware that the eSafety Commissioner's compliance material treats both reliance on sign-up self-declaration alone, and permitting a user to increase a declared age after declaring as under 16, as non-compliant practices for platforms that are in scope, and we are aware of the Privacy Commissioner's age assurance guidance of 17 March 2026 governing the age check itself.</p>
+  <p><strong>We have taken a position rather than leaving this open, and we would rather you corrected it than started from nothing.</strong> It is set out in full at §4.11 of the annexed Privacy Impact Assessment; in summary:</p>
+  <ul>
+    <li><strong>The club roster cross-check should be built as a match, not a collection.</strong> If a club sends us a roster we have acquired a list of children, most of them not our users. If we send a name and date of birth we already hold and get back a yes or a no, we have verified what a guardian told us without acquiring anything. <em>Its honest limitation: no club is on the platform at soft launch, so the third rung of our waterfall does not exist for the first cohort.</em></li>
+    <li><strong>A 16- or 17-year-old signing up fresh must supply guardian contact details before activation</strong> — and we think this is required for a reason that has nothing to do with age assurance. Our locked architecture gives that guardian an off-switch on discoverability and routes all contact to guardian and player together. Neither is buildable if there is no guardian on the record. We think that makes it a defect rather than a choice.</li>
+    <li><strong>For 18 and over, no guardian contact.</strong> Demanding a parent's details from an adult is over-collection.</li>
+    <li><strong>The remaining hole is closed by detection, not prevention.</strong> Lock the declared date of birth against upward amendment; hold any account that claims to be an adult while naming a junior squad as its current team — a contradiction visible in football data we already hold, and probably our highest-yield measure; and provide a report route for "this account belongs to a child" that needs neither an account nor certainty.</li>
+    <li><strong>Refusing identity documents is right</strong>, and we would hold that line even if you told us we could collect them — the breach consequence of an identity-document store is worse than the harm it prevents. <strong>The honest corollary is that we cannot claim high assurance, so nothing we publish may say or imply that we verify age.</strong></li>
+  </ul>
+  <div class="ask"><strong>What we need</strong>
+    Whether that package is adequate; which parts of it are required rather than prudent; whether the roster match survives being a collection of a child's information from a third party; and whether our refusal to collect government identity documents is defensible or merely comfortable. If you think this is not enough to open the platform to under-16s at all, that is the answer we most need to hear, and hearing it early is worth more to us than hearing it politely.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 2</span>
+  <p class="qtitle">Is Pitch an age-restricted social media platform, now and at each roadmap stage? <span class="pri pri-1">Blocks launch</span></p>
+  <p>Please advise whether the service as described in Part B falls within section 63C of the <em>Online Safety Act 2021</em> read with rules 4A and 5 of the Rules, and whether our two-ground analysis at C.1 is sound.</p>
+  <p>Because the assessment is made at the level of the service, we need the answer to be forward-looking as well as present. Three planned changes concern us, and we would like each assessed as a discrete step:</p>
+  <ul>
+    <li><strong>At launch:</strong> the Interest Register — a family registers interest with a verified club and a tokenised link travels to it, the family remaining able to revoke. Paid, and the only thing sold. Questions 13 and 14 cover the commercial mechanics.</li>
+    <li><strong>November or December 2026:</strong> verified-club search over 16–17 year olds and adults; coach-authored assessments visible to the player and guardian. The date may pull forward, so please bound your advice by capability rather than by calendar.</li>
+    <li><strong>Preseason 2027 (Stage 3):</strong> follow and connect between adult accounts, a light chronological activity feed, and club-scoped squad messaging that reaches a guardian and a child together. This is the change we regard as genuinely risky.</li>
+    <li><strong>February–March 2027:</strong> a live match-day tracker producing minutes played, recorded by a coach or team manager.</li>
+  </ul>
+  <div class="ask"><strong>What we need</strong>
+    A yes/no on the current service, and a <em>feature red-line</em> we can hand to our engineers — a list of the specific product capabilities that would, singly or together, bring the service within the definition. We would rather design permanently around the line than build a feature and litigate the characterisation. If your view is that the Stage 3 network layer cannot coexist with under-16 accounts on the same service, please say so plainly; we will restructure the roadmap.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 3</span>
+  <p class="qtitle">Are we an APP entity, and should we opt in under section 6EA? <span class="pri pri-1">Blocks launch</span></p>
+  <p>Please confirm our small business operator analysis at C.2, address the two section 6D(4) triggers we have identified, and advise on the opt-in decision. We understand opting in would bring with it the notifiable data breach scheme, the Children's Online Privacy Code once registered, and the automated decision-making transparency obligations in APP 1.7 and 1.8 from 10 December 2026.</p>
+  <p>Our instinct is that opting in is right — it is a material trust signal to the technical directors and parents we sell to, and the exemption is a long-standing reform target — but that the timing should follow registration of the Children's Online Privacy Code rather than precede it, so that we know what we are agreeing to. We would like that instinct tested.</p>
+  <div class="ask"><strong>What we need</strong>
+    A recommendation on whether and when to opt in; and, if the recommendation is to wait, confirmation that describing ourselves to clubs as building to the Privacy Act standard while not yet an APP entity is accurate and not misleading.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 4</span>
+  <p class="qtitle">Can we lawfully verify, hold or display a coach's Working With Children Check? <span class="pri pri-1">Blocks launch</span></p>
+  <p>This is the question on which we expect to have to change our product. Our register currently records "Working With Children Check verification as a platform feature" as a locked decision, and our coach CV design carries a badge reading "WWCC". Our research suggests that decision may be undeliverable, at least in NSW, and we would like a clear answer before we ship a badge that asserts something we cannot support.</p>
+  <p>The specific matters we would like addressed:</p>
+  <ul>
+    <li><strong>NSW.</strong> Verification appears to be available only through the Office of the Children's Guardian employer portal to an organisation registered as a child-related employer, with the public portal restricted to parents verifying a person working with their own child. We understand the Guardian does not endorse third-party verifiers and that the employer's duty under section 9A is non-delegable. Can Pitch verify at all in NSW, and if not, may it act as agent on a registered club's credentials?</li>
+    <li><strong>Victoria.</strong> The Service Victoria status checker and the digital card QR scan appear open to third parties. Is that correct, and does anything restrict a non-engaging organisation from using them?</li>
+    <li><strong>Section 45 of the <em>Child Protection (Working with Children) Act 2012</em> (NSW)</strong>, headed "Unauthorised disclosure or dishonest collection of information". <strong>This is the highest-priority unverified item in the brief and we would like it read first.</strong> Four attempts across three sources returned only subsection (3), which concerns the Children's Guardian's own disclosures following verification under section 9A. Subsections (1) and (2), and the penalty, we could not obtain. The heading alone — "dishonest collection" — is squarely on point for a platform that holds check numbers without being the engaging organisation. Does it constrain us?</li>
+    <li><strong>APP 9.</strong> If we are or become an APP entity, is a check number a government related identifier, such that we must not adopt it as our own identifier and may use or disclose it only within the APP 9.2 exceptions — neither of which sits comfortably with a platform that is not the engaging organisation?</li>
+    <li><strong>Football Australia's Safeguarding Policy</strong> appears to place verification on the football entity. Does anything we do risk creating the impression that a club's own obligation has been discharged by us?</li>
+  </ul>
+  <div class="ask"><strong>What we need</strong>
+    A workable design. Our fallback, if verification by us is not available, is to record the number, display nothing more than a club-attested state, and make clear in the club terms that verification remains the club's responsibility. Please tell us whether that fallback is sound, and whether we should hold the number at all rather than merely a yes/no and a date.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 5</span>
+  <p class="qtitle">Does the default-on discoverability of 16–17 year olds survive scrutiny? <span class="pri pri-1">Blocks launch</span></p>
+  <p><em>Since this brief was drafted, club search has been confirmed as a December feature — in the launch product no adult can search for a player at all, and the guardian's switch is settable now to preset a future state. The question is unchanged, because the default is what it is on the day search opens.</em></p>
+  <p>On a player's sixteenth birthday, discoverability to verified clubs and verified coaches switches on automatically. The guardian is notified thirty days ahead and holds an off-switch, but the default is on. Our commercial reason is real: a 16-year-old seeking a pathway is precisely the person who needs to be found, and a default-off setting would be left off by most families to the disadvantage of exactly the children the product exists to serve.</p>
+  <p>Against that, we recognise the tension with a best-interests-of-the-child standard and with a high-privacy-by-default expectation, and we note the Children's Online Privacy Code exposure draft's default-settings provision.</p>
+  <div class="ask"><strong>What we need</strong>
+    Whether default-on is defensible with the guardian notification and off-switch as designed; or whether we should move to guardian opt-in at the sixteenth-birthday transition. If the latter, we will change it — we would simply like to know rather than guess.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 6</span>
+  <p class="qtitle">What do the Basic Online Safety Expectations require of us, and can we meet the removal-notice timeframes? <span class="pri pri-1">Blocks launch</span></p>
+  <p>We understand the Expectations to apply to designated internet services of any kind with no size threshold, and therefore to apply to us regardless of turnover; that the best interests of the child are to be a primary consideration in design and operation; that we must provide clear mechanisms to report harmful material and breaches of our terms; that we must make information on complaining to the Commissioner readily accessible; and that reports must be retained for five years. We also understand a removal notice for cyberbullying material targeted at an Australian child carries a 24-hour compliance window.</p>
+  <p>We are a one-founder company. A 24-hour window that can open on a Friday night is an operational problem, not a drafting one. <strong>We have marked this as blocking launch because our reporting affordance goes live with the soft launch itself</strong>, and with it the possibility of a removal notice — not in December, as we had originally assumed.</p>
+  <div class="ask"><strong>What we need</strong>
+    A checklist of what our report affordance, records and published complaints information must contain; and a realistic view of what an acceptable out-of-hours takedown capability looks like for a company of our size.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 7</span>
+  <p class="qtitle">How should terms be accepted, by adults, by guardians on behalf of children, and by 16–17 year olds? <span class="pri pri-1">Blocks launch</span></p>
+  <p>Adults accept at registration. For an under-16, the guardian's approval is the acceptance of the terms and privacy policy on the child's behalf, version-stamped into the consent log. For 16–17 year olds we do not know the right model, and our build has been written so that the guardian acceptance path can be extended to them if that is your advice. We are conscious that a minor's contract is generally voidable.</p>
+  <div class="ask"><strong>What we need</strong>
+    The acceptance model for each band; whether guardian co-acceptance should run to 18; and whether the consent record we describe at B.1 is sufficient evidence of acceptance.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 8</span>
+  <p class="qtitle">How must a minor's public CV behave on the open web? <span class="pri pri-1">Blocks launch</span></p>
+  <p>An under-16's CV is not in any Pitch search surface, but it is a public URL carrying a name, photograph, club, age group and region, designed to unfurl as a rich preview when the guardian sends it. The link is tokenised, revocable, regenerable and expires after ninety days by default.</p>
+  <p>We are <em>proposing</em> — it is not yet a settled decision on our side — that every under-18 page carry <code>noindex, nofollow</code> and be excluded from sitemaps. We should be candid that this cuts against our own design: the rich social preview is the share mechanic the whole product rests on, and a parent sending their child's CV to a coach on WhatsApp expects it to look like something. Suppressing previews for under-18s would blunt the feature for exactly the users it was built for.</p>
+  <div class="ask"><strong>What we need</strong>
+    Whether search-engine exclusion is required rather than merely advisable; whether the social preview must also be suppressed or reduced for under-18 pages, or whether search-engine exclusion alone is sufficient; and whether an under-16 CV should carry a surname at all. We are willing to ship first-name-and-initial for under-16s if that is your advice.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 9</span>
+  <p class="qtitle">User-generated content about identifiable people, some of them children. <span class="pri pri-1">Blocks launch</span></p>
+  <p>Three surfaces trouble us, and all three ship at soft launch rather than in December, which is why this blocks launch.</p>
+  <ul>
+    <li><strong>The alumni wall.</strong> Club pages name former juniors and where they progressed to, in free text a club administrator types. Since this brief was first drafted we have adopted a rule that <strong>no person under 18 may be named</strong> — "a 2019 U13 now in an NPL squad" is permitted, the child's name is not — and the rule is printed on the page where the club writes. We would like to know whether that is sufficient, and what is required for the adults who are named.</li>
+    <li><strong>Trial notices</strong> publish a ground, a date and a time for a named age group at a named club. A player's CV separately names their club and age group. Neither publishes a child beside a place and a time; together they narrow it considerably. This is a residual we have not solved and would rather raise than have raised at us.</li>
+    <li><strong>Unclaimed listings</strong> we have compiled from public club information and marked as such.</li>
+  </ul>
+  <p>Our current treatment is an uploader rights warranty in the terms, removal on request for any parent whose child appears in another party's content, an unclaimed-listing disclaimer carried in the terms and the listing metadata, and the report affordance on every page.</p>
+  <div class="ask"><strong>What we need</strong>
+    Whether that treatment is adequate; whether a club should be required to hold and evidence consent before naming a person on its page, and whether we should prohibit naming anyone under 18 in club-authored content (our own preference, since "a 2019 junior now at NPL Victoria" works just as well); whether the residual inference through trial notices needs constraining; and whether compiling unclaimed listings from public information exposes us in the way we have assumed or in some way we have not.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 10</span>
+  <p class="qtitle">Australian children, worldwide pages, and an overseas waitlist. <span class="pri pri-1">Blocks launch</span></p>
+  <p>We restricted account creation to Australia precisely so that we would not inherit foreign children's-privacy regimes we are not built for. But two things sit uneasily with that reasoning and we would rather test them now than assume them.</p>
+  <ul>
+    <li><strong>Public CV and club pages are viewable worldwide from day one.</strong> That is deliberate — the showcase is meant to be global, and a Melbourne 17-year-old sending a link to a club in England is the outcome we want. It also means an Australian child's name, photograph, club and region are retrievable in the United Kingdom, the European Union and the United States.</li>
+    <li><strong>Non-Australian visitors land on a waitlist screen.</strong> Adults may leave an email address. Under-18s are never asked for anything; we retain only an anonymous count of country, age band and month, and no IP address. We nonetheless determine each visitor's country in order to route them there.</li>
+  </ul>
+  <div class="ask"><strong>What we need</strong>
+    Whether serving a page to, and collecting an email address from, adults in the United Kingdom or the European Union engages the UK or EU General Data Protection Regulation, and whether an anonymous count of a foreign minor's country and age band engages anything; whether world-viewability of an Australian minor's page creates exposure under the UK Age Appropriate Design Code or the United States Children's Online Privacy Protection Act; and if so, whether the answer is geo-restriction, a targeting disclaimer, or something else. We would rather geo-restrict the waitlist than acquire a European compliance obligation for a mailing list.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 11</span>
+  <p class="qtitle">Are our club terms exposed under the unfair contract terms regime? <span class="pri pri-2">Before December</span></p>
+  <p><strong>This is now a live contract rather than an illustration.</strong> One product is sold — the Interest Register, at $54 a month or $329 a year GST-inclusive, by card. The annexed Schedule A describes that and nothing else, and states that nothing else on the club side is purchasable. A wider club model exists on our roadmap but has no price and is not offered, so the contract does not describe it. <em>We would like that reading confirmed as part of your answer.</em> Questions 13 and 14 cover the payment mechanics. We understand that because we ourselves employ fewer than one hundred people, every standard form contract we enter is a small business contract regardless of the counterparty's size; that automatic renewal, unilateral variation and unilateral price variation without a matching termination right all sit on the grey list; that each unfair term is a separate contravention; and that the corporate maximum became the greatest of $100 million, three times the benefit or 30% of adjusted turnover on 28 March 2026.</p>
+  <p>We also understand that on any pricing model we are likely to adopt every subscription will be well under $100,000, and therefore that clubs, coaches and players would all be consumers for the purposes of the consumer guarantees, which cannot be excluded; and that the unfair trading practices regime commencing 1 July 2027 will require an online cancellation path for anything sold online.</p>
+  <div class="ask"><strong>What we need</strong>
+    Review of Schedule A against the grey list, with particular attention to renewal, variation, the founding-cohort conversion and the liability ceiling; confirmation that a contract describing only the product actually sold is complete; and confirmation of the liability carve-outs — we have placed child-safety failures, privacy failures and personal injury outside any cap, with a $2,000 floor beneath everything else because a cap at fees paid would be a cap at zero for a family who pays us nothing.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 12</span>
+  <p class="qtitle">Do the Child Safe Standards apply to us directly, and what changes if we run the Academy? <span class="pri pri-2">Before December</span></p>
+  <p>Our reading is that the Victorian Schedule 1 categories and the NSW list of child safe organisations are closed lists that do not include software or online service providers, so that we sit outside as an entity in our own right while our club customers sit squarely inside — and that both schemes' online-environments standard means clubs must risk-assess us, with contractual flow-down to follow.</p>
+  <p>Two things could change that. First, we intend in time to run a <em>Pitch Academy</em> — a real-world development program — and a scholarship. Second, Victoria's definition of child-related work includes contact by email or other electronic communication, and extends to work at or for clubs and associations providing activities for children, which raises the question whether our own staff perform child-related work.</p>
+  <div class="ask"><strong>What we need</strong>
+    Whether we are captured now; what the Academy would trigger and at what point; and whether the founder and any future staff should hold Working With Children Checks in Victoria irrespective of the answer. We are inclined to obtain them regardless, on the basis that the cost is trivial and the signal is good.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 13</span>
+  <p class="qtitle">Selling a subscription to an unincorporated association, through a tick-box and a personal card. <span class="pri pri-2">Before December</span></p>
+  <p>Clubs now pay us by card at a hosted checkout. Two features of that trouble us and we have taken a position on both.</p>
+  <ul>
+    <li><strong>Many community football clubs are unincorporated associations</strong>, which have no separate legal personality and cannot contract in their own name. A volunteer ticking a box is not obviously a person who can bind one — but nor would that volunteer's signature be, so we do not think the click-wrap is the defect.</li>
+    <li><strong>A volunteer often pays with a personal card.</strong> We treat them as paying as agent for the club and address the receipt to the club so they can be reimbursed.</li>
+  </ul>
+  <p><strong>Our position, for you to correct.</strong> The checkout captures the person's name, their role and a warranty that they are authorised. The verification call — which we make anyway, before anything about any child reaches the club — asks whether they are authorised and whether the club is incorporated. And the terms provide that an unauthorised person is personally bound, <em>together with a published undertaking that we will not enforce that against an individual acting in a volunteer capacity; we will cancel and refund instead.</em></p>
+  <div class="ask"><strong>What we need</strong>
+    Whether that package is sound; whether the undertaking not to enforce personally is safe to publish, or creates a problem we have not seen; and whether anything further is needed where the counterparty has no legal personality at all.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 14</span>
+  <p class="qtitle">A free period that converts to a charge, and the rest of the subscription mechanics. <span class="pri pri-2">Before December</span></p>
+  <p><strong>There is no free period, and we want to be exact about that, because an earlier draft of this brief said there was.</strong> That draft described a founding cohort receiving twelve months at no charge converting to the standard annual price. <strong>No such arrangement exists.</strong> It was constructed internally, treated as settled, and drafted into our terms before we caught it. Founding-club arrangements are individually negotiated, carry no published terms, and confer no entitlement and no advantage of any kind; Schedule A (A5.3) says that and states no figures.</p>
+  <p><strong>What survives is the rule we wrote against the thing that did not exist, and we would like it tested prospectively rather than dropped.</strong> A free period that silently becomes a charge is a named enforcement priority and closely resembles the published action against a subscription platform selling to small businesses. Our standing rule, now at A5.4: if we ever run one, the conversion date and price are stated at signup in the same visual weight as the word "free"; a reminder goes 30 days before naming the date and the amount; and one action cancels it before it converts.</p>
+  <p><strong>The mechanics that are real today</strong> are a 14-day cooling-off on the annual plan with a full refund of the whole $329; recurring-billing disclosure on our own page rather than on the processor's screen; cancellation reachable from the club's own settings; a rule that a failed payment suspends a club's list and never deletes a child's registration; and, since GST registration, a tax invoice on every charge and an adjustment note on every refund (A6.2).</p>
+  <div class="ask"><strong>What we need</strong>
+    Whether 14 days is the right cooling-off period for a $329 GST-inclusive prepayment; whether the prospective free-period rule at A5.4 would be sufficient if we ever relied on it; whether A6.2 states the tax invoice and adjustment note obligations correctly, drafted as it was from the Commissioner's published requirements rather than from advice; and whether anything in the mechanics sits on the unfair contract terms grey list in a way we have missed. This is the question where we are least confident that being careful is the same as being compliant.</div>
+</div>
+
+<div class="q">
+  <span class="qnum">Question 15</span>
+  <p class="qtitle">Marketing, giveaways and the brand. <span class="pri pri-3">Advisory</span></p>
+  <p>Three smaller matters, grouped.</p>
+  <ul>
+    <li><strong>Marketing to children.</strong> Our rule is that we market to parents and to players 18 and over, never to children. One page departs from it: our pre-launch landing page tells under-18s they may sign up themselves once we are live, and offers a parent's address for waitlist updates. We consider that functional information rather than marketing, and would like to know whether you agree.</li>
+    <li><strong>Giveaways.</strong> We intend skill-based competitions judged on stated criteria, never random draws. We now understand that a random tiebreaker would inject chance and convert the whole promotion; that a total prize value at or below $3,000 avoids permits and authorities everywhere in Australia; and that the Northern Territory prohibits awarding a prize to a minor. Our proposed design is entry restricted to adults, with a parent entering on behalf of a junior and the prize awarded to the adult.</li>
+    <li><strong>Trade marks, and the name we actually trade under.</strong> The legal person is EBSD Enterprises Pty Ltd; the registered business name is <strong>Pitch Football</strong>; the product is branded <strong>Pitch</strong>, and the client has decided not to register "Pitch" as a separate business name. We understand that a business name registration confers no proprietary right at all, that registration of a trade mark takes at least seven months, and that filing before launch secures priority. <strong>Our own view, which we would like corrected if it is wrong, is that PITCH alone is distinctiveness-weak for football services</strong> — a pitch is the field — so we expect to file <strong>PITCH FOOTBALL</strong> and a composite mark rather than the bare word, in classes 9, 41 and 42, with a view sought on 35 and 45. Any application would be filed by the company, not the founder. We would like a view on that, and on clearance searching in the football and sports technology space.</li>
+    <li><strong>Whether naming the entity is done correctly.</strong> A club sees "Pitch" in the product and contracts with EBSD Enterprises Pty Ltd. Clause 0.1 of the annexed terms and the "Who we are" section of both privacy policies are our answer. We would like confirmation that they identify the contracting and data-holding party adequately, and a view on where else the legal name and ABN must appear.</li>
+  </ul>
+  <div class="ask"><strong>What we need</strong>
+    A short answer on each; the landing page copy is the only one that touches the launch date.</div>
+</div>
+
+<h2>Part E — Scope, staging and what we need first</h2>
+
+<h3>E.1 Staged delivery</h3>
+
+<p><strong>There is no longer a fixed launch date</strong> — the plan is a soft launch as early as it can honestly be done, gated on our own internal readiness rather than on a calendar. The pressure is still real but it is seasonal rather than dated: trials season runs from late September and a season missed is a year lost for a fourteen-year-old. <strong>The periods below therefore run from the date you accept instructions rather than from any date of ours</strong>, so that this brief does not go stale again while it waits.</p>
+
+<table>
+  <tr><th>Stage</th><th>Content</th><th>Needed by</th></tr>
+  <tr><td><strong>1 — Short-form advice</strong></td><td><strong>Questions 1 to 10</strong> — the ten marked as blocking launch, in the order given. Email or short memorandum is sufficient at this stage. If time forces a choice, questions 1, 2 and 4 are the three we cannot proceed without.</td><td><strong>Within 10 business days of engagement</strong></td></tr>
+  <tr><td><strong>2 — Document review</strong></td><td>Privacy Impact Assessment, both privacy policies, terms of service and club terms (Annexures B–D), marked up.</td><td>Within 20 business days of engagement</td></tr>
+  <tr><td><strong>3 — Full opinion</strong></td><td>The remaining questions, and a consolidated written opinion covering all fifteen.</td><td>Within 45 business days of engagement</td></tr>
+  <tr><td><strong>4 — Watching brief</strong></td><td>Registration of the Children's Online Privacy Code and its commencement; the section 6EA opt-in decision; the search and assessment sprint.</td><td>Ongoing</td></tr>
+</table>
+
+<div class="callout">
+  <p><strong>Two things about this staging that we want on the record rather than buried.</strong></p>
+  <p>First: our own governance makes a <em>formal written opinion</em> a gate that must be passed before the platform opens to any Australian minor. The staging above does not meet that standard — it substitutes early short-form advice for an opinion that arrives considerably later. <strong>Our own internal view, and it is not unanimous, is that short-form advice is not a responsible substitute and that the gate should stay shut until an Australian solicitor has signed something.</strong> If you agree, please say so plainly: it settles an internal disagreement in the direction we suspect is right, and it is more useful to us than a diplomatic answer.</p>
+  <p>Second: if stage 1 cannot be delivered promptly, our fallback is to launch to adults and clubs only and to open under-18 sign-up when the advice lands. This is not our agreed launch scope — the guardian consent spine is scope our own rules say is never cut — so it is a founder's decision rather than settled intent, and we flag it as such rather than presenting it as a plan already made.</p>
+  <p><strong>Please tell us early if the stage 1 period is not achievable.</strong> An honest "no" in the first week is worth considerably more to us than a "yes" that slips.</p>
+</div>
+
+<h3>E.2 Fees</h3>
+
+<p>Please provide an estimate for each stage separately, and tell us where our own preparation reduces your time. We have deliberately front-loaded the factual work so that you are reviewing rather than researching, and we would like the fee to reflect that. If any question is outside your practice — the trade mark work almost certainly is — please say so and we will brief it elsewhere.</p>
+
+<h3>E.3 Assumptions we would like corrected</h3>
+
+<p>Every factual and legal proposition in Parts A to C is our own work and is offered to be corrected. In particular, our earlier internal compliance note (Annexure A) was written on 20 August 2026 and contains at least one analysis we now doubt (the schools exclusion point at C.1) and several regulatory statements we have since updated. Please treat Annexure A as background to the product rather than as a statement of the law, and this brief as superseding it wherever they differ.</p>
+
+<h2>Part F — Annexures</h2>
+
+<table>
+  <tr><th>&nbsp;</th><th>Document</th><th>Purpose</th></tr>
+  <tr><td><strong>A</strong></td><td>Compliance architecture note, 20 August 2026 (doc 05)</td><td>Background. Superseded by this brief where inconsistent.</td></tr>
+  <tr><td><strong>B</strong></td><td>Privacy Impact Assessment (doc 19)</td><td>For review. Structured to the OAIC guide, with a best-interests assessment and a risk register.</td></tr>
+  <tr><td><strong>C</strong></td><td>Privacy policy — adult and guardian version (doc 20); child-directed version (doc 21)</td><td>For review before publication. The child version is written to be read by a ten-year-old and measures at a Year-4 reading level; please do not tidy it into legal English.</td></tr>
+  <tr><td><strong>D</strong></td><td>Terms of service, with the club terms as Schedule A (doc 22)</td><td>For review before publication. Schedule A is a live contract, not an illustration.</td></tr>
+  <tr><td><strong>G</strong></td><td>Retention statement (doc 23), code of conduct (doc 24), complaints and takedown process (doc 25)</td><td>Supporting documents. Each states a period or a standard we have chosen ourselves and would like corrected.</td></tr>
+  <tr><td><strong>E</strong></td><td>Stage 0 foundations — data model and permission matrix (doc 09)</td><td>The architecture behind Part B, if you want the detail.</td></tr>
+  <tr><td><strong>F</strong></td><td>Design Decisions Register (doc 06)</td><td>Every product decision, numbered. Useful if you need to know whether something is settled or open.</td></tr>
+</table>
+
+<p class="note">This brief was prepared by Pitch for the purpose of obtaining legal advice and is confidential. It contains no personal information of any real child; the individuals shown in our design materials — including "Deniz Yılmaz" of Riverside FC — are fictional.</p>
+
+<footer>
+  Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · Brief to solicitor · doc 18 · v1.3 · 28 August 2026 · reconciled to register v4.1 · prepared for BUZ's review, not yet sent
+</footer>
+
+</div>
+</body>
+</html>

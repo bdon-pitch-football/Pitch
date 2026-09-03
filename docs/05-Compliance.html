@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitch 3.0 — Australian Compliance</title>
+<style>
+  :root{
+    --bg:#0c1110; --card:#141b19; --card2:#1b2421; --line:#2a3531;
+    --ink:#eef3f1; --ink2:#a8b5b0; --muted:#7b8783;
+    --accent:#3ddc84; --warn:#eda100; --danger:#e34948; --safe:#3987e5; --r:16px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f3f6f4; --card:#fff; --card2:#eef2f0; --line:#e0e6e3;
+      --ink:#101815; --ink2:#4d5854; --muted:#6b7672; --accent:#0e8a4d;
+      --warn:#9a7b1a; --danger:#c1332f; --safe:#2a78d6; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.55;padding-bottom:60px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 18px}
+  header{padding:28px 0 4px}
+  .eyebrow{color:var(--accent);font-weight:700;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase}
+  h1{margin:.15em 0 .2em;font-size:1.85rem;line-height:1.1;font-weight:800}
+  .sub{color:var(--ink2);font-size:.98rem;margin:0;max-width:68ch}
+  h2{font-size:1.15rem;margin:34px 0 3px;font-weight:800}
+  .lede{color:var(--muted);font-size:.87rem;margin:0 0 14px;max-width:74ch}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .card+.card{margin-top:11px}
+
+  .disc{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--warn);
+    border-radius:12px;padding:13px 16px;margin-top:16px;font-size:.85rem;color:var(--ink2)}
+  .disc b{color:var(--ink)}
+
+  .law{border-left:5px solid var(--c)}
+  .law .tag{display:inline-block;font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+    padding:3px 9px;border-radius:99px;background:var(--c);color:var(--bg);margin-bottom:7px}
+  .law h3{margin:0 0 6px;font-size:1.08rem;font-weight:800}
+  .law p{margin:0 0 8px;font-size:.88rem;color:var(--ink2)}
+  .law ul{margin:6px 0 0;padding-left:1.1em}
+  .law li{font-size:.85rem;margin:.28em 0;color:var(--ink2)}
+  .law li b{color:var(--ink)}
+
+  .test{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:12px}
+  @media(max-width:720px){.test{grid-template-columns:1fr}}
+  .t{background:var(--card2);border-radius:12px;padding:13px}
+  .t .h{font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px}
+  .t.caught .h{color:var(--danger)} .t.exempt .h{color:var(--accent)}
+  .t ul{margin:0;padding-left:1.05em} .t li{font-size:.81rem;margin:.24em 0;color:var(--ink2)}
+
+  .verdict{background:linear-gradient(135deg,var(--accent),#0a6b3c);color:#fff;border-radius:var(--r);padding:20px;margin-top:14px}
+  .verdict .k{font-size:.7rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;opacity:.85}
+  .verdict .b{font-size:1.15rem;font-weight:800;margin:5px 0 6px}
+  .verdict p{margin:0 0 7px;font-size:.88rem;opacity:.94;max-width:76ch}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+  .exp{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;border-top:4px solid var(--c)}
+  .exp h3{margin:0 0 2px;font-size:1rem;font-weight:800;color:var(--c)}
+  .exp .age{font-size:.72rem;color:var(--muted);font-weight:700;margin-bottom:9px}
+  .exp ul{margin:0;padding-left:1.05em} .exp li{font-size:.82rem;margin:.28em 0;color:var(--ink2)}
+  .exp li.no{color:var(--danger)} .exp li.yes b{color:var(--ink)}
+
+  .checklist li{font-size:.86rem;margin:.4em 0;color:var(--ink2)}
+  .checklist li b{color:var(--ink)}
+  .foot{color:var(--muted);font-size:.76rem;text-align:center;margin-top:28px}
+  .src{font-size:.78rem;color:var(--muted);margin-top:6px}
+  .src a{color:var(--safe)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Pitch 3.0 · Australia</div>
+    <h1>Compliance architecture</h1>
+    <p class="sub">Two Australian regimes decide how Pitch must be built for under-16s. Get this right at the design stage and it becomes a moat. Get it wrong and it's existential.</p>
+  </header>
+
+  <div class="disc">⚠️ <b>Not legal advice.</b> This is research to shape design decisions and to brief a lawyer efficiently. Before launching to a single Australian minor, get a formal opinion from an Australian online-safety / privacy solicitor. The cost of one opinion is trivial next to a $49.5M penalty regime.</div>
+
+  <h2>① The Social Media Minimum Age regime (the under-16 "ban")</h2>
+  <div class="card law" style="--c:var(--danger)">
+    <span class="tag">In force · enforcement active 2026</span>
+    <h3>Are we an "age-restricted social media platform"?</h3>
+    <p>A service is caught if <b>social interaction is its sole or significant purpose</b>, users can link to/interact with each other, users can post material, and it's accessible in Australia. Amendment Rules registered <b>March 2026</b> narrowed this to target services built for <i>persistent engagement</i> — adding a requirement for a <b>recommender feature</b> (algorithmic "for you" curation) <b>or a logged-in feature</b> (endless feeds, feedback mechanisms, time-limited content).</p>
+    <p>Critically, the law <b>exempts services whose sole or primary purpose is</b>:</p>
+    <ul>
+      <li><b>Professional networking or professional development</b></li>
+      <li><b>Supporting user education</b></li>
+      <li><b>Facilitating communication between educational institutions and students / their families</b></li>
+      <li>Messaging, gaming, health, product/service information</li>
+    </ul>
+    <p style="margin-top:9px">Penalties for non-compliance reach <b>$49.5M</b>. Age assurance must be a layered "waterfall" — self-declared age alone is explicitly insufficient.</p>
+
+    <div class="test">
+      <div class="t caught">
+        <div class="h">What would catch us</div>
+        <ul>
+          <li>An algorithmic "for you" feed</li>
+          <li>An endless-scroll social feed</li>
+          <li>Likes / comments / reactions between users</li>
+          <li>Open player-to-player following &amp; discovery</li>
+          <li>Positioning Pitch as "LinkedIn for football" in a <i>social</i> sense to minors</li>
+        </ul>
+      </div>
+      <div class="t exempt">
+        <div class="h">What keeps us outside</div>
+        <ul>
+          <li>Primary purpose = <b>development tracking &amp; pathway</b></li>
+          <li>Club-mediated communication only (mirrors the schools exemption almost exactly)</li>
+          <li>No DMs, no open interaction for minors</li>
+          <li>Parent-created, parent-controlled minor accounts</li>
+          <li>Chronological, club-scoped views — no recommender</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <div class="k">The design decision this forces</div>
+    <div class="b">Build two experiences, split at 16</div>
+    <p><b>Under 16 — the "development record" experience.</b> No feed, no algorithm, no likes, no comments, no follows, no discovery browsing, no direct contact. A parent-controlled profile, a coach-verified development record, and club-mediated communication. This is a schools-portal shape, not a social-network shape — and it's the shape the exemptions were written for.</p>
+    <p><b>16 and over — the full product.</b> The ban applies only to under-16s, so 16–17 year olds can have the network layer, with BUZ's rule intact: contact permission stays parent-mediated until 18, then the account becomes independent.</p>
+    <p style="margin-bottom:0">Neat outcome: this splits exactly where the pricing already splits, and it means the social features that drive growth get built for the audience that's legally allowed to have them.</p>
+  </div>
+
+  <h2>② The Children's Online Privacy Code</h2>
+  <div class="card law" style="--c:var(--safe)">
+    <span class="tag">Draft · registration deadline Dec 2026</span>
+    <h3>This one, we don't get an exemption from</h3>
+    <p>The Code applies to services <b>likely to be accessed by children</b> — which Pitch unambiguously is. There's no "we're a sports platform" escape hatch, so it must be built in. Key obligations:</p>
+    <ul>
+      <li><b>Best interests of the child</b> — the governing principle for design decisions</li>
+      <li><b>Strictly necessary</b> data collection — a higher bar than "reasonably necessary". Collect less than you'd like</li>
+      <li><b>Parental consent for under-15s</b>, with <b>reasonable steps to verify parental responsibility</b> — not just an email tick</li>
+      <li><b>Age assurance</b> proportionate to the risk profile of the data held</li>
+      <li><b>Child-friendly privacy policy</b>, written so a 13-year-old understands it</li>
+      <li><b>Right of destruction</b> — a child or parent can require deletion of their personal information</li>
+      <li><b>Privacy impact assessments</b> for high-risk processing, kept in a register</li>
+      <li>Notification where geolocation or parental monitoring is in play</li>
+    </ul>
+  </div>
+
+  <h2>③ What we must build (design requirements)</h2>
+  <div class="card">
+    <ul class="checklist" style="margin:0;padding-left:1.1em">
+      <li><b>Split the experience at 16</b> in the data model and the UI from day one — not a later fork.</li>
+      <li><b>No recommender or endless feed for minors.</b> Chronological, scoped to their own club. This is the single most load-bearing technical decision.</li>
+      <li><b>No user-to-user interaction primitives for minors</b> — no likes, comments, reactions, follows, DMs.</li>
+      <li><b>Waterfall age assurance:</b> declared DOB → parent verification (email + separate SMS) → club roster cross-check once clubs are on. Never self-declaration alone. Never government ID.</li>
+      <li><b>Verify parental responsibility</b>, not just parental identity. The club's registration records are the strongest available proof — build toward club-verified linkage.</li>
+      <li><b>Data minimisation:</b> if a field isn't strictly necessary for development or safety, don't collect it. No geolocation on minors. No behavioural tracking on minors.</li>
+      <li><b>One-tap deletion</b> for parent and child, cascading properly through the record.</li>
+      <li><b>Child-friendly privacy policy</b> plus the adult version.</li>
+      <li><b>Privacy Impact Assessment before launch</b>, with a maintained register.</li>
+      <li><b>Working With Children Checks</b> — VIC and NSW require them for anyone working with children. Verify coach WWCC numbers as a platform feature; it protects players, and it's a trust signal to every parent and club.</li>
+      <li><b>Positioning discipline:</b> describe Pitch as a <i>player development and pathway platform</i>, never as a social network — in the app store listing, the website, and every TikTok caption. How you describe yourself is evidence of purpose.</li>
+    </ul>
+  </div>
+
+  <h2>④ The two experiences, side by side</h2>
+  <div class="two">
+    <div class="exp" style="--c:var(--safe)">
+      <h3>Under 16</h3>
+      <div class="age">Parent-created · parent-controlled · free forever</div>
+      <ul>
+        <li class="yes"><b>Development record</b> — coach-verified, trends over time</li>
+        <li class="yes"><b>Profile viewable</b> by clubs, coaches, scouts</li>
+        <li class="yes"><b>Highlight links</b> — parent-approved</li>
+        <li class="yes"><b>Club comms</b> — via their own club only</li>
+        <li class="yes"><b>Trials</b> — applied for by the parent</li>
+        <li class="no">✕ No feed or algorithm</li>
+        <li class="no">✕ No likes, comments or reactions</li>
+        <li class="no">✕ No following or discovery browsing</li>
+        <li class="no">✕ No direct contact — ever, from anyone outside the club</li>
+      </ul>
+    </div>
+    <div class="exp" style="--c:var(--accent)">
+      <h3>16 and over</h3>
+      <div class="age">Independent at 18 · premium $79/yr or $9.99/mo (D-34/D-82 — APPROVED 25 Aug)</div>
+      <ul>
+        <li class="yes"><b>Everything above, plus:</b></li>
+        <li class="yes">Network: follow, connect, discover</li>
+        <li class="yes">Activity feed and posting</li>
+        <li class="yes">Apply for trials directly</li>
+        <li class="yes">Who viewed your CV (premium)</li>
+        <li class="yes">Full showcase &amp; reel builder</li>
+        <li style="color:var(--warn)"><b>16–17:</b> contact still routed via parent; parent retains visibility</li>
+        <li style="color:var(--warn)"><b>18:</b> account becomes fully independent</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>⑤ Why this is an advantage, not a tax</h2>
+  <div class="card">
+    <p style="margin:0;font-size:.9rem;color:var(--ink2)">Every competitor who builds a football app with an open feed and DMs is walking into a $49.5M regime and a privacy code they can't retrofit. Pitch, designed this way from week one, is <b>structurally safe</b> — and that becomes three commercial assets: a sales slide no rival can match in front of a Technical Director who is <i>personally accountable</i> for child safety at their club; the reason parents trust it with their kid's data; and a genuine barrier to any competitor who launched loose and now has to rebuild their foundations to catch up.</p>
+  </div>
+
+  <h2>⑥ Before launch — the legal to-do list</h2>
+  <div class="card">
+    <ul class="checklist" style="margin:0;padding-left:1.1em">
+      <li><b>Formal legal opinion</b> on whether the under-16 build falls outside the age-restricted definition. Brief the lawyer with this document — it'll take an hour of their time instead of five.</li>
+      <li><b>Privacy Impact Assessment</b> + privacy policy (adult and child versions).</li>
+      <li><b>Terms of service</b> covering minors, parental consent, data rights, and club data-sharing.</li>
+      <li><b>Data hosting in Australia</b> where practical — expected by clubs and simpler under the Privacy Act.</li>
+      <li><b>Incident response plan</b> — mandatory notifiable data breach obligations apply.</li>
+      <li><b>Insurance</b> — cyber and professional indemnity before the first club signs.</li>
+    </ul>
+  </div>
+
+  <p class="foot">Pitch 3.0 · Australian compliance architecture · v0.1 · 20 Aug 2026 · research summary, not legal advice</p>
+</div>
+</body>
+</html>

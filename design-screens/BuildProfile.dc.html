@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Archivo', system-ui, sans-serif; }
+    a { color: #3ddc84; } a:hover { color: #6ce8a3; }
+  </style>
+</helmet>
+<div style="width: 390px; min-height: 990px; background: #0b120e; color: #eef5f0; font-family: 'Archivo', system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px; padding: 22px 18px 30px 18px; box-sizing: border-box;">
+
+  <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
+    <svg width="26" height="26" viewBox="0 0 26 26" style="flex-shrink: 0;"><rect width="26" height="26" rx="8" fill="#3ddc84"></rect><rect x="5" y="6.5" width="16" height="13" rx="1.5" fill="none" stroke="#06130c" stroke-width="1.6"></rect><line x1="13" y1="6.5" x2="13" y2="19.5" stroke="#06130c" stroke-width="1.6"></line><circle cx="13" cy="13" r="2.7" fill="none" stroke="#06130c" stroke-width="1.6"></circle></svg>
+    <div style="font-weight: 800; font-size: 15px;">Pitch</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 5px;">
+    <div style="font-size: 26px; font-weight: 900; line-height: 1.1; color: #eef5f0;">Build your CV</div>
+    <div style="font-size: 13.5px; color: #b9c8bf; font-weight: 500;">Two minutes. Edit anything later.</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 13px; background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px;">
+      <div style="width: 52px; height: 52px; border-radius: 16px; background: #1a2420; border: 1.5px dashed #3a4a42; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7d8f85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8 H7 L9 5.5 H15 L17 8 H20 V19 H4 Z"></path><circle cx="12" cy="13" r="3.2"></circle></svg></div>
+      <div style="display: flex; flex-direction: column; gap: 1px;"><div style="font-size: 14px; font-weight: 800; color: #eef5f0;">Add profile photo</div><div style="font-size: 11.5px; color: #7d8f85; font-weight: 500;">Optional</div></div>
+    </div>
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; gap: 2px;"><div style="font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Full name</div><div style="font-size: 15px; font-weight: 700; color: #eef5f0;">Deniz Yılmaz</div></div>
+    <div style="display: grid; grid-template-columns: 1fr 92px; gap: 8px;">
+      <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; gap: 7px;"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;"><div style="font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Positions</div><div style="font-size: 9.5px; font-weight: 700; color: #6b7d73;">Up to 3 · drag to order</div></div><div style="display: flex; flex-wrap: wrap; gap: 6px;"><div style="display: flex; align-items: center; gap: 5px; background: #3ddc84; color: #06130c; border-radius: 999px; padding: 5px 11px; font-size: 12px; font-weight: 900;"><span style="font-size: 9px; font-weight: 900; opacity: 0.6;">1</span>Attacking midfielder</div><div style="display: flex; align-items: center; gap: 5px; background: rgba(61, 220, 132, 0.14); color: #3ddc84; border-radius: 999px; padding: 5px 11px; font-size: 12px; font-weight: 800;"><span style="font-size: 9px; font-weight: 900; opacity: 0.6;">2</span>Left wing</div><div style="border: 1px dashed #3a4a42; color: #6b7d73; border-radius: 999px; padding: 5px 11px; font-size: 12px; font-weight: 700;">+ Add a third</div></div></div>
+      <div style="background: #121b16; border: 1.5px solid #3ddc84; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; align-items: center; gap: 1px;"><div style="font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Number</div><div style="font-size: 20px; font-weight: 900; color: #3ddc84; line-height: 1;">10</div></div>
+    </div>
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; gap: 2px;"><div style="font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Current club</div><div style="font-size: 15px; font-weight: 700; color: #eef5f0;">Riverside FC · U15s</div></div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+      <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; gap: 2px;"><div style="font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Region</div><div style="font-size: 14px; font-weight: 700; color: #eef5f0;">Melbourne, VIC</div></div>
+      <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; gap: 2px;"><div style="font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Preferred foot</div><div style="font-size: 14px; font-weight: 700; color: #eef5f0;">Right</div></div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">About</div>
+    <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; font-size: 13.5px; line-height: 1.55; color: #6b7d73; font-weight: 500;">Right-footed 10 who plays between the lines. Working on my weak foot and pressing triggers…</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;"><div style="font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Season stats · self-reported</div><div style="font-size: 11px; font-weight: 800; color: #3ddc84;">Choose what shows →</div></div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+      <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; align-items: center; gap: 2px;"><div style="font-size: 19px; font-weight: 900; color: #6b7d73;">—</div><div style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Clean sheets</div></div>
+      <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; align-items: center; gap: 2px;"><div style="font-size: 19px; font-weight: 900; color: #eef5f0;">18</div><div style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Apps</div></div>
+      <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; align-items: center; gap: 2px;"><div style="font-size: 19px; font-weight: 900; color: #eef5f0;">11</div><div style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Goals</div></div>
+      <div style="background: #121b16; border: 1px solid #24322a; border-radius: 16px; padding: 15px 14px; display: flex; flex-direction: column; align-items: center; gap: 2px;"><div style="font-size: 19px; font-weight: 900; color: #eef5f0;">7</div><div style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #7d8f85;">Assists</div></div>
+    </div>
+  </div>
+
+  <div style="background: #3ddc84; color: #06130c; border-radius: 15px; padding: 15px; text-align: center; font-size: 15px; font-weight: 900; margin-top: 4px;">Save &amp; preview</div>
+
+</div>
+</x-dc>
+</body>
+</html>

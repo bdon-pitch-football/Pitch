@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch — Who sees what</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b120e; --surface:#121b16; --surface-2:#1a2420; --line:#24322a;
+    --ink:#eef5f0; --secondary:#b9c8bf; --muted:#7d8f85;
+    --accent:#3ddc84; --on-accent:#06130c; --red:#ff8b7a;
+    --hero:linear-gradient(160deg,#123326,#0c1d14,#0a1510);
+    --font:"Archivo",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+       font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:52rem;margin:0 auto;padding:0 1.4rem 4rem}
+  .hero{background:var(--hero);border-radius:22px;padding:2.4rem 2.4rem 2rem;margin:1.6rem 0 2rem;
+        position:relative;overflow:hidden}
+  .mark{position:absolute;top:1.4rem;right:1.4rem;width:34px;height:34px;border-radius:8px;
+        background:var(--accent);display:grid;place-items:center}
+  .label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--accent)}
+  h1{font-size:2rem;font-weight:900;line-height:1.12;letter-spacing:-.02em;margin:.5rem 0 .5rem}
+  .lede{color:var(--secondary);margin:0;max-width:52ch}
+  h2{font-size:1.15rem;font-weight:800;margin:2.2rem 0 .7rem;letter-spacing:-.01em}
+  p{margin:0 0 .8rem;color:var(--secondary)}
+  p strong,li strong,td strong{color:var(--ink);font-weight:700}
+  ul{margin:0 0 1rem;padding-left:1.2rem;color:var(--secondary)}
+  li{margin-bottom:.35rem}
+  .tablewrap{overflow-x:auto;margin:1rem 0 1.4rem;border:1px solid var(--line);border-radius:13px}
+  table{width:100%;border-collapse:collapse;font-size:.87rem;min-width:30rem}
+  th,td{text-align:left;vertical-align:top;padding:.65rem .8rem;border-bottom:1px solid var(--line)}
+  th{background:var(--surface-2);font-size:.7rem;font-weight:800;text-transform:uppercase;
+     letter-spacing:.07em;color:var(--muted)}
+  td{color:var(--secondary)}
+  tr:last-child td{border-bottom:none}
+  .yes{color:var(--accent);font-weight:700}
+  .no{color:var(--red);font-weight:700}
+  .never{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+         padding:1.3rem 1.5rem;margin:1.4rem 0}
+  .never h3{margin:0 0 .7rem;font-size:.78rem;font-weight:800;text-transform:uppercase;
+            letter-spacing:.08em;color:var(--red)}
+  .never ul{margin:0;color:var(--ink)}
+  .never li{margin-bottom:.5rem;color:var(--secondary)}
+  .never li strong{color:var(--ink)}
+  footer{margin-top:2.6rem;padding-top:1.1rem;border-top:1px solid var(--line);
+         color:var(--muted);font-size:.78rem}
+  @media print{
+    body{background:#fff;color:#12181a;font-size:10.5pt}
+    .wrap{max-width:none;padding:0}
+    .hero{background:none;border:1px solid #ccc;border-radius:0;padding:0 0 1rem;margin:0 0 1rem}
+    .mark{display:none} .label{color:#0d6b3f} h1{color:#12181a}
+    .lede,p,td,li{color:#333}
+    p strong,li strong,td strong,h2{color:#12181a}
+    th{background:#f2f4f5;color:#555} .tablewrap,table,th,td{border-color:#ccc}
+    .never{border-color:#ccc;background:#fafbfb} .never h3{color:#8a2018}
+    .yes{color:#0d6b3f} .no{color:#8a2018}
+    footer{color:#666;border-color:#ccc}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="mark" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 22 22" fill="none" stroke="#06130c" stroke-width="1.6">
+      <rect x="2" y="4" width="18" height="14" rx="1.5"/><line x1="11" y1="4" x2="11" y2="18"/>
+      <circle cx="11" cy="11" r="3"/>
+    </svg>
+  </div>
+  <div class="label">Pitch · doc 26 · one page</div>
+  <h1>Who sees what</h1>
+  <p class="lede">The whole access model, in plain English. Written for a technical director who is about to be personally accountable for what a platform does with their players' information, and would rather read one page than a policy.</p>
+</div>
+
+<h2>The one sentence</h2>
+
+<p><strong>Children are visible, and never contactable.</strong> A club can see a player. Nobody can reach a child. Everything below is that sentence, applied.</p>
+
+<h2>The Interest Register — what you get, and what you never get</h2>
+
+<p>The one thing a club can pay us for. A player registers interest — in a trial you have posted, or in your club generally — and appears in a standing list you filter and work through.</p>
+
+<ul>
+  <li><strong>You receive a link, not a record.</strong> Their name, age, current club, the squad, a position, one line they wrote, and a link to a page their family controls. Not a file. Not a copy.</li>
+  <li><strong>The family can switch it off.</strong> If they do, the link dies and their line disappears from your list the same minute.</li>
+  <li><strong>There is no download.</strong> No spreadsheet, deliberately — a downloaded list would survive a family switching off, which would make everything above untrue.</li>
+  <li><strong>You never get a phone number or an email address</strong> for a player or a family. An invitation lands inside the guardian's Pitch account. That is not held back for a higher tier; <strong>it does not exist at any price</strong>.</li>
+  <li><strong>A free club is not a less safe club.</strong> Free clubs receive CVs from families the same way, with the same protections for the same children. The subscription buys organisation. It has never bought protection and it never will.</li>
+</ul>
+
+<h2>Your club</h2>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Who at your club</th><th>Sees</th></tr>
+  <tr>
+    <td><strong>Your technical director</strong></td>
+    <td>The full development record of every player <em>currently at your club</em> — including the history a new signing brings with them, which their family consents to when they join.</td>
+  </tr>
+<tr><td><b>A club administrator</b> — registrar, secretary, treasurer</td><td>The club page, squads, memberships, trial notices and billing. <b>Never a child's development record — not one, not ever, by any route.</b> An administrator is a registration and billing role. If someone needs to read development records, make them a technical director and accept what that carries.</td></tr>
+  <tr>
+    <td><strong>A coach</strong></td>
+    <td>Their own squads. Not the club's other squads, not another coach's players, not the club-wide view.</td>
+  </tr>
+  <tr>
+    <td><strong>A team manager</strong></td>
+    <td>What their squad needs to run — never a child's development record.</td>
+  </tr>
+  <tr>
+    <td><strong>Someone who leaves</strong></td>
+    <td>Loses club-wide access <b>immediately</b>. A coach keeps read access to <strong>the assessments they personally wrote</strong> — their own proof of work, nothing else. <b>If the family deletes the record or withdraws consent, that ends too</b> and the coach keeps an anonymised count. That is not a loophole, it is what makes a coaching CV worth having.</td>
+  </tr>
+</table>
+</div>
+
+<p><strong>Technical director is granted by the club, never claimed by a person.</strong> It is the highest-privilege role in the product — club-wide read across children's records — and "I am the TD" typed into a form is a claim, not a credential. We confirm it when we verify your club.</p>
+
+<h2>A player who leaves you</h2>
+
+<p>The record belongs to the player, so it goes with them. Your club keeps aggregate figures. Your coaches keep what they personally wrote.</p>
+
+<p>This is the part clubs ask about most, so plainly: <strong>we are not going to help you keep a player's history hostage, and we are not going to let their next club take yours.</strong> The record follows the child. That is the same rule whichever end of it you are on, and it is the reason a family will let you write in it at all.</p>
+
+<h2>Families</h2>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Who</th><th>Sees</th></tr>
+  <tr><td><strong>A parent or guardian</strong></td><td>Everything their own child sees. Live. <strong>Nothing is hidden from them</strong> — until the child turns eighteen, when the account becomes theirs and a guardian's visibility ends automatically. They can choose to give it back.</td></tr>
+  <tr><td><strong>A parent, about anyone else's child</strong></td><td><span class="no">Nothing.</span> There is no squad list a parent can browse, no comparison, no other family's information, anywhere.</td></tr>
+  <tr><td><strong>A player under 16</strong></td><td>Their own record. Not their team-mates'. Not where they sit in a squad.</td></tr>
+</table>
+</div>
+
+<h2>Everyone else</h2>
+
+<div class="never" style="border-color:var(--accent)">
+  <h3 style="color:var(--accent)">Right now, nobody searches for a player at all</h3>
+  <p style="margin:0 0 .6rem">In the launch product <strong>discovery runs one way: players find clubs.</strong> A family sends you a CV. You post a trial and players come to it. A coach or a parent passes a link. <strong>There is no search over players, and it is not built.</strong></p>
+  <p style="margin:0"><strong>Club search opens in December.</strong> When it does it reaches players aged 16 and over whose guardian has left the switch on — never an under-16, at any point, ever. The table below shows where it lands. A guardian can set that switch today, so it is already how they want it on the day it opens.</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <tr><th>&nbsp;</th><th>Under 16</th><th>16–17</th><th>18+</th></tr>
+  <tr><td><strong>Appears in a search</strong></td><td class="no">Never</td><td>Verified clubs and coaches only, and only if the guardian leaves it on — <b>club search opens in December</b></td><td>Everyone — <b>from December</b></td></tr>
+  <tr><td><strong>Profile can be viewed</strong></td><td>By a link their parent sends, and by their technical director and their own squad's verified coaches</td><td>By a link, their technical director and squad coaches, and verified searchers</td><td>Public</td></tr>
+  <tr><td><strong>Can be contacted</strong></td><td class="no">Never. <b>There is no way to message a child on Pitch at all.</b> From outside their club it goes to parent and child together; inside their club it routes through the club. Every attempt is logged and the family can see it</td><td class="no">Never. Same, and routed to guardian and player together</td><td class="yes">Directly</td></tr>
+  <tr><td><strong>Who shares the link</strong></td><td>The parent. The child can ask; the parent sends.</td><td>The player, parent visible</td><td>The player</td></tr>
+  <tr><td><strong>Who can delete everything</strong></td><td>Parent or child, one action. The record goes. <b>The consent log stays</b> — a name, a date, which policy version, and nothing about their football. It is the only proof we did what we promised, and we cannot prove we deleted something by deleting the proof</td><td>Player or parent</td><td>The player</td></tr>
+</table>
+</div>
+
+<p>A shared link expires after 90 days for an under-16 unless the parent renews it, and they can kill it at any moment. When it stops working, whoever follows it sees a page with no name, no photo, no club and no age on it.</p>
+
+<div class="never">
+  <h3>Things Pitch will never do</h3>
+  <ul>
+    <li><strong>No agents, ever.</strong> There is no agent role, no agent access tier, and no plan to build one. The record we hold would make a lead list, and it is not going to be one.</li>
+    <li><strong>No rival club can see your players.</strong> Search reaches players aged 16 and over who have guardian has not switched it off — we notify the guardian thirty days before a player turns sixteen, and the switch is theirs. It does not reach your squad lists, your assessments or your club-wide view.</li>
+    <li><strong>No rankings of children.</strong> No leaderboards, no scores out of ten, no "potential" rating. Development is measured against what is expected at an age stage, never against team-mates.</li>
+    <li><strong>No selling anyone's information.</strong> Not to sponsors, not to advertisers, not to anyone. If Pitch is ever sold, the buyer is bound by the same rules and families are told first.</li>
+    <li><strong>No charging a family to see their own child's record.</strong> Ever. That is the thing you get to give them.</li>
+  </ul>
+</div>
+
+<h2>What we ask of you</h2>
+
+<p>Two things, and the second is the one that gets forgotten.</p>
+
+<ul>
+  <li><strong>Verifying that your coaches may work with children is your job, not ours.</strong> Pitch records what you attest and <b>treats it as a gate, not a badge</b> — an unverified coach at your own club sees nothing, and if your club loses verified status <b>everyone at it loses access to every child's record immediately, including your technical director</b>. It does not discharge your obligation, and we will never suggest that it does.</li>
+  <li><strong>Do not name a child on a public page.</strong> Your club page, your alumni list, your trial notices — "a 2019 U13 now in an NPL squad" is a better line anyway, and it does not publish a searchable identity you do not have permission to publish.</li>
+</ul>
+
+<h2>If something is wrong</h2>
+
+<p>Every page has a report link. Anyone can use it — no account, no reason needed. We respond within one business day, and immediately where a child is at risk. A parent who wants their child taken off something does not have to explain themselves to us, and will not be asked to.</p>
+
+<footer>
+  Pitch Football · a registered business name of <strong>EBSD Enterprises Pty Ltd</strong> (ACN 701 879 718 · ABN 65 701 879 718) · who sees what · doc 26 · v1.2 draft · 1 September 2026 · plain-English summary of the access model — the binding version is the privacy policy and terms · prints in light for trial day
+</footer>
+
+</div>
+
+<div class="card" style="margin-top:22px">
+  <h2>Five more you will want to know, because you will be asked</h2>
+  <table>
+    <tr><td><b>Pitch's own staff</b></td><td>Can look up whether an invitation was sent and re-send it. <b>That is all.</b> No impersonation, no access to any child's record, every action logged. This is usually the first question a technical director asks and it is the answer we are proudest of.</td></tr>
+    <tr><td><b>A parent can switch it off</b></td><td>A guardian can pause a profile at any time. Everything outward-facing stops — links, previews, listings. Your club keeps its own internal record; the outside world sees nothing.</td></tr>
+    <tr><td><b>Paying changes nothing about what you see</b></td><td>A paid tier never re-orders verified data, and a founding club's players get no advantage in any result over anyone else's. Recognition, never advantage.</td></tr>
+    <tr><td><b>An unclaimed invitation does not exist</b></td><td>Until a guardian approves, there is no profile — only a first name, a date of birth and a parent's contact, deleted automatically after fourteen days. That is why a squad you uploaded may show nothing yet.</td></tr>
+    <tr><td><b>No agents. Ever.</b></td><td>There is no agent role, no agent tier, no agent access, and no plan for one. This is the layer parents get fleeced in and we are not building a door to it.</td></tr>
+  </table>
+</div>
+</body>
+</html>
