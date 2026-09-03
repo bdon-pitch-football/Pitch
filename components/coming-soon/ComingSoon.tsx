@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ACC, GLOW, DOT, ORDER, SEATS, FORMS, GROUPS, POS, FILM_SRC, HI, PRICE, STORY,
-  ROADMAP, LOOKS, LOOK_KEYS, type Persona,
+  ROADMAP, LOOKS, LOOK_KEYS, FAQ, type Persona,
 } from './data';
 import { CONSENT_TEXT, EMAIL_RE } from '@/lib/consent';
 
@@ -23,7 +23,7 @@ interface S {
   linkOn: boolean; paused: boolean; pauseP: number; slide: number; sliding: boolean; approved: boolean; reqKey: number;
   look: string;
   email: string; role: Persona; submitted: boolean; tried: boolean; submitting: boolean; serverNote: string | null;
-  fp: number; dp: number; hi: number;
+  fp: number; dp: number; hi: number; faq: number;
 }
 
 const chipStyle = (on: boolean, c: string) => ({
@@ -64,7 +64,7 @@ export default function ComingSoon() {
     linkOn: true, paused: false, pauseP: 0, slide: 0, sliding: false, approved: false, reqKey: 0,
     look: LOOKS.player[2][0][0],
     email: '', role: 'player', submitted: false, tried: false, submitting: false, serverNote: null,
-    fp: 0, dp: 0, hi: 0,
+    fp: 0, dp: 0, hi: 0, faq: 0,
   });
   const set = useCallback((patch: Partial<S>) => setS((prev) => ({ ...prev, ...patch })), []);
 
@@ -1330,6 +1330,28 @@ export default function ComingSoon() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* ===== FAQ (drafted 3 Sep on BUZ's request) ===== */}
+      <div data-reveal="1" style={{ maxWidth: 760, margin: '0 auto', padding: '30px 24px 80px 24px', display: 'flex', flexDirection: 'column', gap: 18, ...reveal }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
+          <div style={{ ...kicker, color: '#3ddc84' }}>Before you ask</div>
+          <div style={{ fontSize: 'clamp(30px, 3.8vw, 44px)', fontWeight: 900, letterSpacing: '-.03em', lineHeight: 1 }}>Questions.</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {FAQ.map(([q, a], i) => {
+            const open = s.faq === i;
+            return (
+              <div key={i} onClick={() => set({ faq: open ? -1 : i })} style={{ cursor: 'pointer', background: open ? '#0d1411' : 'transparent', border: `1px solid ${open ? '#1c2822' : 'rgba(255,255,255,.08)'}`, borderRadius: 16, padding: '16px 18px', transition: 'all .25s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ fontSize: 15.5, fontWeight: 900, color: open ? '#eef5f0' : '#b9c8bf', letterSpacing: '-.015em' }}>{q}</div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={open ? '#3ddc84' : '#7d8f85'} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .25s' }}><path d="M6 9 l6 6 6-6" /></svg>
+                </div>
+                <div style={{ fontSize: 14, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.6, maxHeight: open ? 240 : 0, opacity: open ? 1 : 0, overflow: 'hidden', transition: 'all .3s', paddingTop: open ? 8 : 0, textWrap: 'pretty' as never }}>{a}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
