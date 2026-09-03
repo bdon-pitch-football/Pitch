@@ -798,7 +798,7 @@ export default function ComingSoon() {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, paddingTop: 4 }}>
                     <div onClick={() => goFormAs('club')} style={{ cursor: 'pointer', background: '#eda100', color: '#14100a', fontWeight: 800, fontSize: 15, borderRadius: 14, padding: '0 22px', height: 50, display: 'flex', alignItems: 'center' }}>Join the waitlist</div>
-                    <div style={{ fontSize: 12.5, color: '#7d8f85', fontWeight: 600 }}>Interest Register: $54 a month incl. GST, cancel anytime — or $329 for twelve months.</div>
+                    <div style={{ fontSize: 12.5, color: '#7d8f85', fontWeight: 600 }}>Interest Register: $54 a month, cancel anytime — or $329 for twelve months.</div>
                   </div>
                 </div>
                 <div style={{ flex: '1 1 300px', position: 'relative', minHeight: 260, alignSelf: 'stretch' }}>
