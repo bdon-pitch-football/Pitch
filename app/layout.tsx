@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Archivo } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 
 const archivo = Archivo({
@@ -36,7 +37,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en-AU">
-      <body className={archivo.className}>{children}</body>
+      <body className={archivo.className}>
+        {children}
+        {/* Vercel Web Analytics — cookieless aggregate counts only (doc 29 §9
+            allows privacy-respecting aggregates; no third-party tag, served
+            same-origin). Inert until enabled on the Vercel dashboard. */}
+        <Analytics />
+      </body>
     </html>
   );
 }
