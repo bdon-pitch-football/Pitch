@@ -33,7 +33,7 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
   const r = await db.query(
     `select
       (select row_to_json(x) from (
-        select p.first_name, p.last_name, dr.positions, dr.squad_number, dr.foot, dr.about, dr.surfaced_stats
+        select p.first_name, p.photo_path, p.last_name, dr.positions, dr.squad_number, dr.foot, dr.about, dr.surfaced_stats
         from development_record dr join person p on p.id = dr.person_id
         where dr.id = $1) x) as core,
       (select coalesce(json_agg(json_build_object('season', season, 'key', stat_key, 'value', value, 'provenance', provenance)), '[]'::json)
@@ -56,6 +56,7 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
   return {
     slug: 'live',
     firstName: row.core.first_name,
+    photoPath: row.core.photo_path ?? undefined,
     lastName: row.core.last_name ?? '',
     dob: '',
     positions: row.core.positions,

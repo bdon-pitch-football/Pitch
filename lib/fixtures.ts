@@ -37,6 +37,7 @@ export interface PlayerFixture {
   otherFootball: { kind: ExperienceKind; orgName: string; period: string; note?: string }[];
   highlightsUsed: number; // of CLIP_LIMIT_UNDER_18
   highlights?: { title: string; url: string }[]; // real clips when built
+  photoPath?: string; // re-encoded avatar; initials fallback when absent
   surfacedStats: StatKey[]; // D-105 — the player's selection, position set by default
 }
 

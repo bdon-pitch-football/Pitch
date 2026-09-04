@@ -118,7 +118,7 @@ async function buildSnapshot(client: Client, recordId: string, season: string) {
   const { rows } = await client.query(
     `select
       (select row_to_json(x) from (
-        select p.first_name as "firstName", coalesce(p.last_name,'') as "lastName",
+        select p.first_name as "firstName", coalesce(p.last_name,'') as "lastName", p.photo_path as "photoPath",
                dr.positions, dr.squad_number as "squadNumber", dr.foot, coalesce(dr.about,'') as about,
                dr.surfaced_stats as "surfacedStats"
         from development_record dr join person p on p.id = dr.person_id where dr.id = $1) x) as core,

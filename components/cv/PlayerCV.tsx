@@ -105,7 +105,12 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         <div className="cv-rise sheen" style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ position: 'absolute', right: -14, top: -30, fontSize: 170, fontWeight: 900, letterSpacing: '-0.04em', color: 'rgba(61,220,132,.08)', lineHeight: 1 }}>{p.squadNumber}</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
-            <div style={{ width: 66, height: 66, borderRadius: 20, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24 }}>{initials}</div>
+            {p.photoPath ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={p.photoPath} alt="" width={66} height={66} style={{ borderRadius: 20, objectFit: 'cover' }} />
+            ) : (
+              <div style={{ width: 66, height: 66, borderRadius: 20, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24 }}>{initials}</div>
+            )}
             <PositionMap positions={p.positions} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>

@@ -47,6 +47,7 @@ create table person (
   dob_locked boolean not null default false,   -- no upward amendment without guardian/club confirmation (D-96)
   signup_hold boolean not null default false,  -- age-contradiction hold: routed to a human, never auto-rejected (D-96)
   country text not null default 'AU',          -- accounts Australia-only at launch (D-63)
+  photo_path text,                             -- re-encoded server-side, EXIF stripped (D-94 §7); u16 photo is guardian-controlled content (D-119 pair carries it)
   created_at timestamptz not null default now()
 );
 

@@ -13,7 +13,7 @@ export default async function Build({ params, searchParams }: { params: Promise<
   const { recordId } = await params;
   const { saved } = await searchParams;
   const { rows } = await db.query(
-    `select dr.id, p.first_name, coalesce(p.last_name,'') as last_name, dr.positions, dr.squad_number, dr.foot,
+    `select dr.id, p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, dr.positions, dr.squad_number, dr.foot,
             coalesce(dr.about,'') as about, dr.surfaced_stats,
             (select coalesce(json_object_agg(stat_key, value), '{}'::json) from player_stat
               where record_id = dr.id and season='2026' and source_experience_id is null) as stats,

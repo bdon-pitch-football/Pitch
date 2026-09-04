@@ -34,3 +34,4 @@ test-results/
 *.sql.gz
 /dumps/
 /exports/
+/public/dev-uploads/

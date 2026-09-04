@@ -13,7 +13,7 @@ const T = {
 };
 
 interface RecordData {
-  id: string; first_name: string; last_name: string; positions: string[];
+  id: string; first_name: string; last_name: string; photo_path: string | null; positions: string[];
   squad_number: number | null; foot: string | null; about: string;
   surfaced_stats: string[]; stats: Record<string, number>; has_pending: boolean;
 }
@@ -44,6 +44,23 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             Saved. {record.has_pending ? 'Your parent will see this change before it goes out.' : ''}
           </div>
         )}
+        {/* photo leads the build screen: every good CV has one */}
+        <form action={`/build/${record.id}/photo`} method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', alignItems: 'center', gap: 14 }}>
+          {record.photo_path ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={record.photo_path} alt="" width={52} height={52} style={{ borderRadius: 16, objectFit: 'cover' }} />
+          ) : (
+            <div style={{ width: 52, height: 52, borderRadius: 16, background: T.surface2, border: '1.5px dashed #3a4a42', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8 h2.5 l1.5-2 h6 l1.5 2 H19 a1.5 1.5 0 0 1 1.5 1.5 v8 A1.5 1.5 0 0 1 19 19 H5 a1.5 1.5 0 0 1-1.5-1.5 v-8 A1.5 1.5 0 0 1 5 8 Z" /><circle cx="12" cy="13" r="3.2" /></svg>
+            </div>
+          )}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 800 }}>Add profile photo</div>
+            <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>Optional</div>
+          </div>
+          <input type="file" name="photo" accept="image/*" required style={{ width: 108, fontSize: 11, color: T.muted, fontFamily: 'inherit' }} />
+          <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 11, height: 36, padding: '0 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Upload</button>
+        </form>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <input type="hidden" name="positions" value={positions.join(',')} />
           <input type="hidden" name="surfaced" value={surfaced.join(',')} />
