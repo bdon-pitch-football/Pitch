@@ -36,7 +36,7 @@ const chipStyle = (on: boolean, c: string) => ({
 // closer-look -> waitlist. The under-18-free promise still appears on the
 // roadmap card; the only price left is the club-scene note. Flip to true to
 // restore the full section.
-const SHOW_PRICING = false;
+const SHOW_PRICING = true;
 
 const Check = ({ color, size = 13 }: { color: string; size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -450,11 +450,9 @@ export default function ComingSoon() {
                   <div key={i} style={{ position: 'absolute', left: 0, bottom: 0, ...cap(i), transition: 'opacity .25s, transform .25s', textWrap: 'balance' as never }}>{node}</div>
                 ))}
               </div>
-              {/* Always-visible product clarity line (BUZ, 3 Sep, on reader feedback) —
-                  reuses the highlight-card wording so the visitor knows what
-                  Pitch is at first paint, on every scroll beat */}
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#b9c8bf', letterSpacing: '.02em' }}>
-                <span style={{ color: '#3ddc84' }}>Pitch</span> — your football, finally on the record.
+              {/* ANNA COPY PASS v1 §1: product clarity paragraph (D-03 phrase verbatim) */}
+              <div style={{ fontSize: 15, fontWeight: 500, color: '#dfe8e2', lineHeight: 1.55, maxWidth: 560, textShadow: '0 2px 16px rgba(0,0,0,.6)', textWrap: 'pretty' as never }}>
+                Pitch is a <strong style={{ color: '#eef5f0' }}>player development and pathway platform</strong>. One page holding a player’s clubs, seasons, positions and clips — built once, and still theirs when the coach, the committee and the club have all changed.
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 18 }}>
                 <div style={{ position: 'relative', flex: '1 1 320px', minHeight: '3.2em', maxWidth: 520, fontSize: 'clamp(15px, 1.4vw, 19px)', color: '#dfe8e2', fontWeight: 500, lineHeight: 1.5, textShadow: '0 2px 16px rgba(0,0,0,.6)' }}>
@@ -469,9 +467,10 @@ export default function ComingSoon() {
                     <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: 0, opacity: cap(i).opacity, transition: 'opacity .25s' }}>{t}</div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 10, pointerEvents: 'auto' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 10px', pointerEvents: 'auto', alignItems: 'center' }}>
                   <div onClick={() => go(formRef)} style={{ cursor: 'pointer', background: '#3ddc84', color: '#06130c', fontWeight: 800, fontSize: 15, borderRadius: 14, padding: '0 22px', height: 52, display: 'flex', alignItems: 'center' }}>Join the waitlist</div>
                   <div onClick={() => go(seatRef)} style={{ cursor: 'pointer', background: 'rgba(255,255,255,.12)', backdropFilter: 'blur(10px)', color: '#fff', fontWeight: 800, fontSize: 15, borderRadius: 14, padding: '0 22px', height: 52, display: 'flex', alignItems: 'center', border: '1px solid rgba(255,255,255,.18)' }}>Pick your seat</div>
+                  <div style={{ flexBasis: '100%', fontSize: 12.5, color: '#9fb0a6', fontWeight: 700, textShadow: '0 2px 12px rgba(0,0,0,.6)' }}>Free for players. Free forever under 18.</div>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 6 }}>
@@ -488,9 +487,22 @@ export default function ComingSoon() {
       {/* ===== THE DEVELOPMENT STORY ===== */}
       <div style={{ padding: '100px 0 20px 0' }}>
         <div data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 34px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, ...reveal }}>
-          <div style={{ ...kicker, color: '#3ddc84' }}>The development story</div>
-          <div style={{ fontSize: 'clamp(36px, 5.2vw, 68px)', fontWeight: 900, letterSpacing: '-.04em', lineHeight: 0.98, maxWidth: 860, textWrap: 'balance' as never }}>What if development left a trail, not just a memory?</div>
-          <div style={{ fontSize: 16, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.6, maxWidth: 560, textWrap: 'pretty' as never }}>The goal took a second. The run took a season of Tuesdays. Right now all of that lives in someone’s memory — a parent’s, a coach’s, yours. We’ve been wondering what it would mean if it didn’t have to.</div>
+          <div style={{ ...kicker, color: '#3ddc84' }}>What Pitch is</div>
+          <div style={{ fontSize: 'clamp(36px, 5.2vw, 68px)', fontWeight: 900, letterSpacing: '-.04em', lineHeight: 0.98, maxWidth: 860, textWrap: 'balance' as never }}>Your whole football story, in one place.</div>
+        </div>
+        {/* ANNA §2: three cards + the what-it-is-not line */}
+        <div data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 14px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10, ...reveal }}>
+          {[
+            ['One', 'Your story so far', 'Every club you’ve played for, every season, every position, your best clips. Add it once and it’s yours for good.'],
+            ['Two', 'Share it with one link', 'Send your page to any club in a tap, and they see it straight away. No printing, no paperwork, no digging through old emails.'],
+            ['Three', 'It moves with you', 'New club, new coach, new season — the page comes with you. Your story keeps going.'],
+          ].map(([n, t, d]) => (
+            <div key={n} style={{ background: '#0d1411', border: '1px solid #1c2822', borderRadius: 18, padding: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#3ddc84' }}>{n}</div>
+              <div style={{ fontSize: 16.5, fontWeight: 900, lineHeight: 1.2, letterSpacing: '-.015em' }}>{t}</div>
+              <div style={{ fontSize: 13, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.55 }}>{d}</div>
+            </div>
+          ))}
         </div>
         <div data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12, ...reveal, transition: 'opacity .7s .1s ease, transform .7s .1s cubic-bezier(.22,1,.36,1)' }}>
           {STORY.map(([k, t, d, poster]) => (
@@ -701,15 +713,27 @@ export default function ComingSoon() {
         <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 32, background: 'linear-gradient(160deg, #2b2415 0%, #171409 55%, #0d120e 100%)', border: '1px solid #4a3a12', padding: 'clamp(28px, 4vw, 56px)', display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center' }}>
           <div style={{ position: 'absolute', right: -40, top: -60, fontSize: 300, fontWeight: 900, letterSpacing: '-.08em', color: 'rgba(237,161,0,.07)', lineHeight: 1, pointerEvents: 'none' }}>XI</div>
           <div style={{ position: 'relative', flex: '1 1 340px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: '#eda100' }}>For clubs · the Founding XI</div>
-            <div style={{ fontSize: 'clamp(30px, 3.8vw, 48px)', fontWeight: 900, lineHeight: 1.0, letterSpacing: '-.035em', textWrap: 'balance' as never }}>Eleven clubs start this with us. Their names stay on it.</div>
-            <div style={{ fontSize: 15, color: '#d9cfb3', fontWeight: 500, lineHeight: 1.6, maxWidth: 480, textWrap: 'pretty' as never }}>Eleven clubs will be the first on Pitch. They’ll see it before anyone else, tell us what’s wrong with it, and shape Club Pro and Coach Pro with us. A founding club carries the mark for good — and gets no edge in search, ranking or discovery. That’s a promise to every other club.</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
-              {['Founding mark on your club page', 'A direct line to the people building it', 'Shape Club Pro and Coach Pro with us'].map((c) => (
-                <div key={c} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.06)', borderRadius: 999, padding: '8px 13px', fontSize: 12.5, fontWeight: 700, color: '#eef5f0' }}>
-                  <Check color="#eda100" />{c}
+            {/* ANNA COPY PASS v1 §6 */}
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: '#eda100' }}>For clubs</div>
+            <div style={{ fontSize: 'clamp(30px, 3.8vw, 48px)', fontWeight: 900, lineHeight: 1.0, letterSpacing: '-.035em', textWrap: 'balance' as never }}>How a player actually reaches you.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
+              {[
+                ['They put their name down', 'A player registers standing interest in your club specifically — not a broadcast to forty clubs at once. There is no such prompt anywhere in the product.'],
+                ['You work the list', 'Filter by squad, by position, by age group, all year — not just in the fortnight everybody holds trials. A trial is a tag on the entry, not a separate pile of paperwork.'],
+                ['You reach the family', 'Your approach lands inside their account, where a parent sees it. You never receive a child’s phone number or email address — before or after.'],
+              ].map(([t, d], i) => (
+                <div key={t} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <div style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 9, background: 'rgba(237,161,0,.15)', border: '1px solid rgba(237,161,0,.4)', color: '#eda100', fontWeight: 900, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 900 }}>{t}</div>
+                    <div style={{ fontSize: 13, color: '#d9cfb3', fontWeight: 500, lineHeight: 1.55, textWrap: 'pretty' as never }}>{d}</div>
+                  </div>
                 </div>
               ))}
+            </div>
+            <div style={{ background: 'rgba(0,0,0,.25)', border: '1px solid rgba(237,161,0,.25)', borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: '#eda100' }}>It is a register, not a queue.</div>
+              <div style={{ fontSize: 12.5, color: '#d9cfb3', fontWeight: 500, lineHeight: 1.55 }}>Nobody is waiting on a verdict from you. No result is ever returned to a player, and no family is left refreshing a page hoping for one. That is deliberate, and it is the reason we call it what we call it.</div>
             </div>
           </div>
           <div style={{ position: 'relative', flex: '0 1 320px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -719,7 +743,7 @@ export default function ComingSoon() {
               ))}
               <div onClick={() => goFormAs('club')} style={{ cursor: 'pointer', aspectRatio: '1', borderRadius: 14, background: '#eda100', color: '#14100a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 22 }}>+</div>
             </div>
-            <div style={{ fontSize: 12, color: '#b9aa7a', fontWeight: 600, lineHeight: 1.5 }}>Eleven seats, none taken yet. Founding clubs’ names go up when we open.</div>
+            <div style={{ fontSize: 12, color: '#b9aa7a', fontWeight: 600, lineHeight: 1.5 }}>We are talking to a small number of clubs first. A founding arrangement is recognition, never advantage — no ranking benefit, no preference, nothing a player at the fortieth club is worse off for missing.</div>
             <div onClick={() => goFormAs('club')} style={{ cursor: 'pointer', marginTop: 4, background: '#eda100', color: '#14100a', fontWeight: 800, fontSize: 15, borderRadius: 14, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Register your club’s interest</div>
           </div>
         </div>
@@ -1228,40 +1252,41 @@ export default function ComingSoon() {
       </div>
 
       {/* ===== WHAT IT COSTS ===== */}
+      {/* ANNA COPY PASS v1 §4 — universal pricing (persona-independent).
+          PRICES CORRECTED from Anna's draft: $49/$299 predate the D-109 GST
+          repricing; the cleared figures are $54/$329 inc GST (doc 22 A6.1). */}
       {SHOW_PRICING && (
       <div ref={priceRef} data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '100px 24px 80px 24px', display: 'flex', flexDirection: 'column', gap: 28, ...reveal }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
-          <div style={{ ...kicker, color: accent, transition: 'color .4s' }}>{PRICE[P][0]}</div>
-          <div style={{ fontSize: 'clamp(34px, 4.6vw, 56px)', fontWeight: 900, letterSpacing: '-.035em', lineHeight: 1 }}>What it costs.</div>
-          <div style={{ fontSize: 15, color: '#b9c8bf', fontWeight: 500, maxWidth: 520, lineHeight: 1.55, textWrap: 'pretty' as never }}>{PRICE[P][1]}</div>
-          {seatChips(true)}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'linear-gradient(90deg, rgba(61,220,132,.12), rgba(61,220,132,.04))', border: '1px solid rgba(61,220,132,.3)', borderRadius: 16, padding: '14px 18px' }}>
-          <Check color="#3ddc84" size={18} />
-          <div style={{ fontSize: 14.5, fontWeight: 800, color: '#eef5f0' }}>Under 18 is always free. <span style={{ color: '#7d8f85', fontWeight: 600 }}>No paid tier exists on a child&apos;s account, ever.</span></div>
+          <div style={{ ...kicker, color: '#3ddc84' }}>What it costs</div>
+          <div style={{ fontSize: 'clamp(34px, 4.6vw, 56px)', fontWeight: 900, letterSpacing: '-.035em', lineHeight: 1 }}>Families never pay. Clubs pay one price.</div>
+          <div style={{ fontSize: 15, color: '#b9c8bf', fontWeight: 500, maxWidth: 560, lineHeight: 1.55, textWrap: 'pretty' as never }}>No launch pricing, no tiers to compare, no discount for signing early. Everyone is quoted the same number.</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-          {tiers.map((t) => (
-            <div key={`${P}-${t.name}`} style={{ position: 'relative', overflow: 'hidden', background: t.bg, border: t.bd, borderRadius: 24, padding: 26, display: 'flex', flexDirection: 'column', gap: 14, animation: 'rise .5s both' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: t.c }}>{t.name}</div>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: t.badgeFg, background: t.badgeBg, borderRadius: 999, padding: '4px 9px' }}>{t.badge}</div>
-              </div>
+          {[
+            { name: 'Under 18', price: 'Free', per: '', desc: 'The whole page, every feature, free for good. There is nothing to upgrade and nothing to pay for.', hi: false },
+            { name: 'Players 18+ and coaches', price: 'Free', per: '', desc: 'Your page, your clips, the send link, and a PDF whenever you want one. A paid tier exists later for people who want more — what’s here now stays free.', hi: false },
+            { name: 'Clubs — the Interest Register', price: '$54', per: 'a month', desc: 'Or $329 for twelve months. Cancel any time. The same price for a club of four hundred and a club of forty.', hi: true },
+          ].map((t) => (
+            <div key={t.name} style={{ position: 'relative', overflow: 'hidden', background: t.hi ? 'linear-gradient(160deg, #2b2415 0%, #14170f 100%)' : '#0d1411', border: t.hi ? '1px solid #4a3a12' : '1px solid #1c2822', borderRadius: 24, padding: 26, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: t.hi ? '#eda100' : '#3ddc84' }}>{t.name}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
                 <div style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1 }}>{t.price}</div>
-                <div style={{ fontSize: 13, color: '#b9c8bf', fontWeight: 700 }}>{t.per}</div>
+                {t.per && <div style={{ fontSize: 13, color: '#b9c8bf', fontWeight: 700 }}>{t.per}</div>}
               </div>
               <div style={{ fontSize: 14, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.6, textWrap: 'pretty' as never }}>{t.desc}</div>
-              <div style={{ marginTop: 'auto', paddingTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#7d8f85', paddingBottom: 2 }}>{t.itemsLabel}</div>
-                {t.items.map((it) => (
-                  <div key={it} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#c8d6cd', fontWeight: 600, lineHeight: 1.45 }}>
-                    <span style={{ marginTop: 3, display: 'inline-flex' }}><Check color={t.c} /></span>{it}
-                  </div>
-                ))}
-              </div>
             </div>
           ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14 }}>
+          <div style={{ background: 'rgba(61,220,132,.06)', border: '1px solid rgba(61,220,132,.25)', borderRadius: 16, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 900 }}>Free for clubs, and it stays that way</div>
+            <div style={{ fontSize: 13, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.55 }}>Your club page, your squads, posting trials, CVs arriving in your inbox, WWCC checks recorded. None of that sits behind the paid line.</div>
+          </div>
+          <div style={{ background: '#0a0f0c', border: '1px dashed #24322a', borderRadius: 16, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 900 }}>Pro, for adults and clubs</div>
+            <div style={{ fontSize: 13, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.55 }}>Coming soon. We would rather say nothing about it than promise something we then change. When it is decided, it will be written here.</div>
+          </div>
         </div>
       </div>
       )}
@@ -1271,9 +1296,10 @@ export default function ComingSoon() {
         <div data-reveal="1" style={{ position: 'relative', overflow: 'hidden', borderRadius: 32, background: 'linear-gradient(160deg, #10201a 0%, #0b1410 60%, #080d0a 100%)', border: '1px solid #1c2822', padding: 'clamp(28px, 4vw, 56px)', display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center', ...reveal }}>
           <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(60% 70% at 100% 0%, ${accentGlow} 0%, transparent 65%)`, pointerEvents: 'none', transition: 'background .5s' }} />
           <div style={{ position: 'relative', flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* ANNA COPY PASS v1 §8+10 */}
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: accent }}>The waitlist</div>
-            <div style={{ fontSize: 'clamp(30px, 3.8vw, 46px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-.03em', textWrap: 'pretty' as never }}>Be there when the whistle goes.</div>
-            <div style={{ fontSize: 14.5, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.6, maxWidth: 440, textWrap: 'pretty' as never }}>One email when Pitch opens — nothing in between. No countdown, no spots left. Australia first.</div>
+            <div style={{ fontSize: 'clamp(30px, 3.8vw, 46px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-.03em', textWrap: 'pretty' as never }}>You’re early. That’s the whole offer.</div>
+            <div style={{ fontSize: 14.5, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.6, maxWidth: 440, textWrap: 'pretty' as never }}>No countdown, no date, no launch week. We open when it’s genuinely ready, and the people on this list are the reason it gets built the way it does.</div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: 'rgba(164,121,226,.1)', border: '1px solid rgba(164,121,226,.3)', borderRadius: 14, padding: '12px 14px', maxWidth: 440 }}>
               <div style={{ width: 6, height: 6, borderRadius: 999, background: '#a479e2', flexShrink: 0, marginTop: 6 }} />
               <div style={{ fontSize: 13, color: '#d6cde6', fontWeight: 600, lineHeight: 1.5, textWrap: 'pretty' as never }}>Under 18? Ask a parent to add their email instead. <span style={{ color: '#eef5f0' }}>We never take a child&apos;s details before there is a parent to ask.</span></div>
@@ -1355,6 +1381,7 @@ export default function ComingSoon() {
             );
           })}
         </div>
+        <div style={{ textAlign: 'center', fontSize: 13, color: '#7d8f85', fontWeight: 600, lineHeight: 1.6 }}>Something we haven’t answered — ask, and we’ll put the answer here where everyone can read it.</div>
       </div>
 
       {/* ===== footer ===== */}

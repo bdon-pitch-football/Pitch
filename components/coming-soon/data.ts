@@ -63,7 +63,7 @@ export const PRICE: Record<Persona, [string, string, Tier[]]> = {
 
 // [kicker, title, body, poster]
 export const STORY: [string, string, string, string][] = [
-  ['Tuesday · training', 'Today: the raw material is kept.', 'Positions, clubs, seasons, the numbers you choose to show, three clips. That’s the page, and it’s free.', '/assets/story-1.webp'],
+  ['Tuesday · training', 'Today: the raw material is kept.', 'Your positions, your clubs, your seasons, the numbers you want to show, and your best clips. That’s the page, and it’s free.', '/assets/story-1.webp'],
   ['Saturday · match day', 'Next: what Pro is.', 'We’re deciding what’s in it with the first coaches and clubs, not before them. Until it’s settled, the honest word is coming soon.', '/assets/story-2.webp'],
   ['The sideline · the clipboard', 'Always: under 18 stays free.', 'No paid tier exists on a child’s page. Pro, whatever it becomes, is an adult’s decision about their own record.', '/assets/story-3.webp'],
 ];
