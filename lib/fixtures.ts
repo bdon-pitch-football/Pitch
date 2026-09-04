@@ -22,7 +22,7 @@ export interface FixtureStat {
 }
 
 export interface PlayerFixture {
-  slug: 'deniz' | 'nate' | 'georgia';
+  slug: string;
   firstName: string;
   lastName: string;
   dob: string; // ISO date — age band is ALWAYS derived at read time, never stored

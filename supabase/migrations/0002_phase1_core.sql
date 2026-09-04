@@ -268,6 +268,16 @@ create table highlight (
   added_as_minor boolean not null       -- server-derived from DOB at insert (D-88)
 );
 
+-- achievement — part of the record (doc 09 §2.3): titles a family typed in.
+create table achievement (
+  id uuid primary key default gen_random_uuid(),
+  record_id uuid not null references development_record(id) on delete cascade,
+  title text not null,                  -- hostile free text
+  detail text,
+  sort int not null default 0,
+  created_at timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------------
 -- profile_version — the approved/pending pair for under-16 records (D-119).
 -- Doc 09 gives behaviour, not names; this shape satisfies all four
@@ -547,7 +557,7 @@ begin
       and tablename in (
         'age_group','competition_tier','person','guardianship_link','pending_invitation',
         'club','verification_call','squad','membership','development_record','player_stat',
-        'record_entry','experience_entry','highlight','profile_version','share_token',
+        'record_entry','experience_entry','highlight','achievement','profile_version','share_token',
         'share_request','share_card_approval','registration','invitation','invitation_reply',
         'verification_challenge','wwcc_attestation','consent_event','competency',
         'assessment_block','assessment_session','assessment_entry','match_appearance','growth_note')
