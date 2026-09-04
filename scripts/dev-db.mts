@@ -109,6 +109,18 @@ for (const pl of players.rows as { id: string; first_name: string }[]) {
   );
 }
 
+// coach fixture: Sam Kaya (doc 16 §3b) with a published public slug
+const sam = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Sam','Kaya','1988-02-02','coach@example.com')`, [sam]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'coach')`, [sam, riverside]);
+await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [sam, riverside, td]);
+const samProfile = randomUUID();
+await db.query(`insert into coach_profile (id, person_id, public_slug, region, philosophy, badges) values ($1,$2,'sam-kaya','Melbourne VIC','Possession with purpose. Every player touches the ball every drill, every session — confidence first, patterns second. Development over results at junior level, always.', array['AFC C Diploma'])`, [samProfile, sam]);
+await db.query(`insert into coach_role (coach_profile_id, title, org_name, started_year, ended_year, sort) values
+  ($1,'Head Coach · U15 Boys','Riverside FC','2024',null,0),
+  ($1,'Assistant Coach · U14 Boys','Northern United SC','2021','2023',1),
+  ($1,'Junior Coach · MiniRoos','Northern United SC','2018','2021',2)`, [samProfile]);
+
 const server = new PGLiteSocketServer({ db, port: 54322, host: '127.0.0.1' });
 await server.start();
 console.log('dev db ready on 127.0.0.1:54322 — tokens: dev-deniz dev-nate dev-georgia dev-expired dev-revoked');
