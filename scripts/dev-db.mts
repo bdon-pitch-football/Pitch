@@ -131,6 +131,13 @@ await db.query(`insert into coach_role (coach_profile_id, title, org_name, start
   ($1,'Assistant Coach · U14 Boys','Northern United SC','2021','2023',1),
   ($1,'Junior Coach · MiniRoos','Northern United SC','2018','2021',2)`, [samProfile]);
 
+// An UNCLAIMED club with a compiled listing (D-90 source 2): the board must
+// show both routes — 'I'm interested' for verified clubs, 'Send my CV' for a
+// listing we compiled from the club's own public notice.
+const westgate = randomUUID();
+await db.query(`insert into club (id, name, suburb, state, club_state, public_slug) values ($1,'Westgate Rangers','Altona','VIC','unclaimed','westgate-rangers')`, [westgate]);
+await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, source, age_group, competition_gender) values ($1,'U13 Boys trials','2026-10-12','Mon 5:30 PM · Grant Reserve','compiled','U13','boys')`, [westgate]);
+
 // --- walkthrough states: one of each waiting card, so every journey has
 // something real to open. All fictional (doc 16 §4).
 const recOf = async (name: string) =>

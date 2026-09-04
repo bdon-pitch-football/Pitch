@@ -3,6 +3,7 @@
 // Every listing carries its stamps; anything past its date never renders.
 // Verified clubs get the in-Pitch route; unclaimed listings say plainly
 // they were compiled and route via the club.
+import Link from 'next/link';
 import { db } from '@/lib/db';
 import Wordmark from '@/components/Wordmark';
 
@@ -14,15 +15,23 @@ const T = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function TrialsBoard() {
+export default async function TrialsBoard({ searchParams }: {
+  searchParams: Promise<{ age?: string; gender?: string }>;
+}) {
+  const { age, gender } = await searchParams;
+  // Chronological and filtered only by what the family chose. No recommender,
+  // no personalisation, ever (D-74).
   const { rows } = await db.query(
-    `select t.title, t.time_venue, t.source,
+    `select t.title, t.time_venue, t.source, t.age_group, t.competition_gender,
        upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
        to_char(t.added_on, 'DD Mon') as listed, to_char(t.last_checked, 'DD Mon') as checked,
        c.name as club_name, c.club_state, c.public_slug
      from trial_notice t join club c on c.id = t.club_id
      where t.trial_on >= (now() at time zone 'Australia/Melbourne')::date
+       and ($1::text is null or t.age_group = $1)
+       and ($2::text is null or t.competition_gender = $2)
      order by t.trial_on`,
+    [age || null, gender || null],
   );
   const listings = rows as {
     title: string; time_venue: string; source: string; mon: string; day: string;
@@ -30,11 +39,21 @@ export default async function TrialsBoard() {
   }[];
   const lastChecked = listings.length ? listings[listings.length - 1].checked : null;
 
-  const pill = (text: string, on = false): React.CSSProperties => ({
+  const pill = (on: boolean): React.CSSProperties => ({
     borderRadius: 999, padding: '7px 14px', fontSize: 12, fontWeight: on ? 900 : 700,
     background: on ? T.accent : T.surface, color: on ? T.onAccent : T.secondary,
-    border: on ? '1px solid transparent' : `1px solid ${T.line}`,
+    border: on ? '1px solid transparent' : `1px solid ${T.line}`, textDecoration: 'none',
+    display: 'inline-block',
   });
+  const href = (next: { age?: string | null; gender?: string | null }) => {
+    const p = new URLSearchParams();
+    const a = next.age === undefined ? age : next.age;
+    const g = next.gender === undefined ? gender : next.gender;
+    if (a) p.set('age', a);
+    if (g) p.set('gender', g);
+    const qs = p.toString();
+    return qs ? `/trials?${qs}` : '/trials';
+  };
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -45,17 +64,27 @@ export default async function TrialsBoard() {
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Club trials listed below, by trial date.</div>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-          <div style={pill('All ages', true)}>All ages</div>
-          {['U13', 'U14', 'U15', 'U16'].map((a) => <div key={a} style={pill(a)}>{a}</div>)}
+          <Link href={href({ age: null })} style={pill(!age)}>All ages</Link>
+          {['U13', 'U14', 'U15', 'U16', 'U18'].map((a) => (
+            <Link key={a} href={href({ age: age === a ? null : a })} style={pill(age === a)}>{a}</Link>
+          ))}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: -4 }}>
-          {['Boys', 'Girls', 'Mixed', 'Position', 'Region'].map((f) => <div key={f} style={pill(f)}>{f}</div>)}
+          <Link href={href({ gender: null })} style={pill(!gender)}>All</Link>
+          {[['boys', 'Boys'], ['girls', 'Girls'], ['mixed', 'Mixed']].map(([v, t]) => (
+            <Link key={v} href={href({ gender: gender === v ? null : v })} style={pill(gender === v)}>{t}</Link>
+          ))}
         </div>
         <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: T.muted, lineHeight: 1.5 }}>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which.{lastChecked ? ` Last checked ${lastChecked}.` : ''}</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {listings.length === 0 && (
+            <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+              No trials listed for that yet. An empty week is honest — we only list what a club has posted or published itself.
+            </div>
+          )}
           {listings.map((l) => {
             const verified = l.club_state === 'verified';
             return (
