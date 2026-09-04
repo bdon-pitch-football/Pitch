@@ -130,3 +130,12 @@ button:active, a[href]:active { transform: scale(.975); }
   button, a[href], .lift { transition: none; }
   .sheen::after, .dot-in, .dot-ping, .settle { animation: none; }
 }
+
+/* Floodlight page backdrop — light falls from above the stand, fades to
+   Night Match base. Use on signed-in surfaces. */
+.floodlight {
+  background:
+    radial-gradient(ellipse 130% 85% at 50% -25%, #17422e 0%, #10281c 42%, #0b120e 78%) fixed;
+}
+/* Avatar ring for photos on dark surfaces */
+.avatar-ring { box-shadow: 0 0 0 1.5px rgba(61,220,132,.35), 0 4px 18px rgba(0,0,0,.4); }

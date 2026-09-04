@@ -1,28 +1,46 @@
-// The signed-in landing. Guardian seat renders GuardianHome.dc.html's
-// family view (copy verbatim, grown from the approved-child card already
-// shipped at /a/[id]/done); a player seat lands on their build surface.
-// Signed-out renders a quiet prompt back to the door — the same page for
-// every wrong turn, no enumeration.
+// The signed-in landing — elevated pass (v3 discipline). Guardian seat:
+// GuardianHome.dc.html with real status rows (approved date, live-link
+// expiry, register count) and the priority ladder of waiting cards.
+// Player seat: their page as it stands today, then the build actions.
+// Signed-out: one quiet prompt. Copy stays verbatim to the signed screens.
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { POSITIONS, type PositionCode } from '@/lib/football';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
   ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', amber: '#eda100',
+  onAccent: '#06130c', amber: '#eda100', purple: '#a479e2',
 };
 
 export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
 
+const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
+const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
+
 const Shell = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
-    <div style={{ width: '100%', maxWidth: 560, minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+  <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <style>{`
+      @keyframes homeRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+      .h-rise > * { animation: homeRise .55s cubic-bezier(.22,1,.36,1) both; }
+      .h-rise > *:nth-child(2) { animation-delay: .06s } .h-rise > *:nth-child(3) { animation-delay: .12s }
+      .h-rise > *:nth-child(4) { animation-delay: .18s } .h-rise > *:nth-child(5) { animation-delay: .24s }
+      @media (prefers-reduced-motion: reduce) { .h-rise > * { animation: none } }
+    `}</style>
+    <div className="h-rise" style={{ width: '100%', maxWidth: 560, minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
       <HeaderMark />
       {children}
     </div>
+  </div>
+);
+
+const StatusRow = ({ color, path, children }: { color: string; path: string; children: React.ReactNode }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d={path} /></svg>
+    <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500 }}>{children}</div>
   </div>
 );
 
@@ -41,20 +59,25 @@ export default async function Home() {
   }
 
   const { rows } = await db.query(
-    `select p.first_name,
+    `select p.first_name, p.photo_path,
        (select id from development_record where person_id = p.id) as record_id,
+       (select row_to_json(rec) from (
+          select dr.positions, dr.squad_number,
+            (select count(*)::int from highlight h where h.record_id = dr.id) as clips
+          from development_record dr where dr.person_id = p.id) rec) as my_page,
        (select coalesce(json_agg(json_build_object(
-           'id', c.id, 'firstName', c.first_name,
+           'id', c.id, 'firstName', c.first_name, 'photo', c.photo_path,
            'recordId', (select id from development_record where person_id = c.id),
            'approvedOn', to_char(g.approved_at at time zone 'Australia/Melbourne', 'DD Month'),
+           'linkExpiry', (select to_char(st.expires_at at time zone 'Australia/Melbourne', 'DD Month')
+              from share_token st join development_record dr5 on dr5.id = st.record_id
+              where dr5.person_id = c.id and st.revoked_at is null and st.paused = false
+                and (st.expires_at is null or st.expires_at > now())
+              order by st.issued_at desc limit 1),
+           'registers', (select count(*)::int from registration r5 where r5.player_id = c.id and r5.withdrawn_at is null),
            'hasPending', exists(select 1 from profile_version pv
               join development_record dr2 on dr2.id = pv.record_id
               where dr2.person_id = c.id and pv.status = 'pending'),
-           'sendRequest', (select row_to_json(q) from (
-              select sr.id, sr.destination from share_request sr
-              join development_record dr3 on dr3.id = sr.record_id
-              where dr3.person_id = c.id and sr.dispatched_at is null
-              order by sr.created_at desc limit 1) q),
            'invitation', (select row_to_json(q3) from (
               select i.id, cl2.name as club from invitation i
               join registration r2 on r2.id = i.registration_id
@@ -62,6 +85,11 @@ export default async function Home() {
               where r2.player_id = c.id
                 and not exists (select 1 from invitation_reply ir where ir.invitation_id = i.id)
               order by i.created_at desc limit 1) q3),
+           'sendRequest', (select row_to_json(q) from (
+              select sr.id, sr.destination from share_request sr
+              join development_record dr3 on dr3.id = sr.record_id
+              where dr3.person_id = c.id and sr.dispatched_at is null
+              order by sr.created_at desc limit 1) q),
            'interestRequest', (select row_to_json(q2) from (
               select rr.id, cl.name as club from registration_request rr
               join development_record dr4 on dr4.id = rr.record_id
@@ -76,34 +104,72 @@ export default async function Home() {
   );
   const me = rows[0];
   if (!me) return <Shell><div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Signed out.</div></Shell>;
-  const children: { id: string; firstName: string; recordId: string | null; approvedOn: string; hasPending: boolean; sendRequest: { id: string; destination: string } | null; interestRequest: { id: string; club: string } | null; invitation: { id: string; club: string } | null }[] = me.children;
+  const children: {
+    id: string; firstName: string; photo: string | null; recordId: string | null; approvedOn: string;
+    linkExpiry: string | null; registers: number; hasPending: boolean;
+    invitation: { id: string; club: string } | null;
+    sendRequest: { id: string; destination: string } | null;
+    interestRequest: { id: string; club: string } | null;
+  }[] = me.children;
 
-  // Player seat: straight to their own build surface.
+  // Player seat: their page today, then the build surface.
   if (children.length === 0 && me.record_id) {
+    const pg = me.my_page as { positions: string[]; squad_number: number | null; clips: number } | null;
     return (
       <Shell>
         <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your CV</div>
+        <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+          {me.photo_path ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={me.photo_path} alt="" width={58} height={58} className="avatar-ring" style={{ borderRadius: 18, objectFit: 'cover' }} />
+          ) : (
+            <div style={{ width: 58, height: 58, borderRadius: 18, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 20 }}>{me.first_name[0]}</div>
+          )}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 17, fontWeight: 900 }}>{me.first_name}{pg?.squad_number ? ` · #${pg.squad_number}` : ''}</div>
+            <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500 }}>
+              {(pg?.positions ?? []).map((c) => POSITIONS[c as PositionCode]?.label ?? c).join(' · ') || 'No positions picked yet'}
+              {typeof pg?.clips === 'number' ? ` · ${pg.clips} clip${pg.clips === 1 ? '' : 's'}` : ''}
+            </div>
+          </div>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <Link href={`/build/${me.record_id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Build your CV</Link>
-          <Link href={`/build/${me.record_id}/clips`} style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Highlights</Link>
-          <Link href={`/build/${me.record_id}/more`} style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Achievements &amp; other football</Link>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Link href={`/build/${me.record_id}/clips`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Highlights</Link>
+            <Link href={`/build/${me.record_id}/more`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Achievements</Link>
+          </div>
+          <Link href={`/send/${me.record_id}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Send my CV to a club</Link>
         </div>
       </Shell>
     );
   }
 
-  // Guardian seat: the family view.
+  // Guardian seat.
   return (
     <Shell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your family</div>
         <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everything about your children on Pitch, and every control over it, is here.</div>
       </div>
+
+      {children.filter((c) => c.invitation).map((c) => (
+        <div key={c.invitation!.id} className="sheen" style={{ background: T.surface, border: `1px solid ${T.purple}`, borderRadius: 18, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 999, background: T.purple }} />
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>Waiting on you</div>
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 900 }}>{c.invitation!.club} would like {c.firstName} at a trial</div>
+          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{c.firstName} has not been told. Nothing happens until you decide.</div>
+          <Link href={`/g/invite/${c.invitation!.id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Review it</Link>
+        </div>
+      ))}
+
       {children.filter((c) => c.sendRequest).map((c) => {
         const m = /^(.*) </.exec(c.sendRequest!.destination ?? '');
         const club = m?.[1] ?? 'a club';
         return (
-          <div key={c.sendRequest!.id} style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div key={c.sendRequest!.id} className="sheen" style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <div style={{ width: 8, height: 8, borderRadius: 999, background: T.accent }} />
               <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Waiting on you</div>
@@ -114,30 +180,21 @@ export default async function Home() {
           </div>
         );
       })}
-      {children.filter((c) => c.invitation).map((c) => (
-        <div key={c.invitation!.id} style={{ background: T.surface, border: '1px solid #a479e2', borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 13 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 999, background: '#a479e2' }} />
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#a479e2' }}>Waiting on you</div>
-          </div>
-          <div style={{ fontSize: 17, fontWeight: 900 }}>{c.invitation!.club} would like {c.firstName} at a trial</div>
-          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{c.firstName} has not been told. Nothing happens until you decide.</div>
-          <Link href={`/g/invite/${c.invitation!.id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Review it</Link>
-        </div>
-      ))}
+
       {children.filter((c) => c.interestRequest).map((c) => (
-        <div key={c.interestRequest!.id} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+        <div key={c.interestRequest!.id} className="lift" style={{ ...card, borderRadius: 18, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 999, background: '#a479e2' }} />
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#a479e2' }}>Also waiting on you</div>
+            <div style={{ width: 8, height: 8, borderRadius: 999, background: T.purple }} />
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>Also waiting on you</div>
           </div>
           <div style={{ fontSize: 17, fontWeight: 900 }}>{c.firstName} wants to go on {c.interestRequest!.club}&rsquo;s register</div>
           <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{c.firstName === 'Georgia' ? 'She' : 'He'}&rsquo;s written a line about {c.firstName === 'Georgia' ? 'herself' : 'himself'}. Read it before it goes — you can change it.</div>
           <Link href={`/g/interest/${c.interestRequest!.id}`} style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Read it</Link>
         </div>
       ))}
+
       {children.some((c) => c.hasPending) && (
-        <div style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
+        <div className="sheen" style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <div style={{ width: 8, height: 8, borderRadius: 999, background: T.accent }} />
             <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Waiting on you</div>
@@ -150,17 +207,24 @@ export default async function Home() {
           ))}
         </div>
       )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>Your children</div>
+        <div style={label}>Your children</div>
         {children.map((c) => (
-          <div key={c.id} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div key={c.id} className="lift" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, color: T.secondary, flexShrink: 0 }}>{c.firstName[0]}</div>
+              {c.photo ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={c.photo} alt="" width={52} height={52} className="avatar-ring" style={{ borderRadius: 16, objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: 52, height: 52, borderRadius: 16, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, color: T.secondary, flexShrink: 0 }}>{c.firstName[0]}</div>
+              )}
               <div style={{ fontSize: 16, fontWeight: 800 }}>{c.firstName}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500 }}>Approved by you on {c.approvedOn?.trim()}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <StatusRow color={T.accent} path="M5 12.5 l4.5 4.5 L19 7">Approved by you on {c.approvedOn?.trim()}</StatusRow>
+              {c.linkExpiry && <StatusRow color={T.accent} path="M10 13 a4 4 0 0 1 0-6 l3-3 a4 4 0 0 1 6 6 l-1.5 1.5 M14 11 a4 4 0 0 1 0 6 l-3 3 a4 4 0 0 1-6-6 l1.5-1.5">Link active · expires {c.linkExpiry.trim()}</StatusRow>}
+              {c.registers > 0 && <StatusRow color={T.muted} path="M4 6 h16 M4 12 h16 M4 18 h10">On {c.registers} club register{c.registers === 1 ? '' : 's'}</StatusRow>}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <Link href={`/g/controls/${c.id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Manage</Link>
