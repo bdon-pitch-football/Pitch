@@ -31,8 +31,8 @@ export default async function OpsVerification() {
   const heldTotal = rows.filter((r) => r.club_state === 'claimed').reduce((s, r) => s + r.held, 0);
 
   return (
-    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
+    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+      <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div>
           <div style={{ fontSize: 17, fontWeight: 800 }}>Verification</div>
@@ -47,7 +47,7 @@ export default async function OpsVerification() {
         </div>
         <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '6px 14px' }}>
           {rows.map((r, i) => (
-            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}` }}>
+            <div key={r.id} className="lift" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 12px', margin: '0 -12px', borderRadius: 12, borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}` }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{r.name}</div>
                 <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500 }}>{[r.suburb, r.state].filter(Boolean).join(' ')}{r.claimant ? ` · claimed by ${r.claimant.replace('_', ' ')}` : ''}</div>

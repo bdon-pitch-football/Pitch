@@ -89,7 +89,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
   };
 
   return (
-    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <style>{`
         @keyframes cvRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
         @keyframes cvPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
