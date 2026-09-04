@@ -131,6 +131,59 @@ await db.query(`insert into coach_role (coach_profile_id, title, org_name, start
   ($1,'Assistant Coach · U14 Boys','Northern United SC','2021','2023',1),
   ($1,'Junior Coach · MiniRoos','Northern United SC','2018','2021',2)`, [samProfile]);
 
+// --- walkthrough states: one of each waiting card, so every journey has
+// something real to open. All fictional (doc 16 §4).
+const recOf = async (name: string) =>
+  (await db.query(`select dr.id from development_record dr join person p on p.id = dr.person_id where p.first_name = $1`, [name])).rows[0].id as string;
+const personOf = async (name: string) =>
+  (await db.query(`select id from person where first_name = $1`, [name])).rows[0].id as string;
+
+// 1. Deniz has a pending edit waiting on his guardian (D-119)
+const denizRec = await recOf('Deniz');
+await db.query(
+  `insert into profile_version (record_id, content, status)
+   select $1, jsonb_set(content::jsonb, '{about}', '"Right-footed 10 who plays between the lines. Two-footed now — weak-foot finishing every Thursday since March."'), 'pending'
+   from profile_version where record_id = $1 and status = 'approved'`,
+  [denizRec],
+);
+
+// 2. Georgia has asked to send her CV to a club (D-99)
+const georgiaRec = await recOf('Georgia');
+await db.query(
+  `insert into share_request (record_id, requested_by, destination)
+   values ($1, (select person_id from development_record where id = $1), 'Sunbury United <football@sunburyunited.example.au>')`,
+  [georgiaRec],
+);
+
+// 3. Nate has asked to go on a club register (D-108 via D-91)
+const nateRec = await recOf('Nate');
+await db.query(
+  `insert into registration_request (record_id, club_id, positions, note)
+   values ($1, $2, array['GK'], 'Been on the bench behind a keeper two years older. Want game time.')`,
+  [nateRec, riverside],
+);
+
+// 4. Riverside has invited Georgia to a trial — waiting on her guardian (D-117)
+const georgiaReg = (await db.query(
+  `select id from registration where player_id = $1 and club_id = $2 limit 1`,
+  [await personOf('Georgia'), riverside],
+)).rows[0].id as string;
+await db.query(`update registration set club_status = 'invited' where id = $1`, [georgiaReg]);
+await db.query(
+  `insert into invitation (club_id, registration_id, body)
+   values ($1, $2, $3)`,
+  [riverside, georgiaReg, JSON.stringify({ kind: 'trial', note: "Saw Georgia at Werribee. We're light in midfield for the 16s and we'd like a proper look at her." })],
+);
+
+// 5. Nate is shortlisted on Riverside's register so the TD has an invite to send
+await db.query(
+  `update registration set club_status = 'shortlisted'
+   where player_id = $1 and club_id = $2`,
+  [await personOf('Nate'), riverside],
+);
+
 const server = new PGLiteSocketServer({ db, port: 54322, host: '127.0.0.1' });
 await server.start();
-console.log('dev db ready on 127.0.0.1:54322 — tokens: dev-deniz dev-nate dev-georgia dev-expired dev-revoked');
+console.log('dev db ready on 127.0.0.1:54322');
+console.log('  tokens : dev-deniz dev-nate dev-georgia dev-expired dev-revoked');
+console.log('  sign-in: guardian@example.com (parent) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club)');
