@@ -287,5 +287,41 @@ const cols = await db.query(`select column_name from information_schema.columns
   where table_schema='public' and column_name in ('is_visible','can_view','is_public','age_band')`);
 check('J1 no stored permission flags exist', cols.rows.length, 0);
 
+// ---------------------------------------------------------------------------
+// Route enumeration — absence as a property (doc 14 §N12, §P11, §C1, D-122).
+// These are static asserts over the app tree: the dangerous surface must
+// not exist, not merely be forbidden.
+// ---------------------------------------------------------------------------
+import { readdirSync as rd, statSync } from 'node:fs';
+const appDir = fileURLToPath(new URL('../app', import.meta.url));
+const walk = (d) => rd(d).flatMap((f) => {
+  const p = join(d, f);
+  return statSync(p).isDirectory() ? walk(p) : [p];
+});
+const files = walk(appDir);
+const rel = (p) => p.slice(appDir.length);
+
+check('N12/D-122: no export, csv or download route exists',
+  files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
+check('C1/P11: no message or DM route exists',
+  files.filter((f) => /\/(dm|message|chat|inbox)\//i.test(rel(f))).length, 0);
+check('J23: no agent surface exists',
+  files.filter((f) => /\/agents?\//i.test(rel(f))).length, 0);
+
+// Allowlisted: the legal-page renderer injects OUR OWN compiled policy
+// documents (first-party, versioned, no user text ever passes through it).
+// The ban protects against hostile free text; nothing else may join this
+// list without the same argument.
+const DSI_ALLOWED = ['/legal/legal-page.tsx'];
+const srcFiles = files.filter((f) => /\.(ts|tsx)$/.test(f));
+let dsi = 0, wwccNum = 0;
+for (const f of srcFiles) {
+  const src = readFileSync(f, 'utf8');
+  if (src.includes('dangerouslySetInnerHTML') && !DSI_ALLOWED.some((a) => rel(f) === a)) dsi++;
+  if (/wwcc[_-]?(number|no|num)/i.test(src)) wwccNum++;
+}
+check('D-94 §6: dangerouslySetInnerHTML appears nowhere', dsi, 0);
+check('D-98: no code references a WWCC number', wwccNum, 0);
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);
