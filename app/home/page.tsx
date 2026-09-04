@@ -54,7 +54,13 @@ export default async function Home() {
               select sr.id, sr.destination from share_request sr
               join development_record dr3 on dr3.id = sr.record_id
               where dr3.person_id = c.id and sr.dispatched_at is null
-              order by sr.created_at desc limit 1) q)
+              order by sr.created_at desc limit 1) q),
+           'interestRequest', (select row_to_json(q2) from (
+              select rr.id, cl.name as club from registration_request rr
+              join development_record dr4 on dr4.id = rr.record_id
+              join club cl on cl.id = rr.club_id
+              where dr4.person_id = c.id and rr.dispatched_at is null
+              order by rr.created_at desc limit 1) q2)
          )), '[]'::json)
         from guardianship_link g join person c on c.id = g.child_id
         where g.guardian_id = p.id and g.approved_at is not null and g.revoked_at is null) as children
@@ -63,7 +69,7 @@ export default async function Home() {
   );
   const me = rows[0];
   if (!me) return <Shell><div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Signed out.</div></Shell>;
-  const children: { id: string; firstName: string; recordId: string | null; approvedOn: string; hasPending: boolean; sendRequest: { id: string; destination: string } | null }[] = me.children;
+  const children: { id: string; firstName: string; recordId: string | null; approvedOn: string; hasPending: boolean; sendRequest: { id: string; destination: string } | null; interestRequest: { id: string; club: string } | null }[] = me.children;
 
   // Player seat: straight to their own build surface.
   if (children.length === 0 && me.record_id) {
@@ -101,6 +107,17 @@ export default async function Home() {
           </div>
         );
       })}
+      {children.filter((c) => c.interestRequest).map((c) => (
+        <div key={c.interestRequest!.id} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 999, background: '#a479e2' }} />
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#a479e2' }}>Also waiting on you</div>
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 900 }}>{c.firstName} wants to go on {c.interestRequest!.club}&rsquo;s register</div>
+          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{c.firstName === 'Georgia' ? 'She' : 'He'}&rsquo;s written a line about {c.firstName === 'Georgia' ? 'herself' : 'himself'}. Read it before it goes — you can change it.</div>
+          <Link href={`/g/interest/${c.interestRequest!.id}`} style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Read it</Link>
+        </div>
+      ))}
       {children.some((c) => c.hasPending) && (
         <div style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
