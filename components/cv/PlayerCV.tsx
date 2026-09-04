@@ -8,6 +8,7 @@
 // on a phone on 4G at a football ground.
 import type { PlayerFixture } from '@/lib/fixtures';
 import { POSITIONS, STAT_LABELS, positionGroup, type PositionCode, type StatKey } from '@/lib/football';
+import { HeaderMark } from '@/components/Wordmark';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', line: '#24322a', ink: '#eef5f0',
@@ -98,10 +99,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
       `}</style>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 22, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         {/* logo — top right on every screen, no exceptions */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-          <svg width="26" height="26" viewBox="0 0 26 26"><rect width="26" height="26" rx="8" fill={T.accent} /><rect x="5" y="6.5" width="16" height="13" rx="1.5" fill="none" stroke={T.onAccent} strokeWidth="1.6" /><line x1="13" y1="6.5" x2="13" y2="19.5" stroke={T.onAccent} strokeWidth="1.6" /><circle cx="13" cy="13" r="2.7" fill="none" stroke={T.onAccent} strokeWidth="1.6" /></svg>
-          <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: '0.02em' }}>Pitch</div>
-        </div>
+        <HeaderMark />
 
         {/* hero */}
         <div className="cv-rise" style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>

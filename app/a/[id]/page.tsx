@@ -7,6 +7,7 @@
 import { notFound } from 'next/navigation';
 import { getPendingInvitation } from '@/lib/guardian-flow';
 import { approve } from './actions';
+import { HeaderMark } from '@/components/Wordmark';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', line: '#24322a', ink: '#eef5f0',
@@ -35,10 +36,7 @@ export default async function Approval({ params }: { params: Promise<{ id: strin
   return (
     <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-          <svg width="26" height="26" viewBox="0 0 26 26"><rect width="26" height="26" rx="8" fill={T.accent} /><rect x="5" y="6.5" width="16" height="13" rx="1.5" fill="none" stroke={T.onAccent} strokeWidth="1.6" /><line x1="13" y1="6.5" x2="13" y2="19.5" stroke={T.onAccent} strokeWidth="1.6" /><circle cx="13" cy="13" r="2.7" fill="none" stroke={T.onAccent} strokeWidth="1.6" /></svg>
-          <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: '0.02em' }}>Pitch</div>
-        </div>
+        <HeaderMark />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name} started this and asked you to look</div>

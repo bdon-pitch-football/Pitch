@@ -4,6 +4,7 @@
 // other role doors arrive with their flows.
 import { useState } from 'react';
 import { startPendingInvitation } from './actions';
+import { HeaderMark } from '@/components/Wordmark';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -11,12 +12,6 @@ const T = {
   accent: '#3ddc84', onAccent: '#06130c',
 };
 
-const Logo = () => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-    <svg width="26" height="26" viewBox="0 0 26 26"><rect width="26" height="26" rx="8" fill={T.accent} /><rect x="5" y="6.5" width="16" height="13" rx="1.5" fill="none" stroke={T.onAccent} strokeWidth="1.6" /><line x1="13" y1="6.5" x2="13" y2="19.5" stroke={T.onAccent} strokeWidth="1.6" /><circle cx="13" cy="13" r="2.7" fill="none" stroke={T.onAccent} strokeWidth="1.6" /></svg>
-    <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: '0.02em' }}>Pitch</div>
-  </div>
-);
 
 const field: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 };
 const fieldLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
@@ -44,7 +39,7 @@ export default function Join() {
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         {step === 'signup' ? (
           <>
-            <Logo />
+            <HeaderMark />
             <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>What&rsquo;s your position?</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {ROLES.map(([key, title, sub]) => (
@@ -96,7 +91,7 @@ export default function Join() {
               <button onClick={() => setStep('signup')} aria-label="Back" style={{ width: 44, height: 44, margin: -11, background: 'none', border: 'none', cursor: 'pointer' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5 L8 12 L15 19" /></svg>
               </button>
-              <Logo />
+              <HeaderMark />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Last step</div>
