@@ -743,7 +743,7 @@ export default function ComingSoon() {
               ))}
               <div onClick={() => goFormAs('club')} style={{ cursor: 'pointer', aspectRatio: '1', borderRadius: 14, background: '#eda100', color: '#14100a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 22 }}>+</div>
             </div>
-            <div style={{ fontSize: 12, color: '#b9aa7a', fontWeight: 600, lineHeight: 1.5 }}>We are talking to a small number of clubs first. A founding arrangement is recognition, never advantage — no ranking benefit, no preference, nothing a player at the fortieth club is worse off for missing.</div>
+            <div style={{ fontSize: 12, color: '#b9aa7a', fontWeight: 600, lineHeight: 1.5 }}>A founding club helps shape Pitch while it’s built — we build the first version around how real clubs actually run.</div>
             <div onClick={() => goFormAs('club')} style={{ cursor: 'pointer', marginTop: 4, background: '#eda100', color: '#14100a', fontWeight: 800, fontSize: 15, borderRadius: 14, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Register your club’s interest</div>
           </div>
         </div>
