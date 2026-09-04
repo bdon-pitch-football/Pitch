@@ -3,7 +3,7 @@
 // This block ships the u16 player path (the pending invitation, D-17); the
 // other role doors arrive with their flows.
 import { useState } from 'react';
-import { startPendingInvitation } from './actions';
+import { createAccount, startPendingInvitation } from './actions';
 import { HeaderMark } from '@/components/Wordmark';
 
 const T = {
@@ -26,7 +26,7 @@ const ROLES = [
 
 export default function Join() {
   const [role, setRole] = useState('player');
-  const [step, setStep] = useState<'signup' | 'parent'>('signup');
+  const [step, setStep] = useState<'signup' | 'parent' | 'account'>('signup');
   const [firstName, setFirstName] = useState('');
   const [dob, setDob] = useState('');
   const [agreed, setAgreed] = useState(false);
@@ -80,10 +80,38 @@ export default function Join() {
                 I agree to the <a href="/terms" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Terms</a> and <a href="/privacy" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Privacy Policy</a>
               </span>
             </label>
-            <button disabled={!canContinue} onClick={() => setStep('parent')} style={{
+            <button disabled={!canContinue} onClick={() => setStep(age !== null && age < 16 ? 'parent' : 'account')} style={{
               background: T.accent, color: T.onAccent, borderRadius: 15, padding: 15, fontSize: 15, fontWeight: 900,
               border: 'none', cursor: canContinue ? 'pointer' : 'default', opacity: canContinue ? 1 : 0.45, fontFamily: 'inherit',
             }}>Continue</button>
+          </>
+        ) : step === 'account' ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button onClick={() => setStep('signup')} aria-label="Back" style={{ width: 44, height: 44, margin: -11, background: 'none', border: 'none', cursor: 'pointer' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5 L8 12 L15 19" /></svg>
+              </button>
+              <HeaderMark />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Last step</div>
+              <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your account</div>
+            </div>
+            <form action={createAccount} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <input type="hidden" name="firstName" value={firstName} />
+              <input type="hidden" name="dob" value={dob} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <div style={field}><div style={fieldLabel}>Email</div><input style={input} name="email" type="email" placeholder="you@example.com" required /></div>
+                {age !== null && age < 18 && (
+                  <>
+                    <div style={field}><div style={fieldLabel}>A parent or guardian&rsquo;s name</div><input style={input} name="guardianName" required /></div>
+                    <div style={field}><div style={fieldLabel}>Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.5 }}>You&rsquo;re {age}, so a parent stays in the loop — they hold the visibility off-switch until you&rsquo;re 18, and any club approach goes to you both together.</div>
+                  </>
+                )}
+              </div>
+              <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Create my account</button>
+            </form>
           </>
         ) : (
           <>
