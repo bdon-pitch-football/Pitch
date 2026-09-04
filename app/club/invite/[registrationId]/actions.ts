@@ -6,6 +6,8 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
+import { bareWakeEmail, bareWakeSms } from '@/lib/messages';
+import { send } from '@/lib/messaging';
 
 export async function sendInvitation(registrationId: string, formData: FormData) {
   const me = await getSessionPersonId();
@@ -47,5 +49,18 @@ export async function sendInvitation(registrationId: string, formData: FormData)
   } finally {
     client.release();
   }
+
+  // doc 15 §24: a BARE WAKE. No child's name, no club name, no message, no
+  // hint of what it is about — a phone face-up on a bench shows nothing.
+  const g = await db.query(
+    `select p2.email from registration r
+     join person c on c.id = r.player_id
+     join guardianship_link gl on gl.child_id = c.id and gl.approved_at is not null and gl.revoked_at is null
+     join person p2 on p2.id = gl.guardian_id
+     where r.id = $1 and p2.email is not null limit 1`,
+    [registrationId],
+  );
+  if (g.rows[0]) await send(bareWakeEmail(), { address: g.rows[0].email });
+  void bareWakeSms; // SMS half sends once the sender ID is registered (D-81)
   redirect('/club/register');
 }

@@ -48,7 +48,9 @@ const sha = (s) => createHash('sha256').update(s).digest();
 // three players + an adult player, and every actor doc 14 names.
 // ---------------------------------------------------------------------------
 const melbourneToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
-const iso = (d) => d.toISOString().slice(0, 10);
+// Format from the date's own parts. toISOString() would convert to UTC and
+// shift the day, which silently breaks every age-boundary case.
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const yearsAgo = (n, plusDays = 0) => {
   const d = new Date(melbourneToday);
   d.setFullYear(d.getFullYear() - n);
@@ -286,6 +288,39 @@ check('D-17 the purge leaves only the fact in the log', (await db.query(`select 
 const cols = await db.query(`select column_name from information_schema.columns
   where table_schema='public' and column_name in ('is_visible','can_view','is_public','age_band')`);
 check('J1 no stored permission flags exist', cols.rows.length, 0);
+
+// ---------------------------------------------------------------------------
+// doc 15 — the message catalogue is a closed set, and the copy obeys the
+// rules that govern every message (§A). These read the catalogue source, so
+// a message edited into breaking a rule fails here.
+// ---------------------------------------------------------------------------
+const msgSrc = readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8');
+const bodies = [...msgSrc.matchAll(/body:\s*(?:`([\s\S]*?)`|\n`([\s\S]*?)`)/g)].map((m) => m[1] ?? m[2] ?? '');
+const smsBlocks = msgSrc.split(/export const /).filter((b) => /channel: 'sms'/.test(b));
+
+check('doc15 §A5: no link shortener in any message',
+  bodies.some((b) => /bit\.ly|tinyurl|t\.co\//i.test(b)), false);
+check('doc15 §A6: every SMS carries the support address',
+  smsBlocks.every((b) => b.includes('${HELP}') || b.includes('help@pitchfootball.com.au')), true);
+const msgCode = msgSrc.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+check('doc15 §A7: no message can carry a WWCC number',
+  /wwcc/i.test(msgCode), false);
+const wakeBlocks = msgCode.split(/export const /).filter((b) => b.startsWith('bareWake'));
+check('doc15 §24: the bare wake is defined and interpolates nothing at all',
+  wakeBlocks.length === 2 && wakeBlocks.every((b) => !/\$\{(?!SITE|HELP)/.test(b)), true);
+check('doc15 §29: the share-card email carries no preview image',
+  /shareCardWaitingEmail[\s\S]*?(<img|cid:|\.png|\.jpg)/.test(msgSrc), false);
+check('doc15 §32/D-108: the word "declined" appears in no message',
+  /\bdeclined\b/i.test(msgSrc), false);
+check('doc15 NOT-list: no message says a link was opened or viewed',
+  /(your CV was opened|has been viewed|viewed your)/i.test(msgSrc), false);
+
+// The send layer refuses anything outside the catalogue.
+const sendSrc = readFileSync(fileURLToPath(new URL('../lib/messaging.ts', import.meta.url)), 'utf8');
+check('doc15: the send layer gates on the catalogue', sendSrc.includes("reason: 'not_in_catalogue'"), true);
+check('D-81: SMS kill switch enforced in the send layer', sendSrc.includes('SMS_KILL_SWITCH'), true);
+check('D-81: per-number 24h SMS limit enforced', sendSrc.includes('SMS_PER_NUMBER_24H'), true);
+check('D-81: monthly SMS spend cap enforced', sendSrc.includes('SMS_MONTHLY_CAP_CENTS'), true);
 
 // ---------------------------------------------------------------------------
 // Route enumeration — absence as a property (doc 14 §N12, §P11, §C1, D-122).

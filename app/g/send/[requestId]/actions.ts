@@ -9,6 +9,8 @@ import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
+import { cvToClubEmail } from '@/lib/messages';
+import { send } from '@/lib/messaging';
 
 export async function dispatchSend(requestId: string) {
   const guardianId = await getSessionPersonId();
@@ -53,6 +55,32 @@ export async function dispatchSend(requestId: string) {
     throw e;
   } finally {
     client.release();
+  }
+
+  // doc 15 §19: the CV lands at the club as a LINK — never a file, never a
+  // photograph, never a date of birth, and never the word "trial".
+  const d = await db.query(
+    `select sr.destination, p.first_name, fn_age_band(p.dob) as band,
+       date_part('year', age(p.dob))::int as age,
+       dr.positions,
+       coalesce((select c.name from membership m join club c on c.id = m.club_id
+         where m.person_id = p.id and m.role = 'player' and m.ended_at is null limit 1), '') as club
+     from share_request sr
+     join development_record dr on dr.id = sr.record_id
+     join person p on p.id = dr.person_id
+     where sr.id = $1`,
+    [requestId],
+  );
+  const row = d.rows[0];
+  if (row) {
+    const m = /<(.*)>/.exec(row.destination ?? '');
+    const clubAddress = m?.[1] ?? row.destination;
+    if (clubAddress) {
+      await send(
+        cvToClubEmail(row.first_name, row.age, (row.positions ?? []).join(', '), row.club, raw),
+        { address: clubAddress },
+      );
+    }
   }
   redirect(`/g/send/${requestId}?sent=1&link=${raw}`);
 }

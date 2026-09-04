@@ -7,6 +7,8 @@
 import 'server-only';
 import { db } from './db';
 import { MAX_POSITIONS, STAT_KEYS, type StatKey } from './football';
+import { editWaitingEmail } from './messages';
+import { send } from './messaging';
 
 export interface CvDraft {
   positions: string[];
@@ -74,6 +76,20 @@ export async function saveCvDraft(recordId: string, draft: CvDraft): Promise<voi
     throw e;
   } finally {
     client.release();
+  }
+
+  // doc 15 §30: tell the guardian an edit is waiting. Once — there is no
+  // reminder and no timeout that publishes it (doc 14 §R7).
+  const g = await db.query(
+    `select p2.email, c.first_name from development_record dr
+     join person c on c.id = dr.person_id
+     join guardianship_link gl on gl.child_id = c.id and gl.approved_at is not null and gl.revoked_at is null
+     join person p2 on p2.id = gl.guardian_id
+     where dr.id = $1 and p2.email is not null limit 1`,
+    [recordId],
+  );
+  if (g.rows[0]) {
+    await send(editWaitingEmail(g.rows[0].first_name, recordId), { address: g.rows[0].email });
   }
 }
 

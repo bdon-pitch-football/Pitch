@@ -9,6 +9,8 @@
 // does not send — and nothing sends at all until then.
 import 'server-only';
 import { db } from './db';
+import { guardianApprovalEmail, guardianApprovalSms } from './messages';
+import { sendAndLog } from './messaging';
 
 // doc@version stamps (legal/00-Legal-Register.md): published versions at
 // approval time. Bump when the published documents change.
@@ -35,7 +37,17 @@ export async function createPendingInvitation(input: {
       [rows[0].id],
     );
     await client.query('commit');
-    return { id: rows[0].id };
+
+    // doc 15 §1 + §2: the guardian approval request. The SMS is the most
+    // important 300 characters in the product; the email carries the four
+    // promises. Both queue into the outbox; neither leaves in development.
+    const age = Math.floor((Date.now() - new Date(input.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
+    const id = rows[0].id as string;
+    await sendAndLog(guardianApprovalSms(input.firstName.trim(), age, id), { address: input.guardianPhone.trim() }, 'sms_sent');
+    if (input.guardianEmail?.trim()) {
+      await sendAndLog(guardianApprovalEmail(input.firstName.trim(), age, id), { address: input.guardianEmail.trim() }, 'email_sent');
+    }
+    return { id };
   } catch (e) {
     await client.query('rollback');
     throw e;

@@ -5,6 +5,8 @@
 // own notice — hostile free text, validated as an email shape only.
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { sendWaitingEmail } from '@/lib/messages';
+import { send } from '@/lib/messaging';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -34,6 +36,24 @@ export async function composeSend(recordId: string, formData: FormData) {
     throw e;
   } finally {
     client.release();
+  }
+
+  // doc 15 §20: email only — an SMS manufactures pressure around a decision
+  // deliberately designed to be pressure-free. The address is printed in full.
+  const g = await db.query(
+    `select p2.email, c.first_name from development_record dr
+     join person c on c.id = dr.person_id
+     join guardianship_link gl on gl.child_id = c.id and gl.approved_at is not null and gl.revoked_at is null
+     join person p2 on p2.id = gl.guardian_id
+     where dr.id = $1 and p2.email is not null limit 1`,
+    [recordId],
+  );
+  if (g.rows[0]) {
+    const rid = (await db.query(
+      `select id from share_request where record_id = $1 and dispatched_at is null order by created_at desc limit 1`,
+      [recordId],
+    )).rows[0]?.id;
+    if (rid) await send(sendWaitingEmail(g.rows[0].first_name, clubName, address, rid), { address: g.rows[0].email });
   }
   redirect(`/send/${recordId}?asked=1`);
 }
