@@ -49,7 +49,12 @@ export default async function Home() {
            'approvedOn', to_char(g.approved_at at time zone 'Australia/Melbourne', 'DD Month'),
            'hasPending', exists(select 1 from profile_version pv
               join development_record dr2 on dr2.id = pv.record_id
-              where dr2.person_id = c.id and pv.status = 'pending')
+              where dr2.person_id = c.id and pv.status = 'pending'),
+           'sendRequest', (select row_to_json(q) from (
+              select sr.id, sr.destination from share_request sr
+              join development_record dr3 on dr3.id = sr.record_id
+              where dr3.person_id = c.id and sr.dispatched_at is null
+              order by sr.created_at desc limit 1) q)
          )), '[]'::json)
         from guardianship_link g join person c on c.id = g.child_id
         where g.guardian_id = p.id and g.approved_at is not null and g.revoked_at is null) as children
@@ -58,7 +63,7 @@ export default async function Home() {
   );
   const me = rows[0];
   if (!me) return <Shell><div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Signed out.</div></Shell>;
-  const children: { id: string; firstName: string; recordId: string | null; approvedOn: string; hasPending: boolean }[] = me.children;
+  const children: { id: string; firstName: string; recordId: string | null; approvedOn: string; hasPending: boolean; sendRequest: { id: string; destination: string } | null }[] = me.children;
 
   // Player seat: straight to their own build surface.
   if (children.length === 0 && me.record_id) {
@@ -81,6 +86,21 @@ export default async function Home() {
         <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your family</div>
         <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everything about your children on Pitch, and every control over it, is here.</div>
       </div>
+      {children.filter((c) => c.sendRequest).map((c) => {
+        const m = /^(.*) </.exec(c.sendRequest!.destination ?? '');
+        const club = m?.[1] ?? 'a club';
+        return (
+          <div key={c.sendRequest!.id} style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 999, background: T.accent }} />
+              <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Waiting on you</div>
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 900 }}>{c.firstName} wants to send {c.firstName === 'Georgia' ? 'her' : 'his'} CV to {club}</div>
+            <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>Nothing has been sent. Check the address and it goes; do nothing and the request disappears on its own.</div>
+            <Link href={`/g/send/${c.sendRequest!.id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Review it</Link>
+          </div>
+        );
+      })}
       {children.some((c) => c.hasPending) && (
         <div style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
