@@ -711,7 +711,6 @@ export default function ComingSoon() {
       {/* ===== FOUNDING XI ===== */}
       <div data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '90px 24px 20px 24px', ...reveal }}>
         <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 32, background: 'linear-gradient(160deg, #2b2415 0%, #171409 55%, #0d120e 100%)', border: '1px solid #4a3a12', padding: 'clamp(28px, 4vw, 56px)', display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center' }}>
-          <div style={{ position: 'absolute', right: -40, top: -60, fontSize: 300, fontWeight: 900, letterSpacing: '-.08em', color: 'rgba(237,161,0,.07)', lineHeight: 1, pointerEvents: 'none' }}>XI</div>
           <div style={{ position: 'relative', flex: '1 1 340px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* ANNA COPY PASS v1 §6 */}
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: '#eda100' }}>For clubs</div>
@@ -737,12 +736,6 @@ export default function ComingSoon() {
             </div>
           </div>
           <div style={{ position: 'relative', flex: '0 1 320px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-              {Array.from({ length: 11 }, (_, i) => (
-                <div key={i} style={{ aspectRatio: '1', borderRadius: 14, border: '1.5px dashed rgba(237,161,0,.35)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13, color: 'rgba(237,161,0,.55)' }}>{i + 1}</div>
-              ))}
-              <div onClick={() => goFormAs('club')} style={{ cursor: 'pointer', aspectRatio: '1', borderRadius: 14, background: '#eda100', color: '#14100a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 22 }}>+</div>
-            </div>
             <div style={{ fontSize: 12, color: '#b9aa7a', fontWeight: 600, lineHeight: 1.5 }}>A founding club helps shape Pitch while it’s built — we build the first version around how real clubs actually run.</div>
             <div onClick={() => goFormAs('club')} style={{ cursor: 'pointer', marginTop: 4, background: '#eda100', color: '#14100a', fontWeight: 800, fontSize: 15, borderRadius: 14, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Register your club’s interest</div>
           </div>
