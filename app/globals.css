@@ -84,3 +84,49 @@ select:focus {
     padding: 12px 16px 26px 16px;
   }
 }
+
+/* ===== product motion layer (BUZ, 4 Sep: amplify the UI/UX) ============== */
+/* Tactile controls everywhere: hover lift, press, focus ring. */
+button, a[href] {
+  transition: transform .12s cubic-bezier(.22,1,.36,1), filter .18s ease, box-shadow .18s ease;
+}
+button:hover, a[href]:hover { filter: brightness(1.06); }
+button:active, a[href]:active { transform: scale(.975); }
+:focus-visible { outline: 2px solid #3ddc84; outline-offset: 2px; border-radius: 6px; }
+
+/* Card depth on hover — attach with className="lift" */
+.lift {
+  transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .18s ease, box-shadow .18s ease;
+}
+.lift:hover {
+  transform: translateY(-2px);
+  border-color: #2e3f36 !important;
+  box-shadow: 0 8px 28px rgba(0,0,0,.35);
+}
+
+/* Hero shimmer: a slow light pass across gradient panels */
+@keyframes heroSheen {
+  0% { transform: translateX(-70%) skewX(-14deg); }
+  100% { transform: translateX(220%) skewX(-14deg); }
+}
+.sheen { position: relative; overflow: hidden; }
+.sheen::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(61,220,132,.05), transparent);
+  animation: heroSheen 7s ease-in-out infinite; pointer-events: none;
+}
+
+/* Position-map dots: draw-in then breathe */
+@keyframes dotIn { from { r: 0; opacity: 0; } to { opacity: 1; } }
+@keyframes ping { 0% { opacity: .55; transform: scale(1); } 80%, 100% { opacity: 0; transform: scale(2.1); } }
+.dot-in { animation: dotIn .5s cubic-bezier(.22,1,.36,1) both; }
+.dot-ping { transform-origin: center; transform-box: fill-box; animation: ping 2.6s ease-out infinite; }
+
+/* Count-up tiles get a settle pop */
+@keyframes settle { 0% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.settle { animation: settle .35s cubic-bezier(.22,1,.36,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  button, a[href], .lift { transition: none; }
+  .sheen::after, .dot-in, .dot-ping, .settle { animation: none; }
+}

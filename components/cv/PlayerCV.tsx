@@ -10,6 +10,7 @@ import type { PlayerFixture } from '@/lib/fixtures';
 import { POSITIONS, STAT_LABELS, positionGroup, type PositionCode, type StatKey } from '@/lib/football';
 import { HeaderMark } from '@/components/Wordmark';
 import ClipCard from '@/components/cv/ClipCard';
+import StatTile from '@/components/cv/StatTile';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', line: '#24322a', ink: '#eef5f0',
@@ -48,10 +49,7 @@ function StatTiles({ p }: { p: PlayerFixture }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tiles.length}, minmax(0,1fr))`, gap: 7, position: 'relative', marginTop: -6 }}>
         {tiles.map((t, i) => (
-          <div key={t.key} className="cv-rise" style={{ animationDelay: `${0.28 + i * 0.07}s`, background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: '10px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.04em', color: t.key === 'goals' || t.key === 'clean_sheets' ? T.accent : T.ink }}>{t.value}</div>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,.72)', textTransform: 'uppercase' }}>{STAT_LABELS[t.key]}</div>
-          </div>
+          <StatTile key={t.key} value={t.value} label={STAT_LABELS[t.key]} accent={t.key === 'goals' || t.key === 'clean_sheets'} delay={i * 0.09} />
         ))}
       </div>
     </>
@@ -70,7 +68,8 @@ function PositionMap({ positions }: { positions: PositionCode[] }) {
         const [x, y] = POS_XY[code];
         return (
           <g key={code}>
-            <circle cx={x} cy={y * 0.62} r={i === 0 ? 5 : 3.6} fill={i === 0 ? T.accent : 'rgba(61,220,132,.45)'} className="cv-pulse" style={{ animationDelay: `${i * 0.4}s` }} />
+            {i === 0 && <circle cx={x} cy={y * 0.62} r={5} fill="none" stroke={T.accent} strokeWidth="1.2" className="dot-ping" />}
+            <circle cx={x} cy={y * 0.62} r={i === 0 ? 5 : 3.6} fill={i === 0 ? T.accent : 'rgba(61,220,132,.45)'} className="dot-in" style={{ animationDelay: `${0.35 + i * 0.18}s` }} />
           </g>
         );
       })}
@@ -103,7 +102,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         <HeaderMark />
 
         {/* hero */}
-        <div className="cv-rise" style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="cv-rise sheen" style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ position: 'absolute', right: -14, top: -30, fontSize: 170, fontWeight: 900, letterSpacing: '-0.04em', color: 'rgba(61,220,132,.08)', lineHeight: 1 }}>{p.squadNumber}</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
             <div style={{ width: 66, height: 66, borderRadius: 20, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24 }}>{initials}</div>
@@ -142,7 +141,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         <div className="cv-rise" style={{ animationDelay: '.22s', display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={kicker}>Achievements</div>
           {p.achievements.map((a, i) => (
-            <div key={a.title} style={{ ...card, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
+            <div key={a.title} className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
               <div style={{ width: 36, height: 36, borderRadius: 11, background: 'rgba(61,220,132,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {i === 0
                   ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9" /></svg>
@@ -160,7 +159,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         <div className="cv-rise" style={{ animationDelay: '.28s', display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={kicker}>Other football</div>
           {p.otherFootball.map((e) => (
-            <div key={e.orgName} style={{ ...card, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
+            <div key={e.orgName} className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
               <div style={{ background: 'rgba(61,220,132,.12)', color: T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>{e.kind === 'ntc_academy' ? 'NTC' : e.kind}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 800 }}>{e.orgName}</div>
