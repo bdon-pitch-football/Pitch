@@ -265,6 +265,23 @@ await db.query(`insert into person (id, first_name, dob) values ($1,'Boundary','
 check('G9 18th birthday today (Melbourne) is 18plus', (await db.query(`select fn_age_band(dob) as b from person where id=$1`, [boundary])).rows[0].b, '18plus');
 check('G9 18 tomorrow (Melbourne) is 16_17', (await db.query(`select fn_age_band(dob) as b from person where id=$1`, [justUnder])).rows[0].b, '16_17');
 
+// ---------------------------------------------------------------------------
+// D-17 — the 14-day purge: an unapproved invitation self-destructs whole;
+// an approved one is never touched.
+// ---------------------------------------------------------------------------
+await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, created_at)
+  values ('Stale','2013-01-01','Old Parent','0400 000 000', now() - interval '15 days')`);
+await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, created_at, approved_at)
+  values ('Kept','2013-01-01','Fine Parent','0400 000 001', now() - interval '15 days', now() - interval '14 days')`);
+await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone)
+  values ('Fresh','2013-01-01','New Parent','0400 000 002')`);
+const purged = (await db.query('select fn_purge_pending() as n')).rows[0].n;
+check('D-17 purge removes exactly the stale unapproved invitation', purged, 1);
+check('D-17 nothing readable survives the purge', (await db.query(`select count(*)::int as n from pending_invitation where first_name='Stale'`)).rows[0].n, 0);
+check('D-17 an approved invitation is never purged', (await db.query(`select count(*)::int as n from pending_invitation where first_name='Kept'`)).rows[0].n, 1);
+check('D-17 a fresh invitation is untouched', (await db.query(`select count(*)::int as n from pending_invitation where first_name='Fresh'`)).rows[0].n, 1);
+check('D-17 the purge leaves only the fact in the log', (await db.query(`select count(*)::int as n from consent_event where event='purged'`)).rows[0].n, 1);
+
 // J1 — forbidden columns still absent after 0003
 const cols = await db.query(`select column_name from information_schema.columns
   where table_schema='public' and column_name in ('is_visible','can_view','is_public','age_band')`);
