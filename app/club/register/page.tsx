@@ -48,7 +48,7 @@ export default async function Register() {
 
   return (
     <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div>
           <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Interest register</div>
@@ -68,10 +68,47 @@ export default async function Register() {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>Every under-16 here was put on this register by a parent.</div>
             </div>
+            {/* desktop console table (D-147) */}
+            <div className="d-only" style={{ ...card, padding: '6px 16px', flexDirection: 'column' }}>
+              <div className="console-row d-only" style={{ borderBottom: `1px solid ${T.line}`, padding: '9px 0' }}>
+                {['Player', 'Their line', 'Status', '', ''].map((h, i) => (
+                  <div key={i} style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>{h}</div>
+                ))}
+              </div>
+              {rows.map((r) => {
+                const chip = STATUS_CHIP[r.club_status];
+                return (
+                  <div key={r.registration_id} className="console-row d-only" style={{ borderTop: `1px solid ${T.surface2}` }}>
+                    <div>
+                      <div style={{ fontSize: 14.5, fontWeight: 800 }}>{r.player_first_name}</div>
+                      <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{r.positions.join(' · ')}</div>
+                    </div>
+                    <div style={{ fontSize: 12, fontStyle: r.note ? 'italic' : 'normal', color: r.note ? T.secondary : T.muted, fontWeight: 500, lineHeight: 1.4 }}>{r.note ? `“${r.note}”` : '—'}</div>
+                    <div><span style={{ background: chip.bg, color: chip.fg, borderRadius: 7, padding: '4px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{chip.label}</span></div>
+                    <Link href={`/club/register/cv/${r.registration_id}`} style={{ background: T.surface2, borderRadius: 12, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      {r.club_status === 'new' && (
+                        <form action={setStatus.bind(null, r.registration_id, 'shortlisted')}>
+                          <button type="submit" style={{ height: 38, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 16px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
+                        </form>
+                      )}
+                      {r.club_status === 'shortlisted' && (
+                        <form action={setStatus.bind(null, r.registration_id, 'invited')}>
+                          <button type="submit" style={{ height: 42, borderRadius: 12, border: 'none', background: T.accent, color: T.onAccent, fontSize: 13.5, fontWeight: 800, padding: '0 18px', cursor: 'pointer', fontFamily: 'inherit' }}>Invite to trial</button>
+                        </form>
+                      )}
+                      {r.club_status === 'invited' && (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>Invitation sent</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             {rows.map((r) => {
               const chip = STATUS_CHIP[r.club_status];
               return (
-                <div key={r.registration_id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div key={r.registration_id} className="m-only" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 800 }}>{r.player_first_name}</div>

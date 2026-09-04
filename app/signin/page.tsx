@@ -19,7 +19,7 @@ export default function SignIn() {
   const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
   return (
-    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <style>{`@keyframes doorRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
         .door > * { animation: doorRise .5s cubic-bezier(.22,1,.36,1) both; }
         .door > *:nth-child(2) { animation-delay: .05s } .door > *:nth-child(3) { animation-delay: .1s }
