@@ -108,7 +108,7 @@ export default async function Home() {
               <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500 }}>Approved by you on {c.approvedOn?.trim()}</div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <Link href={`/g/pending/${c.recordId}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Manage</Link>
+              <Link href={`/g/controls/${c.id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Manage</Link>
             </div>
           </div>
         ))}

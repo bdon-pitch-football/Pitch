@@ -317,6 +317,7 @@ create table share_token (
   id uuid primary key default gen_random_uuid(),
   record_id uuid not null references development_record(id) on delete cascade,
   token_hash bytea not null unique,     -- sha-256 of a >=128-bit random token
+  token_hint text,                      -- display-only fragment (never enough to reconstruct)
   issued_by uuid not null references person(id),
   issued_at timestamptz not null default now(),
   expires_at timestamptz,               -- null = no expiry (adult links)
