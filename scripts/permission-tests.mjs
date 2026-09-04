@@ -229,6 +229,35 @@ const permSqlCode = readFileSync(join(dir, '0003_permissions.sql'), 'utf8')
 check('D-72 permission engine source never references experience_entry', permSqlCode.includes('experience_entry') ? 'referenced' : 'clean', 'clean');
 
 // ---------------------------------------------------------------------------
+// §M / §N — the Interest Register: held until verified, gated on the
+// subscription, statuses authorised, withdrawal empties the note.
+// ---------------------------------------------------------------------------
+const adminUnv = crypto.randomUUID(), regRiverside = crypto.randomUUID(), regUnv = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'UnvAdmin','${yearsAgo(40)}')`, [adminUnv]);
+await mem(adminUnv, CLUB.unverified, null, 'club_admin');
+await db.query(`insert into registration (id, player_id, club_id, note, policy_version) values ($1,$2,$3,'I train Tuesdays','20@v2.4')`, [regRiverside, ID.marcus, CLUB.riverside]);
+await db.query(`insert into registration (id, player_id, club_id, note, policy_version) values ($1,$2,$3,'Keen','20@v2.4')`, [regUnv, ID.marcus, CLUB.unverified]);
+
+const rows = async (person, club) => (await db.query('select * from fn_register_rows($1,$2)', [person, club])).rows;
+const count = async (person, club) => (await db.query('select fn_register_count($1,$2) as n', [person, club])).rows[0].n;
+
+check('M: no subscription = no rows even for a verified club TD', (await rows(ID.td, CLUB.riverside)).length, 0);
+await db.query(`update club set subscription_status='active' where id=$1`, [CLUB.riverside]);
+check('M: active subscription + verified + TD = rows', (await rows(ID.td, CLUB.riverside)).length, 1);
+check('M: a coach cannot work the register', (await rows(ID.coachV, CLUB.riverside)).length, 0);
+check('M: an outsider cannot work the register', (await rows(ID.coachOther, CLUB.riverside)).length, 0);
+check('J61: unverified club admin gets NO rows, whatever it pays', ((await db.query(`update club set subscription_status='active' where id=$1`, [CLUB.unverified])), (await rows(adminUnv, CLUB.unverified)).length), 0);
+check('D-126: but the held COUNT is visible', await count(adminUnv, CLUB.unverified), 1);
+check('N11: status move authorised for the TD', (await db.query('select fn_set_club_status($1,$2,$3) as ok', [ID.td, regRiverside, 'shortlisted'])).rows[0].ok, true);
+check('N11: status move refused for an outsider', (await db.query('select fn_set_club_status($1,$2,$3) as ok', [ID.coachOther, regRiverside, 'invited'])).rows[0].ok, false);
+check('N7: a stranger cannot withdraw a registration', (await db.query('select fn_withdraw_registration($1,$2) as ok', [ID.coachOther, regRiverside])).rows[0].ok, false);
+check('N7: the guardian withdraws', (await db.query('select fn_withdraw_registration($1,$2) as ok', [ID.guardian, regUnv])).rows[0].ok, false /* marcus is 19: guardian link expired at 18 */);
+check('N7: the adult player withdraws themself', (await db.query('select fn_withdraw_registration($1,$2) as ok', [ID.marcus, regRiverside])).rows[0].ok, true);
+check('N7: the withdrawn note is emptied atomically', (await db.query('select note from registration where id=$1', [regRiverside])).rows[0].note, null);
+check('N12: a withdrawn row leaves the register', (await rows(ID.td, CLUB.riverside)).length, 0);
+await db.query(`update club set subscription_status=null where id=$1`, [CLUB.riverside]);
+
+// ---------------------------------------------------------------------------
 // G9 — age bands evaluate in Australia/Melbourne, never UTC.
 // ---------------------------------------------------------------------------
 const boundary = crypto.randomUUID(), justUnder = crypto.randomUUID();
