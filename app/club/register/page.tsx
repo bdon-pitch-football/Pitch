@@ -90,9 +90,7 @@ export default async function Register() {
                       </form>
                     )}
                     {r.club_status === 'shortlisted' && (
-                      <form action={setStatus.bind(null, r.registration_id, 'invited')} style={{ flex: 1, display: 'flex' }}>
-                        <button type="submit" style={{ flex: 1, height: 50, borderRadius: 14, border: 'none', background: T.accent, color: T.onAccent, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Invite to trial</button>
-                      </form>
+                      <Link href={`/club/invite/${r.registration_id}`} style={{ flex: 1, height: 50, borderRadius: 14, background: T.accent, color: T.onAccent, fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invite to trial</Link>
                     )}
                   </div>
                 </div>

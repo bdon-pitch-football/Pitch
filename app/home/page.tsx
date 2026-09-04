@@ -55,6 +55,13 @@ export default async function Home() {
               join development_record dr3 on dr3.id = sr.record_id
               where dr3.person_id = c.id and sr.dispatched_at is null
               order by sr.created_at desc limit 1) q),
+           'invitation', (select row_to_json(q3) from (
+              select i.id, cl2.name as club from invitation i
+              join registration r2 on r2.id = i.registration_id
+              join club cl2 on cl2.id = i.club_id
+              where r2.player_id = c.id
+                and not exists (select 1 from invitation_reply ir where ir.invitation_id = i.id)
+              order by i.created_at desc limit 1) q3),
            'interestRequest', (select row_to_json(q2) from (
               select rr.id, cl.name as club from registration_request rr
               join development_record dr4 on dr4.id = rr.record_id
@@ -69,7 +76,7 @@ export default async function Home() {
   );
   const me = rows[0];
   if (!me) return <Shell><div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Signed out.</div></Shell>;
-  const children: { id: string; firstName: string; recordId: string | null; approvedOn: string; hasPending: boolean; sendRequest: { id: string; destination: string } | null; interestRequest: { id: string; club: string } | null }[] = me.children;
+  const children: { id: string; firstName: string; recordId: string | null; approvedOn: string; hasPending: boolean; sendRequest: { id: string; destination: string } | null; interestRequest: { id: string; club: string } | null; invitation: { id: string; club: string } | null }[] = me.children;
 
   // Player seat: straight to their own build surface.
   if (children.length === 0 && me.record_id) {
@@ -107,6 +114,17 @@ export default async function Home() {
           </div>
         );
       })}
+      {children.filter((c) => c.invitation).map((c) => (
+        <div key={c.invitation!.id} style={{ background: T.surface, border: '1px solid #a479e2', borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 999, background: '#a479e2' }} />
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#a479e2' }}>Waiting on you</div>
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 900 }}>{c.invitation!.club} would like {c.firstName} at a trial</div>
+          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{c.firstName} has not been told. Nothing happens until you decide.</div>
+          <Link href={`/g/invite/${c.invitation!.id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Review it</Link>
+        </div>
+      ))}
       {children.filter((c) => c.interestRequest).map((c) => (
         <div key={c.interestRequest!.id} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
