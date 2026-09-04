@@ -76,6 +76,39 @@ for (const p of PLAYER_FIXTURES) {
   }
 }
 
+// --- club-side seed: a working register at Riverside (verified, active
+// subscription, TD login) and a claimed-but-unverified club with held
+// registrations for the ops console. All fictional.
+const riverside = (await db.query(`select id from club where name='Riverside FC'`)).rows[0].id as string;
+await db.query(`update club set subscription_status='active' where id=$1`, [riverside]);
+const td = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Marina','Petrovic','1980-04-12','td@example.com')`, [td]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'technical_director')`, [td, riverside]);
+
+const sunbury = randomUUID();
+await db.query(`insert into club (id, name, suburb, state, club_state, contact_email) values ($1,'Sunbury United','Sunbury','VIC','claimed','football@sunburyunited.example.au')`, [sunbury]);
+const sunburyAdmin = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'M.','Harris','1979-01-20','sunbury@example.com')`, [sunburyAdmin]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [sunburyAdmin, sunbury]);
+
+// registrations: fixture players onto Riverside's register (parent-sent),
+// and held ones at Sunbury
+const players = await db.query(`select p.id, p.first_name from person p join development_record dr on dr.person_id = p.id`);
+for (const pl of players.rows as { id: string; first_name: string }[]) {
+  await db.query(
+    `insert into registration (player_id, club_id, positions, note, club_status, disclosed_by, policy_version)
+     values ($1,$2,$3,$4,$5,$6,'20@v2.4')`,
+    [pl.id, riverside, pl.first_name === 'Nate' ? ['GK'] : ['CM'],
+     pl.first_name === 'Nate' ? 'Been on the bench behind a keeper two years older. Want game time.' : null,
+     pl.first_name === 'Nate' ? 'shortlisted' : 'new', guardian],
+  );
+  await db.query(
+    `insert into registration (player_id, club_id, positions, club_status, disclosed_by, policy_version)
+     values ($1,$2,$3,'new',$4,'20@v2.4')`,
+    [pl.id, sunbury, ['CM'], guardian],
+  );
+}
+
 const server = new PGLiteSocketServer({ db, port: 54322, host: '127.0.0.1' });
 await server.start();
 console.log('dev db ready on 127.0.0.1:54322 — tokens: dev-deniz dev-nate dev-georgia dev-expired dev-revoked');
