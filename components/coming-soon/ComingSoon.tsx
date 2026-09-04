@@ -1259,7 +1259,7 @@ export default function ComingSoon() {
           {[
             { name: 'Under 18', price: 'Free', per: '', desc: 'The whole page, every feature, free for good. There is nothing to upgrade and nothing to pay for.', hi: false },
             { name: 'Players 18+ and coaches', price: 'Free', per: '', desc: 'Your page, your clips, the send link, and a PDF whenever you want one. A paid tier exists later for people who want more — what’s here now stays free.', hi: false },
-            { name: 'Clubs — the Interest Register', price: '$54', per: 'a month', desc: 'Or $329 for twelve months. Cancel any time. The same price for a club of four hundred and a club of forty.', hi: true },
+            { name: 'Clubs — the Interest Register', price: '$54', per: 'a month', desc: 'Or $329 for twelve months. Cancel any time.', hi: true },
           ].map((t) => (
             <div key={t.name} style={{ position: 'relative', overflow: 'hidden', background: t.hi ? 'linear-gradient(160deg, #2b2415 0%, #14170f 100%)' : '#0d1411', border: t.hi ? '1px solid #4a3a12' : '1px solid #1c2822', borderRadius: 24, padding: 26, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: t.hi ? '#eda100' : '#3ddc84' }}>{t.name}</div>
