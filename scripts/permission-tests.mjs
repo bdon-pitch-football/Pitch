@@ -21,6 +21,14 @@ for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
 }
 
 let pass = 0, fail = 0;
+async function expectFail(label, sql) {
+  try {
+    await db.exec(sql);
+    fail++; console.error(`FAIL ${label} — write was allowed and must not be`);
+  } catch {
+    pass++; console.log(`OK   ${label}`);
+  }
+}
 function check(label, actual, expected) {
   if (actual === expected) { pass++; console.log(`OK   ${label}`); }
   else { fail++; console.error(`FAIL ${label} — expected ${expected}, got ${actual}`); }
@@ -188,6 +196,25 @@ await db.query(`insert into guardian_setting (child_id, profile_paused, updated_
 check('A16 guardian pause stops a live token', await tok(t.live), null);
 check('A16 internal club view survives the pause', await level(ID.coachV, ID.deniz), 'full');
 await db.query(`update guardian_setting set profile_paused=false where child_id=$1`, [ID.deniz]);
+
+// ---------------------------------------------------------------------------
+// §R — the approved/pending pair (D-119). A pending edit never leaks to a
+// link-holder; nothing auto-publishes; the diff stays derivable.
+// ---------------------------------------------------------------------------
+await db.query(`insert into profile_version (record_id, content, status) values ($1,'{"name":"PENDING EDIT"}','pending')`, [REC.deniz]);
+const withPending = await tok(t.live);
+check('R1 link-holder keeps reading the approved version during pending', withPending?.approved_content?.name, 'Deniz Y.');
+check('R2 the pending content never reaches the token path', JSON.stringify(withPending).includes('PENDING EDIT'), false);
+const bothVersions = await db.query(`select count(*)::int as n from profile_version where record_id=$1 and status in ('approved','pending')`, [REC.deniz]);
+check('R4 both versions retained (diff derivable)', bothVersions.rows[0].n, 2);
+await expectFail('R5 a second pending version cannot exist', `
+  insert into profile_version (record_id, content, status) values ('${REC.deniz}','{}','pending');`);
+await db.query(`delete from profile_version where record_id=$1 and status='pending'`, [REC.deniz]);
+
+// A u16 with NO approved version has a dead link even when the token lives
+await db.query(`update profile_version set status='superseded' where record_id=$1 and status='approved'`, [REC.deniz]);
+check('R6 no approved version = dead link, even for a live token', await tok(t.live), null);
+await db.query(`update profile_version set status='approved' where record_id=$1 and status='superseded'`, [REC.deniz]);
 
 // ---------------------------------------------------------------------------
 // D-72 — the test that is not optional: experience_entry grants NOTHING.
