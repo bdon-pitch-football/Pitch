@@ -9,6 +9,7 @@
 import type { PlayerFixture } from '@/lib/fixtures';
 import { POSITIONS, STAT_LABELS, positionGroup, type PositionCode, type StatKey } from '@/lib/football';
 import { HeaderMark } from '@/components/Wordmark';
+import ClipCard from '@/components/cv/ClipCard';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', line: '#24322a', ink: '#eef5f0',
@@ -128,22 +129,12 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
           <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{p.about}</div>
         </div>
 
-        {/* highlights — click-to-play façades only (D-97); nothing loads here */}
+        {/* highlights — click-to-play façades only (D-97); nothing loads
+            from a third party until the viewer presses play */}
         <div className="cv-rise" style={{ animationDelay: '.16s', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={kicker}>Highlights</div>
-          {(p.highlights?.map((h) => h.title) ?? clipTitles[p.slug] ?? []).slice(0, p.highlightsUsed).map((title, i) => (
-            <div key={title} style={{ ...card, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ height: 96, background: `linear-gradient(135deg, ${i % 2 ? '#182018' : '#1a2820'}, #101a14)`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                <div style={{ width: 40, height: 40, borderRadius: 999, background: 'rgba(61,220,132,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill={T.onAccent}><path d="M8 5 L19 12 L8 19 Z" /></svg>
-                </div>
-                <div style={{ position: 'absolute', right: 10, bottom: 8, background: 'rgba(0,0,0,.7)', fontSize: 10, fontWeight: 800, padding: '3px 7px', borderRadius: 6 }}>{['0:48', '1:12', '0:56'][i % 3]}</div>
-              </div>
-              <div style={{ padding: '11px 14px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <div style={{ fontSize: 14, fontWeight: 800 }}>{title}</div>
-                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{group === 'GK' ? 'Veo clip' : 'Goals, assists & link play'}</div>
-              </div>
-            </div>
+          {(p.highlights ?? (clipTitles[p.slug] ?? []).map((title) => ({ title, url: undefined as string | undefined }))).slice(0, p.highlightsUsed).map((h, i) => (
+            <ClipCard key={h.title} title={h.title} url={h.url} gradientAlt={i % 2 === 1} sub={group === 'GK' ? 'Veo clip' : 'Goals, assists & link play'} />
           ))}
         </div>
 
