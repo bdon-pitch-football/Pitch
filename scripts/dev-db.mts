@@ -109,6 +109,16 @@ for (const pl of players.rows as { id: string; first_name: string }[]) {
   );
 }
 
+// public club page seed (ClubCV): slug, girls'/women's squads, trials,
+// players wanted, alumni wall
+await db.query(`update club set public_slug='riverside-fc', established='1974', pathway_line='MiniRoos → Juniors → Seniors pathway', philosophy='Every junior plays, every junior develops. Football that is brave on the ball, and a club where families stay for a decade — not a season.' where id=$1`, [riverside]);
+await db.query(`insert into squad (club_id,name,age_group,competition_gender,season) values ($1,'U13 Girls','U13','girls','2026'),($1,'U16 Girls','U16','girls','2026'),($1,'Seniors Women','SEN','women','2026')`, [riverside]);
+await db.query(`insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,age_group,competition_gender,cv_email) values
+  ($1,'U14 & U15 Boys trials','2026-10-11','Sun 9:00 AM · Riverside Park, Pitch 2',array['GK','CB'],'U15','boys','football@riversidefc.example.au'),
+  ($1,'Girls U13–U16 trials','2026-10-18','Sun 10:00 AM · Riverside Park, Pitch 1',array[]::text[],'U16','girls','football@riversidefc.example.au')`, [riverside]);
+await db.query(`insert into players_wanted_notice (club_id,title,detail) values ($1,'U13 Boys — Goalkeeper','Train Tue & Thu · immediate start'),($1,'U16 Girls — 2 outfield spots','Season 2027 squad')`, [riverside]);
+await db.query(`insert into alumni_entry (club_id,line,detail,sort) values ($1,'Marco V. → NPL Victoria','Riverside juniors 2012–2018',0),($1,'Aylin D. → State representative squad','Riverside juniors 2011–2017',1),($1,'A 2019 U13 → our senior first team','Straight through the pathway, still playing',2)`, [riverside]);
+
 // coach fixture: Sam Kaya (doc 16 §3b) with a published public slug
 const sam = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Sam','Kaya','1988-02-02','coach@example.com')`, [sam]);
