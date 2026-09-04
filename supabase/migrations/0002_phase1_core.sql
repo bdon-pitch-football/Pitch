@@ -40,6 +40,7 @@ insert into age_group (code, label, sort) values
 create table person (
   id uuid primary key default gen_random_uuid(),
   auth_user_id uuid unique,             -- Supabase Auth = session only (D-80)
+  email text unique,                    -- sign-in identity; children may have none
   first_name text not null,
   last_name text,                       -- pending child invitations hold first name only (D-17)
   dob date,

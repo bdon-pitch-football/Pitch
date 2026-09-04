@@ -64,7 +64,7 @@ export async function approveInvitation(input: {
   try {
     await client.query('begin');
     const inv = await client.query(
-      `select id, first_name, dob, guardian_name from pending_invitation
+      `select id, first_name, dob, guardian_name, guardian_email from pending_invitation
        where id = $1 and approved_at is null for update`,
       [input.invitationId],
     );
@@ -76,8 +76,9 @@ export async function approveInvitation(input: {
 
     const gName: string = p.guardian_name ?? '';
     const guardian = await client.query(
-      `insert into person (first_name, last_name) values ($1,$2) returning id`,
-      [gName.split(' ')[0] || 'Guardian', gName.split(' ').slice(1).join(' ') || null],
+      `insert into person (first_name, last_name, email) values ($1,$2,$3)
+       on conflict (email) do update set first_name = person.first_name returning id`,
+      [gName.split(' ')[0] || 'Guardian', gName.split(' ').slice(1).join(' ') || null, p.guardian_email || null],
     );
     const child = await client.query(
       `insert into person (first_name, dob, dob_locked) values ($1,$2,true) returning id`,

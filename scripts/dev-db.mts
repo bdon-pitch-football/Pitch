@@ -32,7 +32,7 @@ for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
 const sha = (s: string) => createHash('sha256').update(s).digest();
 
 const guardian = randomUUID();
-await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Alex','Fixture','1985-05-05')`, [guardian]);
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Alex','Fixture','1985-05-05','guardian@example.com')`, [guardian]);
 
 for (const p of PLAYER_FIXTURES) {
   const personId = randomUUID();
