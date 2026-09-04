@@ -216,6 +216,10 @@ create table player_stat (
   provenance text not null check (provenance in ('self_reported','coach_verified','official_import')),
   unique (record_id, season, stat_key, source_experience_id)
 );
+-- NULLs are distinct in the unique constraint above, so directly-entered
+-- stats (no source experience) need their own uniqueness for upserts.
+create unique index player_stat_direct on player_stat(record_id, season, stat_key)
+  where source_experience_id is null;
 
 -- ---------------------------------------------------------------------------
 -- record_entry — the typed atomic unit of the record (D-71). A type
