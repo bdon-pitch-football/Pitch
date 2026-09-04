@@ -65,6 +65,17 @@ export default async function Home() {
           select dr.positions, dr.squad_number,
             (select count(*)::int from highlight h where h.record_id = dr.id) as clips
           from development_record dr where dr.person_id = p.id) rec) as my_page,
+       (select row_to_json(cl) from (
+          select c2.id, c2.name, c2.club_state, c2.public_slug, m.role,
+            (select count(*)::int from registration r6 where r6.club_id = c2.id and r6.withdrawn_at is null) as register_count
+          from membership m join club c2 on c2.id = m.club_id
+          where m.person_id = p.id and m.role in ('technical_director','club_admin') and m.ended_at is null
+          limit 1) cl) as club_seat,
+       (select row_to_json(co) from (
+          select cp.public_slug,
+            (select c3.name from membership m2 join club c3 on c3.id = m2.club_id
+             where m2.person_id = p.id and m2.role = 'coach' and m2.ended_at is null limit 1) as club
+          from coach_profile cp where cp.person_id = p.id) co) as coach_seat,
        (select coalesce(json_agg(json_build_object(
            'id', c.id, 'firstName', c.first_name, 'photo', c.photo_path,
            'recordId', (select id from development_record where person_id = c.id),
@@ -112,6 +123,69 @@ export default async function Home() {
     interestRequest: { id: string; club: string } | null;
   }[] = me.children;
 
+  const clubSeat = me.club_seat as { id: string; name: string; club_state: string; public_slug: string | null; role: string; register_count: number } | null;
+  const coachSeat = me.coach_seat as { public_slug: string | null; club: string | null } | null;
+
+  // Club seat: TD or administrator. The register is the working surface.
+  if (clubSeat) {
+    const verified = clubSeat.club_state === 'verified';
+    return (
+      <Shell>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{clubSeat.name}</div>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>
+            {me.first_name} · {clubSeat.role === 'technical_director' ? 'Technical Director' : 'Club administrator'}
+          </div>
+        </div>
+        <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 58, height: 58, borderRadius: 18, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 22 }}>{clubSeat.name[0]}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 17, fontWeight: 900 }}>{clubSeat.register_count} on your register</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+              <div style={{ width: 6, height: 6, borderRadius: 999, background: verified ? T.accent : T.amber }} />
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: verified ? T.accent : T.amber }}>
+                {verified ? 'Verified club' : 'Awaiting verification — registrations are held'}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <Link href="/club/register" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Interest register</Link>
+          {verified && (
+            <Link href="/club/post-trial" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Post a trial</Link>
+          )}
+          {clubSeat.public_slug && (
+            <Link href={`/fc/${clubSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Your club page</Link>
+          )}
+        </div>
+      </Shell>
+    );
+  }
+
+  // Coach seat.
+  if (coachSeat) {
+    return (
+      <Shell>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your coach CV</div>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>{me.first_name}{coachSeat.club ? ` · ${coachSeat.club}` : ''}</div>
+        </div>
+        {coachSeat.public_slug && (
+          <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your public link</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{coachSeat.public_slug}</div>
+          </div>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <Link href="/coach/edit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Edit my coach CV</Link>
+          {coachSeat.public_slug && (
+            <Link href={`/c/${coachSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>See my public page</Link>
+          )}
+        </div>
+      </Shell>
+    );
+  }
+
   // Player seat: their page today, then the build surface.
   if (children.length === 0 && me.record_id) {
     const pg = me.my_page as { positions: string[]; squad_number: number | null; clips: number } | null;
@@ -140,6 +214,17 @@ export default async function Home() {
             <Link href={`/build/${me.record_id}/more`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Achievements</Link>
           </div>
           <Link href={`/send/${me.record_id}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Send my CV to a club</Link>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (children.length === 0) {
+    return (
+      <Shell>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome, {me.first_name}</div>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Your account is set up. There is nothing on it yet.</div>
         </div>
       </Shell>
     );
