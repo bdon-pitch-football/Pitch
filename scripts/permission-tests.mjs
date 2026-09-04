@@ -323,6 +323,36 @@ check('D-81: per-number 24h SMS limit enforced', sendSrc.includes('SMS_PER_NUMBE
 check('D-81: monthly SMS spend cap enforced', sendSrc.includes('SMS_MONTHLY_CAP_CENTS'), true);
 
 // ---------------------------------------------------------------------------
+// §O — billing walls (D-112, D-126, D-135, doc 14 §O10).
+// ---------------------------------------------------------------------------
+const billingSrc = readFileSync(fileURLToPath(new URL('../lib/billing.ts', import.meta.url)), 'utf8');
+const hookSrc = readFileSync(fileURLToPath(new URL('../app/api/stripe/webhook/route.ts', import.meta.url)), 'utf8');
+const applyFn = readFileSync(join(dir, '0012_billing.sql'), 'utf8');
+
+check('O: fn_apply_subscription cannot touch club_state (payment never verifies)',
+  /create function fn_apply_subscription[\s\S]*?end \$\$/.exec(applyFn)?.[0].includes('club_state = ') ?? true, false);
+check('O10: Stripe receives no child data — only a club id',
+  /player|registration|child|first_name/i.test(billingSrc.replace(/\/\/[^\n]*/g, '')), false);
+check('D-112: no embedded card fields — hosted Checkout and Portal only',
+  /card\[number\]|cardElement|PaymentElement/i.test(billingSrc), false);
+check('D-112: the webhook verifies its signature before reading anything',
+  hookSrc.indexOf('verify(payload') < hookSrc.indexOf('JSON.parse(payload)'), true);
+check('D-112: replayed events cannot double-apply', hookSrc.includes('from stripe_event where id'), true);
+check('D-135: the webhook never deletes a registration',
+  /delete\s+from\s+registration/i.test(hookSrc), false);
+
+// Payment alone cannot open a register: verification is a separate gate.
+const payClub = crypto.randomUUID();
+await db.query(`insert into club (id, name, club_state, subscription_status) values ($1,'Paid But Unverified','claimed','active')`, [payClub]);
+const payAdmin = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'PaidAdmin','${yearsAgo(40)}')`, [payAdmin]);
+await mem(payAdmin, payClub, null, 'club_admin');
+await db.query(`insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4')`, [ID.marcus, payClub]);
+check('M4/O: an active subscription at an unverified club still returns no rows',
+  (await rows(payAdmin, payClub)).length, 0);
+check('D-126: and the held count is all it gets', await count(payAdmin, payClub), 1);
+
+// ---------------------------------------------------------------------------
 // Route enumeration — absence as a property (doc 14 §N12, §P11, §C1, D-122).
 // These are static asserts over the app tree: the dangerous surface must
 // not exist, not merely be forbidden.

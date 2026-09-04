@@ -10,5 +10,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
   const { rows } = await db.query('select fn_purge_pending() as purged');
-  return NextResponse.json({ ok: true, purged: rows[0].purged });
+  // Cancellation + 30 days destroys a club's register (D-135). Suspension
+  // never does: a family's child is never deleted because a card expired.
+  const { rows: cancelled } = await db.query('select fn_purge_cancelled_registers() as n');
+  return NextResponse.json({ ok: true, purged: rows[0].purged, cancelledRegisters: cancelled[0].n });
 }
