@@ -42,6 +42,8 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
         from achievement where record_id = $1) as achievements,
       (select coalesce(json_agg(json_build_object('kind', kind, 'orgName', org_name, 'period', season_label, 'note', notes)), '[]'::json)
         from experience_entry where record_id = $1) as other,
+      (select coalesce(json_agg(json_build_object('title', title, 'url', url) order by added_at), '[]'::json)
+        from highlight where record_id = $1) as highlights,
       (select row_to_json(y) from (
         select c.name as club, s.name as squad_name, s.age_group, s.competition_gender
         from membership m join club c on c.id = m.club_id left join squad s on s.id = m.squad_id
@@ -69,7 +71,8 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
     stats: row.stats,
     achievements: row.achievements,
     otherFootball: row.other,
-    highlightsUsed: 3,
+    highlights: row.highlights,
+    highlightsUsed: row.highlights.length,
     surfacedStats: row.core.surfaced_stats,
   };
 }

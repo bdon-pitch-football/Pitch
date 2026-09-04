@@ -131,7 +131,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         {/* highlights — click-to-play façades only (D-97); nothing loads here */}
         <div className="cv-rise" style={{ animationDelay: '.16s', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={kicker}>Highlights</div>
-          {(clipTitles[p.slug] ?? []).slice(0, p.highlightsUsed).map((title, i) => (
+          {(p.highlights?.map((h) => h.title) ?? clipTitles[p.slug] ?? []).slice(0, p.highlightsUsed).map((title, i) => (
             <div key={title} style={{ ...card, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ height: 96, background: `linear-gradient(135deg, ${i % 2 ? '#182018' : '#1a2820'}, #101a14)`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                 <div style={{ width: 40, height: 40, borderRadius: 999, background: 'rgba(61,220,132,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

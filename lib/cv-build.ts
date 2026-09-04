@@ -127,14 +127,16 @@ async function buildSnapshot(client: Client, recordId: string, season: string) {
       (select coalesce(json_agg(json_build_object('title', title, 'detail', detail) order by sort), '[]'::json)
         from achievement where record_id = $1) as achievements,
       (select coalesce(json_agg(json_build_object('kind', kind, 'orgName', org_name, 'period', season_label, 'note', notes)), '[]'::json)
-        from experience_entry where record_id = $1) as other`,
+        from experience_entry where record_id = $1) as other,
+      (select coalesce(json_agg(json_build_object('title', title, 'url', url) order by added_at), '[]'::json)
+        from highlight where record_id = $1) as highlights`,
     [recordId],
   );
-  const r = rows[0] as { core: Record<string, unknown>; stats: unknown; achievements: unknown; other: unknown };
+  const r = rows[0] as { core: Record<string, unknown>; stats: unknown; achievements: unknown; other: unknown; highlights: unknown[] };
   return {
     slug: 'live', dob: '', club: '', squad: { name: '', ageGroup: '', competitionGender: 'mixed' },
-    highlightsUsed: 0, season,
+    highlightsUsed: r.highlights.length, season,
     ...r.core,
-    stats: r.stats, achievements: r.achievements, otherFootball: r.other,
+    stats: r.stats, achievements: r.achievements, otherFootball: r.other, highlights: r.highlights,
   };
 }
