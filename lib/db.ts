@@ -13,6 +13,15 @@ const url =
 
 if (!url) throw new Error('SUPABASE_DB_URL is not set');
 
-// The dev socket serves one connection at a time; a single pooled connection
-// keeps behaviour identical in both environments for our query volume.
-export const db = new Pool({ connectionString: url, max: 1 });
+// The dev socket serves ONE connection at a time, and Next dev re-evaluates
+// modules on every recompile — a per-module Pool would strand dead clients
+// on the single slot. One process-global pool, resilient to dev-db restarts,
+// with a short idle timeout so the slot is released between requests.
+const makePool = () => {
+  const pool = new Pool({ connectionString: url, max: 1, idleTimeoutMillis: 500 });
+  pool.on('error', () => {}); // a dropped idle client is replaced on next query
+  return pool;
+};
+
+const g = globalThis as typeof globalThis & { __pitchDbPool?: Pool };
+export const db = g.__pitchDbPool ?? (g.__pitchDbPool = makePool());

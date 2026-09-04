@@ -73,6 +73,7 @@ create table pending_invitation (
   id uuid primary key default gen_random_uuid(),
   first_name text not null,
   dob date not null,
+  guardian_name text,
   guardian_email text,
   guardian_phone text,
   created_at timestamptz not null default now(),
