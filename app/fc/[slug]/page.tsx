@@ -152,7 +152,7 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
           <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{c.public_slug}</div>
         </div>
 
-        <div style={{ fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700 }}>Report this page</div>
+        <a href={`/report?kind=club_page`} style={{ fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
     </div>
   );

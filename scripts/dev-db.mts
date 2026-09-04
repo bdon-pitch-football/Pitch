@@ -182,7 +182,7 @@ await db.query(
   [await personOf('Nate'), riverside],
 );
 
-const server = new PGLiteSocketServer({ db, port: 54322, host: '127.0.0.1' });
+const server = new PGLiteSocketServer({ db, port: 54322, host: '127.0.0.1', inspect: false });
 await server.start();
 console.log('dev db ready on 127.0.0.1:54322');
 console.log('  tokens : dev-deniz dev-nate dev-georgia dev-expired dev-revoked');

@@ -174,7 +174,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
           ))}
         </div>
 
-        <div style={{ fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700 }}>Report this page</div>
+        <a href="/report?kind=player_cv" style={{ fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
     </div>
   );

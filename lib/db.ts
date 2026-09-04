@@ -15,11 +15,22 @@ if (!url) throw new Error('SUPABASE_DB_URL is not set');
 
 // The dev socket serves ONE connection at a time, and Next dev re-evaluates
 // modules on every recompile — a per-module Pool would strand dead clients
-// on the single slot. One process-global pool, resilient to dev-db restarts,
-// with a short idle timeout so the slot is released between requests.
+// on the single slot. One process-global pool.
+//
+// idleTimeoutMillis MUST be 0 here: with a short timeout the pool closes the
+// connection between queries and reconnects for the next one, and because the
+// dev socket accepts a single connection every other request queues behind
+// that churn — pages took minutes. Keeping one warm connection makes queries
+// serialize cheaply instead. Production (Supabase) raises max and this
+// setting stops mattering.
 const makePool = () => {
-  const pool = new Pool({ connectionString: url, max: 1, idleTimeoutMillis: 500 });
-  pool.on('error', () => {}); // a dropped idle client is replaced on next query
+  const pool = new Pool({
+    connectionString: url,
+    max: 1,
+    idleTimeoutMillis: 0,
+    allowExitOnIdle: false,
+  });
+  pool.on('error', () => {}); // a dropped client is replaced on next query
   return pool;
 };
 

@@ -24,6 +24,7 @@ export async function createPendingInvitation(input: {
   guardianPhone: string;
   guardianEmail?: string;
 }): Promise<{ id: string }> {
+  let invitationId = '';
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -37,23 +38,28 @@ export async function createPendingInvitation(input: {
       [rows[0].id],
     );
     await client.query('commit');
-
-    // doc 15 §1 + §2: the guardian approval request. The SMS is the most
-    // important 300 characters in the product; the email carries the four
-    // promises. Both queue into the outbox; neither leaves in development.
-    const age = Math.floor((Date.now() - new Date(input.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
-    const id = rows[0].id as string;
-    await sendAndLog(guardianApprovalSms(input.firstName.trim(), age, id), { address: input.guardianPhone.trim() }, 'sms_sent');
-    if (input.guardianEmail?.trim()) {
-      await sendAndLog(guardianApprovalEmail(input.firstName.trim(), age, id), { address: input.guardianEmail.trim() }, 'email_sent');
-    }
-    return { id };
+    invitationId = rows[0].id as string;
   } catch (e) {
     await client.query('rollback');
     throw e;
   } finally {
     client.release();
   }
+
+  // doc 15 §1 + §2: the guardian approval request. The SMS is the most
+  // important 300 characters in the product; the email carries the four
+  // promises. Both queue into the outbox; neither leaves in development.
+  //
+  // These MUST run after client.release(). Calling out to anything that
+  // needs its own connection while still holding this one deadlocks against
+  // a single-connection pool — the request waits for a connection only it
+  // can free.
+  const age = Math.floor((Date.now() - new Date(input.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
+  await sendAndLog(guardianApprovalSms(input.firstName.trim(), age, invitationId), { address: input.guardianPhone.trim() }, 'sms_sent');
+  if (input.guardianEmail?.trim()) {
+    await sendAndLog(guardianApprovalEmail(input.firstName.trim(), age, invitationId), { address: input.guardianEmail.trim() }, 'email_sent');
+  }
+  return { id: invitationId };
 }
 
 export async function getPendingInvitation(id: string) {
