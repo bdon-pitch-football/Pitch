@@ -167,13 +167,27 @@ check('A17 pending u16: TD', await level(ID.td, pendingKid), 'none');
 // ---------------------------------------------------------------------------
 check('B1 u16 unsearchable by verified coach', await searchable(ID.coachOther, ID.deniz), false);
 check('B2 u16 unsearchable by own club admin', await searchable(ID.clubAdmin, ID.deniz), false);
-check('B3 16-17 searchable by verified viewer', await searchable(ID.coachOther, ID.nate), true);
+// B11: discovery is gated on the 30-day notice having DELIVERED, so the
+// normal case needs a delivered notice on the record.
+check('B11 no delivered notice = not discoverable, even for a verified viewer',
+  await searchable(ID.coachOther, ID.nate), false);
+await db.query(`insert into age_transition_notice (child_id, sent_at, delivered_at) values ($1, now(), now())`, [ID.nate]);
+check('B3 16-17 searchable by verified viewer once the notice landed', await searchable(ID.coachOther, ID.nate), true);
 check('B4 16-17 not searchable from unverified club', await searchable(ID.coachU, ID.nate), false);
 check('B5 16-17 not searchable by anon', await searchable(null, ID.nate), false);
 await db.query(`insert into guardian_setting (child_id, discovery_disabled, updated_by) values ($1,true,$2)`, [ID.nate, ID.guardian]);
 check('B6 guardian off-switch removes 16-17 discovery', await searchable(ID.coachOther, ID.nate), false);
 check('B6b off-switch also removes the public floor', await level(ID.coachOther, ID.nate), 'none');
 check('B7 adult searchable by anon', await searchable(null, ID.marcus), true);
+
+// A notice that was SENT but never delivered does not open discovery: an
+// email that bounced is a parent who was never told.
+const bouncedKid = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Bounced','${yearsAgo(17)}')`, [bouncedKid]);
+await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, bouncedKid]);
+await db.query(`insert into age_transition_notice (child_id, sent_at) values ($1, now())`, [bouncedKid]);
+check('B11 a sent-but-undelivered notice leaves discovery off',
+  await searchable(ID.coachOther, bouncedKid), false);
 
 // ---------------------------------------------------------------------------
 // The token path (D-77, D-80, D-119): one live shape, one dead shape.
@@ -229,6 +243,18 @@ const permSqlCode = readFileSync(join(dir, '0003_permissions.sql'), 'utf8')
   .replace(/--[^\n]*/g, '')
   .replace(/\/\*[\s\S]*?\*\//g, '');
 check('D-72 permission engine source never references experience_entry', permSqlCode.includes('experience_entry') ? 'referenced' : 'clean', 'clean');
+
+// The 30-day notice query finds a child at the boundary and nobody else.
+const soon16 = crypto.randomUUID();
+const soon16Dob = (() => { const d = new Date(melbourneToday); d.setFullYear(d.getFullYear() - 16); d.setDate(d.getDate() + 30); return iso(d); })();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Turning',$2)`, [soon16, soon16Dob]);
+await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, soon16]);
+await db.query(`update person set email='parent-of-turning@example.com' where id=$1`, [ID.guardian]);
+const turning = (await db.query('select * from fn_children_turning_16()')).rows;
+check('D-49/§13: the 30-day query finds the child turning 16',
+  turning.some((r) => r.child_id === soon16), true);
+check('D-49: and does not sweep up a 17-year-old already past it',
+  turning.some((r) => r.child_id === ID.nate), false);
 
 // ---------------------------------------------------------------------------
 // §M / §N — the Interest Register: held until verified, gated on the
