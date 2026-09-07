@@ -47,12 +47,27 @@ type Row = {
   squad_age_group: string | null; squad_gender: string | null; has_clips: boolean;
 };
 
+// The stand-in code for "they named no squad". Not a real age group, so it
+// gets a value that cannot collide with one.
+const UNFILED = '\u2014none\u2014';
+
+// An age group sorts by its number, with seniors after the juniors and the
+// unfiled group last of all. Sorting the codes as text puts 'SEN' first,
+// which reads as a bug to any junior club.
+const AGE_SORT = (code: string) => {
+  if (code === UNFILED) return 1000;
+  const n = code.replace(/\D/g, '');
+  return n ? Number(n) : 999;
+};
+const AGE_LABEL = (code: string) =>
+  code === UNFILED ? 'No squad named' : code === 'SEN' ? 'Seniors' : code;
+
 export default async function Register({ searchParams }: {
-  searchParams: Promise<{ pos?: string; status?: string }>;
+  searchParams: Promise<{ pos?: string; status?: string; age?: string }>;
 }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
-  const { pos, status } = await searchParams;
+  const { pos, status, age } = await searchParams;
 
   const club = await db.query(
     `select c.id, c.name, c.club_state from club c
@@ -72,8 +87,20 @@ export default async function Register({ searchParams }: {
   // question from being allowed to read it.
   const posOk = pos && pos in POSITIONS ? pos : null;
   const statusOk = status && status in STATUS_CHIP ? status : null;
+
+  // Age groups present on THIS register, with a count each. Built from every
+  // row, not the filtered ones, so the counts do not move around underneath
+  // the person clicking them.
+  const ageOf = (r: Row) => r.squad_age_group ?? UNFILED;
+  const ageGroups = [...new Set(all.map(ageOf))]
+    .sort((a, b) => AGE_SORT(a) - AGE_SORT(b))
+    .map((code) => ({ code, label: AGE_LABEL(code), n: all.filter((r) => ageOf(r) === code).length }));
+  const ageOk = age && ageGroups.some((g) => g.code === age) ? age : null;
+
   const rows = all.filter(
-    (r) => (!posOk || r.positions.includes(posOk)) && (!statusOk || r.club_status === statusOk),
+    (r) => (!posOk || r.positions.includes(posOk))
+      && (!statusOk || r.club_status === statusOk)
+      && (!ageOk || ageOf(r) === ageOk),
   );
 
   // Bucket by squad, preserving the order fn_register_rows already applied
@@ -105,12 +132,14 @@ export default async function Register({ searchParams }: {
     .filter((p) => p in POSITIONS)
     .sort((a, b) => Object.keys(POSITIONS).indexOf(a) - Object.keys(POSITIONS).indexOf(b));
 
-  const qs = (next: { pos?: string | null; status?: string | null }) => {
+  const qs = (next: { pos?: string | null; status?: string | null; age?: string | null }) => {
     const p = new URLSearchParams();
     const np = next.pos === undefined ? posOk : next.pos;
     const ns = next.status === undefined ? statusOk : next.status;
+    const na = next.age === undefined ? ageOk : next.age;
     if (np) p.set('pos', np);
     if (ns) p.set('status', ns);
+    if (na) p.set('age', na);
     const s = p.toString();
     return s ? `/club/register?${s}` : '/club/register';
   };
@@ -152,6 +181,17 @@ export default async function Register({ searchParams }: {
             {/* Filters. A link, not a control — the filtered view has its own URL. */}
             <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Which age group</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  <Link href={qs({ age: null })} style={ageOk ? chipOff : chipOn}>All ages · {all.length}</Link>
+                  {ageGroups.map((g) => (
+                    <Link key={g.code} href={qs({ age: g.code })} style={ageOk === g.code ? chipOn : chipOff}>
+                      {g.label} · {g.n}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Where they play</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                   <Link href={qs({ pos: null })} style={posOk ? chipOff : chipOn}>Any position</Link>
@@ -174,7 +214,7 @@ export default async function Register({ searchParams }: {
                   ))}
                 </div>
               </div>
-              {(posOk || statusOk) && (
+              {(posOk || statusOk || ageOk) && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: `1px solid ${T.line}`, paddingTop: 10 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>
                     {rows.length} of {all.length} shown
