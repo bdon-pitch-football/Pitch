@@ -10,9 +10,13 @@ import { readCvByToken } from '@/lib/record-read';
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
-export default async function SharedCv({ params }: { params: Promise<{ token: string }> }) {
+export default async function SharedCv({ params, searchParams }: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ asked?: string }>;
+}) {
   const { token } = await params;
+  const { asked } = await searchParams;
   const cv = await readCvByToken(token);
-  if (!cv) return <LinkState />;
+  if (!cv) return <LinkState token={token} asked={asked === '1'} />;
   return <PlayerCV p={cv} />;
 }

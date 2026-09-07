@@ -186,6 +186,24 @@ We keep messages like this inside Pitch rather than in your inbox, so that if yo
 ${SITE} · ${HELP}`,
 });
 
+// §6 · Access request — to the guardian (D-77). Someone with a dead link
+// typed their own name and role and asked to see the CV. We have given them
+// nothing, and they will never learn whether this was read.
+export const accessRequestEmail = (childFirstName: string, typedName: string, typedRole: string) => ({
+  key: 'doc15.§6',
+  channel: 'email' as const,
+  subject: `Someone asked to see ${childFirstName}'s football CV`,
+  body: [
+    `${typedName} — ${typedRole} — followed a link to ${childFirstName}'s CV that is no longer active, and asked to see it.`,
+    '',
+    `We have not given them anything. They cannot see ${childFirstName}'s name, club, photo or age, and they will not know whether you read this.`,
+    '',
+    'This is unverified. They typed their own name and role — we have not checked either. If you do not recognise them, ignoring this is the right call, and we will not ask again on their behalf.',
+    '',
+    '— Pitch',
+  ].join('\n'),
+});
+
 // §29 · A card waiting for your approval. NO preview image — generating the
 // preview is generating the image, before anyone approved it (D-101).
 export const shareCardWaitingEmail = (childFirstName: string): Composed => ({
@@ -312,6 +330,6 @@ Nothing else. No copy, no archive, no "in case you come back".
 export const CATALOGUE_KEYS = [
   'doc15.§1', 'doc15.§2', 'doc15.§3', 'doc15.§10', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
-  'doc15.§21', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
+  'doc15.§6', 'doc15.§21', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
   'doc15.§33', 'doc15.§34',
 ] as const;

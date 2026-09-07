@@ -447,6 +447,54 @@ await db.query(`delete from registration where id in ($1, $2)`, [unfiled, regFil
 await db.query(`update club set subscription_status=null where id=$1`, [CLUB.riverside]);
 
 // ---------------------------------------------------------------------------
+// C6/C7/C8 — request access from the link-state page, M13, N14.
+// ---------------------------------------------------------------------------
+const arTok = (await db.query(`select id from share_token where token_hash = $1`, [t.expired])).rows[0].id;
+check('C6: a first request is allowed', (await db.query('select fn_access_request_allowed($1) as ok', [arTok])).rows[0].ok, true);
+await db.query(`insert into access_request (share_token_id, requester_name, requester_role) values ($1,'M. Harris','TD, Sunbury United')`, [arTok]);
+check('C7: a second inside 24 hours is not', (await db.query('select fn_access_request_allowed($1) as ok', [arTok])).rows[0].ok, false);
+
+const arSrc = readFileSync(fileURLToPath(new URL('../app/p/[token]/request/actions.ts', import.meta.url)), 'utf8');
+check('C7b: and the answer is the same either way — one redirect, no branch',
+  (codeOnly(arSrc).match(/redirect\(done\)/g) ?? []).length >= 3, true);
+check('C6b: the requester’s own words are what travels', /requester_name|requester_role/.test(arSrc), true);
+check('C8: nothing about the request is observable by the requester',
+  /status|seen|answered|declined/.test(codeOnly(arSrc)), false);
+const arCols = (await db.query(
+  `select string_agg(column_name, ',') as c from information_schema.columns where table_name='access_request'`)).rows[0].c;
+check('C8b: and the table has no state column for one to read',
+  /status|seen_at|answered/.test(arCols), false);
+
+// M13 — the onboarding pause refuses the transition without weakening it.
+const m13 = crypto.randomUUID(), m13Call = crypto.randomUUID();
+await db.query(`insert into club (id, name, club_state) values ($1,'Paused FC','claimed')`, [m13]);
+await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+  values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [m13Call, m13]);
+await db.query(`update app_config set value = 'true' where key = 'onboarding_paused'`);
+await expectFail('M13: with onboarding paused, no club can be verified',
+  `update club set club_state='verified', verified_call_id='${m13Call}' where id='${m13}'`);
+const pauseSrc = (await db.query(`select prosrc from pg_proc where proname='club_onboarding_pause'`)).rows[0].prosrc;
+check('M13b: and the pause lowers no check — it only ever refuses',
+  /verification_call|verified_call_id\s*=/.test(codeOnly(pauseSrc)), false);
+await db.query(`update app_config set value = 'false' where key = 'onboarding_paused'`);
+await db.exec(`update club set club_state='verified', verified_call_id='${m13Call}' where id='${m13}'`);
+check('M13c: lifting it lets a properly called club through',
+  (await db.query('select club_state from club where id=$1', [m13])).rows[0].club_state, 'verified');
+
+// N14 — a registration tagged to a trial goes 90 days after it, on a clock
+// that runs whether or not the club ever opened it.
+const n14 = crypto.randomUUID();
+await db.query(`insert into registration (id, player_id, club_id, policy_version, trial_on)
+  values ($1,$2,$3,'20@v2.4', (now() at time zone 'Australia/Melbourne')::date - 91)`, [n14, ID.marcus, CLUB.riverside]);
+const n14Fresh = crypto.randomUUID();
+await db.query(`insert into registration (id, player_id, club_id, policy_version, trial_on)
+  values ($1,$2,$3,'20@v2.4', (now() at time zone 'Australia/Melbourne')::date - 10)`, [n14Fresh, ID.marcus, CLUB.riverside]);
+check('N14: the purge takes a registration 91 days past its trial',
+  (await db.query('select fn_purge_past_trials() as n')).rows[0].n, 1);
+check('N14b: and leaves a recent one alone',
+  (await db.query('select count(*)::int as n from registration where id = $1', [n14Fresh])).rows[0].n, 1);
+
+// ---------------------------------------------------------------------------
 // Table J (the negative suite) — the rows that exist to be tried and to fail.
 // ---------------------------------------------------------------------------
 

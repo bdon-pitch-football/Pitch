@@ -15,6 +15,9 @@ export async function GET(request: Request) {
   // Cancellation + 30 days destroys a club's register (D-135). Suspension
   // never does: a family's child is never deleted because a card expired.
   const { rows: cancelled } = await db.query('select fn_purge_cancelled_registers() as n');
+  // N14: a registration tagged to a trial goes 90 days after that trial, on
+  // a clock that runs identically whether or not the club ever opened it.
+  const { rows: pastTrials } = await db.query('select fn_purge_past_trials() as n');
 
   // doc 15 §13, thirty days before a sixteenth birthday. The transition to
   // discoverable is gated on this having DELIVERED (doc 14 §B11), so the
@@ -35,6 +38,7 @@ export async function GET(request: Request) {
     ok: true,
     purged: rows[0].purged,
     cancelledRegisters: cancelled[0].n,
+    pastTrialRegistrations: pastTrials[0].n,
     birthdayNotices: noticed,
   });
 }
