@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { logCall } from './actions';
+import { requireOperator } from '@/lib/ops-guard';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -21,7 +22,7 @@ const input: React.CSSProperties = { background: 'transparent', border: 'none', 
 const select: React.CSSProperties = { ...input, appearance: 'none' as const };
 
 export default async function CallSheet({ params }: { params: Promise<{ clubId: string }> }) {
-  if (process.env.NODE_ENV === 'production') notFound();
+  await requireOperator();
   const { clubId } = await params;
   const { rows } = await db.query(`select name, suburb, state, contact_email from club where id = $1`, [clubId]);
   if (rows.length === 0) notFound();
@@ -50,7 +51,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
           <div style={card}>
             <div style={label}>Outcome</div>
             <select style={select} name="outcome" required>
-              <option value="">—</option>
+              <option value="">Choose one</option>
               <option value="verified">verified</option>
               <option value="not_verified">not verified</option>
               <option value="suspended">suspended</option>

@@ -2,8 +2,11 @@
 import { redirect } from 'next/navigation';
 import { saveCvDraft } from '@/lib/cv-build';
 import { STAT_KEYS, type StatKey } from '@/lib/football';
+import { requireRecordActor } from '@/lib/record-guard';
 
 export async function saveDraft(recordId: string, formData: FormData) {
+  // Never trust the record id in the URL (D-94 §3).
+  await requireRecordActor(recordId);
   const positions = String(formData.get('positions') ?? '').split(',').filter(Boolean);
   const stats: Partial<Record<StatKey, number | null>> = {};
   for (const k of STAT_KEYS) {

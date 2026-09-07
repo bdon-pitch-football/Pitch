@@ -6,8 +6,11 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { shareCardWaitingEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
+import { requireRecordActor } from '@/lib/record-guard';
 
 export async function requestCard(recordId: string, formData: FormData) {
+  // Never trust the record id in the URL (D-94 §3).
+  await requireRecordActor(recordId);
   const shape = String(formData.get('shape') ?? 'story');
   const kinds = ['story', 'square', 'landscape'];
   const cardKind = kinds.includes(shape) ? shape : 'story';

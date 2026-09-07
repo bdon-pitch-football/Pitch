@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { resendApproval } from './actions';
+import { requireOperator } from '@/lib/ops-guard';
 
 const T = {
   surface: '#121b16', surface2: '#1a2420', line: '#24322a', ink: '#eef5f0',
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
 
 export default async function Support({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  if (process.env.NODE_ENV === 'production') notFound(); // operator auth pending
+  await requireOperator();
   const { q } = await searchParams;
 
   // Invitation state ONLY: first name, when it was created, whether it was

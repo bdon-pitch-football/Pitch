@@ -4,13 +4,14 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import BuildForm from './BuildForm';
+import { requireRecordActor } from '@/lib/record-guard';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
 
 export default async function Build({ params, searchParams }: { params: Promise<{ recordId: string }>; searchParams: Promise<{ saved?: string }> }) {
-  if (process.env.NODE_ENV === 'production') notFound(); // until auth lands
   const { recordId } = await params;
+  await requireRecordActor(recordId);
   const { saved } = await searchParams;
   const { rows } = await db.query(
     `select dr.id, p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, dr.positions, dr.squad_number, dr.foot,

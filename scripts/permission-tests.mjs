@@ -803,6 +803,67 @@ for (const h of ['youtube\\.com', 'youtu\\.be', 'instagram\\.com', 'veo\\.co']) 
 }
 check('job15: no file is accepted on the coach clip path', /instanceof File|multipart/.test(coachActions), false);
 
+// ---------------------------------------------------------------------------
+// Acting on a record, as opposed to reading one (0020). Four family-facing
+// routes took a record id straight from the URL and checked nothing; they
+// were production-disabled, which is why it was never a live hole.
+// ---------------------------------------------------------------------------
+const actor = async (who, rec) => (await db.query('select fn_record_actor($1,$2) as a', [who, rec])).rows[0].a;
+
+check('act1: the owner may act on their own record', await actor(ID.deniz, REC.deniz), 'self');
+check('act2: an approved guardian may act for an under-18', await actor(ID.guardian, REC.deniz), 'guardian');
+check('act3: the second guardian too (D-51)', await actor(ID.guardian2, REC.deniz), 'guardian');
+check('act4: a revoked guardian may not', await actor(ID.exGuardian, REC.deniz), null);
+check('act5: guardianship lapsed at 18 grants no action (D-49)', await actor(ID.guardian, REC.marcus), null);
+check('act6: an anonymous caller may not', await actor(null, REC.deniz), null);
+
+// The one that matters. A squad coach READS this record in full, and must
+// still not be able to edit it, compose a registration on the child's behalf,
+// or approve their share card. Reading and acting are different questions,
+// which is why this is not fn_read_level.
+check('act7: the squad coach reads the record in full', await level(ID.coachV, ID.deniz), 'full');
+check('act8: and still cannot ACT on it', await actor(ID.coachV, REC.deniz), null);
+check('act9: nor can the technical director', await actor(ID.td, REC.deniz), null);
+check('act10: nor the club administrator', await actor(ID.clubAdmin, REC.deniz), null);
+
+// Every route and action that takes a recordId must call the guard. This is
+// the check that stops the next one being added without it.
+const guardedFiles = [
+  'app/build/[recordId]/page.tsx', 'app/build/[recordId]/actions.ts',
+  'app/build/[recordId]/clips/actions.ts',
+  'app/register-interest/[recordId]/page.tsx', 'app/register-interest/[recordId]/actions.ts',
+  'app/share-card/[recordId]/page.tsx', 'app/share-card/[recordId]/actions.ts',
+  'app/g/pending/[recordId]/page.tsx', 'app/g/pending/[recordId]/actions.ts',
+  'app/send/[recordId]/actions.ts',
+];
+for (const f of guardedFiles) {
+  const src = readFileSync(fileURLToPath(new URL('../' + f, import.meta.url)), 'utf8');
+  check(`act11: ${f} checks who is asking`, /requireRecordActor/.test(src), true);
+}
+
+// D-119: the child never approves their own edit.
+const pendingActions = readFileSync(fileURLToPath(new URL('../app/g/pending/[recordId]/actions.ts', import.meta.url)), 'utf8');
+check('act12: approving a pending edit is guardian-only (D-119)',
+  /requireRecordActor\(recordId, \['guardian'\]\)/.test(pendingActions), true);
+// D-94 §3: identity comes from the session, never from the caller.
+check('act13: the guardian id is no longer accepted as an argument (D-94 §3)',
+  /guardianId: string/.test(pendingActions), false);
+
+// Those routes were shipped disabled. If the guard works they should now be
+// enabled — a route that is still switched off is a route nobody can use.
+for (const f of ['app/build/[recordId]/page.tsx', 'app/register-interest/[recordId]/page.tsx',
+                 'app/share-card/[recordId]/page.tsx', 'app/g/pending/[recordId]/page.tsx']) {
+  const src = readFileSync(fileURLToPath(new URL('../' + f, import.meta.url)), 'utf8');
+  check(`act14: ${f} is no longer disabled in production`,
+    /NODE_ENV === 'production'\) notFound/.test(src), false);
+}
+
+// The operator console gates on an allowlist, and an empty one means nobody.
+const opsGuard = readFileSync(fileURLToPath(new URL('../lib/ops-guard.ts', import.meta.url)), 'utf8');
+check('act15: the operator console reads an explicit allowlist', /OPS_EMAILS/.test(opsGuard), true);
+check('act16: and an empty allowlist admits nobody in production',
+  /allow\.includes\(email\)/.test(opsGuard), true);
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',

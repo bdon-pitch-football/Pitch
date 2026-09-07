@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import InterestForm from './InterestForm';
+import { requireRecordActor } from '@/lib/record-guard';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', line: '#24322a', ink: '#eef5f0',
@@ -20,8 +21,8 @@ export default async function RegisterInterest({ params, searchParams }: {
   params: Promise<{ recordId: string }>;
   searchParams: Promise<{ club?: string; asked?: string; error?: string }>;
 }) {
-  if (process.env.NODE_ENV === 'production') notFound(); // until auth guards land
   const { recordId } = await params;
+  await requireRecordActor(recordId);
   const { club: clubParam, asked } = await searchParams;
 
   const rec = await db.query(

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { approveChange, issueShareLink } from './actions';
+import { requireRecordActor } from '@/lib/record-guard';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -19,8 +20,10 @@ export default async function PendingReview({ params, searchParams }: {
   params: Promise<{ recordId: string }>;
   searchParams: Promise<{ done?: string; link?: string }>;
 }) {
-  if (process.env.NODE_ENV === 'production') notFound(); // until auth lands
   const { recordId } = await params;
+  // Guardian only: silence never auto-publishes and the child never
+  // approves their own edit (D-119).
+  await requireRecordActor(recordId, ['guardian']);
   const { done, link } = await searchParams;
 
   const { rows } = await db.query(
@@ -38,7 +41,7 @@ export default async function PendingReview({ params, searchParams }: {
 
   if (done || !r.pending_about) {
     // approved state: confirmation + the share-link affordance
-    const issue = issueShareLink.bind(null, recordId, r.guardian_id);
+    const issue = issueShareLink.bind(null, recordId);
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
@@ -63,7 +66,7 @@ export default async function PendingReview({ params, searchParams }: {
     );
   }
 
-  const act = approveChange.bind(null, recordId, r.guardian_id);
+  const act = approveChange.bind(null, recordId);
   const approvedDate = r.approved_at
     ? new Date(r.approved_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', timeZone: 'Australia/Melbourne' })
     : null;

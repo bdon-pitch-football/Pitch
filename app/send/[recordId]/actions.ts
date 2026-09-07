@@ -7,10 +7,13 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { sendWaitingEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
+import { requireRecordActor } from '@/lib/record-guard';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export async function composeSend(recordId: string, formData: FormData) {
+  // Never trust the record id in the URL (D-94 §3).
+  await requireRecordActor(recordId);
   const clubName = String(formData.get('clubName') ?? '').trim();
   const address = String(formData.get('address') ?? '').trim();
   if (!clubName || !EMAIL_RE.test(address)) redirect(`/send/${recordId}?error=1`);

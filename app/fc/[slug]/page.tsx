@@ -5,8 +5,10 @@
 // Unclaimed pages carry the D-64 disclaimer instead of the verified chip.
 // (Design link reads pitchfootball.com.au/<slug>; root-level rewrites map
 // that at deploy time — the route lives at /fc/<slug>.)
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import { getSessionPersonId } from '@/lib/session';
 import ClipCard from '@/components/cv/ClipCard';
 import Wordmark from '@/components/Wordmark';
 
@@ -24,7 +26,7 @@ const card: React.CSSProperties = { background: T.surface, border: `1px solid ${
 export default async function ClubPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { rows } = await db.query(
-    `select c.id, c.name, c.suburb, c.state, c.club_state, c.philosophy, c.established, c.pathway_line, c.public_slug, c.crest_path, c.banner_path,
+    `select c.id, c.name, c.suburb, c.state, c.club_state, c.philosophy, c.established, c.pathway_line, c.public_slug, c.crest_path, c.banner_path, c.contact_email,
        (select coalesce(json_agg(json_build_object('name', s.name, 'gender', s.competition_gender) order by s.name), '[]'::json)
         from squad s where s.club_id = c.id) as squads,
        (select coalesce(json_agg(json_build_object(
@@ -38,7 +40,9 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
        (select coalesce(json_agg(json_build_object('line', a.line, 'detail', a.detail) order by a.sort), '[]'::json)
         from alumni_entry a where a.club_id = c.id) as alumni,
        (select coalesce(json_agg(json_build_object('url', v.url, 'title', v.title) order by v.sort, v.created_at), '[]'::json)
-        from club_video v where v.club_id = c.id) as videos
+        from club_video v where v.club_id = c.id) as videos,
+       (select count(*)::int from coaching_role cr where cr.club_id = c.id and cr.closed_at is null
+          and (cr.closes_on is null or cr.closes_on >= (now() at time zone 'Australia/Melbourne')::date)) as open_roles
      from club c where c.public_slug = $1`,
     [slug],
   );
@@ -49,6 +53,26 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
   const wanted: { title: string; detail: string | null }[] = c.wanted;
   const alumni: { line: string; detail: string | null }[] = c.alumni;
   const videos: { url: string; title: string }[] = c.videos;
+
+  // Who is looking. The club page is public, so this only ever ADDS a door —
+  // nothing about the page is hidden from a signed-out visitor.
+  const me = await getSessionPersonId();
+  const viewer = me
+    ? (await db.query(
+        `select
+           (select id from development_record where person_id = $1) as my_record,
+           (select coalesce(json_agg(json_build_object(
+               'name', ch.first_name,
+               'recordId', (select id from development_record where person_id = ch.id))), '[]'::json)
+            from guardianship_link g join person ch on ch.id = g.child_id
+            where g.guardian_id = $1 and g.approved_at is not null and g.revoked_at is null) as children`,
+        [me],
+      )).rows[0]
+    : null;
+  const children: { name: string; recordId: string | null }[] = (viewer?.children ?? []).filter(
+    (k: { recordId: string | null }) => k.recordId,
+  );
+  const myRecord: string | null = viewer?.my_record ?? null;
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -83,6 +107,38 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
               <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.6)' }}>Compiled from public information — not affiliated until claimed</div>
             )}
           </div>
+        </div>
+
+        {/* The way onto the club's register. The club pays for this list and
+            their own page had no door into it — the trials copy sent families
+            around us to contact the club directly, which is the version of
+            this product that does not work.
+
+            Session-aware, and it only ever ADDS: a signed-out visitor sees
+            the same page plus an invitation to sign in. Under 16 the child
+            composes and it routes to their parent to send (D-91), which is
+            what /register-interest already does — this is just the door. */}
+        <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 900, letterSpacing: '-0.015em' }}>Want to play here?</div>
+          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+            Go on {c.name}&rsquo;s register and your football goes with you. It is not a trial spot and it is not a decision — there is nothing here to be turned down from.
+          </div>
+          {!me ? (
+            <Link href="/signin" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Sign in to register your interest</Link>
+          ) : myRecord ? (
+            <Link href={`/register-interest/${myRecord}?club=${c.id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Register my interest</Link>
+          ) : children.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {children.map((k) => (
+                <Link key={k.recordId} href={`/register-interest/${k.recordId}?club=${c.id}`}
+                  style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+                  Register {k.name}&rsquo;s interest
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <Link href="/join" style={{ background: T.surface2, color: T.ink, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none', border: `1px solid ${T.line}` }}>Build a CV first — it is what the club reads</Link>
+          )}
         </div>
 
         {c.philosophy && (
@@ -120,7 +176,7 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
                 </div>
               ))}
               <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 11, fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
-                <b style={{ color: T.secondary }}>How to register:</b> via the club — details in each notice. Send them your Pitch CV link when you register.
+                <b style={{ color: T.secondary }}>How to register:</b> go on {c.name}&rsquo;s register below and your CV goes with you. The club works one list all year — you do not have to catch a particular week.
               </div>
             </div>
           </div>
@@ -135,7 +191,11 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
                   <div style={{ fontSize: 14, fontWeight: 800 }}>{w.title}</div>
                   {w.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{w.detail}</div>}
                 </div>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Get in touch</div>
+                {c.contact_email ? (
+                  <a href={`mailto:${c.contact_email}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0, textDecoration: 'none' }}>Email the club</a>
+                ) : (
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.muted, flexShrink: 0 }}>Ask on the register</div>
+                )}
               </div>
             ))}
           </div>
@@ -172,6 +232,16 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Club page link</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{c.public_slug}</div>
         </div>
+
+        {c.open_roles > 0 && (
+          <Link href="/jobs" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
+            <div>
+              <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>{c.name} is looking for coaches</div>
+              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{c.open_roles} open {c.open_roles === 1 ? 'role' : 'roles'}</div>
+            </div>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>See them</div>
+          </Link>
+        )}
 
         <a href={`/report?kind=club_page`} style={{ fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>

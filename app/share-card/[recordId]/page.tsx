@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { requestCard } from './actions';
+import { requireRecordActor } from '@/lib/record-guard';
 
 const T = {
   surface: '#121b16', surface2: '#1a2420', line: '#24322a', ink: '#eef5f0',
@@ -30,8 +31,8 @@ export default async function ShareCard({ params, searchParams }: {
   params: Promise<{ recordId: string }>;
   searchParams: Promise<{ asked?: string }>;
 }) {
-  if (process.env.NODE_ENV === 'production') notFound(); // until auth guards land
   const { recordId } = await params;
+  await requireRecordActor(recordId);
   const { asked } = await searchParams;
   const { rows } = await db.query(
     `select p.first_name from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,

@@ -4,8 +4,11 @@
 // reads it before anything goes anywhere.
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { requireRecordActor } from '@/lib/record-guard';
 
 export async function composeInterest(recordId: string, formData: FormData) {
+  // Never trust the record id in the URL (D-94 §3).
+  await requireRecordActor(recordId);
   const clubId = String(formData.get('clubId') ?? '');
   const squadId = String(formData.get('squadId') ?? '') || null;
   const positions = String(formData.get('positions') ?? '').split(',').filter(Boolean).slice(0, 3);

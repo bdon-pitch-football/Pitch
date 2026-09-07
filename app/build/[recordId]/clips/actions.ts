@@ -6,10 +6,13 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { CLIP_LIMIT_ADULT_FREE, CLIP_LIMIT_UNDER_18 } from '@/lib/football';
+import { requireRecordActor } from '@/lib/record-guard';
 
 const HOSTS = /^(https:\/\/)(www\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
 
 export async function addClip(recordId: string, formData: FormData) {
+  // Never trust the record id in the URL (D-94 §3).
+  await requireRecordActor(recordId);
   const url = String(formData.get('url') ?? '').trim();
   const title = String(formData.get('title') ?? '').trim();
   if (!HOSTS.test(url) || !title) redirect(`/build/${recordId}/clips?error=1`);
@@ -44,6 +47,8 @@ export async function addClip(recordId: string, formData: FormData) {
 }
 
 export async function removeClip(recordId: string, clipId: string) {
+  // Never trust the record id in the URL (D-94 §3).
+  await requireRecordActor(recordId);
   await db.query(`delete from highlight where id = $1 and record_id = $2`, [clipId, recordId]);
   redirect(`/build/${recordId}/clips`);
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
+import { requireOperator } from '@/lib/ops-guard';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
 
 export default async function OpsVerification() {
-  if (process.env.NODE_ENV === 'production') notFound(); // operator auth pending
+  await requireOperator();
   const { rows } = await db.query(
     `select c.id, c.name, c.suburb, c.state, c.club_state,
        (select count(*)::int from registration r where r.club_id = c.id and r.withdrawn_at is null) as held,
@@ -50,7 +51,10 @@ export default async function OpsVerification() {
             <div key={r.id} className="lift" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 12px', margin: '0 -12px', borderRadius: 12, borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}` }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{r.name}</div>
-                <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500 }}>{[r.suburb, r.state].filter(Boolean).join(' ')}{r.claimant ? ` · claimed by ${r.claimant.replace('_', ' ')}` : ''}</div>
+                <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500 }}>{[
+                  [r.suburb, r.state].filter(Boolean).join(' '),
+                  r.claimant ? `claimed by ${r.claimant.replace('_', ' ')}` : null,
+                ].filter(Boolean).join(' · ')}</div>
               </div>
               <div style={{ width: 40, textAlign: 'center', fontSize: 13, fontWeight: 900, color: r.club_state === 'claimed' ? T.amber : T.muted }}>{r.club_state === 'claimed' ? r.held : '—'}</div>
               <div style={{ background: T.surface2, borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: r.club_state === 'verified' ? T.accent : r.club_state === 'suspended' ? T.red : T.amber }}>
