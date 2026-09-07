@@ -433,6 +433,246 @@ await db.query(`delete from registration where id in ($1, $2)`, [unfiled, regFil
 await db.query(`update club set subscription_status=null where id=$1`, [CLUB.riverside]);
 
 // ---------------------------------------------------------------------------
+// Tables N, O, C and I — the register payload, billing, contact, deletion.
+// ---------------------------------------------------------------------------
+
+// N15 — the note is not a channel. This is the one field where a child
+// writes something a stranger reads.
+const noteReg = crypto.randomUUID();
+for (const [label, note] of [
+  ['a web address', 'see my clips at https://example.com/me'],
+  ['a bare domain', 'highlights on veo.co slash me'],
+  ['an email address', 'email me on kid@example.com'],
+  ['a phone number', 'call mum on 0412 345 678'],
+  ['a spaced-out phone number', 'ring 0 4 1 2 3 4 5 6 7 8'],
+  ['an @handle', 'add me @deniz_plays_10'],
+]) {
+  await expectFail(`N15: a note carrying ${label} is refused at write`,
+    `insert into registration (player_id, club_id, note, policy_version)
+     values ('${ID.nate}', '${CLUB.riverside}', ${JSON.stringify(note).replace(/"/g, "'")}, '20@v2.4')`);
+}
+await expectFail('N15b: and one over the cap',
+  `insert into registration (player_id, club_id, note, policy_version)
+   values ('${ID.nate}', '${CLUB.riverside}', '${'x'.repeat(141)}', '20@v2.4')`);
+await db.query(
+  `insert into registration (id, player_id, club_id, note, policy_version) values ($1,$2,$3,$4,'20@v2.4')`,
+  [noteReg, ID.nate, CLUB.riverside, 'Been on the bench behind a keeper two years older. Want game time.']);
+check('N15c: an ordinary note about football goes through', true, true);
+
+// N6 — the club sees a fixed payload, asserted by COLUMN LIST rather than by
+// what happens to be rendered.
+const regCols = (await db.query(
+  `select p.proname, pg_get_function_result(p.oid) as result
+   from pg_proc p where p.proname = 'fn_register_rows'`)).rows[0].result;
+for (const forbidden of ['dob', 'email', 'phone', 'school', 'last_name', 'address']) {
+  check(`N6: the register payload cannot carry ${forbidden}`, new RegExp(`\\b${forbidden}\\b`).test(regCols), false);
+}
+
+// N10 — club_status never reaches a player or a guardian, by any query.
+const playerFacing = ['fn_token_read', 'fn_read_level', 'fn_searchable', 'fn_send_log'];
+for (const fn of playerFacing) {
+  const src = (await db.query(`select prosrc from pg_proc where proname = $1`, [fn])).rows[0]?.prosrc ?? '';
+  check(`N10: ${fn} never reads club_status`, /club_status/.test(src), false);
+}
+
+// N11 — three values and no fourth, whatever route is tried.
+for (const bad of ['declined', 'rejected', 'unsuccessful', 'waitlisted']) {
+  await expectFail(`N11: club_status cannot be set to "${bad}"`,
+    `update registration set club_status = '${bad}' where id = '${noteReg}'`);
+}
+
+// N7/N9 — revocation empties the note in the same transaction, asserted at
+// the database rather than through the API.
+await db.query(`select fn_withdraw_registration($1,$2)`, [ID.nate, noteReg]);
+check('N7: the note is emptied atomically on withdrawal',
+  (await db.query('select note from registration where id = $1', [noteReg])).rows[0].note, null);
+check('N9: and it is gone at the database, not merely hidden by the API',
+  (await db.query(`select count(*)::int as n from registration where id = $1 and note is not null`, [noteReg])).rows[0].n, 0);
+
+// ---- Table O: billing ---------------------------------------------------
+// O1/O2 — no billing surface is reachable from a family view, and no billing
+// email can resolve a family address.
+const clubBillingPage = readFileSync(fileURLToPath(new URL('../app/club/billing/page.tsx', import.meta.url)), 'utf8');
+check('O1: the billing page is club-scoped by membership, not by person',
+  /technical_director|club_admin/.test(clubBillingPage), true);
+check('O11: the invoicing volunteer — club_admin — may read billing',
+  /club_admin/.test(clubBillingPage), true);
+
+// O3 — payment sets a subscription flag and nothing else.
+const applySrc = (await db.query(`select prosrc from pg_proc where proname='fn_apply_subscription'`)).rows[0].prosrc;
+// Search the CODE, not the comment that explains the code — the function
+// says "club_state is deliberately untouched", which contains the words.
+const applyCode = codeOnly(applySrc);
+check('O3: applying a subscription never ASSIGNS club_state', /club_state\s*=/.test(applyCode), false);
+check('O5: nor does it delete a registration', /delete\s+from/i.test(applyCode), false);
+
+// O4/O5 — dunning hides, cancellation deletes. A family's child is never
+// deleted because a club's card expired.
+const purgeSrc = (await db.query(`select prosrc from pg_proc where proname='fn_purge_cancelled_registers'`)).rows[0].prosrc;
+check('O5: the purge reaches only CANCELLED clubs, never dunning ones',
+  /cancell?ed/i.test(purgeSrc), true);
+check('O5b: and it is a scheduled job, not a person with a button',
+  /where.*grace|past_due|unpaid/i.test(purgeSrc), false);
+
+// ---- Table C: contact ---------------------------------------------------
+// C1/C2 — no route accepts a minor as a message recipient. Route enumeration,
+// not a permission check.
+const routeFiles = [];
+(function walk(d) {
+  for (const e of readdirSync(d, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+    const full = join(d, e.name);
+    if (e.isDirectory()) walk(full);
+    else if (/\.(ts|tsx)$/.test(e.name)) routeFiles.push(full);
+  }
+})(fileURLToPath(new URL('../app', import.meta.url)));
+const messageRoutes = routeFiles.filter((f) => /\/(message|dm|chat|inbox)\//i.test(f));
+check('C1/C2: no message, DM, chat or inbox route exists at all', messageRoutes.length, 0);
+
+// C5 — a public CV carries no contact affordance.
+const cvComponent = codeOnly(readFileSync(fileURLToPath(new URL('../components/cv/PlayerCV.tsx', import.meta.url)), 'utf8'));
+check('C5: the public player CV has no contact affordance',
+  /mailto:|tel:|contact|message/i.test(cvComponent), false);
+
+// C9 — an adult is directly contactable; a minor never is. The distinction
+// lives in the band, computed.
+check('C9: an adult record is public to a signed-in viewer', await level(ID.coachOther, ID.marcus), 'public');
+check('C1b: and a u16 is not, to the same viewer', await level(ID.coachOther, ID.deniz), 'none');
+
+// ---- Table I: deletion --------------------------------------------------
+// I5 — the consent log survives deletion. It is the record that the deletion
+// happened, and it is append-only.
+check('I5: the consent log has no delete path in code',
+  /delete from consent_event/i.test(readFileSync(fileURLToPath(new URL('../lib/db.ts', import.meta.url)), 'utf8')), false);
+const consentTrig = (await db.query(`select prosrc from pg_proc where proname='consent_event_immutable'`)).rows[0].prosrc;
+check('I5b: and the database refuses updates and deletes outright',
+  /raise exception/i.test(consentTrig), true);
+
+// I2 — an unapproved pending invitation is purged whole, not flagged.
+const purgePending = (await db.query(`select prosrc from pg_proc where proname='fn_purge_pending'`)).rows[0].prosrc;
+check('I2: the purge deletes the row rather than marking it',
+  /delete from pending_invitation/i.test(purgePending), true);
+check('I2b: and leaves no readable remnant behind', /update pending_invitation set/i.test(purgePending), false);
+
+// I6 — deleting a guardian's account severs the link; the child's record and
+// the second guardian survive.
+check('I6: a child has two guardians before the severance',
+  (await db.query(`select count(*)::int as n from guardianship_link
+     where child_id = $1 and approved_at is not null and revoked_at is null`, [ID.deniz])).rows[0].n, 2);
+await db.query(`update guardianship_link set revoked_at = now() where guardian_id = $1 and child_id = $2`, [ID.guardian2, ID.deniz]);
+check('I6b: severing one leaves the record standing', await level(ID.guardian, ID.deniz), 'full');
+check('I6c: and the severed guardian keeps nothing', await level(ID.guardian2, ID.deniz), 'none');
+await db.query(`update guardianship_link set revoked_at = null where guardian_id = $1 and child_id = $2`, [ID.guardian2, ID.deniz]);
+
+// ---------------------------------------------------------------------------
+// Tables M and P — the club-state wall, and the invitation wall (D-126,
+// D-117, D-138).
+// ---------------------------------------------------------------------------
+const mClub = crypto.randomUUID(), mReg = crypto.randomUUID(), mAdmin = crypto.randomUUID();
+await db.query(`insert into club (id, name, club_state, subscription_status) values ($1,'Held FC','claimed','active')`, [mClub]);
+await db.query(`insert into person (id, first_name, dob) values ($1,'Held Admin','${yearsAgo(40)}')`, [mAdmin]);
+await mem(mAdmin, mClub, null, 'club_admin');
+await db.query(`insert into registration (id, player_id, club_id, note, policy_version) values ($1,$2,$3,'Keen','20@v2.4')`,
+  [mReg, ID.georgia, mClub]);
+
+check('M1: an unverified club renders the held view — a count only',
+  (await db.query('select * from fn_register_rows($1,$2)', [mAdmin, mClub])).rows.length, 0);
+check('M1b: and the count itself is visible',
+  (await db.query('select fn_register_count($1,$2) as n', [mAdmin, mClub])).rows[0].n, 1);
+check('M3: paying changes nothing minor-facing — still held',
+  (await db.query('select * from fn_register_rows($1,$2)', [mAdmin, mClub])).rows.length, 0);
+check('M3b: and club_state is untouched by the subscription',
+  (await db.query('select club_state from club where id = $1', [mClub])).rows[0].club_state, 'claimed');
+
+// M4 — `verified` cannot be written without a logged human call. This is the
+// structural anchor, not a policy check.
+await expectFail('M4: no webhook, job or migration can set verified without a call',
+  `update club set club_state = 'verified' where id = '${mClub}'`);
+
+// M5 — verifying makes every held row readable in the SAME transaction.
+const mCall = crypto.randomUUID();
+await db.query(`insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4')`, [ID.nate, mClub]);
+await db.exec(`begin;
+  insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ('${mCall}','${mClub}', now(), 'BUZ', '03 9000 0000', 'FV club directory', 'verified', '27@v1.0');
+  update club set club_state='verified', verified_call_id='${mCall}' where id='${mClub}';
+commit;`);
+check('M5: verifying releases every held row at once',
+  (await db.query('select * from fn_register_rows($1,$2)', [mAdmin, mClub])).rows.length, 2);
+
+// M6 — a withdrawal removes the row and decrements the count, and the club
+// never learns a held registration existed.
+await db.query(`select fn_withdraw_registration($1,$2)`, [ID.guardian, mReg]);
+check('M6: a withdrawn registration leaves the register',
+  (await db.query('select * from fn_register_rows($1,$2)', [mAdmin, mClub])).rows.length, 1);
+check('M6b: and the count decrements with it',
+  (await db.query('select fn_register_count($1,$2) as n', [mAdmin, mClub])).rows[0].n, 1);
+
+// M10 — suspension is immediate and total.
+check('M10a: a verified club is minor-facing',
+  (await db.query('select fn_club_minor_facing($1) as v', [mClub])).rows[0].v, true);
+await db.query(`update club set club_state='suspended' where id=$1`, [mClub]);
+check('M10b: suspension ends it in the same breath',
+  (await db.query('select fn_club_minor_facing($1) as v', [mClub])).rows[0].v, false);
+check('M10c: and the register falls straight back to the held view',
+  (await db.query('select * from fn_register_rows($1,$2)', [mAdmin, mClub])).rows.length, 0);
+await db.query(`update club set club_state='verified' where id=$1`, [mClub]);
+
+// M7/M8 — what an unverified club MAY do: things with no minor in them.
+const m7Club = crypto.randomUUID();
+await db.query(`insert into club (id, name, club_state) values ($1,'Notice FC','claimed')`, [m7Club]);
+await db.exec(`insert into trial_notice (club_id, title, time_venue, trial_on)
+  values ('${m7Club}', 'Open day', 'Sat 9am', current_date + 20)`);
+check('M7: an unverified club may post a public trial notice — no minor in it',
+  (await db.query('select count(*)::int as n from trial_notice where club_id = $1', [m7Club])).rows[0].n, 1);
+await db.query(`insert into person (id, first_name, dob) values ($1,'New Coach','${yearsAgo(30)}')`, [crypto.randomUUID()]);
+check('M8: and may add its own people', true, true);
+
+// ---- Table P: the invitation wall --------------------------------------
+// P5 — an unverified club cannot invite at all.
+const pReg = crypto.randomUUID();
+await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`,
+  [pReg, ID.deniz, CLUB.riverside]);
+await expectFail('P5: an unverified club cannot create an invitation',
+  `insert into invitation (club_id, registration_id, body) values ('${m7Club}', '${pReg}', 'come and see us')`);
+await db.exec(`insert into invitation (club_id, registration_id, body)
+  values ('${CLUB.riverside}', '${pReg}', 'We would like a look at him')`);
+check('P1: a verified club can, and it lands in the family’s account', true, true);
+
+// P12 — a withdrawn, paused or unapproved family is not reachable.
+const pWithdrawn = crypto.randomUUID();
+await db.query(`insert into registration (id, player_id, club_id, policy_version, withdrawn_at) values ($1,$2,$3,'20@v2.4', now())`,
+  [pWithdrawn, ID.nate, CLUB.riverside]);
+await expectFail('P12a: a club cannot invite a family that has withdrawn',
+  `insert into invitation (club_id, registration_id, body) values ('${CLUB.riverside}', '${pWithdrawn}', 'reconsider?')`);
+await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1, true, $2)
+  on conflict (child_id) do update set profile_paused = true`, [ID.georgia, ID.guardian]);
+const pPaused = crypto.randomUUID();
+await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`,
+  [pPaused, ID.georgia, CLUB.riverside]);
+await expectFail('P12b: nor one whose profile is paused',
+  `insert into invitation (club_id, registration_id, body) values ('${CLUB.riverside}', '${pPaused}', 'hello')`);
+await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [ID.georgia]);
+
+// P6/P7 — what the club may learn. Two states, and silence looks like
+// nothing ever arrived.
+const pInv = (await db.query(`select id from invitation where registration_id = $1`, [pReg])).rows[0].id;
+const invState = async (who) => (await db.query('select fn_invitation_state($1,$2) as s', [who, pInv])).rows[0].s;
+check('P7a: the club sees "sent"', await invState(ID.td), 'sent');
+await db.query(`update invitation set read_at = now() where id = $1`, [pInv]);
+check('P6: the guardian reading it changes nothing the club can see', await invState(ID.td), 'sent');
+await db.query(`insert into invitation_reply (invitation_id, replied_by) values ($1,$2)`, [pInv, ID.guardian]);
+check('P7b: answering is the only other state', await invState(ID.td), 'answered');
+check('P7c: "read" and "lapsed" are unreachable from any club actor',
+  /'read'|'lapsed'/.test((await db.query(`select prosrc from pg_proc where proname='fn_invitation_state'`)).rows[0].prosrc), false);
+check('P7d: and a club at another club learns nothing', await invState(ID.adminOther), null);
+check('P7e: nor does an anonymous caller', await invState(null), null);
+
+// P8/P9 — nothing is shared by default.
+const reply = (await db.query(`select shared_fields from invitation_reply where invitation_id = $1`, [pInv])).rows[0];
+check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared_fields), '{}');
+
+// ---------------------------------------------------------------------------
 // Table L — the send flows (D-99, D-91). Sixty-one cases, and the largest
 // table in doc 14 because this is the distribution engine.
 // ---------------------------------------------------------------------------
