@@ -35,3 +35,6 @@ test-results/
 /dumps/
 /exports/
 /public/dev-uploads/
+
+# Dev-only upload target. Real files, never committed.
+/public/dev-uploads/

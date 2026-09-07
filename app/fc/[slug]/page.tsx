@@ -23,7 +23,7 @@ const card: React.CSSProperties = { background: T.surface, border: `1px solid ${
 export default async function ClubPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { rows } = await db.query(
-    `select c.id, c.name, c.suburb, c.state, c.club_state, c.philosophy, c.established, c.pathway_line, c.public_slug,
+    `select c.id, c.name, c.suburb, c.state, c.club_state, c.philosophy, c.established, c.pathway_line, c.public_slug, c.crest_path,
        (select coalesce(json_agg(json_build_object('name', s.name, 'gender', s.competition_gender) order by s.name), '[]'::json)
         from squad s where s.club_id = c.id) as squads,
        (select coalesce(json_agg(json_build_object(
@@ -53,7 +53,11 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
 
         <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ width: 66, height: 66, borderRadius: 16, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24 }}>{c.name[0]}</div>
+            <div style={{ width: 66, height: 66, borderRadius: 16, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24, overflow: 'hidden' }}>
+              {c.crest_path
+                ? <img src={c.crest_path} alt="" width={66} height={66} style={{ objectFit: 'contain' }} />
+                : c.name[0]}
+            </div>
             <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)' }}>Club</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
