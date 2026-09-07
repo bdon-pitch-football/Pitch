@@ -109,6 +109,92 @@ for (const pl of players.rows as { id: string; first_name: string }[]) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// A club's worth of register, so the grouping is tested at the size it has to
+// survive rather than at three rows. A real Riverside in September is 100-200
+// registrations across a dozen squads; this seeds that shape.
+//
+// These are obviously-fictional first names with no surname, no DOB beyond
+// what the age group implies, and no contact detail — the register only ever
+// shows a first name, a position and the player's own line, so that is all
+// there is to seed.
+// ---------------------------------------------------------------------------
+const bulkSquads = [
+  ['U12 Boys', 'U12', 'boys'], ['U12 Girls', 'U12', 'girls'],
+  ['U13 Boys', 'U13', 'boys'],
+  ['U14 Boys', 'U14', 'boys'], ['U14 Girls', 'U14', 'girls'],
+  ['U16 Boys', 'U16', 'boys'],
+  ['U18 Girls', 'U18', 'girls'],
+  ['Seniors Men', 'SEN', 'men'],
+];
+const bulkSquadIds: { id: string; gender: string }[] = [];
+for (const [name, ageGroup, gender] of bulkSquads) {
+  const id = randomUUID();
+  bulkSquadIds.push({ id, gender });
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,$3,$4,$5,'2026')`,
+    [id, riverside, name, ageGroup, gender]);
+}
+// Two name pools, picked to match the squad's competition_gender. Nothing
+// about gender is stored on these people — the pool is chosen from the SQUAD
+// (D-68), which is the same thing the grouping does. It only matters because
+// a "Lena" in the Seniors Men bucket makes a demo look careless.
+const BOYS = ['Amir','Cormac','Eli','Goran','Idris','Jonty','Mateo','Omar','Sione','Ugo',
+  'Xavier','Yusuf','Arlo','Dara','Emre','Fintan','Hugo','Jarrah','Kofi','Milo',
+  'Otto','Rafa','Sami','Umar','Vinnie','Zeke','Bo','Quinn','Marlon','Tobias'];
+const GIRLS = ['Bella','Divya','Freya','Hana','Kiri','Lucia','Nadia','Priya','Rania','Tara',
+  'Vida','Wanjiru','Zara','Cleo','Gia','Ines','Lena','Noor','Pia','Talia',
+  'Wren','Yara','Anouk','Esme','Maeve','Sadia','Thea','Xanthe','Imogen','Nell'];
+const POS_POOL = ['GK','RB','CB','LB','DM','CM','CAM','RW','LW','ST'];
+const LINES = [
+  'Played every game last season. Want a step up.',
+  'Left-footed, comfortable either side.',
+  'Moved to the area in July. Looking for a club.',
+  'Came back from a broken wrist in May. Fully fit.',
+  null, null, null, null,
+];
+const GK_LINES = [
+  'Keeper. Happy to train with the older squad.',
+  'Kept for two seasons. Want a club that plays out from the back.',
+  null, null,
+];
+// Deterministic pseudo-random so the seed is identical every run — a demo
+// that reshuffles on every restart is impossible to talk about.
+//
+// Take the HIGH bits. The low bits of a power-of-two LCG barely vary, so
+// `seed % 8` cycles almost immediately: the first version of this put 87 of
+// 96 players into one squad and looked like a grouping bug rather than a
+// seeding one.
+let seedN = 7;
+const rnd = (n: number) => {
+  seedN = (seedN * 1103515245 + 12345) % 2147483648;
+  return Math.floor(seedN / 65536) % n;
+};
+for (let i = 0; i < 96; i++) {
+  const pid = randomUUID();
+  const squad = bulkSquadIds[rnd(bulkSquadIds.length)];
+  // A few register with the club and name no squad — the unfiled bucket is a
+  // real state, not a hypothetical one.
+  const target = i % 11 === 0 ? null : squad.id;
+  const pool = squad.gender === 'girls' || squad.gender === 'women' ? GIRLS : BOYS;
+  const first = pool[i % pool.length];
+  await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`,
+    [pid, first, `${2008 + (i % 8)}-0${1 + (i % 9)}-1${i % 10}`]);
+  const nPos = 1 + rnd(2);
+  const positions: string[] = [];
+  while (positions.length < nPos) {
+    const p = POS_POOL[rnd(POS_POOL.length)];
+    if (!positions.includes(p)) positions.push(p);
+  }
+  const status = i % 9 === 0 ? 'shortlisted' : i % 17 === 0 ? 'invited' : 'new';
+  await db.query(
+    `insert into registration (player_id, club_id, squad_target, positions, note, club_status, disclosed_by, policy_version)
+     values ($1,$2,$3,$4,$5,$6,$7,'20@v2.4')`,
+    [pid, riverside, target, positions,
+     positions.includes('GK') ? GK_LINES[rnd(GK_LINES.length)] : LINES[rnd(LINES.length)],
+     status, guardian],
+  );
+}
+
 // public club page seed (ClubCV): slug, girls'/women's squads, trials,
 // players wanted, alumni wall
 await db.query(`update club set public_slug='riverside-fc', established='1974', pathway_line='MiniRoos → Juniors → Seniors pathway', philosophy='Every junior plays, every junior develops. Football that is brave on the ball, and a club where families stay for a decade — not a season.' where id=$1`, [riverside]);

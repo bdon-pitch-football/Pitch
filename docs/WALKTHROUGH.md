@@ -16,7 +16,23 @@ then in a second terminal:
 cd "/Users/bdonmez22/Desktop/Life/Work/Pitch 3.0/repo" && npm run dev
 ```
 
-The app is at **http://localhost:3000**.
+**http://localhost:3000 is still the coming-soon page, on purpose** — the app
+does not replace it, it sits alongside it on its own routes. The waitlist page
+stays the front door until you say otherwise.
+
+The app starts at **http://localhost:3000/signin**. The other entry points:
+
+| | |
+|---|---|
+| Sign in (all four seats) | `/signin` |
+| Create an account | `/join` |
+| A player's public CV, as a club sees it | `/p/dev-deniz` |
+| A dead share link | `/p/dev-revoked` |
+| The trials noticeboard | `/trials` |
+| A coach's public page | `/c/sam-kaya` |
+| A club's public page | `/fc/riverside-fc` |
+| Change seats | `/signout` |
+| The local stand-in for the inbox | `/dev/outbox` |
 
 Sign in with any of these. **Leave the password box empty** — these four seats
 have no password set, and in development an account without one signs in on the

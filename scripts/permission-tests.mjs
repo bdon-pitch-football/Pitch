@@ -384,6 +384,46 @@ check('M4/O: an active subscription at an unverified club still returns no rows'
 check('D-126: and the held count is all it gets', await count(payAdmin, payClub), 1);
 
 // ---------------------------------------------------------------------------
+// The register, grouped (0016). Grouping is a convenience; it must not become
+// a second way to read the list.
+// ---------------------------------------------------------------------------
+// Fresh state: the register tests above deliberately withdraw their
+// registration and switch the subscription back off, so this section cannot
+// borrow theirs.
+await db.query(`update club set subscription_status='active' where id=$1`, [CLUB.riverside]);
+const regFiled = crypto.randomUUID();
+await db.query(
+  `insert into registration (id, player_id, club_id, squad_target, policy_version)
+   values ($1,$2,$3,$4,'20@v2.4')`, [regFiled, ID.marcus, CLUB.riverside, SQUAD.u15]);
+const regRows = async (who, club) => (await db.query('select * from fn_register_rows($1,$2)', [who, club])).rows;
+
+const grouped = await regRows(ID.td, CLUB.riverside);
+check('reg1: the squad the family named comes back with the row', grouped[0]?.squad_name, 'U15 Boys');
+check('reg2: and carries the age group the grouping sorts on', grouped[0]?.squad_age_group, 'U15');
+check('reg3: and the gender, which lives on the squad and never on the child (D-68)',
+  grouped[0]?.squad_gender, 'boys');
+
+// A registration with no squad named must still appear — the unfiled bucket
+// is a real state. Losing these rows would silently hide families.
+const unfiled = crypto.randomUUID();
+await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`,
+  [unfiled, ID.nate, CLUB.riverside]);
+const withUnfiled = await regRows(ID.td, CLUB.riverside);
+check('reg4: a registration naming no squad is still returned',
+  withUnfiled.some((r) => r.registration_id === unfiled && r.squad_id === null), true);
+check('reg5: and it sorts last, so it reads as a to-do rather than a squad',
+  withUnfiled[withUnfiled.length - 1].squad_id, null);
+
+// The authorisation is unchanged by the rewrite — this is the check that
+// matters, because 0016 replaced the function wholesale.
+check('reg6: an unverified club still gets no rows, squad columns or not',
+  (await regRows(ID.adminOther, CLUB.unverified)).length, 0);
+check('reg7: a coach still cannot work the register', (await regRows(ID.coachV, CLUB.riverside)).length, 0);
+check('reg8: an outsider still gets nothing', (await regRows(ID.marcus, CLUB.riverside)).length, 0);
+await db.query(`delete from registration where id in ($1, $2)`, [unfiled, regFiled]);
+await db.query(`update club set subscription_status=null where id=$1`, [CLUB.riverside]);
+
+// ---------------------------------------------------------------------------
 // Table E — link states (D-77). The rule is not "dead links are handled", it
 // is that every dead state is INDISTINGUISHABLE from every other, including
 // from a token that never existed. Anything that varies is an oracle.
