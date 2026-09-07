@@ -63,6 +63,14 @@ for (const p of PLAYER_FIXTURES) {
     await db.query(`insert into experience_entry (record_id, kind, org_name, season_label, notes) values ($1,$2,$3,$4,$5)`,
       [recordId, e.kind, e.orgName, e.period, e.note ?? null]);
   }
+  // Clips. These were missing entirely: only Deniz's page showed any, because
+  // a u16 renders the approved JSON snapshot while 16-17 and adults assemble
+  // from these tables. added_as_minor is stamped from the DOB (D-88) so the
+  // grandfathering survives an eighteenth birthday.
+  for (const h of (p.highlights ?? []).slice(0, p.highlightsUsed)) {
+    await db.query(`insert into highlight (record_id, url, title, added_as_minor) values ($1,$2,$3,$4)`,
+      [recordId, h.url, h.title, true]);
+  }
   // u16: the public page renders the guardian-APPROVED snapshot (D-119)
   await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,$2,'approved',$3,now())`,
     [recordId, JSON.stringify(p), guardian]);

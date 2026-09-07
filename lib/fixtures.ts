@@ -67,6 +67,10 @@ export const DENIZ: PlayerFixture = {
     { kind: 'futsal', orgName: 'Melbourne Futsal U15', period: 'Summer 2025–26' },
   ],
   highlightsUsed: 2,
+  highlights: [
+    { title: 'Season highlights 2026', url: 'https://www.youtube.com/watch?v=dev-deniz-1' },
+    { title: 'vs Northern Utd — full performance', url: 'https://www.youtube.com/watch?v=dev-deniz-2' },
+  ],
   surfacedStats: ['apps', 'goals', 'assists'],
 };
 
@@ -98,6 +102,11 @@ export const NATE: PlayerFixture = {
     { kind: 'futsal', orgName: 'Brunswick Futsal U18', period: 'Summer 2025–26', note: 'outfield' },
   ],
   highlightsUsed: 3,
+  highlights: [
+    { title: 'Shot-stopping & sweeping 2026', url: 'https://www.youtube.com/watch?v=dev-nate-1' },
+    { title: 'Penalty save — Metro League', url: 'https://www.youtube.com/watch?v=dev-nate-2' },
+    { title: 'Distribution reel', url: 'https://www.youtube.com/watch?v=dev-nate-3' },
+  ],
   surfacedStats: ['apps', 'clean_sheets'],
 };
 
@@ -125,6 +134,9 @@ export const GEORGIA: PlayerFixture = {
     { kind: 'futsal', orgName: 'Werribee summer league', period: '2025–26' },
   ],
   highlightsUsed: 1, // deliberately thin — does a modest CV still look worth sending?
+  highlights: [
+    { title: 'Season highlights 2026', url: 'https://www.youtube.com/watch?v=dev-georgia-1' },
+  ],
   surfacedStats: ['apps', 'goals', 'assists'],
 };
 

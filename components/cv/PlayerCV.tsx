@@ -81,12 +81,16 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
   const initials = `${p.firstName[0]}${p.lastName[0] ?? ''}`;
   const posLine = p.positions.map((c) => POSITIONS[c].label).join(' · ');
   const group = positionGroup(p.positions);
-
   const clipTitles: Record<string, string[]> = {
     deniz: ['Season highlights 2026', 'vs Northern Utd — full performance'],
     nate: ['Shot-stopping & sweeping 2026', 'Penalty save — Metro League', 'Distribution reel'],
     georgia: ['Season highlights 2026'],
   };
+
+  // Resolve the clip list once, so the section can ask whether it has any
+  // before deciding to render a heading at all.
+  const clips = (p.highlights ?? (clipTitles[p.slug] ?? []).map((title) => ({ title, url: undefined as string | undefined })))
+    .slice(0, p.highlightsUsed);
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -127,22 +131,32 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
           <StatTiles p={p} />
         </div>
 
-        {/* about */}
-        <div className="cv-rise" style={{ animationDelay: '.1s', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={kicker}>About</div>
-          <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{p.about}</div>
-        </div>
+        {/* An EMPTY SECTION IS OMITTED, never rendered as a bare heading.
+            This is the same rule as the never-zero stat tiles (D-70): a
+            reserve keeper with no clips yet must not get a "Highlights"
+            header with nothing under it, because the page then reads as
+            half-finished rather than as a page about a keeper. Found
+            walking Nate's CV — he has 0 clips. */}
+        {p.about && (
+          <div className="cv-rise" style={{ animationDelay: '.1s', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={kicker}>About</div>
+            <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{p.about}</div>
+          </div>
+        )}
 
         {/* highlights — click-to-play façades only (D-97); nothing loads
             from a third party until the viewer presses play */}
-        <div className="cv-rise" style={{ animationDelay: '.16s', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={kicker}>Highlights</div>
-          {(p.highlights ?? (clipTitles[p.slug] ?? []).map((title) => ({ title, url: undefined as string | undefined }))).slice(0, p.highlightsUsed).map((h, i) => (
-            <ClipCard key={h.title} title={h.title} url={h.url} gradientAlt={i % 2 === 1} sub={group === 'GK' ? 'Veo clip' : 'Goals, assists & link play'} />
-          ))}
-        </div>
+        {clips.length > 0 && (
+          <div className="cv-rise" style={{ animationDelay: '.16s', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={kicker}>Highlights</div>
+            {clips.map((h, i) => (
+              <ClipCard key={h.title} title={h.title} url={h.url} gradientAlt={i % 2 === 1} sub={group === 'GK' ? 'Veo clip' : 'Goals, assists & link play'} />
+            ))}
+          </div>
+        )}
 
         {/* achievements */}
+        {p.achievements.length > 0 && (
         <div className="cv-rise" style={{ animationDelay: '.22s', display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={kicker}>Achievements</div>
           {p.achievements.map((a, i) => (
@@ -159,8 +173,10 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
             </div>
           ))}
         </div>
+        )}
 
         {/* other football — experience entries; free text shown, grants nothing */}
+        {p.otherFootball.length > 0 && (
         <div className="cv-rise" style={{ animationDelay: '.28s', display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={kicker}>Other football</div>
           {p.otherFootball.map((e) => (
@@ -173,6 +189,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
             </div>
           ))}
         </div>
+        )}
 
         <a href="/report?kind=player_cv" style={{ fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
