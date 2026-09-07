@@ -77,6 +77,11 @@ export const CLIP_LIMIT_ADULT_FREE = 3;
 // A coach's reel is a shortlist, not an archive (BUZ, 7 Sep).
 export const COACH_CLIP_CAP = 5;
 
+// Sends per sending actor per 24 hours (doc 14 L41, L43). The number itself
+// is unruled — U-3 — so it lives here as a single value with a single
+// definition, and the tests assert the PROPERTY rather than the figure.
+export const SEND_DAILY_CAP = 10;
+
 // --- Experience entry kinds (D-72) ------------------------------------------
 // experience_entry grants access to NOBODY, ever: no FK to club, no permission
 // surface. A type chip and free text — never a taxonomy of school competitions.

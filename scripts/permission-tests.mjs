@@ -43,6 +43,15 @@ async function searchable(searcher, person) {
 }
 const sha = (s) => createHash('sha256').update(s).digest();
 
+// Strip comments before searching source for a forbidden word. Three checks
+// in this file have now matched their own explanatory comment — a comment
+// saying "we never show a counter" contains the word "counter". Search the
+// CODE, never the prose about the code.
+const codeOnly = (src) => src
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^\s*\/\/.*$/gm, '')
+  .replace(/\/\/.*$/gm, '');
+
 // ---------------------------------------------------------------------------
 // Fixture world (doc 16): Riverside FC (verified), an UNVERIFIED club, the
 // three players + an adult player, and every actor doc 14 names.
@@ -424,6 +433,147 @@ await db.query(`delete from registration where id in ($1, $2)`, [unfiled, regFil
 await db.query(`update club set subscription_status=null where id=$1`, [CLUB.riverside]);
 
 // ---------------------------------------------------------------------------
+// Table L — the send flows (D-99, D-91). Sixty-one cases, and the largest
+// table in doc 14 because this is the distribution engine.
+// ---------------------------------------------------------------------------
+const dispatchOk = async (actor, rec) =>
+  (await db.query('select fn_can_dispatch($1,$2) as c', [actor, rec])).rows[0].c;
+
+// L(i) — who may send
+check('L1: a u16 composes but cannot dispatch — the guardian sends', await dispatchOk(ID.deniz, REC.deniz), false);
+check('L2: the guardian dispatches for the u16', await dispatchOk(ID.guardian, REC.deniz), true);
+check('L5: a 16-17 sends for themselves', await dispatchOk(ID.nate, REC.nate), true);
+check('L8: an adult sends alone', await dispatchOk(ID.marcus, REC.marcus), true);
+check('L9: a re-granted guardianship is visibility, not control', await dispatchOk(ID.guardian, REC.marcus), false);
+check('L12a: a squad coach cannot send a player’s CV', await dispatchOk(ID.coachV, REC.deniz), false);
+check('L12b: nor the technical director', await dispatchOk(ID.td, REC.deniz), false);
+check('L12c: nor the club administrator', await dispatchOk(ID.clubAdmin, REC.deniz), false);
+check('L12d: nor the team manager', await dispatchOk(ID.teamManager, REC.deniz), false);
+check('L14: there is no system actor — a null actor never dispatches', await dispatchOk(null, REC.deniz), false);
+
+// L3 — denied at the QUERY layer, not merely in the UI.
+await expectFail('L3: a u16 cannot be recorded as the sending actor, however the row arrives',
+  `insert into share_request (record_id, requested_by, destination, dispatched_by, dispatched_at)
+   values ('${REC.deniz}','${ID.deniz}','club@example.com','${ID.deniz}', now())`);
+await expectFail('L12e: nor can a club-side actor be recorded as one',
+  `insert into share_request (record_id, requested_by, destination, dispatched_by, dispatched_at)
+   values ('${REC.deniz}','${ID.deniz}','club@example.com','${ID.td}', now())`);
+
+// L6/L7 — the send switch, and most-restrictive-wins.
+await db.query(`insert into guardian_setting (child_id, send_disabled, updated_by) values ($1, true, $2)
+  on conflict (child_id) do update set send_disabled = true`, [ID.nate, ID.guardian2]);
+check('L6: with the send switch off, the 16-17 cannot send', await dispatchOk(ID.nate, REC.nate), false);
+check('L7: one guardian setting it is enough — most restrictive wins', await dispatchOk(ID.nate, REC.nate), false);
+check('L6b: the guardian can still send while the switch is off', await dispatchOk(ID.guardian, REC.nate), true);
+await db.query(`update guardian_setting set send_disabled = false where child_id = $1`, [ID.nate]);
+check('L6c: switching it back on restores the player’s own send', await dispatchOk(ID.nate, REC.nate), true);
+
+// L10 — an unapproved u16 has no send surface at all.
+const unapproved = crypto.randomUUID(), unapprovedRec = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Unapproved','${yearsAgo(13)}')`, [unapproved]);
+await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [unapprovedRec, unapproved]);
+check('L10: no approved guardian = no send, for anyone', await dispatchOk(ID.guardian, unapprovedRec), false);
+
+// L11 — the pause stops a send. A send that lands on the link-state page is
+// a send that misleads the club.
+await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1, true, $2)
+  on conflict (child_id) do update set profile_paused = true`, [ID.georgia, ID.guardian]);
+check('L11: a paused profile cannot be sent', await dispatchOk(ID.guardian, REC.georgia), false);
+await expectFail('L11b: and no send row can be created while paused',
+  `insert into share_request (record_id, requested_by, destination, dispatched_by, dispatched_at)
+   values ('${REC.georgia}','${ID.georgia}','club@example.com','${ID.guardian}', now())`);
+await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [ID.georgia]);
+check('L11c: lifting the pause restores it', await dispatchOk(ID.guardian, REC.georgia), true);
+
+// L18/L20 — standing is re-checked AT DISPATCH, never carried from approval.
+const pendingReq = crypto.randomUUID();
+await db.query(`insert into share_request (id, record_id, requested_by, destination) values ($1,$2,$3,'club@example.com')`,
+  [pendingReq, REC.georgia, ID.georgia]);
+await db.query(`update guardianship_link set revoked_at = now() where guardian_id = $1 and child_id = $2`, [ID.guardian, ID.georgia]);
+await expectFail('L20: guardianship revoked between approval and dispatch fails closed',
+  `update share_request set dispatched_by = '${ID.guardian}', dispatched_at = now() where id = '${pendingReq}'`);
+await db.query(`update guardianship_link set revoked_at = null where guardian_id = $1 and child_id = $2`, [ID.guardian, ID.georgia]);
+
+// L15/L16/L56 — the guardian who never acts. Silence is a valid answer.
+check('L15: an undispatched request transmits nothing',
+  (await db.query(`select dispatched_at, share_token_id from share_request where id = $1`, [pendingReq])).rows[0].dispatched_at, null);
+check('L15b: and mints no token', (await db.query(`select share_token_id from share_request where id = $1`, [pendingReq])).rows[0].share_token_id, null);
+check('L56: a send that did not happen writes no send row',
+  (await db.query(`select count(*)::int as n from consent_event where event = 'share_dispatched' and detail->>'request_id' = $1`, [pendingReq])).rows[0].n, 0);
+
+// L2/L55 — what one real send writes.
+const liveReq = crypto.randomUUID(), sendTok = crypto.randomUUID();
+await db.query(`insert into share_token (id, record_id, token_hash, issued_by) values ($1,$2,$3,$4)`,
+  [sendTok, REC.georgia, sha('georgia-send'), ID.guardian]);
+await db.query(`insert into share_request (id, record_id, requested_by, destination, dispatched_by, dispatched_at, share_token_id)
+  values ($1,$2,$3,'coach@kingsway.example.au',$4, now(), $5)`,
+  [liveReq, REC.georgia, ID.georgia, ID.guardian, sendTok]);
+await db.query(
+  `insert into consent_event (event, actor_id, subject_id, detail)
+   values ('share_dispatched', $1, $2, jsonb_build_object(
+     'request_id', $3::uuid, 'recipient', 'coach@kingsway.example.au',
+     'token_id', $4::uuid, 'initiating_actor', $5::uuid, 'band_at_send', 'u16'))`,
+  [ID.guardian, ID.georgia, liveReq, sendTok, ID.georgia]);
+const sendRow = (await db.query(
+  `select actor_id, detail from consent_event where event='share_dispatched' and detail->>'request_id' = $1`, [liveReq])).rows[0];
+check('L55a: the send row names the sending actor', sendRow.actor_id, ID.guardian);
+check('L55b: and the initiating actor — the child who composed it', sendRow.detail.initiating_actor, ID.georgia);
+check('L55c: and the recipient address', sendRow.detail.recipient, 'coach@kingsway.example.au');
+check('L55d: and the token id', sendRow.detail.token_id, sendTok);
+check('L55e: and the band AT SEND, recorded not derived (L37)', sendRow.detail.band_at_send, 'u16');
+check('L22: no raw token is ever written to the log (D-94 §1)',
+  JSON.stringify(sendRow.detail).includes('georgia-send'), false);
+
+// L59 — a send row cannot be edited or deleted by anyone, ever.
+await expectFail('L59a: a send row cannot be updated',
+  `update consent_event set detail = '{}'::jsonb where detail->>'request_id' = '${liveReq}'`);
+await expectFail('L59b: a send row cannot be deleted',
+  `delete from consent_event where detail->>'request_id' = '${liveReq}'`);
+
+// L57/L61 — who may read the send log.
+const sendLog = async (viewer, person) => (await db.query('select * from fn_send_log($1,$2)', [viewer, person])).rows;
+check('L57: the guardian reads every send, recipient in full', (await sendLog(ID.guardian, ID.georgia)).length, 1);
+check('L57b: and the address is not redacted', (await sendLog(ID.guardian, ID.georgia))[0].recipient, 'coach@kingsway.example.au');
+check('L61a: her own club’s coach reads nothing', (await sendLog(ID.coachV, ID.georgia)).length, 0);
+check('L61b: nor the technical director', (await sendLog(ID.td, ID.georgia)).length, 0);
+check('L61c: nor the club administrator', (await sendLog(ID.clubAdmin, ID.georgia)).length, 0);
+check('L61d: nor an unrelated adult', (await sendLog(ID.marcus, ID.georgia)).length, 0);
+check('L60: and nothing is readable anonymously', (await sendLog(null, ID.georgia)).length, 0);
+check('L19: an ex-guardian reads nothing', (await sendLog(ID.exGuardian, ID.deniz)).length, 0);
+
+// L24/L29 — what receiving a send gains a club: nothing beyond the token.
+check('L24: a send confers no membership',
+  (await db.query(`select count(*)::int as n from membership where person_id = $1 and club_id = $2`,
+    [ID.georgia, CLUB.other])).rows[0].n, 0);
+check('L24b: and no read level at the receiving club', await level(ID.coachOther, ID.georgia), 'none');
+
+// L38-L43 — the rate limit.
+const dispatchSrc = readFileSync(fileURLToPath(new URL('../app/g/send/[requestId]/actions.ts', import.meta.url)), 'utf8');
+check('L41: the limit is counted per SENDING ACTOR, never per recipient',
+  /send:actor:\$\{guardianId\}/.test(dispatchSrc), true);
+check('L38: a limited send lands on the same URL a real send does',
+  /redirect\(`\/g\/send\/\$\{requestId\}\?sent=1`\)/.test(dispatchSrc), true);
+check('L39: no Retry-After or rate-limit header is ever set',
+  /Retry-After|X-RateLimit/i.test(dispatchSrc), false);
+const sendPage = readFileSync(fileURLToPath(new URL('../app/g/send/[requestId]/page.tsx', import.meta.url)), 'utf8');
+check('L42: the sender’s own page shows no counter or remaining-sends state',
+  /remaining|sends left|limit/i.test(codeOnly(sendPage)), false);
+check('L38b: the dev link is absent in production, so both paths render alike',
+  /process\.env\.NODE_ENV !== 'production'/.test(sendPage), true);
+check('L43: the ceiling is one config value with one definition',
+  /SEND_DAILY_CAP = \d+/.test(readFileSync(fileURLToPath(new URL('../lib/football.ts', import.meta.url)), 'utf8')), true);
+
+// L(vi) — the coach's link. Stable, public, no token, and separate from the
+// player token path in implementation as well as in principle (L46, L47).
+const coachPage = readFileSync(fileURLToPath(new URL('../app/c/[slug]/page.tsx', import.meta.url)), 'utf8');
+check('L47: the coach CV never reaches the token resolver',
+  /readCvByToken|fn_token_read/.test(coachPage), false);
+check('L46: the coach link carries no token and no expiry',
+  /token|expires/i.test(codeOnly(coachPage)), false);
+check('L45/L54: no route offers to send a coach’s link to anyone',
+  /sendCoachLink|shareWithPlayer|invitePlayer/.test(coachPage), false);
+
+// ---------------------------------------------------------------------------
 // Table E — link states (D-77). The rule is not "dead links are handled", it
 // is that every dead state is INDISTINGUISHABLE from every other, including
 // from a token that never existed. Anything that varies is an oracle.
@@ -465,7 +615,7 @@ check('E8: and falls back to a generic card rather than an identity',
 // Strip the comments first: the rule is written down at the top of that file
 // in the very words being searched for, and a check that matches its own
 // documentation passes forever without testing anything.
-const ogCode = ogSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const ogCode = codeOnly(ogSrc);
 check('E9: a minor\u2019s card carries no club, age group or region (D-89)',
   /club|age_group|region|ageGroup/i.test(ogCode), false);
 
@@ -717,7 +867,7 @@ const rel = (p) => p.slice(appDir.length);
 // null, so the page has no state variable to branch on. Verified in the
 // browser too — the only bytes that differ between a revoked and an expired
 // link are the dev cache-buster and the token the requester already holds.
-const pageCode = deadPage.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const pageCode = codeOnly(deadPage);
 check('E10: the page branches on one boolean, never on WHY the link is dead',
   /expired|revoked|paused|disabled/i.test(pageCode), false);
 

@@ -51,7 +51,10 @@ export default async function GuardianSend({ params, searchParams }: {
         <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>Sent. {clubName} can open {name}&rsquo;s page.</div>
-          {link && (
+          {/* Development only. In production this block is absent, which is
+              what makes a rate-limited send byte-identical to a real one
+              (L38/L39) — there is no link to differ by. */}
+          {link && process.env.NODE_ENV !== 'production' && (
             <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>The link that went — dev only, email sending arrives with Resend</div>
               <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, wordBreak: 'break-all' }}>pitchfootball.com.au/p/{link}</div>

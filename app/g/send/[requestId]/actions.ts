@@ -11,10 +11,25 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { cvToClubEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
+import { checkRate } from '@/lib/ratelimit-db';
+import { SEND_DAILY_CAP } from '@/lib/football';
 
 export async function dispatchSend(requestId: string) {
   const guardianId = await getSessionPersonId();
   if (!guardianId) redirect('/signin');
+
+  // L41: counted per SENDING ACTOR per day, never per recipient — a
+  // per-recipient counter would let one sender learn that somebody else had
+  // written to that club.
+  //
+  // L38/L42: when the limit bites, NOTHING is transmitted and the answer is
+  // the same one a real send gives. No counter, no "sends remaining", no
+  // greyed button, no error — any surface that reveals limit state is the
+  // oracle the identical response exists to close. The link parameter is a
+  // development affordance and is not rendered in production, so both paths
+  // are the same page.
+  const withinLimit = await checkRate(`send:actor:${guardianId}`, SEND_DAILY_CAP, 24 * 60 * 60);
+  if (!withinLimit) redirect(`/g/send/${requestId}?sent=1`);
 
   const raw = randomBytes(24).toString('base64url');
   const client = await db.connect();
@@ -44,10 +59,25 @@ export async function dispatchSend(requestId: string) {
       `update share_request set dispatched_by=$2, dispatched_at=now(), share_token_id=$3 where id=$1`,
       [requestId, guardianId, tok.rows[0].id],
     );
+    // L2 / L55: exactly one append-only row carrying recipient address,
+    // timestamp, sending actor, initiating actor, token id and the band at
+    // the moment of sending. The band is recorded rather than derived,
+    // because L37 says a historic row stays as written when the player
+    // turns 18. A token ID is stored, never the raw token (D-94 §1).
     await client.query(
       `insert into consent_event (event, actor_id, subject_id, detail)
-       values ('share_dispatched', $1, $2, jsonb_build_object('request_id', $3::uuid))`,
-      [guardianId, r.person_id, requestId],
+       select 'share_dispatched', $1, $2,
+              jsonb_build_object(
+                'request_id', $3::uuid,
+                'recipient', sr.destination,
+                'token_id', $4::uuid,
+                'initiating_actor', sr.requested_by,
+                'band_at_send', fn_age_band(p.dob))
+       from share_request sr
+       join development_record dr on dr.id = sr.record_id
+       join person p on p.id = dr.person_id
+       where sr.id = $3`,
+      [guardianId, r.person_id, requestId, tok.rows[0].id],
     );
     await client.query('commit');
   } catch (e) {
