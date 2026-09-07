@@ -119,16 +119,32 @@ for (const pl of players.rows as { id: string; first_name: string }[]) {
 // shows a first name, a position and the player's own line, so that is all
 // there is to seed.
 // ---------------------------------------------------------------------------
+// What a Victorian club actually fields in 2026. The boys' and girls'
+// advanced competitions do NOT share age groups — Football Victoria runs
+// U13/U14/U15/U16/U18 for boys and U13/U15/U17 for girls — and a club also
+// runs MiniRoos underneath and a youth grade above. Seeding the real, uneven
+// shape is the point: a tidy symmetrical list would hide the whole reason
+// Pitch lets the club decide.
 const bulkSquads = [
-  ['U12 Boys', 'U12', 'boys'], ['U12 Girls', 'U12', 'girls'],
-  ['U13 Boys', 'U13', 'boys'],
-  ['U14 Boys', 'U14', 'boys'], ['U14 Girls', 'U14', 'girls'],
+  ['MiniRoos U9', 'U9', 'mixed'],
+  ['U13 Boys', 'U13', 'boys'], ['U13 Girls', 'U13', 'girls'],
+  ['U14 Boys', 'U14', 'boys'],
+  ['U15 Boys', 'U15', 'boys'], ['U15 Girls', 'U15', 'girls'],
   ['U16 Boys', 'U16', 'boys'],
-  ['U18 Girls', 'U18', 'girls'],
-  ['Seniors Men', 'SEN', 'men'],
+  ['U17 Girls', 'U17', 'girls'],
+  ['U18 Boys', 'U18', 'boys'],
+  ['U21 Men', 'U21', 'men'],
 ];
+// Reuse a squad of the same name if the house fixtures already made one —
+// Deniz's seed creates Riverside's U15 Boys, and inserting a second gave the
+// club two identical squads on the squads page.
 const bulkSquadIds: { id: string; gender: string }[] = [];
 for (const [name, ageGroup, gender] of bulkSquads) {
+  const existing = await db.query(`select id from squad where club_id = $1 and name = $2 limit 1`, [riverside, name]);
+  if (existing.rows.length > 0) {
+    bulkSquadIds.push({ id: existing.rows[0].id as string, gender });
+    continue;
+  }
   const id = randomUUID();
   bulkSquadIds.push({ id, gender });
   await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,$3,$4,$5,'2026')`,
@@ -198,7 +214,10 @@ for (let i = 0; i < 96; i++) {
 // public club page seed (ClubCV): slug, girls'/women's squads, trials,
 // players wanted, alumni wall
 await db.query(`update club set public_slug='riverside-fc', established='1974', pathway_line='MiniRoos → Juniors → Seniors pathway', philosophy='Every junior plays, every junior develops. Football that is brave on the ball, and a club where families stay for a decade — not a season.' where id=$1`, [riverside]);
-await db.query(`insert into squad (club_id,name,age_group,competition_gender,season) values ($1,'U13 Girls','U13','girls','2026'),($1,'U16 Girls','U16','girls','2026'),($1,'Seniors Women','SEN','women','2026')`, [riverside]);
+// Riverside's girls' and women's rows come from the squad list above — this
+// used to insert its own U13 Girls as well, which gave the club two of them
+// and made the squads page look broken.
+await db.query(`insert into squad (club_id,name,age_group,competition_gender,season) values ($1,'Seniors Women','SEN','women','2026')`, [riverside]);
 await db.query(`insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,age_group,competition_gender,cv_email) values
   ($1,'U14 & U15 Boys trials','2026-10-11','Sun 9:00 AM · Riverside Park, Pitch 2',array['GK','CB'],'U15','boys','football@riversidefc.example.au'),
   ($1,'Girls U13–U16 trials','2026-10-18','Sun 10:00 AM · Riverside Park, Pitch 1',array[]::text[],'U16','girls','football@riversidefc.example.au')`, [riverside]);

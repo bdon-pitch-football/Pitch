@@ -115,7 +115,7 @@ export default async function Register({ searchParams }: {
         title: r.squad_name ?? 'No squad named',
         sub: r.squad_name
           ? [r.squad_age_group, r.squad_gender ? GENDER_LABEL[r.squad_gender] : null].filter(Boolean).join(' · ')
-          : 'They registered with the club, not a squad — file them where they fit',
+          : 'They registered with the club, not a squad',
         rows: [],
       };
       buckets.push(b);
