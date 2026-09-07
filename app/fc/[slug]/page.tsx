@@ -7,6 +7,7 @@
 // that at deploy time — the route lives at /fc/<slug>.)
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import ClipCard from '@/components/cv/ClipCard';
 import Wordmark from '@/components/Wordmark';
 
 const T = {
@@ -23,7 +24,7 @@ const card: React.CSSProperties = { background: T.surface, border: `1px solid ${
 export default async function ClubPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { rows } = await db.query(
-    `select c.id, c.name, c.suburb, c.state, c.club_state, c.philosophy, c.established, c.pathway_line, c.public_slug, c.crest_path,
+    `select c.id, c.name, c.suburb, c.state, c.club_state, c.philosophy, c.established, c.pathway_line, c.public_slug, c.crest_path, c.banner_path,
        (select coalesce(json_agg(json_build_object('name', s.name, 'gender', s.competition_gender) order by s.name), '[]'::json)
         from squad s where s.club_id = c.id) as squads,
        (select coalesce(json_agg(json_build_object(
@@ -35,7 +36,9 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
        (select coalesce(json_agg(json_build_object('title', w.title, 'detail', w.detail) order by w.created_at), '[]'::json)
         from players_wanted_notice w where w.club_id = c.id) as wanted,
        (select coalesce(json_agg(json_build_object('line', a.line, 'detail', a.detail) order by a.sort), '[]'::json)
-        from alumni_entry a where a.club_id = c.id) as alumni
+        from alumni_entry a where a.club_id = c.id) as alumni,
+       (select coalesce(json_agg(json_build_object('url', v.url, 'title', v.title) order by v.sort, v.created_at), '[]'::json)
+        from club_video v where v.club_id = c.id) as videos
      from club c where c.public_slug = $1`,
     [slug],
   );
@@ -45,11 +48,16 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
   const trials: { title: string; timeVenue: string; mon: string; day: string; how: string | null }[] = c.trials;
   const wanted: { title: string; detail: string | null }[] = c.wanted;
   const alumni: { line: string; detail: string | null }[] = c.alumni;
+  const videos: { url: string; title: string }[] = c.videos;
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
+
+        {c.banner_path && (
+          <img src={c.banner_path} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', borderRadius: 22, display: 'block' }} />
+        )}
 
         <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -129,6 +137,15 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
                 </div>
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Get in touch</div>
               </div>
+            ))}
+          </div>
+        )}
+
+        {videos.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={label}>Club video</div>
+            {videos.map((v, i) => (
+              <ClipCard key={v.url} title={v.title} url={v.url} gradientAlt={i % 2 === 1} sub="Nothing loads until you press play" />
             ))}
           </div>
         )}

@@ -247,6 +247,11 @@ await db.query(`insert into trial_notice (club_id,title,trial_on,time_venue,posi
   ($1,'U14 & U15 Boys trials','2026-10-11','Sun 9:00 AM · Riverside Park, Pitch 2',array['GK','CB'],'U15','boys','football@riversidefc.example.au'),
   ($1,'Girls U13–U16 trials','2026-10-18','Sun 10:00 AM · Riverside Park, Pitch 1',array[]::text[],'U16','girls','football@riversidefc.example.au')`, [riverside]);
 await db.query(`insert into players_wanted_notice (club_id,title,detail) values ($1,'U13 Boys — Goalkeeper','Train Tue & Thu · immediate start'),($1,'U16 Girls — 2 outfield spots','Season 2027 squad')`, [riverside]);
+// Club video: a LINK, never a file (0018). Title is about the club, never
+// about a child — the alumni wall's rule, applied to video.
+await db.query(`insert into club_video (club_id,url,title,sort) values
+  ($1,'https://www.youtube.com/watch?v=dev-riverside-1','Our 2026 season',0),
+  ($1,'https://www.youtube.com/watch?v=dev-riverside-2','A day at Riverside Park',1)`, [riverside]);
 await db.query(`insert into alumni_entry (club_id,line,detail,sort) values ($1,'Marco V. → NPL Victoria','Riverside juniors 2012–2018',0),($1,'Aylin D. → State representative squad','Riverside juniors 2011–2017',1),($1,'A 2019 U13 → our senior first team','Straight through the pathway, still playing',2)`, [riverside]);
 
 // coach fixture: Sam Kaya (doc 16 §3b) with a published public slug

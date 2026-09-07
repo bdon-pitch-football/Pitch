@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { addClubVideo, removeClubVideo } from './actions';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -18,14 +19,14 @@ export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
 
 export default async function ClubPageEdit({ searchParams }: {
-  searchParams: Promise<{ saved?: string; crest?: string }>;
+  searchParams: Promise<{ saved?: string; crest?: string; banner?: string; video?: string; removed?: string }>;
 }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
-  const { saved, crest } = await searchParams;
+  const { saved, crest, banner, video } = await searchParams;
 
   const { rows } = await db.query(
-    `select c.id, c.name, c.crest_path, c.public_slug from club c
+    `select c.id, c.name, c.crest_path, c.banner_path, c.public_slug from club c
      join membership m on m.club_id = c.id and m.person_id = $1
        and m.role in ('technical_director','club_admin') and m.ended_at is null
      limit 1`,
@@ -33,6 +34,9 @@ export default async function ClubPageEdit({ searchParams }: {
   );
   if (rows.length === 0) redirect('/home');
   const c = rows[0];
+  const videos = (await db.query(
+    `select id, url, title from club_video where club_id = $1 order by sort, created_at`, [c.id],
+  )).rows as { id: string; url: string; title: string }[];
 
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
@@ -45,8 +49,10 @@ export default async function ClubPageEdit({ searchParams }: {
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>{c.name}</div>
         </div>
 
-        {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Crest saved. It&rsquo;s on your page now.</div>}
+        {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Saved. It&rsquo;s on your page now.</div>}
         {crest === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A PNG or JPEG under 8MB.</div>}
+        {banner === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A JPEG or PNG under 12MB, landscape if you have one.</div>}
+        {video === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give it a title, and a YouTube, Veo or Instagram link.</div>}
 
         <form action="/club/page-edit/crest" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Club crest</div>
@@ -67,6 +73,56 @@ export default async function ClubPageEdit({ searchParams }: {
             We re-save the image ourselves, which removes any location data the file was carrying. It is sized to fit rather than cropped square, so a tall badge keeps its shape.
           </div>
         </form>
+
+        <form action="/club/page-edit/banner" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>Banner</div>
+          {c.banner_path ? (
+            <img src={c.banner_path} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 12, border: `1px solid ${T.line}` }} />
+          ) : (
+            <div style={{ width: '100%', height: 110, borderRadius: 12, background: T.surface2, border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
+              No banner yet
+            </div>
+          )}
+          <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" required
+            style={{ fontSize: 13, color: T.secondary, fontFamily: 'inherit' }} />
+          <button type="submit" style={{ background: T.surface2, color: T.ink, borderRadius: 14, height: 46, fontSize: 14, fontWeight: 700, border: `1px solid ${T.line}`, cursor: 'pointer', fontFamily: 'inherit' }}>Save the banner</button>
+          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+            A wide photo of your ground or a team shot. It gets cropped to a strip, so anything important wants to be near the middle.
+          </div>
+        </form>
+
+        <form action={addClubVideo} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>Club video</div>
+          <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Title</div>
+            <input name="title" placeholder="Our 2026 season" required maxLength={80}
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
+          </div>
+          <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Link</div>
+            <input name="url" placeholder="https://www.youtube.com/watch?v=…" required
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
+          </div>
+          <button type="submit" style={{ background: T.surface2, color: T.ink, borderRadius: 14, height: 46, fontSize: 14, fontWeight: 700, border: `1px solid ${T.line}`, cursor: 'pointer', fontFamily: 'inherit' }}>Add the video</button>
+          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+            YouTube, Veo or Instagram. The video stays where it is — we only keep the link, and nothing loads until someone presses play.
+          </div>
+          <div style={{ fontSize: 12, color: T.secondary, fontWeight: 500, lineHeight: 1.55, borderTop: `1px solid ${T.line}`, paddingTop: 11 }}>
+            <b style={{ color: T.ink }}>Keep the title about the club, not about a child.</b> &ldquo;Our 2026 season&rdquo; is fine; naming a player under 18 is not — the same rule as your pathway wall. You know what is in your own footage; we only ever see the title.
+          </div>
+        </form>
+
+        {videos.map((v) => (
+          <div key={v.id} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 800 }}>{v.title}</div>
+              <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.url}</div>
+            </div>
+            <form action={removeClubVideo.bind(null, v.id)}>
+              <button type="submit" style={{ height: 38, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+            </form>
+          </div>
+        ))}
 
         {c.public_slug && (
           <Link href={`/fc/${c.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>See your public page</Link>

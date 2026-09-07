@@ -724,6 +724,36 @@ check('E10: the page branches on one boolean, never on WHY the link is dead',
 check('E11: signing out destroys the session and nothing else',
   /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
 
+// Club video (0018) is a LINK, never a file — the parked hosting question
+// must not creep in through this door.
+const clubVidSrc = readFileSync(fileURLToPath(new URL('../app/club/page-edit/actions.ts', import.meta.url)), 'utf8');
+// Check the hosts one at a time. The thing being searched for is itself a
+// regex — pipes for alternation, backslashes before the dots — so both a
+// second regex and a naive substring get it wrong, which they each did once.
+const ALLOWED_EMBED_HOSTS = ['youtube\\.com', 'youtu\\.be', 'instagram\\.com', 'veo\\.co'];
+check('club video: only the allowlisted embed hosts are accepted',
+  ALLOWED_EMBED_HOSTS.every((h) => clubVidSrc.includes(h)) && clubVidSrc.includes('https:'), true);
+check('club video: no file is accepted anywhere on this path',
+  /instanceof File|formData\.get\('video'\)|multipart/.test(clubVidSrc), false);
+const clubPageSrc = readFileSync(fileURLToPath(new URL('../app/fc/[slug]/page.tsx', import.meta.url)), 'utf8');
+check('club video: rendered through the click-to-play facade (D-97)',
+  /ClipCard/.test(clubPageSrc), true);
+check('club video: the section is omitted when the club has none',
+  /videos\.length > 0/.test(clubPageSrc), true);
+check('club banner: omitted when absent, so an empty page never shows a slot',
+  /c\.banner_path && \(/.test(clubPageSrc), true);
+
+// The crest and banner routes are the player-photo route's twins and must
+// keep its D-94 §7 controls.
+for (const [what, file] of [['crest', '../app/club/page-edit/crest/route.ts'], ['banner', '../app/club/page-edit/banner/route.ts']]) {
+  const src = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
+  check(`D-94 §7: the ${what} is re-encoded server-side, never served as uploaded`,
+    /sharp\(/.test(src) && /toBuffer\(\)/.test(src), true);
+  check(`D-94 §7: the ${what} upload is size-capped`, /MAX_BYTES/.test(src), true);
+  check(`D-93: only a club admin or TD may set the ${what}`,
+    /technical_director','club_admin'/.test(src), true);
+}
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',
