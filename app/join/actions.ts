@@ -38,9 +38,10 @@ export async function createAccount(formData: FormData) {
   const firstName = String(formData.get('firstName') ?? '').trim();
   const dob = String(formData.get('dob') ?? '').trim();
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
+  const password = String(formData.get('password') ?? '');
   const guardianName = String(formData.get('guardianName') ?? '').trim();
   const guardianPhone = String(formData.get('guardianPhone') ?? '').trim();
-  if (!firstName || !dob || !EMAIL_RE.test(email)) redirect('/join?error=1');
+  if (!firstName || !dob || !EMAIL_RE.test(email) || password.length < 10) redirect('/join?error=1');
 
   const client = await db.connect();
   let personId: string;
@@ -80,6 +81,8 @@ export async function createAccount(formData: FormData) {
   } finally {
     client.release();
   }
+  const { setPassword } = await import('@/lib/auth');
+  await setPassword(personId, password);
   await setSessionPersonId(personId);
   redirect('/home');
 }

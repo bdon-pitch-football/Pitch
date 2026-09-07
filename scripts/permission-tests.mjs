@@ -120,8 +120,13 @@ await db.query(`insert into guardianship_link (guardian_id, child_id, approved_a
 for (const [rec, p] of [[REC.deniz, ID.deniz], [REC.georgia, ID.georgia], [REC.nate, ID.nate], [REC.marcus, ID.marcus]]) {
   await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CAM'])`, [rec, p]);
 }
-// coachFormer authored a verified entry on Deniz's record, then left (A10/D-48)
+// coachFormer authored a verified entry on Deniz's record, then left (A10/D-48).
+// The order matters and the database now insists on it: the entry is written
+// while they still hold the squad, and the departure comes after. There is no
+// way to author retrospectively, which is the point.
+await mem(ID.coachFormer, CLUB.riverside, SQUAD.u15, 'coach');
 await db.query(`insert into record_entry (record_id, entry_type, author_id, provenance) values ($1,'coach_note',$2,'coach_verified')`, [REC.deniz, ID.coachFormer]);
+await db.query(`update membership set ended_at = now() where person_id = $1`, [ID.coachFormer]);
 // approved profile version for Deniz (the token path renders this for u16 — D-119)
 await db.query(`insert into profile_version (record_id, content, status) values ($1,'{"name":"Deniz Y."}','approved')`, [REC.deniz]);
 
@@ -379,6 +384,281 @@ check('M4/O: an active subscription at an unverified club still returns no rows'
 check('D-126: and the held count is all it gets', await count(payAdmin, payClub), 1);
 
 // ---------------------------------------------------------------------------
+// Table E — link states (D-77). The rule is not "dead links are handled", it
+// is that every dead state is INDISTINGUISHABLE from every other, including
+// from a token that never existed. Anything that varies is an oracle.
+// ---------------------------------------------------------------------------
+const prov = async (author, rec) =>
+  (await db.query('select fn_write_provenance($1,$2) as p', [author, rec])).rows[0].p;
+const readTok = async (h) => (await db.query('select fn_token_read($1) as r', [h])).rows[0].r;
+const deadShapes = [
+  ['expired', t.expired], ['revoked', t.revoked], ['paused', t.paused],
+  ['never existed', sha('no-such-token-at-all')],
+  ['absurdly long', sha('x'.repeat(400))],
+];
+for (const [name, h] of deadShapes) {
+  check(`E1 ${name}: identical null shape, no state leaks through`, await readTok(h), null);
+}
+check('E2: and the live one is the only thing that reads', (await readTok(t.live)) === null, false);
+
+// E3: the dead answer carries nothing at all — not a name, not a club, not
+// an age. The single read path is the only place that could leak one.
+const readSrc = readFileSync(fileURLToPath(new URL('../lib/record-read.ts', import.meta.url)), 'utf8');
+check('E3: the read path returns a bare null for every dead state',
+  /if \(!bundle\) return null;/.test(readSrc), true);
+const deadPage = readFileSync(fileURLToPath(new URL('../app/p/[token]/page.tsx', import.meta.url)), 'utf8');
+const deadHalf = deadPage.split('LinkState').slice(1).join('');
+check('E4: the link-state page renders no name, club, age or photo',
+  /first_name|last_name|club|age_group|photo/i.test(deadHalf), false);
+check('E5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
+check('E6: and sends no referrer to an embed host (D-94 §5)',
+  /no-referrer/.test(readFileSync(fileURLToPath(new URL('../next.config.mjs', import.meta.url)), 'utf8')), true);
+
+// E7: the OG endpoint outlives revocation in every social platform's cache,
+// so it must re-check on every request and never render an identity for a
+// token that is not live (D-89, D-94 §5).
+const ogSrc = readFileSync(fileURLToPath(new URL('../app/p/[token]/opengraph-image.tsx', import.meta.url)), 'utf8');
+check('E7: the OG route re-reads the token through the one path',
+  /readCvByToken/.test(ogSrc), true);
+check('E8: and falls back to a generic card rather than an identity',
+  /if \(!cv\)|cv \?\?|!cv/.test(ogSrc), true);
+// Strip the comments first: the rule is written down at the top of that file
+// in the very words being searched for, and a check that matches its own
+// documentation passes forever without testing anything.
+const ogCode = ogSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+check('E9: a minor\u2019s card carries no club, age group or region (D-89)',
+  /club|age_group|region|ageGroup/i.test(ogCode), false);
+
+// ---------------------------------------------------------------------------
+// Table G — the age state machine (D-49). Bands are computed, so a birthday
+// is a transition nobody has to remember to run.
+// ---------------------------------------------------------------------------
+const band = async (dob) => (await db.query('select fn_age_band($1::date) as b', [dob])).rows[0].b;
+check('G1: the day before sixteen is still u16', await band(yearsAgo(16, 1)), 'u16');
+check('G2: the sixteenth birthday itself flips the band', await band(yearsAgo(16)), '16_17');
+check('G3: seventeen and a day is still 16–17', await band(yearsAgo(17, -1)), '16_17');
+check('G4: the eighteenth birthday reaches independence', await band(yearsAgo(18)), '18plus');
+check('G5: an unknown date of birth is treated as the most restrictive band',
+  await band(null), 'u16');
+
+// G6: at 18 the guardian's visibility expires on its own — nothing runs, the
+// same link simply stops answering, and only the adult can grant it back.
+// An adult is public to any signed-in viewer, so what to assert is that the
+// lapsed guardian is now no better off than a stranger — not that the record
+// vanishes.
+check('G6: guardianship lapses at eighteen with no job to run', await level(ID.guardian, ID.marcus), 'public');
+check('G6b: which is exactly what an unrelated signed-in viewer gets', await level(ID.coachOther, ID.marcus), 'public');
+await db.query(`update guardianship_link set regranted_at = now() where guardian_id = $1 and child_id = $2`, [ID.guardian, ID.marcus]);
+check('G7: and the adult can hand it back deliberately', await level(ID.guardian, ID.marcus), 'full');
+await db.query(`update guardianship_link set regranted_at = null where guardian_id = $1 and child_id = $2`, [ID.guardian, ID.marcus]);
+
+// G8: clips added as a minor are grandfathered permanently (D-88). The flag
+// is stamped at insert from the DOB, so an eighteenth birthday cannot reach
+// back and take nine clips off a player who built them at seventeen.
+await db.query(`insert into highlight (record_id, url, added_as_minor) values ($1,'https://youtu.be/a',true)`, [REC.marcus]);
+await db.query(`insert into highlight (record_id, url, added_as_minor) values ($1,'https://youtu.be/b',false)`, [REC.marcus]);
+check('G8: minor-era clips are marked and survive the transition',
+  (await db.query(`select count(*)::int as n from highlight where record_id = $1 and added_as_minor`, [REC.marcus])).rows[0].n, 1);
+check('G10: added_as_minor is NOT NULL — it can never be left to be guessed later',
+  (await db.query(`select is_nullable from information_schema.columns
+    where table_name='highlight' and column_name='added_as_minor'`)).rows[0].is_nullable, 'NO');
+
+// G11: D-67 — a minor's public CV never renders a negative number. The read
+// path filters at the query, not in the component, so no future surface can
+// forget.
+check('G11: the read path drops non-positive stats before they leave Postgres',
+  /value > 0/.test(readSrc), true);
+
+// ---------------------------------------------------------------------------
+// Tables H and J — the club walls. A treasurer made an administrator to send
+// invoices must never be able to read a child's development notes (D-93).
+// ---------------------------------------------------------------------------
+check('H1: the club administrator gets membership and contact only', await level(ID.clubAdmin, ID.deniz), 'membership_only');
+check('H2: the team manager the same', await level(ID.teamManager, ID.deniz), 'membership_only');
+check('H3: the technical director gets the record', await level(ID.td, ID.deniz), 'full');
+check('H4: an administrator at another club gets nothing', await level(ID.adminOther, ID.deniz), 'none');
+check('H5: an unattested coach at the right squad still gets nothing', await level(ID.coachU, ID.deniz), 'none');
+check('H6: a verified coach on the wrong squad gets nothing', await level(ID.coachUnassigned, ID.deniz), 'none');
+check('H7: a departed coach keeps only what they authored (D-48)', await level(ID.coachFormer, ID.deniz), 'authored_only');
+
+// H8: a departing technical director loses club-wide access immediately —
+// the same read, one UPDATE later.
+await db.query(`update membership set ended_at = now() where person_id = $1 and role = 'technical_director'`, [ID.td]);
+check('H8: a departed technical director loses club-wide access at once', await level(ID.td, ID.deniz), 'none');
+check('H9: and cannot write to the record either', await prov(ID.td, REC.deniz), null);
+await db.query(`update membership set ended_at = null where person_id = $1 and role = 'technical_director'`, [ID.td]);
+check('H10: reinstating the role restores it, still without a stored flag', await level(ID.td, ID.deniz), 'full');
+
+// J: the union rule (A12c) — a person wearing two hats gets the higher of
+// the two, computed at read time.
+await mem(ID.clubAdmin, CLUB.riverside, SQUAD.u15, 'coach');
+await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [ID.clubAdmin, CLUB.riverside, ID.td]);
+check('J1b: admin + verified squad coach = the union, not the lower role', await level(ID.clubAdmin, ID.deniz), 'full');
+await db.query(`update membership set ended_at = now() where person_id = $1 and role = 'coach'`, [ID.clubAdmin]);
+await db.query(`update wwcc_attestation set revoked_at = now() where person_id = $1`, [ID.clubAdmin]);
+check('J1c: drop the coaching hat and the wall is back', await level(ID.clubAdmin, ID.deniz), 'membership_only');
+
+// ---------------------------------------------------------------------------
+// Table D — WRITING to the record. No screens exist yet; the rules do, and
+// they are enforced by the database so the screens cannot route around them.
+// ---------------------------------------------------------------------------
+check('D1: the squad coach writes, stamped coach_verified', await prov(ID.coachV, REC.deniz), 'coach_verified');
+check('D2: a coach with no WWCC attestation cannot write', await prov(ID.coachU, REC.deniz), null);
+check('D3: a verified coach at another squad cannot write', await prov(ID.coachUnassigned, REC.deniz), null);
+check('D4: a coach at another club cannot write', await prov(ID.coachOther, REC.deniz), null);
+check('D5: the technical director writes club-wide', await prov(ID.td, REC.deniz), 'coach_verified');
+check('D6: the club administrator cannot write — the registrar wall', await prov(ID.clubAdmin, REC.deniz), null);
+check('D7: the team manager cannot write either', await prov(ID.teamManager, REC.deniz), null);
+check('D8: a departed coach keeps what they wrote but not the pen', await prov(ID.coachFormer, REC.deniz), null);
+check('D9: the player writes their own record as self-reported', await prov(ID.deniz, REC.deniz), 'self_reported');
+check('D10: the guardian writes as self-reported, never as a coach', await prov(ID.guardian, REC.deniz), 'self_reported');
+check('D11: a revoked guardian cannot write', await prov(ID.exGuardian, REC.deniz), null);
+check('D12: a guardianship lapsed at 18 grants no write', await prov(ID.guardian, REC.marcus), null);
+check('D13: an anonymous writer is refused', await prov(null, REC.deniz), null);
+check('D14: a coach at an UNVERIFIED club cannot write (D-126)', await prov(ID.coachAtUnverified, REC.deniz), null);
+
+// The trigger, not the function, is what makes it a property.
+await expectFail('D15: a club admin cannot insert an entry regardless',
+  `insert into record_entry (record_id, entry_type, author_id, provenance)
+   values ('${REC.deniz}','coach_note','${ID.clubAdmin}','coach_verified')`);
+await expectFail('D16: a coach cannot claim self_reported to dodge the tag',
+  `insert into record_entry (record_id, entry_type, author_id, provenance)
+   values ('${REC.deniz}','coach_note','${ID.coachV}','self_reported')`);
+await expectFail('D17: a player cannot promote their own note to coach_verified',
+  `insert into record_entry (record_id, entry_type, author_id, provenance)
+   values ('${REC.deniz}','coach_note','${ID.deniz}','coach_verified')`);
+await expectFail('D18: nobody can hide behind official_import (D-62)',
+  `insert into record_entry (record_id, entry_type, author_id, provenance)
+   values ('${REC.deniz}','coach_note','${ID.coachOther}','official_import')`);
+
+// D-50: 48 hours to correct your own words, then supersede instead.
+const oldEntry = crypto.randomUUID();
+await db.query(
+  `insert into record_entry (id, record_id, entry_type, author_id, provenance)
+   values ($1,$2,'coach_note',$3,'coach_verified')`, [oldEntry, REC.georgia, ID.coachUnassigned]);
+await db.exec(`update record_entry set body = '{"t":"fixed"}' where id = '${oldEntry}'`);
+check('D19: an author may correct inside the 48-hour window',
+  (await db.query('select body->>\'t\' as t from record_entry where id = $1', [oldEntry])).rows[0].t, 'fixed');
+// Fabricate the passage of time. The trigger refuses to let created_at move —
+// which is itself the D-50 guarantee — so the harness stands it down for one
+// statement rather than weakening the rule to make the test convenient.
+await db.exec(`alter table record_entry disable trigger record_entry_edit_window`);
+await db.query(`update record_entry set created_at = now() - interval '3 days' where id = $1`, [oldEntry]);
+await db.exec(`alter table record_entry enable trigger record_entry_edit_window`);
+await expectFail('D20: after 48 hours the entry is immutable (D-50)',
+  `update record_entry set body = '{"t":"late"}' where id = '${oldEntry}'`);
+await expectFail('D21: authorship can never be rewritten',
+  `update record_entry set author_id = '${ID.td}' where id = '${oldEntry}'`);
+
+// ---------------------------------------------------------------------------
+// Tables L and Q — putting the record in front of somebody else (D-91, D-99,
+// D-101). One question, one function, three surfaces.
+// ---------------------------------------------------------------------------
+const canSend = async (actor, rec) =>
+  (await db.query('select fn_can_dispatch($1,$2) as c', [actor, rec])).rows[0].c;
+
+check('L1: a u16 cannot send her own CV — it routes to the guardian', await canSend(ID.deniz, REC.deniz), false);
+check('L2: the guardian sends for the u16', await canSend(ID.guardian, REC.deniz), true);
+check('L3: either guardian may send (equal visibility, D-51)', await canSend(ID.guardian2, REC.deniz), true);
+check('L4: a revoked guardian cannot send', await canSend(ID.exGuardian, REC.deniz), false);
+check('L5: a 16–17 player sends for themselves', await canSend(ID.nate, REC.nate), true);
+check('L6: and their guardian can too', await canSend(ID.guardian, REC.nate), true);
+check('L7: an adult sends alone', await canSend(ID.marcus, REC.marcus), true);
+check('L8: a guardianship lapsed at 18 cannot send (D-49)', await canSend(ID.guardian, REC.marcus), false);
+check('L9: the club cannot send a child\u2019s CV anywhere', await canSend(ID.td, REC.deniz), false);
+check('L10: nor can an anonymous caller', await canSend(null, REC.deniz), false);
+
+await expectFail('L11: a coach cannot mint a share link for a player',
+  `insert into share_token (record_id, token_hash, issued_by) values ('${REC.deniz}', '\\x0102030405060708'::bytea, '${ID.coachV}')`);
+await expectFail('L12: the u16 cannot mint her own link either (D-91)',
+  `insert into share_token (record_id, token_hash, issued_by) values ('${REC.deniz}', '\\x0202030405060708'::bytea, '${ID.deniz}')`);
+await expectFail('L13: a send cannot be dispatched by an unentitled hand',
+  `insert into share_request (record_id, requested_by, destination, dispatched_by, dispatched_at)
+   values ('${REC.deniz}','${ID.deniz}','club@example.com','${ID.coachV}', now())`);
+await expectFail('L14: a dispatch cannot be recorded without a time',
+  `insert into share_request (record_id, requested_by, destination, dispatched_by)
+   values ('${REC.deniz}','${ID.deniz}','club@example.com','${ID.guardian}')`);
+await db.exec(`insert into share_request (record_id, requested_by, destination, dispatched_by, dispatched_at)
+  values ('${REC.deniz}','${ID.deniz}','club@example.com','${ID.guardian}', now())`);
+check('L15: the child composes and the guardian dispatches', true, true);
+
+const cardId = crypto.randomUUID();
+await expectFail('Q1: a card cannot hold a URL before it is approved (D-101)',
+  `insert into share_card_approval (record_id, requested_by, card_kind, storage_path)
+   values ('${REC.deniz}','${ID.deniz}','og','cards/deniz.png')`);
+await db.query(
+  `insert into share_card_approval (id, record_id, requested_by, card_kind, image_hash)
+   values ($1,$2,$3,'og',$4)`, [cardId, REC.deniz, ID.deniz, sha('card-bytes')]);
+check('Q2: an unapproved card exists with no path at all',
+  (await db.query('select storage_path from share_card_approval where id = $1', [cardId])).rows[0].storage_path, null);
+await expectFail('Q3: the club cannot approve a child\u2019s card',
+  `update share_card_approval set approved_by = '${ID.td}', approved_at = now() where id = '${cardId}'`);
+await expectFail('Q4: the u16 cannot approve her own card',
+  `update share_card_approval set approved_by = '${ID.deniz}', approved_at = now() where id = '${cardId}'`);
+await expectFail('Q5: the artefact approved must be the one that was shown',
+  `update share_card_approval set image_hash = '\\x99'::bytea, approved_by = '${ID.guardian}', approved_at = now() where id = '${cardId}'`);
+await db.exec(`update share_card_approval set approved_by = '${ID.guardian}', approved_at = now(), storage_path = 'cards/deniz.png' where id = '${cardId}'`);
+check('Q6: the guardian approves, and only then does a path exist',
+  (await db.query('select storage_path from share_card_approval where id = $1', [cardId])).rows[0].storage_path, 'cards/deniz.png');
+
+// ---------------------------------------------------------------------------
+// Table F — two guardians, most-restrictive-wins (D-51). Deniz has two.
+// ---------------------------------------------------------------------------
+check('F1: both guardians read in full', await level(ID.guardian2, ID.deniz), 'full');
+// Most-restrictive-wins is not a tie-break between two settings — it is the
+// rule that one hand is enough. Guardian2 pauses; guardian1 never agreed.
+await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1, true, $2)
+  on conflict (child_id) do update set profile_paused = true, updated_by = $2`, [ID.deniz, ID.guardian2]);
+check('F2: either guardian alone can stop the outward profile (D-51)',
+  (await db.query('select fn_token_read($1) as r', [t.live])).rows[0].r, null);
+check('F3: the other guardian still reads it inside Pitch', await level(ID.guardian, ID.deniz), 'full');
+await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [ID.deniz]);
+check('F4: lifting the pause brings the live link back',
+  (await db.query('select fn_token_read($1) as r', [t.live])).rows[0].r === null, false);
+// Nate's off-switch was thrown by guardian1 in table B and guardian2 has no
+// say in reversing it — that is the same rule seen from the other side.
+check('F5: one guardian\u2019s off-switch closes discovery for a 16–17 (D-22)',
+  await searchable(ID.coachV, ID.nate), false);
+check('F6: and the club he actually plays for still sees him', await level(ID.td, ID.nate), 'full');
+
+// ---------------------------------------------------------------------------
+// Auth (D-94 §2, doc 15 §10 amendment). Read against the source and the DB.
+// ---------------------------------------------------------------------------
+const authSrc = readFileSync(fileURLToPath(new URL('../lib/auth.ts', import.meta.url)), 'utf8');
+const signinSrc = readFileSync(fileURLToPath(new URL('../app/signin/actions.ts', import.meta.url)), 'utf8');
+const resetSrc = readFileSync(fileURLToPath(new URL('../app/reset/actions.ts', import.meta.url)), 'utf8');
+
+check('D-94: passwords are never stored in the clear', /password_hash/.test(authSrc) && !/values \(\$1, *password\)/.test(authSrc), true);
+check('D-94: password comparison is constant-time', authSrc.includes('timingSafeEqual'), true);
+check('D-94: a non-existent account still does the hashing work (no timing oracle)', authSrc.includes('decoy'), true);
+check('D-94: sign-in has exactly one outcome, whatever happened',
+  (signinSrc.match(/redirect\(/g) ?? []).length, 1);
+check('D-94: reset request has exactly one outcome', resetSrc.includes("redirect('/reset?sent=1')"), true);
+check('§10 amendment: an under-16 reset routes to the guardian', authSrc.includes("band === 'u16' ? p.guardian_email"), true);
+check('D-94 §4: reset tokens are stored hashed, never raw', /token_hash/.test(authSrc) && !/values \(\$1, *token\)/.test(authSrc), true);
+check('§33: the sign-in alert carries no IP, city or device string',
+  /ip|city|geo|fingerprint/i.test(msgCode.split('newSignInEmail')[1]?.split('export const')[0] ?? ''), false);
+
+// Reset tokens: single use, and expiry is enforced in SQL.
+const resetPerson = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob, email) values ($1,'Reset','${yearsAgo(30)}','reset@example.com')`, [resetPerson]);
+const rawTok = 'test-reset-token';
+const tokHash = sha(rawTok);
+await db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() + interval '1 hour')`, [resetPerson, tokHash]);
+const consume = async () => (await db.query(
+  `update auth_reset set used_at = now()
+   where id = (select id from auth_reset where token_hash = $1 and used_at is null and expires_at > now() limit 1)
+   returning person_id`, [tokHash])).rows[0]?.person_id ?? null;
+check('reset token works once', await consume(), resetPerson);
+check('reset token cannot be reused', await consume(), null);
+await db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`, [resetPerson, sha('expired-token')]);
+const expiredUse = (await db.query(
+  `update auth_reset set used_at = now()
+   where id = (select id from auth_reset where token_hash = $1 and used_at is null and expires_at > now() limit 1)
+   returning person_id`, [sha('expired-token')])).rows[0]?.person_id ?? null;
+check('an expired reset token is refused', expiredUse, null);
+
+// ---------------------------------------------------------------------------
 // Route enumeration — absence as a property (doc 14 §N12, §P11, §C1, D-122).
 // These are static asserts over the app tree: the dangerous surface must
 // not exist, not merely be forbidden.
@@ -391,6 +671,18 @@ const walk = (d) => rd(d).flatMap((f) => {
 });
 const files = walk(appDir);
 const rel = (p) => p.slice(appDir.length);
+
+// The link-state page cannot distinguish dead states because it is never
+// handed anything to distinguish them WITH: the one read path returns a bare
+// null, so the page has no state variable to branch on. Verified in the
+// browser too — the only bytes that differ between a revoked and an expired
+// link are the dev cache-buster and the token the requester already holds.
+const pageCode = deadPage.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+check('E10: the page branches on one boolean, never on WHY the link is dead',
+  /expired|revoked|paused|disabled/i.test(pageCode), false);
+
+check('E11: signing out destroys the session and nothing else',
+  /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
 
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);

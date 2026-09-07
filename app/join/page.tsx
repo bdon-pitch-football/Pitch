@@ -102,6 +102,7 @@ export default function Join() {
               <input type="hidden" name="dob" value={dob} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 <div style={field}><div style={fieldLabel}>Email</div><input style={input} name="email" type="email" placeholder="you@example.com" required /></div>
+                <div style={field}><div style={fieldLabel}>Password — at least ten characters</div><input style={input} name="password" type="password" minLength={10} required /></div>
                 {age !== null && age < 18 && (
                   <>
                     <div style={field}><div style={fieldLabel}>A parent or guardian&rsquo;s name</div><input style={input} name="guardianName" required /></div>

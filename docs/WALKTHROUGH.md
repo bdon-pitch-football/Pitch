@@ -18,7 +18,10 @@ cd "/Users/bdonmez22/Desktop/Life/Work/Pitch 3.0/repo" && npm run dev
 
 The app is at **http://localhost:3000**.
 
-Sign in with any of these (password is ignored in dev — the email is the key):
+Sign in with any of these. **Leave the password box empty** — these four seats
+have no password set, and in development an account without one signs in on the
+email alone so you can hop between seats freely. (In production that shortcut
+does not exist; a password is required.)
 
 | Who | Email |
 |---|---|
@@ -26,6 +29,18 @@ Sign in with any of these (password is ignored in dev — the email is the key):
 | Marina — Technical Director, Riverside FC | `td@example.com` |
 | Sam Kaya — coach | `coach@example.com` |
 | Sunbury United — claimed but NOT yet verified | `sunbury@example.com` |
+
+**To change seats, go to `/signout` first** — otherwise you are still wearing the
+last hat and the pages will look wrong.
+
+If you want to see the real password machinery, do this once with Alex:
+`/reset` → type `guardian@example.com` → the screen says *"If there's a Pitch
+account for that address, a reset link is on its way"* (it says exactly that
+whether or not the account exists — the message is not allowed to tell a
+stranger who has an account) → open **`/dev/outbox`**, which is the local stand-in
+for the inbox until Resend is wired, and follow the reset link → set a password →
+sign in with it. That link then dies: opening it a second time refuses and sends
+you back to `/reset`. Alex now needs that password, so remember it or reset again.
 
 ---
 
