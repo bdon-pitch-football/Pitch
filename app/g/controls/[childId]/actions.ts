@@ -53,9 +53,14 @@ export async function replaceLink(childId: string, recordId: string) {
 // Renew: same link, another 90 days. No new token needed — nothing to show.
 export async function renewLink(childId: string, recordId: string) {
   const guardianId = await assertGuardian(childId);
+  // Only a link that is still ALIVE gets another 90 days. Without the expiry
+  // clause this also revived tokens that had already lapsed — someone handed
+  // a link 91 days ago would silently get access back, which is the opposite
+  // of what a parent pressing "Renew" believes they are doing.
   await db.query(
     `update share_token set expires_at = now() + interval '90 days'
-     where record_id=$1 and revoked_at is null and paused=false`,
+     where record_id=$1 and revoked_at is null and paused=false
+       and (expires_at is null or expires_at > now())`,
     [recordId],
   );
   await db.query(

@@ -71,6 +71,23 @@ for (const p of PLAYER_FIXTURES) {
     await db.query(`insert into highlight (record_id, url, title, added_as_minor) values ($1,$2,$3,$4)`,
       [recordId, h.url, h.title, true]);
   }
+  // The consent log (D-78, D-144). The seed wrote none of these, so a parent
+  // opening Manage saw "Everything that's happened" over an empty bar — the
+  // one screen whose entire job is to show them what happened. Append-only:
+  // these are inserted in the order they occurred and never updated.
+  await db.query(
+    `insert into consent_event (at, event, actor_id, subject_id, policy_version) values
+       (now() - interval '96 days', 'invite_created', $1, $2, null),
+       (now() - interval '96 days', 'email_sent',     null, $2, null),
+       (now() - interval '96 days', 'sms_sent',       null, $2, null),
+       (now() - interval '95 days', 'guardian_landed',$1,  $2, null),
+       (now() - interval '95 days', 'tos_accepted',   $1,  $2, '01@v1.0'),
+       (now() - interval '95 days', 'policy_accepted',$1,  $2, '02@v1.0'),
+       (now() - interval '95 days', 'approved',       $1,  $2, null),
+       (now() - interval '90 days', 'share_issued',   $1,  $2, null)`,
+    [guardian, personId],
+  );
+
   // u16: the public page renders the guardian-APPROVED snapshot (D-119)
   await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,$2,'approved',$3,now())`,
     [recordId, JSON.stringify(p), guardian]);

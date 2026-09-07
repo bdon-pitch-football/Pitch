@@ -39,6 +39,7 @@ export default async function Controls({ params, searchParams }: {
           select token_hint, to_char(expires_at at time zone 'Australia/Melbourne', 'DD Month') as expires
           from share_token st join development_record dr on dr.id = st.record_id
           where dr.person_id = p.id and st.revoked_at is null and st.paused = false
+            and (st.expires_at is null or st.expires_at > now())
           order by st.issued_at desc limit 1) t) as token,
        (select coalesce(json_agg(json_build_object(
            'at', to_char(e.at at time zone 'Australia/Melbourne', 'DD Mon'), 'event', e.event) order by e.at desc), '[]'::json)
@@ -52,8 +53,24 @@ export default async function Controls({ params, searchParams }: {
   const c = rows[0];
   const name: string = c.first_name;
   const his = name === 'Georgia' ? 'her' : 'his';
+  // EVERY event in the consent_event vocabulary needs a line here. A missing
+  // one falls through to the raw database code, and a parent reading
+  // "guardian_landed" on the screen whose entire job is to tell them plainly
+  // what happened is worse than showing nothing. Found walking Deniz's
+  // history: four of them were rendering as enum values.
   const EVENT_LINES: Record<string, string> = {
+    invite_created: 'We were asked to set up his profile',
+    email_sent: 'We emailed you to ask permission',
+    email_delivered: 'That email reached your inbox',
+    email_opened: 'You opened that email',
+    sms_sent: 'We texted you as well',
+    sms_delivered: 'That text reached your phone',
+    guardian_landed: 'You opened the permission page',
+    email_verified: 'You confirmed by email',
+    sms_verified: 'You confirmed by text',
     approved: 'You approved the profile',
+    nudge_sent: 'We reminded you it was waiting',
+    purged: 'The unapproved request was deleted',
     tos_accepted: 'Terms accepted on their behalf',
     policy_accepted: 'Privacy Policy accepted on their behalf',
     edit_submitted: `${name} submitted a change`,
@@ -61,6 +78,19 @@ export default async function Controls({ params, searchParams }: {
     share_issued: 'Link created',
     share_revoked: 'Link replaced — the old one stopped working',
     share_paused: 'You changed the pause switch',
+    share_request_created: `${name} asked you to send his CV`,
+    share_dispatched: 'You sent his CV to a club',
+    card_requested: `${name} asked for a share card`,
+    card_approved: 'You approved a share card',
+    outside_contact_logged: 'Someone outside his club asked to reach him',
+    age_transition: 'His age band changed',
+    registration_created: 'He went onto a club register',
+    registration_withdrawn: 'He came off a club register',
+    invitation_created: 'A club invited him',
+    invitation_replied: 'You replied to a club',
+    deletion_requested: 'You asked us to delete everything',
+    deletion_completed: 'Everything was deleted',
+    report_filed: 'A page was reported',
   };
 
   return (
@@ -116,10 +146,15 @@ export default async function Controls({ params, searchParams }: {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={label}>Everything that&rsquo;s happened</div>
           <div style={{ ...card, padding: '6px 14px' }}>
+            {(c.timeline as { at: string; event: string }[]).length === 0 && (
+              <div style={{ fontSize: 12.5, fontWeight: 500, color: T.muted, padding: '4px 0' }}>
+                Nothing yet beyond your approval. Anything you do here — renewing his link, pausing his page, replying to a club — is written down and shows up in this list.
+              </div>
+            )}
             {(c.timeline as { at: string; event: string }[]).map((e, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}` }}>
                 <div style={{ width: 52, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{e.at}</div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{EVENT_LINES[e.event] ?? e.event}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{EVENT_LINES[e.event] ?? 'Something was recorded'}</div>
               </div>
             ))}
           </div>
