@@ -754,6 +754,55 @@ for (const [what, file] of [['crest', '../app/club/page-edit/crest/route.ts'], [
     /technical_director','club_admin'/.test(src), true);
 }
 
+// ---------------------------------------------------------------------------
+// Coach clips and the coaching jobs board (0019).
+// ---------------------------------------------------------------------------
+const samProfile = crypto.randomUUID();
+await db.query(`insert into coach_profile (id, person_id, public_slug) values ($1,$2,'coach-v')`, [samProfile, ID.coachV]);
+const minorCoach = crypto.randomUUID(), minorProfile = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Teen Coach',$2)`, [minorCoach, yearsAgo(17)]);
+await db.query(`insert into coach_profile (id, person_id) values ($1,$2)`, [minorProfile, minorCoach]);
+
+const canApply = async (who) => (await db.query('select fn_can_apply_for_role($1) as ok', [who])).rows[0].ok;
+check('job1: an adult with a coaching profile may apply', await canApply(ID.coachV), true);
+check('job2: a 17-year-old coach may not — restrictive by default (D-94)', await canApply(minorCoach), false);
+check('job3: an adult with no coaching profile may not', await canApply(ID.marcus), false);
+check('job4: an anonymous caller may not', await canApply(null), false);
+
+const roleId = crypto.randomUUID();
+await db.query(`insert into coaching_role (id, club_id, title, posted_by) values ($1,$2,'Head Coach — U14 Boys',$3)`,
+  [roleId, CLUB.riverside, ID.td]);
+await db.query(`insert into role_application (role_id, coach_id, message) values ($1,$2,'Keen to help')`, [roleId, ID.coachV]);
+
+const applicants = async (who) => (await db.query('select * from fn_role_applications($1,$2)', [who, roleId])).rows;
+check('job5: the club that posted it sees who applied', (await applicants(ID.td)).length, 1);
+check('job6: the club administrator sees them too — this is club admin, not development data',
+  (await applicants(ID.clubAdmin)).length, 1);
+check('job7: another club sees nothing', (await applicants(ID.adminOther)).length, 0);
+check('job8: a coach cannot read a club\u2019s applicant list', (await applicants(ID.coachV)).length, 0);
+check('job9: an anonymous caller sees nothing', (await applicants(null)).length, 0);
+
+// D-100: Pitch never hands over contact details. The function must not be
+// able to return one, whatever the app layer later asks it for.
+const appFn = (await db.query(`select prosrc from pg_proc where proname = 'fn_role_applications'`)).rows[0].prosrc;
+check('job10: the applicant list cannot return an email or a phone number (D-100)',
+  /p\.email|phone|contact_email/.test(appFn), false);
+
+await expectFail('job11: a coach cannot apply for the same role twice',
+  `insert into role_application (role_id, coach_id) values ('${roleId}', '${ID.coachV}')`);
+
+// Clips are links, never files — the parked hosting question must not creep
+// in through the coach's door either.
+const coachActions = readFileSync(fileURLToPath(new URL('../app/coach/edit/actions.ts', import.meta.url)), 'utf8');
+const footballSrc = readFileSync(fileURLToPath(new URL('../lib/football.ts', import.meta.url)), 'utf8');
+check('job12: coach clips are capped at five', /COACH_CLIP_CAP = 5/.test(footballSrc), true);
+check('job13: and the cap is enforced in the action, not just hidden in the form',
+  /c >= COACH_CLIP_CAP/.test(coachActions), true);
+for (const h of ['youtube\\.com', 'youtu\\.be', 'instagram\\.com', 'veo\\.co']) {
+  check(`job14: coach clips accept only allowlisted hosts (${h.replace('\\', '')})`, coachActions.includes(h), true);
+}
+check('job15: no file is accepted on the coach clip path', /instanceof File|multipart/.test(coachActions), false);
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',

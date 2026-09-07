@@ -1,0 +1,155 @@
+// The club's coaching roles: post one, see who applied, close it.
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { db } from '@/lib/db';
+import { getSessionPersonId } from '@/lib/session';
+import { HeaderMark } from '@/components/Wordmark';
+import { postRole, closeRole } from './actions';
+
+const T = {
+  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
+  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
+  onAccent: '#06130c', amber: '#eda100',
+};
+
+export const dynamic = 'force-dynamic';
+export const metadata = { robots: { index: false, follow: false } };
+
+export default async function ClubRoles({ searchParams }: {
+  searchParams: Promise<{ saved?: string; closed?: string; error?: string }>;
+}) {
+  const me = await getSessionPersonId();
+  if (!me) redirect('/signin');
+  const { saved, closed, error } = await searchParams;
+
+  const club = await db.query(
+    `select c.id, c.name from club c
+     join membership m on m.club_id = c.id and m.person_id = $1
+       and m.role in ('technical_director','club_admin') and m.ended_at is null
+     limit 1`,
+    [me],
+  );
+  if (club.rows.length === 0) redirect('/home');
+  const c = club.rows[0];
+
+  const ages = (await db.query(`select code, label, stage from age_group order by sort`)).rows as
+    { code: string; label: string; stage: string }[];
+  const stages = [...new Set(ages.map((a) => a.stage))];
+  const STAGE_LABEL: Record<string, string> = { miniroos: 'MiniRoos', junior: 'Juniors', youth: 'Youth', senior: 'Seniors' };
+
+  const roles = (await db.query(
+    `select id, title, age_group, commitment, paid, closes_on, closed_at,
+       (select count(*)::int from role_application ra where ra.role_id = r.id) as applications
+     from coaching_role r where club_id = $1 order by closed_at nulls first, created_at desc`,
+    [c.id],
+  )).rows as {
+    id: string; title: string; age_group: string | null; commitment: string | null;
+    paid: boolean; closes_on: string | null; closed_at: string | null; applications: number;
+  }[];
+
+  // Applicants come from the Postgres function, which checks this person
+  // administers this club before it returns a single name.
+  const withApplicants = await Promise.all(roles.map(async (r) => ({
+    role: r,
+    applicants: (await db.query(`select * from fn_role_applications($1,$2)`, [me, r.id])).rows as
+      { application_id: string; coach_name: string; coach_slug: string | null; message: string | null }[],
+  })));
+
+  const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
+  const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
+  const field: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 };
+  const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+
+  return (
+    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
+      <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+        <HeaderMark />
+        <div>
+          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Coaching roles</div>
+          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>{c.name} · <b style={{ color: T.ink }}>{roles.filter((r) => !r.closed_at).length} open</b></div>
+        </div>
+
+        {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Posted. It&rsquo;s on the board now.</div>}
+        {closed && <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary }}>Closed. Coaches who applied are still listed below.</div>}
+        {error && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give the role a title.</div>}
+
+        <form action={postRole} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>Post a role</div>
+          <div style={field}>
+            <div style={label}>Role</div>
+            <input style={input} name="title" placeholder="Head Coach — U14 Boys" required maxLength={80} />
+          </div>
+          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+            <div style={{ ...field, flex: 1, minWidth: 150 }}>
+              <div style={label}>Age group</div>
+              <select name="ageGroup" defaultValue="" style={{ ...input, appearance: 'none' }}>
+                <option value="">Not specific</option>
+                {stages.map((st) => (
+                  <optgroup key={st} label={STAGE_LABEL[st] ?? st}>
+                    {ages.filter((a) => a.stage === st).map((a) => <option key={a.code} value={a.code}>{a.label}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            <div style={{ ...field, flex: 1, minWidth: 150 }}>
+              <div style={label}>Commitment</div>
+              <input style={input} name="commitment" placeholder="Tue & Thu, 6–7:30pm" maxLength={120} />
+            </div>
+            <div style={{ ...field, flex: 1, minWidth: 130 }}>
+              <div style={label}>Closes</div>
+              <input style={input} name="closesOn" type="date" />
+            </div>
+          </div>
+          <div style={field}>
+            <div style={label}>About the role</div>
+            <textarea name="detail" rows={4} maxLength={1500} placeholder="What the squad is, what you're after, and what the club offers."
+              style={{ ...input, resize: 'vertical', lineHeight: 1.5, fontWeight: 500, fontSize: 14 }} />
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, fontWeight: 700, color: T.secondary, cursor: 'pointer' }}>
+            <input type="checkbox" name="paid" style={{ width: 18, height: 18, accentColor: T.accent }} />
+            This role is paid
+          </label>
+          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Post it</button>
+        </form>
+
+        {withApplicants.map(({ role: r, applicants }) => (
+          <div key={r.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11, opacity: r.closed_at ? 0.65 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 15.5, fontWeight: 900 }}>{r.title}</div>
+                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
+                  {[r.age_group, r.commitment, r.paid ? 'Paid' : 'Volunteer'].filter(Boolean).join(' · ')}
+                  {r.closed_at && ' · closed'}
+                </div>
+              </div>
+              {!r.closed_at && (
+                <form action={closeRole.bind(null, r.id)}>
+                  <button type="submit" style={{ height: 36, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 13px', cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+                </form>
+              )}
+            </div>
+
+            {applicants.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Nobody yet.</div>
+            ) : applicants.map((a) => (
+              <div key={a.application_id} style={{ background: T.surface2, borderRadius: 12, padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800 }}>{a.coach_name}</div>
+                  {a.coach_slug && (
+                    <Link href={`/c/${a.coach_slug}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none' }}>Their coaching CV</Link>
+                  )}
+                </div>
+                {a.message && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{a.message}</div>}
+              </div>
+            ))}
+          </div>
+        ))}
+
+        <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+          You get each coach&rsquo;s CV and what they wrote. You do not get a phone number or an email unless they chose to put one in their message.
+        </div>
+        <Link href="/home" style={{ textAlign: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted, textDecoration: 'none', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Back</Link>
+      </div>
+    </div>
+  );
+}

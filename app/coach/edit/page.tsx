@@ -5,7 +5,9 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
-import { addRole, removeRole, saveCoachProfile } from './actions';
+import Link from 'next/link';
+import { addCoachClip, addRole, removeCoachClip, removeRole, saveCoachProfile } from './actions';
+import { COACH_CLIP_CAP } from '@/lib/football';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -20,11 +22,11 @@ const card: React.CSSProperties = { background: T.surface, border: `1px solid ${
 const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
-export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
+export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; removed?: string }> }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
-  const { saved } = await searchParams;
+  const { saved, clip } = await searchParams;
   const { rows } = await db.query(
     `select p.first_name, coalesce(p.last_name,'') as last_name,
        cp.region, cp.philosophy, cp.badges, cp.public_slug,
@@ -33,7 +35,9 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
        (select c2.name from membership m join club c2 on c2.id = m.club_id where m.person_id = p.id and m.role = 'coach' and m.ended_at is null limit 1) as coach_club,
        (select coalesce(json_agg(json_build_object('id', cr.id, 'title', cr.title, 'org', cr.org_name,
            'from', cr.started_year, 'to', cr.ended_year) order by cr.sort), '[]'::json)
-        from coach_role cr join coach_profile cp2 on cp2.id = cr.coach_profile_id where cp2.person_id = p.id) as roles
+        from coach_role cr join coach_profile cp2 on cp2.id = cr.coach_profile_id where cp2.person_id = p.id) as roles,
+       (select coalesce(json_agg(json_build_object('id', cc.id, 'url', cc.url, 'title', cc.title) order by cc.sort, cc.created_at), '[]'::json)
+        from coach_clip cc join coach_profile cp3 on cp3.id = cc.coach_profile_id where cp3.person_id = p.id) as clips
      from person p
      left join coach_profile cp on cp.person_id = p.id
      where p.id = $1`,
@@ -42,6 +46,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
   if (rows.length === 0) redirect('/signin');
   const c = rows[0];
   const roles: { id: string; title: string; org: string; from: string | null; to: string | null }[] = c.roles;
+  const clips: { id: string; url: string; title: string }[] = c.clips ?? [];
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -52,6 +57,9 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Five minutes. Edit anything later.</div>
         </div>
         {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Saved.{c.public_slug ? ` Live at pitchfootball.com.au/${c.public_slug}` : ''}</div>}
+        {clip === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give it a title, and a YouTube, Veo or Instagram link.</div>}
+        {clip === 'full' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That&rsquo;s {COACH_CLIP_CAP} clips — remove one to add another. A reel is a shortlist, not an archive.</div>}
+        {clip === 'noprofile' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Save your profile first, then add clips.</div>}
 
         <form action={saveCoachProfile} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -112,6 +120,42 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
             <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add a role</button>
           </form>
         </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={label}>Sessions &amp; clips · {clips.length} of {COACH_CLIP_CAP}</div>
+          {clips.map((v) => (
+            <div key={v.id} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{v.title}</div>
+                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.url}</div>
+              </div>
+              <form action={removeCoachClip.bind(null, v.id)}>
+                <button type="submit" style={{ height: 36, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 13px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+              </form>
+            </div>
+          ))}
+          {clips.length < COACH_CLIP_CAP && (
+            <form action={addCoachClip} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
+                <div style={label}>Title</div>
+                <input style={input} name="title" placeholder="U14 session — pressing patterns" required maxLength={80} />
+              </div>
+              <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
+                <div style={label}>Link</div>
+                <input style={input} name="url" placeholder="https://www.youtube.com/watch?v=…" required />
+              </div>
+              <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add a clip</button>
+              <div style={{ fontSize: 12, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                YouTube, Veo or Instagram. The video stays where it is — we keep the link, and nothing loads until someone presses play.
+              </div>
+              <div style={{ fontSize: 12, color: T.secondary, fontWeight: 500, lineHeight: 1.55, borderTop: `1px solid ${T.line}`, paddingTop: 9 }}>
+                <b style={{ color: T.ink }}>Title the session, never a child.</b> &ldquo;U14 session — pressing patterns&rdquo; is right; naming a player under 18 is not. You know what is in your own footage; we only ever see the title.
+              </div>
+            </form>
+          )}
+        </div>
+
+        <Link href="/jobs" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Coaching roles at clubs</Link>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={label}>Working With Children Check</div>

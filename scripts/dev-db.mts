@@ -247,6 +247,13 @@ await db.query(`insert into trial_notice (club_id,title,trial_on,time_venue,posi
   ($1,'U14 & U15 Boys trials','2026-10-11','Sun 9:00 AM · Riverside Park, Pitch 2',array['GK','CB'],'U15','boys','football@riversidefc.example.au'),
   ($1,'Girls U13–U16 trials','2026-10-18','Sun 10:00 AM · Riverside Park, Pitch 1',array[]::text[],'U16','girls','football@riversidefc.example.au')`, [riverside]);
 await db.query(`insert into players_wanted_notice (club_id,title,detail) values ($1,'U13 Boys — Goalkeeper','Train Tue & Thu · immediate start'),($1,'U16 Girls — 2 outfield spots','Season 2027 squad')`, [riverside]);
+// Coaching roles a club is hiring for (0019), and one coach clip on Sam's
+// profile. Titles describe the session, never a child.
+await db.query(`insert into coaching_role (club_id,title,age_group,detail,commitment,paid,posted_by) values
+  ($1,'Head Coach — U14 Boys','U14','Our U14s move up together next season and we want someone who will develop them rather than chase results. Sessions Tuesday and Thursday, games Sunday morning.','Tue & Thu, 6–7:30pm',true,$2),
+  ($1,'Assistant Coach — U13 Girls','U13','Supporting our U13 Girls head coach. Great for someone building their coaching CV — we will support your C Licence.','Wed 5–6:30pm',false,$2)`,
+  [riverside, td]);
+
 // Club video: a LINK, never a file (0018). Title is about the club, never
 // about a child — the alumni wall's rule, applied to video.
 await db.query(`insert into club_video (club_id,url,title,sort) values
@@ -261,6 +268,11 @@ await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,
 await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [sam, riverside, td]);
 const samProfile = randomUUID();
 await db.query(`insert into coach_profile (id, person_id, public_slug, region, philosophy, badges) values ($1,$2,'sam-kaya','Melbourne VIC','Possession with purpose. Every player touches the ball every drill, every session — confidence first, patterns second. Development over results at junior level, always.', array['AFC C Diploma'])`, [samProfile, sam]);
+// Coach clips (0019), capped at five. Titles describe the session, never a
+// child — the same rule as the alumni wall and the club video.
+await db.query(`insert into coach_clip (coach_profile_id, url, title, sort) values
+  ($1,'https://www.youtube.com/watch?v=dev-sam-1','U15 session — playing out from the back',0),
+  ($1,'https://www.youtube.com/watch?v=dev-sam-2','Rondo progressions, 12 minutes',1)`, [samProfile]);
 await db.query(`insert into coach_role (coach_profile_id, title, org_name, started_year, ended_year, sort) values
   ($1,'Head Coach · U15 Boys','Riverside FC','2024',null,0),
   ($1,'Assistant Coach · U14 Boys','Northern United SC','2021','2023',1),

@@ -1,0 +1,101 @@
+// The printable coaching CV (D-75, D-121). Free on every tier, for players
+// and coaches alike, and never drawn as a paid feature.
+//
+// A coach applying for a job in September attaches this to an email, and a
+// technical director prints it for a committee — so, like the player version,
+// this is a LIGHT surface. A dark page drinks ink.
+//
+// The coach's link is public and untokenised by design (D-100), so unlike the
+// player print view there is no token to check: if the profile is published,
+// this renders. Clips are listed as titles rather than embeds — nothing
+// third-party loads on a page meant for paper.
+import { notFound } from 'next/navigation';
+import { db } from '@/lib/db';
+import PrintButton from '@/app/p/[token]/print/PrintButton';
+
+export const dynamic = 'force-dynamic';
+export const metadata = { robots: { index: false, follow: false } };
+
+export default async function PrintCoachCv({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const { rows } = await db.query(
+    `select cp.id, cp.region, cp.philosophy, cp.badges, cp.public_slug,
+       p.first_name, coalesce(p.last_name,'') as last_name,
+       exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
+       (select coalesce(json_agg(json_build_object('title', title, 'org', org_name,
+           'from', started_year, 'to', ended_year) order by sort), '[]'::json)
+        from coach_role where coach_profile_id = cp.id) as roles,
+       (select coalesce(json_agg(json_build_object('title', cc.title) order by cc.sort), '[]'::json)
+        from coach_clip cc where cc.coach_profile_id = cp.id) as clips
+     from coach_profile cp join person p on p.id = cp.person_id
+     where cp.public_slug = $1`,
+    [slug],
+  );
+  if (rows.length === 0) notFound();
+  const c = rows[0];
+  const name = `${c.first_name} ${c.last_name}`.trim();
+  const roles: { title: string; org: string; from: string | null; to: string | null }[] = c.roles;
+  const clips: { title: string }[] = c.clips;
+  const badges: string[] = c.badges ?? [];
+
+  const kicker: React.CSSProperties = {
+    fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
+    color: '#5c6f65', marginBottom: 8,
+  };
+
+  return (
+    <div style={{ background: '#ffffff', color: '#0b120e', minHeight: '100dvh', padding: '32px 28px' }}>
+      <style>{`@media print { .no-print { display: none !important; } @page { margin: 14mm; } }`}</style>
+      <PrintButton />
+      <div style={{ maxWidth: 760, margin: '0 auto' }}>
+        <div style={{ borderBottom: '2px solid #0b120e', paddingBottom: 16, marginBottom: 22 }}>
+          <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.05 }}>{name}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#3a4a42', marginTop: 4 }}>
+            {[roles.find((r) => !r.to)?.title, roles.find((r) => !r.to)?.org, c.region].filter(Boolean).join(' · ')}
+          </div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#5c6f65', marginTop: 6 }}>
+            {[...badges, c.wwcc ? 'WWCC verified' : null].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+
+        {c.philosophy && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={kicker}>Coaching philosophy</div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.6 }}>{c.philosophy}</div>
+          </div>
+        )}
+
+        {roles.length > 0 && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={kicker}>Coaching history</div>
+            {roles.map((r) => (
+              <div key={`${r.title}-${r.org}-${r.from}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '8px 0', borderBottom: '1px solid #e6ece9' }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 800 }}>{r.title}</div>
+                  <div style={{ fontSize: 12, color: '#5c6f65', fontWeight: 500 }}>{r.org}</div>
+                </div>
+                <div style={{ fontSize: 12, color: '#5c6f65', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {r.from}{r.from && ' — '}{r.to ?? 'now'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {clips.length > 0 && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={kicker}>Sessions &amp; clips</div>
+            {clips.map((v) => (
+              <div key={v.title} style={{ fontSize: 13, padding: '5px 0', fontWeight: 500 }}>{v.title}</div>
+            ))}
+            <div style={{ fontSize: 11, color: '#5c6f65', marginTop: 6 }}>Watch these on the online version of this CV.</div>
+          </div>
+        )}
+
+        <div style={{ fontSize: 11.5, color: '#5c6f65', borderTop: '1px solid #e6ece9', paddingTop: 12 }}>
+          pitchfootball.com.au/{c.public_slug}
+        </div>
+      </div>
+    </div>
+  );
+}

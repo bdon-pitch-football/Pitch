@@ -74,6 +74,8 @@ export type ClubStatus = (typeof CLUB_STATUSES)[number];
 // generous one. Clips added while a minor are grandfathered permanently.
 export const CLIP_LIMIT_UNDER_18 = 10;
 export const CLIP_LIMIT_ADULT_FREE = 3;
+// A coach's reel is a shortlist, not an archive (BUZ, 7 Sep).
+export const COACH_CLIP_CAP = 5;
 
 // --- Experience entry kinds (D-72) ------------------------------------------
 // experience_entry grants access to NOBODY, ever: no FK to club, no permission

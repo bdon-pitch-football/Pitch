@@ -5,6 +5,7 @@
 // adults; there is no existence oracle to protect here.
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import ClipCard from '@/components/cv/ClipCard';
 import Wordmark from '@/components/Wordmark';
 
 const T = {
@@ -23,7 +24,9 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select coalesce(json_agg(json_build_object('title', title, 'org', org_name,
            'from', started_year, 'to', ended_year) order by sort), '[]'::json)
-        from coach_role where coach_profile_id = cp.id) as roles
+        from coach_role where coach_profile_id = cp.id) as roles,
+       (select coalesce(json_agg(json_build_object('url', cc.url, 'title', cc.title) order by cc.sort, cc.created_at), '[]'::json)
+        from coach_clip cc where cc.coach_profile_id = cp.id) as clips
      from coach_profile cp join person p on p.id = cp.person_id
      where cp.public_slug = $1`,
     [slug],
@@ -34,6 +37,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
   const initials = `${c.first_name[0]}${c.last_name[0] ?? ''}`;
   const roles: { title: string; org: string; from: string | null; to: string | null }[] = c.roles;
   const current = roles.find((r) => !r.to);
+  const clips: { url: string; title: string }[] = c.clips;
 
   const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
@@ -106,6 +110,17 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Public coaching CV link</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{c.public_slug}</div>
         </div>
+
+        {clips.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={label}>Sessions &amp; clips</div>
+            {clips.map((v, i) => (
+              <ClipCard key={v.url} title={v.title} url={v.url} gradientAlt={i % 2 === 1} sub="Nothing loads until you press play" />
+            ))}
+          </div>
+        )}
+
+        <a href={`/c/${c.public_slug}/print`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Print or save as PDF</a>
 
         <a href={`/report?kind=coach_cv`} style={{ fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
