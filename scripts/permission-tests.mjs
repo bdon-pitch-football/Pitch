@@ -52,6 +52,20 @@ const codeOnly = (src) => src
   .replace(/^\s*\/\/.*$/gm, '')
   .replace(/\/\/.*$/gm, '');
 
+// Every file under app/, walked once. Route ENUMERATION is how several of
+// doc 14's rows are specified — the absence of a route is the assertion —
+// so more than one table needs this list.
+const routeFiles = [];
+(function walk(d) {
+  for (const e of readdirSync(d, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+    const full = join(d, e.name);
+    if (e.isDirectory()) walk(full);
+    else if (/\.(ts|tsx)$/.test(e.name)) routeFiles.push(full);
+  }
+})(fileURLToPath(new URL('../app', import.meta.url)));
+
+
 // ---------------------------------------------------------------------------
 // Fixture world (doc 16): Riverside FC (verified), an UNVERIFIED club, the
 // three players + an adult player, and every actor doc 14 names.
@@ -433,6 +447,85 @@ await db.query(`delete from registration where id in ($1, $2)`, [unfiled, regFil
 await db.query(`update club set subscription_status=null where id=$1`, [CLUB.riverside]);
 
 // ---------------------------------------------------------------------------
+// Table J (the negative suite) — the rows that exist to be tried and to fail.
+// ---------------------------------------------------------------------------
+
+// J49 — the row the whole verification decision exists to prevent.
+const j49 = crypto.randomUUID();
+await db.query(`insert into club (id, name, club_state) values ($1,'Webhook FC','claimed')`, [j49]);
+await expectFail('J49: a webhook payload cannot set verified',
+  `update club set club_state = 'verified' where id = '${j49}'`);
+await expectFail('J49b: nor can it forge a call id that does not exist',
+  `update club set club_state = 'verified', verified_call_id = '${crypto.randomUUID()}' where id = '${j49}'`);
+
+// J50 — the predicate is in the QUERY, not the controller. If it were in the
+// app, joining around it would work.
+const regRowsSrc = (await db.query(`select prosrc from pg_proc where proname='fn_register_rows'`)).rows[0].prosrc;
+check('J50: the verified predicate lives inside the function',
+  /club_state = 'verified'/.test(regRowsSrc), true);
+
+// J52 — the constraint, not a check somewhere upstream.
+await expectFail('J52: the constraint itself refuses a fourth status',
+  `insert into registration (player_id, club_id, club_status, policy_version)
+   values ('${ID.marcus}', '${CLUB.riverside}', 'declined', '20@v2.4')`);
+
+// J53 — no billing route is reachable by a family actor.
+const billingRoutes = routeFiles.filter((f) => /\/(billing|checkout|portal|invoice)\//i.test(f));
+for (const f of billingRoutes) {
+  const rel = f.split('/app/')[1];
+  const src = readFileSync(f, 'utf8');
+  check(`J53: ${rel} is club-scoped, unreachable as a family actor`,
+    /technical_director|club_admin|stripe_event|OPS_EMAILS/.test(src), true);
+}
+
+// J54 — deletion has no caller in the dunning path.
+const j54Src = (await db.query(`select prosrc from pg_proc where proname='fn_apply_subscription'`)).rows[0].prosrc;
+check('J54: no dunning code path deletes a registration',
+  /delete\s+from\s+registration/i.test(codeOnly(j54Src)), false);
+
+// J55 — read and lapsed are unreachable as a club actor. Already asserted on
+// the function; asserted here on the club-facing page too.
+const registerPage = codeOnly(readFileSync(fileURLToPath(new URL('../app/club/register/page.tsx', import.meta.url)), 'utf8'));
+check('J55: the club register page never reads an invitation read state',
+  /read_at|lapsed/.test(registerPage), false);
+
+// J56 — an invitation is one object, not a conversation.
+const invRoutes = routeFiles.filter((f) => /invitation.*(reply|thread|message)/i.test(f));
+check('J56: no route appends a second club message to an invitation', invRoutes.length, 0);
+
+// J57 — a club holding a valid token gets the APPROVED version, and the
+// pending text appears nowhere. Deniz has a pending edit in the fixture.
+const tokenReadSrc = (await db.query(`select prosrc from pg_proc where proname='fn_token_read'`)).rows[0].prosrc;
+check('J57: the token path selects the approved version explicitly',
+  /status = 'approved'/.test(tokenReadSrc), true);
+check('J57b: and never reads a pending one', /'pending'/.test(codeOnly(tokenReadSrc)), false);
+
+// J58 — silence never approves. Assert by scheduler enumeration.
+const dailyJob = codeOnly(readFileSync(fileURLToPath(new URL('../app/api/jobs/daily/route.ts', import.meta.url)), 'utf8'));
+check('J58: no scheduled job approves a pending version',
+  /approvePendingVersion|status\s*=\s*'approved'/.test(dailyJob), false);
+
+// J59/Q1 — no share-card artefact exists before approval.
+await expectFail('J59: a card cannot hold a storage path before approval',
+  `insert into share_card_approval (record_id, requested_by, card_kind, storage_path)
+   values ('${REC.nate}','${ID.nate}','og','cards/nate.png')`);
+
+// J60 — the card carries no resolving URL back to the record.
+const j60Src = readFileSync(fileURLToPath(new URL('../app/p/[token]/opengraph-image.tsx', import.meta.url)), 'utf8');
+check('J60: the under-18 card body contains no record URL',
+  /pitchfootball\.com\.au\/p\/|href=/.test(codeOnly(j60Src)), false);
+
+// J61 — a withdrawn registration is indistinguishable from one that never
+// existed: the club sees a count and a list, and neither carries a gap.
+const j61Before = (await db.query('select fn_register_count($1,$2) as n', [ID.td, CLUB.riverside])).rows[0].n;
+const j61Reg = crypto.randomUUID();
+await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`,
+  [j61Reg, ID.marcus, CLUB.riverside]);
+await db.query(`select fn_withdraw_registration($1,$2)`, [ID.marcus, j61Reg]);
+check('J61: a withdrawn registration leaves the count exactly as it was',
+  (await db.query('select fn_register_count($1,$2) as n', [ID.td, CLUB.riverside])).rows[0].n, j61Before);
+
+// ---------------------------------------------------------------------------
 // Tables N, O, C and I — the register payload, billing, contact, deletion.
 // ---------------------------------------------------------------------------
 
@@ -517,15 +610,6 @@ check('O5b: and it is a scheduled job, not a person with a button',
 // ---- Table C: contact ---------------------------------------------------
 // C1/C2 — no route accepts a minor as a message recipient. Route enumeration,
 // not a permission check.
-const routeFiles = [];
-(function walk(d) {
-  for (const e of readdirSync(d, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
-    const full = join(d, e.name);
-    if (e.isDirectory()) walk(full);
-    else if (/\.(ts|tsx)$/.test(e.name)) routeFiles.push(full);
-  }
-})(fileURLToPath(new URL('../app', import.meta.url)));
 const messageRoutes = routeFiles.filter((f) => /\/(message|dm|chat|inbox)\//i.test(f));
 check('C1/C2: no message, DM, chat or inbox route exists at all', messageRoutes.length, 0);
 
