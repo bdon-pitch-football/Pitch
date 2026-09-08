@@ -311,7 +311,8 @@ export default async function ClubPage({ params, searchParams }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={label}>Club video</div>
             {videos.map((v, i) => (
-              <ClipCard key={v.url} title={v.title} url={v.url} gradientAlt={i % 2 === 1} sub="Nothing loads until you press play" />
+              <ClipCard key={v.url} title={v.title} url={v.url} gradientAlt={i % 2 === 1}
+                sub={i === 0 ? 'Nothing loads until you press play' : undefined} />
             ))}
           </div>
         )}

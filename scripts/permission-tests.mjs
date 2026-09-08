@@ -1875,6 +1875,37 @@ for (const [what, file] of [['crest', '../app/club/page-edit/crest/route.ts'], [
     /technical_director','club_admin'/.test(src), true);
 }
 
+// Every image a person uploads goes through the same door, and the coach
+// photo is the newest of them. Coaches were the only profile with no photo
+// at all; the route is the player photo route's twin and has to keep its
+// controls rather than inherit them by resemblance.
+for (const [what, file] of [['player photo', '../app/build/[recordId]/photo/route.ts'],
+                            ['coach photo', '../app/coach/edit/photo/route.ts']]) {
+  const src = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
+  check(`D-94 §7: the ${what} is re-encoded server-side, never served as uploaded`,
+    /sharp\(/.test(src) && /toBuffer\(\)/.test(src), true);
+  check(`D-94 §7: the ${what} upload is size-capped`, /MAX_BYTES/.test(src), true);
+  check(`D-94 §3: the ${what} route takes no person id from the caller`,
+    /getSessionPersonId|recordActor/.test(src), true);
+}
+// A POST answered with a redirect() gets a 307, which re-POSTs the upload at
+// the destination. Every upload route has to answer 303.
+for (const f of ['../app/build/[recordId]/photo/route.ts', '../app/coach/edit/photo/route.ts',
+                 '../app/club/page-edit/crest/route.ts', '../app/club/page-edit/banner/route.ts']) {
+  const src = readFileSync(fileURLToPath(new URL(f, import.meta.url)), 'utf8');
+  check(`D-94 §7: ${f.split('/').slice(-3, -1).join('/')} refuses with a 303, not a 307`,
+    /redirect\(new URL\([^)]*\), 303\)/.test(src), true);
+}
+
+// The coach page's crest is a claim Pitch stands behind, so it comes off a
+// live coaching MEMBERSHIP — never off coach_role.org_name, which is free
+// text that grants nothing and could name any club in the country.
+const coachCvSrc = readFileSync(fileURLToPath(new URL('../app/c/[slug]/page.tsx', import.meta.url)), 'utf8');
+check('coach1: the club crest comes from membership, not from the typed role',
+  /from membership m join club c2/.test(coachCvSrc), true);
+check('coach2: and it only renders when the held club is the one on the page',
+  /held\.name === current\?\.org/.test(coachCvSrc), true);
+
 // ---------------------------------------------------------------------------
 // Coach clips and the coaching jobs board (0019).
 // ---------------------------------------------------------------------------

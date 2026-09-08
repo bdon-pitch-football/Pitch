@@ -22,13 +22,13 @@ const card: React.CSSProperties = { background: T.surface, border: `1px solid ${
 const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
-export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; removed?: string }> }) {
+export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; removed?: string }> }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
-  const { saved, clip } = await searchParams;
+  const { saved, clip, photo } = await searchParams;
   const { rows } = await db.query(
-    `select p.first_name, coalesce(p.last_name,'') as last_name, cp.public_contact,
+    `select p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, cp.public_contact,
        cp.region, cp.philosophy, cp.badges, cp.public_slug,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select c.name from wwcc_attestation w join club c on c.id = w.club_id where w.person_id = p.id and w.revoked_at is null limit 1) as wwcc_club,
@@ -58,6 +58,34 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
         </div>
         {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Saved.{c.public_slug ? ` Live at pitchfootball.com.au/${c.public_slug}` : ''}</div>}
         {clip === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give it a title, and a YouTube, Veo or Instagram link.</div>}
+        {photo === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A PNG or JPEG under 8MB.</div>}
+
+        {/* Coaches were the only profile in the product with no photo at all
+            — players have one, clubs have a crest and a banner, and a coach
+            rendered initials. They are adults publishing their own likeness
+            on their own CV, which is the least fraught photo here. */}
+        <form action="/coach/edit/photo" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>Your photo</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 66, height: 66, borderRadius: 20, background: T.surface2, border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+              {c.photo_path
+                ? <img src={c.photo_path} alt="" width={66} height={66} style={{ objectFit: 'cover' }} />
+                : <span style={{ fontWeight: 900, fontSize: 22, color: T.muted }}>{`${c.first_name[0] ?? ''}${c.last_name[0] ?? ''}`}</span>}
+            </div>
+            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+              {c.photo_path ? 'Upload another to replace it.' : 'No photo yet — your page shows your initials until you add one.'}
+            </div>
+          </div>
+          <label className="filefield">
+            <input type="file" name="photo" accept="image/png,image/jpeg,image/webp" required />
+            <span className="filefield-title">Choose a photo</span>
+            <span className="filefield-hint">PNG or JPEG, under 8MB. Cropped square.</span>
+          </label>
+          <button type="submit" className="btn btn-secondary">Save the photo</button>
+          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+            We re-save the image ourselves, which removes any location data the file was carrying. A head-and-shoulders shot works best — it is cropped to a square.
+          </div>
+        </form>
         {clip === 'full' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That&rsquo;s {COACH_CLIP_CAP} clips — remove one to add another. A reel is a shortlist, not an archive.</div>}
         {clip === 'noprofile' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Save your profile first, then add clips.</div>}
 
@@ -162,6 +190,16 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
             </form>
           )}
         </div>
+
+        {/* This card used to sit on the PUBLIC page, where it is furniture for
+            the coach and noise for whoever is reading them — and it was
+            duplicated there by a "Copy this link" button. It belongs here. */}
+        {c.public_slug && (
+          <Link href={`/c/${c.public_slug}`} className="lift" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'center', textDecoration: 'none' }}>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your public coaching CV</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{c.public_slug}</div>
+          </Link>
+        )}
 
         <Link href="/jobs" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Coaching roles at clubs</Link>
 

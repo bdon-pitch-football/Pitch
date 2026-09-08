@@ -22,7 +22,15 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
   const { slug } = await params;
   const { rows } = await db.query(
     `select cp.id, cp.region, cp.philosophy, cp.badges, cp.public_slug, cp.public_contact,
-       p.first_name, coalesce(p.last_name,'') as last_name,
+       p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path,
+       -- The crest comes from MEMBERSHIP, never from coach_role.org_name:
+       -- a role is free text that grants nothing (0006, the same discipline
+       -- as D-72), so a coach could type any club's name. A badge is a claim
+       -- Pitch stands behind, so it only renders for the club we actually
+       -- hold a live coaching membership at.
+       (select json_build_object('name', c2.name, 'crest', c2.crest_path)
+        from membership m join club c2 on c2.id = m.club_id
+        where m.person_id = p.id and m.role = 'coach' and m.ended_at is null limit 1) as held_club,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select coalesce(json_agg(json_build_object('title', title, 'org', org_name,
            'from', started_year, 'to', ended_year) order by sort), '[]'::json)
@@ -45,6 +53,13 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
   const firstYear = roles.map((r) => Number(r.from)).filter((n) => Number.isFinite(n) && n > 1900).sort()[0];
   const yearsCoaching = firstYear ? new Date().getFullYear() - firstYear : 0;
   const clips: { url: string; title: string }[] = c.clips;
+  const held: { name: string; crest: string | null } | null = c.held_club;
+  // Distinct clubs across the whole record — a number a club weighs, and one
+  // we already hold. Free-text org names, so compared as the coach wrote them.
+  const clubCount = new Set(roles.map((r) => r.org).filter(Boolean)).size;
+  // The crest only belongs next to the club line when the club named there is
+  // the one we hold the membership at. Otherwise it is a badge on a claim.
+  const showCrest = Boolean(held?.crest && held.name === current?.org);
 
   // L48-L51. The contact route is rendered for anonymous visitors and for
   // signed-in adults, and is ABSENT FROM THE RESPONSE BODY for a signed-in
@@ -67,13 +82,44 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
 
         <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ width: 66, height: 66, borderRadius: 20, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24 }}>{initials}</div>
+            {c.photo_path ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={c.photo_path} alt="" width={84} height={84} style={{ width: 84, height: 84, borderRadius: 22, objectFit: 'cover', border: '1.5px solid rgba(255,255,255,.2)' }} />
+            ) : (
+              <div style={{ width: 84, height: 84, borderRadius: 22, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 30 }}>{initials}</div>
+            )}
             <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)' }}>Coach</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{name}</div>
             {current && <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 500 }}>{current.title}</div>}
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,.62)', fontWeight: 500 }}>{[current?.org, c.region].filter(Boolean).join(' · ')}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              {showCrest && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={held!.crest!} alt="" width={24} height={24} style={{ objectFit: 'contain', flexShrink: 0 }} />
+              )}
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.62)', fontWeight: 500 }}>{[current?.org, c.region].filter(Boolean).join(' · ')}</div>
+            </div>
+            {/* Years coaching was 12px muted text at the foot of a card below
+                the fold — the single number a club hires on. The hero had the
+                room and was doing the least with it of the three profile
+                types. Both figures come off the record already. */}
+            {(yearsCoaching > 0 || clubCount > 1) && (
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22, marginTop: 12, flexWrap: 'wrap' }}>
+                {yearsCoaching > 0 && (
+                  <div>
+                    <div className="numeral numeral-m" style={{ color: '#eef5f0' }}>{yearsCoaching}</div>
+                    <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Years coaching</div>
+                  </div>
+                )}
+                {clubCount > 1 && (
+                  <div>
+                    <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{clubCount}</div>
+                    <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Clubs</div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {(c.badges as string[]).map((b) => (
@@ -109,9 +155,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
             <div className="card card-accent" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>{current.title}</div>
               <div style={{ fontSize: 13.5, color: 'var(--secondary)', fontWeight: 700 }}>{current.org}</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
-                Since {current.from}{yearsCoaching ? ` · ${yearsCoaching} years coaching` : ''}
-              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>Since {current.from}</div>
             </div>
           ) : (
             <div className="card-sunken" style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>
@@ -139,26 +183,28 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
           )}
         </div>
 
+        {/* The clips are the closest thing to watching this coach work, and
+            they sat UNDER an address card the coach already has in their own
+            editor. Content first; the roadmap footnote after it, not before. */}
+        {clips.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={label}>Sessions &amp; clips</div>
+            {/* The reassurance belongs on the first card. Repeated under every
+                card it stops being reassurance and starts being wallpaper —
+                the same thing the player CV was doing with its clips. */}
+            {clips.map((v, i) => (
+              <ClipCard key={v.url} title={v.title} url={v.url} gradientAlt={i % 2 === 1}
+                sub={i === 0 ? 'Nothing loads until you press play' : undefined} />
+            ))}
+          </div>
+        )}
+
         {/* Was a card competing with the history. It is a footnote about
             something that has not happened yet, so it reads as one. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
           <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--amber)', flexShrink: 0 }} />
           Players developed and improvement delivered arrive here in December.
         </div>
-
-        <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Public coaching CV link</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{c.public_slug}</div>
-        </div>
-
-        {clips.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={label}>Sessions &amp; clips</div>
-            {clips.map((v, i) => (
-              <ClipCard key={v.url} title={v.title} url={v.url} gradientAlt={i % 2 === 1} sub="Nothing loads until you press play" />
-            ))}
-          </div>
-        )}
 
         {showContact && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

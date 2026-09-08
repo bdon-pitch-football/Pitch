@@ -338,6 +338,26 @@ const sam = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Sam','Kaya','1988-02-02','coach@example.com')`, [sam]);
 await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'coach')`, [sam, riverside]);
 await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [sam, riverside, td]);
+// A photo, so the coach hero can be judged with a face in it rather than
+// initials. Put through sharp at the same 512 square the upload route uses.
+// The source is our own brand photography — it is not a real coach's
+// likeness attached to a real name, and it is a local fixture only.
+{
+  const sharp = (await import('sharp')).default;
+  const out = await sharp(fileURLToPath(new URL('../public/assets/film-4.webp', import.meta.url)))
+    // Explicit crop, because sharp's attention heuristic picked the players
+    // behind him and produced a team photo where a portrait belongs.
+    .extract({ left: 430, top: 40, width: 560, height: 560 })
+    .resize(512, 512, { fit: 'cover' })
+    .jpeg({ quality: 86 })
+    .toBuffer();
+  const pub = fileURLToPath(new URL('../public/', import.meta.url));
+  const rel = `/dev-uploads/coach-${sam}.jpg`;
+  mkdirSync(join(pub, 'dev-uploads'), { recursive: true });
+  writeFileSync(join(pub, rel.slice(1)), out);
+  await db.query(`update person set photo_path = $2 where id = $1`, [sam, rel]);
+}
+
 const samProfile = randomUUID();
 await db.query(`insert into coach_profile (id, person_id, public_slug, region, philosophy, badges) values ($1,$2,'sam-kaya','Melbourne VIC','Possession with purpose. Every player touches the ball every drill, every session — confidence first, patterns second. Development over results at junior level, always.', array['AFC C Diploma'])`, [samProfile, sam]);
 // Coach clips (0019), capped at five. Titles describe the session, never a
