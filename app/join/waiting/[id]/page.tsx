@@ -85,7 +85,7 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
           <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted }}>Wrong number? Change who we ask</div>
         </div>
 
-        <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>If nobody approves it within <b style={{ color: T.secondary }}>14 days</b> we delete all of it — the page, the photo, the clips. You can start again any time.</div>
         </div>

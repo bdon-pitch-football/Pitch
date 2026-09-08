@@ -77,7 +77,7 @@ export default async function Squads({ searchParams }: {
           </div>
         </div>
 
-        <div style={{ background: 'rgba(61,220,132,.07)', border: `1px solid ${T.line}`, borderRadius: 12, padding: '11px 13px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+        <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
           These are the squads families choose from when they register interest, and the groups your register is sorted into. Add the ones you actually run — anything from MiniRoos to under 23s.
         </div>
 

@@ -96,6 +96,29 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
             <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{c.name}</div>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 500 }}>{[c.established ? `Est. ${c.established}` : null, [c.suburb, c.state].filter(Boolean).join(' ')].filter(Boolean).join(' · ')}</div>
             {c.pathway_line && <div style={{ fontSize: 13, color: 'rgba(255,255,255,.62)', fontWeight: 500 }}>{c.pathway_line}</div>}
+            {/* The hero had the most room on the page and did the least with
+                it. These are facts a family actually weighs, and we hold them
+                already. */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22, marginTop: 12, flexWrap: 'wrap' }}>
+              {squads.length > 0 && (
+                <div>
+                  <div className="numeral numeral-m" style={{ color: '#eef5f0' }}>{squads.length}</div>
+                  <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Squads</div>
+                </div>
+              )}
+              {squads.filter((q) => ['girls', 'women'].includes(q.gender)).length > 0 && (
+                <div>
+                  <div className="numeral numeral-m" style={{ color: '#eef5f0' }}>{squads.filter((q) => ['girls', 'women'].includes(q.gender)).length}</div>
+                  <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Girls &amp; women</div>
+                </div>
+              )}
+              {trials.length > 0 && (
+                <div>
+                  <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{trials.length}</div>
+                  <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Trials coming</div>
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ display: 'flex' }}>
             {c.club_state === 'verified' ? (

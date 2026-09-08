@@ -39,6 +39,11 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
   const initials = `${c.first_name[0]}${c.last_name[0] ?? ''}`;
   const roles: { title: string; org: string; from: string | null; to: string | null }[] = c.roles;
   const current = roles.find((r) => !r.to);
+  const past = roles.filter((r) => r.to);
+  // Years coaching, from the earliest role on the record. A number a club
+  // actually cares about, and one we already hold.
+  const firstYear = roles.map((r) => Number(r.from)).filter((n) => Number.isFinite(n) && n > 1900).sort()[0];
+  const yearsCoaching = firstYear ? new Date().getFullYear() - firstYear : 0;
   const clips: { url: string; title: string }[] = c.clips;
 
   // L48-L51. The contact route is rendered for anonymous visitors and for
@@ -93,30 +98,52 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={label}>Coaching history</div>
-          {roles.map((r) => (
-            <div key={r.title + r.org} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 800 }}>{r.title}</div>
-                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{r.org} · {r.from} — {r.to ?? 'now'}</div>
+        {/* The history was six identical boxes: a role Sam left in 2021 looked
+            exactly like the one he holds now. The current role is promoted to
+            a card of its own; everything before it becomes a quiet timeline
+            with a rule down the side, because it is context rather than
+            headline. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="kicker">Coaching now</div>
+          {current ? (
+            <div className="card card-accent" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>{current.title}</div>
+              <div style={{ fontSize: 13.5, color: 'var(--secondary)', fontWeight: 700 }}>{current.org}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
+                Since {current.from}{yearsCoaching ? ` · ${yearsCoaching} years coaching` : ''}
               </div>
-              {!r.to && <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.accent }}>Current</div>}
             </div>
-          ))}
+          ) : (
+            <div className="card-sunken" style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>
+              Not currently attached to a club.
+            </div>
+          )}
+
+          {past.length > 0 && (
+            <>
+              <div className="kicker" style={{ marginTop: 4 }}>Before that</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingLeft: 14, borderLeft: '2px solid var(--line)' }}>
+                {past.map((r) => (
+                  <div key={r.title + r.org + r.from} style={{ padding: '9px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--secondary)' }}>{r.title}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{r.org}</div>
+                    </div>
+                    <div className="tnum" style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {r.from} — {r.to}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={{ display: 'flex' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(237,161,0,.12)', borderRadius: 999, padding: '4px 10px' }}>
-              <div style={{ width: 6, height: 6, borderRadius: 999, background: T.amber }} />
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.amber }}>Coming December</div>
-            </div>
-          </div>
-          <div style={{ background: T.surface, borderRadius: 13, padding: '13px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 13, color: T.secondary, fontWeight: 700 }}>Players developed · improvement delivered</div>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', color: T.accent }}>DEC</div>
-          </div>
+        {/* Was a card competing with the history. It is a footnote about
+            something that has not happened yet, so it reads as one. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--amber)', flexShrink: 0 }} />
+          Players developed and improvement delivered arrive here in December.
         </div>
 
         <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>

@@ -194,8 +194,10 @@ export default async function Register({ searchParams }: {
               <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>Every under-16 here was put on this register by a parent.</div>
             </div>
 
-            {/* Filters. A link, not a control — the filtered view has its own URL. */}
-            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+            {/* Filters. A link, not a control — the filtered view has its own
+                URL. Sticky on desktop: scrolling ninety-nine rows should not
+                cost you the controls that narrowed them. */}
+            <div className="console-filters" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Which age group</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
@@ -258,7 +260,7 @@ export default async function Register({ searchParams }: {
 
                 {/* desktop console table (D-147) */}
                 <div className="d-only" style={{ ...card, padding: '6px 16px', flexDirection: 'column' }}>
-                  <div className="console-row d-only" style={{ borderBottom: `1px solid ${T.line}`, padding: '9px 0' }}>
+                  <div className="console-row console-head d-only" style={{ borderBottom: `1px solid ${T.line}`, padding: '9px 0' }}>
                     {['Player', 'Their line', 'Status', '', ''].map((h, i) => (
                       <div key={i} style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>{h}</div>
                     ))}
@@ -266,7 +268,7 @@ export default async function Register({ searchParams }: {
                   {b.rows.map((r) => {
                     const chip = STATUS_CHIP[r.club_status];
                     return (
-                      <div key={r.registration_id} className="console-row d-only" style={{ borderTop: `1px solid ${T.surface2}` }}>
+                      <div key={r.registration_id} className="console-row console-row-hover d-only" style={{ borderTop: `1px solid ${T.surface2}` }}>
                         <div>
                           <div style={{ fontSize: 14.5, fontWeight: 800 }}>{r.player_first_name}</div>
                           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
@@ -327,7 +329,7 @@ export default async function Register({ searchParams }: {
               </div>
             ))}
 
-            <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+            <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
               <b style={{ color: T.ink }}>There is no download.</b> The register lives here, and a family who switches their link off disappears from it the same minute. A spreadsheet on someone&rsquo;s laptop could not do that.
             </div>
             <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>

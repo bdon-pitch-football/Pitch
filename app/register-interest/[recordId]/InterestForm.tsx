@@ -108,7 +108,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions }: {
               <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>You&rsquo;re under 16, so we ask your parent to read it and press send. It&rsquo;s the same for every club.</div>
             </div>
           </div>
-          <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
             <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>Being on a register isn&rsquo;t a trial spot and it isn&rsquo;t a decision, so there is nothing here to be turned down from. You stay on it until you take yourself off — this season, and the next one.</div>
           </div>

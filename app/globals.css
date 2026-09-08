@@ -146,11 +146,11 @@ button:active, a[href]:active { transform: scale(.975); }
 .console { width: 100%; max-width: 560px; }
 .d-only { display: none; }
 @media (min-width: 1024px) {
-  .console { max-width: 1100px; }
+  .console { max-width: 1200px; }
   .m-only { display: none !important; }
   .d-only { display: grid; }
   .console-row {
-    grid-template-columns: 1fr 220px 130px 150px 300px;
+    grid-template-columns: minmax(170px, 1fr) minmax(200px, 1.6fr) 120px 150px 230px;
     align-items: center; gap: 16px; padding: 13px 0;
   }
 }
@@ -348,3 +348,39 @@ button:active, a[href]:active { transform: scale(.975); }
 @media (min-width: 1024px) {
   .reading { max-width: 640px; }
 }
+
+/* ===========================================================================
+   THE DESKTOP CONSOLE.
+   
+   The Interest Register at 1200px was a plain table, and it is the screen the
+   person who pays us stares at longest. Rows need somewhere for the eye to
+   rest, the filters need to stay put while you scroll a hundred families, and
+   an action should announce itself on the row it belongs to.
+   =========================================================================== */
+@media (min-width: 1024px) {
+  /* Filters stay put. Scrolling ninety-nine rows should not cost you the
+     controls that narrowed them. */
+  .console-filters {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    padding-bottom: 10px;
+  }
+
+  /* A row you can track across. The hover is deliberately quiet — this is a
+     list of children, not a shopping cart. */
+  .console-row-hover { transition: background .14s var(--ease); border-radius: var(--r-well); }
+  .console-row-hover:hover { background: var(--surface-2); }
+
+  /* Column rhythm: the name anchors left, the line breathes, status and
+     actions hold a fixed width so they line up down the page. */
+  .console-row { padding: 14px 10px; }
+  .console-head {
+    position: sticky; top: 92px; z-index: 4;
+    background: var(--surface);
+  }
+}
+
+/* A quiet divider that does not compete with the row content. */
+.rule { height: 1px; background: var(--line); border: none; margin: 0; }

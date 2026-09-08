@@ -75,7 +75,7 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
             <div style={card}><textarea name="how" rows={2} placeholder="Turn up 15 minutes early. Boots, shin pads, water. Registration at the clubhouse." style={{ ...input, fontWeight: 500, fontSize: 13.5, lineHeight: 1.5, resize: 'vertical' }} /></div>
             <div style={card}><div className="field-label">Where CVs should go</div><input style={{ ...input, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13.5, fontWeight: 500 }} name="cv_email" type="email" defaultValue={c.contact_email ?? ''} placeholder="football@yourclub.com.au" /></div>
           </div>
-          <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>
             <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>It comes down by itself the day after the trial, so nobody turns up to something that already happened. Players who want to be seen beforehand send their CV to the address above — it arrives as an ordinary email with a link.</div>
           </div>

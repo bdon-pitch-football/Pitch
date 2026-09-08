@@ -102,7 +102,7 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
               <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>The receipt is addressed to the club, not to you, so it can be reimbursed without an argument.</div>
             </div>
 
-            <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+            <div className="card-sunken" style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
               Paying does not verify your club and cannot. Nothing about a player under 18 reaches you until we have spoken to someone at the club by phone.
             </div>
 

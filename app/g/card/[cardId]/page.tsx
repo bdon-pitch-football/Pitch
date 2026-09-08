@@ -56,7 +56,7 @@ export default async function CardApproval({ params, searchParams }: {
 
         {!done ? (
           <>
-            <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+            <div className="card-sunken" style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
               If you approve it, {name} can save it and post it wherever they like. <b style={{ color: T.ink }}>Once it&rsquo;s out, we can&rsquo;t take it back</b> — that&rsquo;s true of any image on any platform, and we&rsquo;d rather say so than pretend we have a switch we don&rsquo;t have.
             </div>
             <form action={approveCard.bind(null, cardId)} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>

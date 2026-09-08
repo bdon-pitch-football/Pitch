@@ -104,7 +104,7 @@ export default async function GuardianInvite({ params, searchParams }: {
                 <textarea name="note" rows={3} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
               </div>
             </div>
-            <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>The moment you hand over a phone number, that part of the conversation leaves Pitch and we cannot switch it off for you. {name}&rsquo;s CV link is separate — you keep that control whatever you do here.</div>
             </div>
@@ -160,7 +160,7 @@ export default async function GuardianInvite({ params, searchParams }: {
           <a href={`/g/invite/${invitationId}?reply=1`} className="btn btn-primary">Reply to {r.club_name}</a>
           <div style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>Not this time</div>
         </div>
-        <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>&ldquo;Not this time&rdquo; does not remove {name} from their register and does not count against {name === 'Georgia' ? 'her' : 'him'}. It closes this one invitation, and the club is simply not told.</div>
         </div>

@@ -145,7 +145,7 @@ export default async function ClubRoles({ searchParams }: {
           </div>
         ))}
 
-        <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+        <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.55 }}>
           You get each coach&rsquo;s CV and what they wrote. You do not get a phone number or an email unless they chose to put one in their message.
         </div>
         <Link href="/home" className="btn btn-ghost">Back</Link>

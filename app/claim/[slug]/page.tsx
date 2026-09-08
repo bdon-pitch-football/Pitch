@@ -99,7 +99,7 @@ export default async function ClaimClub({ params, searchParams }: {
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>We send a code to the address on your club&rsquo;s own public listing. If you don&rsquo;t have access to it, we&rsquo;ll call the club instead — tell us below and we&rsquo;ll sort it out.</div>
           </div>
-          <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
             <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Claiming gets you the page and trial notices. <b style={{ color: T.ink }}>Verified status is separate</b> — a person here checks your club against Football Victoria&rsquo;s register, and it&rsquo;s what unlocks anything to do with players.</div>
           </div>

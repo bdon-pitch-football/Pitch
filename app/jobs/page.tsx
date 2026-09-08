@@ -39,11 +39,31 @@ export default async function Jobs() {
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
-        <div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Coaching roles</div>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>
-            Clubs looking for coaches. Newest first — nothing here is ranked or recommended.
+        {/* The board opened with a title and then two cards in a lot of empty
+            space. The number of open roles IS the news on this page. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>Coaching roles</div>
+            <div style={{ fontSize: 13.5, color: 'var(--secondary)', fontWeight: 500 }}>
+              Clubs looking for coaches. Newest first — nothing here is ranked or recommended.
+            </div>
           </div>
+          {roles.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
+              <div>
+                <div className="numeral numeral-l" style={{ color: 'var(--ink)' }}>{roles.length}</div>
+                <div className="kicker" style={{ marginTop: 6 }}>{roles.length === 1 ? 'Open role' : 'Open roles'}</div>
+              </div>
+              <div>
+                <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{roles.filter((r) => r.paid).length}</div>
+                <div className="kicker" style={{ marginTop: 6 }}>Paid</div>
+              </div>
+              <div>
+                <div className="numeral numeral-m" style={{ color: 'var(--secondary)' }}>{new Set(roles.map((r) => r.club)).size}</div>
+                <div className="kicker" style={{ marginTop: 6 }}>Clubs</div>
+              </div>
+            </div>
+          )}
         </div>
 
         {roles.length === 0 ? (
@@ -67,7 +87,7 @@ export default async function Jobs() {
           </Link>
         ))}
 
-        <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+        <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.55 }}>
           Applying sends the club your coaching CV and whatever you write. It does not send them your phone number or your email — if you want to be reached that way, say so in your message.
         </div>
         <Link href="/home" className="btn btn-ghost">Back</Link>
