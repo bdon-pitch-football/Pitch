@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export default async function CoachCv({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { rows } = await db.query(
-    `select cp.id, cp.region, cp.philosophy, cp.badges, cp.public_slug, cp.public_contact,
+    `select cp.id, cp.region, cp.philosophy, cp.public_slug, cp.public_contact, cp.banner_path,
        p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path,
        -- The crest comes from MEMBERSHIP, never from coach_role.org_name:
        -- a role is free text that grants nothing (0006, the same discipline
@@ -36,7 +36,11 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
            'from', started_year, 'to', ended_year) order by sort), '[]'::json)
         from coach_role where coach_profile_id = cp.id) as roles,
        (select coalesce(json_agg(json_build_object('url', cc.url, 'title', cc.title) order by cc.sort, cc.created_at), '[]'::json)
-        from coach_clip cc where cc.coach_profile_id = cp.id) as clips
+        from coach_clip cc where cc.coach_profile_id = cp.id) as clips,
+       (select coalesce(json_agg(json_build_object('title', l.title, 'issuer', l.issuer, 'year', l.year) order by l.sort), '[]'::json)
+        from coach_licence l where l.coach_profile_id = cp.id) as licences,
+       (select coalesce(json_agg(json_build_object('title', a.title, 'detail', a.detail) order by a.sort), '[]'::json)
+        from coach_achievement a where a.coach_profile_id = cp.id) as wins
      from coach_profile cp join person p on p.id = cp.person_id
      where cp.public_slug = $1`,
     [slug],
@@ -53,6 +57,9 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
   const firstYear = roles.map((r) => Number(r.from)).filter((n) => Number.isFinite(n) && n > 1900).sort()[0];
   const yearsCoaching = firstYear ? new Date().getFullYear() - firstYear : 0;
   const clips: { url: string; title: string }[] = c.clips;
+  const licences: { title: string; issuer: string | null; year: string | null }[] = c.licences;
+  const wins: { title: string; detail: string | null }[] = c.wins;
+  const hasBanner = Boolean(c.banner_path);
   const held: { name: string; crest: string | null } | null = c.held_club;
   // Distinct clubs across the whole record — a number a club weighs, and one
   // we already hold. Free-text org names, so compared as the coach wrote them.
@@ -80,15 +87,28 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
 
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', display: 'flex', flexDirection: 'column' }}>
+          {/* Same composition as the club page: photo over the banner, the
+              picture darkened where the photo and the name sit, and the whole
+              thing degrading to the plain gradient for the coach who has not
+              uploaded one — which is most of them on day one. */}
+          {hasBanner && (
+            <div style={{ position: 'relative', lineHeight: 0 }}>
+              <img src={c.banner_path} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,21,16,0) 42%, rgba(10,21,16,.78) 100%)' }} />
+            </div>
+          )}
+          <div style={{ padding: hasBanner ? '0 20px 22px 20px' : '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* position:relative is load-bearing — the banner scrim is
+              absolutely positioned and would otherwise paint over the photo. */}
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: hasBanner ? 'flex-end' : 'flex-start', marginTop: hasBanner ? -42 : 0 }}>
             {c.photo_path ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={c.photo_path} alt="" width={84} height={84} style={{ width: 84, height: 84, borderRadius: 22, objectFit: 'cover', border: '1.5px solid rgba(255,255,255,.2)' }} />
+              <img src={c.photo_path} alt="" width={84} height={84} style={{ width: 84, height: 84, borderRadius: 22, objectFit: 'cover', border: hasBanner ? '3px solid #0e1b14' : '1.5px solid rgba(255,255,255,.2)', boxShadow: hasBanner ? '0 0 0 1px rgba(238,245,240,.18), 0 10px 26px rgba(0,0,0,.5)' : 'none' }} />
             ) : (
-              <div style={{ width: 84, height: 84, borderRadius: 22, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 30 }}>{initials}</div>
+              <div style={{ width: 84, height: 84, borderRadius: 22, background: hasBanner ? '#1b2b22' : 'rgba(255,255,255,.12)', border: hasBanner ? '3px solid #0e1b14' : 'none', boxShadow: hasBanner ? '0 0 0 1px rgba(238,245,240,.18), 0 10px 26px rgba(0,0,0,.5)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 30 }}>{initials}</div>
             )}
-            <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)' }}>Coach</div>
+            <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', background: hasBanner ? 'rgba(6,19,12,.5)' : 'transparent', marginBottom: hasBanner ? 8 : 0 }}>Coach</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{name}</div>
@@ -121,19 +141,19 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
               </div>
             )}
           </div>
+          {/* The hero used to carry a chip per licence, which was fine at one
+              and a cram at five — and it put a self-declared credential
+              shoulder to shoulder with the WWCC, the one thing on this page
+              a club actually attested. The WWCC keeps the hero. Licences get
+              a section of their own that can say who issued them and when. */}
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-            {(c.badges as string[]).map((b) => (
-              <div key={b} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.08)', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.7)' }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 L14.6 8.6 L20.5 9.3 L16.2 13.4 L17.4 19.3 L12 16.3 L6.6 19.3 L7.8 13.4 L3.5 9.3 L9.4 8.6 Z" /></svg>
-                <span>{b}</span>
-              </div>
-            ))}
             {c.wwcc && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.08)', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.7)' }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
                 <span>WWCC</span>
               </div>
             )}
+          </div>
           </div>
         </div>
 
@@ -182,6 +202,56 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
             </>
           )}
         </div>
+
+        {/* Licences and accomplishments are BOTH self-declared, and the page
+            says so once, plainly, at the foot of the pair — rather than
+            hedging every line or, worse, letting them sit next to the WWCC
+            in the hero looking equally checked. Same discipline as
+            "self-reported" on a player's stats. */}
+        {licences.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <div className="kicker">Licences &amp; qualifications</div>
+            <div className="card" style={{ padding: '4px 15px' }}>
+              {licences.map((l, i) => (
+                <div key={l.title + (l.year ?? '')} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 0', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 3 L14.6 8.6 L20.5 9.3 L16.2 13.4 L17.4 19.3 L12 16.3 L6.6 19.3 L7.8 13.4 L3.5 9.3 L9.4 8.6 Z" /></svg>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800 }}>{l.title}</div>
+                    {l.issuer && <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{l.issuer}</div>}
+                  </div>
+                  {l.year && (
+                    <div className="tnum" style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>{l.year}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {wins.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <div className="kicker">As a coach</div>
+            {wins.map((a, i) => (
+              <div key={a.title} className="lift card" style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 11, background: 'rgba(61,220,132,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {i === 0
+                    ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9" /></svg>
+                    : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17 L9 11 L13 15 L21 7" /><path d="M15 7 h6 v6" /></svg>}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800 }}>{a.title}</div>
+                  {a.detail && <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{a.detail}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(licences.length > 0 || wins.length > 0) && (
+          <div style={{ fontSize: 11.5, color: '#6b7d73', fontWeight: 500, lineHeight: 1.5 }}>
+            Licences and results above are {c.first_name}&rsquo;s own account. The Working With Children Check is the one thing on this page a club confirmed.
+          </div>
+        )}
 
         {/* The clips are the closest thing to watching this coach work, and
             they sat UNDER an address card the coach already has in their own

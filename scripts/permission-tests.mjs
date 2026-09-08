@@ -2083,6 +2083,30 @@ check('hist12: a stat tile ships its real value in the markup, never a zero',
 check('hist13: and the count-up resets before paint, so nobody sees the flash',
   /useBeforePaint/.test(tileSrc), true);
 
+// A coach's licences and results are SELF-DECLARED (0029) and must stay
+// visibly apart from the WWCC, which is the one credential on that page a
+// club actually attested. The badges array is gone: it could not hold an
+// issuer or a year, and it put a typed credential in the same chip row as
+// the attested one.
+check('lic1: the badges array is gone from the schema',
+  /coach_profile[\s\S]{0,400}badges text\[\]/.test(migAll) && !/drop column badges/.test(migAll), false);
+check('lic2: a licence is pinned to self_reported and cannot be set otherwise',
+  /coach_licence[\s\S]{0,400}?provenance text not null default 'self_reported' check \(provenance = 'self_reported'\)/.test(migAll), true);
+check('lic3: so is a coach achievement',
+  /coach_achievement[\s\S]{0,400}?provenance text not null default 'self_reported' check \(provenance = 'self_reported'\)/.test(migAll), true);
+check('lic4: neither table has a club foreign key — a typed credential grants nothing',
+  /create table coach_licence[\s\S]*?\);/.exec(migAll)?.[0].includes('references club(') ?? false, false);
+check('lic5: the page says which of the two anybody checked',
+  /own account[\s\S]{0,120}Working With Children Check is the one thing/.test(coachCvSrc), true);
+check('lic6: and the hero chip row carries the attested one only',
+  /badges as string\[\]/.test(coachCvSrc), false);
+// The licence and achievement writers resolve the profile from the SESSION.
+const licActions = readFileSync(fileURLToPath(new URL('../app/coach/edit/actions.ts', import.meta.url)), 'utf8');
+check('lic7: every licence and achievement write goes through the session-resolved profile',
+  (licActions.match(/await myProfile\(\)/g) ?? []).length >= 4, true);
+check('lic8: and no writer takes a profile id from the caller (D-94 §3)',
+  /profileId: string|coachProfileId: string/.test(codeOnly(licActions)), false);
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',

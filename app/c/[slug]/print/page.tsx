@@ -19,14 +19,18 @@ export const metadata = { robots: { index: false, follow: false } };
 export default async function PrintCoachCv({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { rows } = await db.query(
-    `select cp.id, cp.region, cp.philosophy, cp.badges, cp.public_slug,
+    `select cp.id, cp.region, cp.philosophy, cp.public_slug,
        p.first_name, coalesce(p.last_name,'') as last_name,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select coalesce(json_agg(json_build_object('title', title, 'org', org_name,
            'from', started_year, 'to', ended_year) order by sort), '[]'::json)
         from coach_role where coach_profile_id = cp.id) as roles,
        (select coalesce(json_agg(json_build_object('title', cc.title) order by cc.sort), '[]'::json)
-        from coach_clip cc where cc.coach_profile_id = cp.id) as clips
+        from coach_clip cc where cc.coach_profile_id = cp.id) as clips,
+       (select coalesce(json_agg(json_build_object('title', l.title, 'issuer', l.issuer, 'year', l.year) order by l.sort), '[]'::json)
+        from coach_licence l where l.coach_profile_id = cp.id) as licences,
+       (select coalesce(json_agg(json_build_object('title', a.title, 'detail', a.detail) order by a.sort), '[]'::json)
+        from coach_achievement a where a.coach_profile_id = cp.id) as wins
      from coach_profile cp join person p on p.id = cp.person_id
      where cp.public_slug = $1`,
     [slug],
@@ -36,7 +40,8 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
   const name = `${c.first_name} ${c.last_name}`.trim();
   const roles: { title: string; org: string; from: string | null; to: string | null }[] = c.roles;
   const clips: { title: string }[] = c.clips;
-  const badges: string[] = c.badges ?? [];
+  const licences: { title: string; issuer: string | null; year: string | null }[] = c.licences ?? [];
+  const wins: { title: string; detail: string | null }[] = c.wins ?? [];
 
   const kicker: React.CSSProperties = {
     fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
@@ -54,7 +59,7 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
             {[roles.find((r) => !r.to)?.title, roles.find((r) => !r.to)?.org, c.region].filter(Boolean).join(' · ')}
           </div>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: '#5c6f65', marginTop: 6 }}>
-            {[...badges, c.wwcc ? 'WWCC verified' : null].filter(Boolean).join(' · ')}
+            {[...licences.map((l) => l.title), c.wwcc ? 'WWCC verified' : null].filter(Boolean).join(' · ')}
           </div>
         </div>
 
@@ -79,6 +84,39 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* A printed CV that omits a coach's licences is not the same
+            document as their page. Both new sections print, and so does the
+            line that says which of them anybody checked. */}
+        {licences.length > 0 && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={kicker}>Licences &amp; qualifications</div>
+            {licences.map((l) => (
+              <div key={l.title + (l.year ?? '')} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '5px 0' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700 }}>{l.title}{l.issuer ? ` — ${l.issuer}` : ''}</div>
+                {l.year && <div style={{ fontSize: 12.5, color: '#5c6f65', fontWeight: 700, whiteSpace: 'nowrap' }}>{l.year}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {wins.length > 0 && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={kicker}>As a coach</div>
+            {wins.map((a) => (
+              <div key={a.title} style={{ padding: '5px 0' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700 }}>{a.title}</div>
+                {a.detail && <div style={{ fontSize: 12.5, color: '#5c6f65' }}>{a.detail}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(licences.length > 0 || wins.length > 0) && (
+          <div style={{ fontSize: 10.5, color: '#7d8f85', marginBottom: 22, lineHeight: 1.5 }}>
+            Licences and results above are {c.first_name}&rsquo;s own account. The Working With Children Check is the one thing here a club confirmed.
           </div>
         )}
 

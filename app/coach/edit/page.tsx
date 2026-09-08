@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import Link from 'next/link';
-import { addCoachClip, addRole, removeCoachClip, removeRole, saveCoachProfile } from './actions';
+import { addCoachAchievement, addCoachClip, addLicence, addRole, removeCoachAchievement, removeCoachClip, removeLicence, removeRole, saveCoachProfile } from './actions';
 import { COACH_CLIP_CAP } from '@/lib/football';
 
 const T = {
@@ -22,14 +22,14 @@ const card: React.CSSProperties = { background: T.surface, border: `1px solid ${
 const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
-export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; removed?: string }> }) {
+export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; banner?: string; removed?: string }> }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
-  const { saved, clip, photo } = await searchParams;
+  const { saved, clip, photo, banner } = await searchParams;
   const { rows } = await db.query(
     `select p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, cp.public_contact,
-       cp.region, cp.philosophy, cp.badges, cp.public_slug,
+       cp.region, cp.philosophy, cp.public_slug, cp.banner_path,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select c.name from wwcc_attestation w join club c on c.id = w.club_id where w.person_id = p.id and w.revoked_at is null limit 1) as wwcc_club,
        (select c2.name from membership m join club c2 on c2.id = m.club_id where m.person_id = p.id and m.role = 'coach' and m.ended_at is null limit 1) as coach_club,
@@ -37,7 +37,11 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
            'from', cr.started_year, 'to', cr.ended_year) order by cr.sort), '[]'::json)
         from coach_role cr join coach_profile cp2 on cp2.id = cr.coach_profile_id where cp2.person_id = p.id) as roles,
        (select coalesce(json_agg(json_build_object('id', cc.id, 'url', cc.url, 'title', cc.title) order by cc.sort, cc.created_at), '[]'::json)
-        from coach_clip cc join coach_profile cp3 on cp3.id = cc.coach_profile_id where cp3.person_id = p.id) as clips
+        from coach_clip cc join coach_profile cp3 on cp3.id = cc.coach_profile_id where cp3.person_id = p.id) as clips,
+       (select coalesce(json_agg(json_build_object('id', l.id, 'title', l.title, 'issuer', l.issuer, 'year', l.year) order by l.sort), '[]'::json)
+        from coach_licence l join coach_profile cp4 on cp4.id = l.coach_profile_id where cp4.person_id = p.id) as licences,
+       (select coalesce(json_agg(json_build_object('id', a.id, 'title', a.title, 'detail', a.detail) order by a.sort), '[]'::json)
+        from coach_achievement a join coach_profile cp5 on cp5.id = a.coach_profile_id where cp5.person_id = p.id) as wins
      from person p
      left join coach_profile cp on cp.person_id = p.id
      where p.id = $1`,
@@ -47,6 +51,8 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
   const c = rows[0];
   const roles: { id: string; title: string; org: string; from: string | null; to: string | null }[] = c.roles;
   const clips: { id: string; url: string; title: string }[] = c.clips ?? [];
+  const licences: { id: string; title: string; issuer: string | null; year: string | null }[] = c.licences ?? [];
+  const wins: { id: string; title: string; detail: string | null }[] = c.wins ?? [];
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -59,6 +65,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
         {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Saved.{c.public_slug ? ` Live at pitchfootball.com.au/${c.public_slug}` : ''}</div>}
         {clip === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give it a title, and a YouTube, Veo or Instagram link.</div>}
         {photo === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A PNG or JPEG under 8MB.</div>}
+        {banner === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A JPEG or PNG under 12MB, landscape if you have one.</div>}
 
         {/* Coaches were the only profile in the product with no photo at all
             — players have one, clubs have a crest and a banner, and a coach
@@ -110,13 +117,6 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>Badges — separate with |</div>
-            <div style={card}>
-              <input style={input} name="badges" defaultValue={(c.badges ?? []).join(' | ')} placeholder="AFC C Diploma | Community C" />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={label}>How you want to play</div>
             <div style={card}>
               <textarea name="philosophy" defaultValue={c.philosophy ?? ''} rows={3} placeholder="Possession with purpose. Every player touches the ball every drill, every session — confidence first, patterns second." style={{ ...input, fontWeight: 500, fontSize: 13.5, lineHeight: 1.55, resize: 'vertical' }} />
@@ -146,7 +146,105 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
               </form>
             </div>
           ))}
-          <form action={addRole} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* A banner, composed behind the photo the way the club page does it.
+            Same route controls as the club's: re-encoded, EXIF stripped,
+            capped, and authorised against this coach's own profile. */}
+        <form action="/coach/edit/banner" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>Banner</div>
+          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'linear-gradient(160deg, #123326, #0a1510)' }}>
+            {c.banner_path ? (
+              <div style={{ position: 'relative', lineHeight: 0 }}>
+                <img src={c.banner_path} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,21,16,0) 42%, rgba(10,21,16,.78) 100%)' }} />
+              </div>
+            ) : (
+              <div style={{ width: '100%', height: 110, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, color: T.muted, fontWeight: 500 }}>No banner yet</div>
+            )}
+            <div style={{ position: 'relative', zIndex: 1, padding: '0 14px 12px 14px' }}>
+              <div style={{ width: 56, height: 56, marginTop: -26, borderRadius: 16, background: '#1b2b22', border: '3px solid #0e1b14', boxShadow: '0 0 0 1px rgba(238,245,240,.18), 0 8px 20px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {c.photo_path
+                  ? <img src={c.photo_path} alt="" width={56} height={56} style={{ objectFit: 'cover' }} />
+                  : <span style={{ fontWeight: 900, fontSize: 19, color: T.muted }}>{`${c.first_name[0] ?? ''}${c.last_name[0] ?? ''}`}</span>}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.015em', marginTop: 7 }}>{c.first_name} {c.last_name}</div>
+            </div>
+          </div>
+          <label className="filefield">
+            <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" required />
+            <span className="filefield-title">Choose a banner</span>
+            <span className="filefield-hint">A wide photo — your ground, a session, a team shot. Cropped to a strip, and your photo sits over the bottom-left of it.</span>
+          </label>
+          <button type="submit" className="btn btn-secondary">Save the banner</button>
+        </form>
+
+        {/* Licences were one pipe-separated box — fine for one credential,
+            useless for a coach who holds five, and with nowhere to say who
+            issued it or when. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div style={label}>Licences &amp; qualifications</div>
+          {licences.map((l) => (
+            <div key={l.id} style={{ ...card, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 11 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 800 }}>{l.title}</div>
+                {(l.issuer || l.year) && (
+                  <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{[l.issuer, l.year].filter(Boolean).join(' · ')}</div>
+                )}
+              </div>
+              <form action={removeLicence.bind(null, l.id)}>
+                <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
+              </form>
+            </div>
+          ))}
+          <form action={addLicence} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={label}>Licence</div>
+              <input style={input} name="title" placeholder="e.g. AFC B Diploma" required maxLength={80} />
+            </div>
+            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={label}>Who issued it — optional</div>
+              <input style={input} name="issuer" placeholder="e.g. Football Australia" maxLength={80} />
+            </div>
+            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={label}>Year — optional</div>
+              <input style={input} name="year" placeholder="e.g. 2024" maxLength={20} />
+            </div>
+            <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add a licence</button>
+          </form>
+          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+            These are your own account and your page says so. We don&rsquo;t check them and they unlock nothing — the only credential on your page a club confirmed is your Working With Children Check.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div style={label}>What you&rsquo;ve done as a coach</div>
+          {wins.map((a) => (
+            <div key={a.id} style={{ ...card, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 11 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 800 }}>{a.title}</div>
+                {a.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{a.detail}</div>}
+              </div>
+              <form action={removeCoachAchievement.bind(null, a.id)}>
+                <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
+              </form>
+            </div>
+          ))}
+          <form action={addCoachAchievement} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={label}>What happened</div>
+              <input style={input} name="title" placeholder="e.g. Promotion to State League 1" required maxLength={90} />
+            </div>
+            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={label}>Where and when — optional</div>
+              <input style={input} name="detail" placeholder="e.g. Riverside FC U15 Boys, 2026" maxLength={90} />
+            </div>
+            <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add an accomplishment</button>
+          </form>
+          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+            <b style={{ color: T.ink }}>Keep it about the team, not about a child.</b> &ldquo;Promotion with the U15s&rdquo; is right; naming a player under 18 is not — the same rule as your session titles.
+          </div>
+        </div>
+
+        <form action={addRole} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div style={card}><div style={label}>Role</div><input style={input} name="title" placeholder="Head Coach · U15 Boys" required /></div>
               <div style={card}><div style={label}>Club or program</div><input style={input} name="org" placeholder="Riverside FC" required /></div>

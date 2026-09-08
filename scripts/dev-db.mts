@@ -359,7 +359,33 @@ await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) v
 }
 
 const samProfile = randomUUID();
-await db.query(`insert into coach_profile (id, person_id, public_slug, region, philosophy, badges) values ($1,$2,'sam-kaya','Melbourne VIC','Possession with purpose. Every player touches the ball every drill, every session — confidence first, patterns second. Development over results at junior level, always.', array['AFC C Diploma'])`, [samProfile, sam]);
+await db.query(`insert into coach_profile (id, person_id, public_slug, region, philosophy) values ($1,$2,'sam-kaya','Melbourne VIC','Possession with purpose. Every player touches the ball every drill, every session — confidence first, patterns second. Development over results at junior level, always.')`, [samProfile, sam]);
+// Licences and what he has done as a coach (0029). Both self-declared; the
+// page says so, once, at the foot of the pair.
+await db.query(`insert into coach_licence (coach_profile_id, title, issuer, year, sort) values
+  ($1,'AFC B Diploma','Football Australia','2024',0),
+  ($1,'AFC C Diploma','Football Australia','2021',1),
+  ($1,'Goalkeeping Level 1','Football Victoria','2022',2),
+  ($1,'Youth Development Certificate','Football Australia','2020',3),
+  ($1,'First Aid & CPR','St John Ambulance','2026',4)`, [samProfile]);
+await db.query(`insert into coach_achievement (coach_profile_id, title, detail, sort) values
+  ($1,'Promotion to NPL U15s','Riverside FC, 2026',0),
+  ($1,'League runners-up','Riverside FC U15 Boys, 2026',1),
+  ($1,'Four players into state squads','Across 2024 and 2025',2)`, [samProfile]);
+// A banner, so the composition can be judged. Our own brand photography,
+// through the same 1600x500 crop the upload route uses.
+{
+  const sharp = (await import('sharp')).default;
+  const out = await sharp(fileURLToPath(new URL('../public/assets/film-1.webp', import.meta.url)))
+    .resize(1600, 500, { fit: 'cover', position: 'centre' })
+    .jpeg({ quality: 82 })
+    .toBuffer();
+  const pub = fileURLToPath(new URL('../public/', import.meta.url));
+  const rel = `/dev-uploads/coach-banner-${samProfile}.jpg`;
+  mkdirSync(join(pub, 'dev-uploads'), { recursive: true });
+  writeFileSync(join(pub, rel.slice(1)), out);
+  await db.query(`update coach_profile set banner_path = $2 where id = $1`, [samProfile, rel]);
+}
 // Coach clips (0019), capped at five. Titles describe the session, never a
 // child — the same rule as the alumni wall and the club video.
 await db.query(`insert into coach_clip (coach_profile_id, url, title, sort) values

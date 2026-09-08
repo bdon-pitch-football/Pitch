@@ -11,16 +11,15 @@ export async function saveCoachProfile(formData: FormData) {
   if (!me) redirect('/signin');
   const region = String(formData.get('region') ?? '').trim();
   const philosophy = String(formData.get('philosophy') ?? '').trim();
-  const badges = String(formData.get('badges') ?? '').split('|').map((b) => b.trim()).filter(Boolean);
   // The coach's OWN address, published by their own choice. Rendered to
   // clubs and adults, absent for a signed-in minor (0027). This is not Pitch
   // handing over somebody else's details, which stays forbidden (D-100).
   const contact = String(formData.get('publicContact') ?? '').trim().slice(0, 120);
   await db.query(
-    `insert into coach_profile (person_id, region, philosophy, badges, public_contact)
-     values ($1,$2,$3,$4,$5)
-     on conflict (person_id) do update set region=$2, philosophy=$3, badges=$4, public_contact=$5`,
-    [me, region || null, philosophy || null, badges, contact || null],
+    `insert into coach_profile (person_id, region, philosophy, public_contact)
+     values ($1,$2,$3,$4)
+     on conflict (person_id) do update set region=$2, philosophy=$3, public_contact=$4`,
+    [me, region || null, philosophy || null, contact || null],
   );
   redirect('/coach/edit?saved=1');
 }
@@ -52,6 +51,65 @@ export async function removeRole(roleId: string) {
     [roleId, me],
   );
   redirect('/coach/edit');
+}
+
+// ---------------------------------------------------------------------------
+// Licences and accomplishments (0029). Both are SELF-DECLARED and both grant
+// nothing — no club is told, nothing is unlocked, and we do not check them.
+// The only credential on a coach page Pitch stands behind is the WWCC, which
+// lives in its own club-attested table with no number anywhere (D-98). The
+// public page has to keep those two things visibly apart, and it does.
+//
+// Both write through the coach's OWN profile, resolved from the session. No
+// path here takes a profile id from the caller (D-94 §3).
+// ---------------------------------------------------------------------------
+async function myProfile(): Promise<string> {
+  const me = await getSessionPersonId();
+  if (!me) redirect('/signin');
+  const { rows } = await db.query(`select id from coach_profile where person_id = $1`, [me]);
+  if (rows.length === 0) redirect('/coach/edit?needs=profile');
+  return rows[0].id as string;
+}
+
+export async function addLicence(formData: FormData) {
+  const profileId = await myProfile();
+  const title = String(formData.get('title') ?? '').trim().slice(0, 80);
+  const issuer = String(formData.get('issuer') ?? '').trim().slice(0, 80);
+  const year = String(formData.get('year') ?? '').trim().slice(0, 20);
+  if (title) {
+    await db.query(
+      `insert into coach_licence (coach_profile_id, title, issuer, year, sort)
+       values ($1,$2,$3,$4,(select coalesce(max(sort)+1,0) from coach_licence where coach_profile_id=$1))`,
+      [profileId, title, issuer || null, year || null],
+    );
+  }
+  redirect('/coach/edit?saved=licence');
+}
+
+export async function removeLicence(licenceId: string) {
+  const profileId = await myProfile();
+  await db.query(`delete from coach_licence where id = $1 and coach_profile_id = $2`, [licenceId, profileId]);
+  redirect('/coach/edit?removed=licence');
+}
+
+export async function addCoachAchievement(formData: FormData) {
+  const profileId = await myProfile();
+  const title = String(formData.get('title') ?? '').trim().slice(0, 90);
+  const detail = String(formData.get('detail') ?? '').trim().slice(0, 90);
+  if (title) {
+    await db.query(
+      `insert into coach_achievement (coach_profile_id, title, detail, sort)
+       values ($1,$2,$3,(select coalesce(max(sort)+1,0) from coach_achievement where coach_profile_id=$1))`,
+      [profileId, title, detail || null],
+    );
+  }
+  redirect('/coach/edit?saved=achievement');
+}
+
+export async function removeCoachAchievement(id: string) {
+  const profileId = await myProfile();
+  await db.query(`delete from coach_achievement where id = $1 and coach_profile_id = $2`, [id, profileId]);
+  redirect('/coach/edit?removed=achievement');
 }
 
 // ---------------------------------------------------------------------------
