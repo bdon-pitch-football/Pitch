@@ -154,3 +154,197 @@ button:active, a[href]:active { transform: scale(.975); }
     align-items: center; gap: 16px; padding: 13px 0;
   }
 }
+
+/* ===========================================================================
+   THE TOKEN LAYER — Night Match as custom properties.
+   
+   The charter asked for this from the start: "implement every colour as a CSS
+   custom property with the Night Match values as defaults (theme-ready
+   tokens), so a future light theme is a token-set addition, not a redesign."
+   It never happened — the palette lives as a `const T = {...}` object copied
+   into two dozen component files, which is the same fork by a slower route.
+   
+   These are the defaults. Components move onto them screen by screen.
+   =========================================================================== */
+:root {
+  /* Surfaces */
+  --bg:            #0b120e;
+  --surface:       #121b16;
+  --surface-2:     #1a2420;
+  --line:          #24322a;
+
+  /* A THIRD surface level — a stretch on the charter, flagged for a D-number.
+     Two levels forced every card to look identical, which is most of why the
+     app reads flat. This is the SUNKEN one: a well for content you read
+     rather than act on. Raised stays --surface, page stays --bg. */
+  --surface-sunken: #0e1712;
+
+  /* Ink */
+  --ink:           #eef5f0;
+  --secondary:     #b9c8bf;
+  --muted:         #7d8f85;
+  --placeholder:   #6b7d73;
+
+  /* Accent and states */
+  --accent:        #3ddc84;
+  --on-accent:     #06130c;
+  --amber:         #eda100;
+  --purple:        #a479e2;
+  --red:           #e34948;
+
+  /* Gradients */
+  --hero: linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%);
+
+  /* Radii — charter values, named */
+  --r-hero:  22px;
+  --r-card:  16px;
+  --r-well:  12px;
+  --r-btn:   14px;
+  --r-pill:  999px;
+
+  /* The five letter-spacings. There are no others. */
+  --ls-caps:     0.14em;
+  --ls-label:    0.06em;
+  --ls-button:   0.02em;
+  --ls-title:    -0.015em;
+  --ls-numeral:  -0.04em;
+
+  --card-pad: 15px 14px;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* ---------------------------------------------------------------------------
+   DISPLAY NUMERALS. The charter defines -0.04em for these and the product
+   renders almost every number as body text. A register of ninety-nine players
+   should say ninety-nine like it means it.
+   --------------------------------------------------------------------------- */
+.numeral   { font-weight: 900; letter-spacing: var(--ls-numeral); line-height: .92; font-variant-numeric: tabular-nums; }
+.numeral-l { font-size: 56px; }
+.numeral-m { font-size: 34px; }
+.numeral-s { font-size: 22px; }
+
+/* Tabular figures wherever numbers sit in a column and must not jitter. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------------------
+   FORM CONTROLS. The browser defaults were breaking the spell: an unstyled
+   grey "Choose file / No file chosen" sat inside a hand-made card on the
+   crest uploader, and every select rendered as the OS control.
+   --------------------------------------------------------------------------- */
+.field {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-well);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: border-color .18s var(--ease), background .18s var(--ease);
+}
+.field:focus-within { border-color: var(--accent); background: #1d2a24; }
+.field > label,
+.field > .field-label {
+  font-size: 10px; font-weight: 800; letter-spacing: var(--ls-label);
+  text-transform: uppercase; color: var(--muted);
+}
+.field input, .field textarea, .field select {
+  background: transparent; border: none; outline: none;
+  color: var(--ink); font-size: 14.5px; font-weight: 700;
+  font-family: inherit; padding: 0; width: 100%;
+}
+.field input::placeholder, .field textarea::placeholder { color: var(--placeholder); font-weight: 500; }
+.field textarea { resize: vertical; line-height: 1.5; font-weight: 500; }
+
+/* Select: the OS control replaced by our own, with a chevron drawn in. */
+.field select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 22px; cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 8px center, right 3px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.field select option { background: var(--surface-2); color: var(--ink); }
+
+/* File input: the native button is hidden and the wrapper becomes the target. */
+.filefield {
+  position: relative;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-well);
+  background: var(--surface-2);
+  padding: 18px 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  text-align: center; cursor: pointer;
+  transition: border-color .18s var(--ease), background .18s var(--ease);
+}
+.filefield:hover { border-color: var(--accent); background: #1d2a24; }
+.filefield input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.filefield .filefield-title { font-size: 14px; font-weight: 800; color: var(--ink); }
+.filefield .filefield-hint  { font-size: 12px; font-weight: 500; color: var(--muted); }
+
+/* ---------------------------------------------------------------------------
+   BUTTONS. The charter's two, named — plus a GHOST, which is a stretch and
+   is flagged. "Not now", "Cancel" and "Back" are currently bare links with no
+   hit area; a 44px target is an accessibility requirement, not a style.
+   --------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-btn); font-family: inherit; cursor: pointer;
+  letter-spacing: var(--ls-button); text-decoration: none;
+  transition: transform .12s var(--ease), filter .18s var(--ease), background .18s var(--ease);
+  width: 100%;
+}
+.btn:active { transform: translateY(1px) scale(.995); }
+.btn-primary   { height: 50px; font-size: 15px; font-weight: 800; background: var(--accent); color: var(--on-accent); border: none; }
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-secondary { height: 46px; font-size: 14px; font-weight: 700; background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+.btn-secondary:hover { background: #1f2c26; }
+.btn-ghost     { height: 44px; font-size: 13.5px; font-weight: 700; background: transparent; color: var(--muted); border: none; }
+.btn-ghost:hover { color: var(--secondary); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------------------
+   CHIPS — filters and status. Filters toggle; status chips never do.
+   --------------------------------------------------------------------------- */
+.chip {
+  height: 32px; border-radius: var(--r-pill); padding: 0 13px;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 700; white-space: nowrap;
+  text-decoration: none; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--secondary);
+  transition: background .16s var(--ease), color .16s var(--ease), border-color .16s var(--ease);
+}
+.chip:hover { border-color: var(--muted); color: var(--ink); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 800; }
+.chip-count { opacity: .65; font-variant-numeric: tabular-nums; }
+
+.tag {
+  border-radius: 7px; padding: 4px 8px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: var(--ls-label);
+  text-transform: uppercase; white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   SURFACES with meaning. Raised = act here. Sunken = read this.
+   --------------------------------------------------------------------------- */
+.card        { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--card-pad); }
+.card-sunken { background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--card-pad); }
+.card-accent { border-color: var(--accent); }
+.card-amber  { border-color: var(--amber); }
+
+/* A section label, used everywhere and redefined everywhere. */
+.kicker { font-size: 11px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); }
+
+/* ---------------------------------------------------------------------------
+   D-147: reading surfaces cap at 640px at >=1024px. They were capped at 560,
+   which is the tablet rule applied to desktop — the design system forking by
+   omission, which is exactly what D-147 was written to prevent.
+   --------------------------------------------------------------------------- */
+.reading { width: 100%; max-width: 560px; margin: 0 auto; }
+@media (min-width: 1024px) {
+  .reading { max-width: 640px; }
+}

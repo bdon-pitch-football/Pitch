@@ -66,9 +66,12 @@ export default async function ClubPageEdit({ searchParams }: {
               {c.crest_path ? 'Upload another to replace it.' : 'No crest yet — your page shows a letter until you add one.'}
             </div>
           </div>
-          <input type="file" name="crest" accept="image/png,image/jpeg,image/webp" required
-            style={{ fontSize: 13, color: T.secondary, fontFamily: 'inherit' }} />
-          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Save the crest</button>
+          <label className="filefield">
+            <input type="file" name="crest" accept="image/png,image/jpeg,image/webp" required />
+            <span className="filefield-title">Choose your crest</span>
+            <span className="filefield-hint">PNG or JPEG, under 8MB. Sized to fit rather than cropped, so a tall badge keeps its shape.</span>
+          </label>
+          <button type="submit" className="btn btn-primary">Save the crest</button>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             We re-save the image ourselves, which removes any location data the file was carrying. It is sized to fit rather than cropped square, so a tall badge keeps its shape.
           </div>
@@ -83,9 +86,12 @@ export default async function ClubPageEdit({ searchParams }: {
               No banner yet
             </div>
           )}
-          <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" required
-            style={{ fontSize: 13, color: T.secondary, fontFamily: 'inherit' }} />
-          <button type="submit" style={{ background: T.surface2, color: T.ink, borderRadius: 14, height: 46, fontSize: 14, fontWeight: 700, border: `1px solid ${T.line}`, cursor: 'pointer', fontFamily: 'inherit' }}>Save the banner</button>
+          <label className="filefield">
+            <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" required />
+            <span className="filefield-title">Choose a banner</span>
+            <span className="filefield-hint">A wide photo of your ground or a team shot. Cropped to a strip, so keep anything important near the middle.</span>
+          </label>
+          <button type="submit" className="btn btn-secondary">Save the banner</button>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             A wide photo of your ground or a team shot. It gets cropped to a strip, so anything important wants to be near the middle.
           </div>
@@ -93,17 +99,13 @@ export default async function ClubPageEdit({ searchParams }: {
 
         <form action={addClubVideo} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Club video</div>
-          <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Title</div>
-            <input name="title" placeholder="Our 2026 season" required maxLength={80}
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
-          </div>
-          <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Link</div>
-            <input name="url" placeholder="https://www.youtube.com/watch?v=…" required
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
-          </div>
-          <button type="submit" style={{ background: T.surface2, color: T.ink, borderRadius: 14, height: 46, fontSize: 14, fontWeight: 700, border: `1px solid ${T.line}`, cursor: 'pointer', fontFamily: 'inherit' }}>Add the video</button>
+          <label className="field"><span className="field-label">Title</span>
+            <input name="title" placeholder="Our 2026 season" required maxLength={80} />
+          </label>
+          <label className="field"><span className="field-label">Link</span>
+            <input name="url" placeholder="https://www.youtube.com/watch?v=…" required />
+          </label>
+          <button type="submit" className="btn btn-secondary">Add the video</button>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             YouTube, Veo or Instagram. The video stays where it is — we only keep the link, and nothing loads until someone presses play.
           </div>
@@ -127,7 +129,7 @@ export default async function ClubPageEdit({ searchParams }: {
         {c.public_slug && (
           <Link href={`/fc/${c.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>See your public page</Link>
         )}
-        <Link href="/home" style={{ textAlign: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted, textDecoration: 'none', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Back</Link>
+        <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>
     </div>
   );
