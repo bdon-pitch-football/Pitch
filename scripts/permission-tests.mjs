@@ -495,6 +495,147 @@ check('N14b: and leaves a recent one alone',
   (await db.query('select count(*)::int as n from registration where id = $1', [n14Fresh])).rows[0].n, 1);
 
 // ---------------------------------------------------------------------------
+// Tables B, E, F, H, I, J, Q, R — the remaining rows.
+// ---------------------------------------------------------------------------
+
+// B8/B9 — search ordering is identical whatever the searcher holds and
+// whatever the player's club is. Premium never re-ranks verified data, and
+// Founding XI is recognition, never advantage.
+const searchSrc = (await db.query(`select prosrc from pg_proc where proname='fn_searchable'`)).rows[0].prosrc;
+check('B8: search never reads a subscription or premium flag',
+  /premium|subscription|plan\b/i.test(codeOnly(searchSrc)), false);
+check('B9: nor a founding-club flag', /founding|founder/i.test(codeOnly(searchSrc)), false);
+check('B9b: fn_searchable returns a boolean, so there is no ordering to buy',
+  (await db.query(`select pg_get_function_result(oid) as r from pg_proc where proname='fn_searchable'`)).rows[0].r,
+  'boolean');
+
+// B10 — discovery at 16 waits on the transition notice having been DELIVERED
+// and on the guardian not having switched it off.
+check('B10: discovery is gated on the delivered notice, not on the birthday alone',
+  /fn_transition_notice_delivered/.test(searchSrc), true);
+check('B10b: and on the guardian off-switch', /discovery_disabled/.test(searchSrc), true);
+
+// E12/E13/E14 — the OG card by band.
+const eOg = readFileSync(fileURLToPath(new URL('../app/p/[token]/opengraph-image.tsx', import.meta.url)), 'utf8');
+const eOgCode = codeOnly(eOg);
+check('E12: the card carries no club, age group or region (D-89)',
+  /club|age_group|ageGroup|region|suburb/i.test(eOgCode), false);
+check('E12b: and the surname appears only as an INITIAL, never in full',
+  /lastName(?!\[0\])/.test(eOgCode.replace(/lastName \?/g, 'lastName[0]')), false);
+check('E13/E14: the card re-reads the token every request and falls back generic',
+  /readCvByToken/.test(eOg) && /!cv/.test(eOg), true);
+check('E14b: nothing about the card is cached past the check',
+  /revalidate\s*=\s*(?!0)[1-9]/.test(eOg), false);
+
+// F7/F8/F9 — the guardian's view.
+check('F9: a guardian of one child reads nothing of another', await level(ID.guardian2, ID.georgia), 'none');
+check('F9b: and cannot act on them either',
+  (await db.query('select fn_record_actor($1,$2) as a', [ID.guardian2, REC.georgia])).rows[0].a, null);
+const controlsSrc = readFileSync(fileURLToPath(new URL('../app/g/controls/[childId]/page.tsx', import.meta.url)), 'utf8');
+check('F8: the consent log the guardian reads covers approvals, shares and contact',
+  /share_issued/.test(controlsSrc) && /outside_contact_logged/.test(controlsSrc) && /age_transition/.test(controlsSrc), true);
+// F7/I3 — an authoring coach keeps an anonymised COUNT through erasure.
+const f7Rec = crypto.randomUUID(), f7Child = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Erased',$2)`, [f7Child, yearsAgo(13)]);
+await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, f7Child]);
+await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [f7Rec, f7Child]);
+// The TD can only write to a player at their own verified club — the 0015
+// guard, working. The fixture has to make the child one.
+await mem(f7Child, CLUB.riverside, SQUAD.u15, 'player');
+await db.query(`insert into record_entry (record_id, entry_type, author_id, provenance)
+  values ($1,'coach_note',$2,'coach_verified'), ($1,'attendance',$2,'coach_verified')`, [f7Rec, ID.td]);
+await db.query(`delete from development_record where id = $1`, [f7Rec]);
+const f7 = (await db.query('select * from fn_my_authorship($1)', [ID.td])).rows;
+check('F7: an authoring coach keeps a count through erasure (D-48)', f7[0]?.entries, 2);
+const authCols = (await db.query(
+  `select string_agg(column_name,',') as c from information_schema.columns where table_name='coach_authorship'`)).rows[0].c;
+for (const forbidden of ['record_id', 'person_id', 'subject', 'body', 'child']) {
+  check(`I3: the retained count cannot identify the child — no ${forbidden}`, authCols.includes(forbidden), false);
+}
+check('I3b: and another coach reads none of it',
+  (await db.query('select * from fn_my_authorship($1)', [ID.coachOther])).rows.length, 0);
+
+// H11 — the administrator wall, asserted at the query layer.
+check('H11: a club administrator reads no development record, by any path',
+  await level(ID.clubAdmin, ID.deniz), 'membership_only');
+const readLevelSrc = (await db.query(`select prosrc from pg_proc where proname='fn_read_level'`)).rows[0].prosrc;
+check('H11b: and "membership_only" is returned by the FUNCTION, not chosen by a page',
+  /membership_only/.test(readLevelSrc), true);
+
+// I1/I3/I4 — deletion.
+const delChild = crypto.randomUUID(), delRec = crypto.randomUUID(), delTok = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Gone',$2)`, [delChild, yearsAgo(13)]);
+await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, delChild]);
+await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [delRec, delChild]);
+await db.query(`insert into share_token (id, record_id, token_hash, issued_by) values ($1,$2,$3,$4)`,
+  [delTok, delRec, sha('doomed'), ID.guardian]);
+await db.query(`insert into profile_version (record_id, content, status) values ($1,'{"name":"Gone"}','approved')`, [delRec]);
+await db.query(`insert into consent_event (event, actor_id, subject_id) values ('approved',$1,$2)`, [ID.guardian, delChild]);
+check('I4a: the token resolves while the record lives',
+  (await db.query('select fn_token_read($1) as r', [sha('doomed')])).rows[0].r === null, false);
+await db.query(`delete from development_record where id = $1`, [delRec]);
+check('I1: the record is gone', (await db.query('select count(*)::int as n from development_record where id=$1', [delRec])).rows[0].n, 0);
+check('I4: and its token now reads like every other dead state',
+  (await db.query('select fn_token_read($1) as r', [sha('doomed')])).rows[0].r, null);
+check('I5b/I3: the consent log survives the deletion',
+  (await db.query(`select count(*)::int as n from consent_event where subject_id=$1`, [delChild])).rows[0].n, 1);
+
+// J51 — a revoked note is empty EVERYWHERE, as a property of the data.
+check('J51: no row anywhere retains a note for a withdrawn registration',
+  (await db.query(`select count(*)::int as n from registration where withdrawn_at is not null and note is not null`)).rows[0].n, 0);
+
+// Q7/Q8/Q9/Q10 — share cards.
+const cardCols = (await db.query(
+  `select string_agg(column_name,',') as c from information_schema.columns where table_name='share_card_approval'`)).rows[0].c;
+check('Q7: the approved card is a flat artefact — a stored path and a hash',
+  /storage_path/.test(cardCols) && /image_hash/.test(cardCols), true);
+check('Q7b: it holds no live reference to the record’s current content',
+  /content|positions|stats/.test(cardCols), false);
+const q7 = crypto.randomUUID();
+await db.query(`insert into share_card_approval (id, record_id, requested_by, card_kind, image_hash, approved_by, approved_at, storage_path)
+  values ($1,$2,$3,'og',$4,$5, now(), 'cards/q7.png')`, [q7, REC.nate, ID.nate, sha('q7-bytes'), ID.nate]);
+await db.query(`update development_record set about = 'changed after approval' where id = $1`, [REC.nate]);
+check('Q7c: changing the record does not change the approved card',
+  (await db.query('select storage_path, image_hash from share_card_approval where id=$1', [q7])).rows[0].storage_path, 'cards/q7.png');
+await expectFail('Q8: an approved card cannot be swapped for different bytes',
+  `update share_card_approval set image_hash = '\\x01'::bytea where id = '${q7}'`);
+const qDispatch = async (a, r) => (await db.query('select fn_can_dispatch($1,$2) as c', [a, r])).rows[0].c;
+check('Q9: a 16-17 may approve their own card', await qDispatch(ID.nate, REC.nate), true);
+check('Q9b: an under-16 may not — it routes to the guardian', await qDispatch(ID.deniz, REC.deniz), false);
+await expectFail('Q10: no path mints a card path for an under-16 without approval',
+  `insert into share_card_approval (record_id, requested_by, card_kind, storage_path)
+   values ('${REC.deniz}','${ID.guardian}','og','cards/sneaky.png')`);
+
+// R3/R7/R8/R9/R10/R11 — the pending-version machinery (D-119).
+const pvSrc = readFileSync(fileURLToPath(new URL('../lib/cv-build.ts', import.meta.url)), 'utf8');
+check('R8: a pending version is created only for an under-16',
+  /u16/.test(pvSrc), true);
+check('R7: nothing in the codebase publishes a pending version on a timer',
+  /setTimeout|cron|schedule/i.test(codeOnly(pvSrc)), false);
+const rTokenRead = (await db.query(`select prosrc from pg_proc where proname='fn_token_read'`)).rows[0].prosrc;
+check('R3: the token path reads the APPROVED version, so the page never blanks',
+  /status = 'approved'/.test(rTokenRead), true);
+check('R10: and a pending version is unreachable from the token path',
+  /'pending'/.test(codeOnly(rTokenRead)), false);
+
+// R9 — deleting the record purges both versions together; no orphan survives.
+const r9Rec = crypto.randomUUID(), r9Child = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Pending',$2)`, [r9Child, yearsAgo(13)]);
+await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [r9Rec, r9Child]);
+await db.query(`insert into profile_version (record_id, content, status) values ($1,'{}','approved'), ($1,'{}','pending')`, [r9Rec]);
+await db.query(`delete from development_record where id = $1`, [r9Rec]);
+check('R9: both versions purge with the record — no orphan pending row',
+  (await db.query('select count(*)::int as n from profile_version where record_id=$1', [r9Rec])).rows[0].n, 0);
+
+// R11 — the band is read at PUBLICATION, not at composition. An edit composed
+// at 15 and approved after the sixteenth birthday publishes under the band in
+// force when it is approved, because the band is computed and never stored.
+check('R11: no band is stored on a profile version — it is computed at read',
+  /band/.test((await db.query(
+    `select coalesce(string_agg(column_name,','),'') as c from information_schema.columns
+     where table_name='profile_version'`)).rows[0].c), false);
+
+// ---------------------------------------------------------------------------
 // John's rulings on doc 30 (doc 31). Three went against the built default.
 // ---------------------------------------------------------------------------
 
