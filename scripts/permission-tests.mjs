@@ -5,7 +5,7 @@
 //
 // This file grows until every row of doc 14 is here. Green or we do not go.
 import { PGlite } from '@electric-sql/pglite';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -2256,6 +2256,100 @@ check('sess1: a session is only a session while its person exists',
   /from person where id = \$1/.test(sessionSrc), true);
 check('sess2: and a malformed id in a cookie never reaches Postgres',
   /isUuid\(id\)/.test(sessionSrc), true);
+
+// ---------------------------------------------------------------------------
+// The send layer actually sends (0031, D-81, D-78, doc 15 §15). Every message
+// used to queue into message_outbox and stop there: the provider dispatch was
+// an empty block, so the guardian approval SMS — the front door of the whole
+// product — was written, logged as sent, and never delivered.
+// ---------------------------------------------------------------------------
+const msgSrc2 = readFileSync(fileURLToPath(new URL('../lib/messaging.ts', import.meta.url)), 'utf8');
+const provSrc = readFileSync(fileURLToPath(new URL('../lib/providers.ts', import.meta.url)), 'utf8');
+check('sendl1: dispatch is wired, not a comment', /await dispatch\(id,/.test(msgSrc2), true);
+check('sendl2: the row is written before the provider is called, never after',
+  msgSrc2.indexOf('insert into message_outbox') < msgSrc2.indexOf('await dispatch(id,'), true);
+check('sendl3: development still sends nothing, whatever keys are in the shell',
+  /NODE_ENV === 'production'\) \{\n    await dispatch/.test(msgSrc2), true);
+
+// Policy stays in the send layer; the adapters are transport only. An adapter
+// that could decide to send would be an adapter that can send something doc
+// 15 never approved.
+check('sendl4: the adapters never consult the catalogue or the caps',
+  /CATALOGUE_KEYS|SMS_KILL_SWITCH|sms_meter|sms_opt_out/.test(provSrc), false);
+check('sendl5: and they carry no SDK', /require\(|from '(?!server-only)[a-z@]/.test(codeOnly(provSrc).replace(/import 'server-only';/, '')), false);
+check('sendl6: a 4xx is permanent and a 429 is not',
+  /status !== 429/.test(provSrc), true);
+
+// STOP has to be enforceable, not just written. Doc 15 §15 promises "we
+// won't text this number again"; before 0031 nothing recorded that anybody
+// had said it.
+check('sendl7: the STOP list is checked before a number is texted',
+  /from sms_opt_out where number_hash/.test(msgSrc2), true);
+check('sendl8: and before the spend cap is charged',
+  msgSrc2.indexOf('sms_opt_out') < msgSrc2.indexOf('fn_sms_spend_month'), true);
+check('sendl9: the number is hashed, never stored',
+  /number_hash bytea primary key/.test(migAll), true);
+// One hash function, shared. A second copy is a STOP that silently never
+// matches — the failure you learn about from a complaint.
+const smsHook = readFileSync(fileURLToPath(new URL('../app/api/webhooks/sms/route.ts', import.meta.url)), 'utf8');
+check('sendl10: the inbound webhook imports the same hash the send layer uses',
+  /import \{[^}]*numberHash[^}]*\} from '@\/lib\/messaging'/.test(smsHook), true);
+check('sendl11: and does not define its own',
+  /const numberHash =/.test(smsHook), false);
+check('sendl12: STOP is matched case- and punctuation-insensitively',
+  /toUpperCase\(\)\.replace\(\/\[\^A-Z\]\/g, ''\)/.test(smsHook), true);
+
+// Both webhooks write to the consent spine, so both must prove who they are.
+for (const [what, file] of [['the SMS webhook', '../app/api/webhooks/sms/route.ts'],
+                            ['the email webhook', '../app/api/webhooks/resend/route.ts']]) {
+  const src = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
+  check(`sendl13: ${what} verifies its signature`, /timingSafeEqual/.test(src), true);
+  check(`sendl14: ${what} refuses when unconfigured rather than accepting`,
+    /status: 503/.test(src), true);
+}
+const mailHook = readFileSync(fileURLToPath(new URL('../app/api/webhooks/resend/route.ts', import.meta.url)), 'utf8');
+// The signature algorithms, checked against the providers' OWN published
+// specifications rather than against what we think we remember. Getting
+// these wrong fails in one of two ways, and both are bad: reject every real
+// STOP, or accept a forged one.
+//
+// This is Twilio's worked example from twilio.com/docs/usage/security —
+// their URL, their parameters, their auth token, their expected signature.
+// If the route's algorithm ever drifts, this constant stops matching.
+{
+  const url = 'https://example.com/myapp.php?foo=1&bar=2';
+  const params = { Digits: '1234', To: '+18005551212', From: '+14158675310',
+                   Caller: '+14158675310', CallSid: 'CA1234567890ABCDE' };
+  const data = url + Object.keys(params).sort().map((k) => k + params[k]).join('');
+  const sig = createHmac('sha1', '12345').update(data).digest('base64');
+  check('sendl20: the Twilio signature matches their published vector',
+    sig, 'L/OH5YylLD5NRKLltdqwSvS0BnU=');
+}
+// Svix (Resend): signed content is `id.timestamp.body`, the secret is
+// base64 AFTER the whsec_ prefix is stripped, HMAC-SHA256, base64 out.
+check('sendl21: the email webhook strips whsec_ and decodes the secret',
+  /replace\(\/\^whsec_\/, ''\), 'base64'\)/.test(mailHook), true);
+check('sendl22: it signs id.timestamp.body in that order',
+  /\$\{id\}\.\$\{ts\}\.\$\{payload\}/.test(mailHook), true);
+check('sendl23: and it refuses a replayed receipt',
+  /age > 300/.test(mailHook), true);
+
+// D-99: we do not need to know who opened an email.
+check('sendl15: opens and clicks are not recorded',
+  /email\.opened|email\.clicked/.test(codeOnly(mailHook)), false);
+
+// The jobs existed and nothing called them.
+const vercelCfg = readFileSync(fileURLToPath(new URL('../vercel.json', import.meta.url)), 'utf8');
+for (const path of ['/api/digest', '/api/jobs/daily', '/api/jobs/outbox']) {
+  check(`sendl16: ${path} is actually scheduled`, vercelCfg.includes(`"${path}"`), true);
+}
+const sweep = readFileSync(fileURLToPath(new URL('../app/api/jobs/outbox/route.ts', import.meta.url)), 'utf8');
+check('sendl17: the sweep claims rows so two runs cannot double-send',
+  /for update skip locked/.test(sweep), true);
+check('sendl18: and it is behind the cron secret like every other job',
+  /CRON_SECRET/.test(sweep), true);
+check('sendl19: its response carries counts, never addresses or names',
+  /claimed: rows\.length, sent/.test(sweep), true);
 
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
