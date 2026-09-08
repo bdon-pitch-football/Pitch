@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { applyForRole } from '@/app/coach/edit/actions';
@@ -19,6 +20,7 @@ export default async function Role({ params, searchParams }: {
   searchParams: Promise<{ applied?: string; cannot?: string; closed?: string }>;
 }) {
   const { roleId } = await params;
+  if (!isUuid(roleId)) notFound();
   const { applied, cannot, closed } = await searchParams;
   const me = await getSessionPersonId();
 

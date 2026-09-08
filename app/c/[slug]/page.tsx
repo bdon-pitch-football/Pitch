@@ -33,11 +33,18 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
         where m.person_id = p.id and m.role = 'coach' and m.ended_at is null limit 1) as held_club,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select coalesce(json_agg(json_build_object('title', title, 'org', org_name,
-           'from', started_year, 'to', ended_year) order by sort), '[]'::json)
+           'from', started_year, 'to', ended_year)
+           -- Current role first (no end year), then most recently ended. Was
+           -- ordered by the sort column, i.e. insertion order, so a coach
+           -- who added an older job second got their history upside down.
+           order by ended_year desc nulls first, started_year desc nulls last), '[]'::json)
         from coach_role where coach_profile_id = cp.id) as roles,
        (select coalesce(json_agg(json_build_object('url', cc.url, 'title', cc.title) order by cc.sort, cc.created_at), '[]'::json)
         from coach_clip cc where cc.coach_profile_id = cp.id) as clips,
-       (select coalesce(json_agg(json_build_object('title', l.title, 'issuer', l.issuer, 'year', l.year) order by l.sort), '[]'::json)
+       (select coalesce(json_agg(json_build_object('title', l.title, 'issuer', l.issuer, 'year', l.year)
+           -- Most recent licence first; undated ones last. Insertion order put
+           -- an AFC C above an AFC B purely because it was typed first.
+           order by l.year desc nulls last, l.sort), '[]'::json)
         from coach_licence l where l.coach_profile_id = cp.id) as licences,
        (select coalesce(json_agg(json_build_object('title', a.title, 'detail', a.detail) order by a.sort), '[]'::json)
         from coach_achievement a where a.coach_profile_id = cp.id) as wins

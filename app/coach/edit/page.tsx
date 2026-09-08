@@ -34,11 +34,11 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
        (select c.name from wwcc_attestation w join club c on c.id = w.club_id where w.person_id = p.id and w.revoked_at is null limit 1) as wwcc_club,
        (select c2.name from membership m join club c2 on c2.id = m.club_id where m.person_id = p.id and m.role = 'coach' and m.ended_at is null limit 1) as coach_club,
        (select coalesce(json_agg(json_build_object('id', cr.id, 'title', cr.title, 'org', cr.org_name,
-           'from', cr.started_year, 'to', cr.ended_year) order by cr.sort), '[]'::json)
+           'from', cr.started_year, 'to', cr.ended_year) order by cr.ended_year desc nulls first, cr.started_year desc nulls last), '[]'::json)
         from coach_role cr join coach_profile cp2 on cp2.id = cr.coach_profile_id where cp2.person_id = p.id) as roles,
        (select coalesce(json_agg(json_build_object('id', cc.id, 'url', cc.url, 'title', cc.title) order by cc.sort, cc.created_at), '[]'::json)
         from coach_clip cc join coach_profile cp3 on cp3.id = cc.coach_profile_id where cp3.person_id = p.id) as clips,
-       (select coalesce(json_agg(json_build_object('id', l.id, 'title', l.title, 'issuer', l.issuer, 'year', l.year) order by l.sort), '[]'::json)
+       (select coalesce(json_agg(json_build_object('id', l.id, 'title', l.title, 'issuer', l.issuer, 'year', l.year) order by l.year desc nulls last, l.sort), '[]'::json)
         from coach_licence l join coach_profile cp4 on cp4.id = l.coach_profile_id where cp4.person_id = p.id) as licences,
        (select coalesce(json_agg(json_build_object('id', a.id, 'title', a.title, 'detail', a.detail) order by a.sort), '[]'::json)
         from coach_achievement a join coach_profile cp5 on cp5.id = a.coach_profile_id where cp5.person_id = p.id) as wins

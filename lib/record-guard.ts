@@ -12,6 +12,7 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
 import { db } from './db';
+import { isUuid } from './ids';
 import { getSessionPersonId } from './session';
 
 export type RecordActor = 'self' | 'guardian';
@@ -19,6 +20,9 @@ export type RecordActor = 'self' | 'guardian';
 export async function recordActor(recordId: string): Promise<{ personId: string; actor: RecordActor } | null> {
   const personId = await getSessionPersonId();
   if (!personId) return null;
+  // A malformed id is not yours, which is the same answer as not existing.
+  // Reaching Postgres with it would raise instead of answering.
+  if (!isUuid(recordId)) return null;
   const { rows } = await db.query(`select fn_record_actor($1,$2) as actor`, [personId, recordId]);
   const actor = rows[0]?.actor as RecordActor | null;
   return actor ? { personId, actor } : null;

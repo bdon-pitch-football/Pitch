@@ -9,6 +9,7 @@
 // does not send — and nothing sends at all until then.
 import 'server-only';
 import { db } from './db';
+import { isUuid } from './ids';
 import { guardianApprovalEmail, guardianApprovalSms } from './messages';
 import { sendAndLog } from './messaging';
 
@@ -63,6 +64,10 @@ export async function createPendingInvitation(input: {
 }
 
 export async function getPendingInvitation(id: string) {
+  // A mangled link is a dead link, not a crash. This one arrives by SMS and
+  // messaging apps truncate and decorate links routinely, so it is the id in
+  // this product most likely to turn up malformed.
+  if (!isUuid(id)) return null;
   const { rows } = await db.query(
     `select id, first_name, dob, guardian_name, guardian_phone, guardian_email, approved_at, created_at
      from pending_invitation where id = $1`,
@@ -78,6 +83,8 @@ export async function getPendingInvitation(id: string) {
 export async function approveInvitation(input: {
   invitationId: string;
 }): Promise<{ childId: string; guardianId: string } | null> {
+  // Same answer as already-approved, purged and never-existed: one null.
+  if (!isUuid(input.invitationId)) return null;
   const client = await db.connect();
   try {
     await client.query('begin');

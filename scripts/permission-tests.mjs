@@ -2107,6 +2107,65 @@ check('lic7: every licence and achievement write goes through the session-resolv
 check('lic8: and no writer takes a profile id from the caller (D-94 §3)',
   /profileId: string|coachProfileId: string/.test(codeOnly(licActions)), false);
 
+// ---------------------------------------------------------------------------
+// Deep review, 8 Sep. Six defects, and the properties that stop them coming
+// back. The theme of the first three: a server action exported from a
+// 'use server' module is a PUBLIC ENDPOINT whether or not its page renders,
+// so guarding the page buys nothing and every argument is hostile — not just
+// the first one.
+// ---------------------------------------------------------------------------
+const opsActionFiles = routeFiles.filter((f) => /\/ops\/.*actions\.ts$/.test(f));
+check('rev1: there are ops actions to check', opsActionFiles.length >= 2, true);
+for (const f of opsActionFiles) {
+  const src = readFileSync(f, 'utf8');
+  // logCall sets club_state='verified' — the write that turns a paying club's
+  // register from a count into named children (D-126). resendApproval texts
+  // and emails a named guardian. Both were reachable without an operator.
+  check(`rev2: ${f.slice(f.indexOf('app/'))} checks the operator, not just its page`,
+    /requireOperator/.test(src), true);
+}
+
+// A guardian's controls take a child id AND a record id. The child was
+// checked and the record was not, so any approved guardian could revoke
+// another family's share links and mint themselves a live token to that
+// child's CV — handed back in the redirect URL.
+const gControls = readFileSync(fileURLToPath(new URL('../app/g/controls/[childId]/actions.ts', import.meta.url)), 'utf8');
+check('rev3: the record id is bound to the child before it is used',
+  /assertChildsRecord/.test(gControls), true);
+check('rev4: and both link actions call it',
+  (gControls.match(/await assertChildsRecord\(/g) ?? []).length >= 2, true);
+
+// A uuid column handed "bogus" raises rather than answering, so a malformed
+// id 500'd carrying a Postgres error while a well-formed unknown one
+// returned the neutral page. The difference is itself a leak (D-77), and it
+// landed hardest on /a/[id] — the approval link a guardian gets by SMS,
+// which messaging apps truncate.
+const idsSrc = readFileSync(fileURLToPath(new URL('../lib/ids.ts', import.meta.url)), 'utf8');
+check('rev5: there is one shared uuid shape check', /export function isUuid/.test(idsSrc), true);
+for (const [what, file] of [['the record door', '../lib/record-guard.ts'],
+                            ['the invitation door', '../lib/guardian-flow.ts']]) {
+  const src = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
+  check(`rev6: ${what} refuses a malformed id before Postgres sees it`,
+    /isUuid\(/.test(src), true);
+}
+// The shape check belongs ABOVE the database, not in it: fn_record_actor
+// takes a uuid parameter, so a malformed id raises there by design and the
+// guard has to refuse it first. What the database must answer is the
+// well-formed unknown — and that is a null, the same as not yours.
+check('rev7: a well-formed unknown record id is not an actor',
+  await actor(ID.guardian, '00000000-0000-0000-0000-000000000000'), null);
+
+// A coach's history and licences sorted by INSERTION, so a coach who added
+// an older job or a lower licence second got them out of order.
+for (const [what, file] of [['the coach page', '../app/c/[slug]/page.tsx'],
+                            ['the printed coach CV', '../app/c/[slug]/print/page.tsx']]) {
+  const src = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
+  check(`rev9: ${what} orders roles by year, not by insertion`,
+    /ended_year desc nulls first/.test(src), true);
+  check(`rev10: ${what} orders licences by year, not by insertion`,
+    /l\.year desc nulls last/.test(src), true);
+}
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',

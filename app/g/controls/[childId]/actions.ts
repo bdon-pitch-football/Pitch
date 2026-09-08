@@ -20,6 +20,21 @@ async function assertGuardian(childId: string): Promise<string> {
   return g;
 }
 
+// The record id is a SECOND argument and it was never checked against the
+// child. assertGuardian proved the caller was the guardian of childId and
+// then replaceLink went on to mint a token for whatever recordId it was
+// handed — so any approved guardian could revoke another family's links and
+// walk away with a live share token to that child's CV, returned in the URL.
+// An exported server action is a public endpoint: every argument is hostile,
+// not just the first (D-94 §3).
+async function assertChildsRecord(childId: string, recordId: string): Promise<void> {
+  const { rows } = await db.query(
+    `select 1 from development_record where id = $1 and person_id = $2`,
+    [recordId, childId],
+  );
+  if (rows.length === 0) redirect('/home');
+}
+
 function newToken() {
   const raw = randomBytes(24).toString('base64url');
   return { raw, hash: createHash('sha256').update(raw).digest(), hint: `${raw.slice(0, 4)}·${raw.slice(-4)}` };
@@ -27,6 +42,7 @@ function newToken() {
 
 export async function replaceLink(childId: string, recordId: string) {
   const guardianId = await assertGuardian(childId);
+  await assertChildsRecord(childId, recordId);
   const t = newToken();
   const client = await db.connect();
   try {
@@ -53,6 +69,7 @@ export async function replaceLink(childId: string, recordId: string) {
 // Renew: same link, another 90 days. No new token needed — nothing to show.
 export async function renewLink(childId: string, recordId: string) {
   const guardianId = await assertGuardian(childId);
+  await assertChildsRecord(childId, recordId);
   // Only a link that is still ALIVE gets another 90 days. Without the expiry
   // clause this also revived tokens that had already lapsed — someone handed
   // a link 91 days ago would silently get access back, which is the opposite

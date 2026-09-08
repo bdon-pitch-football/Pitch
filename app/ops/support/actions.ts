@@ -2,12 +2,20 @@
 // Resend an approval request (D-79). The support console may re-send and
 // nothing more; the SMS controls in the send layer still apply, so a resend
 // cannot be used to hammer a number.
+//
+// Same defect as the call log: the console page was operator-only and the
+// action was not. Anybody reaching the action id could make Pitch text and
+// email a named guardian's phone about a named child, once per invitation
+// id, without an account. The send layer's caps limited the blast radius;
+// they were never the authorisation.
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { requireOperator } from '@/lib/ops-guard';
 import { guardianApprovalEmail, guardianApprovalSms } from '@/lib/messages';
 import { sendAndLog } from '@/lib/messaging';
 
 export async function resendApproval(invitationId: string) {
+  await requireOperator();
   const { rows } = await db.query(
     `select first_name, dob, guardian_phone, guardian_email
      from pending_invitation where id = $1 and approved_at is null`,

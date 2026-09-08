@@ -3,10 +3,21 @@
 // club_state='verified': a logged human call carrying operator, timestamp
 // and number_source, linked in the same transaction. Outcomes map exactly
 // to doc 27: verified · not_verified · suspended · takedown.
+//
+// The gate was on the PAGE and not on the action. A server action exported
+// from a 'use server' module is a public endpoint whether or not its page
+// renders, so /ops/call/[clubId] being operator-only bought nothing: anybody
+// who could reach the action id could set club_state='verified' on any club
+// in the country — which is the single most powerful write in the product,
+// because verification is what turns a paying club's register from a count
+// into named children (D-126). The table check only requires that a call row
+// exists, and a forged call writes one.
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { requireOperator } from '@/lib/ops-guard';
 
 export async function logCall(clubId: string, formData: FormData) {
+  await requireOperator();
   const f = (k: string) => String(formData.get(k) ?? '').trim();
   const outcome = f('outcome');
   const client = await db.connect();
