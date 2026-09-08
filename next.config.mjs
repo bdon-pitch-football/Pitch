@@ -8,6 +8,13 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // A production build and `next dev` must not share a directory. Running
+  // `next build` while the dev server is live overwrites its chunks, and the
+  // dev server then serves unstyled, 500-ing pages — which looks exactly like
+  // a CSS bug and is not one. `npm run build:check` sets NEXT_DIST_DIR so the
+  // two never collide.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
   async headers() {
     return [
       { source: '/(.*)', headers: securityHeaders },

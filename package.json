@@ -2,12 +2,13 @@
   "name": "pitch-coming-soon",
   "private": true,
   "version": "0.1.0",
-  "description": "Pitch Football — pre-launch site at pitchfootball.com.au (doc 29)",
+  "description": "Pitch Football \u2014 pre-launch site at pitchfootball.com.au (doc 29)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:check": "NEXT_DIST_DIR=.next-check next build"
   },
   "dependencies": {
     "@electric-sql/pglite-socket": "^0.2.11",

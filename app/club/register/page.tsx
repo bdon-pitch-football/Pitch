@@ -145,25 +145,41 @@ export default async function Register({ searchParams }: {
   };
 
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
-  const chipBase: React.CSSProperties = {
-    height: 32, borderRadius: 999, padding: '0 13px', display: 'inline-flex', alignItems: 'center',
-    fontSize: 12.5, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap',
-  };
-  const chipOff = { ...chipBase, background: T.surface2, border: `1px solid ${T.line}`, color: T.secondary };
-  const chipOn = { ...chipBase, background: T.accent, border: `1px solid ${T.accent}`, color: T.onAccent, fontWeight: 800 };
+  // The chip primitive carries hover and pressed; aria-pressed is both the
+  // state and the style hook, so a screen reader and the stylesheet agree.
 
   return (
     <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
-        <div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Interest register</div>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>
-            {c.name} · <b style={{ color: T.ink }}>{all.length || held} players</b>
-            {c.club_state === 'verified' && all.length > 0 && (
-              <> · {counts.new} new · {counts.shortlisted} shortlisted · {counts.invited} invited</>
-            )}
+        {/* The header is the hero of this screen. It used to render the whole
+            shape of the register as 13.5px body text; a club with ninety-nine
+            families waiting should see ninety-nine. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>Interest register</div>
+            <div style={{ fontSize: 13.5, color: 'var(--secondary)', fontWeight: 500 }}>{c.name}</div>
           </div>
+          {c.club_state === 'verified' && all.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
+              <div>
+                <div className="numeral numeral-l" style={{ color: 'var(--ink)' }}>{all.length}</div>
+                <div className="kicker" style={{ marginTop: 6 }}>Players</div>
+              </div>
+              <div>
+                <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{counts.new}</div>
+                <div className="kicker" style={{ marginTop: 6 }}>New</div>
+              </div>
+              <div>
+                <div className="numeral numeral-m" style={{ color: 'var(--amber)' }}>{counts.shortlisted}</div>
+                <div className="kicker" style={{ marginTop: 6 }}>Shortlisted</div>
+              </div>
+              <div>
+                <div className="numeral numeral-m" style={{ color: T.blue }}>{counts.invited}</div>
+                <div className="kicker" style={{ marginTop: 6 }}>Invited</div>
+              </div>
+            </div>
+          )}
         </div>
 
         {c.club_state !== 'verified' ? (
@@ -183,9 +199,9 @@ export default async function Register({ searchParams }: {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Which age group</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  <Link href={qs({ age: null })} style={ageOk ? chipOff : chipOn}>All ages · {all.length}</Link>
+                  <Link href={qs({ age: null })} className="chip" aria-pressed={!ageOk}>All ages · {all.length}</Link>
                   {ageGroups.map((g) => (
-                    <Link key={g.code} href={qs({ age: g.code })} style={ageOk === g.code ? chipOn : chipOff}>
+                    <Link key={g.code} href={qs({ age: g.code })} className="chip" aria-pressed={ageOk === g.code}>
                       {g.label} · {g.n}
                     </Link>
                   ))}
@@ -194,9 +210,9 @@ export default async function Register({ searchParams }: {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Where they play</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  <Link href={qs({ pos: null })} style={posOk ? chipOff : chipOn}>Any position</Link>
+                  <Link href={qs({ pos: null })} className="chip" aria-pressed={!posOk}>Any position</Link>
                   {usedPositions.map((p) => (
-                    <Link key={p} href={qs({ pos: p })} style={posOk === p ? chipOn : chipOff}
+                    <Link key={p} href={qs({ pos: p })} className="chip" aria-pressed={posOk === p}
                       title={POSITIONS[p as keyof typeof POSITIONS].label}>
                       {p}
                     </Link>
@@ -206,9 +222,9 @@ export default async function Register({ searchParams }: {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Where you&rsquo;re up to</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  <Link href={qs({ status: null })} style={statusOk ? chipOff : chipOn}>Everyone</Link>
+                  <Link href={qs({ status: null })} className="chip" aria-pressed={!statusOk}>Everyone</Link>
                   {(['new', 'shortlisted', 'invited'] as const).map((s) => (
-                    <Link key={s} href={qs({ status: s })} style={statusOk === s ? chipOn : chipOff}>
+                    <Link key={s} href={qs({ status: s })} className="chip" aria-pressed={statusOk === s}>
                       {STATUS_CHIP[s].label} · {counts[s]}
                     </Link>
                   ))}
