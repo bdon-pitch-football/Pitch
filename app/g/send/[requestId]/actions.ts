@@ -29,7 +29,15 @@ export async function dispatchSend(requestId: string) {
   // development affordance and is not rendered in production, so both paths
   // are the same page.
   const withinLimit = await checkRate(`send:actor:${guardianId}`, SEND_DAILY_CAP, 24 * 60 * 60);
-  if (!withinLimit) redirect(`/g/send/${requestId}?sent=1`);
+  if (!withinLimit) {
+    // U-4 (John): the consent log records what happened, never what was
+    // attempted and stopped — a stranger's failed probe is not something
+    // that happened to this child. The signal goes to a separate
+    // operational store carrying the sender, the time and a reason, and no
+    // recipient, no child and no content.
+    await db.query(`insert into abuse_signal (actor_id, reason, surface) values ($1,'rate_limited','send')`, [guardianId]);
+    redirect(`/g/send/${requestId}?sent=1`);
+  }
 
   const raw = randomBytes(24).toString('base64url');
   const client = await db.connect();

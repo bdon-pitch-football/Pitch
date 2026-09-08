@@ -112,7 +112,9 @@ ${childFirstName} plays ${positions}, currently at ${clubOfPlayer}.
 
 This is a link, not a file. The family controls it — they can pause or replace it at any time, and it expires on its own. If it stops working, that is normal and it is their choice, not a fault.
 
-If you'd like to reply, just reply to this email. It goes to ${childFirstName} and their parent together, and a record is kept — that is how contact with an under-16 works on Pitch, without exception.
+Replies to this message do not reach the family. There is no way to reply to a family through Pitch — at any tier, for anybody. That is deliberate, and it is the same rule for every under-18 on here.
+
+If you want ${childFirstName} at a trial, post it on Pitch or send an invitation through their guardian. Both go to the parent, and both keep a record.
 
 — Pitch
 ${SITE} · ${HELP}
@@ -199,6 +201,66 @@ export const accessRequestEmail = (childFirstName: string, typedName: string, ty
     `We have not given them anything. They cannot see ${childFirstName}'s name, club, photo or age, and they will not know whether you read this.`,
     '',
     'This is unverified. They typed their own name and role — we have not checked either. If you do not recognise them, ignoring this is the right call, and we will not ask again on their behalf.',
+    '',
+    '— Pitch',
+  ].join('\n'),
+});
+
+// §35 · Your request expired — to the player who composed it (John, U-1).
+// The constraint is absolute: they are told THEIR REQUEST expired. Never that
+// a parent did not act, and never anything they could infer it from.
+export const sendRequestLapsedEmail = (clubName: string) => ({
+  key: 'doc15.§35',
+  channel: 'email' as const,
+  subject: 'Your CV request has expired',
+  body: [
+    `The request you made to send your CV to ${clubName} has expired, so it is no longer active.`,
+    '',
+    'You can ask again whenever you like. Nothing has been sent, and nothing about your page has changed.',
+    '',
+    '— Pitch',
+  ].join('\n'),
+});
+
+// §36 · A CV was sent — to the OTHER guardian (John, U-2). Carries the
+// 24-hour undo. The undo revokes the link; it does not un-send the email, and
+// saying otherwise would be lying to a frightened parent.
+export const sendMadeByOtherGuardianEmail = (
+  otherGuardianFirstName: string, childFirstName: string, clubName: string, undoToken: string,
+) => ({
+  key: 'doc15.§36',
+  channel: 'email' as const,
+  subject: `${childFirstName}'s CV was sent to ${clubName}`,
+  body: [
+    `${otherGuardianFirstName} sent ${childFirstName}'s football CV to ${clubName} today.`,
+    '',
+    `You are being told because you are also ${childFirstName}'s parent on Pitch, and you both hold the same controls.`,
+    '',
+    `Switch this link off: ${SITE}/undo/${undoToken}`,
+    '',
+    `If you switch it off, the club can no longer open ${childFirstName}'s page. The email itself has already arrived and we cannot recall that — nobody can. What you can do is stop what it opens.`,
+    '',
+    '— Pitch',
+  ].join('\n'),
+});
+
+// §37 · A club you sent to is no longer verified (John, M11). Sent ONLY for
+// the child-safety reason class. We may withhold the reason; we must not
+// withhold the ability to act — and we never revoke on the family's behalf.
+export const clubDeverifiedEmail = (clubName: string, childFirstName: string, undoToken: string) => ({
+  key: 'doc15.§37',
+  channel: 'email' as const,
+  subject: 'A club you shared with is no longer verified on Pitch',
+  body: [
+    `${clubName} is no longer a verified club on Pitch.`,
+    '',
+    `You sent them a link to ${childFirstName}'s page, and that link still works — you sent it, so it is yours to switch off.`,
+    '',
+    `Switch this link off: ${SITE}/undo/${undoToken}`,
+    '',
+    'We are not telling you why the club is no longer verified, and we are not going to. What we can tell you is that you have the control, and that this takes one tap.',
+    '',
+    'We have not switched it off for you. You made the decision to share; the decision to stop is yours as well.',
     '',
     '— Pitch',
   ].join('\n'),
@@ -330,6 +392,6 @@ Nothing else. No copy, no archive, no "in case you come back".
 export const CATALOGUE_KEYS = [
   'doc15.§1', 'doc15.§2', 'doc15.§3', 'doc15.§10', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
-  'doc15.§6', 'doc15.§21', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
+  'doc15.§6', 'doc15.§21', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
   'doc15.§33', 'doc15.§34',
 ] as const;

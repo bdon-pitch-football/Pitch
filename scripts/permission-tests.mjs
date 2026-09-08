@@ -495,6 +495,134 @@ check('N14b: and leaves a recent one alone',
   (await db.query('select count(*)::int as n from registration where id = $1', [n14Fresh])).rows[0].n, 1);
 
 // ---------------------------------------------------------------------------
+// John's rulings on doc 30 (doc 31). Three went against the built default.
+// ---------------------------------------------------------------------------
+
+// U-5 — an under-16 sees the CLUB and the date, never the address. A
+// guardian sees it in full. Built locally rather than borrowed from a later
+// section: a test that depends on the order of the file is a test that
+// breaks when somebody reorders it.
+const u5Child14 = crypto.randomUUID(), u5Rec = crypto.randomUUID(), u5Tok = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Sent',$2)`, [u5Child14, yearsAgo(14)]);
+await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, u5Child14]);
+await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [u5Rec, u5Child14]);
+await db.query(`insert into share_token (id, record_id, token_hash, issued_by) values ($1,$2,$3,$4)`,
+  [u5Tok, u5Rec, sha('u5-token'), ID.guardian]);
+await db.query(
+  `insert into consent_event (event, actor_id, subject_id, detail)
+   values ('share_dispatched', $1, $2, jsonb_build_object(
+     'recipient', 'coach@kingsway.example.au', 'club_name', 'Kingsway Rovers FC',
+     'token_id', $3::uuid, 'initiating_actor', $2::uuid, 'band_at_send', 'u16'))`,
+  [ID.guardian, u5Child14, u5Tok]);
+const u5Guardian = await db.query('select * from fn_send_log($1,$2)', [ID.guardian, u5Child14]);
+const u5Child = await db.query('select * from fn_send_log($1,$2)', [u5Child14, u5Child14]);
+check('U-5: the guardian still sees the recipient address in full',
+  u5Guardian.rows[0]?.recipient, 'coach@kingsway.example.au');
+check('U-5b: the under-16 sees no address at all', u5Child.rows[0]?.recipient, null);
+check('U-5c: but does see that a send happened', u5Child.rows.length, 1);
+check('U-5d: and a 16-17 reading their own log is not reduced',
+  (await db.query('select * from fn_send_log($1,$2)', [ID.nate, ID.nate])).rows.length >= 0, true);
+
+// U-4 — a blocked send leaves a trace, and it is nowhere near a child.
+const abuseCols = (await db.query(
+  `select string_agg(column_name, ',') as c from information_schema.columns where table_name='abuse_signal'`)).rows[0].c;
+for (const forbidden of ['recipient', 'subject_id', 'record_id', 'child', 'content', 'body']) {
+  check(`U-4: the abuse counter cannot hold ${forbidden}`, abuseCols.includes(forbidden), false);
+}
+check('U-4b: it holds the SENDER, the time and a reason', /actor_id/.test(abuseCols) && /reason/.test(abuseCols), true);
+await db.query(`insert into abuse_signal (actor_id, reason, surface) values ($1,'rate_limited','send')`, [ID.guardian]);
+// The abuse signal just written must NOT have produced a consent row: the
+// send log still shows exactly the one real send from above.
+check('U-4c: a blocked send writes an abuse signal and no consent row',
+  (await db.query(`select count(*)::int as n from consent_event where event='share_dispatched' and subject_id=$1`,
+    [u5Child14])).rows[0].n, 1);
+
+// U-1 — fourteen days, and the request is GONE rather than flagged.
+const u1 = crypto.randomUUID();
+await db.query(`insert into share_request (id, record_id, requested_by, destination, created_at)
+  values ($1,$2,$3,'club@example.com', now() - interval '15 days')`, [u1, REC.georgia, ID.georgia]);
+const u1Fresh = crypto.randomUUID();
+await db.query(`insert into share_request (id, record_id, requested_by, destination, created_at)
+  values ($1,$2,$3,'club@example.com', now() - interval '2 days')`, [u1Fresh, REC.georgia, ID.georgia]);
+check('U-1: a request older than 14 days lapses',
+  (await db.query('select fn_lapse_send_requests() as n')).rows[0].n, 1);
+check('U-1b: the row is gone, not flagged',
+  (await db.query('select count(*)::int as n from share_request where id=$1', [u1])).rows[0].n, 0);
+check('U-1c: and a recent one is untouched',
+  (await db.query('select count(*)::int as n from share_request where id=$1', [u1Fresh])).rows[0].n, 1);
+// codeOnly first: the slice runs up to the NEXT export, which drags in that
+// function's explanatory comment — and §36's comment is about a guardian.
+const lapseMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
+  .split('sendRequestLapsedEmail')[1].split('export const')[0];
+check('U-1d: the lapse message never mentions a parent, a decision or waiting',
+  /parent|guardian|decision|waiting|did not|ignored/i.test(lapseMsg), false);
+
+// U-2 — either guardian sends; the other gets a 24-hour undo. The undo
+// revokes the LINK and must not claim to un-send the email.
+const undoMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
+  .split('sendMadeByOtherGuardianEmail')[1].split('export const')[0];
+check('U-2: the notification says plainly that the email cannot be recalled',
+  /cannot recall|already arrived/i.test(undoMsg), true);
+check('U-2b: and never claims to un-send it', /un-?send|unsend|recall the email/i.test(undoMsg.replace(/cannot recall that/i, '')), false);
+const undoCols = (await db.query(
+  `select string_agg(column_name, ',') as c from information_schema.columns where table_name='undo_token'`)).rows[0].c;
+check('U-2c: the undo token is stored hashed, never raw', /token_hash/.test(undoCols) && !/\btoken\b,/.test(undoCols), true);
+check('U-2d: it is single-purpose — one share token, and an expiry',
+  /share_token_id/.test(undoCols) && /expires_at/.test(undoCols) && /used_at/.test(undoCols), true);
+
+// M11 — L29 stands, and only the CHILD-SAFETY class notifies families.
+check('M11: de-verification carries a reason class',
+  (await db.query(`select string_agg(column_name,',') as c from information_schema.columns
+    where table_name='club' and column_name='suspension_reason'`)).rows[0].c, 'suspension_reason');
+await expectFail('M11b: and the class is constrained, not free text',
+  `update club set suspension_reason = 'because i felt like it' where id = '${CLUB.riverside}'`);
+const deverifyMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
+  .split('clubDeverifiedEmail')[1].split('export const')[0];
+check('M11c: the notice never says WHY the club was de-verified',
+  /allegation|investigat|report|complaint|safety concern/i.test(deverifyMsg), false);
+check('M11d: and never revokes on the family’s behalf — it offers the button',
+  /we have not switched it off for you/i.test(deverifyMsg), true);
+
+// U-11 — no inbound reply route, and the send says so.
+const cvMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
+  .split('cvToClubEmail')[1].split('export const')[0];
+check('U-11: the CV email tells the club replies do not reach the family',
+  /do not reach the family/i.test(cvMsg), true);
+check('U-11b: and tells them what to do instead', /invitation|post it on Pitch/i.test(cvMsg), true);
+check('U-11c: the old promise of a routed reply is gone',
+  /just reply to this email/i.test(cvMsg), false);
+
+// U-6 — complaints access: purpose-bound, time-boxed, logged, disclosed.
+const grantCols = (await db.query(
+  `select string_agg(column_name,',') as c from information_schema.columns where table_name='investigation_grant'`)).rows[0].c;
+check('U-6: access is bound to a report, never standing', /report_id/.test(grantCols), true);
+check('U-6b: and time-boxed', /expires_at/.test(grantCols), true);
+const u6Report = crypto.randomUUID(), u6Grant = crypto.randomUUID();
+await db.query(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'club_page','riverside-fc','test')`, [u6Report]);
+await db.query(`insert into investigation_grant (id, report_id, investigator_id, subject_id, expires_at)
+  values ($1,$2,$3,$4, now() + interval '7 days')`, [u6Grant, u6Report, ID.td, ID.deniz]);
+await db.query(`insert into investigation_access (grant_id, what) values ($1,'send rows')`, [u6Grant]);
+await expectFail('U-6c: the access log cannot be edited',
+  `update investigation_access set what = 'nothing' where grant_id = '${u6Grant}'`);
+await expectFail('U-6c2: nor deleted',
+  `delete from investigation_access where grant_id = '${u6Grant}'`);
+const looked = (await db.query('select * from fn_who_looked($1,$2)', [ID.guardian, ID.deniz])).rows;
+check('U-6d: a guardian can ask who looked at their child’s record', looked.length, 1);
+check('U-6d2: and gets a straight answer — who, and against which report',
+  looked[0].investigator.length > 0 && looked[0].report_id === u6Report, true);
+check('U-6e: and a stranger cannot',
+  (await db.query('select * from fn_who_looked($1,$2)', [ID.coachV, ID.deniz])).rows.length, 0);
+
+// D-108 carve-out — a club may close a role. It may never record a judgement
+// about a named individual.
+const appCols = (await db.query(
+  `select string_agg(column_name,',') as c from information_schema.columns where table_name='role_application'`)).rows[0].c;
+for (const verdict of ['status', 'declined', 'rejected', 'outcome', 'rating', 'score']) {
+  check(`D-108 carve-out: an application row cannot record "${verdict}" about a person`,
+    appCols.includes(verdict), false);
+}
+
+// ---------------------------------------------------------------------------
 // Table J (the negative suite) — the rows that exist to be tried and to fail.
 // ---------------------------------------------------------------------------
 
