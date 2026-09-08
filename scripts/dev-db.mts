@@ -14,7 +14,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PLAYER_FIXTURES } from '../lib/fixtures.ts';
@@ -239,6 +239,31 @@ for (let i = 0; i < 96; i++) {
 // public club page seed (ClubCV): slug, girls'/women's squads, trials,
 // players wanted, alumni wall
 await db.query(`update club set public_slug='riverside-fc', established='1974', pathway_line='MiniRoos → Juniors → Seniors pathway', philosophy='Every junior plays, every junior develops. Football that is brave on the ball, and a club where families stay for a decade — not a season.' where id=$1`, [riverside]);
+// A banner, so the club page can be looked at the way a club with a photo
+// will see it. Put through sharp at exactly the ratio the upload route uses
+// (1600x500 cover), because a fixture that skips the crop tells you nothing
+// about what the crop does. The source is our own brand photography — no
+// real club's ground, and the crest is a plain two-letter stand-in — neither
+// is a real club's property.
+{
+  const sharp = (await import('sharp')).default;
+  const out = await sharp(fileURLToPath(new URL('../public/assets/film-1.webp', import.meta.url)))
+    .resize(1600, 500, { fit: 'cover', position: 'centre' })
+    .jpeg({ quality: 82 })
+    .toBuffer();
+  const crest = await sharp(fileURLToPath(new URL('../public/assets/dev-crest-riverside.png', import.meta.url)))
+    .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
+    .png()
+    .toBuffer();
+  const rel = `/dev-uploads/banner-${riverside}.jpg`;
+  const pub = fileURLToPath(new URL('../public/', import.meta.url));
+  mkdirSync(join(pub, 'dev-uploads'), { recursive: true });
+  writeFileSync(join(pub, rel.slice(1)), out);
+  const crestRel = `/dev-uploads/crest-${riverside}.png`;
+  writeFileSync(join(pub, crestRel.slice(1)), crest);
+  await db.query(`update club set banner_path = $2, crest_path = $3 where id = $1`, [riverside, rel, crestRel]);
+}
+
 // Riverside's girls' and women's rows come from the squad list above — this
 // used to insert its own U13 Girls as well, which gave the club two of them
 // and made the squads page look broken.

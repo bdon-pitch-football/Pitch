@@ -104,6 +104,7 @@ export default async function ClubPage({ params, searchParams }: {
   // So the chip selects ON THIS PAGE and the register card below carries the
   // choice into whichever button that viewer gets. One mechanism, every seat,
   // signed in or not.
+  const hasBanner = Boolean(c.banner_path);
   const picked = squads.find((s) => s.id === squadParam) ?? null;
   const squadQuery = picked ? `&squad=${picked.id}` : '';
 
@@ -112,20 +113,48 @@ export default async function ClubPage({ params, searchParams }: {
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
 
-        {c.banner_path && (
-          <img src={c.banner_path} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', borderRadius: 22, display: 'block' }} />
-        )}
-
-        <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        {/* The banner used to float above the hero as its own strip, so a club
+            that uploaded a ground photo got two boxes rather than one page.
+            It now sits BEHIND the crest — the arrangement everybody already
+            knows from LinkedIn — and the card degrades to the plain gradient
+            when a club has not uploaded one, which most will not have on the
+            day they claim their page. */}
+        <div style={{ borderRadius: 22, overflow: 'hidden', background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', display: 'flex', flexDirection: 'column' }}>
+          {hasBanner && (
+            <div style={{ position: 'relative', lineHeight: 0 }}>
+              <img src={c.banner_path} alt="" style={{ width: '100%', height: 168, objectFit: 'cover', display: 'block' }} />
+              {/* The crest and the club tag sit on top of whatever photo the
+                  club chose, so the bottom of it is darkened rather than
+                  hoped about. */}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,21,16,0) 42%, rgba(10,21,16,.78) 100%)' }} />
+            </div>
+          )}
+          <div style={{ padding: hasBanner ? '0 20px 22px 20px' : '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* position:relative is load-bearing, not decoration: the banner's
+              scrim is absolutely positioned, and a positioned element paints
+              over static content whatever the DOM order, so without this the
+              crest sits UNDER the darkening and its top half goes grey. */}
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: hasBanner ? 'flex-end' : 'flex-start', marginTop: hasBanner ? -46 : 0 }}>
             {/* The crest was 66px — the same size as a player's avatar, on the
-                one page where the badge IS the identity. */}
-            <div style={{ width: 96, height: 96, borderRadius: 20, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 36, overflow: 'hidden', flexShrink: 0 }}>
+                one page where the badge IS the identity. Over a photo it takes
+                a ring in the card's own colour, so the badge is punched out of
+                the picture rather than floating on it. */}
+            <div style={{
+              width: 96, height: 96, borderRadius: 20, flexShrink: 0, overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 36,
+              background: hasBanner ? '#1b2b22' : 'rgba(255,255,255,.12)',
+              border: hasBanner ? '3px solid #0e1b14' : '1.5px solid rgba(255,255,255,.2)',
+              // Over a photo a dark ring on a dark scrim is invisible, so the
+              // ring gets a light hairline outside it and a shadow under it.
+              // That is what separates the badge from the picture; without it
+              // the tile dissolves into the bottom of the banner.
+              boxShadow: hasBanner ? '0 0 0 1px rgba(238,245,240,.18), 0 10px 26px rgba(0,0,0,.5)' : 'none',
+            }}>
               {c.crest_path
                 ? <img src={c.crest_path} alt="" width={96} height={96} style={{ objectFit: 'contain' }} />
                 : c.name[0]}
             </div>
-            <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)' }}>Club</div>
+            <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', background: hasBanner ? 'rgba(6,19,12,.5)' : 'transparent', marginBottom: hasBanner ? 10 : 0 }}>Club</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{c.name}</div>
@@ -158,6 +187,7 @@ export default async function ClubPage({ params, searchParams }: {
             ) : (
               <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.6)' }}>Compiled from public information — not affiliated until claimed</div>
             )}
+          </div>
           </div>
         </div>
 

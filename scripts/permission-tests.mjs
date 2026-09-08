@@ -1854,8 +1854,15 @@ check('club video: rendered through the click-to-play facade (D-97)',
   /ClipCard/.test(clubPageSrc), true);
 check('club video: the section is omitted when the club has none',
   /videos\.length > 0/.test(clubPageSrc), true);
+// The banner is now composed INTO the hero rather than floated above it, so
+// the guard reads `hasBanner` rather than `c.banner_path` inline. Pin both
+// halves — where the flag comes from and that the block is behind it —
+// because the property that matters is that a club without a photo gets no
+// empty slot, not how the condition happens to be spelled.
+check('club banner: the render flag is derived from the stored path and nothing else',
+  /const hasBanner = Boolean\(c\.banner_path\)/.test(clubPageSrc), true);
 check('club banner: omitted when absent, so an empty page never shows a slot',
-  /c\.banner_path && \(/.test(clubPageSrc), true);
+  /\{hasBanner && \(/.test(clubPageSrc), true);
 
 // The crest and banner routes are the player-photo route's twins and must
 // keep its D-94 §7 controls.

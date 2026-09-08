@@ -79,21 +79,37 @@ export default async function ClubPageEdit({ searchParams }: {
 
         <form action="/club/page-edit/banner" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Banner</div>
-          {c.banner_path ? (
-            <img src={c.banner_path} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 12, border: `1px solid ${T.line}` }} />
-          ) : (
-            <div style={{ width: '100%', height: 110, borderRadius: 12, background: T.surface2, border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
-              No banner yet
+          {/* Shown the way the public page composes it — photo behind, crest
+              over the bottom-left — so a club can see what its own crop is
+              about to cover before it saves. */}
+          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'linear-gradient(160deg, #123326, #0a1510)' }}>
+            {c.banner_path ? (
+              <div style={{ position: 'relative', lineHeight: 0 }}>
+                <img src={c.banner_path} alt="" style={{ width: '100%', height: 118, objectFit: 'cover', display: 'block' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,21,16,0) 42%, rgba(10,21,16,.78) 100%)' }} />
+              </div>
+            ) : (
+              <div style={{ width: '100%', height: 118, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
+                No banner yet
+              </div>
+            )}
+            <div style={{ position: 'relative', zIndex: 1, padding: '0 14px 12px 14px' }}>
+              <div style={{ width: 62, height: 62, marginTop: -30, borderRadius: 14, background: '#1b2b22', border: '3px solid #0e1b14', boxShadow: '0 0 0 1px rgba(238,245,240,.18), 0 8px 20px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {c.crest_path
+                  ? <img src={c.crest_path} alt="" width={62} height={62} style={{ objectFit: 'contain' }} />
+                  : <span style={{ fontWeight: 900, fontSize: 22, color: T.muted }}>{c.name[0]}</span>}
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.015em', marginTop: 8 }}>{c.name}</div>
             </div>
-          )}
+          </div>
           <label className="filefield">
             <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" required />
             <span className="filefield-title">Choose a banner</span>
-            <span className="filefield-hint">A wide photo of your ground or a team shot. Cropped to a strip, so keep anything important near the middle.</span>
+            <span className="filefield-hint">A wide photo of your ground or a team shot. Cropped to a wide strip, and your crest sits over the bottom-left of it.</span>
           </label>
           <button type="submit" className="btn btn-secondary">Save the banner</button>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-            A wide photo of your ground or a team shot. It gets cropped to a strip, so anything important wants to be near the middle.
+            It gets cropped to a wide strip and darkened towards the bottom, where your crest and your club name sit. Anything you want seen wants to be near the middle or the top.
           </div>
         </form>
 
