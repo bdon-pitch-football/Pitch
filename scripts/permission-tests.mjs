@@ -2166,6 +2166,97 @@ for (const [what, file] of [['the coach page', '../app/c/[slug]/page.tsx'],
     /l\.year desc nulls last/.test(src), true);
 }
 
+// ---------------------------------------------------------------------------
+// Claiming a club (0030, doc 15 §34). /claim/[slug] was 404 in production
+// "until email codes land", and the dev flow claimed the page on a button
+// press with no proof at all — the version that cannot ship, because it lets
+// anybody take any club.
+// ---------------------------------------------------------------------------
+const claimClubId = crypto.randomUUID();
+const claimant2 = crypto.randomUUID();
+await db.query(`insert into club (id, name, club_state, public_slug, contact_email)
+  values ($1,'Claimable FC','unclaimed','claimable-fc','secretary@claimable.example.au')`, [claimClubId]);
+await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Claim','Two','1980-01-01')`, [claimant2]);
+
+// One live challenge per person per club: asking again replaces the code
+// rather than leaving two valid ones in the world.
+await db.query(`insert into verification_challenge (person_id, club_id, channel, token_hash, expires_at)
+  values ($1,$2,'email',$3, now() + interval '30 minutes')`, [claimant2, claimClubId, Buffer.from('a'.repeat(32))]);
+let twoLive = true;
+try {
+  await db.query(`insert into verification_challenge (person_id, club_id, channel, token_hash, expires_at)
+    values ($1,$2,'email',$3, now() + interval '30 minutes')`, [claimant2, claimClubId, Buffer.from('b'.repeat(32))]);
+} catch { twoLive = false; }
+check('claim1: a person cannot hold two live codes for one club', twoLive, false);
+
+// An expired challenge is not a challenge.
+await db.query(`update verification_challenge set expires_at = now() - interval '1 minute'
+  where person_id = $1 and club_id = $2`, [claimant2, claimClubId]);
+const liveChallenge = await db.query(`select 1 from verification_challenge
+  where person_id = $1 and club_id = $2 and verified_at is null and expires_at > now()`,
+  [claimant2, claimClubId]);
+check('claim2: an expired code stops being usable', liveChallenge.rows.length, 0);
+
+// THE POINT OF THE WHOLE FLOW: claiming can never verify. D-126 says a
+// logged human call is the only path, and the 0002 check enforces it.
+let claimedVerified = true;
+try {
+  await db.query(`update club set club_state = 'verified' where id = $1`, [claimClubId]);
+} catch { claimedVerified = false; }
+check('claim3: a club cannot reach verified without a call row (D-126)', claimedVerified, false);
+await db.query(`update club set club_state = 'claimed' where id = $1`, [claimClubId]);
+check('claim4: but it can reach claimed',
+  (await db.query(`select club_state from club where id=$1`, [claimClubId])).rows[0].club_state, 'claimed');
+
+// Where the code goes is the design. It reads the club's PUBLISHED address
+// and there is no path that sends it anywhere the claimant nominates.
+const claimSrc = readFileSync(fileURLToPath(new URL('../app/claim/[slug]/actions.ts', import.meta.url)), 'utf8');
+check('claim5: the code is addressed to the club record, not to form input',
+  /address: club\.contact_email/.test(claimSrc), true);
+check('claim6: and no claim path reads an email out of the form',
+  /formData\.get\('email'\)/.test(codeOnly(claimSrc)), false);
+check('claim7: the attempt is counted before the code is compared',
+  claimSrc.indexOf('attempts = attempts + 1') < claimSrc.indexOf('.equals(hash(code))'), true);
+check('claim8: both ceilings are checked before a code is sent',
+  /claim-club:/.test(claimSrc) && /claim-person:/.test(claimSrc), true);
+check('claim9: redirect never runs inside the transaction it would roll back',
+  /let outcome: Outcome/.test(claimSrc), true);
+const claimPageSrc = readFileSync(fileURLToPath(new URL('../app/claim/[slug]/page.tsx', import.meta.url)), 'utf8');
+check('claim10: the claim page is no longer disabled in production',
+  /NODE_ENV === 'production'\) notFound/.test(codeOnly(claimPageSrc)), false);
+
+// ---------------------------------------------------------------------------
+// Where an uploaded image goes. Every route wrote the local filesystem, which
+// does not survive a serverless instance — the club routes were 404'd in
+// production because of it and the rest would have failed quietly.
+// ---------------------------------------------------------------------------
+const uploadRoutes = ['../app/build/[recordId]/photo/route.ts', '../app/coach/edit/photo/route.ts',
+                      '../app/coach/edit/banner/route.ts', '../app/club/page-edit/crest/route.ts',
+                      '../app/club/page-edit/banner/route.ts'];
+for (const f of uploadRoutes) {
+  const src = readFileSync(fileURLToPath(new URL(f, import.meta.url)), 'utf8');
+  const name = f.split('/').slice(-3, -1).join('/');
+  check(`store1: ${name} writes through storage, not the filesystem`,
+    /putImage\(/.test(src) && !/writeFileSync/.test(src), true);
+  check(`store2: ${name} is not disabled in production`,
+    /NODE_ENV === 'production'/.test(codeOnly(src)), false);
+  check(`store3: ${name} answers honestly when the put fails`,
+    /catch \{[\s\S]{0,120}redirect\(new URL/.test(src), true);
+}
+const storeSrc = readFileSync(fileURLToPath(new URL('../lib/storage.ts', import.meta.url)), 'utf8');
+check('store4: storage is server-only', /^import 'server-only';/m.test(storeSrc), true);
+check('store5: the bucket is configurable, not hardcoded to one project',
+  /SUPABASE_STORAGE_BUCKET/.test(storeSrc), true);
+
+// A signature proves the cookie was minted here, not that its person still
+// exists. Deletion removes person rows; sessions issued before it stayed
+// valid and every write then hit a foreign key instead of a sign-in screen.
+const sessionSrc = readFileSync(fileURLToPath(new URL('../lib/session.ts', import.meta.url)), 'utf8');
+check('sess1: a session is only a session while its person exists',
+  /from person where id = \$1/.test(sessionSrc), true);
+check('sess2: and a malformed id in a cookie never reaches Postgres',
+  /isUuid\(id\)/.test(sessionSrc), true);
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',

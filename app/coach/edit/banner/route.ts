@@ -6,10 +6,9 @@
 // `cover` at 1600x500 like the club's: a banner is meant to be cropped to a
 // wide strip, and a letterboxed one looks broken.
 import { NextResponse } from 'next/server';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import sharp from 'sharp';
 import { db } from '@/lib/db';
+import { putImage } from '@/lib/storage';
 import { getSessionPersonId } from '@/lib/session';
 
 const MAX_BYTES = 12 * 1024 * 1024;
@@ -40,9 +39,12 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL('/coach/edit?banner=bad', request.url), 303);
   }
 
-  const rel = `/dev-uploads/coach-banner-${profileId}.jpg`;
-  mkdirSync(join(process.cwd(), 'public', 'dev-uploads'), { recursive: true });
-  writeFileSync(join(process.cwd(), 'public', rel), out);
+  let rel: string;
+  try {
+    rel = await putImage(`coach/banner-${profileId}.jpg`, out, 'image/jpeg');
+  } catch {
+    return NextResponse.redirect(new URL('/coach/edit?banner=bad', request.url), 303);
+  }
   await db.query(`update coach_profile set banner_path = $2 where id = $1`, [profileId, rel]);
   return NextResponse.redirect(new URL('/coach/edit?saved=banner', request.url), 303);
 }

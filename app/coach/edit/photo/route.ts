@@ -12,10 +12,9 @@
 // It writes person.photo_path, the same column the player CV reads. One
 // photo per person, whichever hat they are wearing.
 import { NextResponse } from 'next/server';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import sharp from 'sharp';
 import { db } from '@/lib/db';
+import { putImage } from '@/lib/storage';
 import { getSessionPersonId } from '@/lib/session';
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -48,9 +47,12 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL('/coach/edit?photo=bad', request.url), 303);
   }
 
-  const rel = `/dev-uploads/coach-${me}.jpg`;
-  mkdirSync(join(process.cwd(), 'public', 'dev-uploads'), { recursive: true });
-  writeFileSync(join(process.cwd(), 'public', rel), out);
+  let rel: string;
+  try {
+    rel = await putImage(`coach/photo-${me}.jpg`, out, 'image/jpeg');
+  } catch {
+    return NextResponse.redirect(new URL('/coach/edit?photo=bad', request.url), 303);
+  }
   await db.query(`update person set photo_path = $2 where id = $1`, [me, rel]);
   return NextResponse.redirect(new URL('/coach/edit?saved=photo', request.url), 303);
 }

@@ -400,7 +400,9 @@ await db.query(`insert into coach_role (coach_profile_id, title, org_name, start
 // show both routes — 'I'm interested' for verified clubs, 'Send my CV' for a
 // listing we compiled from the club's own public notice.
 const westgate = randomUUID();
-await db.query(`insert into club (id, name, suburb, state, club_state, public_slug) values ($1,'Westgate Rangers','Altona','VIC','unclaimed','westgate-rangers')`, [westgate]);
+// Compiled from public notices, including the address on them — which is
+// where a claim code goes, and the only place it can go (doc 15 §34).
+await db.query(`insert into club (id, name, suburb, state, club_state, public_slug, contact_email) values ($1,'Westgate Rangers','Altona','VIC','unclaimed','westgate-rangers','secretary@westgaterangers.example.au')`, [westgate]);
 await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, source, age_group, competition_gender) values ($1,'U13 Boys trials','2026-10-12','Mon 5:30 PM · Grant Reserve','compiled','U13','boys')`, [westgate]);
 
 // --- walkthrough states: one of each waiting card, so every journey has

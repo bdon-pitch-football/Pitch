@@ -5,10 +5,9 @@
 // public/dev-uploads; production swaps in Supabase Storage behind the
 // same route.
 import { NextResponse } from 'next/server';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import sharp from 'sharp';
 import { db } from '@/lib/db';
+import { putImage } from '@/lib/storage';
 import { recordActor } from '@/lib/record-guard';
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -37,9 +36,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ rec
     return NextResponse.redirect(new URL(`/build/${recordId}?photo=bad`, request.url), 303);
   }
 
-  const rel = `/dev-uploads/${recordId}.jpg`;
-  mkdirSync(join(process.cwd(), 'public', 'dev-uploads'), { recursive: true });
-  writeFileSync(join(process.cwd(), 'public', rel), out);
+  // Storage decides where this lives; the route only knows the key. A put
+  // that fails must not leave a row pointing at nothing, so the write to the
+  // database happens after it and the failure is answered honestly.
+  let rel: string;
+  try {
+    rel = await putImage(`player/${recordId}.jpg`, out, 'image/jpeg');
+  } catch {
+    return NextResponse.redirect(new URL(`/build/${recordId}?photo=bad`, request.url), 303);
+  }
   await db.query(
     `update person set photo_path = $2 where id = (select person_id from development_record where id = $1)`,
     [recordId, rel],

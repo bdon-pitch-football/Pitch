@@ -29,14 +29,21 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Service-role key referenced in exactly one source file (D-80 pattern)
+      # D-80: the service-role key bypasses RLS, so it lives in a short,
+      # enumerated, server-only list and nowhere else. There are two entries,
+      # not one: lib/storage.ts writes uploaded images to Supabase Storage,
+      # and a server-side Storage write genuinely needs elevated rights —
+      # the anon key is public, so a bucket writable by it is a bucket
+      # writable by anyone. Widening the list from one file to two is a
+      # deliberate amendment; adding a THIRD is not routine and this check
+      # is what makes that visible.
+      - name: Service-role key referenced only in its two allowed files (D-80)
         run: |
           set -e
-          FILES=$(grep -rl "SUPABASE_SERVICE_ROLE_KEY" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' app components lib || true)
-          COUNT=$(echo "$FILES" | grep -c . || true)
-          echo "Files referencing the service-role key:"; echo "$FILES"
-          if [ "$COUNT" != "1" ] || [ "$FILES" != "lib/waitlist-db.ts" ]; then
-            echo "::error::SUPABASE_SERVICE_ROLE_KEY must appear in lib/waitlist-db.ts and nowhere else."
+          FILES=$(grep -rl "SUPABASE_SERVICE_ROLE_KEY" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' app components lib | sort | tr '\n' ' ' | sed 's/ $//' || true)
+          echo "Files referencing the service-role key: $FILES"
+          if [ "$FILES" != "lib/storage.ts lib/waitlist-db.ts" ]; then
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY must appear in lib/storage.ts and lib/waitlist-db.ts and nowhere else."
             exit 1
           fi
       - name: No secret ever prefixed NEXT_PUBLIC_

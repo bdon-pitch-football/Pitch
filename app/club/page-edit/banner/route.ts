@@ -6,16 +6,14 @@
 // `cover` here where the crest uses `contain`: a banner is meant to be
 // cropped to a wide strip, and a letterboxed one looks broken.
 import { NextResponse } from 'next/server';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import sharp from 'sharp';
 import { db } from '@/lib/db';
+import { putImage } from '@/lib/storage';
 import { getSessionPersonId } from '@/lib/session';
 
 const MAX_BYTES = 12 * 1024 * 1024;
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === 'production') return NextResponse.json({ ok: false }, { status: 404 });
 
   const me = await getSessionPersonId();
   if (!me) return NextResponse.redirect(new URL('/signin', request.url), 303);
@@ -46,9 +44,12 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL('/club/page-edit?banner=bad', request.url), 303);
   }
 
-  const rel = `/dev-uploads/banner-${clubId}.jpg`;
-  mkdirSync(join(process.cwd(), 'public', 'dev-uploads'), { recursive: true });
-  writeFileSync(join(process.cwd(), 'public', rel), out);
+  let rel: string;
+  try {
+    rel = await putImage(`club/banner-${clubId}.jpg`, out, 'image/jpeg');
+  } catch {
+    return NextResponse.redirect(new URL('/club/page-edit?banner=bad', request.url), 303);
+  }
   await db.query(`update club set banner_path = $2 where id = $1`, [clubId, rel]);
   return NextResponse.redirect(new URL('/club/page-edit?saved=banner', request.url), 303);
 }
