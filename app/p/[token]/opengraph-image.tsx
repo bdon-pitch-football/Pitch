@@ -11,6 +11,13 @@ import { ImageResponse } from 'next/og';
 import { readCvByToken } from '@/lib/record-read';
 import { POSITIONS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
 
+// D-94 §5: the card endpoint OUTLIVES revocation in every platform's cache,
+// so it must re-check the token on every request and must never be served
+// from ours. Without this, Next may cache the route and a revoked link keeps
+// unfurling a child's card — the exact failure the re-check exists to stop.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -51,6 +58,25 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
   }
 
   const positions = cv.positions as PositionCode[];
+
+  // D-89 / doc 14 E12-E13: the card is band-aware. An UNDER-18 carries first
+  // name + surname INITIAL and nothing that locates them — no full surname,
+  // no club, no age group, no region. An adult carries full detail.
+  //
+  // The band is derived here from the DOB, never stored and never passed in
+  // by a caller. Melbourne, because every age decision in this product
+  // evaluates there (G9).
+  const melbourneToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
+  const born = cv.dob ? new Date(cv.dob) : null;
+  let age = 0;
+  if (born) {
+    age = melbourneToday.getFullYear() - born.getFullYear();
+    const before = melbourneToday.getMonth() < born.getMonth()
+      || (melbourneToday.getMonth() === born.getMonth() && melbourneToday.getDate() < born.getDate());
+    if (before) age -= 1;
+  }
+  // Unknown DOB is treated as a minor: the restrictive default, as everywhere.
+  const isAdult = born !== null && age >= 18;
   const tiles = (cv.surfacedStats as StatKey[])
     .map((key) => ({ key, value: cv.stats.find((s) => s.key === key && s.value > 0)?.value }))
     .filter((t): t is { key: StatKey; value: number } => typeof t.value === 'number')
@@ -79,7 +105,7 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 26 }}>
                 <div style={{ display: 'flex', fontSize: 124, fontWeight: 900, color: '#eef5f0', letterSpacing: '-6px', lineHeight: 0.95 }}>{cv.firstName}</div>
-                <div style={{ display: 'flex', fontSize: 124, fontWeight: 900, color: 'rgba(238,245,240,.35)', letterSpacing: '-6px', lineHeight: 0.95 }}>{cv.lastName ? `${cv.lastName[0]}.` : ''}</div>
+                <div style={{ display: 'flex', fontSize: 124, fontWeight: 900, color: 'rgba(238,245,240,.35)', letterSpacing: '-6px', lineHeight: 0.95 }}>{cv.lastName ? (isAdult ? cv.lastName : `${cv.lastName[0]}.`) : ''}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 22 }}>
                 {cv.squadNumber ? (

@@ -57,6 +57,12 @@ const qDispatch = async (actor, rec) =>
 const recActor = async (who, rec) =>
   (await db.query('select fn_record_actor($1,$2) as a', [who, rec])).rows[0].a;
 
+// Source files more than one table reads. Same reason as procSrc: sections
+// must not depend on the order of the file.
+const srcOf = (rel) => readFileSync(fileURLToPath(new URL('../' + rel, import.meta.url)), 'utf8');
+const eOg = srcOf('app/p/[token]/opengraph-image.tsx');
+const dispatchSrc = srcOf('app/g/send/[requestId]/actions.ts');
+
 // Strip comments before searching source for a forbidden word. Three checks
 // in this file have now matched their own explanatory comment — a comment
 // saying "we never show a counter" contains the word "counter". Search the
@@ -78,6 +84,10 @@ const routeFiles = [];
     else if (/\.(ts|tsx)$/.test(e.name)) routeFiles.push(full);
   }
 })(fileURLToPath(new URL('../app', import.meta.url)));
+
+// Route enumeration is how several rows are specified — the ABSENCE of a
+// route is the assertion — and more than one table needs this list.
+const msgRoutes = routeFiles.filter((f) => /\/(message|dm|chat|inbox|thread|reply)\//i.test(f));
 
 
 // ---------------------------------------------------------------------------
@@ -513,11 +523,154 @@ check('N14b: and leaves a recent one alone',
   (await db.query('select count(*)::int as n from registration where id = $1', [n14Fresh])).rows[0].n, 1);
 
 // ---------------------------------------------------------------------------
+// Table L, the remainder — the recipient, the coach's link, the log.
+// ---------------------------------------------------------------------------
+
+// L18/L21 — most restrictive wins on a pending request, and a guardian of
+// child A gets nothing on child B's.
+const lReq = crypto.randomUUID();
+await db.query(`insert into share_request (id, record_id, requested_by, destination) values ($1,$2,$3,'club@example.com')`,
+  [lReq, REC.nate, ID.nate]);
+await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1,true,$2)
+  on conflict (child_id) do update set profile_paused = true`, [ID.nate, ID.guardian]);
+await expectFail('L18: a pause while a request is pending stops the dispatch',
+  `update share_request set dispatched_by='${ID.guardian}', dispatched_at=now() where id='${lReq}'`);
+await db.query(`update guardian_setting set profile_paused=false where child_id=$1`, [ID.nate]);
+check('L21: a guardian of another child has no standing on this request',
+  await qDispatch(ID.guardian2, REC.nate), false);
+
+// L23/L25/L29 — what the recipient gets is the token and nothing else. A
+// forwarded link is the same link: the token is the authority, so a
+// colleague sees exactly what the first reader saw and no more.
+check('L23: a live token reads the public CV and nothing more',
+  Object.keys((await db.query('select fn_token_read($1) as r', [t.live])).rows[0].r).sort().join(','),
+  'approved_content,band,person_id,record_id');
+check('L25: forwarding grants nothing extra — the token is the whole authority',
+  /issued_to|recipient|bound_to/.test((await db.query(
+    `select string_agg(column_name,',') as c from information_schema.columns where table_name='share_token'`)).rows[0].c),
+  false);
+check('L29: an unverified club can still open a link the family sent it',
+  /club_state|verified/.test(codeOnly(await procSrc('fn_token_read'))), false);
+
+// L26 — no contact route on a public CV, for any band.
+check('L26: the player CV carries no contact affordance at all',
+  /mailto:|tel:|contact/i.test(codeOnly(readFileSync(fileURLToPath(new URL('../components/cv/PlayerCV.tsx', import.meta.url)), 'utf8'))), false);
+
+// L27 — there is no inbound reply route, so there is no second code path to
+// get wrong. John ruled this (U-11) and the send now says so.
+check('L27: no inbound reply route exists to route',
+  routeFiles.filter((f) => /\/(reply|inbound|mailin)\//i.test(f)).length, 0);
+
+// L28 — a send confers no membership. An invitation is the only route, and
+// it goes to the guardian.
+check('L28: receiving a send creates no membership anywhere',
+  (await db.query(`select count(*)::int as n from membership m
+    join share_request sr on sr.record_id = (select id from development_record where person_id = m.person_id)
+    where sr.dispatched_at is not null and m.role = 'player' and m.club_id = $1`, [CLUB.other])).rows[0].n, 0);
+
+// L30/L32 — no artefact that outlives expiry for a minor, and no grace.
+check('L30: every token carries an expiry column, so a permanent copy has nowhere to live',
+  (await db.query(`select string_agg(column_name,',') as c from information_schema.columns
+    where table_name='share_token'`)).rows[0].c.includes('expires_at'), true);
+check('L32: expiry is checked with a strict comparison — no grace window',
+  /expires_at > now\(\)/.test(await procSrc('fn_token_read')), true);
+
+// L31/L33/L34 — revocation bites on the very next request. There is no
+// cache, no service worker and no client store between the check and the
+// answer, because the check happens server-side on every read.
+const lRevoke = crypto.randomUUID();
+await db.query(`insert into share_token (id, record_id, token_hash, issued_by) values ($1,$2,$3,$4)`,
+  [lRevoke, REC.marcus, sha('l31'), ID.marcus]);
+check('L31a: the link reads while it lives',
+  (await db.query('select fn_token_read($1) as r', [sha('l31')])).rows[0].r === null, false);
+await db.query(`update share_token set revoked_at = now() where id = $1`, [lRevoke]);
+check('L31: the next open is the link-state page',
+  (await db.query('select fn_token_read($1) as r', [sha('l31')])).rows[0].r, null);
+check('L33: nothing in the app registers a service worker or offline cache',
+  routeFiles.some((f) => /serviceWorker|workbox|caches\.open/.test(readFileSync(f, 'utf8'))), false);
+check('L34: the OG route re-reads on every request and is never revalidated',
+  /force-dynamic/.test(eOg), true);
+
+// L35 — regenerate and send again writes TWO rows, not an update.
+check('L35: the consent log has no update path, so a second send appends',
+  /raise exception/i.test(await procSrc('consent_event_immutable')), true);
+
+// L36/L37 — a deleted record leaves the send row standing; an eighteenth
+// birthday leaves the historic band as written.
+const l36Child = crypto.randomUUID(), l36Rec = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Sent then gone',$2)`, [l36Child, yearsAgo(16)]);
+await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [l36Rec, l36Child]);
+await db.query(
+  `insert into consent_event (event, actor_id, subject_id, detail)
+   values ('share_dispatched', $1, $2, jsonb_build_object('recipient','club@example.com','band_at_send','16_17'))`,
+  [l36Child, l36Child]);
+await db.query(`delete from development_record where id = $1`, [l36Rec]);
+check('L36: the send row survives the record it was about',
+  (await db.query(`select count(*)::int as n from consent_event
+    where event='share_dispatched' and subject_id=$1`, [l36Child])).rows[0].n, 1);
+check('L37: the band was recorded AT SEND, so a later birthday does not rewrite it',
+  (await db.query(`select detail->>'band_at_send' as b from consent_event
+    where event='share_dispatched' and subject_id=$1`, [l36Child])).rows[0].b, '16_17');
+
+// L40 — the limited path and the real path do the same work before they
+// diverge, so there is no timing tell. Asserted structurally: the limit is
+// checked AFTER the session lookup and the redirect target is identical.
+check('L40: the rate check happens after the session work, not instead of it',
+  dispatchSrc.indexOf('getSessionPersonId') < dispatchSrc.indexOf('checkRate'), true);
+check('L40b: and both paths end on the same URL',
+  (dispatchSrc.match(/\/g\/send\/\$\{requestId\}\?sent=1/g) ?? []).length >= 2, true);
+
+// L44/L45/L54 — the coach's link is COPIED, never sent.
+const copySrc = readFileSync(fileURLToPath(new URL('../components/cv/CopyLink.tsx', import.meta.url)), 'utf8');
+check('L44: the copy affordance writes to the clipboard', /clipboard\.writeText/.test(copySrc), true);
+check('L44b: and calls no endpoint at all', /fetch\(|action=|axios|\/api\//.test(codeOnly(copySrc)), false);
+check('L44c: with no recipient field anywhere on it', /recipient|to:|email/i.test(codeOnly(copySrc)), false);
+check('L45/L54: no route offers to send a coach’s link to anyone',
+  routeFiles.filter((f) => /send.*coach|coach.*send|invite.*player/i.test(f)).length, 0);
+
+// L48-L51 — the contact affordance by band, decided server-side.
+const contactVisible = async (v) => (await db.query('select fn_coach_contact_visible($1) as v', [v])).rows[0].v;
+check('L48: rendered for an anonymous visitor', await contactVisible(null), true);
+check('L48b: and for a signed-in adult', await contactVisible(ID.marcus), true);
+check('L49: absent for a signed-in under-16', await contactVisible(ID.deniz), false);
+check('L50: and absent for a signed-in 16-17 — both are minors', await contactVisible(ID.nate), false);
+const coachPageSrc = readFileSync(fileURLToPath(new URL('../app/c/[slug]/page.tsx', import.meta.url)), 'utf8');
+check('L49b: absent from the RESPONSE BODY, not hidden with a style',
+  /showContact &&/.test(coachPageSrc), true);
+check('L51: no age is inferred from an anonymous visitor — no heuristic, no signal',
+  /user-?agent|referer|fingerprint|guessAge|inferAge/i.test(codeOnly(coachPageSrc)), false);
+
+// L52 — a coach cannot obtain a family's contact details by any path.
+check('L52: no register, squad or console query returns a family contact',
+  /p\.email|guardian_email|phone/.test(await procSrc('fn_register_rows')), false);
+check('L52b: nor the applicant list', /p\.email|phone/.test(await procSrc('fn_role_applications')), false);
+
+// L53 — the coach card carries the coach only.
+const coachOg = codeOnly(readFileSync(fileURLToPath(new URL('../app/c/[slug]/opengraph-image.tsx', import.meta.url)), 'utf8'));
+check('L53: the coach card names no player, squad or minor',
+  /player|squad|child|development_record/i.test(coachOg), false);
+check('L53b: and reads only the coach’s own tables',
+  /coach_profile/.test(coachOg) && !/registration|share_token/.test(coachOg), true);
+
+// N2/N3 — the guardian's consent screen shows four things at the moment of
+// the press, and the log records a disclosure rather than an action.
+const gSendPage = readFileSync(fileURLToPath(new URL('../app/g/send/[requestId]/page.tsx', import.meta.url)), 'utf8');
+for (const [what, pat] of [['the recipient', /destination/], ['what the club gets', /link|CV/i],
+                           ['what it does not carry', /contact detail|phone|not now/i],
+                           ['that doing nothing is an answer', /disappears|do nothing/i]]) {
+  check(`N2: the consent screen shows ${what}`, pat.test(gSendPage), true);
+}
+check('N3: the send row names the disclosing guardian and the child',
+  /actor_id/.test(dispatchSrc) && /subject_id|r\.person_id/.test(dispatchSrc), true);
+
+// C2/C3/C4/E13/P11 — the last few.
+check('C2: no route accepts a 16-17 as a message recipient', msgRoutes.length, 0);
+
+// ---------------------------------------------------------------------------
 // Tables C, M, N, O, P — the remaining rows.
 // ---------------------------------------------------------------------------
 
 // C2/P11 — route enumeration. The absence IS the assertion (John's red line).
-const msgRoutes = routeFiles.filter((f) => /\/(message|dm|chat|inbox|thread|reply)\//i.test(f));
 check('C2/P11: no message, DM, chat, inbox, thread or reply route exists', msgRoutes.length, 0);
 check('P10: nor any route that appends to an invitation',
   routeFiles.filter((f) => /invitation/i.test(f) && /(append|reply|thread|message)/i.test(f)).length, 0);
@@ -673,12 +826,16 @@ check('B10: discovery is gated on the delivered notice, not on the birthday alon
 check('B10b: and on the guardian off-switch', /discovery_disabled/.test(searchSrc), true);
 
 // E12/E13/E14 — the OG card by band.
-const eOg = readFileSync(fileURLToPath(new URL('../app/p/[token]/opengraph-image.tsx', import.meta.url)), 'utf8');
 const eOgCode = codeOnly(eOg);
 check('E12: the card carries no club, age group or region (D-89)',
   /club|age_group|ageGroup|region|suburb/i.test(eOgCode), false);
-check('E12b: and the surname appears only as an INITIAL, never in full',
-  /lastName(?!\[0\])/.test(eOgCode.replace(/lastName \?/g, 'lastName[0]')), false);
+// The full surname must be reachable ONLY through the adult branch, and the
+// band must be derived from the DOB rather than accepted from a caller.
+check('E12b: a full surname renders only when the band says adult',
+  /isAdult \? cv\.lastName : `\$\{cv\.lastName\[0\]\}\.`/.test(eOgCode), true);
+check('E12c: and the band is derived here, never passed in',
+  /const isAdult = /.test(eOgCode) && /searchParams|props\.band|cv\.band/.test(eOgCode), false);
+check('E13: an adult card therefore carries full detail', /isAdult/.test(eOgCode), true);
 check('E13/E14: the card re-reads the token every request and falls back generic',
   /readCvByToken/.test(eOg) && /!cv/.test(eOg), true);
 check('E14b: nothing about the card is cached past the check',
@@ -857,6 +1014,18 @@ check('U-1d: the lapse message never mentions a parent, a decision or waiting',
 // revokes the LINK and must not claim to un-send the email.
 const undoMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
   .split('sendMadeByOtherGuardianEmail')[1].split('export const')[0];
+// L17/U-2: the other guardian is actually NOTIFIED — the message, the undo
+// token and the route all existed, and nothing connected them.
+check('L17: the dispatch notifies the other approved guardian',
+  /sendMadeByOtherGuardianEmail/.test(dispatchSrc), true);
+check('L17b: minting them a single-use undo that expires in 24 hours',
+  /insert into undo_token/.test(dispatchSrc) && /24 hours/.test(dispatchSrc), true);
+// Compare the CALL SITE, not the import — the import naturally sits at the
+// top of the file, before everything.
+const dispatchBody = dispatchSrc.split('export async function')[1] ?? '';
+check('L17c: and it is sent after the transaction, not inside it',
+  dispatchBody.indexOf('client.release()') < dispatchBody.indexOf('sendMadeByOtherGuardianEmail('), true);
+
 check('U-2: the notification says plainly that the email cannot be recalled',
   /cannot recall|already arrived/i.test(undoMsg), true);
 check('U-2b: and never claims to un-send it', /un-?send|unsend|recall the email/i.test(undoMsg.replace(/cannot recall that/i, '')), false);
@@ -1344,7 +1513,6 @@ check('L24: a send confers no membership',
 check('L24b: and no read level at the receiving club', await level(ID.coachOther, ID.georgia), 'none');
 
 // L38-L43 — the rate limit.
-const dispatchSrc = readFileSync(fileURLToPath(new URL('../app/g/send/[requestId]/actions.ts', import.meta.url)), 'utf8');
 check('L41: the limit is counted per SENDING ACTOR, never per recipient',
   /send:actor:\$\{guardianId\}/.test(dispatchSrc), true);
 check('L38: a limited send lands on the same URL a real send does',

@@ -12,11 +12,15 @@ export async function saveCoachProfile(formData: FormData) {
   const region = String(formData.get('region') ?? '').trim();
   const philosophy = String(formData.get('philosophy') ?? '').trim();
   const badges = String(formData.get('badges') ?? '').split('|').map((b) => b.trim()).filter(Boolean);
+  // The coach's OWN address, published by their own choice. Rendered to
+  // clubs and adults, absent for a signed-in minor (0027). This is not Pitch
+  // handing over somebody else's details, which stays forbidden (D-100).
+  const contact = String(formData.get('publicContact') ?? '').trim().slice(0, 120);
   await db.query(
-    `insert into coach_profile (person_id, region, philosophy, badges)
-     values ($1,$2,$3,$4)
-     on conflict (person_id) do update set region=$2, philosophy=$3, badges=$4`,
-    [me, region || null, philosophy || null, badges],
+    `insert into coach_profile (person_id, region, philosophy, badges, public_contact)
+     values ($1,$2,$3,$4,$5)
+     on conflict (person_id) do update set region=$2, philosophy=$3, badges=$4, public_contact=$5`,
+    [me, region || null, philosophy || null, badges, contact || null],
   );
   redirect('/coach/edit?saved=1');
 }

@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
-import { cvToClubEmail } from '@/lib/messages';
+import { cvToClubEmail, sendMadeByOtherGuardianEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 import { checkRate } from '@/lib/ratelimit-db';
 import { SEND_DAILY_CAP } from '@/lib/football';
@@ -120,5 +120,54 @@ export async function dispatchSend(requestId: string) {
       );
     }
   }
+  // U-2 (John): the OTHER approved guardian is told immediately, and for 24
+  // hours can revoke this link with one tap from the notification. Either
+  // guardian may send alone — a send that waits for a second adult never
+  // goes in a large number of real families — but the more restrictive
+  // guardian's wish still prevails, a few minutes later rather than never.
+  //
+  // Sent AFTER the transaction commits and after the client is released.
+  // The dev socket serves one connection; sending inside the transaction
+  // would wait on a connection only this code holds.
+  const others = await db.query(
+    `select p.id, p.email, p.first_name
+     from guardianship_link g
+     join person p on p.id = g.guardian_id
+     join development_record dr on dr.person_id = g.child_id
+     join share_request sr on sr.record_id = dr.id
+     where sr.id = $1 and g.guardian_id <> $2
+       and g.approved_at is not null and g.revoked_at is null
+       and p.email is not null`,
+    [requestId, guardianId],
+  );
+  if (others.rows.length > 0) {
+    const me = (await db.query(`select first_name from person where id = $1`, [guardianId])).rows[0];
+    const child = await db.query(
+      `select p.first_name, sr.destination, sr.share_token_id
+       from share_request sr
+       join development_record dr on dr.id = sr.record_id
+       join person p on p.id = dr.person_id
+       where sr.id = $1`,
+      [requestId],
+    );
+    for (const other of others.rows as { id: string; email: string; first_name: string }[]) {
+      const undoRaw = randomBytes(24).toString('base64url');
+      await db.query(
+        `insert into undo_token (token_hash, share_token_id, issued_to, expires_at)
+         values ($1,$2,$3, now() + interval '24 hours')`,
+        [createHash('sha256').update(undoRaw).digest(), child.rows[0].share_token_id, other.id],
+      );
+      await send(
+        sendMadeByOtherGuardianEmail(
+          me?.first_name ?? 'The other parent',
+          child.rows[0].first_name,
+          child.rows[0].destination ?? 'a club',
+          undoRaw,
+        ),
+        { address: other.email, personId: other.id },
+      );
+    }
+  }
+
   redirect(`/g/send/${requestId}?sent=1&link=${raw}`);
 }

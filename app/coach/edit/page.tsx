@@ -28,7 +28,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
 
   const { saved, clip } = await searchParams;
   const { rows } = await db.query(
-    `select p.first_name, coalesce(p.last_name,'') as last_name,
+    `select p.first_name, coalesce(p.last_name,'') as last_name, cp.public_contact,
        cp.region, cp.philosophy, cp.badges, cp.public_slug,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select c.name from wwcc_attestation w join club c on c.id = w.club_id where w.person_id = p.id and w.revoked_at is null limit 1) as wwcc_club,
@@ -70,6 +70,14 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
             <div style={card}>
               <div style={label}>Region</div>
               <input style={input} name="region" defaultValue={c.region ?? ''} placeholder="Melbourne, VIC" />
+          <div style={card}>
+            <div style={label}>How clubs reach you — optional</div>
+            <input style={input} name="publicContact" type="email" placeholder="you@example.com"
+              defaultValue={c.public_contact ?? ''} />
+            <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5, marginTop: 6 }}>
+              Shown on your public page to clubs and other adults, and never to a signed-in under-18. Leave it blank and no contact route appears at all.
+            </div>
+          </div>
             </div>
           </div>
 

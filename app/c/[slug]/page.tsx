@@ -6,6 +6,8 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import ClipCard from '@/components/cv/ClipCard';
+import CopyLink from '@/components/cv/CopyLink';
+import { getSessionPersonId } from '@/lib/session';
 import Wordmark from '@/components/Wordmark';
 
 const T = {
@@ -19,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export default async function CoachCv({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { rows } = await db.query(
-    `select cp.id, cp.region, cp.philosophy, cp.badges, cp.public_slug,
+    `select cp.id, cp.region, cp.philosophy, cp.badges, cp.public_slug, cp.public_contact,
        p.first_name, coalesce(p.last_name,'') as last_name,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select coalesce(json_agg(json_build_object('title', title, 'org', org_name,
@@ -38,6 +40,17 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
   const roles: { title: string; org: string; from: string | null; to: string | null }[] = c.roles;
   const current = roles.find((r) => !r.to);
   const clips: { url: string; title: string }[] = c.clips;
+
+  // L48-L51. The contact route is rendered for anonymous visitors and for
+  // signed-in adults, and is ABSENT FROM THE RESPONSE BODY for a signed-in
+  // minor — not hidden, not disabled, absent. For an anonymous visitor we
+  // cannot know whether they are a child and we deliberately do not guess:
+  // no age heuristic, no signal collection. Decided in Postgres so a future
+  // surface cannot forget.
+  const viewer = await getSessionPersonId();
+  const showContact = Boolean(c.public_contact) && (await db.query(
+    'select fn_coach_contact_visible($1) as v', [viewer],
+  )).rows[0].v;
 
   const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
@@ -119,6 +132,20 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
             ))}
           </div>
         )}
+
+        {showContact && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={label}>Getting in touch</div>
+            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <a href={`mailto:${c.public_contact}`} style={{ fontSize: 14.5, fontWeight: 800, color: T.accent, textDecoration: 'none' }}>{c.public_contact}</a>
+              <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+                For clubs and other adults. {name} published this themselves — it is their own address, not one we handed over.
+              </div>
+            </div>
+          </div>
+        )}
+
+        <CopyLink url={`https://pitchfootball.com.au/${c.public_slug}`} label="Copy this link" />
 
         <a href={`/c/${c.public_slug}/print`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Print or save as PDF</a>
 
