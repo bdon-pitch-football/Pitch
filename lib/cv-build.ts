@@ -144,7 +144,7 @@ async function buildSnapshot(client: Client, recordId: string, season: string) {
         from achievement where record_id = $1) as achievements,
       (select coalesce(json_agg(json_build_object('kind', kind, 'orgName', org_name, 'period', season_label, 'note', notes)), '[]'::json)
         from experience_entry where record_id = $1 and kind <> 'previous_club') as other,
-      (select coalesce(json_agg(json_build_object('orgName', org_name, 'period', season_label) order by created_at desc), '[]'::json)
+      (select coalesce(json_agg(json_build_object('orgName', org_name, 'period', season_label) order by season_label desc nulls last, created_at desc), '[]'::json)
         from experience_entry where record_id = $1 and kind = 'previous_club') as previous_clubs,
       -- The club, the squad and the club's own locality. These were NOT in
       -- the snapshot, and the fixture hid it by writing its own: every real

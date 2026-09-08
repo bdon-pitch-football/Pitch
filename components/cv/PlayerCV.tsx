@@ -207,7 +207,11 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         </div>
         )}
 
-        {/* Football history — the clubs before this one. The player's own
+        {/* Football history — the clubs before this one, most recent first.
+            "Most recent" is a text sort on the years the player typed, which
+            works because they type them as years and sorts the ones who did
+            not to the bottom. It was insertion order, which put a 2021 club
+            above a 2023 one purely because it was added second. The player's own
             account (D-72): free text, no club FK, grants nothing, and it is
             said plainly at the foot of the section rather than implied. The
             CURRENT club is not repeated here; it is in the hero, where it

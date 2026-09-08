@@ -41,8 +41,14 @@ for (const p of PLAYER_FIXTURES) {
   const squadId = randomUUID();
   const recordId = randomUUID();
 
+  // An adult has no guardian, no approval step and no consent log written on
+  // their behalf. The seed used to attach Alex to every fixture, which is
+  // fine while every fixture is a child and wrong the moment one is not.
+  const isAdult = new Date(p.dob) <= new Date('2008-09-08');
   await db.query(`insert into person (id, first_name, last_name, dob) values ($1,$2,$3,$4)`, [personId, p.firstName, p.lastName, p.dob]);
-  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [guardian, personId]);
+  if (!isAdult) {
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [guardian, personId]);
+  }
   // The club carries the locality, not the player: the CV's "· Brunswick VIC"
   // is where the CLUB is. We hold no address for a child and this line must
   // never start looking like one.
@@ -85,7 +91,7 @@ for (const p of PLAYER_FIXTURES) {
   // opening Manage saw "Everything that's happened" over an empty bar — the
   // one screen whose entire job is to show them what happened. Append-only:
   // these are inserted in the order they occurred and never updated.
-  await db.query(
+  if (!isAdult) await db.query(
     `insert into consent_event (at, event, actor_id, subject_id, policy_version) values
        (now() - interval '96 days', 'invite_created', $1, $2, null),
        (now() - interval '96 days', 'email_sent',     null, $2, null),
@@ -98,11 +104,16 @@ for (const p of PLAYER_FIXTURES) {
     [guardian, personId],
   );
 
-  // u16: the public page renders the guardian-APPROVED snapshot (D-119)
-  await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,$2,'approved',$3,now())`,
-    [recordId, JSON.stringify(p), guardian]);
+  // u16: the public page renders the guardian-APPROVED snapshot (D-119).
+  // 16-17 and 18+ assemble live from the tables above, so no snapshot exists
+  // for them and fn_token_read returns none.
+  if (!isAdult) {
+    await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,$2,'approved',$3,now())`,
+      [recordId, JSON.stringify(p), guardian]);
+  }
+  // The adult issues their own link. Nobody else can.
   await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() + interval '90 days')`,
-    [recordId, sha(`dev-${p.slug}`), guardian]);
+    [recordId, sha(`dev-${p.slug}`), isAdult ? personId : guardian]);
   if (p.slug === 'deniz') {
     await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() - interval '1 day')`,
       [recordId, sha('dev-expired'), guardian]);
@@ -400,5 +411,7 @@ await db.query(
 const server = new PGLiteSocketServer({ db, port: 54322, host: '127.0.0.1', inspect: false });
 await server.start();
 console.log('dev db ready on 127.0.0.1:54322');
-console.log('  tokens : dev-deniz dev-nate dev-georgia dev-expired dev-revoked');
+// Printed from the fixtures rather than typed out, so a new one appears here
+// the day it is added — the old line had gone stale within one fixture.
+console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')} dev-expired dev-revoked`);
 console.log('  sign-in: guardian@example.com (parent) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club)');

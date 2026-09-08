@@ -2042,6 +2042,16 @@ check('hist10: the CV computes no age of its own',
 check('hist11: the CV states there is no way to reply to a family (U-11)',
   /no way to reply to a family through Pitch/.test(cvSrc), true);
 
+// D-70 says a zero never appears on this page. The stat tile initialised its
+// counter to 0, so the SERVER-RENDERED HTML said 0 — what a stalled bundle,
+// a browser with scripting off, and anything reading the markup all saw. The
+// truth ships in the HTML and the animation resets before paint.
+const tileSrc = readFileSync(fileURLToPath(new URL('../components/cv/StatTile.tsx', import.meta.url)), 'utf8');
+check('hist12: a stat tile ships its real value in the markup, never a zero',
+  /useState\(value\)/.test(tileSrc), true);
+check('hist13: and the count-up resets before paint, so nobody sees the flash',
+  /useBeforePaint/.test(tileSrc), true);
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',

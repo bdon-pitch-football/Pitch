@@ -163,7 +163,50 @@ export const GEORGIA: PlayerFixture = {
   surfacedStats: ['apps', 'goals', 'assists'],
 };
 
-export const PLAYER_FIXTURES = [DENIZ, NATE, GEORGIA] as const;
+// The adult. There was no 18+ player fixture at all, so the one band whose
+// page is assembled live with NO guardian anywhere in it could only be seen
+// by creating an account by hand — which meant the differences nobody had
+// looked at: no parent-approved chip, no "there is no way to reply" block,
+// and a record that is the player's own with no approval step between them
+// and their page.
+export const JORDAN: PlayerFixture = {
+  slug: 'jordan',
+  firstName: 'Jordan',
+  lastName: 'Abebe',
+  dob: '2004-02-19', // 22 in 2026 — 18plus: own account, no guardian, live assembly
+  positions: ['ST', 'LW'],
+  squadNumber: 9,
+  foot: 'Left',
+  club: 'Coburg City FC',
+  locality: 'Coburg VIC',
+  squad: { name: 'Seniors Men', ageGroup: 'SEN', competitionGender: 'open' },
+  previousClubs: [
+    { orgName: 'Pascoe Vale SC', period: '2023–2025' },
+    { orgName: 'Moreland Zebras FC', period: '2021–2023' },
+  ],
+  about:
+    'Left-footed nine who runs the channel and finishes early. Four seasons of senior football, looking for a step up in level for 2027.',
+  stats: [
+    { season: '2026', key: 'apps', value: 24, provenance: 'self_reported' },
+    { season: '2026', key: 'goals', value: 16, provenance: 'self_reported' },
+    { season: '2026', key: 'assists', value: 6, provenance: 'self_reported' },
+  ],
+  achievements: [
+    { title: 'Golden Boot — State League 2', detail: 'Coburg City FC, 2026' },
+    { title: 'Promotion winners', detail: '2025 season' },
+  ],
+  otherFootball: [
+    { kind: 'representative', orgName: 'FV State League All-Stars', period: '2026' },
+  ],
+  highlightsUsed: 2,
+  highlights: [
+    { title: 'Season highlights 2026', url: 'https://www.youtube.com/watch?v=dev-jordan-1' },
+    { title: 'Movement & finishing reel', url: 'https://www.youtube.com/watch?v=dev-jordan-2' },
+  ],
+  surfacedStats: ['apps', 'goals', 'assists'],
+};
+
+export const PLAYER_FIXTURES = [DENIZ, NATE, GEORGIA, JORDAN] as const;
 
 // --- Club-side fixtures (doc 16 §3b) — the D-93 role split, exercised -------
 export interface ClubSideFixture {

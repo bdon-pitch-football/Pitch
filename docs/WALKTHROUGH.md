@@ -27,6 +27,7 @@ The app starts at **http://localhost:3000/signin**. The other entry points:
 | Sign in (all four seats) | `/signin` |
 | Create an account | `/join` |
 | A player's public CV, as a club sees it | `/p/dev-deniz` |
+| An adult player's CV (18+ — no guardian anywhere) | `/p/dev-jordan` |
 | A dead share link | `/p/dev-revoked` |
 | The trials noticeboard | `/trials` |
 | A coach's public page | `/c/sam-kaya` |
@@ -110,6 +111,14 @@ Then **Manage** on any child — the cockpit:
   Flip it back: alive.
 - **Everything that's happened** — your consent history in plain words
 - **Delete everything** — the honest copy about the one thing we keep
+
+---
+
+**The adult band without signing up:** open **http://localhost:3000/p/dev-jordan**.
+Jordan is 22. Compare it to Deniz: no *Parent-approved* chip, and no "there is
+no way to reply to a family" block — an adult is reachable through their own
+account and has no guardian to point a club at. His page is assembled live
+from his own record; there is no approval step between him and it.
 
 ---
 

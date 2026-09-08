@@ -28,7 +28,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
         from achievement where record_id=$1) as achievements,
        (select coalesce(json_agg(json_build_object('id', id, 'kind', kind, 'orgName', org_name, 'period', season_label) order by created_at), '[]'::json)
         from experience_entry where record_id=$1 and kind <> 'previous_club') as other,
-       (select coalesce(json_agg(json_build_object('id', id, 'orgName', org_name, 'period', season_label) order by created_at desc), '[]'::json)
+       (select coalesce(json_agg(json_build_object('id', id, 'orgName', org_name, 'period', season_label) order by season_label desc nulls last, created_at desc), '[]'::json)
         from experience_entry where record_id=$1 and kind = 'previous_club') as clubs
      from development_record where id=$1`,
     [recordId],
