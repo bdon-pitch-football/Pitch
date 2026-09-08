@@ -41,11 +41,14 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
       (select coalesce(json_agg(json_build_object('title', title, 'detail', detail) order by sort), '[]'::json)
         from achievement where record_id = $1) as achievements,
       (select coalesce(json_agg(json_build_object('kind', kind, 'orgName', org_name, 'period', season_label, 'note', notes)), '[]'::json)
-        from experience_entry where record_id = $1) as other,
+        from experience_entry where record_id = $1 and kind <> 'previous_club') as other,
+      (select coalesce(json_agg(json_build_object('orgName', org_name, 'period', season_label) order by created_at desc), '[]'::json)
+        from experience_entry where record_id = $1 and kind = 'previous_club') as previous_clubs,
       (select coalesce(json_agg(json_build_object('title', title, 'url', url) order by added_at), '[]'::json)
         from highlight where record_id = $1) as highlights,
       (select row_to_json(y) from (
-        select c.name as club, s.name as squad_name, s.age_group, s.competition_gender
+        select c.name as club, c.crest_path as "clubCrestPath", c.suburb, c.state,
+               s.name as squad_name, s.age_group, s.competition_gender
         from membership m join club c on c.id = m.club_id left join squad s on s.id = m.squad_id
         where m.person_id = $2 and m.role = 'player' and m.ended_at is null limit 1) y) as membership`,
     [bundle.record_id, bundle.person_id],
@@ -55,6 +58,7 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
 
   return {
     slug: 'live',
+    band: bundle.band as CvData['band'],
     firstName: row.core.first_name,
     photoPath: row.core.photo_path ?? undefined,
     lastName: row.core.last_name ?? '',
@@ -63,6 +67,10 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
     squadNumber: row.core.squad_number,
     foot: row.core.foot,
     club: row.membership?.club ?? '',
+    clubCrestPath: row.membership?.clubCrestPath ?? undefined,
+    // The club's suburb and state. Never the child's — we do not hold an
+    // address for a player and this line must not start looking like one.
+    locality: [row.membership?.suburb, row.membership?.state].filter(Boolean).join(' ') || undefined,
     squad: {
       name: row.membership?.squad_name ?? '',
       ageGroup: row.membership?.age_group ?? '',
@@ -72,6 +80,7 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
     stats: row.stats,
     achievements: row.achievements,
     otherFootball: row.other,
+    previousClubs: row.previous_clubs,
     highlights: row.highlights,
     highlightsUsed: row.highlights.length,
     surfacedStats: row.core.surfaced_stats,

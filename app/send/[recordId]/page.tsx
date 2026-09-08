@@ -3,6 +3,7 @@
 // send. The asked=1 state confirms the request went to the guardian.
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import { requireRecordActor } from '@/lib/record-guard';
 import { HeaderMark } from '@/components/Wordmark';
 import { composeSend } from './actions';
 
@@ -32,8 +33,8 @@ export default async function SendCv({ params, searchParams }: {
   params: Promise<{ recordId: string }>;
   searchParams: Promise<{ asked?: string; error?: string }>;
 }) {
-  if (process.env.NODE_ENV === 'production') notFound(); // until auth guards land
   const { recordId } = await params;
+  await requireRecordActor(recordId);
   const { asked, error } = await searchParams;
   const { rows } = await db.query(
     `select p.first_name from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,

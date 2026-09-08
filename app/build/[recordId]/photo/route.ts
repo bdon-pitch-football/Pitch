@@ -9,12 +9,19 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { db } from '@/lib/db';
+import { recordActor } from '@/lib/record-guard';
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export async function POST(request: Request, { params }: { params: Promise<{ recordId: string }> }) {
-  if (process.env.NODE_ENV === 'production') return NextResponse.json({ ok: false }, { status: 404 });
   const { recordId } = await params;
+  // This was closed by a production 404 and nothing else — a deploy flag
+  // where an authorisation check belongs. recordActor rather than
+  // requireRecordActor because redirect() answers a POST with a 307, which
+  // re-POSTs the upload at /signin; a form post needs 303 to become a GET.
+  if (!(await recordActor(recordId))) {
+    return NextResponse.redirect(new URL('/signin', request.url), 303);
+  }
   const form = await request.formData();
   const file = form.get('photo');
   if (!(file instanceof File) || file.size === 0 || file.size > MAX_BYTES) {

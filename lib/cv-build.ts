@@ -143,16 +143,47 @@ async function buildSnapshot(client: Client, recordId: string, season: string) {
       (select coalesce(json_agg(json_build_object('title', title, 'detail', detail) order by sort), '[]'::json)
         from achievement where record_id = $1) as achievements,
       (select coalesce(json_agg(json_build_object('kind', kind, 'orgName', org_name, 'period', season_label, 'note', notes)), '[]'::json)
-        from experience_entry where record_id = $1) as other,
+        from experience_entry where record_id = $1 and kind <> 'previous_club') as other,
+      (select coalesce(json_agg(json_build_object('orgName', org_name, 'period', season_label) order by created_at desc), '[]'::json)
+        from experience_entry where record_id = $1 and kind = 'previous_club') as previous_clubs,
+      -- The club, the squad and the club's own locality. These were NOT in
+      -- the snapshot, and the fixture hid it by writing its own: every real
+      -- u16 approved page rendered " — · Melbourne VIC" with no club name,
+      -- because the snapshot IS the page for that band (D-119). The locality
+      -- is the CLUB's suburb and state — never the child's address, which we
+      -- do not hold.
+      (select row_to_json(y) from (
+        select c.name as club, c.crest_path as "clubCrestPath", c.suburb, c.state,
+               s.name as squad_name, s.age_group, s.competition_gender
+        from development_record dr
+        join membership m on m.person_id = dr.person_id and m.role = 'player' and m.ended_at is null
+        join club c on c.id = m.club_id
+        left join squad s on s.id = m.squad_id
+        where dr.id = $1 limit 1) y) as membership,
       (select coalesce(json_agg(json_build_object('title', title, 'url', url) order by added_at), '[]'::json)
         from highlight where record_id = $1) as highlights`,
     [recordId],
   );
-  const r = rows[0] as { core: Record<string, unknown>; stats: unknown; achievements: unknown; other: unknown; highlights: unknown[] };
+  const r = rows[0] as {
+    core: Record<string, unknown>; stats: unknown; achievements: unknown; other: unknown;
+    highlights: unknown[]; previous_clubs: unknown;
+    membership: { club: string; clubCrestPath: string | null; suburb: string | null; state: string | null;
+                  squad_name: string | null; age_group: string | null; competition_gender: string | null } | null;
+  };
+  const m = r.membership;
   return {
-    slug: 'live', dob: '', club: '', squad: { name: '', ageGroup: '', competitionGender: 'mixed' },
+    slug: 'live', dob: '',
+    club: m?.club ?? '',
+    clubCrestPath: m?.clubCrestPath ?? undefined,
+    locality: [m?.suburb, m?.state].filter(Boolean).join(' ') || undefined,
+    squad: {
+      name: m?.squad_name ?? '',
+      ageGroup: m?.age_group ?? '',
+      competitionGender: (m?.competition_gender ?? 'mixed') as 'boys' | 'girls' | 'mixed' | 'open',
+    },
     highlightsUsed: r.highlights.length, season,
     ...r.core,
-    stats: r.stats, achievements: r.achievements, otherFootball: r.other, highlights: r.highlights,
+    stats: r.stats, achievements: r.achievements, otherFootball: r.other,
+    previousClubs: r.previous_clubs, highlights: r.highlights,
   };
 }

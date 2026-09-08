@@ -1,0 +1,31 @@
+-- ---------------------------------------------------------------------------
+-- 0028 — football history: the clubs a player was at before this one
+-- (BUZ, 8 Sep).
+--
+-- This is the spine of a football CV and the product had no place to put it.
+-- "Other football" (D-72) covers school, futsal, representative and NTC —
+-- everything AROUND a club season — and there was nowhere to say "I was at
+-- Northcote City for three years before this".
+--
+-- It goes in experience_entry rather than in a new table, and that is the
+-- decision worth writing down. A previous club CANNOT be derived from
+-- membership: membership only knows about clubs that were on Pitch, and a
+-- fifteen-year-old joining today has a history at clubs that have never
+-- heard of us. Deriving it would produce a history that starts the day we
+-- did, which is worse than no history at all.
+--
+-- So it is the player's own account, in the table that already exists for
+-- the player's own account, and it inherits every property of that table:
+-- free text, NO club foreign key, provenance permanently 'self_reported',
+-- and it grants access to NOBODY (D-72). A child typing the name of a club
+-- gets a line on their page and nothing else — no membership, no read on
+-- that club, no notification to it. That is deliberate and it is the whole
+-- reason this is safe to let a minor type.
+--
+-- The public page renders it under its own heading and never mixes it with
+-- the CURRENT club, which comes from membership and is the only club claim
+-- on the page that Pitch stands behind.
+-- ---------------------------------------------------------------------------
+alter table experience_entry drop constraint experience_entry_kind_check;
+alter table experience_entry add constraint experience_entry_kind_check
+  check (kind in ('previous_club','school','futsal','representative','ntc_academy','tournament','other'));

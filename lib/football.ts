@@ -85,5 +85,19 @@ export const SEND_DAILY_CAP = 10;
 // --- Experience entry kinds (D-72) ------------------------------------------
 // experience_entry grants access to NOBODY, ever: no FK to club, no permission
 // surface. A type chip and free text — never a taxonomy of school competitions.
-export const EXPERIENCE_KINDS = ['school', 'futsal', 'representative', 'ntc_academy', 'tournament', 'other'] as const;
+export const EXPERIENCE_KINDS = ['previous_club', 'school', 'futsal', 'representative', 'ntc_academy', 'tournament', 'other'] as const;
 export type ExperienceKind = (typeof EXPERIENCE_KINDS)[number];
+
+// A previous club is an experience entry like any other — same table, same
+// free text, same nothing-granted (D-72) — but it renders under its own
+// heading, because a club season is not the same claim as a futsal summer.
+// Splitting it here rather than at the render site keeps every surface
+// agreeing about which is which.
+export const PREVIOUS_CLUB: ExperienceKind = 'previous_club';
+export const OTHER_FOOTBALL_KINDS = EXPERIENCE_KINDS.filter((k) => k !== PREVIOUS_CLUB);
+
+export const EXPERIENCE_KIND_LABELS: Record<ExperienceKind, string> = {
+  previous_club: 'Club', school: 'School', futsal: 'Futsal',
+  representative: 'Representative', ntc_academy: 'NTC',
+  tournament: 'Tournament', other: 'Other',
+};

@@ -3,6 +3,7 @@
 // embeds anything either.
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import { requireRecordActor } from '@/lib/record-guard';
 import { HeaderMark } from '@/components/Wordmark';
 import { CLIP_LIMIT_ADULT_FREE, CLIP_LIMIT_UNDER_18 } from '@/lib/football';
 import { addClip, removeClip } from './actions';
@@ -23,8 +24,8 @@ export default async function Clips({ params, searchParams }: {
   params: Promise<{ recordId: string }>;
   searchParams: Promise<{ error?: string; full?: string }>;
 }) {
-  if (process.env.NODE_ENV === 'production') notFound(); // until auth lands
   const { recordId } = await params;
+  await requireRecordActor(recordId);
   const { error, full } = await searchParams;
   const { rows } = await db.query(
     `select fn_age_band(p.dob) as band,

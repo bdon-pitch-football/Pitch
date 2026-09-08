@@ -1947,19 +1947,29 @@ check('act8: and still cannot ACT on it', await actor(ID.coachV, REC.deniz), nul
 check('act9: nor can the technical director', await actor(ID.td, REC.deniz), null);
 check('act10: nor the club administrator', await actor(ID.clubAdmin, REC.deniz), null);
 
-// Every route and action that takes a recordId must call the guard. This is
-// the check that stops the next one being added without it.
-const guardedFiles = [
-  'app/build/[recordId]/page.tsx', 'app/build/[recordId]/actions.ts',
-  'app/build/[recordId]/clips/actions.ts',
-  'app/register-interest/[recordId]/page.tsx', 'app/register-interest/[recordId]/actions.ts',
-  'app/share-card/[recordId]/page.tsx', 'app/share-card/[recordId]/actions.ts',
-  'app/g/pending/[recordId]/page.tsx', 'app/g/pending/[recordId]/actions.ts',
-  'app/send/[recordId]/actions.ts',
-];
-for (const f of guardedFiles) {
+// Every route and action that takes a recordId must call the guard. The list
+// used to be written out by hand, and a hand-written list is exactly as good
+// as whoever remembers to extend it: FOUR surfaces had been added since and
+// none of them checked anything — /build/[recordId]/more (page and all four
+// actions), /build/[recordId]/clips, the photo upload route and
+// /send/[recordId]. Each was closed by `if (production) notFound()`, which
+// is a deploy flag standing where an authorisation check belongs.
+//
+// So it is derived now. Anything under app/ whose path contains [recordId]
+// and that renders or acts — page, actions, route — must call the guard, and
+// a new one is caught the day it is written rather than the day it is
+// noticed. Components are excluded: they take props from a page that has
+// already checked, and they do not touch the database.
+const recordIdSurfaces = routeFiles
+  .filter((f) => f.includes('[recordId]'))
+  .filter((f) => /\/(page\.tsx|actions\.ts|route\.ts)$/.test(f))
+  .map((f) => f.slice(f.indexOf('app/')))
+  .sort();
+check('act11: the recordId surfaces are discovered, not listed by hand',
+  recordIdSurfaces.length >= 11, true);
+for (const f of recordIdSurfaces) {
   const src = readFileSync(fileURLToPath(new URL('../' + f, import.meta.url)), 'utf8');
-  check(`act11: ${f} checks who is asking`, /requireRecordActor/.test(src), true);
+  check(`act11: ${f} checks who is asking`, /require?RecordActor|recordActor\(/.test(src), true);
 }
 
 // D-119: the child never approves their own edit.
@@ -1972,11 +1982,12 @@ check('act13: the guardian id is no longer accepted as an argument (D-94 §3)',
 
 // Those routes were shipped disabled. If the guard works they should now be
 // enabled — a route that is still switched off is a route nobody can use.
-for (const f of ['app/build/[recordId]/page.tsx', 'app/register-interest/[recordId]/page.tsx',
-                 'app/share-card/[recordId]/page.tsx', 'app/g/pending/[recordId]/page.tsx']) {
+// Same list, same reason: a route that is still switched off is a route
+// nobody can use, and leaving the flag in place hides the missing guard.
+for (const f of recordIdSurfaces) {
   const src = readFileSync(fileURLToPath(new URL('../' + f, import.meta.url)), 'utf8');
   check(`act14: ${f} is no longer disabled in production`,
-    /NODE_ENV === 'production'\) notFound/.test(src), false);
+    /NODE_ENV === 'production'\) (notFound|return NextResponse)/.test(codeOnly(src)), false);
 }
 
 // The operator console gates on an allowlist, and an empty one means nobody.
@@ -1984,6 +1995,52 @@ const opsGuard = readFileSync(fileURLToPath(new URL('../lib/ops-guard.ts', impor
 check('act15: the operator console reads an explicit allowlist', /OPS_EMAILS/.test(opsGuard), true);
 check('act16: and an empty allowlist admits nobody in production',
   /allow\.includes\(email\)/.test(opsGuard), true);
+
+// --- Football history (0028) and the club line -----------------------------
+// A previous club is the player's own account and grants NOTHING (D-72). The
+// properties that make that true are structural, so they are asserted
+// structurally rather than trusted to the copy.
+const migAll = readdirSync(fileURLToPath(new URL('../supabase/migrations', import.meta.url)))
+  .map((f) => readFileSync(fileURLToPath(new URL('../supabase/migrations/' + f, import.meta.url)), 'utf8')).join('\n');
+check('hist1: previous_club is a kind on experience_entry, not a new table',
+  /kind in \('previous_club'/.test(migAll), true);
+check('hist2: experience_entry still has no club foreign key (D-72)',
+  /experience_entry[\s\S]{0,900}?references club\(/.test(migAll), false);
+check('hist3: and its provenance is still pinned to self_reported',
+  /provenance = 'self_reported'/.test(migAll), true);
+
+const cvSrc = readFileSync(fileURLToPath(new URL('../components/cv/PlayerCV.tsx', import.meta.url)), 'utf8');
+const snapSrc = readFileSync(fileURLToPath(new URL('../lib/cv-build.ts', import.meta.url)), 'utf8');
+
+// The locality on a CV is the CLUB's suburb and state. We hold no address for
+// a player, and this line must never start reading like one.
+for (const [what, src] of [['the live read', readSrc], ['the approved snapshot', snapSrc]]) {
+  check(`hist4: ${what} takes the locality from the club, never the person`,
+    /c\.suburb[\s\S]{0,40}c\.state/.test(src), true);
+  check(`hist5: ${what} never selects a suburb or postcode off person`,
+    /p\.(suburb|postcode|address)/.test(codeOnly(src)), false);
+}
+check('hist6: the hardcoded Melbourne VIC is gone from the CV',
+  /Melbourne VIC/.test(codeOnly(cvSrc)), false);
+
+// D-119: the approved snapshot IS the page for a u16, so it has to carry the
+// club. It carried an empty string, and the fixture hid it by writing its own.
+check('hist7: the approved snapshot carries the club and squad it is showing',
+  /select c\.name as club/.test(snapSrc), true);
+
+// Parent-approved is a fact about a MINOR's page. It was rendered on every
+// band, so an adult's own CV claimed a parent had approved it.
+check('hist8: the parent-approved chip is gated on the band',
+  /\{isMinor && \(/.test(cvSrc), true);
+check('hist9: and the band is carried from the permission layer, not computed here',
+  /band: bundle\.band/.test(readSrc), true);
+check('hist10: the CV computes no age of its own',
+  /getFullYear\(\)|new Date\(/.test(codeOnly(cvSrc)), false);
+
+// John's U-11 ruling: no inbound route, and SAY so — on the send, and on the
+// page the same club opens days later from a forwarded link.
+check('hist11: the CV states there is no way to reply to a family (U-11)',
+  /no way to reply to a family through Pitch/.test(cvSrc), true);
 
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);

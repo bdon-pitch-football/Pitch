@@ -43,7 +43,12 @@ for (const p of PLAYER_FIXTURES) {
 
   await db.query(`insert into person (id, first_name, last_name, dob) values ($1,$2,$3,$4)`, [personId, p.firstName, p.lastName, p.dob]);
   await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [guardian, personId]);
-  await db.query(`insert into club (id, name, club_state) values ($1,$2,'claimed')`, [clubId, p.club]);
+  // The club carries the locality, not the player: the CV's "· Brunswick VIC"
+  // is where the CLUB is. We hold no address for a child and this line must
+  // never start looking like one.
+  const cut = p.locality ? p.locality.lastIndexOf(' ') : -1;
+  await db.query(`insert into club (id, name, suburb, state, club_state) values ($1,$2,$3,$4,'claimed')`,
+    [clubId, p.club, cut > 0 ? p.locality!.slice(0, cut) : (p.locality ?? null), cut > 0 ? p.locality!.slice(cut + 1) : null]);
   await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
     values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [callId, clubId]);
   await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [callId, clubId]);
@@ -62,6 +67,11 @@ for (const p of PLAYER_FIXTURES) {
   for (const e of p.otherFootball) {
     await db.query(`insert into experience_entry (record_id, kind, org_name, season_label, notes) values ($1,$2,$3,$4,$5)`,
       [recordId, e.kind, e.orgName, e.period, e.note ?? null]);
+  }
+  // Clubs before this one (0028). Same table, same free text, grants nothing.
+  for (const e of p.previousClubs ?? []) {
+    await db.query(`insert into experience_entry (record_id, kind, org_name, season_label) values ($1,'previous_club',$2,$3)`,
+      [recordId, e.orgName, e.period ?? null]);
   }
   // Clips. These were missing entirely: only Deniz's page showed any, because
   // a u16 renders the approved JSON snapshot while 16-17 and adults assemble
@@ -262,6 +272,32 @@ await db.query(`update club set public_slug='riverside-fc', established='1974', 
   const crestRel = `/dev-uploads/crest-${riverside}.png`;
   writeFileSync(join(pub, crestRel.slice(1)), crest);
   await db.query(`update club set banner_path = $2, crest_path = $3 where id = $1`, [riverside, rel, crestRel]);
+}
+
+// The u16 approved snapshot is written inside the player loop, BEFORE the
+// club has a crest — and in production it is written by lib/cv-build, which
+// now reads the club fields itself. Refresh the fixture snapshots here so a
+// u16 page shows exactly what a real approved page would: the club, the
+// squad, the crest and the club's locality, frozen at approval (D-119).
+{
+  const approved = await db.query(
+    `select pv.id, pv.content, c.name, c.crest_path, c.suburb, c.state, s.name as squad_name
+     from profile_version pv
+     join development_record dr on dr.id = pv.record_id
+     join membership m on m.person_id = dr.person_id and m.role = 'player' and m.ended_at is null
+     join club c on c.id = m.club_id
+     left join squad s on s.id = m.squad_id
+     where pv.status = 'approved'`,
+  );
+  for (const r of approved.rows as Record<string, string | null>[]) {
+    const content = {
+      ...(r.content as unknown as Record<string, unknown>),
+      club: r.name,
+      clubCrestPath: r.crest_path ?? undefined,
+      locality: [r.suburb, r.state].filter(Boolean).join(' ') || undefined,
+    };
+    await db.query(`update profile_version set content = $2 where id = $1`, [r.id, JSON.stringify(content)]);
+  }
 }
 
 // Riverside's girls' and women's rows come from the squad list above — this

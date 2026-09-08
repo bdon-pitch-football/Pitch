@@ -91,6 +91,10 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
   // before deciding to render a heading at all.
   const clips = (p.highlights ?? (clipTitles[p.slug] ?? []).map((title) => ({ title, url: undefined as string | undefined })))
     .slice(0, p.highlightsUsed);
+  const previousClubs = p.previousClubs ?? [];
+  // Absent band is treated as a minor — the restrictive default, the same
+  // rule fn_age_band uses for an unknown DOB.
+  const isMinor = p.band !== '18plus';
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -120,14 +124,35 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
             <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{p.firstName} {p.lastName}</div>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 500 }}>{posLine} · #{p.squadNumber} · {p.foot} footed</div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,.62)', fontWeight: 500 }}>{p.club} — {p.squad.name} · Melbourne VIC</div>
+            {/* The club line carried a HARDCODED 'Melbourne VIC' — every player
+                in the country read as Melbourne. The locality now comes from
+                the club record, and it is the CLUB's suburb and state: we do
+                not hold an address for a player and this line must never
+                start looking like one. The crest is the current club's, from
+                membership — the only club claim on this page Pitch stands
+                behind. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              {p.clubCrestPath && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={p.clubCrestPath} alt="" width={24} height={24} style={{ objectFit: 'contain', flexShrink: 0 }} />
+              )}
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.62)', fontWeight: 500 }}>
+                {[p.club, p.squad.name].filter(Boolean).join(' — ')}{p.locality ? ` · ${p.locality}` : ''}
+              </div>
+            </div>
           </div>
+          {/* Parent-approved was rendered on EVERY band, so an adult's own CV
+              claimed a parent had approved it. It is a fact about a minor's
+              page and it is now gated on the band the permission layer
+              derived — never on anything stored (doc 14 §J1). */}
+          {isMinor && (
           <div style={{ display: 'flex', position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.08)', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.7)' }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
               <span>Parent-approved</span>
             </div>
           </div>
+          )}
           <StatTiles p={p} />
         </div>
 
@@ -149,8 +174,15 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         {clips.length > 0 && (
           <div className="cv-rise" style={{ animationDelay: '.16s', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={kicker}>Highlights</div>
+            {/* The subtitle used to be derived from the POSITION, so every
+                card under a midfielder said "Goals, assists & link play" and
+                every card under a keeper said "Veo clip". Two stacked cards
+                repeating one line reads as a bug. Only the first card
+                carries it now — it says what kind of footage this is, which
+                is a fact about the player, not about each clip. */}
             {clips.map((h, i) => (
-              <ClipCard key={h.title} title={h.title} url={h.url} gradientAlt={i % 2 === 1} sub={group === 'GK' ? 'Veo clip' : 'Goals, assists & link play'} />
+              <ClipCard key={h.title} title={h.title} url={h.url} gradientAlt={i % 2 === 1}
+                sub={i === 0 ? (group === 'GK' ? 'Veo clip' : 'Goals, assists & link play') : undefined} />
             ))}
           </div>
         )}
@@ -175,6 +207,40 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         </div>
         )}
 
+        {/* Football history — the clubs before this one. The player's own
+            account (D-72): free text, no club FK, grants nothing, and it is
+            said plainly at the foot of the section rather than implied. The
+            CURRENT club is not repeated here; it is in the hero, where it
+            carries the crest and the verification behind it. */}
+        {previousClubs.length > 0 && (
+        <div className="cv-rise" style={{ animationDelay: '.25s', display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div style={kicker}>Football history</div>
+          <div style={{ ...card, padding: '4px 15px' }}>
+            {p.club && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 0' }}>
+                <div style={{ width: 8, height: 8, borderRadius: 999, background: T.accent, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800 }}>{p.club}</div>
+                  <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{[p.squad.name, 'now'].filter(Boolean).join(' · ')}</div>
+                </div>
+              </div>
+            )}
+            {previousClubs.map((e) => (
+              <div key={`${e.orgName}-${e.period ?? ''}`} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 0', borderTop: `1px solid ${T.line}` }}>
+                <div style={{ width: 8, height: 8, borderRadius: 999, border: `1.5px solid ${T.muted}`, boxSizing: 'border-box', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: T.secondary }}>{e.orgName}</div>
+                  {e.period && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
+            Earlier clubs are {p.firstName}&rsquo;s own account of where they played. Only the club at the top is one we hold on Pitch.
+          </div>
+        </div>
+        )}
+
         {/* other football — experience entries; free text shown, grants nothing */}
         {p.otherFootball.length > 0 && (
         <div className="cv-rise" style={{ animationDelay: '.28s', display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -189,6 +255,22 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
             </div>
           ))}
         </div>
+        )}
+
+        {/* John's U-11 ruling put this on the SEND: no inbound reply route,
+            and say so plainly or a club concludes we are broken rather than
+            careful. The same club opens this page days later, often from a
+            forwarded link, with no email in front of them — so the page
+            carries it too, in the ruling's own words rather than new ones.
+            Minors only: an adult is reachable through their own account and
+            has no guardian to point at. */}
+        {isMinor && (
+          <div style={{ ...card, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: T.secondary }}>There is no way to reply to a family through Pitch.</div>
+            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+              At any tier, for anybody — it is the same rule for every under-18 on here. If you want {p.firstName} at a trial, post it on Pitch or send an invitation through their guardian. Both go to the parent, and both keep a record.
+            </div>
+          </div>
         )}
 
         <a href="/report?kind=player_cv" style={{ fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>

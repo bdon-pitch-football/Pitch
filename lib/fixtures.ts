@@ -30,7 +30,14 @@ export interface PlayerFixture {
   squadNumber: number;
   foot: 'Left' | 'Right';
   club: string;
+  clubCrestPath?: string;  // the CURRENT club's badge — from membership, never typed
+  locality?: string;       // 'Brunswick VIC' — the club's, not the child's address
   squad: { name: string; ageGroup: string; competitionGender: 'boys' | 'girls' | 'mixed' | 'open' };
+  // Clubs before this one. The player's own account (D-72) — free text, no
+  // FK, grants nothing. Never derived from membership: membership only knows
+  // clubs that were on Pitch, so deriving it would start everyone's history
+  // on the day we launched.
+  previousClubs?: { orgName: string; period?: string }[];
   about: string;
   stats: FixtureStat[];
   achievements: { title: string; detail: string }[];
@@ -38,6 +45,11 @@ export interface PlayerFixture {
   highlightsUsed: number; // of CLIP_LIMIT_UNDER_18
   highlights?: { title: string; url: string }[]; // real clips when built
   photoPath?: string; // re-encoded avatar; initials fallback when absent
+  // The age band the permission layer derived (fn_age_band) — 'u16',
+  // '16_17' or '18plus'. Carried, never computed here and never stored
+  // (doc 14 §J1). The page needs it because two things on it are only true
+  // of a minor: the parent-approved chip, and who a club is pointed at.
+  band?: 'u16' | '16_17' | '18plus';
   surfacedStats: StatKey[]; // D-105 — the player's selection, position set by default
 }
 
@@ -50,7 +62,9 @@ export const DENIZ: PlayerFixture = {
   squadNumber: 10,
   foot: 'Right',
   club: 'Riverside FC',
+  locality: 'Brunswick VIC',
   squad: { name: 'U15 Boys', ageGroup: 'U15', competitionGender: 'boys' },
+  previousClubs: [{ orgName: 'Brunswick Juniors SC', period: '2019–2023' }],
   about:
     'Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery.',
   stats: [
@@ -83,7 +97,12 @@ export const NATE: PlayerFixture = {
   squadNumber: 1,
   foot: 'Right',
   club: 'Northern United SC',
+  locality: 'Preston VIC',
   squad: { name: 'U18 Boys', ageGroup: 'U18', competitionGender: 'boys' },
+  previousClubs: [
+    { orgName: 'Preston Lions FC', period: '2022–2024' },
+    { orgName: 'Reservoir Juniors', period: '2018–2021' },
+  ],
   about:
     'Reserve keeper pushing for the starting spot. Comfortable playing out under pressure, strong on crosses. Working on my distribution range and commanding the six-yard box.',
   // D-67: no negative number exists on this page. The GK set is two tiles;
@@ -119,6 +138,10 @@ export const GEORGIA: PlayerFixture = {
   squadNumber: 6,
   foot: 'Left',
   club: 'Kingsway Rovers FC',
+  locality: 'Altona VIC',
+  // No previous clubs on purpose: Georgia is the sparse CV, and the section
+  // must vanish rather than render an empty heading (D-70's rule, applied).
+
   // competition_gender and age_group live on the SQUAD, never on Georgia (D-68, D-25)
   squad: { name: 'U16 Girls', ageGroup: 'U16', competitionGender: 'girls' },
   about:

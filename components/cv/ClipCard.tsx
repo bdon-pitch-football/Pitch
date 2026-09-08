@@ -13,7 +13,9 @@ function youtubeId(url: string): string | null {
 }
 
 export default function ClipCard({ title, sub, url, gradientAlt }: {
-  title: string; sub: string; url?: string; gradientAlt?: boolean;
+  // sub is optional: a stack of cards repeating one subtitle reads as a bug,
+  // so callers pass it on the first card and omit it after.
+  title: string; sub?: string; url?: string; gradientAlt?: boolean;
 }) {
   const [playing, setPlaying] = useState(false);
   const ytId = url ? youtubeId(url) : null;
@@ -44,7 +46,7 @@ export default function ClipCard({ title, sub, url, gradientAlt }: {
       )}
       <div style={{ padding: '11px 14px', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: T.ink }}>{title}</div>
-        <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{sub}</div>
+        {sub && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{sub}</div>}
       </div>
     </div>
   );
