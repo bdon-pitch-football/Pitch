@@ -69,7 +69,7 @@ export default async function ManagePage({
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#7d8f85' }}>I’m here as</span>
-          <select name="role" defaultValue={row.role} style={{ ...input, appearance: 'none' }}>
+          <select name="role" defaultValue={row.role}>
             {ROLES.map((r) => (
               <option key={r} value={r}>{r === 'parent' ? 'Parent' : r[0].toUpperCase() + r.slice(1)}</option>
             ))}

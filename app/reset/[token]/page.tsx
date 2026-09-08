@@ -30,7 +30,7 @@ export default async function SetPassword({ params, searchParams }: {
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>New password</div>
             <input name="password" type="password" required minLength={10} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
           </div>
-          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Save it</button>
+          <button type="submit" className="btn btn-primary">Save it</button>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>This signs you out everywhere else once you sign back in.</div>
         </form>
       </div>

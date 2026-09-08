@@ -70,7 +70,7 @@ export default async function Jobs() {
         <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
           Applying sends the club your coaching CV and whatever you write. It does not send them your phone number or your email — if you want to be reached that way, say so in your message.
         </div>
-        <Link href="/home" style={{ textAlign: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted, textDecoration: 'none', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Back</Link>
+        <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>
     </div>
   );

@@ -111,7 +111,7 @@ export default async function GuardianSend({ params, searchParams }: {
         </div>
 
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '0 14px', lineHeight: 1.3 }}>Send it to {clubName}</button>
+          <button type="submit" className="btn btn-primary">Send it to {clubName}</button>
           <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Not this one</div>
         </form>
       </div>

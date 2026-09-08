@@ -64,7 +64,7 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
           {/* DEV ONLY: no SMS sends yet — this is where the guardian's doc-15
               link goes. In dev it opens the approval page directly. */}
           {process.env.NODE_ENV !== 'production' && (
-            <Link href={`/a/${inv.id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Show them my page</Link>
+            <Link href={`/a/${inv.id}`} className="btn btn-primary">Show them my page</Link>
           )}
         </div>
 

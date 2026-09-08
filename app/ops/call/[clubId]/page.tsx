@@ -62,7 +62,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
           <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             &ldquo;Incorporated&rdquo; and &ldquo;authority&rdquo; answered no or unknown do not fail verification — they flag the subscription, not the safety check. Verifying releases every held registration to this club.
           </div>
-          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Log the call</button>
+          <button type="submit" className="btn btn-primary">Log the call</button>
         </form>
       </div>
     </div>

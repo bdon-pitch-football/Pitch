@@ -124,14 +124,14 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
             Go on {c.name}&rsquo;s register and your football goes with you. It is not a trial spot and it is not a decision — there is nothing here to be turned down from.
           </div>
           {!me ? (
-            <Link href="/signin" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Sign in to register your interest</Link>
+            <Link href="/signin" className="btn btn-primary">Sign in to register your interest</Link>
           ) : myRecord ? (
-            <Link href={`/register-interest/${myRecord}?club=${c.id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Register my interest</Link>
+            <Link href={`/register-interest/${myRecord}?club=${c.id}`} className="btn btn-primary">Register my interest</Link>
           ) : children.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {children.map((k) => (
                 <Link key={k.recordId} href={`/register-interest/${k.recordId}?club=${c.id}`}
-                  style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+                  className="btn btn-primary">
                   Register {k.name}&rsquo;s interest
                 </Link>
               ))}

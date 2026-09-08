@@ -108,7 +108,7 @@ export default async function GuardianInvite({ params, searchParams }: {
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>The moment you hand over a phone number, that part of the conversation leaves Pitch and we cannot switch it off for you. {name}&rsquo;s CV link is separate — you keep that control whatever you do here.</div>
             </div>
-            <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Send my reply</button>
+            <button type="submit" className="btn btn-primary">Send my reply</button>
           </form>
         </div>
       </div>
@@ -157,7 +157,7 @@ export default async function GuardianInvite({ params, searchParams }: {
           ))}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-          <a href={`/g/invite/${invitationId}?reply=1`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Reply to {r.club_name}</a>
+          <a href={`/g/invite/${invitationId}?reply=1`} className="btn btn-primary">Reply to {r.club_name}</a>
           <div style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>Not this time</div>
         </div>
         <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>

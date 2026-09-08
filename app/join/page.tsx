@@ -64,11 +64,11 @@ export default function Join() {
               ))}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-              <div style={field}>
+              <div className="field">
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>First name</div>
                 <input style={input} value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Your first name" />
               </div>
-              <div style={field}>
+              <div className="field">
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Date of birth</div>
                 <input style={input} type="date" value={dob} onChange={(e) => setDob(e.target.value)} placeholder="DD / MM / YYYY" />
               </div>
@@ -101,17 +101,17 @@ export default function Join() {
               <input type="hidden" name="firstName" value={firstName} />
               <input type="hidden" name="dob" value={dob} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <div style={field}><div style={fieldLabel}>Email</div><input style={input} name="email" type="email" placeholder="you@example.com" required /></div>
-                <div style={field}><div style={fieldLabel}>Password — at least ten characters</div><input style={input} name="password" type="password" minLength={10} required /></div>
+                <div className="field"><div className="field-label">Email</div><input style={input} name="email" type="email" placeholder="you@example.com" required /></div>
+                <div className="field"><div className="field-label">Password — at least ten characters</div><input style={input} name="password" type="password" minLength={10} required /></div>
                 {age !== null && age < 18 && (
                   <>
-                    <div style={field}><div style={fieldLabel}>A parent or guardian&rsquo;s name</div><input style={input} name="guardianName" required /></div>
-                    <div style={field}><div style={fieldLabel}>Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></div>
+                    <div className="field"><div className="field-label">A parent or guardian&rsquo;s name</div><input style={input} name="guardianName" required /></div>
+                    <div className="field"><div className="field-label">Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></div>
                     <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.5 }}>You&rsquo;re {age}, so a parent stays in the loop — they hold the visibility off-switch until you&rsquo;re 18, and any club approach goes to you both together.</div>
                   </>
                 )}
               </div>
-              <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Create my account</button>
+              <button type="submit" className="btn btn-primary">Create my account</button>
             </form>
           </>
         ) : (
@@ -133,9 +133,9 @@ export default function Join() {
               <input type="hidden" name="firstName" value={firstName} />
               <input type="hidden" name="dob" value={dob} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <div style={field}><div style={fieldLabel}>Their name</div><input style={input} name="guardianName" required /></div>
-                <div style={field}><div style={fieldLabel}>Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></div>
-                <div style={field}><div style={fieldLabel}>Their email — optional</div><input style={input} name="guardianEmail" type="email" /></div>
+                <div className="field"><div className="field-label">Their name</div><input style={input} name="guardianName" required /></div>
+                <div className="field"><div className="field-label">Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></div>
+                <div className="field"><div className="field-label">Their email — optional</div><input style={input} name="guardianEmail" type="email" /></div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {[
@@ -153,7 +153,7 @@ export default function Join() {
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
                 <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>Put in your own number and nothing happens — the approval has to come from an adult&rsquo;s own phone, and we check the two are different.</div>
               </div>
-              <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Ask them to approve it</button>
+              <button type="submit" className="btn btn-primary">Ask them to approve it</button>
               <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.muted, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Why does a parent have to do this?</div>
             </form>
           </>

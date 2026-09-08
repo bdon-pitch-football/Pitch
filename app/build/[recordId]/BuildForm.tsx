@@ -100,7 +100,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             </div>
             <div style={card}>
               <div style={label}>Preferred foot</div>
-              <select name="foot" defaultValue={record.foot ?? ''} style={{ ...input, appearance: 'none' }}>
+              <select name="foot" defaultValue={record.foot ?? ''}>
                 <option value="">—</option><option>Right</option><option>Left</option>
               </select>
             </div>

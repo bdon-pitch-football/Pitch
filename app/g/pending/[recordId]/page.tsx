@@ -109,7 +109,7 @@ export default async function PendingReview({ params, searchParams }: {
         </div>
 
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 'auto' }}>
-          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Approve the change</button>
+          <button type="submit" className="btn btn-primary">Approve the change</button>
           <div style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>Edit the words first</div>
           <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Not this one</div>
         </form>

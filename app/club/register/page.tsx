@@ -338,7 +338,7 @@ export default async function Register({ searchParams }: {
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, textAlign: 'center' }}>A family can take themselves off at any time. The entry goes, and so does the CV link.</div>
           </>
         )}
-        <Link href="/home" style={{ textAlign: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted, textDecoration: 'none', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Back</Link>
+        <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>
     </div>
   );

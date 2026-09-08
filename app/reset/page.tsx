@@ -33,7 +33,7 @@ export default async function Reset({ searchParams }: { searchParams: Promise<{ 
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Email</div>
               <input name="email" type="email" required placeholder="you@example.com" style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
             </div>
-            <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Email me a reset link</button>
+            <button type="submit" className="btn btn-primary">Email me a reset link</button>
             <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
               If the account belongs to someone under 16, the link goes to their parent — the same as everything else on that record.
             </div>

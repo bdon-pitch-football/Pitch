@@ -140,7 +140,7 @@ export default async function GuardianInterest({ params, searchParams }: {
         </div>
 
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '0 14px', lineHeight: 1.3 }}>Register {his} interest</button>
+          <button type="submit" className="btn btn-primary">Register {his} interest</button>
           <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Not this one</div>
         </form>
       </div>

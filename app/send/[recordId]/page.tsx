@@ -100,7 +100,7 @@ export default async function SendCv({ params, searchParams }: {
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Ask my parent to send it</button>
+            <button type="submit" className="btn btn-primary">Ask my parent to send it</button>
             <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Cancel</div>
           </div>
         </form>

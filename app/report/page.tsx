@@ -59,7 +59,7 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
           <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             If this is about your own child appearing in someone else&rsquo;s content, say so and we will take it down while we look — you do not need to explain further.
           </div>
-          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Send the report</button>
+          <button type="submit" className="btn btn-primary">Send the report</button>
         </form>
       </div>
     </div>

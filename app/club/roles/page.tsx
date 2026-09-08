@@ -75,14 +75,14 @@ export default async function ClubRoles({ searchParams }: {
 
         <form action={postRole} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Post a role</div>
-          <div style={field}>
-            <div style={label}>Role</div>
+          <div className="field">
+            <div className="field-label">Role</div>
             <input style={input} name="title" placeholder="Head Coach — U14 Boys" required maxLength={80} />
           </div>
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-            <div style={{ ...field, flex: 1, minWidth: 150 }}>
-              <div style={label}>Age group</div>
-              <select name="ageGroup" defaultValue="" style={{ ...input, appearance: 'none' }}>
+            <div className="field" style={{ flex: 1, minWidth: 150 }}>
+              <div className="field-label">Age group</div>
+              <select name="ageGroup" defaultValue="">
                 <option value="">Not specific</option>
                 {stages.map((st) => (
                   <optgroup key={st} label={STAGE_LABEL[st] ?? st}>
@@ -91,17 +91,17 @@ export default async function ClubRoles({ searchParams }: {
                 ))}
               </select>
             </div>
-            <div style={{ ...field, flex: 1, minWidth: 150 }}>
-              <div style={label}>Commitment</div>
+            <div className="field" style={{ flex: 1, minWidth: 150 }}>
+              <div className="field-label">Commitment</div>
               <input style={input} name="commitment" placeholder="Tue & Thu, 6–7:30pm" maxLength={120} />
             </div>
-            <div style={{ ...field, flex: 1, minWidth: 130 }}>
-              <div style={label}>Closes</div>
+            <div className="field" style={{ flex: 1, minWidth: 130 }}>
+              <div className="field-label">Closes</div>
               <input style={input} name="closesOn" type="date" />
             </div>
           </div>
-          <div style={field}>
-            <div style={label}>About the role</div>
+          <div className="field">
+            <div className="field-label">About the role</div>
             <textarea name="detail" rows={4} maxLength={1500} placeholder="What the squad is, what you're after, and what the club offers."
               style={{ ...input, resize: 'vertical', lineHeight: 1.5, fontWeight: 500, fontSize: 14 }} />
           </div>
@@ -109,7 +109,7 @@ export default async function ClubRoles({ searchParams }: {
             <input type="checkbox" name="paid" style={{ width: 18, height: 18, accentColor: T.accent }} />
             This role is paid
           </label>
-          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Post it</button>
+          <button type="submit" className="btn btn-primary">Post it</button>
         </form>
 
         {withApplicants.map(({ role: r, applicants }) => (
@@ -148,7 +148,7 @@ export default async function ClubRoles({ searchParams }: {
         <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
           You get each coach&rsquo;s CV and what they wrote. You do not get a phone number or an email unless they chose to put one in their message.
         </div>
-        <Link href="/home" style={{ textAlign: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted, textDecoration: 'none', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Back</Link>
+        <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>
     </div>
   );

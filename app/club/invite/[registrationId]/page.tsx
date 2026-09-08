@@ -46,7 +46,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
         </div>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>What you&rsquo;re sending</div>
+            <div className="field-label">What you&rsquo;re sending</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <label style={{ flex: 1, cursor: 'pointer' }}>
                 <input type="radio" name="kind" value="trial" defaultChecked style={{ position: 'absolute', opacity: 0 }} />
@@ -65,7 +65,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>A line from you, if you want</div>
+            <div className="field-label">A line from you, if you want</div>
             <div style={{ ...card, minHeight: 74 }}>
               <textarea name="body" rows={3} placeholder={`Saw ${name} at the trials. We're short in the 16s and we'd like a proper look at ${him}.`} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
             </div>
@@ -88,7 +88,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
             ))}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Send it to {name === 'Georgia' ? 'her' : 'his'} parent</button>
+            <button type="submit" className="btn btn-primary">Send it to {name === 'Georgia' ? 'her' : 'his'} parent</button>
             <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Cancel</div>
           </div>
         </form>

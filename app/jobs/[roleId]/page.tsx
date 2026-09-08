@@ -71,7 +71,7 @@ export default async function Role({ params, searchParams }: {
         ) : already ? (
           <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 700 }}>You&rsquo;ve applied for this one. The club has your CV.</div>
         ) : !me ? (
-          <Link href="/signin" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Sign in to apply</Link>
+          <Link href="/signin" className="btn btn-primary">Sign in to apply</Link>
         ) : !canApply ? (
           <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
             You need a coaching profile to apply. <Link href="/coach/edit" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Build one</Link> — it takes a few minutes and it is what the club reads.
@@ -81,14 +81,14 @@ export default async function Role({ params, searchParams }: {
             <div style={{ fontSize: 14, fontWeight: 900 }}>Apply for this role</div>
             <textarea name="message" rows={5} maxLength={1200} placeholder="Why this club, and what you'd bring. If you want them to phone or email you, put it here — we don't pass it on otherwise."
               style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '11px 12px', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }} />
-            <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Send it to {r.club}</button>
+            <button type="submit" className="btn btn-primary">Send it to {r.club}</button>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
               They get your coaching CV and this message. They do not get your phone number or your email address unless you write them above.
             </div>
           </form>
         )}
 
-        <Link href="/jobs" style={{ textAlign: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted, textDecoration: 'none', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>All roles</Link>
+        <Link href="/jobs" className="btn btn-ghost">All roles</Link>
       </div>
     </div>
   );

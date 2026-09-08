@@ -64,7 +64,7 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
         {active ? (
           <>
             <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={label}>Your plan</div>
+              <div className="field-label">Your plan</div>
               <div style={{ fontSize: 18, fontWeight: 900 }}>{c.plan === 'register_annual' ? PRICES.register_annual.label : PRICES.register_monthly.label}</div>
               {c.renews && <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Renews {c.renews.trim()} unless you cancel before then.</div>}
             </div>
@@ -76,7 +76,7 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
         ) : (
           <form action={startCheckout} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={label}>Choose how you pay</div>
+              <div className="field-label">Choose how you pay</div>
               {(['register_monthly', 'register_annual'] as const).map((k, i) => (
                 <label key={k} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
                   <input type="radio" name="plan" value={k} defaultChecked={i === 0} style={{ width: 20, height: 20, accentColor: T.accent }} />
@@ -92,9 +92,9 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={label}>Who is agreeing to this</div>
-              <div style={card}><div style={label}>Your name</div><input style={input} name="personName" required /></div>
-              <div style={card}><div style={label}>Your role at the club</div><input style={input} name="roleAtClub" placeholder="e.g. Treasurer" required /></div>
+              <div className="field-label">Who is agreeing to this</div>
+              <div style={card}><div className="field-label">Your name</div><input style={input} name="personName" required /></div>
+              <div style={card}><div className="field-label">Your role at the club</div><input style={input} name="roleAtClub" placeholder="e.g. Treasurer" required /></div>
               <label style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 11, cursor: 'pointer' }}>
                 <input type="checkbox" name="authorised" required style={{ width: 20, height: 20, accentColor: T.accent, marginTop: 1 }} />
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5 }}>I am authorised by {c.name} to enter this agreement on its behalf.</div>
@@ -106,7 +106,7 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
               Paying does not verify your club and cannot. Nothing about a player under 18 reaches you until we have spoken to someone at the club by phone.
             </div>
 
-            <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit', opacity: billingConfigured() ? 1 : 0.6 }}>
+            <button type="submit" className="btn btn-primary">
               {billingConfigured() ? 'Continue to payment' : 'Payments not switched on yet'}
             </button>
           </form>

@@ -88,14 +88,14 @@ export default async function Squads({ searchParams }: {
 
         <form action={addSquad} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Add a squad</div>
-          <div style={field}>
-            <div style={label}>What you call it</div>
+          <div className="field">
+            <div className="field-label">What you call it</div>
             <input style={input} name="name" placeholder="U14 Boys" required />
           </div>
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-            <div style={{ ...field, flex: 1, minWidth: 150 }}>
-              <div style={label}>Age group</div>
-              <select name="ageGroup" defaultValue="U14" style={{ ...input, appearance: 'none' }}>
+            <div className="field" style={{ flex: 1, minWidth: 150 }}>
+              <div className="field-label">Age group</div>
+              <select name="ageGroup" defaultValue="U14">
                 {stages.map((st) => (
                   <optgroup key={st} label={STAGE_LABEL[st] ?? st}>
                     {ages.filter((a) => a.stage === st).map((a) => (
@@ -105,18 +105,18 @@ export default async function Squads({ searchParams }: {
                 ))}
               </select>
             </div>
-            <div style={{ ...field, flex: 1, minWidth: 130 }}>
-              <div style={label}>Who plays in it</div>
-              <select name="gender" defaultValue="boys" style={{ ...input, appearance: 'none' }}>
+            <div className="field" style={{ flex: 1, minWidth: 130 }}>
+              <div className="field-label">Who plays in it</div>
+              <select name="gender" defaultValue="boys">
                 {GENDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
-            <div style={{ ...field, flex: 1, minWidth: 110 }}>
-              <div style={label}>Season</div>
+            <div className="field" style={{ flex: 1, minWidth: 110 }}>
+              <div className="field-label">Season</div>
               <input style={input} name="season" defaultValue="2026" required />
             </div>
           </div>
-          <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Add it</button>
+          <button type="submit" className="btn btn-primary">Add it</button>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             Your age groups are yours. Boys and girls competitions rarely run the same ones, and they change between seasons and between states — so we don&rsquo;t decide them for you.
           </div>
@@ -143,7 +143,7 @@ export default async function Squads({ searchParams }: {
           </div>
         ))}
 
-        <Link href="/club/register" style={{ textAlign: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted, textDecoration: 'none', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Back to the register</Link>
+        <Link href="/club/register" className="btn btn-ghost">Back to the register</Link>
       </div>
     </div>
   );

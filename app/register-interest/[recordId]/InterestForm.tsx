@@ -47,7 +47,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions }: {
           <input type="hidden" name="clubId" value={club.id} />
           <input type="hidden" name="positions" value={positions.join(',')} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>Interested in</div>
+            <div className="field-label">Interested in</div>
             <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 44, height: 44, borderRadius: 13, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: T.secondary, flexShrink: 0 }}>{club.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</div>
               <div>
@@ -57,16 +57,16 @@ export default function InterestForm({ recordId, club, squads, cvPositions }: {
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>Which squad</div>
+            <div className="field-label">Which squad</div>
             <div style={card}>
-              <select name="squadId" style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', width: '100%', appearance: 'none' }}>
+              <select name="squadId">
                 <option value="">—</option>
                 {squads.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>Where you&rsquo;d play</div>
+            <div className="field-label">Where you&rsquo;d play</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {(Object.keys(POSITIONS) as PositionCode[]).map((code) => {
                 const on = positions.includes(code);
@@ -84,7 +84,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions }: {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div style={label}>One line, if you want</div>
+              <div className="field-label">One line, if you want</div>
               <div style={{ fontSize: 11, fontWeight: 700, color: T.muted }}>{note.length} / 140</div>
             </div>
             <div style={card}>
@@ -113,7 +113,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions }: {
             <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>Being on a register isn&rsquo;t a trial spot and it isn&rsquo;t a decision, so there is nothing here to be turned down from. You stay on it until you take yourself off — this season, and the next one.</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Ask my parent to send it</button>
+            <button type="submit" className="btn btn-primary">Ask my parent to send it</button>
             <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Cancel</div>
           </div>
         </form>

@@ -57,7 +57,7 @@ export default async function Undo({ params }: { params: Promise<{ token: string
         <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
           <b style={{ color: T.secondary }}>This does not un-send the email.</b> It has already arrived and nobody can recall it — not us, not you. What this stops is what it opens.
         </div>
-        <Link href="/home" style={{ textAlign: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted, textDecoration: 'none', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Not now</Link>
+        <Link href="/home" className="btn btn-ghost">Not now</Link>
       </div>
     </div>
   );

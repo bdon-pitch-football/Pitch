@@ -40,7 +40,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
             <div style={card}><div style={label}>Password</div><input style={input} name="password" type="password" placeholder="••••••••" /></div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Sign in</button>
+            <button type="submit" className="btn btn-primary">Sign in</button>
             <button type="submit" style={{ background: 'transparent', border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Email me a link instead</button>
           </div>
         </form>

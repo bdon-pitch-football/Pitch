@@ -53,7 +53,7 @@ export default async function Home() {
           <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</div>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>One account, whichever seat you hold.</div>
         </div>
-        <Link href="/signin" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Sign in</Link>
+        <Link href="/signin" className="btn btn-primary">Sign in</Link>
       </Shell>
     );
   }
@@ -150,7 +150,7 @@ export default async function Home() {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <Link href="/club/register" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Interest register</Link>
+          <Link href="/club/register" className="btn btn-primary">Interest register</Link>
           <Link href="/club/squads" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Squads &amp; age groups</Link>
           <Link href="/club/page-edit" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Crest &amp; club page</Link>
           <Link href="/club/roles" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Coaching roles</Link>
@@ -181,7 +181,7 @@ export default async function Home() {
           </div>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <Link href="/coach/edit" style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Edit my coach CV</Link>
+          <Link href="/coach/edit" className="btn btn-primary">Edit my coach CV</Link>
           {coachSeat.public_slug && (
             <Link href={`/c/${coachSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>See my public page</Link>
           )}
@@ -213,7 +213,7 @@ export default async function Home() {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <Link href={`/build/${me.record_id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Build your CV</Link>
+          <Link href={`/build/${me.record_id}`} className="btn btn-primary">Build your CV</Link>
           <div style={{ display: 'flex', gap: 8 }}>
             <Link href={`/build/${me.record_id}/clips`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Highlights</Link>
             <Link href={`/build/${me.record_id}/more`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Achievements</Link>
@@ -251,7 +251,7 @@ export default async function Home() {
           </div>
           <div style={{ fontSize: 17, fontWeight: 900 }}>{c.invitation!.club} would like {c.firstName} at a trial</div>
           <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{c.firstName} has not been told. Nothing happens until you decide.</div>
-          <Link href={`/g/invite/${c.invitation!.id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Review it</Link>
+          <Link href={`/g/invite/${c.invitation!.id}`} className="btn btn-primary">Review it</Link>
         </div>
       ))}
 
@@ -266,7 +266,7 @@ export default async function Home() {
             </div>
             <div style={{ fontSize: 17, fontWeight: 900 }}>{c.firstName} wants to send {c.firstName === 'Georgia' ? 'her' : 'his'} CV to {club}</div>
             <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>Nothing has been sent. Check the address and it goes; do nothing and the request disappears on its own.</div>
-            <Link href={`/g/send/${c.sendRequest!.id}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Review it</Link>
+            <Link href={`/g/send/${c.sendRequest!.id}`} className="btn btn-primary">Review it</Link>
           </div>
         );
       })}
@@ -292,7 +292,7 @@ export default async function Home() {
           {children.filter((c) => c.hasPending).map((c) => (
             <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 17, fontWeight: 900 }}>{c.firstName} changed {c.firstName === 'Georgia' ? 'her' : 'his'} page</div>
-              <Link href={`/g/pending/${c.recordId}`} style={{ background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>Review it</Link>
+              <Link href={`/g/pending/${c.recordId}`} className="btn btn-primary">Review it</Link>
             </div>
           ))}
         </div>
