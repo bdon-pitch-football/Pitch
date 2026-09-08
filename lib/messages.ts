@@ -302,6 +302,81 @@ If you do nothing, nothing publishes. There's no time limit on this and we won't
 — Pitch`,
 });
 
+// §31 · Payment taken — to the CLUB, not the person who typed the card
+// (D-137), so a volunteer can be reimbursed without an argument. Headed a
+// tax invoice because we are GST-registered and a treasurer needs a document
+// the ATO accepts: supplier identity, ABN, GST shown separately (D-148).
+//
+// The renewal terms repeat here even though Stripe showed them, because
+// D-136 makes the disclosure OURS — and the person reading the receipt in
+// March is usually not the person who clicked in September.
+//
+// NEVER: a player's name, a registration count, anything about who has
+// registered. This lands in a club inbox and a billing surface carries no
+// child data (doc 14 O10).
+export const paymentTakenEmail = (
+  clubLegalName: string, planLabel: string, amount: string, gst: string,
+  paidOn: string, cardLast4: string, receiptNo: string, renewsOn: string, refundable: boolean,
+): Composed => ({
+  key: 'doc15.§31',
+  channel: 'email',
+  subject: `${clubLegalName} — your Pitch receipt`,
+  body:
+`Tax invoice
+${clubLegalName}
+${planLabel}
+${amount} AUD, paid ${paidOn} — includes ${gst} GST
+Card ending ${cardLast4} · receipt ${receiptNo}
+Renews ${renewsOn} at ${amount} AUD unless you cancel before then.
+
+EBSD Enterprises Pty Ltd trading as Pitch Football · ABN 65 701 879 718
+
+Manage or cancel this subscription: ${SITE}/club/billing
+
+Cancelling lives in your club settings on Pitch and takes about as long as signing up did.${refundable ? ` Cancel within 14 days of today and we refund the whole ${amount}, no questions.` : ''}
+
+This charge shows on your statement as PITCH FOOTBALL.
+Something wrong? Reply to this email before you ring your bank — we can usually fix it the same day.
+
+— Pitch
+${SITE} · ${HELP}`,
+});
+
+// §32 · The card didn't go through — to the club. D-135 in message form.
+//
+// "Nothing is deleted" is bold because it is a database invariant, and
+// invariants that live only in a register get eroded. It is also the
+// sentence that stops a volunteer putting a club subscription on a personal
+// credit card at eleven at night.
+//
+// It does not say "declined", even about a card: that word is banned for any
+// actor on any surface, and carving an exception is how it finds its way back
+// to a person. A card didn't go through.
+//
+// NEVER: a number of registrations at risk, a family's name, a countdown in
+// hours, or a second channel. And no message goes to any family, ever, about
+// a club's failed payment.
+export const paymentFailedEmail = (
+  clubName: string, attemptedOn: string, pausesOn: string,
+): Composed => ({
+  key: 'doc15.§32',
+  channel: 'email',
+  subject: `${clubName} — we couldn't take your payment`,
+  body:
+`The card for ${clubName}'s Interest Register didn't go through on ${attemptedOn}. Nothing has changed yet.
+
+Update the card: ${SITE}/club/billing
+
+We'll keep trying for the next fortnight. If it's still not sorted by ${pausesOn}, the register is paused — your coaches stop seeing the list.
+
+Nothing is deleted. The families who registered stay registered, and everything comes back the moment a payment goes through.
+
+Your club page, your trial notices and CVs arriving by email are unaffected. They're free and they stay free.
+
+— Pitch
+${SITE} · ${HELP}`,
+});
+
 // §33 · A sign-in from somewhere new. Never an IP, a map, a city or a device
 // fingerprint. Goes to guardians and adults, never to an under-16 alone.
 export const newSignInEmail = (whenMelbourne: string): Composed => ({
@@ -392,6 +467,6 @@ Nothing else. No copy, no archive, no "in case you come back".
 export const CATALOGUE_KEYS = [
   'doc15.§1', 'doc15.§2', 'doc15.§3', 'doc15.§10', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
-  'doc15.§6', 'doc15.§21', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
+  'doc15.§6', 'doc15.§21', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
   'doc15.§33', 'doc15.§34',
 ] as const;

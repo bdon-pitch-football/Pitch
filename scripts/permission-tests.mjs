@@ -43,6 +43,20 @@ async function searchable(searcher, person) {
 }
 const sha = (s) => createHash('sha256').update(s).digest();
 
+// Read a Postgres function's source on demand. Four checks have now broken
+// by referencing a const that a LATER section declares — sections must not
+// depend on the order of the file.
+const procSrc = async (name) =>
+  (await db.query('select prosrc from pg_proc where proname = $1', [name])).rows[0]?.prosrc ?? '';
+
+// The two questions asked from more than one table, hoisted for the same
+// reason: who may put this record in front of somebody, and who may act on
+// it at all.
+const qDispatch = async (actor, rec) =>
+  (await db.query('select fn_can_dispatch($1,$2) as c', [actor, rec])).rows[0].c;
+const recActor = async (who, rec) =>
+  (await db.query('select fn_record_actor($1,$2) as a', [who, rec])).rows[0].a;
+
 // Strip comments before searching source for a forbidden word. Three checks
 // in this file have now matched their own explanatory comment — a comment
 // saying "we never show a counter" contains the word "counter". Search the
@@ -364,8 +378,12 @@ check('doc15 §24: the bare wake is defined and interpolates nothing at all',
   wakeBlocks.length === 2 && wakeBlocks.every((b) => !/\$\{(?!SITE|HELP)/.test(b)), true);
 check('doc15 §29: the share-card email carries no preview image',
   /shareCardWaitingEmail[\s\S]*?(<img|cid:|\.png|\.jpg)/.test(msgSrc), false);
+// codeOnly first. doc 15 §32 explains at length why a card "didn't go
+// through" rather than being declined, and the corpus check already allows
+// explaining a ban — explaining is not using. The fifth check in this file
+// to have matched its own documentation.
 check('doc15 §32/D-108: the word "declined" appears in no message',
-  /\bdeclined\b/i.test(msgSrc), false);
+  /\bdeclined\b/i.test(codeOnly(msgSrc)), false);
 check('doc15 NOT-list: no message says a link was opened or viewed',
   /(your CV was opened|has been viewed|viewed your)/i.test(msgSrc), false);
 
@@ -495,6 +513,145 @@ check('N14b: and leaves a recent one alone',
   (await db.query('select count(*)::int as n from registration where id = $1', [n14Fresh])).rows[0].n, 1);
 
 // ---------------------------------------------------------------------------
+// Tables C, M, N, O, P — the remaining rows.
+// ---------------------------------------------------------------------------
+
+// C2/P11 — route enumeration. The absence IS the assertion (John's red line).
+const msgRoutes = routeFiles.filter((f) => /\/(message|dm|chat|inbox|thread|reply)\//i.test(f));
+check('C2/P11: no message, DM, chat, inbox, thread or reply route exists', msgRoutes.length, 0);
+check('P10: nor any route that appends to an invitation',
+  routeFiles.filter((f) => /invitation/i.test(f) && /(append|reply|thread|message)/i.test(f)).length, 0);
+
+// C3/C4 — an outside approach to an under-16 is logged. The vocabulary
+// exists and one surface writes it; there is no separate second code path.
+// Count files that WRITE the event, not files that mention it — the
+// guardian's history page maps it to a plain-English line and would
+// otherwise read as a second code path.
+const contactWriters = routeFiles.filter((f) =>
+  /insert into consent_event[\s\S]{0,200}outside_contact_logged/.test(readFileSync(f, 'utf8')));
+check('C3/C4: exactly one code path records an outside approach, not two', contactWriters.length, 1);
+
+// M2 — a held registration is unreachable by any query that does not go
+// through the function. Asserted on the function, because that is where the
+// predicate has to live for J50 to be true.
+const m2Src = await procSrc('fn_register_rows');
+check('M2: the register function is the only reader, and it joins on verified',
+  /club_state = 'verified'/.test(m2Src) && /fn_can_work_register/.test(m2Src), true);
+
+// M9 — registering with a CLAIMED club is permitted and held. The family is
+// told it is with the club; nothing tells them the club cannot see it yet.
+const m9Club = crypto.randomUUID(), m9Admin = crypto.randomUUID();
+await db.query(`insert into club (id, name, club_state, subscription_status) values ($1,'Claimed FC','claimed','active')`, [m9Club]);
+await db.query(`insert into person (id, first_name, dob) values ($1,'Claimed Admin',$2)`, [m9Admin, yearsAgo(40)]);
+await mem(m9Admin, m9Club, null, 'club_admin');
+await db.query(`insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4')`, [ID.marcus, m9Club]);
+check('M9: the registration is created against a claimed club',
+  (await db.query('select fn_register_count($1,$2) as n', [m9Admin, m9Club])).rows[0].n, 1);
+check('M9b: and held — the club sees no row', (await db.query('select * from fn_register_rows($1,$2)', [m9Admin, m9Club])).rows.length, 0);
+
+// M12 — verifying writes one audit row carrying the operator, the time, the
+// club and the answer to the authority question (D-137).
+const callCols = (await db.query(
+  `select string_agg(column_name,',') as c from information_schema.columns where table_name='verification_call'`)).rows[0].c;
+for (const needed of ['operator', 'called_at', 'club_id', 'authority_confirmed', 'number_source']) {
+  check(`M12: the call sheet records ${needed}`, callCols.includes(needed), true);
+}
+await expectFail('M12b: and the operator can never be a machine',
+  `insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+   values ('${CLUB.riverside}', now(), 'system', '03 9000 0000', 'x', 'verified', '27@v1.0')`);
+
+// N1 — a composed registration transmits nothing and mints no token.
+const n1 = crypto.randomUUID();
+await db.query(`insert into registration_request (id, record_id, club_id, note) values ($1,$2,$3,'Keen to train')`,
+  [n1, REC.deniz, CLUB.riverside]);
+const n1Row = (await db.query('select dispatched_at, registration_id from registration_request where id=$1', [n1])).rows[0];
+check('N1: a composed registration is not dispatched', n1Row.dispatched_at, null);
+check('N1b: and no registration exists club-side yet', n1Row.registration_id, null);
+
+// N4/N5 — bands. A 16-17 sends for themselves under L5-L7; an adult has no
+// guardian anywhere in the flow.
+check('N4: a 16-17 dispatches their own registration', await qDispatch(ID.nate, REC.nate), true);
+check('N5: an adult too, with no guardian in it', await qDispatch(ID.marcus, REC.marcus), true);
+check('N5b: and a guardian has no standing on an adult', await qDispatch(ID.guardian, REC.marcus), false);
+
+// N8 — deleting the profile takes the registration's readable content with
+// it. Nothing about the child survives club-side.
+const n8Child = crypto.randomUUID(), n8Rec = crypto.randomUUID(), n8Reg = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Deleting',$2)`, [n8Child, yearsAgo(13)]);
+await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, n8Child]);
+await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [n8Rec, n8Child]);
+await db.query(`insert into registration (id, player_id, club_id, note, policy_version)
+  values ($1,$2,$3,'I train Tuesdays','20@v2.4')`, [n8Reg, n8Child, CLUB.riverside]);
+await db.query(`select fn_withdraw_registration($1,$2)`, [ID.guardian, n8Reg]);
+check('N8: withdrawing empties the note the club could read',
+  (await db.query('select note from registration where id=$1', [n8Reg])).rows[0].note, null);
+check('N8b: and the row leaves the register',
+  (await db.query('select * from fn_register_rows($1,$2)', [ID.td, CLUB.riverside]))
+    .rows.some((r) => r.registration_id === n8Reg), false);
+
+// N13 — cancellation deletes the register on a scheduled clock, never by a
+// person with a button.
+check('N13: the cancellation purge is a function the daily job calls',
+  /fn_purge_cancelled_registers/.test(readFileSync(fileURLToPath(new URL('../app/api/jobs/daily/route.ts', import.meta.url)), 'utf8')), true);
+
+// ---- Table O -------------------------------------------------------------
+// O2 — no billing template can resolve a family address. The catalogue is
+// closed, so this is checkable by reading it.
+const catalogueSrc = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'));
+// "card" alone catches shareCardWaitingEmail, which is a guardian message
+// about a social card and not billing at all.
+const billingMsgs = catalogueSrc.split('export const')
+  .filter((b) => /payment|receipt|invoice|subscription|paymentFailed|Stripe/i.test(b.slice(0, 80)));
+for (const b of billingMsgs) {
+  check('O2: a billing message never addresses a guardian or a player',
+    /guardian|parent|player|child/i.test(b), false);
+}
+check('O2b: and there is at least one billing message to check', billingMsgs.length > 0, true);
+
+// O4/O5 — dunning hides, cancellation deletes.
+const activeSrc = (await db.query(`select prosrc from pg_proc where proname='fn_register_active'`)).rows[0].prosrc;
+check('O4: a past-due club is hidden by the register gate, not deleted',
+  /grace_until|past_due|unpaid/i.test(activeSrc), true);
+check('O4b: and the gate function deletes nothing', /delete/i.test(codeOnly(activeSrc)), false);
+
+// O6/O7 — the disclosure is ours and it appears before Stripe.
+const billingPage = readFileSync(fileURLToPath(new URL('../app/club/billing/page.tsx', import.meta.url)), 'utf8');
+check('O7: the price, that it renews and how to cancel are on OUR page', /[Rr]enews/.test(billingPage) && /cancel/i.test(billingPage), true);
+check('O6: the annual plan states the 14-day full refund', /14 days/.test(billingPage), true);
+check('O8: the portal is reachable from the club’s own settings, not only an email',
+  /portal/i.test(readFileSync(fileURLToPath(new URL('../app/club/billing/actions.ts', import.meta.url)), 'utf8')), true);
+
+// O9 — no free period that converts to a charge.
+check('O9: no trial or free period exists to convert',
+  /trial_period|free_trial|trialDays|trial_end/i.test(billingPage + readFileSync(fileURLToPath(new URL('../app/club/billing/actions.ts', import.meta.url)), 'utf8')), false);
+
+// ---- Table P -------------------------------------------------------------
+// P2/P3 — an invitation lands with the player at 16-17 and 18+, and the
+// guardian is told a verified club made contact without being shown it.
+check('P2: a 16-17 has standing to act on their own invitation', await qDispatch(ID.nate, REC.nate), true);
+check('P3: an adult likewise, with no guardian anywhere', await qDispatch(ID.guardian, REC.marcus), false);
+
+// P4 — the outbound notification is a bare wake: no name, no club, no
+// message, in all three bands.
+const wake = catalogueSrc.split('bareWake')[1]?.split('export const')[0] ?? '';
+// P4 bans a player NAME, a club NAME and the message text — not the site
+// URL and the support address, which every message carries.
+const wakeInterps = [...wake.matchAll(/\$\{(\w+)\}/g)].map((m) => m[1]);
+check('P4: the bare wake interpolates only the site and the help address',
+  wakeInterps.every((v) => v === 'SITE' || v === 'HELP'), true);
+check('P4b: so it can carry no player name, club name or message text',
+  wakeInterps.some((v) => /name|club|body|message|first/i.test(v)), false);
+
+// P8 — a reply shares field by field, and nothing by default.
+const replyCols = (await db.query(
+  `select string_agg(column_name,',') as c from information_schema.columns where table_name='invitation_reply'`)).rows[0].c;
+check('P8: what was shared is an explicit per-field record', replyCols.includes('shared_fields'), true);
+const replyDefault = (await db.query(
+  `select column_default from information_schema.columns
+   where table_name='invitation_reply' and column_name='shared_fields'`)).rows[0].column_default;
+check('P8b: and the default is nothing', /'\{\}'/.test(replyDefault), true);
+
+// ---------------------------------------------------------------------------
 // Tables B, E, F, H, I, J, Q, R — the remaining rows.
 // ---------------------------------------------------------------------------
 
@@ -529,8 +686,7 @@ check('E14b: nothing about the card is cached past the check',
 
 // F7/F8/F9 — the guardian's view.
 check('F9: a guardian of one child reads nothing of another', await level(ID.guardian2, ID.georgia), 'none');
-check('F9b: and cannot act on them either',
-  (await db.query('select fn_record_actor($1,$2) as a', [ID.guardian2, REC.georgia])).rows[0].a, null);
+check('F9b: and cannot act on them either', await recActor(ID.guardian2, REC.georgia), null);
 const controlsSrc = readFileSync(fileURLToPath(new URL('../app/g/controls/[childId]/page.tsx', import.meta.url)), 'utf8');
 check('F8: the consent log the guardian reads covers approvals, shares and contact',
   /share_issued/.test(controlsSrc) && /outside_contact_logged/.test(controlsSrc) && /age_transition/.test(controlsSrc), true);
@@ -599,7 +755,6 @@ check('Q7c: changing the record does not change the approved card',
   (await db.query('select storage_path, image_hash from share_card_approval where id=$1', [q7])).rows[0].storage_path, 'cards/q7.png');
 await expectFail('Q8: an approved card cannot be swapped for different bytes',
   `update share_card_approval set image_hash = '\\x01'::bytea where id = '${q7}'`);
-const qDispatch = async (a, r) => (await db.query('select fn_can_dispatch($1,$2) as c', [a, r])).rows[0].c;
 check('Q9: a 16-17 may approve their own card', await qDispatch(ID.nate, REC.nate), true);
 check('Q9b: an under-16 may not — it routes to the guardian', await qDispatch(ID.deniz, REC.deniz), false);
 await expectFail('Q10: no path mints a card path for an under-16 without approval',
