@@ -106,12 +106,6 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
                   <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Squads</div>
                 </div>
               )}
-              {squads.filter((q) => ['girls', 'women'].includes(q.gender)).length > 0 && (
-                <div>
-                  <div className="numeral numeral-m" style={{ color: '#eef5f0' }}>{squads.filter((q) => ['girls', 'women'].includes(q.gender)).length}</div>
-                  <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Girls &amp; women</div>
-                </div>
-              )}
               {trials.length > 0 && (
                 <div>
                   <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{trials.length}</div>
