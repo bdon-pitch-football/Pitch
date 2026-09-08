@@ -14,11 +14,12 @@ const T = {
 const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
 const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
-export default function InterestForm({ recordId, club, squads, cvPositions }: {
+export default function InterestForm({ recordId, club, squads, cvPositions, preselectSquad }: {
   recordId: string;
   club: { id: string; name: string; suburb: string };
   squads: { id: string; name: string }[];
   cvPositions: string[];
+  preselectSquad?: string;
 }) {
   const [positions, setPositions] = useState<string[]>(cvPositions);
   const [note, setNote] = useState('');
@@ -59,7 +60,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div className="field-label">Which squad</div>
             <div style={card}>
-              <select name="squadId">
+              <select name="squadId" defaultValue={preselectSquad ?? ''}>
                 <option value="">—</option>
                 {squads.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>

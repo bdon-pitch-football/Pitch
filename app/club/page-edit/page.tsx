@@ -126,8 +126,14 @@ export default async function ClubPageEdit({ searchParams }: {
           </div>
         ))}
 
+        {/* The public page used to carry its own address in a bordered card,
+            which is furniture for the club and noise for a family reading it.
+            It belongs here, where the club is already standing. */}
         {c.public_slug && (
-          <Link href={`/fc/${c.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>See your public page</Link>
+          <Link href={`/fc/${c.public_slug}`} className="lift" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'center', textDecoration: 'none' }}>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your club page link</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{c.public_slug}</div>
+          </Link>
         )}
         <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>

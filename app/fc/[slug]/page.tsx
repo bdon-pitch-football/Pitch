@@ -5,6 +5,11 @@
 // Unclaimed pages carry the D-64 disclaimer instead of the verified chip.
 // (Design link reads pitchfootball.com.au/<slug>; root-level rewrites map
 // that at deploy time — the route lives at /fc/<slug>.)
+//
+// Order of the page is deliberate: crest and record, then the dated thing
+// (trials), then the door onto the register, then who the club is, then the
+// squads as the way in, and the alumni wall last because it is the argument
+// you want a parent holding when they stop reading.
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
@@ -23,12 +28,31 @@ export const dynamic = 'force-dynamic';
 const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
-export default async function ClubPage({ params }: { params: Promise<{ slug: string }> }) {
+// Alumni lines arrive as one string carrying the club's own arrow — "Marco V.
+// → NPL Victoria". Split so the destination can be given the accent; a line
+// without an arrow renders whole rather than being mangled to fit.
+function splitArrow(line: string): [string, string | null] {
+  const i = line.indexOf('→');
+  if (i === -1) return [line, null];
+  return [line.slice(0, i).trim(), line.slice(i + 1).trim() || null];
+}
+
+export default async function ClubPage({ params, searchParams }: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ squad?: string }>;
+}) {
   const { slug } = await params;
+  const { squad: squadParam } = await searchParams;
   const { rows } = await db.query(
     `select c.id, c.name, c.suburb, c.state, c.club_state, c.philosophy, c.established, c.pathway_line, c.public_slug, c.crest_path, c.banner_path, c.contact_email,
-       (select coalesce(json_agg(json_build_object('name', s.name, 'gender', s.competition_gender) order by s.name), '[]'::json)
-        from squad s where s.club_id = c.id) as squads,
+       -- Squads sort by age NUMERICALLY, not by name. Sorting the name as
+       -- text drops 'Seniors Women' between 'MiniRoos U9' and 'U13 Boys',
+       -- which reads as a bug to any club that looks at its own page. Same
+       -- rule the register uses (0016); seniors and unrecognised sort last.
+       (select coalesce(json_agg(json_build_object('id', s.id, 'name', s.name, 'gender', s.competition_gender)
+                                 order by coalesce(ag.sort, 999), s.name), '[]'::json)
+        from squad s left join age_group ag on ag.code = s.age_group
+        where s.club_id = c.id) as squads,
        (select coalesce(json_agg(json_build_object(
            'title', t.title, 'timeVenue', t.time_venue,
            'mon', upper(to_char(t.trial_on, 'Mon')), 'day', to_char(t.trial_on, 'DD'),
@@ -48,7 +72,7 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
   );
   if (rows.length === 0) notFound();
   const c = rows[0];
-  const squads: { name: string; gender: string }[] = c.squads;
+  const squads: { id: string; name: string; gender: string }[] = c.squads;
   const trials: { title: string; timeVenue: string; mon: string; day: string; how: string | null }[] = c.trials;
   const wanted: { title: string; detail: string | null }[] = c.wanted;
   const alumni: { line: string; detail: string | null }[] = c.alumni;
@@ -74,6 +98,15 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
   );
   const myRecord: string | null = viewer?.my_record ?? null;
 
+  // A squad chip is the front door of the thing the club pays for, so it
+  // should open it. It cannot link straight to a registration, because who is
+  // registering depends on the seat — a parent of three has three answers.
+  // So the chip selects ON THIS PAGE and the register card below carries the
+  // choice into whichever button that viewer gets. One mechanism, every seat,
+  // signed in or not.
+  const picked = squads.find((s) => s.id === squadParam) ?? null;
+  const squadQuery = picked ? `&squad=${picked.id}` : '';
+
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
@@ -85,9 +118,11 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
 
         <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ width: 66, height: 66, borderRadius: 16, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24, overflow: 'hidden' }}>
+            {/* The crest was 66px — the same size as a player's avatar, on the
+                one page where the badge IS the identity. */}
+            <div style={{ width: 96, height: 96, borderRadius: 20, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 36, overflow: 'hidden', flexShrink: 0 }}>
               {c.crest_path
-                ? <img src={c.crest_path} alt="" width={66} height={66} style={{ objectFit: 'contain' }} />
+                ? <img src={c.crest_path} alt="" width={96} height={96} style={{ objectFit: 'contain' }} />
                 : c.name[0]}
             </div>
             <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)' }}>Club</div>
@@ -126,56 +161,9 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
           </div>
         </div>
 
-        {/* The way onto the club's register. The club pays for this list and
-            their own page had no door into it — the trials copy sent families
-            around us to contact the club directly, which is the version of
-            this product that does not work.
-
-            Session-aware, and it only ever ADDS: a signed-out visitor sees
-            the same page plus an invitation to sign in. Under 16 the child
-            composes and it routes to their parent to send (D-91), which is
-            what /register-interest already does — this is just the door. */}
-        <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
-          <div style={{ fontSize: 15.5, fontWeight: 900, letterSpacing: '-0.015em' }}>Want to play here?</div>
-          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-            Go on {c.name}&rsquo;s register and your football goes with you. It is not a trial spot and it is not a decision — there is nothing here to be turned down from.
-          </div>
-          {!me ? (
-            <Link href="/signin" className="btn btn-primary">Sign in to register your interest</Link>
-          ) : myRecord ? (
-            <Link href={`/register-interest/${myRecord}?club=${c.id}`} className="btn btn-primary">Register my interest</Link>
-          ) : children.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {children.map((k) => (
-                <Link key={k.recordId} href={`/register-interest/${k.recordId}?club=${c.id}`}
-                  className="btn btn-primary">
-                  Register {k.name}&rsquo;s interest
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <Link href="/join" style={{ background: T.surface2, color: T.ink, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none', border: `1px solid ${T.line}` }}>Build a CV first — it is what the club reads</Link>
-          )}
-        </div>
-
-        {c.philosophy && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>Our philosophy</div>
-            <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{c.philosophy}</div>
-          </div>
-        )}
-
-        {squads.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>Teams &amp; age groups</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {squads.map((s) => (
-                <div key={s.name} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 999, padding: '7px 14px', fontSize: 12.5, fontWeight: 700, color: T.secondary }}>{s.name}</div>
-              ))}
-            </div>
-          </div>
-        )}
-
+        {/* Trials are the only dated thing on the page and they were fifth.
+            A family visiting in September wants the date before they want the
+            philosophy, and the hero has just promised a number. */}
         {trials.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div style={label}>Trials</div>
@@ -195,6 +183,77 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
               <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 11, fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
                 <b style={{ color: T.secondary }}>How to register:</b> go on {c.name}&rsquo;s register below and your CV goes with you. The club works one list all year — you do not have to catch a particular week.
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* The way onto the club's register. The club pays for this list and
+            their own page had no door into it — the trials copy sent families
+            around us to contact the club directly, which is the version of
+            this product that does not work.
+
+            Session-aware, and it only ever ADDS: a signed-out visitor sees
+            the same page plus an invitation to sign in. Under 16 the child
+            composes and it routes to their parent to send (D-91), which is
+            what /register-interest already does — this is just the door. */}
+        <div id="play" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11, scrollMarginTop: 18 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 900, letterSpacing: '-0.015em' }}>Want to play here?</div>
+          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+            Go on {c.name}&rsquo;s register and your football goes with you. It is not a trial spot and it is not a decision — there is nothing here to be turned down from.
+          </div>
+          {picked && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.surface2, borderRadius: 12, padding: '9px 12px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>For <b style={{ color: T.ink }}>{picked.name}</b> — you can change it on the next screen.</div>
+            </div>
+          )}
+          {!me ? (
+            <Link href="/signin" className="btn btn-primary">Sign in to register your interest</Link>
+          ) : myRecord ? (
+            <Link href={`/register-interest/${myRecord}?club=${c.id}${squadQuery}`} className="btn btn-primary">Register my interest</Link>
+          ) : children.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {children.map((k) => (
+                <Link key={k.recordId} href={`/register-interest/${k.recordId}?club=${c.id}${squadQuery}`}
+                  className="btn btn-primary">
+                  Register {k.name}&rsquo;s interest
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <Link href="/join" style={{ background: T.surface2, color: T.ink, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none', border: `1px solid ${T.line}` }}>Build a CV first — it is what the club reads</Link>
+          )}
+        </div>
+
+        {c.philosophy && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={label}>Our philosophy</div>
+            <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{c.philosophy}</div>
+          </div>
+        )}
+
+        {/* The most-looked-at element on the page used to be eleven inert
+            pills. A squad is the bucket the club's own register sorts into,
+            so tapping one should start that registration already filed. */}
+        {squads.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <div style={label}>Teams &amp; age groups</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              {squads.map((s) => {
+                const on = picked?.id === s.id;
+                return (
+                  <Link key={s.id} href={on ? `/fc/${slug}#play` : `/fc/${slug}?squad=${s.id}#play`} className="lift"
+                    style={{
+                      background: on ? 'rgba(61,220,132,.12)' : T.surface,
+                      border: `1px solid ${on ? T.accent : T.line}`,
+                      borderRadius: 999, padding: '7px 14px', fontSize: 12.5, fontWeight: 700,
+                      color: on ? T.accent : T.secondary, textDecoration: 'none',
+                    }}>{s.name}</Link>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 11.5, color: T.placeholder, fontWeight: 500 }}>
+              {picked ? `The register will say ${picked.name}. Tap it again to clear it.` : 'Tap a squad to go on the register for it.'}
             </div>
           </div>
         )}
@@ -227,28 +286,38 @@ export default async function ClubPage({ params }: { params: Promise<{ slug: str
           </div>
         )}
 
+        {/* The single most persuasive thing on this page for a parent, and it
+            was three grey rows under an 11px label. It gets the panel and the
+            headline; the destination gets the accent, because the destination
+            is the argument. */}
         {alumni.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>The pathway is real</div>
-            <div style={{ ...card, padding: '5px 15px' }}>
-              {alumni.map((a, i) => (
-                <div key={a.line} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M3 17 L9 11 L13 15 L21 7" /><path d="M15 7 h6 v6" /></svg>
-                  <div>
-                    <div style={{ fontSize: 13.5, fontWeight: 800 }}>{a.line}</div>
-                    {a.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{a.detail}</div>}
-                  </div>
-                </div>
-              ))}
+          <div style={{ borderRadius: 20, background: 'linear-gradient(160deg, #16281f 0%, #0e1b15 72%)', border: `1px solid ${T.line}`, padding: '20px 18px 18px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.015em' }}>The pathway is real</div>
+              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, marginTop: 3 }}>Where {c.name} juniors went next.</div>
             </div>
-            <div style={{ fontSize: 11.5, color: T.placeholder, fontWeight: 500 }}>Named players are 18+ and have given permission. Younger pathway stories stay unnamed.</div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {alumni.map((a, i) => {
+                const [from, to] = splitArrow(a.line);
+                return (
+                  <div key={a.line} style={{ padding: '13px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 15, fontWeight: 800, color: T.ink }}>{from}</span>
+                      {to && (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M4 12 h15" /><path d="M13 6 l6 6 l-6 6" /></svg>
+                          <span style={{ fontSize: 15, fontWeight: 900, color: T.accent }}>{to}</span>
+                        </>
+                      )}
+                    </div>
+                    {a.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, marginTop: 3 }}>{a.detail}</div>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 11.5, color: T.placeholder, fontWeight: 500, lineHeight: 1.5 }}>Named players are 18+ and have given permission. Younger pathway stories stay unnamed.</div>
           </div>
         )}
-
-        <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Club page link</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{c.public_slug}</div>
-        </div>
 
         {c.open_roles > 0 && (
           <Link href="/jobs" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>

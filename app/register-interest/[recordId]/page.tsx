@@ -19,11 +19,11 @@ export const metadata = { robots: { index: false, follow: false } };
 
 export default async function RegisterInterest({ params, searchParams }: {
   params: Promise<{ recordId: string }>;
-  searchParams: Promise<{ club?: string; asked?: string; error?: string }>;
+  searchParams: Promise<{ club?: string; squad?: string; asked?: string; error?: string }>;
 }) {
   const { recordId } = await params;
   await requireRecordActor(recordId);
-  const { club: clubParam, asked } = await searchParams;
+  const { club: clubParam, squad: squadParam, asked } = await searchParams;
 
   const rec = await db.query(
     `select dr.positions, p.first_name from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
@@ -39,7 +39,17 @@ export default async function RegisterInterest({ params, searchParams }: {
   );
   if (club.rows.length === 0) notFound();
   const c = club.rows[0];
-  const squads = (await db.query(`select id, name from squad where club_id = $1 order by name`, [c.id])).rows as { id: string; name: string }[];
+  // Same numeric age sort the register and the club page use — sorting the
+  // name as text drops the seniors into the middle of the juniors.
+  const squads = (await db.query(
+    `select s.id, s.name from squad s
+     left join age_group ag on ag.code = s.age_group
+     where s.club_id = $1 order by coalesce(ag.sort, 999), s.name`,
+    [c.id],
+  )).rows as { id: string; name: string }[];
+  // A squad arrives from the club page's chips. It is a convenience, never a
+  // grant — an id that is not this club's squad is simply dropped.
+  const preselectSquad = squads.some((s) => s.id === squadParam) ? squadParam : undefined;
 
   if (asked) {
     return (
@@ -64,6 +74,7 @@ export default async function RegisterInterest({ params, searchParams }: {
       recordId={recordId}
       club={{ id: c.id, name: c.name, suburb: c.suburb ?? '' }}
       squads={squads}
+      preselectSquad={preselectSquad}
       cvPositions={rec.rows[0].positions ?? []}
     />
   );
