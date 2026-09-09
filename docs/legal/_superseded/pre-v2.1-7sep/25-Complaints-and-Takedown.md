@@ -6,11 +6,7 @@
 >
 > **This one mattered more than the other three.** Part 1 is reachable **without an account, from any page** — it is where a stranger, or a child, or a parent who is frightened, tells us something. **A page like that must say who it is addressed to.** A complaint made to a brand is a complaint made to nobody.
 >
-> **⚠️ v1.2, 3 September 2026 — the appeal promise, corrected here as well.** I removed the words *"by someone other than whoever made the original decision"* from doc 22 §8.3 on 1 September, because Pitch is one person and the sentence implies a second pair of eyes that does not exist. **It survived in this document.** That is the third time this fortnight I have corrected a thing where it was declared and left it standing where it was used — and the corpus check cannot see it, because a clause that promises too much looks exactly like a clause that promises the right amount. **Found by reading, not by the tool.**
->
-> **⚠️ v1.3, 7 September 2026 — the doc 30 rulings.** **U-6: an investigator can now see the send that is the subject of a complaint**, under four conditions that are all mandatory. Until this ruling, this document promised to investigate reports the investigator could not see — *a published promise we could not perform, which is the one failure mode this whole document set exists to prevent.* **U-11: no reply route, stated.**
->
-> **Doc 25 · v1.3 draft · 7 September 2026 · NOT YET PUBLISHED.** Doc 19 recommendation 4. Two audiences in one document: Part 1 is the public-facing process, to publish at `pitchfootball.com.au/report`; Parts 2 to 5 are internal and are the runbook. Split them at publication.
+> **Doc 25 · v1.1 draft · 1 September 2026 · NOT YET PUBLISHED.** Doc 19 recommendation 4. Two audiences in one document: Part 1 is the public-facing process, to publish at `pitchfootball.com.au/report`; Parts 2 to 5 are internal and are the runbook. Split them at publication.
 >
 > **This document exists because of a disagreement that was resolved rather than tidied away.** Doc 19 v1.0 recommended a 24-hour out-of-hours takedown capability. The CTO's response was that a one-person company whose founder starts a full-time job on launch day cannot staff that, and that a published standard we miss once is worse than a smaller one we always meet. **He is right.** What follows is built on his standard, not on best practice's.
 >
@@ -56,9 +52,7 @@ Then tell us as well, at **burak.donmez@pitch-football.com**, putting **URGENT**
 
 ## If you are unhappy with what we did
 
-Reply and say so, or write to **burak.donmez@pitch-football.com**.
-
-**We are not going to tell you that someone independent looks at it, because today nobody else can.** Pitch is one person, so whoever made the decision is whoever reviews it. **What actually happens:** it is read again from the start, against what you have said rather than against the original decision, and you get an answer within **five business days**.
+Reply and say so, or write to **[appeals contact]**. Someone other than whoever made the original decision will look at it wherever that is possible, and answer within **five business days**.
 
 If you are still unhappy, you can go outside Pitch entirely, and you do not need our permission:
 
@@ -140,31 +134,6 @@ The removal stands while it is discussed. Explain the rule. If we were wrong, re
 
 ---
 
-## What an investigator may look at
-
-**Ordinary support sees invitation state and nothing else** — whether an invitation was sent, and whether it can be re-sent. **No send rows, no consent log, no child's record.** That is the restrictive reading of A15 and D-79 and it stands.
-
-**Investigating a report is different, and it has to be.** If a family reports that a club received their child's page improperly, the person investigating must be able to see the send. So there is a second path, and **all four conditions below are mandatory — not a policy, a build**:
-
-| | |
-|---|---|
-| **Purpose-bound** | Opened only against a logged report reference. No standing access. No browsing. |
-| **Time-boxed** | Expires with the report. Extendable once, with a reason recorded. |
-| **Logged** | Who looked, when, at which child's record, under which report. Append-only, like every other consent record. |
-| **Disclosed** | **A guardian may ask who at Pitch has looked at their child's record and why, and get a straight answer.** This is the condition that makes the other three worth anything. |
-
-> **Today the investigator is one person, and that is exactly why this is written down.** A discipline one person imposes on himself with nobody to notice is not a control. **The log is not there to catch a stranger — it is there because in two years somebody will ask what we did, and memory is not evidence.**
-
-## Nobody can reply to a family through Pitch
-
-**There is no inbound route.** A club replying to a send email replies into its own mail client and reaches nobody: the send carries our address, never a family's.
-
-**That is deliberate and it is a safety property**, not a gap. A contact path to a child that exists but is "carefully managed" is a path somebody eventually widens.
-
-**What a club does instead:** post the trial on Pitch, or send an invitation, which reaches the guardian. **Every send says so on its face**, so a club with a genuine question is told what to do rather than left concluding we are broken.
-
----
-
 # Part 4 — Records
 
 | What | Kept | Why |
@@ -229,4 +198,4 @@ Three things, and they are the reason to do it rather than assert it:
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · complaints, reports and takedown · doc 25 · v1.3 draft · 7 September 2026 · not yet published · Part 1 is public, Parts 2–5 are internal*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · complaints, reports and takedown · doc 25 · v1.1 draft · 1 September 2026 · not yet published · Part 1 is public, Parts 2–5 are internal*

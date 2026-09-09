@@ -8,11 +8,7 @@
 >
 > **v2.3, 3 September 2026.** D-22 flipped to guardian opt-in, so this page now tells a 16- or 17-year-old the one thing that changed for them: **they are invisible to clubs until a parent switches it on, and they have to ask.** Written at the page's level; re-measured.
 >
-> **⚠️ v2.4, 7 September 2026 — the doc 30 rulings.** Doc 14 left eleven cases unruled and BUZ asked for a ruling on each. The ones that reach this document are below. **Nothing here binds until BUZ numbers it in doc 06**, and where a ruling changed what was already built, that is said.
->
-> **Three of the rulings are things a child sees**, so they are here in words a child can read: **what you can see of your own sends (U-5)**, **a request that expires (U-1)**, and **that nobody can write back (U-11)**. Re-measured.
->
-> **Doc 21 · v2.4 draft · 7 September 2026 · NOT YET PUBLISHED.** The child-directed privacy policy.
+> **Doc 21 · v2.3 draft · 3 September 2026 · NOT YET PUBLISHED.** The child-directed privacy policy.
 >
 > **New in v2.1:** one short section, *Who runs Pitch*, naming **EBSD Enterprises Pty Ltd (ACN 701 879 718), trading as Pitch Football** (D-148). It is written at the reading level of the rest of the page rather than lifted from doc 20, because a child-directed policy that suddenly speaks like a contract has stopped being child-directed. **Re-measured after the addition and the level held — see below.**
 >
@@ -103,9 +99,6 @@ Some clubs put their trials on Pitch. If you want to be considered:
 - **What you write in that line is read by an adult you have not met.** You do not need to put your phone number, your address or your school in it. You should not. Clubs reach you through your parent.
 - **You can undo it.** If your parent switches the link off, the club loses your page *and* your line, straight away.
 - **A club cannot download a list of players.** There is no spreadsheet. If your family switches off, you disappear from their list that minute.
-- **You can see where your football went.** Your own page has a list: which club, and what day. **It does not show their email address** — that is the club's, not yours, and knowing the club answers the question anyway. Your parent can see the address.
-- **If your parent does not send it, it does not wait forever.** After two weeks the request expires and is deleted. **That is not a no.** You can write it again whenever you like.
-- **Nobody can write back to you.** A club cannot reply to a send. There is no way for anyone to message you here, and that is on purpose. If a club wants you, they invite you through your parent.
 - **No club will ever tell you no on Pitch.** There is no rejection and no status to check. If a club wants you, you and your parent hear from them together. If you do not hear, you were not invited — and that is between you and them, not something we hand you.
 
 ## Money — because you might wonder
@@ -172,6 +165,6 @@ If you would rather tell someone outside Pitch, contact the eSafety Commissioner
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · your privacy · doc 21 · v2.4 draft · 7 September 2026 · not yet published*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · your privacy · doc 21 · v2.3 draft · 3 September 2026 · not yet published*
 
 *Reading level, measured on the body text of this version: **Flesch–Kincaid grade 3.1, 10.3 words a sentence**. The same measurement run against v2.0 gives grade 3.1 — identical, after three added sections, a name and the 16–17 rules. Measured with the counter in `fk.py` rather than the tool used for v1.1's grade 3.8, so compare this figure only against a figure produced the same way. Re-measure after any edit.*

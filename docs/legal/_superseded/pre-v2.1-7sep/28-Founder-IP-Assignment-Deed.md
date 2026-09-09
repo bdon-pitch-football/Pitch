@@ -33,7 +33,7 @@ You made Pitch. The company now sells Pitch. Right now those are two different l
 | | |
 |---|---|
 | **Assignor** | **Burak Donmez** of **[residential address]** (**"the Assignor"**) |
-| **Assignee** | **EBSD Enterprises Pty Ltd** ACN 701 879 718 of **Hume Tax Services, 111/1150 Pascoe Vale Road, Coolaroo VIC 3048** (**"the Company"**) |
+| **Assignee** | **EBSD Enterprises Pty Ltd** ACN 701 879 718 of **Hume Tax Services, [street number] Pascoe Vale Road, Coolaroo VIC 3048** *(street number still needed — take it from the ASIC registration, it must match that record exactly)* (**"the Company"**) |
 
 ## Background
 

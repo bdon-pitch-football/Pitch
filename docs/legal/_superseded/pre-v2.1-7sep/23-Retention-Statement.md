@@ -1,20 +1,8 @@
 # PITCH — Retention Statement
 
-> **⚠️ v1.5, 7 September 2026 — this version exists to end a version collision, and the collision is worth reading about.**
->
-> **There are two different documents both stamped v1.4.** One is mine, dated 3 September, which fixed a version stamp in the body. The other is the build's, dated 7 September, which applied my U-7 ruling. **Neither knew about the other**, because my complete pack was sitting in the Board Room unplaced while the ruling was applied straight to the live file.
->
-> **v1.5 is both of them plus the rest of the ruling, and it is built on the live file so nothing the build wrote is lost.** From here doc 23 has one lineage.
->
-> **What the live v1.4 also had wrong, which is the reason this matters and not just tidiness:** its header said v1.4, its footer said **v1.3**, and the version stamp in its body said **[1.0]** — a bracket, and the wrong number. **Three version numbers in one document, in the document whose entire purpose is that every period in it is exact.** All three now agree.
->
-> **What v1.5 adds to the build's v1.4:** the U-1 lapse period and the U-4 abuse counter, which were in the same ruling and did not travel with U-7.
->
-> **Doc 23 · v1.5 draft · 7 September 2026 · NOT YET PUBLISHED.**
->
 > **v1.3, 1 September 2026 — the entity, and the domain.** This document is published by **EBSD Enterprises Pty Ltd (ACN 701 879 718 · ABN 65 701 879 718), trading as Pitch Football** (D-148). It carried neither the entity nor the right domain until now. **The check that caught it asserts presence rather than agreement** — nothing here contradicted anything; the legal person was simply absent, which is the shape every serious defect in this corpus has taken.
 >
-> **v1.4 change — one sentence, and it is a stale description rather than a broken promise (John, doc 31, U-7).** The consent-log description was written when the log recorded approvals and nothing else; the send flow arrived afterwards and the sentence was never revisited. It now says that the log holds **the fact and the recipient of a disclosure** — because a guardian's central right is to know where their child's information went, and a revocation right cannot be exercised against a recipient you cannot name. It still holds no message and nothing about the child's football. **Every deletion job implements a row of this document, so this is a build change, not an edit.**
+> **Doc 23 · v1.3 draft · 1 September 2026 · NOT YET PUBLISHED.**
 >
 > **v1.2 changes:** the export row is **gone**, because the export is gone — a club can no longer download a list of children, which removes the one object in the product that survived revocation · payment and subscription data added, since money now moves · pending versions of an under-16 page added, since an unapproved edit is personal information about a child that no adult has approved.
 >
@@ -28,7 +16,7 @@
 
 **The short version.** We keep a player's record while they are using Pitch, and for two years after they stop. We delete it sooner the moment anyone asks. Deleted things are gone from the live product immediately and gone from our backups within 35 days. The only thing that outlives a deletion is the note saying a consent was given or withdrawn, which holds nothing about anyone's football.
 
-**Last updated:** [date] · **Version:** 1.5
+**Last updated:** [date] · **Version:** [1.0]
 
 ---
 
@@ -126,18 +114,6 @@ Where those pull against each other, the first wins.
 | Trial notices | **Auto-expire the day after the trial**, then 12 months as a record of what was published, then deleted |
 | Unclaimed listings compiled by us | Until claimed, corrected or the trial passes; then as above |
 
-### Send requests that were never actioned
-
-| What | How long |
-|---|---|
-| A send a child composed that a guardian never actioned | **14 days, then it lapses and is deleted** — not queued, not held. The same period as an unapproved invitation (D-17), for consistency rather than for any legal reason. *A composed request sitting indefinitely is a child's free text held for no purpose, which is the strictly-necessary bar (D-25) failing quietly.* The child is told their request expired and may make it again; **they are never told, and must not be able to infer, that a guardian did not act.** |
-
-### Blocked and rate-limited attempts
-
-| What | How long |
-|---|---|
-| Sending actor, timestamp, reason class — **no recipient, no child, no content** | **90 days**, in a store separate from the consent log, never rendered as part of any child's record. *The consent log records what happened, never what was attempted and stopped — that is right, and it is why this exists somewhere else. It answers "is somebody probing us" without answering "what happened to this child", and those two questions must not share a table.* |
-
 ### Messages and delivery
 
 | What | How long |
@@ -162,7 +138,7 @@ Every approval, withdrawal, share, outside-contact attempt, terms acceptance and
 
 It survives deletion of the record because it is the evidence that we did what we said we would. We cannot prove we deleted something by deleting the proof.
 
-**What it does not contain:** any football content. No stats, no assessments, no photographs, no highlight links, no free text. A consent log entry says that a named guardian approved a named child's profile on a date, at a policy version — and, where a send occurred, **who it was sent to**. It holds the fact and the recipient of a disclosure. It never holds the message, and it never holds anything about the child's football. Once the record is deleted, that is all that remains anywhere in Pitch, other than a coach's anonymised count.
+**What it does not contain:** any football content. No stats, no assessments, no photographs, no highlight links, no free text. A consent log entry says that a named guardian approved a named child's profile on a date, at a policy version. Once the record is deleted, that is all that remains anywhere in Pitch, other than a coach's anonymised count.
 
 ---
 
@@ -212,4 +188,4 @@ A hold is recorded, is limited to what the hold actually needs, and ends when th
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · retention statement · doc 23 · v1.5 draft · 7 September 2026 · not yet published · every period here is enforced by a job, or it is not a period*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · retention statement · doc 23 · v1.3 draft · 1 September 2026 · not yet published · every period here is enforced by a job, or it is not a period*

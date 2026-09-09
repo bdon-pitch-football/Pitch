@@ -1388,6 +1388,10 @@ export default function ComingSoon() {
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
           <div>Football, not soccer. Australia first, then everywhere the game is played.</div>
+          {/* D-149: this page publishes prices, which makes it a money surface, and it
+              collects personal information. Either alone requires the legal person to be
+              nameable without opening a second document. */}
+          <div><b>Pitch Football</b> is a registered business name of <b>EBSD Enterprises Pty Ltd</b> · ABN 65 701 879 718 · Melbourne, Australia</div>
           {/* Doc 29 §7: the footer links the privacy policy and terms. */}
           <div style={{ display: 'flex', gap: 10 }}>
             <a href="/privacy" style={{ color: '#6b7d73' }}>Privacy</a>

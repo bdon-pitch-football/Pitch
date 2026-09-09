@@ -2351,6 +2351,42 @@ check('sendl18: and it is behind the cron secret like every other job',
 check('sendl19: its response carries counts, never addresses or names',
   /claimed: rows\.length, sent/.test(sweep), true);
 
+// ---------------------------------------------------------------------------
+// The guardian's controls screen. fn_send_log has answered L57 correctly
+// since 0025 and the suite has been green on it the whole time — and NOTHING
+// IN THE APP CALLED IT. A launch-gate row can be green in the database and
+// absent from the product, which is the failure this block exists to catch.
+// ---------------------------------------------------------------------------
+const gControlsPage = readFileSync(fileURLToPath(new URL('../app/g/controls/[childId]/page.tsx', import.meta.url)), 'utf8');
+check('ctl1: the controls screen calls fn_send_log',
+  /fn_send_log\(/.test(gControlsPage), true);
+check('ctl2: and renders the recipient address, not just the club',
+  /sd\.recipient/.test(gControlsPage), true);
+
+// "Everything that's happened" has to mean everything. It was capped at
+// eight, so a parent could not reach the approval they gave.
+check('ctl3: the consent timeline is not truncated',
+  /from consent_event where subject_id = p\.id\) e/.test(gControlsPage), true);
+// Approving writes several rows in one transaction, so a timestamp-only sort
+// left them in arbitrary order on the one screen whose job is to be exact.
+check('ctl4: and it has a stable tiebreak within the same second',
+  /order by e\.at desc, e\.id desc/.test(gControlsPage), true);
+
+// Every consent_event the vocabulary can produce needs a human line, or a
+// parent reads a database enum on the screen that exists to be plain.
+{
+  // The constraint spans many lines with comments between them, so the block
+  // is taken whole and the quoted values pulled out of it. A regex that only
+  // matched one line found ZERO events and the check passed vacuously — an
+  // empty list trivially has nothing missing.
+  const block = /event text not null check \(event in \(([\s\S]*?)\)\)/.exec(migAll)?.[1] ?? '';
+  const vocab = [...block.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]);
+  check('ctl5: the consent vocabulary was actually found', vocab.length > 20, true);
+  const missing = vocab.filter((e) => !gControlsPage.includes(`${e}:`));
+  check(`ctl6: every consent event has a plain-English line (missing: ${missing.join(', ') || 'none'})`,
+    missing.length, 0);
+}
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',

@@ -358,7 +358,43 @@ def s12_domain():
                         f'-- it is {DOMAIN}')
 
 
-for fn in (s7, s3, s5, s1, s2, s6, s4, s9_presence, s10_banners, s11_claims, s12_domain):
+
+def s13_consent_stamp():
+    """The hash on a consent row must be the hash of the text that was served.
+
+    A version string is an assertion until it is bound to bytes. On 7 September
+    two different files carried doc 23 v1.4, which is what a label alone allows.
+    POLICY_SHA256 in lib/consent.ts is the SHA-256 of the served privacy policy;
+    if the two ever disagree, every row written since is stamped with a hash
+    that resolves to nothing. It cannot be repaired afterwards, so it fails.
+    """
+    import hashlib
+    ts = os.path.join(ROOT, 'lib', 'consent.ts')
+    if not os.path.exists(ts):
+        ts = os.path.join(ROOT, 'repo', 'lib', 'consent.ts')
+    if not os.path.exists(ts):
+        return  # not the app root; nothing to check
+    src = open(ts, encoding='utf-8').read()
+    m = re.search(r"POLICY_SHA256\s*=\s*'([0-9a-f]{64})'", src)
+    if not m:
+        fail('S13', 'lib/consent.ts has no POLICY_SHA256 — consent rows would carry a label with nothing behind it')
+        return
+    doc = None
+    for cand in ('docs/legal/20-Privacy-Policy-Adult.md', 'legal/20-Privacy-Policy-Adult.md'):
+        path = os.path.join(os.path.dirname(os.path.dirname(ts)), cand)
+        if os.path.exists(path):
+            doc = path
+            break
+    if doc is None:
+        fail('S13', 'cannot find the served privacy policy to hash')
+        return
+    actual = hashlib.sha256(open(doc, 'rb').read()).hexdigest()
+    if actual != m.group(1):
+        fail('S13', 'POLICY_SHA256 does not match the served privacy policy — '
+                    'bump it in the SAME commit that changes what /privacy serves')
+
+
+for fn in (s7, s3, s5, s1, s2, s6, s4, s9_presence, s10_banners, s11_claims, s12_domain, s13_consent_stamp):
     fn()
 
 print(f'corpus check v2 — {len(DECISIONS)} decisions, '

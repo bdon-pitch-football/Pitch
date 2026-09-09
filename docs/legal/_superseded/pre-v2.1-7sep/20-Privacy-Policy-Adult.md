@@ -6,27 +6,6 @@
 >
 > **v2.4, 3 September 2026.** **D-22 is flipped to guardian opt-in.** BUZ's call, 3 September 2026. A 16- or 17-year-old is **not discoverable to anybody until a guardian turns it on**. The player can ask for it in one tap; the guardian grants it in one tap; everything else about the band is unchanged — verified clubs and coaches only, never general search, and no adult may contact a minor at any age. **The cost is recorded rather than argued away: an opt-in that a disengaged guardian never presses removes the product from exactly the players a pathway platform is worth most to.** BUZ took that cost knowingly. **This policy did not previously tell a parent of a 16-year-old whether their child could be found at all** — a gap the flip made obvious. It does now.
 >
-> **⚠️ v2.6, 7 September 2026 — the doc 30 rulings, and three of them change what a parent is told.**
->
-> **Two guardians (U-2).** Either may send; the other is told at once and **can switch the link off with one tap for 24 hours.** This went against what was built — a pre-send veto sounds safer and is not, because **a send that waits for a second adult never goes in exactly the families where the second adult is not around**, and it hands one parent a standing block on the other's ordinary parenting.
->
-> **A club losing its verification (M11/L29).** Family-held links keep working, because a link is the family's own act of disclosure and not ours to withdraw. **Where a club is de-verified for a child-safety reason we tell every affected guardian and put the revoke button in the message.** Agency, not automation.
->
-> **What the consent log holds (U-7)** and **that nobody can reply to a send (U-11)** are now stated rather than left to be discovered.
->
-> **Materiality ruling, mine to make (register rule 3).** These changes are **not material for re-asking purposes.** The only consents recorded against `20@v2.4` are waitlist registrations — an adult giving an email address. **Nothing in this version changes what those people agreed to**, because none of it existed for them to agree to. The first guardian approval will be taken against the version live at that moment. *Recorded here rather than assumed, because the next change may not be so easy.*
->
-> **v2.5, 3 September 2026 — the first version written under the immutability rule, and it exists because the policy is now checkable by anyone.**
->
-> **What changed, and none of it is drafting:**
-> 1. **Two processors are named that were not.** **Vercel** hosts and serves the site and provides cookieless, aggregate visitor counts; **Supabase** is the Sydney database the "hosted in Sydney" sentence describes without naming. Both handle visitor and waitlist data now. **The policy said every processor is named. It named three and used two more.**
-> 2. **The address our email comes from is named.** Waitlist mail sends from a subdomain of the website. **A person who joined a waitlist and later receives mail from a domain the policy never mentioned has been given a reason to distrust it**, which is the same problem as the two domains and it deserved the same treatment.
-> 3. **A message we do not send has been removed.** The list of transactional messages included "a waitlist confirmation". **We send none** — the promise is one email when we open. A policy listing a message that does not exist is inaccurate in the permissive direction, which is still inaccurate.
->
-> **v2.4 remains the version consent was recorded against.** It is retained in full and unaltered. This is a new version, not an edit — the first time that rule has cost anything, and it cost almost nothing, which is the argument for having it.
->
-> **Doc 20 · v2.5 · 3 September 2026.** Supersedes v2.4, published the same day.
->
 > **Doc 20 · v2.4 · published 3 September 2026.** Rewritten, not patched — v1.1 described a product that no longer exists. Publish at `pitchfootball.com.au/privacy`. The child-directed version is doc 21 and must be linked from this page and from every screen a child sees.
 >
 > **v2.2 change: the policy now names the entity that holds your child's information.** **EBSD Enterprises Pty Ltd (ACN 701 879 718 · ABN 65 701 879 718), trading as Pitch Football** (D-148). Until now this page carried a bracketed placeholder where the company name should be, which is not a thing a parent can look up, complain about, or take to a regulator. **A privacy policy that cannot identify the entity holding the data is not doing the one job the law gives it** — every right described further down this page is a right against a specific legal person, and a brand is not one.
@@ -154,9 +133,6 @@ The part most parents want, set out in full.
 When a club has posted a trial and your child wants to be considered:
 
 - **Under 16, you press send.** Your child composes it; you see which club, which trial, exactly what is about to go, and the note your child wrote — and you are the one who sends it. At 16–17 the player sends and you are notified every time. At 18 they send alone.
-- **If there are two of you, either can send — and the other one can undo it.** The guardian who did not send is told immediately and, **for 24 hours, can switch that link off with one tap** from the notification. We do it this way round because a send that waits for two people often never goes at all, and the child it hurts is the one whose second parent is hardest to reach. **Being straight about the limit: switching the link off stops the club opening the page. It does not un-send the email**, and we will not pretend otherwise.
-- **We keep a record of who each send went to**, and you can see it in full. Your child sees the club's name and the date, not the address. *We keep it because your right to switch a link off is worth nothing if we cannot tell you who received it.*
-- **A club cannot reply to a send.** There is no route from a club back to you or your child through Pitch, at any tier, for anybody. If a club wants your child at a trial, it invites them, and that arrives in your account.
 - **What the club receives:** your child's name, age, current club, the squad they are interested in, a preferred position, one short line they wrote, and **a link to the page you approved.** Not a file, not a copy of the record, not your contact details.
 - **You can undo it.** Revoking the link or deleting the profile ends the club's access at that moment, **removes the note as well as the link**, and shows the registration as withdrawn.
 - **There is no download.** A club works its list inside Pitch. It cannot export a spreadsheet of children, because a spreadsheet would survive you switching the link off — and that would make everything above untrue.
@@ -176,16 +152,6 @@ When a club has posted a trial and your child wants to be considered:
 | **Nobody else** | We do not sell personal information, and we do not share it with advertisers, sponsors or data brokers. |
 
 **If Pitch is ever sold.** We are a small company and it would be dishonest to write "never, no exceptions" and then transfer the business one day. So: if Pitch is acquired or merged, information may pass to the new owner as part of the business — and **the new owner is bound by this policy as it stands on the day of transfer, we will tell you before it happens, and you will have the chance to export everything and delete first.** Changing how a child's information is handled after that requires fresh consent from the guardian. It cannot be done by quietly updating a page.
-
-## If a club loses its verification
-
-**A link you sent keeps working.** It was your disclosure, not ours, and we do not reach into a family's decisions and undo them — not even helpfully, because a system that can do that kindly can do it for a worse reason later.
-
-**What we do instead, where a club is de-verified because of a concern about children:** we write to you, we tell you the club is no longer verified on Pitch, and **the message carries the button that switches your link off.** One tap. No explanation required of you.
-
-**We will not tell you why the club was de-verified.** It may be an allegation and it is somebody else's information. **We will never make it hard for you to act on it.**
-
-*Where a club simply lets its paperwork lapse or stops paying, nothing happens to your links and you hear nothing, because nothing has gone wrong.*
 
 ## Some clubs pay us. That changes nothing about your child.
 
@@ -211,18 +177,10 @@ Only clubs pay, and only for the Interest Register.
 
 **In Australia.** Our database and files are hosted in Sydney, and the parts of our application that handle personal information run there.
 
-**Who actually holds it, named:**
+Three suppliers are overseas, and we should be straight about it:
 
-- **Supabase** is the database. It runs in **Sydney**. Everything about a player, a guardian, a coach or a club sits there, and so does the waitlist.
-- **Vercel** serves this website and runs the parts of the application that handle personal information, **pinned to Sydney**. Vercel is a United States company, so while the data sits here, the company operating the service is overseas.
-
-**Four suppliers are overseas, and we should be straight about it:**
-
-- **Vercel** as above. It also gives us **visitor counts** for this site — how many people came, roughly from where, on what kind of device. **It sets no cookie, stores no identifier, and cannot tell one visitor from another or follow anyone anywhere.** It is a tally, not tracking, and there is nothing in it that is about you.
 - **Resend** sends our emails and **Twilio** sends our text messages. They receive a recipient address or mobile, a first name, and a link. We deliberately keep everything else out — a message from us never contains a child's record, their club, their photograph or anything about their development.
 - **Stripe** handles payments, as above, and never receives anything about a child.
-
-**Our email comes from a subdomain of this website — `send.pitchfootball.com.au`.** We say so because you should be able to check: mail that is genuinely from us comes from there, and links in it only ever point back to **pitchfootball.com.au**.
 
 We have contractual protections with each and we remain responsible to you for how they handle it.
 
@@ -273,9 +231,7 @@ We respond within 30 days, usually much faster, and there is no charge.
 
 ## Emails and texts
 
-Transactional messages only: a request to approve a child's profile; a reminder ten days later if it is still waiting; a request to approve a change; a notification that something is waiting in your Pitch account; a reminder before a share link expires; confirmation of a report; password resets; and, for clubs, payment receipts and renewal reminders.
-
-**If you joined the waitlist, we send you nothing until we open.** No confirmation, no welcome, no "just checking in". **One email, when there is something to open**, and it carries an unsubscribe link that works. That is the whole of it.
+Transactional messages only: a request to approve a child's profile; a reminder ten days later if it is still waiting; a request to approve a change; a notification that something is waiting in your Pitch account; a reminder before a share link expires; confirmation of a report; a waitlist confirmation; password resets; and, for clubs, payment receipts and renewal reminders.
 
 **Text messages are used for one thing: verifying that a real adult is approving a child's profile.** Not for alerts, not for reminders, not for anything promotional. Reply STOP to any text.
 
@@ -285,7 +241,7 @@ Transactional messages only: a request to approve a child's profile; a reminder 
 
 ## Cookies
 
-What is needed to keep you signed in and the site secure. **No advertising cookies, and no behavioural analytics on any account belonging to a person under 18.** The visitor counts described above set no cookie at all.
+What is needed to keep you signed in and the site secure. **No advertising cookies, and no behavioural analytics on any account belonging to a person under 18.**
 
 ## If something goes wrong
 
@@ -309,4 +265,4 @@ If we change something that matters we will tell you before it takes effect and,
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · privacy policy · doc 20 · v2.6 draft · 7 September 2026 · supersedes v2.4, which is retained unaltered as the version the first consents were recorded against · entity named per D-148*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · privacy policy · doc 20 · v2.4 · published 3 September 2026 · entity named per D-148*

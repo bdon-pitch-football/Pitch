@@ -41,9 +41,30 @@ export default async function Controls({ params, searchParams }: {
           where dr.person_id = p.id and st.revoked_at is null and st.paused = false
             and (st.expires_at is null or st.expires_at > now())
           order by st.issued_at desc limit 1) t) as token,
+       -- No LIMIT. It was capped at eight under a heading that says everything
+       -- that has happened, so a parent could not reach the approval they
+       -- gave once eight things had happened since. The screen's only job is
+       -- to be complete, and a consent history is tens of rows over years,
+       -- not thousands.
+       --
+       -- The tiebreak is load-bearing too: ordering by timestamp alone left
+       -- events sharing a second in arbitrary order, and approving a profile
+       -- writes several in one transaction — so a parent could read "terms
+       -- accepted" above "you opened the permission page". Ordering by id
+       -- after the timestamp restores insertion order within a second.
        (select coalesce(json_agg(json_build_object(
-           'at', to_char(e.at at time zone 'Australia/Melbourne', 'DD Mon'), 'event', e.event) order by e.at desc), '[]'::json)
-        from (select at, event from consent_event where subject_id = p.id order by at desc limit 8) e) as timeline
+           'at', to_char(e.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'event', e.event)
+           order by e.at desc, e.id desc), '[]'::json)
+        from (select at, id, event from consent_event where subject_id = p.id) e) as timeline,
+       -- L57: the guardian sees EVERY send, with the recipient address in
+       -- full. fn_send_log has answered this correctly since 0025 and the
+       -- suite has been green on it — and NOTHING IN THE APP EVER CALLED IT.
+       -- The promise was implemented in the database and unreachable from
+       -- the product, which is the one place a parent would look for it.
+       (select coalesce(json_agg(json_build_object(
+           'at', to_char(s.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'),
+           'club', s.club_name, 'recipient', s.recipient) order by s.at desc), '[]'::json)
+        from fn_send_log($2, p.id) s) as sends
      from person p
      join guardianship_link g on g.child_id = p.id and g.guardian_id = $2 and g.approved_at is not null and g.revoked_at is null
      where p.id = $1`,
@@ -143,6 +164,31 @@ export default async function Controls({ params, searchParams }: {
           </div>
         </div>
 
+        {/* Doc 14 L57 in the product, not only in the database: every send,
+            recipient address in full. A parent's first question is "who has
+            my child's page?", and until now this screen could not answer it
+            — the timeline said "You sent his CV to a club" and never which
+            club or to what address. */}
+        {(c.sends as { at: string; club: string | null; recipient: string }[]).length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <div style={label}>Where {his} CV has been sent</div>
+            <div style={{ ...card, padding: '4px 14px' }}>
+              {(c.sends as { at: string; club: string | null; recipient: string }[]).map((sd, i) => (
+                <div key={`${sd.at}-${sd.recipient}`} style={{ display: 'flex', gap: 12, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}`, alignItems: 'baseline' }}>
+                  <div style={{ width: 78, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{sd.at}</div>
+                  <div style={{ minWidth: 0 }}>
+                    {sd.club && <div style={{ fontSize: 13.5, fontWeight: 800 }}>{sd.club}</div>}
+                    <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, wordBreak: 'break-all' }}>{sd.recipient}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
+              The full address, every time, for as long as the record exists. Replacing {his} link stops all of them opening the page.
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={label}>Everything that&rsquo;s happened</div>
           <div style={{ ...card, padding: '6px 14px' }}>
@@ -153,7 +199,7 @@ export default async function Controls({ params, searchParams }: {
             )}
             {(c.timeline as { at: string; event: string }[]).map((e, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}` }}>
-                <div style={{ width: 52, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{e.at}</div>
+                <div style={{ width: 78, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{e.at}</div>
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{EVENT_LINES[e.event] ?? 'Something was recorded'}</div>
               </div>
             ))}

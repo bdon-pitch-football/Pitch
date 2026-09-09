@@ -104,6 +104,25 @@ for (const p of PLAYER_FIXTURES) {
     [guardian, personId],
   );
 
+  // A CV the guardian already sent, so doc 14 L57 — "every send, recipient
+  // address in full" — has something to show on the controls screen. The
+  // function has answered this since 0025 and no page called it, which is
+  // exactly the kind of gap an empty fixture hides.
+  if (p.slug === 'deniz') {
+    await db.query(
+      `insert into consent_event (at, event, actor_id, subject_id, detail) values
+         (now() - interval '31 days', 'share_dispatched', $1, $2,
+          jsonb_build_object('club_name','Northern United SC',
+                             'recipient','football@northernunited.example.au',
+                             'band_at_send','u16')),
+         (now() - interval '12 days', 'share_dispatched', $1, $2,
+          jsonb_build_object('club_name','Kingsway Rovers FC',
+                             'recipient','recruitment@kingswayrovers.example.au',
+                             'band_at_send','u16'))`,
+      [guardian, personId],
+    );
+  }
+
   // u16: the public page renders the guardian-APPROVED snapshot (D-119).
   // 16-17 and 18+ assemble live from the tables above, so no snapshot exists
   // for them and fn_token_read returns none.
@@ -462,4 +481,12 @@ console.log('dev db ready on 127.0.0.1:54322');
 // Printed from the fixtures rather than typed out, so a new one appears here
 // the day it is added — the old line had gone stale within one fixture.
 console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')} dev-expired dev-revoked`);
+// Person ids, because the signed-in surfaces are the ones you cannot reach
+// with a plain URL and every reseed mints fresh uuids.
+{
+  const who = await db.query(
+    `select first_name, id from person where email is not null order by first_name`,
+  );
+  console.log(`  ids    : ${who.rows.map((r) => `${r.first_name}=${r.id}`).join(' ')}`);
+}
 console.log('  sign-in: guardian@example.com (parent) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club)');
