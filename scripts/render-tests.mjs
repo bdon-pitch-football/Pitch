@@ -198,5 +198,45 @@ const georgia = ids.children.georgia;
   }
 }
 
+// ---------------------------------------------------------------------------
+// The register — the thing clubs pay for, and the seats that must not reach it.
+// ---------------------------------------------------------------------------
+{
+  const marina = ids.people.marina;      // Riverside TD, verified club
+  const sunbury = ids.people['m.'];      // claimed club, NOT verified
+  const sam = ids.people.sam;            // coach
+  const alex = ids.people.alex;          // parent
+
+  for (const [who, id] of [['a coach', sam], ['a parent', alex]]) {
+    const r = await get('/club/register', id);
+    check(`r32: ${who} cannot open a club register`, r.status, 307);
+  }
+
+  // D-126, and the sentence the whole product rests on: paying does not
+  // change it and cannot. An unverified club sees a COUNT and no names.
+  const { html: unv } = await get('/club/register', sunbury);
+  check('r33: an unverified club is told how many are waiting', has(unv, 'waiting'), true);
+  check('r34: and is shown no name at all',
+    text(unv).some((l) => /Deniz|Nate|Georgia/.test(l)), false);
+  check('r35: and is told plainly that paying will not change it',
+    has(unv, 'Paying doesn’t change it and can’t.'), true);
+
+  // Every row's primary action has to work. Ninety-seven of a hundred used to
+  // 404 for the club's own TD: the page read the u16 approved snapshot for
+  // EVERY band, and 16-17 and 18+ never have one.
+  const { html: reg } = await get('/club/register', marina);
+  const links = [...new Set([...reg.matchAll(/\/club\/register\/cv\/([a-f0-9-]{36})/g)].map((m) => m[1]))];
+  check('r36: the register is seeded at a realistic size', links.length >= 90, true);
+  let opened = 0;
+  for (const id of links) {
+    if ((await get(`/club/register/cv/${id}`, marina)).status === 200) opened += 1;
+  }
+  check(`r37: every row on it opens for the club's own TD (${opened}/${links.length})`,
+    opened, links.length);
+  // and for nobody else
+  check('r38: another club cannot open a row on this register',
+    (await get(`/club/register/cv/${links[0]}`, sunbury)).status, 404);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 process.exit(failures.length ? 1 : 0);

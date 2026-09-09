@@ -56,6 +56,8 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 | **28** | **Founder IP Assignment Deed** | **v1.2** | **NOT EXECUTED.** Assigns everything made before incorporation to the company. Two blanks, both BUZ's at signing. |
 | **30** | **Open decisions blocking the gate** | **v1.1** | The eleven questions doc 14 declined to answer. Answered at doc 31. |
 | **31** | **Rulings on doc 30** | **v1.1** | A ruling on each. **Three went against the built default.** Nothing binds until BUZ numbers it in doc 06. |
+| **32** | **The legal launch gate** | **v1.0** | **The other half of the gate.** D-47 makes doc 14 the launch blocker; the PIA calls four other things launch-blocking; **doc 14 tests three of the four nowhere at all.** Sections A, B and C block. Section D is named as not blocking so it cannot creep in on the morning. |
+| **33** | **Direct video upload** | **v1.0** | Not for minors yet; **18-and-over first**. Criminal Code s 474.25 makes a referral duty ours the moment we hold a file, and the DIS Standard 2024 expects deployed detection. **The case for upload is stronger than expected and is stated first.** |
 
 ---
 
@@ -113,4 +115,4 @@ Consent is recorded against a **policy version**, and this is what makes "we did
 
 ---
 
-*Legal Register · v2.0 · 7 September 2026 · Leo (CTO) owns placement · content owned by John (GC & Child Safety) · publication is BUZ's call*
+*Legal Register · v2.1 · 9 September 2026 · Leo (CTO) owns placement · content owned by John (GC & Child Safety) · publication is BUZ's call*

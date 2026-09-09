@@ -35,7 +35,8 @@ import os, re, sys, html
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else '.'
 SKIP = ('_superseded', '_archive', '13-Board-Room', '_to_delete', 'repo', 'content')
-FALSE_POSITIVES_FIXED = 9   # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
+FALSE_POSITIVES_FIXED = 10  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
+                            # +1 S13 scaffolding, +1 S2 flagging a document's own dateline,
                             # 1 in v3 (S2 exempting by filename, so the register stopped being exempt when renamed)
 FALSE_NEGATIVES_FIXED = 1   # v3: S4 joined ROOT to a guessed 'legal/' and skipped the whole pack in the repo.
 # The v3 pair are the same defect wearing two faces: this file identified documents
@@ -221,6 +222,15 @@ def s2():
                 ctx = body[max(0, m.start() - 260):m.start() + 260]
                 if re.search(r'no longer|supersed|removed|dead|gone|not a date|undated|'
                              r'D-131|D-47|used to|previously', ctx, re.I):
+                    continue
+                # False positive #10: a document's own dateline. "v1.0 - 9 September
+                # 2026" is when the document was written, not a date promised to
+                # anybody. Recognised STRUCTURALLY -- a version token immediately
+                # before it -- rather than by adding another filename to an
+                # exemption list, because widening an exemption list is how a check
+                # stops checking. John predicted this shape for S10; it arrived at S2.
+                before = body[max(0, m.start() - 40):m.start()]
+                if re.search(r'v\d+\.\d+[^A-Za-z0-9]{0,6}$', before):
                     continue
                 fail('S2', f'{r} carries {label}: {m.group(0)!r} (D-131 removed the runway)')
 

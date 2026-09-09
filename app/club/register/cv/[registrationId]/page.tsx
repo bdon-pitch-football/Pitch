@@ -4,6 +4,7 @@
 // is logged. Anything else is not-found, never forbidden.
 import { notFound, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { assembleCv } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import PlayerCV from '@/components/cv/PlayerCV';
 import type { CvData } from '@/lib/record-read';
@@ -31,10 +32,25 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
   if (auth.rows.length === 0) notFound();
   const a = auth.rows[0];
 
-  // Every band renders the approved snapshot here (D-119): the club never
-  // sees a pending edit, and a record with no approved version shows nothing.
-  const v = await db.query(`select content from profile_version where record_id = $1 and status = 'approved'`, [a.record_id]);
-  const cv: CvData | null = v.rows[0]?.content ?? null;
+  // The club never sees a pending edit (D-119) — but "approved snapshot" is
+  // only how a u16's page exists. 16-17 and 18+ have no profile_version at
+  // all, so reading one and 404ing otherwise meant a club could open the CV
+  // of a fifteen-year-old and NOBODY ELSE on the list it pays for. On this
+  // register, 97 of 100 rows answered 404 to the club's own TD.
+  //
+  // Same split the share link uses, and now the same code: snapshot for u16,
+  // live assembly above it. One assembly, two authorisations.
+  let cv: CvData | null;
+  if (a.band === 'u16') {
+    const v = await db.query(
+      `select content from profile_version where record_id = $1 and status = 'approved'`,
+      [a.record_id],
+    );
+    cv = (v.rows[0]?.content as CvData | null) ?? null;
+    if (cv) cv = { ...cv, band: 'u16' };
+  } else {
+    cv = await assembleCv(a.record_id, a.player_id, a.band);
+  }
   if (!cv) notFound();
 
   await db.query(

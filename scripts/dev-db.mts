@@ -126,7 +126,13 @@ for (const p of PLAYER_FIXTURES) {
   // u16: the public page renders the guardian-APPROVED snapshot (D-119).
   // 16-17 and 18+ assemble live from the tables above, so no snapshot exists
   // for them and fn_token_read returns none.
-  if (!isAdult) {
+  // ONLY u16 gets an approved snapshot, because lib/cv-build only writes one
+  // for u16 — 16-17 and 18+ edit the live record. The seed used to write one
+  // for every non-adult, including a seventeen-year-old, which is a state
+  // production cannot produce. That single wrong row hid a hole where a club
+  // could not open the CV of anyone over sixteen on its own register.
+  const isU16 = new Date(p.dob) > new Date('2010-09-08');
+  if (isU16) {
     await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,$2,'approved',$3,now())`,
       [recordId, JSON.stringify(p), guardian]);
   }
@@ -203,15 +209,15 @@ const bulkSquads = [
 // Reuse a squad of the same name if the house fixtures already made one —
 // Deniz's seed creates Riverside's U15 Boys, and inserting a second gave the
 // club two identical squads on the squads page.
-const bulkSquadIds: { id: string; gender: string }[] = [];
+const bulkSquadIds: { id: string; gender: string; name: string }[] = [];
 for (const [name, ageGroup, gender] of bulkSquads) {
   const existing = await db.query(`select id from squad where club_id = $1 and name = $2 limit 1`, [riverside, name]);
   if (existing.rows.length > 0) {
-    bulkSquadIds.push({ id: existing.rows[0].id as string, gender });
+    bulkSquadIds.push({ id: existing.rows[0].id as string, gender, name });
     continue;
   }
   const id = randomUUID();
-  bulkSquadIds.push({ id, gender });
+  bulkSquadIds.push({ id, gender, name });
   await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,$3,$4,$5,'2026')`,
     [id, riverside, name, ageGroup, gender]);
 }
@@ -274,6 +280,46 @@ for (let i = 0; i < 96; i++) {
      positions.includes('GK') ? GK_LINES[rnd(GK_LINES.length)] : LINES[rnd(LINES.length)],
      status, guardian],
   );
+
+  // A DEVELOPMENT RECORD, because a registration without one cannot exist:
+  // /register-interest takes a record id, so every real registrant has one.
+  // Ninety-six of these did not, so ninety-six of the hundred rows on the
+  // page clubs PAY FOR answered 404 to "Open the CV" — and the walkthrough
+  // never said so, because the three house fixtures at the top all worked.
+  const bulkRec = randomUUID();
+  const surfaced = positions.includes('GK') ? ['apps', 'clean_sheets'] : ['apps', 'goals', 'assists'];
+  await db.query(
+    `insert into development_record (id, person_id, positions, squad_number, foot, about, surfaced_stats)
+     values ($1,$2,$3,$4,$5,$6,$7)`,
+    [bulkRec, pid, positions, 2 + rnd(20), rnd(4) === 0 ? 'Left' : 'Right',
+     positions.includes('GK') ? GK_LINES[rnd(GK_LINES.length)] : LINES[rnd(LINES.length)], surfaced],
+  );
+  for (const key of surfaced) {
+    const v = key === 'apps' ? 6 + rnd(18) : 1 + rnd(12);
+    await db.query(
+      `insert into player_stat (record_id, season, stat_key, value, provenance) values ($1,'2026',$2,$3,'self_reported')`,
+      [bulkRec, key, v],
+    );
+  }
+  // u16 renders the guardian-approved snapshot and nothing else (D-119), so
+  // one has to exist for them exactly as it would in production.
+  const dobStr = `${2008 + (i % 8)}-0${1 + (i % 9)}-1${i % 10}`;
+  if (new Date(dobStr) > new Date('2010-09-08')) {
+    await db.query(
+      `insert into profile_version (record_id, content, status, approved_by, approved_at)
+       values ($1,$2,'approved',$3,now())`,
+      [bulkRec, JSON.stringify({
+        slug: 'live', firstName: first, lastName: '', dob: '',
+        positions, squadNumber: 2 + rnd(20), foot: 'Right',
+        club: 'Riverside FC', locality: 'Brunswick VIC',
+        squad: { name: squad.name ?? '', ageGroup: '', competitionGender: squad.gender },
+        about: LINES[rnd(LINES.length)] ?? '',
+        stats: surfaced.map((k) => ({ season: '2026', key: k, value: 4 + rnd(14), provenance: 'self_reported' })),
+        achievements: [], otherFootball: [], previousClubs: [],
+        highlights: [], highlightsUsed: 0, surfacedStats: surfaced,
+      }), guardian],
+    );
+  }
 }
 
 // public club page seed (ClubCV): slug, girls'/women's squads, trials,

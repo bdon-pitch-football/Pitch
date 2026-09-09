@@ -25,11 +25,41 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
     | null;
   if (!bundle) return null;
 
-  // u16: the guardian-approved snapshot is the page (D-119)
-  if (bundle.approved_content) return bundle.approved_content;
+  // u16: the guardian-approved snapshot is the page (D-119). The band is
+  // stamped on the way OUT rather than frozen into the snapshot — it is
+  // derived from DOB at read time and must never be stored (doc 14 §J1), and
+  // a child who turns 16 must not keep a stale band because their snapshot
+  // was approved before their birthday.
+  //
+  // This line was written once before and silently lost: the edit that added
+  // it was in a script whose LATER assertion failed, so the file was never
+  // written. It went unnoticed because an absent band falls back to "minor",
+  // which is the correct answer for a u16 — right for the wrong reason.
+  if (bundle.approved_content) {
+    return { ...bundle.approved_content, band: bundle.band as CvData['band'] };
+  }
 
-  // 16–17 / 18+: assemble the live record. One round trip, all sub-queries
-  // scoped by the record id that fn_token_read already authorised.
+  return assembleCv(bundle.record_id, bundle.person_id, bundle.band);
+}
+
+/**
+ * Assemble a live record into the shape PlayerCV renders.
+ *
+ * 16–17 and 18+ have NO approved snapshot — lib/cv-build writes one only for
+ * u16 — so anything reading a CV by snapshot alone can see a u16 and nobody
+ * else. The club's own register did exactly that: it selected
+ * profile_version where status='approved' and 404'd otherwise, so a club
+ * could never open the CV of a seventeen-year-old or an adult on the list it
+ * pays for. The dev fixture wrote a snapshot for every non-adult, including
+ * a seventeen-year-old, which production never produces — so the hole was
+ * invisible from the walkthrough.
+ *
+ * EXPORTED so there is one assembly rather than two. The AUTHORISATION stays
+ * with the caller — fn_token_read for a share link, fn_can_work_register for
+ * a club. This function is the shape, never the permission.
+ */
+export async function assembleCv(recordId: string, personId: string, band: string): Promise<CvData | null> {
+  const bundle = { record_id: recordId, person_id: personId, band };
   const r = await db.query(
     `select
       (select row_to_json(x) from (

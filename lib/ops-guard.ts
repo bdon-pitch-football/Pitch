@@ -16,23 +16,17 @@ import 'server-only';
 import { redirect } from 'next/navigation';
 import { db } from './db';
 import { getSessionPersonId } from './session';
+import { operatorAllowed } from './ops-policy';
 
 export async function requireOperator(): Promise<{ personId: string; email: string }> {
-  const allow = (process.env.OPS_EMAILS ?? '')
-    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-
   const personId = await getSessionPersonId();
   if (!personId) redirect('/signin');
 
   const { rows } = await db.query(`select lower(email) as email from person where id = $1`, [personId]);
   const email = rows[0]?.email as string | undefined;
 
-  // In development every signed-in person may open the console, so the
-  // walkthrough works without configuration. Production requires the
-  // allowlist, and an empty allowlist means nobody — never everybody.
-  if (process.env.NODE_ENV === 'production' && (!email || !allow.includes(email))) {
+  if (!operatorAllowed(email, process.env.OPS_EMAILS, process.env.NODE_ENV === 'production')) {
     redirect('/home');
   }
-  if (!email) redirect('/home');
-  return { personId, email };
+  return { personId, email: email as string };
 }

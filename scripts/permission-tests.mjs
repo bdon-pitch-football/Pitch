@@ -29,9 +29,16 @@ async function expectFail(label, sql) {
     pass++; console.log(`OK   ${label}`);
   }
 }
+// Deep comparison, not ===. With strict equality any check comparing two
+// arrays or two objects could never pass, however right it was — so a whole
+// class of assertion was unavailable and the next person to reach for one
+// would have found it "failing" and rewritten the test rather than the code.
+// It cannot have hidden a false PASS (=== is only ever too strict), but a
+// comparator that lies in either direction is not one to keep.
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 function check(label, actual, expected) {
-  if (actual === expected) { pass++; console.log(`OK   ${label}`); }
-  else { fail++; console.error(`FAIL ${label} — expected ${expected}, got ${actual}`); }
+  if (same(actual, expected)) { pass++; console.log(`OK   ${label}`); }
+  else { fail++; console.error(`FAIL ${label} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`); }
 }
 async function level(viewer, person) {
   const r = await db.query('select fn_read_level($1, $2) as l', [viewer, person]);
@@ -2050,8 +2057,31 @@ for (const f of recordIdSurfaces) {
 // The operator console gates on an allowlist, and an empty one means nobody.
 const opsGuard = readFileSync(fileURLToPath(new URL('../lib/ops-guard.ts', import.meta.url)), 'utf8');
 check('act15: the operator console reads an explicit allowlist', /OPS_EMAILS/.test(opsGuard), true);
-check('act16: and an empty allowlist admits nobody in production',
-  /allow\.includes\(email\)/.test(opsGuard), true);
+
+// act16 used to be a regex looking for `allow.includes(email)` in this file.
+// The console verifies clubs, suspends clubs and re-sends guardian approvals,
+// and "the source contains the right words" was the ONLY evidence for who may
+// open it — made worse by the gate being deliberately open in development, so
+// nothing driving the running app could exercise it either. The decision is a
+// pure function now and this is the whole matrix, actually run.
+{
+  const { operatorAllowed } = await import('../lib/ops-policy.ts');
+  const P = true, D = false;
+  check('act16a: production admits a listed address',
+    operatorAllowed('buz@pitch.example', 'buz@pitch.example,ops@pitch.example', P), true);
+  check('act16b: production refuses an unlisted one',
+    operatorAllowed('stranger@example.com', 'buz@pitch.example', P), false);
+  check('act16c: an EMPTY allowlist admits nobody — never everybody',
+    operatorAllowed('buz@pitch.example', '', P), false);
+  check('act16d: and an unset one is the same as empty',
+    operatorAllowed('buz@pitch.example', undefined, P), false);
+  check('act16e: no email is refused in every environment',
+    [operatorAllowed(null, 'buz@pitch.example', P), operatorAllowed(null, '', D)], [false, false]);
+  check('act16f: the list tolerates spacing and case, because a human types it',
+    operatorAllowed('BUZ@Pitch.Example', '  ops@x.example , buz@pitch.example ', P), true);
+  check('act16g: development admits any signed-in person, which is why the walkthrough works',
+    operatorAllowed('anyone@example.com', '', D), true);
+}
 
 // --- Football history (0028) and the club line -----------------------------
 // A previous club is the player's own account and grants NOTHING (D-72). The
