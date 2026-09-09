@@ -2401,6 +2401,37 @@ check('ctl4: and it has a stable tiebreak within the same second',
     offenders.length, 0);
 }
 
+// .env.example IS the production setup instructions, so it has to agree with
+// the code in BOTH directions. It did not: SESSION_SECRET was read with a
+// hardcoded fallback and was not in the file at all, so following the
+// documented setup produced an app signing sessions with a constant that is
+// committed to this repository — forge the cookie, be anyone. And four
+// variables were listed that nothing reads, which sends somebody off to
+// create credentials the product deliberately does not use.
+{
+  const envFile = readFileSync(fileURLToPath(new URL('../.env.example', import.meta.url)), 'utf8');
+  const declared = new Set([...envFile.matchAll(/^([A-Z_0-9]+)=/gm)].map((m) => m[1]));
+  const used = new Set(
+    [...routeFiles, ...readdirSync(fileURLToPath(new URL('../lib', import.meta.url)))
+      .map((f) => fileURLToPath(new URL('../lib/' + f, import.meta.url)))]
+      .filter((f) => /\.tsx?$/.test(f))
+      .flatMap((f) => [...readFileSync(f, 'utf8').matchAll(/process\.env\.([A-Z_0-9]+)/g)].map((m) => m[1])),
+  );
+  // NODE_ENV and TZ are the platform's, not ours.
+  for (const k of ['NODE_ENV', 'TZ']) { used.delete(k); declared.delete(k); }
+
+  const undocumented = [...used].filter((k) => !declared.has(k)).sort();
+  check(`env1: every variable the code reads is documented (missing: ${undocumented.join(', ') || 'none'})`,
+    undocumented.length, 0);
+  const unread = [...declared].filter((k) => !used.has(k)).sort();
+  check(`env2: and nothing is documented that no code reads (stale: ${unread.join(', ') || 'none'})`,
+    unread.length, 0);
+}
+// The session secret has no fallback in production.
+const sessSrc = readFileSync(fileURLToPath(new URL('../lib/session.ts', import.meta.url)), 'utf8');
+check('env3: production refuses to sign a session without a real secret',
+  /NODE_ENV === 'production'\)\s*\{\s*throw new Error\('SESSION_SECRET/.test(sessSrc), true);
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',

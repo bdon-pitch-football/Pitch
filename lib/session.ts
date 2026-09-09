@@ -13,7 +13,25 @@ import { db } from './db';
 import { isUuid } from './ids';
 
 const COOKIE = 'pitch_session';
-const secret = () => process.env.SESSION_SECRET || 'dev-only-secret-not-for-production';
+// The cookie is only worth the secret that signs it. This fell back to a
+// literal string that is committed to this repository, AND SESSION_SECRET
+// WAS NOT IN .env.example — so the documented way to configure production
+// produced an app whose sessions were signed with a known constant. Anyone
+// who could read that constant could mint `pitch_session=<any person id>.
+// <hmac>` and be that person: a guardian, a club's technical director, an
+// operator.
+//
+// Production has no fallback. It fails on the first request rather than at
+// build, because a secret should not have to exist to compile — but it
+// fails loudly, which is the only acceptable behaviour for this one.
+const secret = () => {
+  const s = process.env.SESSION_SECRET;
+  if (s) return s;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET is not set — refusing to sign sessions with a known value');
+  }
+  return 'dev-only-secret-not-for-production';
+};
 
 const sign = (v: string) => createHmac('sha256', secret()).update(v).digest('base64url');
 
