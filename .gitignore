@@ -17,6 +17,9 @@ dist/
 .temp/
 supabase/.env
 
+# Handles on the local throwaway database, rewritten on every reseed.
+.dev-ids.json
+
 # OS / editor
 .DS_Store
 Thumbs.db

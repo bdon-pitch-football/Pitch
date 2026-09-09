@@ -165,6 +165,29 @@ the register go from a bare count to named players.
 
 ---
 
+## Running the checks
+
+Two suites, and the difference between them is the point.
+
+```bash
+npm run test:perms
+```
+
+696 checks against Postgres and the source. It needs no server.
+
+```bash
+npm run test:render
+```
+
+32 checks that fetch the actual pages and read what you would see. It needs
+both dev processes running, because it signs in as the fixture people and
+asks the product what it serves. It exists because a check that reads source
+text can be green while the thing it describes is false — that happened
+twice, and the second time it was hiding a 500 on every signed-in builder
+route.
+
+---
+
 ## What to tell me
 
 Anything that feels wrong, ugly, slow, confusing, or off-brand. Screens I

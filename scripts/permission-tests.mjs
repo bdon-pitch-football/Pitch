@@ -2156,6 +2156,13 @@ for (const f of opsActionFiles) {
 // another family's share links and mint themselves a live token to that
 // child's CV — handed back in the redirect URL.
 const gControls = readFileSync(fileURLToPath(new URL('../app/g/controls/[childId]/actions.ts', import.meta.url)), 'utf8');
+// One lookup, one guard. requireRecordActor used to repeat recordActor's
+// query, so the uuid check added to one sat on one of two paths and a
+// malformed id still reached Postgres and 500'd on every signed-in builder
+// route. Two functions answering one question is one of them being wrong.
+check('rev2b: requireRecordActor does not repeat the lookup it guards',
+  /select fn_record_actor[\s\S]*select fn_record_actor/.test(
+    readFileSync(fileURLToPath(new URL('../lib/record-guard.ts', import.meta.url)), 'utf8')), false);
 check('rev3: the record id is bound to the child before it is used',
   /assertChildsRecord/.test(gControls), true);
 check('rev4: and both link actions call it',

@@ -492,5 +492,27 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     `select first_name, id from person where email is not null order by first_name`,
   );
   console.log(`  ids    : ${who.rows.map((r) => `${r.first_name}=${r.id}`).join(' ')}`);
+
+  // Written to disk as well, because the render tests need to BE these people
+  // and every reseed mints fresh uuids. Gitignored: it is a handle on a local
+  // throwaway database, not a secret and not a fixture.
+  const kids = await db.query(
+    `select c.first_name, c.id as child_id,
+       (select id from development_record where person_id = c.id) as record_id
+     from guardianship_link g join person c on c.id = g.child_id
+     where g.guardian_id = (select id from person where email = 'guardian@example.com')
+     order by c.first_name`,
+  );
+  writeFileSync(
+    fileURLToPath(new URL('../.dev-ids.json', import.meta.url)),
+    JSON.stringify({
+      people: Object.fromEntries(who.rows.map((r) => [String(r.first_name).toLowerCase(), r.id])),
+      children: Object.fromEntries(kids.rows.map((r) => [String(r.first_name).toLowerCase(), r])),
+      clubs: Object.fromEntries(
+        (await db.query(`select public_slug, id from club where public_slug is not null`)).rows
+          .map((r) => [r.public_slug, r.id]),
+      ),
+    }, null, 2) + '\n',
+  );
 }
 console.log('  sign-in: guardian@example.com (parent) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club)');

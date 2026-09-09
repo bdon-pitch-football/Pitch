@@ -47,10 +47,18 @@ export async function requireRecordActor(
   recordId: string,
   allow: RecordActor[] = ['self', 'guardian'],
 ): Promise<{ personId: string; actor: RecordActor }> {
-  const personId = await getSessionPersonId();
-  if (!personId) redirect('/signin');
-  const { rows } = await db.query(`select fn_record_actor($1,$2) as actor`, [personId, recordId]);
-  const actor = rows[0]?.actor as RecordActor | null;
-  if (!actor || !allow.includes(actor)) redirect('/home');
-  return { personId, actor };
+  // Calls recordActor rather than repeating its query. It used to have its
+  // OWN copy of the lookup, so the uuid guard added to recordActor sat on one
+  // of two paths and /build/<malformed> still reached Postgres and 500'd —
+  // the same shape as the number-hash that was written twice. Two functions
+  // answering one question is one of them being wrong later.
+  const found = await recordActor(recordId);
+  if (!found) {
+    // No session is a different destination from "not yours", and that is the
+    // only distinction this function is allowed to make.
+    if (!(await getSessionPersonId())) redirect('/signin');
+    redirect('/home');
+  }
+  if (!allow.includes(found.actor)) redirect('/home');
+  return found;
 }
