@@ -24,12 +24,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const client = await db.connect();
-  let rows: { id: string; channel: string; to_address: string; subject: string | null; body: string }[] = [];
-  try {
-    await client.query('begin');
-    const claimed = await client.query(
-      `select id, channel, to_address, subject, body from message_outbox
+  // The claim is a WRITE, and that is the whole point. This used to `select
+  // ... for update skip locked`, commit, and only then call the provider —
+  // which held the row locks for the microseconds between the select and the
+  // commit and released them before any work happened. Two overlapping runs
+  // would each select the same rows and each send them, and the thing that
+  // gets sent twice here is a text to a parent about their child.
+  //
+  // Stamping attempts and last_attempt_at inside the same statement is what
+  // actually claims the row: a concurrent run's own `last_attempt_at` filter
+  // then excludes it.
+  const { rows } = await db.query(
+    `update message_outbox set attempts = attempts + 1, last_attempt_at = now()
+     where id in (
+       select id from message_outbox
        where sent_at is null and failed_at is null
          -- Give the inline attempt a minute to finish before a sweep decides
          -- the row is stranded, or a slow provider gets two sends.
@@ -40,20 +48,14 @@ export async function GET(request: Request) {
          and (last_attempt_at is null or last_attempt_at < now() - interval '5 minutes')
        order by created_at
        limit $1
-       for update skip locked`,
-      [BATCH],
-    );
-    rows = claimed.rows;
-    await client.query('commit');
-  } catch (e) {
-    await client.query('rollback');
-    throw e;
-  } finally {
-    client.release();
-  }
+       for update skip locked
+     )
+     returning id, channel, to_address, subject, body`,
+    [BATCH],
+  );
 
   let sent = 0;
-  for (const r of rows) {
+  for (const r of rows as { id: string; channel: string; to_address: string; subject: string | null; body: string }[]) {
     if (await dispatch(r.id, r.channel, r.to_address, r.subject ?? '', r.body)) sent += 1;
   }
   // Counts only. This response is read in a Vercel log, and a log is not a

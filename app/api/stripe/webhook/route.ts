@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  const event = JSON.parse(payload) as { id: string; type: string; data: { object: Record<string, unknown> } };
+  const event = JSON.parse(payload) as { id: string; type: string; created?: number; data: { object: Record<string, unknown> } };
 
   // Idempotency: a replayed event is acknowledged and ignored.
   const seen = await db.query('select 1 from stripe_event where id = $1', [event.id]);
@@ -43,9 +43,13 @@ export async function POST(request: Request) {
   const periodEnd = typeof obj.current_period_end === 'number'
     ? new Date(obj.current_period_end * 1000).toISOString() : null;
   const customer = typeof obj.customer === 'string' ? obj.customer : null;
+  // Stripe does not guarantee ordering. The event's own timestamp goes to
+  // the function, which ignores anything older than the last one applied to
+  // this club — otherwise a late "active" resurrects a cancelled register.
+  const eventAt = typeof event.created === 'number' ? new Date(event.created * 1000).toISOString() : null;
   const apply = (status: string, grace: string | null) =>
-    db.query('select fn_apply_subscription($1,$2,$3,$4::timestamptz,$5::timestamptz,$6)',
-      [clubId, status, null, periodEnd, grace, customer]);
+    db.query('select fn_apply_subscription($1,$2,$3,$4::timestamptz,$5::timestamptz,$6,$7::timestamptz)',
+      [clubId, status, null, periodEnd, grace, customer, eventAt]);
   const graceWindow = () => new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
 
   switch (event.type) {

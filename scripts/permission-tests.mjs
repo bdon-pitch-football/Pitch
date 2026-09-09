@@ -1240,6 +1240,32 @@ const applyCode = codeOnly(applySrc);
 check('O3: applying a subscription never ASSIGNS club_state', /club_state\s*=/.test(applyCode), false);
 check('O5: nor does it delete a registration', /delete\s+from/i.test(applyCode), false);
 
+// Stripe does not guarantee webhook ORDER, and this overwrote
+// unconditionally. Replays were already handled by stripe_event; a reorder
+// was not, in both directions — a late "active" emitted before a
+// cancellation resurrected a cancelled club's register, and a late
+// payment_failed suspended a club that had since paid. Behaviour, not
+// source: the function is actually driven out of order here.
+{
+  const c = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Order Test','unclaimed')`, [c]);
+  const at = (sec) => new Date(Date.UTC(2026, 0, 1, 0, 0, sec)).toISOString();
+  const status = async () =>
+    (await db.query(`select subscription_status from club where id=$1`, [c])).rows[0].subscription_status;
+
+  await db.query(`select fn_apply_subscription($1,'canceled',null,null,null,null,$2::timestamptz)`, [c, at(10)]);
+  await db.query(`select fn_apply_subscription($1,'active',null,null,null,null,$2::timestamptz)`, [c, at(5)]);
+  check('O3b: an event older than the last one applied is ignored', await status(), 'canceled');
+
+  await db.query(`select fn_apply_subscription($1,'active',null,null,null,null,$2::timestamptz)`, [c, at(20)]);
+  check('O3c: and a genuinely newer one still applies', await status(), 'active');
+
+  // Several events share a second routinely; the last of those is as good an
+  // answer as any, so equal timestamps must not be dropped.
+  await db.query(`select fn_apply_subscription($1,'past_due',null,null,null,null,$2::timestamptz)`, [c, at(20)]);
+  check('O3d: an event in the same second is not treated as stale', await status(), 'past_due');
+}
+
 // O4/O5 — dunning hides, cancellation deletes. A family's child is never
 // deleted because a club's card expired.
 const purgeSrc = (await db.query(`select prosrc from pg_proc where proname='fn_purge_cancelled_registers'`)).rows[0].prosrc;
@@ -2215,8 +2241,14 @@ check('claim5: the code is addressed to the club record, not to form input',
   /address: club\.contact_email/.test(claimSrc), true);
 check('claim6: and no claim path reads an email out of the form',
   /formData\.get\('email'\)/.test(codeOnly(claimSrc)), false);
+// A wrong code costs an attempt whether or not it was close, so the counter
+// has to be written BEFORE the comparison. (This pinned `.equals(hash(code))`
+// and broke when that became timingSafeEqual — the property was unchanged,
+// the spelling was not.)
 check('claim7: the attempt is counted before the code is compared',
-  claimSrc.indexOf('attempts = attempts + 1') < claimSrc.indexOf('.equals(hash(code))'), true);
+  claimSrc.indexOf('attempts = attempts + 1') < claimSrc.indexOf('timingSafeEqual(stored, given)'), true);
+check('claim7b: and the comparison is timing-safe, like every other in the codebase',
+  /timingSafeEqual\(stored, given\)/.test(claimSrc), true);
 check('claim8: both ceilings are checked before a code is sent',
   /claim-club:/.test(claimSrc) && /claim-person:/.test(claimSrc), true);
 check('claim9: redirect never runs inside the transaction it would roll back',
@@ -2344,8 +2376,19 @@ for (const path of ['/api/digest', '/api/jobs/daily', '/api/jobs/outbox']) {
   check(`sendl16: ${path} is actually scheduled`, vercelCfg.includes(`"${path}"`), true);
 }
 const sweep = readFileSync(fileURLToPath(new URL('../app/api/jobs/outbox/route.ts', import.meta.url)), 'utf8');
+// This check used to look only for `for update skip locked` — and passed
+// while the property was false, because the sweep took the locks, COMMITTED,
+// and only then called the provider. The lock protected the microseconds
+// between the select and the commit. A claim has to be a WRITE, and the
+// check has to look for the write.
 check('sendl17: the sweep claims rows so two runs cannot double-send',
   /for update skip locked/.test(sweep), true);
+check('sendl17b: and the claim is a write, not a lock it lets go of',
+  /update message_outbox set attempts = attempts \+ 1, last_attempt_at = now\(\)[\s\S]*?returning/.test(sweep), true);
+check('sendl17c: dispatch does not stamp attempts — the caller claims',
+  /update message_outbox set attempts = attempts \+ 1[\s\S]{0,80}where id = \$1`/.test(msgSrc2), false);
+check('sendl17d: send() claims its own row in the insert',
+  /attempts, last_attempt_at\)\s*\n?\s*values \(\$1,\$2,\$3,\$4,\$5,\$6,1,now\(\)\)/.test(msgSrc2), true);
 check('sendl18: and it is behind the cron secret like every other job',
   /CRON_SECRET/.test(sweep), true);
 check('sendl19: its response carries counts, never addresses or names',
@@ -2399,6 +2442,29 @@ check('ctl4: and it has a stable tiebreak within the same second',
   }).map((f) => f.slice(f.indexOf('app/')));
   check(`pron1: no screen picks its words from a first name (${offenders.join(', ') || 'none'})`,
     offenders.length, 0);
+
+  // The same shape one level up: fixture DATA living in product code.
+  // PlayerCV carried three hardcoded lists of clip titles keyed on the
+  // fixture slugs, inside the component that renders every child's CV. It
+  // was unreachable for real records, which is exactly why it survived —
+  // dead fixture code waiting for a slug to collide with it.
+  const slugs = ['deniz', 'nate', 'georgia', 'jordan', 'sam-kaya', 'riverside-fc'];
+  const compDir = fileURLToPath(new URL('../components', import.meta.url));
+  const componentFiles = [];
+  (function walk(d) {
+    for (const e of rd(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (/\.tsx?$/.test(e.name)) componentFiles.push(full);
+    }
+  })(compDir);
+  const seeded = [...routeFiles, ...componentFiles].filter((f) => {
+    if (/cv-preview|\/design\//.test(f)) return false;   // dev-only surfaces
+    const src = codeOnly(readFileSync(f, 'utf8')).toLowerCase();
+    return slugs.some((sl) => src.includes(`'${sl}'`));
+  }).map((f) => f.slice(Math.max(f.indexOf('app/'), f.indexOf('components/'))));
+  check(`pron2: no product component carries fixture data (${seeded.join(', ') || 'none'})`,
+    seeded.length, 0);
 }
 
 // .env.example IS the production setup instructions, so it has to agree with

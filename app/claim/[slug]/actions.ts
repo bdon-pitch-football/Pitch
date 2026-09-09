@@ -13,7 +13,7 @@
 // claimed the page on a button press with no proof at all, which is why the
 // route was 404'd in production rather than shipped.
 import { redirect } from 'next/navigation';
-import { createHash, randomInt } from 'node:crypto';
+import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { clubClaimCodeEmail } from '@/lib/messages';
@@ -92,7 +92,14 @@ export async function claimClub(slug: string, formData: FormData) {
       outcome = 'bad';
     } else {
       await client.query(`update verification_challenge set attempts = attempts + 1 where id = $1`, [row.id]);
-      if (code.length !== 6 || !Buffer.from(row.token_hash).equals(hash(code))) {
+      // timingSafeEqual, like every other secret comparison in the codebase
+      // (session, auth, all three webhooks). The attempt ceiling above is the
+      // control that actually matters for a six-digit code — but a lone
+      // Buffer.equals among five timing-safe compares is the one somebody
+      // copies into a place where it does matter.
+      const given = hash(code);
+      const stored = Buffer.from(row.token_hash);
+      if (code.length !== 6 || stored.length !== given.length || !timingSafeEqual(stored, given)) {
         await client.query('commit');   // the attempt is kept
         outcome = 'bad';
       } else {

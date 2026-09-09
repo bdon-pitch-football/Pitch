@@ -67,9 +67,11 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
     await db.query('insert into sms_meter (number_hash, cents) values ($1,$2)', [h, DEFAULT_SMS_COST_CENTS]);
   }
 
+  // attempts starts at 1: this row is claimed by the inline dispatch below,
+  // so a sweep arriving a minute later does not treat it as untried.
   const { rows } = await db.query(
-    `insert into message_outbox (message_key, channel, to_person, to_address, subject, body)
-     values ($1,$2,$3,$4,$5,$6) returning id`,
+    `insert into message_outbox (message_key, channel, to_person, to_address, subject, body, attempts, last_attempt_at)
+     values ($1,$2,$3,$4,$5,$6,1,now()) returning id`,
     [msg.key, msg.channel, to.personId ?? null, to.address, msg.subject ?? null, msg.body],
   );
   const id = rows[0].id as string;
@@ -98,10 +100,10 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
 export async function dispatch(
   id: string, channel: string, address: string, subject: string, body: string,
 ): Promise<boolean> {
-  await db.query(
-    `update message_outbox set attempts = attempts + 1, last_attempt_at = now() where id = $1`,
-    [id],
-  );
+  // Deliberately does NOT stamp attempts. The CALLER claims the row — the
+  // sweep in the same statement that selects it, and send() in the insert —
+  // because a claim that happens after the row has been handed out is not a
+  // claim at all.
   const result = channel === 'sms'
     ? await sendSms(address, body)
     : await sendEmail(address, subject, body);

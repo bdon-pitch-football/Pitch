@@ -81,16 +81,21 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
   const initials = `${p.firstName[0]}${p.lastName[0] ?? ''}`;
   const posLine = p.positions.map((c) => POSITIONS[c].label).join(' · ');
   const group = positionGroup(p.positions);
-  const clipTitles: Record<string, string[]> = {
-    deniz: ['Season highlights 2026', 'vs Northern Utd — full performance'],
-    nate: ['Shot-stopping & sweeping 2026', 'Penalty save — Metro League', 'Distribution reel'],
-    georgia: ['Season highlights 2026'],
-  };
-
   // Resolve the clip list once, so the section can ask whether it has any
   // before deciding to render a heading at all.
-  const clips = (p.highlights ?? (clipTitles[p.slug] ?? []).map((title) => ({ title, url: undefined as string | undefined })))
-    .slice(0, p.highlightsUsed);
+  //
+  // This used to fall back to three hardcoded lists of clip titles keyed on
+  // the fixture slugs — 'deniz', 'nate', 'georgia' — inside the component
+  // that renders every child's CV in the product. Real records could not
+  // reach it (they carry highlights, and their slug is 'live'), so it was
+  // dead rather than dangerous, but it is the same shape as the pronouns
+  // that were NOT dead: fixture data living in a production component,
+  // waiting for a slug to collide with it.
+  //
+  // The cap is enforced where caps belong — at write time, in the clips
+  // action, against the band's limit. A render-time slice cannot be the
+  // control, because it silently hides clips instead of refusing them.
+  const clips = p.highlights ?? [];
   const previousClubs = p.previousClubs ?? [];
   // Absent band is treated as a minor — the restrictive default, the same
   // rule fn_age_band uses for an unknown DOB.
