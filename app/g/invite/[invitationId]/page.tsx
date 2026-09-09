@@ -84,7 +84,7 @@ export default async function GuardianInvite({ params, searchParams }: {
               <div style={{ display: 'flex', gap: 8 }}>
                 <label style={{ flex: 1, cursor: 'pointer' }}>
                   <input type="radio" name="answer" value="yes" defaultChecked style={{ position: 'absolute', opacity: 0 }} />
-                  <div style={{ height: 52, borderRadius: 14, background: 'rgba(61,220,132,.14)', border: `1.5px solid ${T.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900, color: T.accent }}>{name === 'Georgia' ? 'She' : 'He'}&rsquo;ll be there</div>
+                  <div style={{ height: 52, borderRadius: 14, background: 'rgba(61,220,132,.14)', border: `1.5px solid ${T.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900, color: T.accent }}>{name} will be there</div>
                 </label>
                 <label style={{ flex: 1, cursor: 'pointer' }}>
                   <input type="radio" name="answer" value="interested_not_date" style={{ position: 'absolute', opacity: 0 }} />
@@ -146,7 +146,7 @@ export default async function GuardianInvite({ params, searchParams }: {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {[
-            `They have ${name === 'Georgia' ? 'her' : 'his'} CV, ${name === 'Georgia' ? 'her' : 'his'} name, ${name === 'Georgia' ? 'her' : 'his'} age and ${name === 'Georgia' ? 'her' : 'his'} club. They have never had your phone number or your email.`,
+            `They have the CV, the name, the age and the club. They have never had your phone number or your email.`,
             'Doing nothing is a complete answer. They are told nothing either way.',
             'If you say yes, you choose what you hand over. It is not automatic.',
           ].map((t) => (
@@ -162,7 +162,7 @@ export default async function GuardianInvite({ params, searchParams }: {
         </div>
         <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
-          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>&ldquo;Not this time&rdquo; does not remove {name} from their register and does not count against {name === 'Georgia' ? 'her' : 'him'}. It closes this one invitation, and the club is simply not told.</div>
+          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>&ldquo;Not this time&rdquo; does not remove {name} from their register and does not count against {name}. It closes this one invitation, and the club is simply not told.</div>
         </div>
       </div>
     </div>

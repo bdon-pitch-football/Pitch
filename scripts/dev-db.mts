@@ -434,8 +434,12 @@ const personOf = async (name: string) =>
 // 1. Deniz has a pending edit waiting on his guardian (D-119)
 const denizRec = await recOf('Deniz');
 await db.query(
-  `insert into profile_version (record_id, content, status)
-   select $1, jsonb_set(content::jsonb, '{about}', '"Right-footed 10 who plays between the lines. Two-footed now — weak-foot finishing every Thursday since March."'), 'pending'
+  // Staggered created_at across the four waiting items. They were all seeded
+  // at now(), so every card read "today" and the oldest-first ordering on
+  // /home could not be seen at all — a fixture that hides the behaviour it
+  // exists to demonstrate.
+  `insert into profile_version (record_id, content, status, created_at)
+   select $1, jsonb_set(content::jsonb, '{about}', '"Right-footed 10 who plays between the lines. Two-footed now — weak-foot finishing every Thursday since March."'), 'pending', now() - interval '1 day'
    from profile_version where record_id = $1 and status = 'approved'`,
   [denizRec],
 );
@@ -443,16 +447,16 @@ await db.query(
 // 2. Georgia has asked to send her CV to a club (D-99)
 const georgiaRec = await recOf('Georgia');
 await db.query(
-  `insert into share_request (record_id, requested_by, destination)
-   values ($1, (select person_id from development_record where id = $1), 'Sunbury United <football@sunburyunited.example.au>')`,
+  `insert into share_request (record_id, requested_by, destination, created_at)
+   values ($1, (select person_id from development_record where id = $1), 'Sunbury United <football@sunburyunited.example.au>', now() - interval '3 days')`,
   [georgiaRec],
 );
 
 // 3. Nate has asked to go on a club register (D-108 via D-91)
 const nateRec = await recOf('Nate');
 await db.query(
-  `insert into registration_request (record_id, club_id, positions, note)
-   values ($1, $2, array['GK'], 'Been on the bench behind a keeper two years older. Want game time.')`,
+  `insert into registration_request (record_id, club_id, positions, note, created_at)
+   values ($1, $2, array['GK'], 'Been on the bench behind a keeper two years older. Want game time.', now() - interval '6 days')`,
   [nateRec, riverside],
 );
 
@@ -463,8 +467,8 @@ const georgiaReg = (await db.query(
 )).rows[0].id as string;
 await db.query(`update registration set club_status = 'invited' where id = $1`, [georgiaReg]);
 await db.query(
-  `insert into invitation (club_id, registration_id, body)
-   values ($1, $2, $3)`,
+  `insert into invitation (club_id, registration_id, body, created_at)
+   values ($1, $2, $3, now() - interval '11 days')`,
   [riverside, georgiaReg, JSON.stringify({ kind: 'trial', note: "Saw Georgia at Werribee. We're light in midfield for the 16s and we'd like a proper look at her." })],
 );
 

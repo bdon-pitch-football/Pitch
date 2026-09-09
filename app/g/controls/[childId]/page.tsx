@@ -73,7 +73,7 @@ export default async function Controls({ params, searchParams }: {
   if (rows.length === 0) notFound();
   const c = rows[0];
   const name: string = c.first_name;
-  const his = name === 'Georgia' ? 'her' : 'his';
+  const theirs = `${name}\u2019s`;
   // EVERY event in the consent_event vocabulary needs a line here. A missing
   // one falls through to the raw database code, and a parent reading
   // "guardian_landed" on the screen whose entire job is to tell them plainly
@@ -126,7 +126,7 @@ export default async function Controls({ params, searchParams }: {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={label}>{his === 'her' ? 'Her link' : 'His link'}</div>
+          <div style={label}>{theirs} link</div>
           <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {link ? (
               <div style={{ fontSize: 14, fontWeight: 800, color: T.accent, wordBreak: 'break-all' }}>pitchfootball.com.au/p/{link}</div>
@@ -145,7 +145,7 @@ export default async function Controls({ params, searchParams }: {
               <form action={renewLink.bind(null, childId, c.record_id)} style={{ flex: 1, display: 'flex' }}><button type="submit" style={ghost}>Renew</button></form>
               <form action={replaceLink.bind(null, childId, c.record_id)} style={{ flex: 1, display: 'flex' }}><button type="submit" style={ghost}>Replace</button></form>
             </div>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Replacing it kills the old one immediately. Anyone holding it stops being able to open {his} page.</div>
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Replacing it kills the old one immediately. Anyone holding it stops being able to open the page.</div>
           </div>
         </div>
 
@@ -171,7 +171,7 @@ export default async function Controls({ params, searchParams }: {
             club or to what address. */}
         {(c.sends as { at: string; club: string | null; recipient: string }[]).length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>Where {his} CV has been sent</div>
+            <div style={label}>Where {theirs} CV has been sent</div>
             <div style={{ ...card, padding: '4px 14px' }}>
               {(c.sends as { at: string; club: string | null; recipient: string }[]).map((sd, i) => (
                 <div key={`${sd.at}-${sd.recipient}`} style={{ display: 'flex', gap: 12, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}`, alignItems: 'baseline' }}>
@@ -184,7 +184,7 @@ export default async function Controls({ params, searchParams }: {
               ))}
             </div>
             <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
-              The full address, every time, for as long as the record exists. Replacing {his} link stops all of them opening the page.
+              The full address, every time, for as long as the record exists. Replacing {theirs} link stops all of them opening the page.
             </div>
           </div>
         )}
@@ -208,7 +208,7 @@ export default async function Controls({ params, searchParams }: {
 
         <div style={{ background: T.surface, border: `1px solid ${T.red}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 15, fontWeight: 900, color: T.red }}>Delete everything</div>
-          <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{his === 'her' ? 'Her' : 'His'} page, {his} photo, {his} clips, {his} stats. Gone, and not recoverable. No reason needed and nobody will ask you for one.</div>
+          <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{theirs} page, photo, clips and stats. Gone, and not recoverable. No reason needed and nobody will ask you for one.</div>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>We keep one thing: a record that you gave permission and then withdrew it. No football, no photo, no page — just the fact it happened, because we have to be able to show it did.</div>
           <form action={deleteEverything.bind(null, childId)}>
             <button type="submit" style={{ width: '100%', height: 46, borderRadius: 13, border: `1px solid ${T.red}`, background: 'transparent', color: T.red, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Delete {name}&rsquo;s profile</button>

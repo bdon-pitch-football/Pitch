@@ -85,24 +85,35 @@ export default async function Home() {
               where dr5.person_id = c.id and st.revoked_at is null and st.paused = false
                 and (st.expires_at is null or st.expires_at > now())
               order by st.issued_at desc limit 1),
+           -- Days rather than a date, because "expiring in 11 days" is the
+           -- figure a parent acts on and "08 December" is the one they have
+           -- to work out.
+           'expiresInDays', (select (st.expires_at::date - (now() at time zone 'Australia/Melbourne')::date)
+              from share_token st join development_record dr7 on dr7.id = st.record_id
+              where dr7.person_id = c.id and st.revoked_at is null and st.paused = false
+                and st.expires_at is not null and st.expires_at > now()
+              order by st.issued_at desc limit 1),
+           'pendingAt', (select max(pv.created_at) from profile_version pv
+              join development_record dr6 on dr6.id = pv.record_id
+              where dr6.person_id = c.id and pv.status = 'pending'),
            'registers', (select count(*)::int from registration r5 where r5.player_id = c.id and r5.withdrawn_at is null),
            'hasPending', exists(select 1 from profile_version pv
               join development_record dr2 on dr2.id = pv.record_id
               where dr2.person_id = c.id and pv.status = 'pending'),
            'invitation', (select row_to_json(q3) from (
-              select i.id, cl2.name as club from invitation i
+              select i.id, i.created_at as at, cl2.name as club from invitation i
               join registration r2 on r2.id = i.registration_id
               join club cl2 on cl2.id = i.club_id
               where r2.player_id = c.id
                 and not exists (select 1 from invitation_reply ir where ir.invitation_id = i.id)
               order by i.created_at desc limit 1) q3),
            'sendRequest', (select row_to_json(q) from (
-              select sr.id, sr.destination from share_request sr
+              select sr.id, sr.created_at as at, sr.destination from share_request sr
               join development_record dr3 on dr3.id = sr.record_id
               where dr3.person_id = c.id and sr.dispatched_at is null
               order by sr.created_at desc limit 1) q),
            'interestRequest', (select row_to_json(q2) from (
-              select rr.id, cl.name as club from registration_request rr
+              select rr.id, rr.created_at as at, cl.name as club from registration_request rr
               join development_record dr4 on dr4.id = rr.record_id
               join club cl on cl.id = rr.club_id
               where dr4.person_id = c.id and rr.dispatched_at is null
@@ -117,10 +128,11 @@ export default async function Home() {
   if (!me) return <Shell><div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Signed out.</div></Shell>;
   const children: {
     id: string; firstName: string; photo: string | null; recordId: string | null; approvedOn: string;
-    linkExpiry: string | null; registers: number; hasPending: boolean;
-    invitation: { id: string; club: string } | null;
-    sendRequest: { id: string; destination: string } | null;
-    interestRequest: { id: string; club: string } | null;
+    linkExpiry: string | null; expiresInDays: number | null; registers: number;
+    hasPending: boolean; pendingAt: string | null;
+    invitation: { id: string; at: string; club: string } | null;
+    sendRequest: { id: string; at: string; destination: string } | null;
+    interestRequest: { id: string; at: string; club: string } | null;
   }[] = me.children;
 
   const clubSeat = me.club_seat as { id: string; name: string; club_state: string; public_slug: string | null; role: string; register_count: number } | null;
@@ -235,6 +247,62 @@ export default async function Home() {
     );
   }
 
+  // How long something has been sitting there. A parent scanning this page is
+  // asking "what have I left?" and a date makes them work it out.
+  const waitedFor = (iso: string): string => {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+    if (days < 1) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days < 14) return `${days} days ago`;
+    if (days < 60) return `${Math.floor(days / 7)} weeks ago`;
+    return `${Math.floor(days / 30)} months ago`;
+  };
+
+  // Every waiting item in ONE list, OLDEST FIRST — the thing that has been
+  // waiting longest is the thing to do next, and that is the only ordering
+  // here anybody can defend. Before this the cards came out grouped by type
+  // and three of the four carried a full-width accent button, so nothing led
+  // and the quiet one was quiet for no reason.
+  type Waiting = { key: string; kind: 'invite' | 'send' | 'interest' | 'edit';
+                   at: string; href: string; tone: string; title: string; body?: string; cta: string };
+  const waiting: Waiting[] = [
+    ...children.filter((c) => c.invitation).map((c) => ({
+      key: c.invitation!.id, kind: 'invite' as const, at: c.invitation!.at,
+      href: `/g/invite/${c.invitation!.id}`, tone: T.purple,
+      title: `${c.invitation!.club} would like ${c.firstName} at a trial`,
+      body: `${c.firstName} has not been told. Nothing happens until you decide.`,
+      cta: 'Review it',
+    })),
+    ...children.filter((c) => c.sendRequest).map((c) => ({
+      key: c.sendRequest!.id, kind: 'send' as const, at: c.sendRequest!.at,
+      href: `/g/send/${c.sendRequest!.id}`, tone: T.accent,
+      title: `${c.firstName} wants to send a CV to ${/^(.*) </.exec(c.sendRequest!.destination ?? '')?.[1] ?? 'a club'}`,
+      body: 'Nothing has been sent. Check the address and it goes; do nothing and the request disappears on its own.',
+      cta: 'Review it',
+    })),
+    ...children.filter((c) => c.interestRequest).map((c) => ({
+      key: c.interestRequest!.id, kind: 'interest' as const, at: c.interestRequest!.at,
+      href: `/g/interest/${c.interestRequest!.id}`, tone: T.purple,
+      title: `${c.firstName} wants to go on ${c.interestRequest!.club}\u2019s register`,
+      body: `There\u2019s a line about ${c.firstName}, in ${c.firstName}\u2019s own words. Read it before it goes — you can change it.`,
+      cta: 'Read it',
+    })),
+    ...children.filter((c) => c.hasPending && c.pendingAt).map((c) => ({
+      key: `edit-${c.id}`, kind: 'edit' as const, at: c.pendingAt!,
+      href: `/g/pending/${c.recordId}`, tone: T.accent,
+      title: `${c.firstName} changed the page`,
+      body: 'Until you approve it, every club holding the link still reads the old version.',
+      cta: 'Review it',
+    })),
+  ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+  // The three figures a parent actually wants, and we hold all of them. This
+  // page had no hero and no numbers at all — the club page gets a crest and
+  // numerals, and the person we most need to reassure got a title.
+  const linksActive = children.filter((c) => c.linkExpiry).length;
+  const expiringSoon = children.filter((c) => c.expiresInDays !== null && c.expiresInDays <= 30).length;
+  const clubsHolding = children.reduce((n, c) => n + c.registers, 0);
+
   // Guardian seat.
   return (
     <Shell>
@@ -243,60 +311,42 @@ export default async function Home() {
         <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everything about your children on Pitch, and every control over it, is here.</div>
       </div>
 
-      {children.filter((c) => c.invitation).map((c) => (
-        <div key={c.invitation!.id} className="sheen" style={{ background: T.surface, border: `1px solid ${T.purple}`, borderRadius: 18, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
+      {/* The state of things, in three numbers. Nothing here is new data —
+          it is what the child cards below already say, added up, which is
+          the form a parent can take in at a glance. */}
+      <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 20px 18px 20px', display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
+        <div>
+          <div className="numeral numeral-m" style={{ color: '#eef5f0' }}>{linksActive}</div>
+          <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{linksActive === 1 ? 'Link active' : 'Links active'}</div>
+        </div>
+        <div>
+          <div className="numeral numeral-m" style={{ color: expiringSoon > 0 ? T.amber : 'rgba(255,255,255,.45)' }}>{expiringSoon}</div>
+          <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Expiring in 30 days</div>
+        </div>
+        <div>
+          <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{clubsHolding}</div>
+          <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{clubsHolding === 1 ? 'Club register' : 'Club registers'}</div>
+        </div>
+      </div>
+
+      {/* Oldest first, and only the top one carries the accent button. Three
+          primary buttons in a row is the same as none. */}
+      {waiting.map((w, i) => (
+        <div key={w.key} className={i === 0 ? 'sheen' : 'lift'} style={{
+          borderRadius: 18, padding: 17, display: 'flex', flexDirection: 'column', gap: 12,
+          background: i === 0 ? 'linear-gradient(160deg, #123326, #0c1d14)' : T.surface,
+          border: `1px solid ${i === 0 ? w.tone : T.line}`,
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 999, background: T.purple }} />
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>Waiting on you</div>
+            <div style={{ width: 8, height: 8, borderRadius: 999, background: w.tone }} />
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: w.tone }}>Waiting on you</div>
+            <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: T.muted }}>{waitedFor(w.at)}</div>
           </div>
-          <div style={{ fontSize: 17, fontWeight: 900 }}>{c.invitation!.club} would like {c.firstName} at a trial</div>
-          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{c.firstName} has not been told. Nothing happens until you decide.</div>
-          <Link href={`/g/invite/${c.invitation!.id}`} className="btn btn-primary">Review it</Link>
+          <div style={{ fontSize: 17, fontWeight: 900, lineHeight: 1.2 }}>{w.title}</div>
+          {w.body && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{w.body}</div>}
+          <Link href={w.href} className={i === 0 ? 'btn btn-primary' : 'btn btn-secondary'}>{w.cta}</Link>
         </div>
       ))}
-
-      {children.filter((c) => c.sendRequest).map((c) => {
-        const m = /^(.*) </.exec(c.sendRequest!.destination ?? '');
-        const club = m?.[1] ?? 'a club';
-        return (
-          <div key={c.sendRequest!.id} className="sheen" style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 999, background: T.accent }} />
-              <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Waiting on you</div>
-            </div>
-            <div style={{ fontSize: 17, fontWeight: 900 }}>{c.firstName} wants to send {c.firstName === 'Georgia' ? 'her' : 'his'} CV to {club}</div>
-            <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>Nothing has been sent. Check the address and it goes; do nothing and the request disappears on its own.</div>
-            <Link href={`/g/send/${c.sendRequest!.id}`} className="btn btn-primary">Review it</Link>
-          </div>
-        );
-      })}
-
-      {children.filter((c) => c.interestRequest).map((c) => (
-        <div key={c.interestRequest!.id} className="lift" style={{ ...card, borderRadius: 18, display: 'flex', flexDirection: 'column', gap: 13 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 999, background: T.purple }} />
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>Also waiting on you</div>
-          </div>
-          <div style={{ fontSize: 17, fontWeight: 900 }}>{c.firstName} wants to go on {c.interestRequest!.club}&rsquo;s register</div>
-          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{c.firstName === 'Georgia' ? 'She' : 'He'}&rsquo;s written a line about {c.firstName === 'Georgia' ? 'herself' : 'himself'}. Read it before it goes — you can change it.</div>
-          <Link href={`/g/interest/${c.interestRequest!.id}`} style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Read it</Link>
-        </div>
-      ))}
-
-      {children.some((c) => c.hasPending) && (
-        <div className="sheen" style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 13 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 999, background: T.accent }} />
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Waiting on you</div>
-          </div>
-          {children.filter((c) => c.hasPending).map((c) => (
-            <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontSize: 17, fontWeight: 900 }}>{c.firstName} changed {c.firstName === 'Georgia' ? 'her' : 'his'} page</div>
-              <Link href={`/g/pending/${c.recordId}`} className="btn btn-primary">Review it</Link>
-            </div>
-          ))}
-        </div>
-      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         <div style={label}>Your children</div>

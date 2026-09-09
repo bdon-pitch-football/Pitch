@@ -77,7 +77,7 @@ export default async function PendingReview({ params, searchParams }: {
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>Waiting on you</div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{name} changed {name === 'Georgia' ? 'her' : 'his'} page</div>
+          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{name} changed the page</div>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Only this change needs you. Everything else stays exactly as you approved it.</div>
         </div>
 
@@ -97,7 +97,7 @@ export default async function PendingReview({ params, searchParams }: {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {[
-            `Until you approve it, every club holding ${name === 'Georgia' ? 'her' : 'his'} link still reads the old version.`,
+            `Until you approve it, every club holding ${name}'s link still reads the old version.`,
             'You can edit the words before you approve them.',
             'Saying no leaves the approved page exactly where it is.',
           ].map((t) => (

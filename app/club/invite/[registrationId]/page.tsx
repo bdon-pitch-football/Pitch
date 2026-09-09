@@ -29,7 +29,6 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
   if (rows.length === 0) notFound();
   const r = rows[0];
   const name: string = r.first_name;
-  const him = name === 'Georgia' ? 'her' : 'him';
   const act = sendInvitation.bind(null, registrationId);
 
   const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
@@ -42,7 +41,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.amber }}>{r.club_name}</div>
           <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Invite {name}</div>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{name === 'Georgia' ? 'She' : 'He'} put {name === 'Georgia' ? 'her' : 'his'} name on your register in {r.reg_month}. This is the only way you can reach {him}.</div>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{name} went on your register in {r.reg_month}. This is the only way you can reach {name}.</div>
         </div>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -67,14 +66,14 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="field-label">A line from you, if you want</div>
             <div style={{ ...card, minHeight: 74 }}>
-              <textarea name="body" rows={3} placeholder={`Saw ${name} at the trials. We're short in the 16s and we'd like a proper look at ${him}.`} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
+              <textarea name="body" rows={3} placeholder={`Saw ${name} at the trials. We're short in the 16s and we'd like a proper look.`} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Football only. A parent reads this before {name} does.</div>
           </div>
           <div style={{ borderRadius: 16, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 100%)', border: `1px solid ${T.line}`, padding: 16, display: 'flex', flexDirection: 'column', gap: 11 }}>
             <div style={{ fontSize: 13.5, fontWeight: 800 }}>Where this actually goes</div>
             {[
-              [`Into ${name === 'Georgia' ? 'her' : 'his'} parent's Pitch account. Not an email, not a text.`, true],
+              [`Into ${name}'s parent's Pitch account. Not an email, not a text.`, true],
               [`They decide what ${name} hears about it, and when.`, true],
               ['You get no phone number and no email address — not now, and not if they say yes.', false],
               ['If they ignore it, you are told nothing. Silence is an allowed answer.', false],
@@ -88,7 +87,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
             ))}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <button type="submit" className="btn btn-primary">Send it to {name === 'Georgia' ? 'her' : 'his'} parent</button>
+            <button type="submit" className="btn btn-primary">Send it to {name}&rsquo;s parent</button>
             <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Cancel</div>
           </div>
         </form>

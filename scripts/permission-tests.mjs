@@ -2387,6 +2387,20 @@ check('ctl4: and it has a stable tiebreak within the same second',
     missing.length, 0);
 }
 
+// D-25: gender is not a field we hold about a child, so there is nothing to
+// derive a pronoun FROM. Eighteen places across six screens read
+// `name === 'Georgia' ? 'her' : 'his'` — a fixture shortcut that shipped, and
+// that made every real child who was not called Georgia "he". Copy that
+// branches on a person's NAME is the tell.
+{
+  const offenders = routeFiles.filter((f) => {
+    const src = codeOnly(readFileSync(f, 'utf8'));
+    return /(name|firstName)\s*===\s*'[A-Z][a-z]+'/.test(src);
+  }).map((f) => f.slice(f.indexOf('app/')));
+  check(`pron1: no screen picks its words from a first name (${offenders.join(', ') || 'none'})`,
+    offenders.length, 0);
+}
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',
