@@ -37,7 +37,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
+        <HeaderMark back={{ href: '/club/register', label: 'The register' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.amber }}>{r.club_name}</div>
           <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Invite {name}</div>

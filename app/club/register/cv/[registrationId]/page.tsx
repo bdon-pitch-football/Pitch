@@ -59,5 +59,20 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
     [me, a.player_id, registrationId],
   );
 
-  return <PlayerCV p={cv} />;
+  // PlayerCV renders the public page, header and all, so the way back to the
+  // register is a bar above it. Without this a TD who opened a row had to use
+  // the browser's back button — and in the installed app there isn't one.
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'center', background: '#0b120e' }}>
+        <div style={{ width: '100%', maxWidth: 560, padding: '14px 18px 0 18px', boxSizing: 'border-box' }}>
+          <a href="/club/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', color: '#7d8f85', fontSize: 13, fontWeight: 700 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
+            The register
+          </a>
+        </div>
+      </div>
+      <PlayerCV p={cv} />
+    </>
+  );
 }

@@ -230,6 +230,9 @@ export default async function Home() {
             <Link href={`/build/${me.record_id}/clips`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Highlights</Link>
             <Link href={`/build/${me.record_id}/more`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Achievements</Link>
           </div>
+          <div style={{ display: 'flex', gap: 9 }}>
+            <Link href="/trials" className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Trials near you</Link>
+          </div>
           <Link href={`/send/${me.record_id}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Send my CV to a club</Link>
         </div>
       </Shell>
@@ -347,6 +350,18 @@ export default async function Home() {
           <Link href={w.href} className={i === 0 ? 'btn btn-primary' : 'btn btn-secondary'}>{w.cta}</Link>
         </div>
       ))}
+
+      {/* The public trials board shipped in launch scope (D-74, D-90) and
+          NOTHING IN THE PRODUCT LINKED TO IT — it existed and no user could
+          find it. This is a parent's entry point; the player seat has the
+          same link below its build cards. */}
+      <Link href="/trials" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
+        <div>
+          <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Trials near you</div>
+          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Every notice we hold, newest first</div>
+        </div>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
+      </Link>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         <div style={label}>Your children</div>

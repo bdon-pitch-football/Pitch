@@ -50,7 +50,7 @@ export default async function GuardianInvite({ params, searchParams }: {
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-          <HeaderMark />
+          <HeaderMark back={{ href: '/home', label: 'Your family' }} />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>Reply sent to {r.club_name}.</div>
           <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Only what you switched on went with it.</div>
         </div>
@@ -72,7 +72,7 @@ export default async function GuardianInvite({ params, searchParams }: {
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-          <HeaderMark />
+          <HeaderMark back={{ href: '/home', label: 'Your family' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name}{isTrial ? ' · trial invitation' : ''}</div>
             <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Reply to {r.club_name}</div>
@@ -118,7 +118,7 @@ export default async function GuardianInvite({ params, searchParams }: {
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
+        <HeaderMark back={{ href: '/home', label: 'Your family' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>Waiting on you</div>
           <div style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>{r.club_name} would like {name} at a trial</div>

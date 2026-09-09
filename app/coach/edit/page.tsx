@@ -57,7 +57,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
+        <HeaderMark back={{ href: '/home' }} />
         <div>
           <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your coach CV</div>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Five minutes. Edit anything later.</div>

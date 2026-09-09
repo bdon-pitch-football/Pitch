@@ -45,7 +45,14 @@ for (const p of PLAYER_FIXTURES) {
   // their behalf. The seed used to attach Alex to every fixture, which is
   // fine while every fixture is a child and wrong the moment one is not.
   const isAdult = new Date(p.dob) <= new Date('2008-09-08');
-  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,$2,$3,$4)`, [personId, p.firstName, p.lastName, p.dob]);
+  // Jordan gets an account. The PLAYER is the primary seat in this product
+  // and it was the ONLY one with no way to sign in — so the player's own
+  // navigation was the one path never crawled, never render-tested and never
+  // walked. The three children are guardian-managed; an adult player signs
+  // in as themselves.
+  const seatEmail = p.slug === 'jordan' ? 'player@example.com' : null;
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,$2,$3,$4,$5)`,
+    [personId, p.firstName, p.lastName, p.dob, seatEmail]);
   if (!isAdult) {
     await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [guardian, personId]);
   }
@@ -561,4 +568,4 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     }, null, 2) + '\n',
   );
 }
-console.log('  sign-in: guardian@example.com (parent) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club)');
+console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club)');

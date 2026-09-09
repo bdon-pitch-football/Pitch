@@ -32,7 +32,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
+        <HeaderMark back={{ href: '/ops/verification', label: 'The queue' }} />
         <div>
           <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>Call sheet — {c.name}</div>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{[c.suburb, c.state].filter(Boolean).join(' ')}{c.contact_email ? ` · ${c.contact_email}` : ''}</div>

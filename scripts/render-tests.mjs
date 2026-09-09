@@ -238,5 +238,69 @@ const georgia = ids.children.georgia;
     (await get(`/club/register/cv/${links[0]}`, sunbury)).status, 404);
 }
 
+// ---------------------------------------------------------------------------
+// NAVIGATION. Crawl every link a seat can actually reach and check that none
+// of them is broken, and that no signed-in screen is a cul-de-sac.
+//
+// Twenty screens had no link out at all — the whole build flow, all six
+// guardian screens, the club's billing and trial screens, the coach editor
+// and the operator console. On the web the browser's back button hides that.
+// This is an INSTALLABLE app, and in standalone mode there is no browser
+// chrome: a parent who opened Manage was stuck.
+//
+// /privacy, /terms, /report and the print views are deliberately terminal —
+// they are reached from public contexts where "/home" would be the wrong
+// destination, so a back link there would point somewhere wrong rather than
+// nowhere.
+// ---------------------------------------------------------------------------
+{
+  const TERMINAL = ['/privacy', '/terms', '/report', '/print'];
+  const norm = (u) => u.split('?')[0].split('#')[0]
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '*')
+    .replace(/\/p\/[^/*]+/, '/p/*').replace(/\/(c|fc|claim)\/[^/*]+/, '/$1/*');
+
+  const seats = {
+    'signed out': null,
+    parent: ids.people.alex,
+    player: ids.people.jordan,
+    'club TD': ids.people.marina,
+    'unverified club': ids.people['m.'],
+    coach: ids.people.sam,
+  };
+
+  for (const [seat, who] of Object.entries(seats)) {
+    const seen = new Set(); const queue = ['/', '/home']; const per = new Map();
+    const broken = []; const stuck = new Set();
+    while (queue.length) {
+      const path = queue.shift();
+      const P = norm(path);
+      if (seen.has(path)) continue;
+      per.set(P, (per.get(P) ?? 0) + 1);
+      if (per.get(P) > 2) continue;      // 100 register rows are not 100 routes
+      seen.add(path);
+      const r = await get(path, who);
+      if (r.status >= 400) broken.push(`${r.status} ${P}`);
+      if (r.status !== 200) continue;
+      const links = [...new Set([...r.html.matchAll(/href="(\/[^"#][^"]*)"/g)].map((m) => m[1])
+        .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt)$/.test(h)))];
+      if (who && links.length === 0 && !TERMINAL.some((t) => P.includes(t))) stuck.add(P);
+      for (const h of links) if (!seen.has(h)) queue.push(h);
+    }
+    check(`r39: nothing a ${seat} can click is broken (${broken.join(', ') || 'none'})`,
+      broken.length, 0);
+    check(`r40: no screen a ${seat} reaches is a dead end (${[...stuck].join(', ') || 'none'})`,
+      stuck.size, 0);
+  }
+}
+
+// The trials board shipped in launch scope and NOTHING LINKED TO IT.
+{
+  for (const [seat, who] of [['a parent', ids.people.alex], ['a player', ids.people.jordan]]) {
+    const { html } = await get('/home', who);
+    check(`r41: ${seat} can reach the trials board from home`,
+      /href="\/trials"/.test(html), true);
+  }
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 process.exit(failures.length ? 1 : 0);

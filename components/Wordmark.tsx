@@ -14,10 +14,33 @@ export default function Wordmark({ size = 20 }: { size?: number }) {
   );
 }
 
-// Right-aligned header row used by every app screen.
-export function HeaderMark() {
+// The header row every app screen renders. The wordmark stays hard right —
+// that rule has no exceptions (BUZ, 24 Aug) — and the left of the same row is
+// where a way out belongs.
+//
+// WHY IT IS HERE AND NOT AT THE BOTTOM OF EACH PAGE. Twenty signed-in screens
+// had no link out at all: the whole build flow, all six guardian screens, the
+// club's billing and trial screens, the coach editor and the operator
+// console. On the web the browser's back button hides that. This is an
+// INSTALLABLE app — manifest, icons, iOS meta — and in standalone mode there
+// is no browser chrome, so a parent who opened Manage was simply stuck.
+//
+// Top-left, because someone looking for the exit does not scroll to the foot
+// of a long form to find it.
+export function HeaderMark({ back }: { back?: { href: string; label?: string } }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 24 }}>
+      {back ? (
+        <a href={back.href} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+          color: 'var(--muted, #7d8f85)', fontSize: 13, fontWeight: 700,
+          // 44px of tappable height without 44px of visual weight (D-147).
+          margin: '-10px 0', padding: '10px 0',
+        }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
+          {back.label ?? 'Back'}
+        </a>
+      ) : <span />}
       <Wordmark size={20} />
     </div>
   );

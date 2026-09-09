@@ -38,7 +38,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
+        <HeaderMark back={{ href: '/home' }} />
         <div>
           <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Support</div>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Invitation state and resend. That is the whole console.</div>

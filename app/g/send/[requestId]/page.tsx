@@ -49,7 +49,7 @@ export default async function GuardianSend({ params, searchParams }: {
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-          <HeaderMark />
+          <HeaderMark back={{ href: '/home', label: 'Your family' }} />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>Sent. {clubName} can open {name}&rsquo;s page.</div>
           {/* Development only. In production this block is absent, which is
               what makes a rate-limited send byte-identical to a real one
@@ -70,7 +70,7 @@ export default async function GuardianSend({ params, searchParams }: {
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
+        <HeaderMark back={{ href: '/home', label: 'Your family' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name} asked you to send this</div>
           <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>Send {name}&rsquo;s CV to {clubName}?</div>
