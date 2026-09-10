@@ -50,7 +50,7 @@ export default async function ClaimClub({ params, searchParams }: {
   if (claimed || c.club_state !== 'unclaimed') {
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>{claimed ? `${c.name} is yours to run.` : 'This page has already been claimed.'}</div>
           {claimed && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You can post trials and edit the page now. Verification — the phone call that unlocks anything to do with players — happens separately, and we&rsquo;ll be in touch.</div>}
@@ -64,7 +64,7 @@ export default async function ClaimClub({ params, searchParams }: {
   if (noaddress || !c.contact_email) {
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>We need to ring {c.name}.</div>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
@@ -80,7 +80,7 @@ export default async function ClaimClub({ params, searchParams }: {
     const verify = claimClub;
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Check the club&rsquo;s inbox</h1>
@@ -126,7 +126,7 @@ export default async function ClaimClub({ params, searchParams }: {
   const act = requestClaimCode;
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Claim {c.name}</h1>

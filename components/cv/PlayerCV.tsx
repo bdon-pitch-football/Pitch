@@ -110,7 +110,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         .cv-pulse { animation: cvPulse 2.6s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) { .cv-rise, .cv-pulse { animation: none; } }
       `}</style>
-      <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 22, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 22, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         {/* logo — top right on every screen, no exceptions */}
         <HeaderMark />
 
@@ -282,7 +282,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
           </div>
         )}
 
-        <a href="/report?kind=player_cv" style={{ fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
+        <a href="/report?kind=player_cv" style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
     </div>
   );

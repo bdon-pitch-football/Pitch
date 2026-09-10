@@ -3,6 +3,7 @@
 // subscribed club, on a live row — checked in the database, and the read
 // is logged. Anything else is not-found, never forbidden.
 import { notFound, redirect } from 'next/navigation';
+import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
 import { assembleCv } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
@@ -18,6 +19,11 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
   if (!me) redirect('/signin');
 
   // authorise: the row must be visible to this worker via the engine
+  // A malformed id reaches Postgres as a uuid cast and throws, which is a
+  // 500 on a screen a guardian opens from an SMS. Same answer as a row
+  // that is not there.
+  if (!isUuid(registrationId)) notFound();
+
   const auth = await db.query(
     `select r.player_id, r.club_id, dr.id as record_id, fn_age_band(p.dob) as band
      from registration r
@@ -65,7 +71,7 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'center', background: '#0b120e' }}>
-        <div style={{ width: '100%', maxWidth: 560, padding: '14px 18px 0 18px', boxSizing: 'border-box' }}>
+        <div className="reading" style={{ width: '100%', padding: '14px 18px 0 18px', boxSizing: 'border-box' }}>
           <a href="/club/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', color: '#7d8f85', fontSize: 13, fontWeight: 700 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
             The register

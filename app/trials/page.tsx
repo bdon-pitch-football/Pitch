@@ -47,10 +47,12 @@ export default async function TrialsBoard({ searchParams }: {
   const lastChecked = listings.length ? listings[listings.length - 1].checked : null;
 
   const pill = (on: boolean): React.CSSProperties => ({
-    borderRadius: 999, padding: '7px 14px', fontSize: 12, fontWeight: on ? 900 : 700,
+    // D-147: >=44px at every width. These were 29px — and they are the day-one
+    // filters (D-74), the only way anybody narrows this board on a phone.
+    borderRadius: 999, minHeight: 44, padding: '0 16px', fontSize: 12, fontWeight: on ? 900 : 700,
     background: on ? T.accent : T.surface, color: on ? T.onAccent : T.secondary,
     border: on ? '1px solid transparent' : `1px solid ${T.line}`, textDecoration: 'none',
-    display: 'inline-block',
+    display: 'inline-flex', alignItems: 'center',
   });
   const href = (next: { age?: string | null; gender?: string | null }) => {
     const p = new URLSearchParams();
@@ -64,7 +66,7 @@ export default async function TrialsBoard({ searchParams }: {
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Trials board</h1>

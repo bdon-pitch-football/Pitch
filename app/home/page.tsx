@@ -30,7 +30,7 @@ const Shell = ({ children }: { children: React.ReactNode }) => (
       .h-rise > *:nth-child(4) { animation-delay: .18s } .h-rise > *:nth-child(5) { animation-delay: .24s }
       @media (prefers-reduced-motion: reduce) { .h-rise > * { animation: none } }
     `}</style>
-    <div className="h-rise" style={{ width: '100%', maxWidth: 560, minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+    <div className="h-rise reading" style={{ width: '100%', minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
       <HeaderMark />
       {children}
     </div>

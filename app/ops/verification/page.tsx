@@ -36,7 +36,7 @@ export default async function OpsVerification() {
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Verification</div>
+          <h1 style={{ fontSize: 17, fontWeight: 800 }}>Verification</h1>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{awaiting} clubs awaiting a call · {heldTotal} registrations held</div>
         </div>
         <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>

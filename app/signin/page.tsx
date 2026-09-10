@@ -26,7 +26,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
         .door > *:nth-child(2) { animation-delay: .05s } .door > *:nth-child(3) { animation-delay: .1s }
         .door > *:nth-child(4) { animation-delay: .15s } .door > *:nth-child(5) { animation-delay: .2s }
         @media (prefers-reduced-motion: reduce) { .door > * { animation: none } }`}</style>
-      <div className="door" style={{ width: '100%', maxWidth: 560, minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="door reading" style={{ width: '100%', minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</h1>

@@ -2,6 +2,7 @@
 // Nothing has been sent until the button is pressed; ignoring it makes it
 // disappear on its own (D-138 — silence is a complete answer).
 import { notFound, redirect } from 'next/navigation';
+import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
@@ -28,6 +29,11 @@ export default async function GuardianSend({ params, searchParams }: {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
+  // A malformed id reaches Postgres as a uuid cast and throws, which is a
+  // 500 on a screen a guardian opens from an SMS. Same answer as a row
+  // that is not there.
+  if (!isUuid(requestId)) notFound();
+
   const { rows } = await db.query(
     `select sr.destination, sr.dispatched_at, p.first_name
      from share_request sr
@@ -48,7 +54,7 @@ export default async function GuardianSend({ params, searchParams }: {
   if (sent || r.dispatched_at) {
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark back={{ href: '/home', label: 'Your family' }} />
           <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>Sent. {clubName} can open {name}&rsquo;s page.</h1>
           {/* Development only. In production this block is absent, which is
@@ -69,7 +75,7 @@ export default async function GuardianSend({ params, searchParams }: {
   const act = dispatchSend;
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home', label: 'Your family' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name} asked you to send this</div>

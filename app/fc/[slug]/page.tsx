@@ -127,7 +127,7 @@ export default async function ClubPage({ params, searchParams }: {
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
 
         {/* The banner used to float above the hero as its own strip, so a club
@@ -293,7 +293,10 @@ export default async function ClubPage({ params, searchParams }: {
                     style={{
                       background: on ? 'rgba(61,220,132,.12)' : T.surface,
                       border: `1px solid ${on ? T.accent : T.line}`,
-                      borderRadius: 999, padding: '7px 14px', fontSize: 12.5, fontWeight: 700,
+                      // D-147: >=44px at every width. These were 30px tall, and on a
+                      // phone they are how a parent finds their child's squad (D-68).
+                      borderRadius: 999, display: 'inline-flex', alignItems: 'center',
+                      minHeight: 44, padding: '0 16px', fontSize: 12.5, fontWeight: 700,
                       color: on ? T.accent : T.secondary, textDecoration: 'none',
                     }}>{s.name}</Link>
                 );
@@ -377,7 +380,7 @@ export default async function ClubPage({ params, searchParams }: {
           </Link>
         )}
 
-        <a href={`/report?kind=club_page`} style={{ fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
+        <a href={`/report?kind=club_page`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
     </div>
   );

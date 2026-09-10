@@ -113,7 +113,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
 
         <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', display: 'flex', flexDirection: 'column' }}>
@@ -321,7 +321,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
 
         <a href={`/c/${c.public_slug}/print`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Print or save as PDF</a>
 
-        <a href={`/report?kind=coach_cv`} style={{ fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
+        <a href={`/report?kind=coach_cv`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
     </div>
   );

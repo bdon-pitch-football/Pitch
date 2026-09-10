@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { logCall } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
+import { isUuid } from '@/lib/ids';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -24,6 +25,8 @@ const select: React.CSSProperties = { ...input, appearance: 'none' as const };
 export default async function CallSheet({ params }: { params: Promise<{ clubId: string }> }) {
   await requireOperator();
   const { clubId } = await params;
+  // A malformed id is a 404, not a 500: it reaches Postgres as a uuid cast.
+  if (!isUuid(clubId)) notFound();
   const { rows } = await db.query(`select name, suburb, state, contact_email from club where id = $1`, [clubId]);
   if (rows.length === 0) notFound();
   const c = rows[0];
@@ -34,7 +37,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
       <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/ops/verification', label: 'The queue' }} />
         <div>
-          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>Call sheet — {c.name}</div>
+          <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>Call sheet — {c.name}</h1>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{[c.suburb, c.state].filter(Boolean).join(' ')}{c.contact_email ? ` · ${c.contact_email}` : ''}</div>
         </div>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="clubId" value={clubId} />
@@ -43,12 +46,12 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
           <label style={card}><div style={label}>Number source — where you found it. A blank here invalidates the call.</div><input style={input} name="number_source" placeholder={'e.g. club website /contact, FV club directory'} required /></label>
           <label style={card}><div style={label}>Answered by — name and role as they gave it</div><input style={input} name="answered_by" /></label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div style={card}><div style={label}>Club confirmed — is this the club</div><select style={select} name="club_confirmed"><option value="yes">yes</option><option value="no">no</option></select></div>
-            <div style={card}><div style={label}>Person confirmed — did they independently name the claimant</div><select style={select} name="person_confirmed"><option value="yes">yes</option><option value="no">no</option></select></div>
-            <div style={card}><div style={label}>Incorporated — as answered</div><select style={select} name="incorporated"><option>unknown</option><option>yes</option><option>no</option></select></div>
-            <div style={card}><div style={label}>Authority confirmed — as answered</div><select style={select} name="authority_confirmed"><option>unknown</option><option>yes</option><option>no</option></select></div>
+            <label style={card}><div style={label}>Club confirmed — is this the club</div><select style={select} name="club_confirmed"><option value="yes">yes</option><option value="no">no</option></select></label>
+            <label style={card}><div style={label}>Person confirmed — did they independently name the claimant</div><select style={select} name="person_confirmed"><option value="yes">yes</option><option value="no">no</option></select></label>
+            <label style={card}><div style={label}>Incorporated — as answered</div><select style={select} name="incorporated"><option>unknown</option><option>yes</option><option>no</option></select></label>
+            <label style={card}><div style={label}>Authority confirmed — as answered</div><select style={select} name="authority_confirmed"><option>unknown</option><option>yes</option><option>no</option></select></label>
           </div>
-          <div style={card}>
+          <label style={card}>
             <div style={label}>Outcome</div>
             <select style={select} name="outcome" required>
               <option value="">Choose one</option>
@@ -57,7 +60,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
               <option value="suspended">suspended</option>
               <option value="takedown">takedown</option>
             </select>
-          </div>
+          </label>
           <label style={card}><div style={label}>Notes — anything that felt off belongs here even if you verified anyway</div><textarea style={{ ...input, resize: 'vertical' }} rows={3} name="notes" /></label>
           <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             &ldquo;Incorporated&rdquo; and &ldquo;authority&rdquo; answered no or unknown do not fail verification — they flag the subscription, not the safety check. Verifying releases every held registration to this club.

@@ -144,6 +144,23 @@ const georgia = ids.children.georgia;
     absent.location, theirs.location);
   check('r20: and so does a malformed id - no 500, no different answer',
     malformed.location, theirs.location);
+
+  // Every route that casts a path segment to uuid, swept in one place. The
+  // crawl cannot reach these: it only follows links that exist, and a
+  // malformed id is by definition a link nobody rendered. /ops/call was
+  // 500ing on one — the class was fixed elsewhere and missed there because
+  // nothing had ever walked the operator console.
+  const idRoutes = ['/build/bogus', '/ops/call/bogus', '/g/controls/bogus', '/g/pending/bogus',
+    '/g/send/bogus', '/g/interest/bogus', '/g/card/bogus', '/send/bogus', '/share-card/bogus',
+    '/register-interest/bogus', '/club/invite/bogus', '/club/register/cv/bogus',
+    '/join/waiting/bogus', '/a/bogus', '/jobs/bogus'];
+  const fivehundred = [];
+  for (const r of idRoutes) {
+    const res = await get(r, stranger);
+    if (res.status >= 500) fivehundred.push(`${res.status} ${r}`);
+  }
+  check(`r20b: no malformed id anywhere reaches Postgres as a uuid cast (${fivehundred.join(', ') || 'none'})`,
+    fivehundred.length, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +292,12 @@ const georgia = ids.children.georgia;
     // Every other fixture person already has something, so this state had
     // never been rendered by anyone and /home was a total dead end on it.
     'brand new': ids.people.robin,
+    // The operator console had never been walked by ANY seat, so its pages
+    // were outside every check the crawl makes. Two things were sitting in
+    // there: a queue heading that was still a styled <div>, and a call sheet
+    // that 500'd on a malformed club id. The gate is open in development by
+    // design (lib/ops-policy.ts), so any signed-in seat can reach it here.
+    operator: ids.people.marina,
   };
 
   // Collected across every seat, so the assertions below need no more HTTP.
@@ -290,6 +313,9 @@ const georgia = ids.children.georgia;
     // The signed-out entry points are in the queue too, so one walk covers
     // the public pages a seat would never link to.
     const queue = ['/', '/home', '/trials', '/jobs', '/signin', '/join'];
+    // Nothing in the product links to the operator console, so it has to be
+    // seeded or it is never seen.
+    if (seat === 'operator') queue.push('/ops/verification', '/ops/support');
     const per = new Map();
     const broken = []; const stuck = new Set();
     while (queue.length) {

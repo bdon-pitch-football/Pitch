@@ -28,7 +28,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Register your club', robots: { index: false, follow: false } };
+export const metadata = { title: 'Interest register', robots: { index: false, follow: false } };
 
 const STATUS_CHIP: Record<string, { bg: string; fg: string; label: string }> = {
   new: { bg: 'rgba(61,220,132,.14)', fg: T.accent, label: 'New' },

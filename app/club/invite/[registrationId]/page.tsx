@@ -1,6 +1,7 @@
 // InviteCompose.dc.html — copy verbatim, templated to the player. The
 // where-this-actually-goes panel is the product's honesty in four lines.
 import { notFound, redirect } from 'next/navigation';
+import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
@@ -19,6 +20,11 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
   const { registrationId } = await params;
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
+  // A malformed id reaches Postgres as a uuid cast and throws, which is a
+  // 500 on a screen a guardian opens from an SMS. Same answer as a row
+  // that is not there.
+  if (!isUuid(registrationId)) notFound();
+
   const { rows } = await db.query(
     `select p.first_name, c.name as club_name,
        to_char(r.created_at at time zone 'Australia/Melbourne', 'FMMonth') as reg_month
@@ -36,7 +42,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/club/register', label: 'The register' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.amber }}>{r.club_name}</div>
