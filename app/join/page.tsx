@@ -64,14 +64,14 @@ export default function Join() {
               ))}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-              <div className="field">
+              <label className="field">
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>First name</div>
                 <input style={input} value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Your first name" />
-              </div>
-              <div className="field">
+              </label>
+              <label className="field">
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Date of birth</div>
                 <input style={input} type="date" value={dob} onChange={(e) => setDob(e.target.value)} placeholder="DD / MM / YYYY" />
-              </div>
+              </label>
               <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>Under 16? A parent will need to approve your profile before it goes live.</div>
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
@@ -115,12 +115,12 @@ export default function Join() {
               <input type="hidden" name="firstName" value={firstName} />
               <input type="hidden" name="dob" value={dob} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <div className="field"><div className="field-label">Email</div><input style={input} name="email" type="email" placeholder="you@example.com" required /></div>
-                <div className="field"><div className="field-label">Password — at least ten characters</div><input style={input} name="password" type="password" minLength={10} required /></div>
+                <label className="field"><div className="field-label">Email</div><input style={input} name="email" type="email" placeholder="you@example.com" required /></label>
+                <label className="field"><div className="field-label">Password — at least ten characters</div><input style={input} name="password" type="password" minLength={10} required /></label>
                 {age !== null && age < 18 && (
                   <>
-                    <div className="field"><div className="field-label">A parent or guardian&rsquo;s name</div><input style={input} name="guardianName" required /></div>
-                    <div className="field"><div className="field-label">Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></div>
+                    <label className="field"><div className="field-label">A parent or guardian&rsquo;s name</div><input style={input} name="guardianName" required /></label>
+                    <label className="field"><div className="field-label">Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></label>
                     <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.5 }}>You&rsquo;re {age}, so a parent stays in the loop — they hold the visibility off-switch until you&rsquo;re 18, and any club approach goes to you both together.</div>
                   </>
                 )}
@@ -147,9 +147,9 @@ export default function Join() {
               <input type="hidden" name="firstName" value={firstName} />
               <input type="hidden" name="dob" value={dob} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <div className="field"><div className="field-label">Their name</div><input style={input} name="guardianName" required /></div>
-                <div className="field"><div className="field-label">Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></div>
-                <div className="field"><div className="field-label">Their email — optional</div><input style={input} name="guardianEmail" type="email" /></div>
+                <label className="field"><div className="field-label">Their name</div><input style={input} name="guardianName" required /></label>
+                <label className="field"><div className="field-label">Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></label>
+                <label className="field"><div className="field-label">Their email — optional</div><input style={input} name="guardianEmail" type="email" /></label>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {[

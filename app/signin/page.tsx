@@ -36,8 +36,13 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
         </div>
         <form action={signIn} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={card}><div style={label}>Email</div><input style={input} name="email" type="email" placeholder="you@example.com" required /></div>
-            <div style={card}><div style={label}>Password</div><input style={input} name="password" type="password" placeholder="••••••••" /></div>
+            {/* The visible label is a LABEL, not a div beside the input. It
+                looked identical and read as "edit text, blank" to anyone
+                using a screen reader — on the product's front door. Wrapping
+                associates them implicitly, so no id/htmlFor pair to keep in
+                sync, and it widens the tap target onto the label text. */}
+            <label style={card}><div style={label}>Email</div><input style={input} name="email" type="email" placeholder="you@example.com" required /></label>
+            <label style={card}><div style={label}>Password</div><input style={input} name="password" type="password" placeholder="••••••••" /></label>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <button type="submit" className="btn btn-primary">Sign in</button>

@@ -485,6 +485,26 @@ const georgia = ids.children.georgia;
   check('w22: the crawl actually reached pages with forms', boundPages.length === 0, true);
 }
 
+// ACCESSIBILITY, on the two screens everybody meets first. The brief asks
+// for semantic HTML and this is the one place it is load-bearing: a visible
+// label rendered as a <div> beside an input looks identical and reads as
+// "edit text, blank" to anyone using a screen reader.
+//
+// The rest of the product has the same shape and is NOT fixed — see the
+// note in the review. This pins the front door so it cannot regress while
+// the sweep is decided.
+{
+  for (const path of ['/signin', '/join']) {
+    const { html } = await get(path);
+    const inLabels = [...html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((m) => m[1]).join('');
+    const fields = [...html.matchAll(/<(input|textarea|select)[^>]*>/g)]
+      .filter((i) => !/type="hidden"/.test(i[0]));
+    const bare = fields.filter((i) => !inLabels.includes(i[0]) && !/aria-label=/.test(i[0]));
+    check(`a1: every field on ${path} has a real label (${bare.length} bare of ${fields.length})`,
+      bare.length, 0);
+  }
+}
+
 // The trials board shipped in launch scope and NOTHING LINKED TO IT.
 {
   for (const [seat, who] of [['a parent', ids.people.alex], ['a player', ids.people.jordan]]) {
