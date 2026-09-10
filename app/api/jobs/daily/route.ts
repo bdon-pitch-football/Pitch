@@ -2,13 +2,14 @@
 // runs the D-17 purge. Age bands need no job — they are computed at read
 // time; the 30-day birthday notifications join this route with messaging.
 import { NextResponse } from 'next/server';
+import { cronAllowed } from '@/lib/cron-policy';
 import { db } from '@/lib/db';
 import { sixteenthBirthdayEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 
 export async function GET(request: Request) {
-  const auth = request.headers.get('authorization');
-  if (process.env.NODE_ENV === 'production' && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!cronAllowed(request.headers.get('authorization'), process.env.CRON_SECRET,
+    process.env.NODE_ENV === 'production')) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
   const { rows } = await db.query('select fn_purge_pending() as purged');

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cronAllowed } from '@/lib/cron-policy';
 import { digestCounts } from '@/lib/waitlist-db';
 
 export const runtime = 'nodejs';
@@ -12,9 +13,8 @@ export const dynamic = 'force-dynamic';
 // an Authorization header when CRON_SECRET is set — required in production.
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get('authorization');
-  if (process.env.NODE_ENV === 'production' && (!secret || auth !== `Bearer ${secret}`)) {
+  if (!cronAllowed(req.headers.get('authorization'), process.env.CRON_SECRET,
+    process.env.NODE_ENV === 'production')) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 

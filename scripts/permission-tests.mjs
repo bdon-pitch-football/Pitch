@@ -383,6 +383,24 @@ const msgSrc = readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.m
 const bodies = [...msgSrc.matchAll(/body:\s*(?:`([\s\S]*?)`|\n`([\s\S]*?)`)/g)].map((m) => m[1] ?? m[2] ?? '');
 const smsBlocks = msgSrc.split(/export const /).filter((b) => /channel: 'sms'/.test(b));
 
+// send() drops a message whose key is not in CATALOGUE_KEYS and returns
+// { queued: false } — which is the right call for a closed catalogue, but it
+// is SILENT. A builder with a mistyped key would simply never send, and the
+// consent spine is on this path: the guardian approval email would vanish
+// with nothing to notice it. The keys are compile-time literals, so this is a
+// property of the source and reading the source is the honest way to check.
+{
+  const declared = new Set([...(/CATALOGUE_KEYS = \[([\s\S]*?)\]/.exec(msgSrc)?.[1] ?? '')
+    .matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  const used = [...msgSrc.matchAll(/key:\s*'([^']+)'/g)].map((m) => m[1]);
+  check(`doc15: every message's key is in the catalogue, so none is dropped silently (${used.filter((k) => !declared.has(k)).join(', ') || 'all are'})`,
+    used.filter((k) => !declared.has(k)).length, 0);
+  check(`doc15: and every catalogue key has a message (${[...declared].filter((k) => !used.includes(k)).join(', ') || 'all do'})`,
+    [...declared].filter((k) => !used.includes(k)).length, 0);
+  check('doc15: the catalogue is not empty, so neither check above is vacuous',
+    declared.size > 20 && used.length > 20, true);
+}
+
 check('doc15 §A5: no link shortener in any message',
   bodies.some((b) => /bit\.ly|tinyurl|t\.co\//i.test(b)), false);
 check('doc15 §A6: every SMS carries the support address',
@@ -2101,6 +2119,36 @@ check('act15: the operator console reads an explicit allowlist', /OPS_EMAILS/.te
     operatorAllowed('BUZ@Pitch.Example', '  ops@x.example , buz@pitch.example ', P), true);
   check('act16g: development admits any signed-in person, which is why the walkthrough works',
     operatorAllowed('anyone@example.com', '', D), true);
+}
+
+// The scheduled-job endpoints, and the same failure the operator console was
+// caught with. /api/jobs/daily and /api/jobs/outbox compared the header
+// against `Bearer ${process.env.CRON_SECRET}` with no check that the secret
+// exists — so on a deploy where nobody had set it, the comparison was against
+// the literal string "Bearer undefined" and anyone sending exactly that got
+// in. The digest route and all three webhooks already refused on an absent
+// secret; these two were the odd ones out, and nothing had ever probed
+// /api/* because nothing links to it.
+//
+// What is behind them is the reason it matters: the outbox route dispatches
+// the message queue, and D-81 is explicit that an endpoint which can be made
+// to send is how a small launch loses four figures overnight.
+{
+  const { cronAllowed } = await import('../lib/cron-policy.ts');
+  const P = true, D = false;
+  check('act17a: production admits the configured secret',
+    cronAllowed('Bearer s3cret', 's3cret', P), true);
+  check('act17b: and refuses a wrong one', cronAllowed('Bearer nope', 's3cret', P), false);
+  check('act17c: an UNSET secret admits nobody — never everybody',
+    cronAllowed('Bearer anything', undefined, P), false);
+  check('act17d: and specifically not the string an unset secret used to render',
+    cronAllowed('Bearer undefined', undefined, P), false);
+  check('act17e: an empty secret is the same as unset',
+    cronAllowed('Bearer ', '', P), false);
+  check('act17f: a missing header is refused',
+    cronAllowed(null, 's3cret', P), false);
+  check('act17g: development runs the jobs unconfigured, which is why the walkthrough works',
+    cronAllowed(null, undefined, D), true);
 }
 
 // --- Football history (0028) and the club line -----------------------------

@@ -11,6 +11,7 @@
 // throughput, because the duplicate would be a second text to a parent about
 // their child.
 import { NextResponse } from 'next/server';
+import { cronAllowed } from '@/lib/cron-policy';
 import { db } from '@/lib/db';
 import { dispatch } from '@/lib/messaging';
 
@@ -19,8 +20,8 @@ export const dynamic = 'force-dynamic';
 const BATCH = 50;
 
 export async function GET(request: Request) {
-  const auth = request.headers.get('authorization');
-  if (process.env.NODE_ENV === 'production' && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!cronAllowed(request.headers.get('authorization'), process.env.CRON_SECRET,
+    process.env.NODE_ENV === 'production')) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 

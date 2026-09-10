@@ -306,6 +306,7 @@ const georgia = ids.children.georgia;
   const unnamed = new Set();     // form controls with no accessible name
   const untitled = new Set();    // pages serving no title, or the landing page's
   const homeCanon = new Set();   // pages claiming to be a duplicate of /
+  const banned = new Set();      // D-85 / D-108 vocabulary, in served text
   let fetched = 0;
 
   for (const [seat, who] of Object.entries(seats)) {
@@ -335,6 +336,21 @@ const georgia = ids.children.georgia;
       if (!/<h1[\s>]/.test(r.html)) noHeading.add(P);
       const title = /<title>([^<]*)<\/title>/.exec(r.html)?.[1] ?? '';
       if (!title || (P !== '/' && !/ · Pitch Football$/.test(title))) untitled.add(`${P} "${title}"`);
+      // D-85 and D-108 are DATA CONSTRAINTS, not style preferences: the
+      // register-interest vocabulary is what keeps this out of the Online
+      // Safety Act's feedback-feature analysis, and "potential" is the word
+      // that closes a technical director's laptop. The corpus check reads the
+      // docs; nothing had ever read what the PRODUCT puts on screen.
+      // The two legal documents are exempt for the same reason the corpus
+      // check exempts them: they NAME the banned words in order to explain
+      // the bans ("applied to anything below U13"), and explaining a ban is
+      // not using it. Every product surface is in scope.
+      if (P !== '/privacy' && P !== '/terms') {
+        for (const line of text(r.html)) {
+          const m = /\b(potential|insights?|struggling|applications?|applied|declined|rejected|unsuccessful)\b/i.exec(line);
+          if (m) banned.add(`${P} "${m[1]}" in: ${line.slice(0, 60)}`);
+        }
+      }
       const canon = /rel="canonical" href="([^"]*)"/.exec(r.html)?.[1];
       if (canon && P !== '/' && /^https?:\/\/[^/]+\/?$/.test(canon)) homeCanon.add(P);
       const inLabels = [...r.html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((m) => m[1]).join('');
@@ -379,6 +395,8 @@ const georgia = ids.children.georgia;
   // the two pages whose whole job is being found.
   check(`m2: no page declares itself a duplicate of the homepage (${[...homeCanon].join(', ') || 'none'})`,
     homeCanon.size, 0);
+  check(`m7: no banned word reaches a product screen (${[...banned].join(' | ') || 'none'})`,
+    banned.size, 0);
   check(`crawl: one walk answered all of the above (${fetched} responses)`, fetched > 0, true);
 }
 
