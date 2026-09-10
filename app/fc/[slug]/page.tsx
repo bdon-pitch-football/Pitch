@@ -196,7 +196,7 @@ export default async function ClubPage({ params, searchParams }: {
             philosophy, and the hero has just promised a number. */}
         {trials.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>Trials</div>
+            <h2 style={label}>Trials</h2>
             <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 0 }}>
               {trials.map((t, i) => (
                 <div key={t.title} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
@@ -257,7 +257,7 @@ export default async function ClubPage({ params, searchParams }: {
 
         {c.philosophy && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>Our philosophy</div>
+            <h2 style={label}>Our philosophy</h2>
             <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{c.philosophy}</div>
           </div>
         )}
@@ -267,7 +267,7 @@ export default async function ClubPage({ params, searchParams }: {
             so tapping one should start that registration already filed. */}
         {squads.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>Teams &amp; age groups</div>
+            <h2 style={label}>Teams &amp; age groups</h2>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
               {squads.map((s) => {
                 const on = picked?.id === s.id;
@@ -290,7 +290,7 @@ export default async function ClubPage({ params, searchParams }: {
 
         {wanted.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>Players wanted</div>
+            <h2 style={label}>Players wanted</h2>
             {wanted.map((w) => (
               <div key={w.title} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <div>
@@ -309,7 +309,7 @@ export default async function ClubPage({ params, searchParams }: {
 
         {videos.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={label}>Club video</div>
+            <h2 style={label}>Club video</h2>
             {videos.map((v, i) => (
               <ClipCard key={v.url} title={v.title} url={v.url} gradientAlt={i % 2 === 1}
                 sub={i === 0 ? 'Nothing loads until you press play' : undefined} />
@@ -324,7 +324,7 @@ export default async function ClubPage({ params, searchParams }: {
         {alumni.length > 0 && (
           <div style={{ borderRadius: 20, background: 'linear-gradient(160deg, #16281f 0%, #0e1b15 72%)', border: `1px solid ${T.line}`, padding: '20px 18px 18px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.015em' }}>The pathway is real</div>
+              <h2 style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.015em' }}>The pathway is real</h2>
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, marginTop: 3 }}>Where {c.name} juniors went next.</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>

@@ -400,7 +400,7 @@ export default async function Home() {
       </Link>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <div style={label}>Your children</div>
+        <h2 style={label}>Your children</h2>
         {children.map((c) => (
           <div key={c.id} className="lift" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

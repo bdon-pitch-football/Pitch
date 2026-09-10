@@ -126,7 +126,7 @@ export default async function Controls({ params, searchParams }: {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={label}>{theirs} link</div>
+          <h2 style={label}>{theirs} link</h2>
           <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {link ? (
               <div style={{ fontSize: 14, fontWeight: 800, color: T.accent, wordBreak: 'break-all' }}>pitchfootball.com.au/p/{link}</div>
@@ -150,7 +150,7 @@ export default async function Controls({ params, searchParams }: {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={label}>Pause it</div>
+          <h2 style={label}>Pause it</h2>
           <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14.5, fontWeight: 800 }}>{name}&rsquo;s page is {c.paused ? 'paused' : 'live'}</div>
@@ -171,7 +171,7 @@ export default async function Controls({ params, searchParams }: {
             club or to what address. */}
         {(c.sends as { at: string; club: string | null; recipient: string }[]).length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={label}>Where {theirs} CV has been sent</div>
+            <h2 style={label}>Where {theirs} CV has been sent</h2>
             <div style={{ ...card, padding: '4px 14px' }}>
               {(c.sends as { at: string; club: string | null; recipient: string }[]).map((sd, i) => (
                 <div key={`${sd.at}-${sd.recipient}`} style={{ display: 'flex', gap: 12, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}`, alignItems: 'baseline' }}>
@@ -190,7 +190,7 @@ export default async function Controls({ params, searchParams }: {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={label}>Everything that&rsquo;s happened</div>
+          <h2 style={label}>Everything that&rsquo;s happened</h2>
           <div style={{ ...card, padding: '6px 14px' }}>
             {(c.timeline as { at: string; event: string }[]).length === 0 && (
               <div style={{ fontSize: 12.5, fontWeight: 500, color: T.muted, padding: '4px 0' }}>

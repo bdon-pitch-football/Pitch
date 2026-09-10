@@ -166,7 +166,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
 
         {c.philosophy && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>Coaching philosophy</div>
+            <h2 style={label}>Coaching philosophy</h2>
             <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{c.philosophy}</div>
           </div>
         )}
@@ -177,7 +177,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
             with a rule down the side, because it is context rather than
             headline. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="kicker">Coaching now</div>
+          <h2 className="kicker">Coaching now</h2>
           {current ? (
             <div className="card card-accent" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>{current.title}</div>
@@ -192,7 +192,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
 
           {past.length > 0 && (
             <>
-              <div className="kicker" style={{ marginTop: 4 }}>Before that</div>
+              <h2 className="kicker" style={{ marginTop: 4 }}>Before that</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingLeft: 14, borderLeft: '2px solid var(--line)' }}>
                 {past.map((r) => (
                   <div key={r.title + r.org + r.from} style={{ padding: '9px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
@@ -217,7 +217,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
             "self-reported" on a player's stats. */}
         {licences.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div className="kicker">Licences &amp; qualifications</div>
+            <h2 className="kicker">Licences &amp; qualifications</h2>
             <div className="card" style={{ padding: '4px 15px' }}>
               {licences.map((l, i) => (
                 <div key={l.title + (l.year ?? '')} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 0', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}>
@@ -237,7 +237,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
 
         {wins.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div className="kicker">As a coach</div>
+            <h2 className="kicker">As a coach</h2>
             {wins.map((a, i) => (
               <div key={a.title} className="lift card" style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
                 <div style={{ width: 36, height: 36, borderRadius: 11, background: 'rgba(61,220,132,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -265,7 +265,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
             editor. Content first; the roadmap footnote after it, not before. */}
         {clips.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={label}>Sessions &amp; clips</div>
+            <h2 style={label}>Sessions &amp; clips</h2>
             {/* The reassurance belongs on the first card. Repeated under every
                 card it stops being reassurance and starts being wallpaper —
                 the same thing the player CV was doing with its clips. */}
@@ -285,7 +285,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
 
         {showContact && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>Getting in touch</div>
+            <h2 style={label}>Getting in touch</h2>
             <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <a href={`mailto:${c.public_contact}`} style={{ fontSize: 14.5, fontWeight: 800, color: T.accent, textDecoration: 'none' }}>{c.public_contact}</a>
               <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>

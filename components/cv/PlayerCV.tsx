@@ -169,7 +169,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
             walking Nate's CV — he has 0 clips. */}
         {p.about && (
           <div className="cv-rise" style={{ animationDelay: '.1s', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={kicker}>About</div>
+            <h2 style={kicker}>About</h2>
             <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{p.about}</div>
           </div>
         )}
@@ -178,7 +178,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
             from a third party until the viewer presses play */}
         {clips.length > 0 && (
           <div className="cv-rise" style={{ animationDelay: '.16s', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={kicker}>Highlights</div>
+            <h2 style={kicker}>Highlights</h2>
             {/* The subtitle used to be derived from the POSITION, so every
                 card under a midfielder said "Goals, assists & link play" and
                 every card under a keeper said "Veo clip". Two stacked cards
@@ -195,7 +195,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         {/* achievements */}
         {p.achievements.length > 0 && (
         <div className="cv-rise" style={{ animationDelay: '.22s', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={kicker}>Achievements</div>
+          <h2 style={kicker}>Achievements</h2>
           {p.achievements.map((a, i) => (
             <div key={a.title} className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
               <div style={{ width: 36, height: 36, borderRadius: 11, background: 'rgba(61,220,132,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -223,7 +223,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
             carries the crest and the verification behind it. */}
         {previousClubs.length > 0 && (
         <div className="cv-rise" style={{ animationDelay: '.25s', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={kicker}>Football history</div>
+          <h2 style={kicker}>Football history</h2>
           <div style={{ ...card, padding: '4px 15px' }}>
             {p.club && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 0' }}>
@@ -253,7 +253,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
         {/* other football — experience entries; free text shown, grants nothing */}
         {p.otherFootball.length > 0 && (
         <div className="cv-rise" style={{ animationDelay: '.28s', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={kicker}>Other football</div>
+          <h2 style={kicker}>Other football</h2>
           {p.otherFootball.map((e) => (
             <div key={e.orgName} className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
               <div style={{ background: 'rgba(61,220,132,.12)', color: T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>{e.kind === 'ntc_academy' ? 'NTC' : e.kind}</div>

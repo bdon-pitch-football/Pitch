@@ -540,6 +540,35 @@ const georgia = ids.children.georgia;
     unnamed.length, 0);
 }
 
+// Section headings. The SAME 11px tracked caps is used three ways in this
+// product — to head a section, to label a field, and to caption a stat tile
+// ("APPEARANCES") — so these were marked one at a time rather than by style.
+// The mistake this pass could make is announcing a field label or a stat
+// caption as a heading, which is worse for a screen-reader user than leaving
+// it a div. That is what these check.
+{
+  const pages = [
+    ['/p/dev-deniz', null], ['/c/sam-kaya', null], ['/fc/riverside-fc', null],
+    ['/home', ids.people.alex], [`/g/controls/${deniz.child_id}`, ids.people.alex],
+  ];
+  const strays = []; const outlines = [];
+  for (const [path, who] of pages) {
+    const { html } = await get(path, who);
+    const h2s = [...html.matchAll(/<h[2-6][^>]*>([\s\S]*?)<\/h[2-6]>/g)].map((m) => m[0]);
+    outlines.push([path, h2s.length]);
+    const labelZones = [...html.matchAll(/<label[^>]*>[\s\S]*?<\/label>/g)].map((m) => m[0]).join('');
+    for (const h of h2s) if (labelZones.includes(h)) strays.push(`${path} ${h.slice(0, 40)}`);
+    // A stat caption sits beside its number inside a tile, never over a section.
+    for (const cap of ['APPEARANCES', 'GOALS', 'ASSISTS', 'CLEAN SHEETS']) {
+      if (new RegExp(`<h[2-6][^>]*>\\s*${cap}`, 'i').test(html)) strays.push(`${path} ${cap}`);
+    }
+  }
+  check(`a3: no field label or stat caption was announced as a heading (${strays.join(', ') || 'none'})`,
+    strays.length, 0);
+  check(`a4: the content pages have an outline, not just a title (${outlines.map(([p, n]) => `${p}:${n}`).join(' ')})`,
+    outlines.every(([, n]) => n >= 1), true);
+}
+
 // The trials board shipped in launch scope and NOTHING LINKED TO IT.
 {
   for (const [seat, who] of [['a parent', ids.people.alex], ['a player', ids.people.jordan]]) {
