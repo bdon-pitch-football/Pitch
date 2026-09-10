@@ -254,6 +254,11 @@ const georgia = ids.children.georgia;
 // nowhere.
 // ---------------------------------------------------------------------------
 {
+  // ONE WALK, every signal. This used to be three separate crawls over the
+  // same pages — navigation, bound actions, accessibility — each re-fetching
+  // everything the others had already fetched, and the suite took minutes.
+  // A page is expensive to fetch and cheap to inspect, so it is fetched once
+  // and every question is asked of the same response.
   const TERMINAL = ['/privacy', '/terms', '/report', '/print'];
   const norm = (u) => u.split('?')[0].split('#')[0]
     .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '*')
@@ -272,8 +277,18 @@ const georgia = ids.children.georgia;
     'brand new': ids.people.robin,
   };
 
+  // Collected across every seat, so the assertions below need no more HTTP.
+  const bound = new Set();       // pages serving a JS-only server action
+  const noHeading = new Set();   // pages that do not announce themselves
+  const unnamed = new Set();     // form controls with no accessible name
+  let fetched = 0;
+
   for (const [seat, who] of Object.entries(seats)) {
-    const seen = new Set(); const queue = ['/', '/home']; const per = new Map();
+    const seen = new Set();
+    // The signed-out entry points are in the queue too, so one walk covers
+    // the public pages a seat would never link to.
+    const queue = ['/', '/home', '/trials', '/jobs', '/signin', '/join'];
+    const per = new Map();
     const broken = []; const stuck = new Set();
     while (queue.length) {
       const path = queue.shift();
@@ -283,8 +298,20 @@ const georgia = ids.children.georgia;
       if (per.get(P) > 2) continue;      // 100 register rows are not 100 routes
       seen.add(path);
       const r = await get(path, who);
+      fetched += 1;
       if (r.status >= 400) broken.push(`${r.status} ${P}`);
       if (r.status !== 200) continue;
+
+      // --- every question, asked of the one response ---------------------
+      if (/name="\$ACTION_REF_\d+"/.test(r.html)) bound.add(P);
+      if (!/<h1[\s>]/.test(r.html)) noHeading.add(P);
+      const inLabels = [...r.html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((m) => m[1]).join('');
+      for (const f of r.html.matchAll(/<(input|textarea|select)[^>]*>/g)) {
+        if (/type="hidden"/.test(f[0])) continue;
+        if (inLabels.includes(f[0]) || /aria-label=/.test(f[0])) continue;
+        unnamed.add(`${P} ${/name="([^"]*)"/.exec(f[0])?.[1] ?? '?'}`);
+      }
+
       const links = [...new Set([...r.html.matchAll(/href="(\/[^"#][^"]*)"/g)].map((m) => m[1])
         .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt)$/.test(h)))];
       if (who && links.length === 0 && !TERMINAL.some((t) => P.includes(t))) stuck.add(P);
@@ -295,6 +322,21 @@ const georgia = ids.children.georgia;
     check(`r40: no screen a ${seat} reaches is a dead end (${[...stuck].join(', ') || 'none'})`,
       stuck.size, 0);
   }
+
+  // A bound action renders $ACTION_REF_n plus encrypted arguments only the
+  // client runtime resolves — it 500s without JavaScript instead of
+  // degrading, and nothing but a browser can drive it.
+  check(`w21: no page in the product renders a bound action (${[...bound].join(', ') || 'none'})`,
+    bound.size, 0);
+  // 31 of 33 pages had no <h1>: every title was a styled <div>, so a
+  // screen-reader user got no page name and no structure to move through.
+  check(`a1: every page announces itself with an h1 (${[...noHeading].join(', ') || 'all do'})`,
+    noHeading.size, 0);
+  // 57 controls had no accessible name — the visible label was a sibling
+  // <div>, identical on screen and "edit text, blank" to a screen reader.
+  check(`a2: every form control has an accessible name (${[...unnamed].join(', ') || 'all do'})`,
+    unnamed.size, 0);
+  check(`crawl: one walk answered all of the above (${fetched} responses)`, fetched > 0, true);
 }
 
 // A brand-new account is where somebody has just decided to trust us. It
@@ -437,107 +479,6 @@ const georgia = ids.children.georgia;
     (html.match(/name="\$ACTION_REF_\d+"/g) ?? []).length, 0);
   check('w20: and carries the invitation id in the form',
     /name="invitationId"/.test(html), true);
-}
-
-// EVERY form in the product, crawled. tsc cannot see a missing hidden input
-// — the signature compiles and the write fails at runtime — and it cannot
-// see a bound action either. This can see both: crawl as every seat and
-// assert that no page anywhere renders $ACTION_REF_n, and that every action
-// form carries at least one id or field to act on.
-{
-  const seats = Object.entries({
-    'signed out': null,
-    parent: ids.people.alex,
-    player: ids.people.jordan,
-    'club TD': ids.people.marina,
-    coach: ids.people.sam,
-    'brand new': ids.people.robin,
-  });
-  const norm = (u) => u.split('?')[0].split('#')[0]
-    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '*')
-    .replace(/\/p\/[^/*]+/, '/p/*').replace(/\/(c|fc|claim)\/[^/*]+/, '/$1/*');
-
-  const boundPages = [];
-  for (const [, who] of seats) {
-    const seen = new Set(); const queue = ['/', '/home', '/trials', '/jobs']; const per = new Map();
-    while (queue.length) {
-      const path = queue.shift(); const P = norm(path);
-      if (seen.has(path)) continue;
-      per.set(P, (per.get(P) ?? 0) + 1);
-      if (per.get(P) > 2) continue;
-      seen.add(path);
-      const r = await get(path, who);
-      if (r.status !== 200) continue;
-      if (/name="\$ACTION_REF_\d+"/.test(r.html)) boundPages.push(P);
-      for (const m of r.html.matchAll(/href="(\/[^"#][^"]*)"/g)) {
-        const h = m[1];
-        if (h.startsWith('/_next') || h.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt)$/.test(h)) continue;
-        if (!seen.has(h)) queue.push(h);
-      }
-    }
-  }
-  check(`w21: no page in the product renders a bound action (${[...new Set(boundPages)].join(', ') || 'none'})`,
-    boundPages.length, 0);
-  // A form with NO fields is not a defect — an action deriving everything
-  // from the session (billing's openPortal) is the safest shape there is.
-  // What must not exist is a signature that takes an id positionally, which
-  // is the shape that can only be fed by bind().
-  check('w22: the crawl actually reached pages with forms', boundPages.length === 0, true);
-}
-
-// ACCESSIBILITY, on the two screens everybody meets first. The brief asks
-// for semantic HTML and this is the one place it is load-bearing: a visible
-// label rendered as a <div> beside an input looks identical and reads as
-// "edit text, blank" to anyone using a screen reader.
-//
-// The rest of the product has the same shape and is NOT fixed — see the
-// note in the review. This pins the front door so it cannot regress while
-// the sweep is decided.
-{
-  // Thirty-one of thirty-three pages had NO <h1> — every title in the product
-  // was a styled <div>, so a screen-reader user had no page name and no
-  // structure to move through. And 57 form controls had no accessible name
-  // at all: the visible label was a sibling <div>, which looks identical and
-  // reads as "edit text, blank".
-  //
-  // Crawled rather than spot-checked, because both defects were everywhere
-  // and a sample would have missed most of them.
-  const seats = Object.entries({
-    'signed out': null, parent: ids.people.alex, player: ids.people.jordan,
-    'club TD': ids.people.marina, coach: ids.people.sam, 'brand new': ids.people.robin,
-  });
-  const norm = (u) => u.split('?')[0].split('#')[0]
-    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '*')
-    .replace(/\/p\/[^/*]+/, '/p/*').replace(/\/(c|fc|claim)\/[^/*]+/, '/$1/*');
-  const noHeading = new Set(); const unnamed = [];
-  for (const [, who] of seats) {
-    const seen = new Set(); const queue = ['/', '/home', '/trials', '/jobs', '/signin', '/join']; const per = new Map();
-    while (queue.length) {
-      const path = queue.shift(); const P = norm(path);
-      if (seen.has(path)) continue;
-      per.set(P, (per.get(P) ?? 0) + 1);
-      if (per.get(P) > 1) continue;
-      seen.add(path);
-      const r = await get(path, who);
-      if (r.status !== 200) continue;
-      if (!/<h1[\s>]/.test(r.html)) noHeading.add(P);
-      const inLabels = [...r.html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((m) => m[1]).join('');
-      for (const f of [...r.html.matchAll(/<(input|textarea|select)[^>]*>/g)]) {
-        if (/type="hidden"/.test(f[0])) continue;
-        if (inLabels.includes(f[0]) || /aria-label=/.test(f[0])) continue;
-        unnamed.push(`${P} ${/name="([^"]*)"/.exec(f[0])?.[1] ?? '?'}`);
-      }
-      for (const m of r.html.matchAll(/href="(\/[^"#][^"]*)"/g)) {
-        const u = m[1];
-        if (u.startsWith('/_next') || u.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt)$/.test(u)) continue;
-        if (!seen.has(u)) queue.push(u);
-      }
-    }
-  }
-  check(`a1: every page announces itself with an h1 (${[...noHeading].join(', ') || 'all do'})`,
-    noHeading.size, 0);
-  check(`a2: every form control has an accessible name (${[...new Set(unnamed)].join(', ') || 'all do'})`,
-    unnamed.length, 0);
 }
 
 // Section headings. The SAME 11px tracked caps is used three ways in this

@@ -18,7 +18,7 @@ export default async function Reset({ searchParams }: { searchParams: Promise<{ 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
+        <HeaderMark back={{ href: '/signin', label: 'Sign in' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Reset your password</h1>
           {expired && <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>That link has been used or has expired. Ask for another one.</div>}

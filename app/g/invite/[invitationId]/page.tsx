@@ -101,7 +101,7 @@ export default async function GuardianInvite({ params, searchParams }: {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={label}>Anything you want to say</div>
               <div style={{ ...card, minHeight: 74 }}>
-                <textarea name="note" rows={3} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
+                <textarea name="note" aria-label="Anything you want to say" rows={3} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
               </div>
             </div>
             <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
