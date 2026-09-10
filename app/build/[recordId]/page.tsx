@@ -7,7 +7,7 @@ import BuildForm from './BuildForm';
 import { requireRecordActor } from '@/lib/record-guard';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Build your CV', robots: { index: false, follow: false } };
 
 export default async function Build({ params, searchParams }: { params: Promise<{ recordId: string }>; searchParams: Promise<{ saved?: string }> }) {
   const { recordId } = await params;

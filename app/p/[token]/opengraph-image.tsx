@@ -63,20 +63,14 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
   // name + surname INITIAL and nothing that locates them — no full surname,
   // no club, no age group, no region. An adult carries full detail.
   //
-  // The band is derived here from the DOB, never stored and never passed in
-  // by a caller. Melbourne, because every age decision in this product
-  // evaluates there (G9).
-  const melbourneToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
-  const born = cv.dob ? new Date(cv.dob) : null;
-  let age = 0;
-  if (born) {
-    age = melbourneToday.getFullYear() - born.getFullYear();
-    const before = melbourneToday.getMonth() < born.getMonth()
-      || (melbourneToday.getMonth() === born.getMonth() && melbourneToday.getDate() < born.getDate());
-    if (before) age -= 1;
-  }
-  // Unknown DOB is treated as a minor: the restrictive default, as everywhere.
-  const isAdult = born !== null && age >= 18;
+  // The band comes from the read path, which derives it in Postgres on every
+  // read and never stores it (doc 14 §J1). It used to be recomputed here from
+  // cv.dob — a SECOND implementation of the band rule, which is exactly what
+  // the single-read-path discipline exists to prevent, and it was broken:
+  // assembleCv never returns a DOB, so `born` was always null, every player
+  // fell to the restrictive default, and the 18+ branch had never once run.
+  // A 22-year-old's card read "Jordan A." Absent band still means minor.
+  const isAdult = cv.band === '18plus';
   const tiles = (cv.surfacedStats as StatKey[])
     .map((key) => ({ key, value: cv.stats.find((s) => s.key === key && s.value > 0)?.value }))
     .filter((t): t is { key: StatKey; value: number } => typeof t.value === 'number')

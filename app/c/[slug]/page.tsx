@@ -18,6 +18,28 @@ const T = {
 
 export const dynamic = 'force-dynamic';
 
+// The coach's link is public, stable and indexable — it is the recruiting
+// engine (D-100), so it needs a real title and a canonical that points at
+// ITSELF. It inherited a root-level canonical of "/", which tells a search
+// engine this page is a duplicate of the homepage and to index that instead;
+// the one page built to be found was quietly asking not to be.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const { rows } = await db.query(
+    `select p.first_name, coalesce(p.last_name,'') as last_name, cp.region
+       from coach_profile cp join person p on p.id = cp.person_id
+      where cp.public_slug = $1`, [slug]);
+  const c = rows[0];
+  if (!c) return { title: 'Coach CV' };
+  const name = `${c.first_name} ${c.last_name}`.trim();
+  return {
+    title: `${name} — Coach CV`,
+    description: `${name}'s coaching record on Pitch${c.region ? ` — ${c.region}` : ''}.`,
+    alternates: { canonical: `/c/${slug}` },
+    openGraph: { title: `${name} — Coach CV`, url: `/c/${slug}` },
+  };
+}
+
 export default async function CoachCv({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { rows } = await db.query(

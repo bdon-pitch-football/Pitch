@@ -15,7 +15,15 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pitchfootball.com.
 // never described as a social network, anywhere, including meta tags.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Pitch Football — every season on the record. Coming soon.',
+  // Every page sets its own title through this template; the default is the
+  // fallback for anything that forgets. It used to be the waitlist landing
+  // page's title, hardcoded here and inherited by all 51 pages — so a coach's
+  // public CV, a club page and the free PDF export all announced themselves
+  // as "Coming soon." The landing page now carries that copy itself.
+  title: {
+    default: 'Pitch Football — every season on the record.',
+    template: '%s · Pitch Football',
+  },
   description:
     'A goal lasts a second. The run took a season. Pitch keeps a footballer’s development on the record — for players, coaches, clubs and parents. Australia first. Join the waitlist.',
   keywords: ['football', 'soccer', 'player development', 'football CV', 'grassroots football', 'Australia', 'Melbourne'],
@@ -23,7 +31,6 @@ export const metadata: Metadata = {
     title: 'Pitch Football — every season on the record.',
     description:
       'A goal lasts a second. The run took a season. Pitch keeps the record — for players, coaches, clubs and parents. Australia first.',
-    url: SITE_URL,
     siteName: 'Pitch Football',
     images: [{ url: '/assets/film-3.webp', width: 1600, height: 900 }],
     locale: 'en_AU',
@@ -31,7 +38,6 @@ export const metadata: Metadata = {
   },
   twitter: { card: 'summary_large_image' },
   icons: { icon: '/assets/brand/pitch-app-icon.svg', apple: '/assets/brand/app-icon-180.png' },
-  alternates: { canonical: '/' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

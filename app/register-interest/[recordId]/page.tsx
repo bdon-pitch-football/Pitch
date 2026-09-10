@@ -15,7 +15,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Register interest', robots: { index: false, follow: false } };
 
 export default async function RegisterInterest({ params, searchParams }: {
   params: Promise<{ recordId: string }>;

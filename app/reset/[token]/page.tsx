@@ -8,7 +8,7 @@ const T = {
   secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c', amber: '#eda100',
 };
 
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Set a new password', robots: { index: false, follow: false } };
 
 export default async function SetPassword({ params, searchParams }: {
   params: Promise<{ token: string }>;

@@ -9,7 +9,7 @@ const T = {
   secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c',
 };
 
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Report this page', robots: { index: false, follow: false } };
 
 const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };

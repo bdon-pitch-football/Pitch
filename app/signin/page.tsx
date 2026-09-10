@@ -11,7 +11,7 @@ const T = {
   accent: '#3ddc84', onAccent: '#06130c',
 };
 
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Sign in', robots: { index: false, follow: false } };
 
 export default async function SignIn({ searchParams }: { searchParams: Promise<{ out?: string; reset?: string }> }) {
   const { out, reset } = await searchParams;

@@ -9,7 +9,7 @@ const T = {
   secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c',
 };
 
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Reset your password', robots: { index: false, follow: false } };
 
 export default async function Reset({ searchParams }: { searchParams: Promise<{ sent?: string; expired?: string }> }) {
   const { sent, expired } = await searchParams;

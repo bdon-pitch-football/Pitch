@@ -25,6 +25,23 @@ const T = {
 
 export const dynamic = 'force-dynamic';
 
+// Public and indexable, same reasoning as the coach link: a claimed club page
+// is a thing a parent should be able to find. Canonical points at itself.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const { rows } = await db.query(
+    'select name, suburb, state from club where public_slug = $1', [slug]);
+  const c = rows[0];
+  if (!c) return { title: 'Club' };
+  const where = [c.suburb, c.state].filter(Boolean).join(', ');
+  return {
+    title: c.name,
+    description: `${c.name}${where ? ` — ${where}` : ''}. Teams, trials and pathway on Pitch.`,
+    alternates: { canonical: `/fc/${slug}` },
+    openGraph: { title: c.name, url: `/fc/${slug}` },
+  };
+}
+
 const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 

@@ -15,7 +15,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Squads', robots: { index: false, follow: false } };
 
 const STAGE_LABEL: Record<string, string> = {
   miniroos: 'MiniRoos', junior: 'Juniors', youth: 'Youth', senior: 'Seniors',

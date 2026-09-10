@@ -13,7 +13,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Share card', robots: { index: false, follow: false } };
 
 const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
 const SHAPES: [string, string, number, number][] = [['story', 'Story', 34, 60], ['square', 'Square', 52, 52], ['landscape', 'Landscape', 64, 34]];

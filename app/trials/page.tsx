@@ -15,6 +15,13 @@ const T = {
 
 export const dynamic = 'force-dynamic';
 
+// Public and indexable — the noticeboard is a reason for a parent to find us.
+export const metadata = {
+  title: 'Trials',
+  description: 'Open football trials in Victoria and New South Wales, by age group, region and position.',
+  alternates: { canonical: '/trials' },
+};
+
 export default async function TrialsBoard({ searchParams }: {
   searchParams: Promise<{ age?: string; gender?: string }>;
 }) {

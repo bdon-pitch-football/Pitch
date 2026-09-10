@@ -14,7 +14,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'More about you', robots: { index: false, follow: false } };
 
 export default async function More({ params }: { params: Promise<{ recordId: string }> }) {
   const { recordId } = await params;

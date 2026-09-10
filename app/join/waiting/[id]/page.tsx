@@ -14,7 +14,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Check your email', robots: { index: false, follow: false } };
 
 const maskPhone = (p: string) => {
   const d = p.replace(/\s/g, '');

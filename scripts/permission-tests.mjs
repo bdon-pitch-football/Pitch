@@ -836,12 +836,32 @@ check('B10b: and on the guardian off-switch', /discovery_disabled/.test(searchSr
 const eOgCode = codeOnly(eOg);
 check('E12: the card carries no club, age group or region (D-89)',
   /club|age_group|ageGroup|region|suburb/i.test(eOgCode), false);
-// The full surname must be reachable ONLY through the adult branch, and the
-// band must be derived from the DOB rather than accepted from a caller.
+// The full surname must be reachable ONLY through the adult branch.
 check('E12b: a full surname renders only when the band says adult',
   /isAdult \? cv\.lastName : `\$\{cv\.lastName\[0\]\}\.`/.test(eOgCode), true);
-check('E12c: and the band is derived here, never passed in',
-  /const isAdult = /.test(eOgCode) && /searchParams|props\.band|cv\.band/.test(eOgCode), false);
+
+// E12c USED TO assert that the card computed the band itself, from cv.dob,
+// and it counted `cv.band` as caller input alongside searchParams. That was a
+// check on the MECHANISM, not the property — and pinning the mechanism is what
+// caused the bug it existed to prevent. assembleCv never returns a dob, so the
+// local computation always saw null, every player fell to the restrictive
+// default, and the 18+ branch had never once executed in the product's life:
+// a 22-year-old's card read "Jordan A."
+//
+// The property is that WHOEVER REQUESTS THE CARD CANNOT CHOOSE THE BAND. The
+// card's only input is the token in the path; cv comes from fn_token_read,
+// which derives the band in Postgres on every read and never stores it (J1).
+check('E12c: the band cannot be chosen by whoever requests the card',
+  /searchParams|props\.band|params\.band|headers\(\)|cookies\(\)/.test(eOgCode), false);
+check('E12d: it comes from the tokenised read path, not a second derivation',
+  /cv\.band/.test(eOgCode) && /readCvByToken/.test(eOg), true);
+// And the behavioural half, which no source-text check can stand in for: the
+// band the read path hands the card is the one fn_age_band derives from DOB.
+for (const [who, dob] of [['a 14-year-old', '2012-03-14'], ['a 22-year-old', '2004-02-19']]) {
+  const b = (await db.query('select fn_age_band($1::date) as b', [dob])).rows[0].b;
+  check(`E12e: ${who} bands as ${dob === '2004-02-19' ? '18plus' : 'u16'}, so the card branches on a real value`,
+    b, dob === '2004-02-19' ? '18plus' : 'u16');
+}
 check('E13: an adult card therefore carries full detail', /isAdult/.test(eOgCode), true);
 check('E13/E14: the card re-reads the token every request and falls back generic',
   /readCvByToken/.test(eOg) && /!cv/.test(eOg), true);

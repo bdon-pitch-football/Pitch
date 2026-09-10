@@ -281,6 +281,8 @@ const georgia = ids.children.georgia;
   const bound = new Set();       // pages serving a JS-only server action
   const noHeading = new Set();   // pages that do not announce themselves
   const unnamed = new Set();     // form controls with no accessible name
+  const untitled = new Set();    // pages serving no title, or the landing page's
+  const homeCanon = new Set();   // pages claiming to be a duplicate of /
   let fetched = 0;
 
   for (const [seat, who] of Object.entries(seats)) {
@@ -305,6 +307,10 @@ const georgia = ids.children.georgia;
       // --- every question, asked of the one response ---------------------
       if (/name="\$ACTION_REF_\d+"/.test(r.html)) bound.add(P);
       if (!/<h1[\s>]/.test(r.html)) noHeading.add(P);
+      const title = /<title>([^<]*)<\/title>/.exec(r.html)?.[1] ?? '';
+      if (!title || (P !== '/' && !/ · Pitch Football$/.test(title))) untitled.add(`${P} "${title}"`);
+      const canon = /rel="canonical" href="([^"]*)"/.exec(r.html)?.[1];
+      if (canon && P !== '/' && /^https?:\/\/[^/]+\/?$/.test(canon)) homeCanon.add(P);
       const inLabels = [...r.html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((m) => m[1]).join('');
       for (const f of r.html.matchAll(/<(input|textarea|select)[^>]*>/g)) {
         if (/type="hidden"/.test(f[0])) continue;
@@ -336,6 +342,17 @@ const georgia = ids.children.georgia;
   // <div>, identical on screen and "edit text, blank" to a screen reader.
   check(`a2: every form control has an accessible name (${[...unnamed].join(', ') || 'all do'})`,
     unnamed.size, 0);
+  // Every one of the 51 pages inherited the waitlist landing page's title,
+  // so a coach's public CV, a club page and the free PDF export all
+  // announced themselves as "Coming soon." — in the tab, in every unfurl,
+  // and as the default filename a browser offers when saving the PDF.
+  check(`m1: every page names itself, none falls back to the site default (${[...untitled].join(', ') || 'none'})`,
+    untitled.size, 0);
+  // A root-level canonical of "/" told search engines that every page is a
+  // duplicate of the homepage — including the coach link and the club page,
+  // the two pages whose whole job is being found.
+  check(`m2: no page declares itself a duplicate of the homepage (${[...homeCanon].join(', ') || 'none'})`,
+    homeCanon.size, 0);
   check(`crawl: one walk answered all of the above (${fetched} responses)`, fetched > 0, true);
 }
 
@@ -517,6 +534,40 @@ const georgia = ids.children.georgia;
     check(`r41: ${seat} can reach the trials board from home`,
       /href="\/trials"/.test(html), true);
   }
+}
+
+// The social card and the page title are cached by every platform that meets
+// the link — permanently, past expiry, past revocation (D-89). So the band
+// rule governs the title exactly as it governs the image.
+{
+  const titleOf = (html) => /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? '';
+
+  const minor = titleOf((await get('/p/dev-deniz')).html);
+  check(`m3: a minor's shared page carries the surname INITIAL, never the surname (${minor})`,
+    /Deniz Y\./.test(minor) && !/Y[ıi]lmaz/.test(minor), true);
+
+  // The card derived the band from cv.dob, which assembleCv never returns —
+  // so `born` was always null, every player fell to the restrictive default,
+  // and the 18+ branch had never once executed. A 22-year-old's card and
+  // title both read "Jordan A."
+  const adult = titleOf((await get('/p/dev-jordan')).html);
+  check(`m4: an adult's shared page carries their full name (${adult})`,
+    /Jordan Abebe/.test(adult), true);
+
+  // D-77: expired, revoked, paused and never-existed are one response. That
+  // has to hold on the print route too — it used to be the single place a
+  // dead token still produced a hard 404 beside a page serving 200.
+  const dead = [];
+  for (const t of ['dev-expired', 'dev-revoked', 'nonsense-never-existed']) {
+    for (const suffix of ['', '/print']) {
+      const r = await get(`/p/${t}${suffix}`);
+      dead.push(`${r.status} ${titleOf(r.html)}`);
+    }
+  }
+  check(`m5: every dead token state is one response, page and print alike (${[...new Set(dead)].join(' | ')})`,
+    new Set(dead).size, 1);
+  check(`m6: and no dead state names anybody`,
+    dead.every((d) => !/Deniz|Jordan|Abebe/.test(d)), true);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);

@@ -14,7 +14,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Club verification', robots: { index: false, follow: false } };
 
 export default async function OpsVerification() {
   await requireOperator();

@@ -14,7 +14,21 @@ import { db } from '@/lib/db';
 import PrintButton from '@/app/p/[token]/print/PrintButton';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+
+// Same reason as the player's print view: this title is the filename the
+// browser offers when a club saves the PDF (D-121).
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const { rows } = await db.query(
+    `select p.first_name, coalesce(p.last_name,'') as last_name
+       from coach_profile cp join person p on p.id = cp.person_id
+      where cp.public_slug = $1`, [slug]);
+  const c = rows[0];
+  return {
+    title: c ? `${`${c.first_name} ${c.last_name}`.trim()} — Coach CV` : 'Coach CV',
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function PrintCoachCv({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

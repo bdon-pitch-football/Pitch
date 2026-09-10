@@ -13,7 +13,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Share card', robots: { index: false, follow: false } };
 
 export default async function CardApproval({ params, searchParams }: {
   params: Promise<{ cardId: string }>;

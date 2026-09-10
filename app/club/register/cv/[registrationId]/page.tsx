@@ -10,7 +10,7 @@ import PlayerCV from '@/components/cv/PlayerCV';
 import type { CvData } from '@/lib/record-read';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Player CV', robots: { index: false, follow: false } };
 
 export default async function RegisterCv({ params }: { params: Promise<{ registrationId: string }> }) {
   const { registrationId } = await params;

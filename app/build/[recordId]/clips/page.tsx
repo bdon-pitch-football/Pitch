@@ -15,7 +15,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Highlights', robots: { index: false, follow: false } };
 
 const sourceOf = (url: string) =>
   /youtu/i.test(url) ? 'YouTube' : /instagram/i.test(url) ? 'Instagram' : 'Veo';

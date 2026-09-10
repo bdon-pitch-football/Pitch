@@ -5,18 +5,37 @@
 //
 // It reads through the SAME single tokenised path as the screen version, so
 // a paused, expired or revoked link prints nothing.
-import { notFound } from 'next/navigation';
+import LinkState from '@/components/cv/LinkState';
 import { readCvByToken } from '@/lib/record-read';
+import { cvMetadata, DEAD_LINK_METADATA } from '@/lib/cv-meta';
 import { POSITIONS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
 import PrintButton from './PrintButton';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
 
-export default async function PrintCv({ params }: { params: Promise<{ token: string }> }) {
+// The title is the default filename every browser offers when this is saved
+// as a PDF, so it has to be the player's name. It was the waitlist landing
+// page's title, which meant a technical director printing a CV on trial day
+// got a file called "Pitch Football - every season on the record. Coming
+// soon.pdf". Band-aware for the same reason the card is.
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const cv = await readCvByToken(token).catch(() => null);
+  return cv ? cvMetadata(cv) : DEAD_LINK_METADATA;
+}
+
+export default async function PrintCv({ params, searchParams }: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ asked?: string }>;
+}) {
+  const { token } = await params;
+  const { asked } = await searchParams;
   const cv = await readCvByToken(token);
-  if (!cv) notFound();
+  // A dead link never 404s and never leaks existence (D-77) — and that has to
+  // hold on the print route too, which used to be the one place a revoked
+  // token still produced a hard 404 while the page beside it served the
+  // family-managed state at 200.
+  if (!cv) return <LinkState token={token} asked={asked === '1'} />;
 
   const stats = cv.stats.filter((s) => s.value > 0);
   const tiles = (cv.surfacedStats as StatKey[])

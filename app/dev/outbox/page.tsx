@@ -11,7 +11,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Outbox', robots: { index: false, follow: false } };
 
 export default async function Outbox() {
   if (process.env.NODE_ENV === 'production') notFound();

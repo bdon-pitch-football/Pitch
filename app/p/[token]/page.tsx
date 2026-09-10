@@ -5,10 +5,20 @@
 import PlayerCV from '@/components/cv/PlayerCV';
 import LinkState from '@/components/cv/LinkState';
 import { readCvByToken } from '@/lib/record-read';
+import { cvMetadata, DEAD_LINK_METADATA } from '@/lib/cv-meta';
 
-// Tokenised pages: out of every index, always (D-95).
-export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
+
+// Tokenised pages stay out of every index, always (D-95) — every branch below
+// returns robots:noindex. The token is deliberately read again here rather
+// than memoised across the metadata and body passes: D-94 §5 wants it
+// re-checked on every read, and no cache on a child's record is worth the
+// saving.
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const cv = await readCvByToken(token).catch(() => null);
+  return cv ? cvMetadata(cv) : DEAD_LINK_METADATA;
+}
 
 export default async function SharedCv({ params, searchParams }: {
   params: Promise<{ token: string }>;

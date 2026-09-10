@@ -15,7 +15,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Approve a profile', robots: { index: false, follow: false } };
 
 const PROMISES: [string, string][] = [
   ['will not appear in any search.', 'Under-16 profiles are not searchable on Pitch at all.'],

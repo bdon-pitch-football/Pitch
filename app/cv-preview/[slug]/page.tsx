@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation';
 import PlayerCV from '@/components/cv/PlayerCV';
 import { PLAYER_FIXTURES } from '@/lib/fixtures';
 
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'CV preview', robots: { index: false, follow: false } };
 
 export default async function CvPreview({ params }: { params: Promise<{ slug: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();

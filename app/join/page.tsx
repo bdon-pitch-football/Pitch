@@ -24,6 +24,7 @@ const ROLES = [
   ['club', 'Club', "Your club's home ground"],
 ] as const;
 
+
 export default function Join() {
   const [role, setRole] = useState('player');
   const [step, setStep] = useState<'signup' | 'parent' | 'account'>('signup');

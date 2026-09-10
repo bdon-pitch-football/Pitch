@@ -20,7 +20,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Undo', robots: { index: false, follow: false } };
 
 async function revoke(formData: FormData) {
   'use server';

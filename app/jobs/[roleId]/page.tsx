@@ -15,6 +15,8 @@ const T = {
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = { title: 'Coaching role' };
+
 export default async function Role({ params, searchParams }: {
   params: Promise<{ roleId: string }>;
   searchParams: Promise<{ applied?: string; cannot?: string; closed?: string }>;

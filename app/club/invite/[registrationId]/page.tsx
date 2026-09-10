@@ -13,7 +13,7 @@ const T = {
 };
 
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: 'Invite a family', robots: { index: false, follow: false } };
 
 export default async function InviteCompose({ params }: { params: Promise<{ registrationId: string }> }) {
   const { registrationId } = await params;
