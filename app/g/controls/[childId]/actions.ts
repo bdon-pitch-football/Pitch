@@ -131,11 +131,37 @@ export async function deleteEverything(formData: FormData) {
       `insert into consent_event (event, actor_id, subject_id, detail) values ('deletion_requested',$1,$2,'{}')`,
       [guardianId, childId],
     );
+    // D-26, one tap, cascading correctly through the record. This had NEVER
+    // completed: the guardianship link was REVOKED rather than deleted, and
+    // then the person delete hit that surviving row's foreign key. Every
+    // press rolled back and returned a 500, for all three fixtures, and
+    // nothing had ever driven this button to notice.
+    //
+    // The child is the subject of far more tables than the four that were
+    // here. Everything below is a row ABOUT the child; each one goes.
+    // Deliberately NOT here: consent_event, which carries no foreign key to
+    // person precisely so the audit of an erasure survives the erasure, and
+    // anything authored by someone else, which is theirs (D-48).
+    //
     // the record cascades: stats, entries, clips, versions, tokens, requests
     await client.query(`delete from development_record where person_id=$1`, [childId]);
     await client.query(`delete from membership where person_id=$1`, [childId]);
-    await client.query(`delete from guardian_setting where child_id=$1`, [childId]);
-    await client.query(`update guardianship_link set revoked_at=now() where child_id=$1 and revoked_at is null`, [childId]);
+    await client.query(`delete from registration where player_id=$1`, [childId]);
+    await client.query(`delete from share_request where requested_by=$1 or dispatched_by=$1`, [childId]);
+    await client.query(`delete from share_card_approval where requested_by=$1 or approved_by=$1`, [childId]);
+    await client.query(`delete from registration_request where dispatched_by=$1`, [childId]);
+    await client.query(`delete from invitation_reply where replied_by=$1`, [childId]);
+    await client.query(`delete from verification_challenge where person_id=$1`, [childId]);
+    await client.query(`delete from message_outbox where to_person=$1`, [childId]);
+    await client.query(`delete from undo_token where issued_to=$1`, [childId]);
+    await client.query(`delete from abuse_signal where actor_id=$1`, [childId]);
+    await client.query(`delete from investigation_grant where subject_id=$1 or investigator_id=$1`, [childId]);
+    // A 16-17 may coach MiniRoos (D-82), so these can exist for a minor.
+    await client.query(`delete from role_application where coach_id=$1`, [childId]);
+    await client.query(`delete from coach_profile where person_id=$1`, [childId]);
+    await client.query(`delete from wwcc_attestation where person_id=$1 or attested_by=$1`, [childId]);
+    await client.query(`delete from guardian_setting where child_id=$1 or updated_by=$1`, [childId]);
+    await client.query(`delete from guardianship_link where child_id=$1 or guardian_id=$1`, [childId]);
     await client.query(`delete from person where id=$1`, [childId]);
     await client.query(
       `insert into consent_event (event, actor_id, detail) values ('deletion_completed',$1,'{}')`,

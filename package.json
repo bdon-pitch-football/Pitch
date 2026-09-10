@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "build:check": "NEXT_DIST_DIR=.next-check next build",
     "test:render": "node scripts/render-tests.mjs",
-    "test:perms": "node scripts/permission-tests.mjs"
+    "test:perms": "node scripts/permission-tests.mjs",
+    "test:write": "node scripts/write-tests.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite-socket": "^0.2.11",
