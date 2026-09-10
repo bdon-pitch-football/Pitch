@@ -12,7 +12,13 @@ import { db } from '@/lib/db';
 import { EXPERIENCE_KINDS } from '@/lib/football';
 import { requireRecordActor } from '@/lib/record-guard';
 
-export async function addAchievement(recordId: string, formData: FormData) {
+//
+// Ids come from the FORM, not from bind(). A bound server action renders
+// $ACTION_REF_n plus encrypted arguments only the client runtime resolves,
+// so it 500s without JavaScript instead of degrading. Every id below was
+// already re-checked server-side — bind() never made one trustworthy.
+export async function addAchievement(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
   await requireRecordActor(recordId);
   const title = String(formData.get('title') ?? '').trim();
   const detail = String(formData.get('detail') ?? '').trim();
@@ -26,13 +32,16 @@ export async function addAchievement(recordId: string, formData: FormData) {
   redirect(`/build/${recordId}/more`);
 }
 
-export async function removeAchievement(recordId: string, id: string) {
+export async function removeAchievement(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
+  const id = String(formData.get('achievementId') ?? '');
   await requireRecordActor(recordId);
   await db.query(`delete from achievement where id=$1 and record_id=$2`, [id, recordId]);
   redirect(`/build/${recordId}/more`);
 }
 
-export async function addExperience(recordId: string, formData: FormData) {
+export async function addExperience(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
   await requireRecordActor(recordId);
   const kind = String(formData.get('kind') ?? '');
   // A previous club is an experience entry and nothing more: it is written
@@ -50,7 +59,9 @@ export async function addExperience(recordId: string, formData: FormData) {
   redirect(`/build/${recordId}/more`);
 }
 
-export async function removeExperience(recordId: string, id: string) {
+export async function removeExperience(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
+  const id = String(formData.get('experienceId') ?? '');
   await requireRecordActor(recordId);
   await db.query(`delete from experience_entry where id=$1 and record_id=$2`, [id, recordId]);
   redirect(`/build/${recordId}/more`);

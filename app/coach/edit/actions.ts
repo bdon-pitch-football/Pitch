@@ -42,7 +42,13 @@ export async function addRole(formData: FormData) {
   redirect('/coach/edit');
 }
 
-export async function removeRole(roleId: string) {
+//
+// Ids come from the FORM, not from bind(). A bound server action renders
+// $ACTION_REF_n plus encrypted arguments only the client runtime resolves,
+// so it 500s without JavaScript instead of degrading. Every id below was
+// already re-checked server-side — bind() never made one trustworthy.
+export async function removeRole(formData: FormData) {
+  const roleId = String(formData.get('roleId') ?? '');
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   await db.query(
@@ -86,7 +92,8 @@ export async function addLicence(formData: FormData) {
   redirect('/coach/edit?saved=licence');
 }
 
-export async function removeLicence(licenceId: string) {
+export async function removeLicence(formData: FormData) {
+  const licenceId = String(formData.get('licenceId') ?? '');
   const profileId = await myProfile();
   await db.query(`delete from coach_licence where id = $1 and coach_profile_id = $2`, [licenceId, profileId]);
   redirect('/coach/edit?removed=licence');
@@ -106,7 +113,8 @@ export async function addCoachAchievement(formData: FormData) {
   redirect('/coach/edit?saved=achievement');
 }
 
-export async function removeCoachAchievement(id: string) {
+export async function removeCoachAchievement(formData: FormData) {
+  const id = String(formData.get('achievementId') ?? '');
   const profileId = await myProfile();
   await db.query(`delete from coach_achievement where id = $1 and coach_profile_id = $2`, [id, profileId]);
   redirect('/coach/edit?removed=achievement');
@@ -145,7 +153,8 @@ export async function addCoachClip(formData: FormData) {
   redirect('/coach/edit?saved=clip');
 }
 
-export async function removeCoachClip(clipId: string) {
+export async function removeCoachClip(formData: FormData) {
+  const clipId = String(formData.get('clipId') ?? '');
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   await db.query(
@@ -160,7 +169,8 @@ export async function removeCoachClip(clipId: string) {
 // Applying for a coaching role (0019). 18+ and a coach profile, both checked
 // in Postgres so the app cannot route around either.
 // ---------------------------------------------------------------------------
-export async function applyForRole(roleId: string, formData: FormData) {
+export async function applyForRole(formData: FormData) {
+  const roleId = String(formData.get('roleId') ?? '');
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   const ok = await db.query(`select fn_can_apply_for_role($1) as ok`, [me]);

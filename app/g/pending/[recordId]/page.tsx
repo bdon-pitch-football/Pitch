@@ -41,7 +41,7 @@ export default async function PendingReview({ params, searchParams }: {
 
   if (done || !r.pending_about) {
     // approved state: confirmation + the share-link affordance
-    const issue = issueShareLink.bind(null, recordId);
+    const issue = issueShareLink;
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
@@ -57,7 +57,7 @@ export default async function PendingReview({ params, searchParams }: {
               <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500 }}>Expires in 90 days. You can pause or regenerate it any time.</div>
             </div>
           ) : (
-            <form action={issue}>
+            <form action={issue}><input type="hidden" name="recordId" value={recordId} />
               <button type="submit" style={{ width: '100%', background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Get the share link</button>
             </form>
           )}
@@ -66,7 +66,7 @@ export default async function PendingReview({ params, searchParams }: {
     );
   }
 
-  const act = approveChange.bind(null, recordId);
+  const act = approveChange;
   const approvedDate = r.approved_at
     ? new Date(r.approved_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', timeZone: 'Australia/Melbourne' })
     : null;
@@ -108,7 +108,7 @@ export default async function PendingReview({ params, searchParams }: {
           ))}
         </div>
 
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 'auto' }}>
+        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 'auto' }}><input type="hidden" name="recordId" value={recordId} />
           <button type="submit" className="btn btn-primary">Approve the change</button>
           <div style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>Edit the words first</div>
           <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Not this one</div>

@@ -23,7 +23,13 @@ export async function requestReset(formData: FormData) {
   redirect('/reset?sent=1');
 }
 
-export async function submitNewPassword(token: string, formData: FormData) {
+//
+// Ids come from the FORM, not from bind(). A bound server action renders
+// $ACTION_REF_n plus encrypted arguments only the client runtime resolves,
+// so it 500s without JavaScript instead of degrading. Every id below was
+// already re-checked server-side — bind() never made one trustworthy.
+export async function submitNewPassword(formData: FormData) {
+  const token = String(formData.get('token') ?? '');
   const password = String(formData.get('password') ?? '');
   if (password.length < 10) redirect(`/reset/${token}?short=1`);
   const personId = await consumeReset(token);

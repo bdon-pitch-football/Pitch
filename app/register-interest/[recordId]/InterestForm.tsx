@@ -25,7 +25,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
   const [note, setNote] = useState('');
   const toggle = (code: string) =>
     setPositions((p) => (p.includes(code) ? p.filter((c) => c !== code) : p.length < 3 ? [...p, code] : p));
-  const act = composeInterest.bind(null, recordId);
+  const act = composeInterest;
 
   const Row = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
@@ -44,7 +44,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
           <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Register your interest</div>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{club.name} keep a register of players who want to be there. Put your name on it and they have your CV when they&rsquo;re looking.</div>
         </div>
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="recordId" value={recordId} />
           <input type="hidden" name="clubId" value={club.id} />
           <input type="hidden" name="positions" value={positions.join(',')} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>

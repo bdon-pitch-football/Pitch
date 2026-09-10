@@ -66,7 +66,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
             </div>
             <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Asked {r.guardian_name ?? 'a guardian'} · created {r.created} · {r.messages} message{r.messages === 1 ? '' : 's'} queued</div>
             {!r.approved && (
-              <form action={resendApproval.bind(null, r.id)}>
+              <form action={resendApproval}><input type="hidden" name="invitationId" value={r.id} />
                 <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 42, padding: '0 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Resend the approval request</button>
               </form>
             )}

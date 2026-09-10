@@ -38,7 +38,13 @@ export async function addClubVideo(formData: FormData) {
   redirect('/club/page-edit?saved=video');
 }
 
-export async function removeClubVideo(videoId: string) {
+//
+// Ids come from the FORM, not from bind(). A bound server action renders
+// $ACTION_REF_n plus encrypted arguments only the client runtime resolves,
+// so it 500s without JavaScript instead of degrading. Every id below was
+// already re-checked server-side — bind() never made one trustworthy.
+export async function removeClubVideo(formData: FormData) {
+  const videoId = String(formData.get('videoId') ?? '');
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   const clubId = await clubIManage(me);

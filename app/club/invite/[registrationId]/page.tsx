@@ -29,7 +29,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
   if (rows.length === 0) notFound();
   const r = rows[0];
   const name: string = r.first_name;
-  const act = sendInvitation.bind(null, registrationId);
+  const act = sendInvitation;
 
   const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
@@ -43,7 +43,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
           <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Invite {name}</div>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{name} went on your register in {r.reg_month}. This is the only way you can reach {name}.</div>
         </div>
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="registrationId" value={registrationId} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="field-label">What you&rsquo;re sending</div>
             <div style={{ display: 'flex', gap: 8 }}>

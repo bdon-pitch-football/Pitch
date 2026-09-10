@@ -31,7 +31,7 @@ export default async function Approval({ params }: { params: Promise<{ id: strin
 
   const name: string = inv.first_name;
   const age = Math.floor((Date.now() - new Date(inv.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
-  const approveWithId = approve.bind(null, id);
+  const approveWithId = approve;
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -58,7 +58,7 @@ export default async function Approval({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
-        <form action={approveWithId} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
+        <form action={approveWithId} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}><input type="hidden" name="invitationId" value={id} />
           <button type="submit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: 15, borderRadius: 14, height: 50, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Approve this page</button>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.line}`, color: T.secondary, fontWeight: 700, fontSize: 14, borderRadius: 13, height: 48 }}>Not yet — I want to talk to {name} first</div>
           <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, textAlign: 'center', lineHeight: 1.5 }}>

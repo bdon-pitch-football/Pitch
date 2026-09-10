@@ -123,7 +123,7 @@ export default async function ClubRoles({ searchParams }: {
                 </div>
               </div>
               {!r.closed_at && (
-                <form action={closeRole.bind(null, r.id)}>
+                <form action={closeRole}><input type="hidden" name="roleId" value={r.id} />
                   <button type="submit" style={{ height: 36, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 13px', cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
                 </form>
               )}

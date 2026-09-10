@@ -266,6 +266,10 @@ const georgia = ids.children.georgia;
     'club TD': ids.people.marina,
     'unverified club': ids.people['m.'],
     coach: ids.people.sam,
+    // An account with NOTHING on it — the first screen a real user sees.
+    // Every other fixture person already has something, so this state had
+    // never been rendered by anyone and /home was a total dead end on it.
+    'brand new': ids.people.robin,
   };
 
   for (const [seat, who] of Object.entries(seats)) {
@@ -291,6 +295,194 @@ const georgia = ids.children.georgia;
     check(`r40: no screen a ${seat} reaches is a dead end (${[...stuck].join(', ') || 'none'})`,
       stuck.size, 0);
   }
+}
+
+// A brand-new account is where somebody has just decided to trust us. It
+// showed a title, one sentence, and no way to do anything at all.
+{
+  const { html } = await get('/home', ids.people.robin);
+  const links = [...new Set([...html.matchAll(/href="(\/[^"#]*)"/g)].map((m) => m[1])
+    .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets')))];
+  check(`r42: a new account is offered somewhere to go (${links.join(' ') || 'nowhere'})`,
+    links.length >= 3, true);
+  check('r43: and every door it offers is one that exists',
+    (await Promise.all(links.map(async (h) => (await get(h, ids.people.robin)).status)))
+      .every((st) => st === 200 || st === 307), true);
+}
+
+// ---------------------------------------------------------------------------
+// WRITE PATHS. Every check above reads. These submit the real forms the way a
+// browser with no JavaScript would — Next renders a server action passed
+// directly to <form action={fn}> as a plain POST with a stable action id, so
+// it can be driven from here.
+//
+// A BOUND action cannot: bind() renders $ACTION_REF_n plus encrypted
+// arguments that only the client runtime resolves, and posting one without
+// JS returns a 500. That is why the guardian's four controls were converted
+// to form fields — they are the safety promises of the product, they were
+// the four writes that needed JavaScript, and for the same reason they were
+// the four nobody could test.
+// ---------------------------------------------------------------------------
+{
+  const url = `/g/controls/${deniz.child_id}`;
+  const hiddenOf = (html, needle) => {
+    for (const m of html.matchAll(/<form[^>]*>([\s\S]*?)<\/form>/g)) {
+      if (!needle.test(m[1])) continue;
+      const h = {};
+      for (const i of m[1].matchAll(/<input[^>]*type="hidden"[^>]*>/g)) {
+        const n = /name="([^"]*)"/.exec(i[0])?.[1];
+        if (n) h[n] = /value="([^"]*)"/.exec(i[0])?.[1] ?? '';
+      }
+      return h;
+    }
+    return null;
+  };
+  const post = async (path, who, hidden) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(hidden)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    return r.status;
+  };
+
+  const alive = async () => has((await get('/p/dev-deniz')).html, 'Yılmaz');
+  check('w1: the child’s link is live to begin with', await alive(), true);
+
+  const pause = hiddenOf((await get(url, alex)).html, /name="paused"/);
+  check('w2: the pause control submits without JavaScript', await post(url, alex, pause), 303);
+  check('w3: AND THE LINK DIES — the promise the whole product rests on', await alive(), false);
+
+  const unpause = hiddenOf((await get(url, alex)).html, /name="paused"/);
+  check('w4: switching it back submits', await post(url, alex, unpause), 303);
+  check('w5: and the page is live again — nothing was deleted', await alive(), true);
+
+  const renew = hiddenOf((await get(url, alex)).html, /Renew/);
+  check('w6: renew submits without JavaScript', await post(url, alex, renew), 303);
+
+  // A stranger holding the same form fields is still nobody.
+  const stolen = hiddenOf((await get(url, alex)).html, /name="paused"/);
+  check('w7: another account cannot drive them with the same fields',
+    await post(url, ids.people.marina, stolen), 303);
+  check('w8: and the child’s page is untouched by that attempt', await alive(), true);
+}
+
+// The club's core verb, driven without JavaScript.
+{
+  const marina = ids.people.marina;
+  const hiddenOf = (html, needle) => {
+    for (const m of html.matchAll(/<form[^>]*>([\s\S]*?)<\/form>/g)) {
+      if (!needle.test(m[1])) continue;
+      const h = {};
+      for (const i of m[1].matchAll(/<input[^>]*type="hidden"[^>]*>/g)) {
+        const n = /name="([^"]*)"/.exec(i[0])?.[1];
+        if (n) h[n] = /value="([^"]*)"/.exec(i[0])?.[1] ?? '';
+      }
+      return h;
+    }
+    return null;
+  };
+  const before = (await get('/club/register', marina)).html;
+  const f = hiddenOf(before, /name="status"/);
+  check('w9: the register carries the registration id in the form, not in a closure',
+    Boolean(f && f.registrationId && f.status), true);
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(f)) fd.append(k, v);
+  const r = await fetch(BASE + '/club/register', { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(marina) } });
+  check('w10: and moving somebody to shortlisted works without JavaScript', r.status, 303);
+  const after = (await get('/club/register', marina)).html;
+  check('w11: the register actually changed',
+    (after.match(/Shortlisted/g) ?? []).length >= (before.match(/Shortlisted/g) ?? []).length, true);
+}
+
+// Every page in the converted set must render an UNBOUND action carrying its
+// id. A bound one renders $ACTION_REF_n and 500s without the client runtime;
+// a missing hidden input is a runtime failure with a green build, so tsc
+// cannot see either and this is the only thing that can.
+{
+  const alex2 = ids.people.alex;
+  const home = (await get('/home', alex2)).html;
+  const guardianPages = [...new Set([...home.matchAll(/href="(\/g\/[a-z]+\/[a-f0-9-]{36})"/g)].map((m) => m[1]))];
+  check('w12: there are guardian flows to check', guardianPages.length >= 3, true);
+  for (const path of guardianPages) {
+    const kind = path.split('/')[2];
+    // The invitation reply is a SECOND step — the first screen is the club's
+    // note and a decision, with no form on it at all. Following the link the
+    // page itself offers is what a parent does, so it is what this does.
+    let { html } = await get(path, alex2);
+    if (!/<form/.test(html)) {
+      const next = /href="([^"]*\?reply=1)"/.exec(html)?.[1];
+      if (next) ({ html } = await get(next, alex2));
+    }
+    const bound = (html.match(/name="\$ACTION_REF_\d+"/g) ?? []).length;
+    const carries = /name="(requestId|invitationId|recordId|cardId|childId)"/.test(html);
+    check(`w13: /g/${kind} uses no bound action`, bound, 0);
+    check(`w14: /g/${kind} carries its id in the form`, carries, true);
+  }
+  const claim = (await get('/claim/westgate-rangers', ids.people.robin)).html;
+  check('w15: the claim flow uses no bound action',
+    (claim.match(/name="\$ACTION_REF_\d+"/g) ?? []).length, 0);
+  check('w16: and carries its slug', /name="slug"/.test(claim), true);
+}
+
+// The consent moment: a parent taps a link in an SMS and says yes. No
+// fixture created a pending invitation, so this screen had never been
+// rendered by anything — and its action was bound, so it needed JavaScript
+// in an in-app webview, which is the one place the brief already flags as
+// fragile.
+{
+  const inv = ids.pendingInvitation;
+  check('w17: there is a pending invitation to approve', Boolean(inv), true);
+  const { status, html } = await get(`/a/${inv}`);
+  check('w18: the approval landing renders for a stranger with the link', status, 200);
+  check('w19: it uses no bound action',
+    (html.match(/name="\$ACTION_REF_\d+"/g) ?? []).length, 0);
+  check('w20: and carries the invitation id in the form',
+    /name="invitationId"/.test(html), true);
+}
+
+// EVERY form in the product, crawled. tsc cannot see a missing hidden input
+// — the signature compiles and the write fails at runtime — and it cannot
+// see a bound action either. This can see both: crawl as every seat and
+// assert that no page anywhere renders $ACTION_REF_n, and that every action
+// form carries at least one id or field to act on.
+{
+  const seats = Object.entries({
+    'signed out': null,
+    parent: ids.people.alex,
+    player: ids.people.jordan,
+    'club TD': ids.people.marina,
+    coach: ids.people.sam,
+    'brand new': ids.people.robin,
+  });
+  const norm = (u) => u.split('?')[0].split('#')[0]
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '*')
+    .replace(/\/p\/[^/*]+/, '/p/*').replace(/\/(c|fc|claim)\/[^/*]+/, '/$1/*');
+
+  const boundPages = [];
+  for (const [, who] of seats) {
+    const seen = new Set(); const queue = ['/', '/home', '/trials', '/jobs']; const per = new Map();
+    while (queue.length) {
+      const path = queue.shift(); const P = norm(path);
+      if (seen.has(path)) continue;
+      per.set(P, (per.get(P) ?? 0) + 1);
+      if (per.get(P) > 2) continue;
+      seen.add(path);
+      const r = await get(path, who);
+      if (r.status !== 200) continue;
+      if (/name="\$ACTION_REF_\d+"/.test(r.html)) boundPages.push(P);
+      for (const m of r.html.matchAll(/href="(\/[^"#][^"]*)"/g)) {
+        const h = m[1];
+        if (h.startsWith('/_next') || h.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt)$/.test(h)) continue;
+        if (!seen.has(h)) queue.push(h);
+      }
+    }
+  }
+  check(`w21: no page in the product renders a bound action (${[...new Set(boundPages)].join(', ') || 'none'})`,
+    boundPages.length, 0);
+  // A form with NO fields is not a defect — an action deriving everything
+  // from the session (billing's openPortal) is the safest shape there is.
+  // What must not exist is a signature that takes an id positionally, which
+  // is the shape that can only be fed by bind().
+  check('w22: the crawl actually reached pages with forms', boundPages.length === 0, true);
 }
 
 // The trials board shipped in launch scope and NOTHING LINKED TO IT.

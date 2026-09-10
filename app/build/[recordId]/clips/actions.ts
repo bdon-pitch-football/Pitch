@@ -10,7 +10,13 @@ import { requireRecordActor } from '@/lib/record-guard';
 
 const HOSTS = /^(https:\/\/)(www\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
 
-export async function addClip(recordId: string, formData: FormData) {
+//
+// Ids come from the FORM, not from bind(). A bound server action renders
+// $ACTION_REF_n plus encrypted arguments only the client runtime resolves,
+// so it 500s without JavaScript instead of degrading. Every id below was
+// already re-checked server-side — bind() never made one trustworthy.
+export async function addClip(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
   // Never trust the record id in the URL (D-94 §3).
   await requireRecordActor(recordId);
   const url = String(formData.get('url') ?? '').trim();
@@ -46,7 +52,9 @@ export async function addClip(recordId: string, formData: FormData) {
   redirect(`/build/${recordId}/clips`);
 }
 
-export async function removeClip(recordId: string, clipId: string) {
+export async function removeClip(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
+  const clipId = String(formData.get('clipId') ?? '');
   // Never trust the record id in the URL (D-94 §3).
   await requireRecordActor(recordId);
   await db.query(`delete from highlight where id = $1 and record_id = $2`, [clipId, recordId]);

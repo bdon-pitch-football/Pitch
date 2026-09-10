@@ -8,7 +8,19 @@ import { createHash } from 'node:crypto';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 
-export async function approveCard(cardId: string) {
+//
+// FORM FIELDS, NOT bind(). A server action passed straight to
+// <form action={fn}> is progressively enhanced — Next renders a plain POST
+// with a stable action id and it works with no JavaScript. A BOUND one
+// renders $ACTION_REF_n plus encrypted arguments only the client runtime can
+// resolve, so without JS it returns a 500 rather than degrading, and it
+// cannot be exercised by anything that is not a browser.
+//
+// Moving the id into the form costs nothing in safety: every one of these
+// already re-checks its arguments server-side. bind() never made an argument
+// trustworthy — the authorisation below did.
+export async function approveCard(formData: FormData) {
+  const cardId = String(formData.get('cardId') ?? '');
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 

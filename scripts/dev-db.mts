@@ -537,6 +537,30 @@ await server.start();
 console.log('dev db ready on 127.0.0.1:54322');
 // Printed from the fixtures rather than typed out, so a new one appears here
 // the day it is added — the old line had gone stale within one fixture.
+// A BRAND-NEW SIGNUP: an account and nothing else — no record, no club, no
+// coach profile. Every other fixture person already has something, so the
+// first screen a real user ever sees had never been rendered by anyone.
+// Empty states are where a product looks broken or looks confident, and this
+// one had no fixture at all.
+await db.query(
+  `insert into person (first_name, last_name, dob, email) values ('Robin','Newman','1994-03-02','new@example.com')`,
+);
+
+let pendingInvitationId = '';
+// A PENDING INVITATION, so the guardian approval landing exists at all.
+// /a/[id] is the screen a parent reaches from the SMS — the moment they say
+// yes, and the single most important write in the product — and NO FIXTURE
+// CREATED ONE, so it had never been rendered or exercised by anything. The
+// walkthrough could not reach it either.
+{
+  const inv = await db.query(
+    `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email)
+     values ('Mila','2013-04-18','Priya Raman','0412 345 678','priya@example.com') returning id`,
+  );
+  console.log(`  approve: /a/${inv.rows[0].id}`);
+  pendingInvitationId = inv.rows[0].id as string;
+}
+
 console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')} dev-expired dev-revoked`);
 // Person ids, because the signed-in surfaces are the ones you cannot reach
 // with a plain URL and every reseed mints fresh uuids.
@@ -561,6 +585,7 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     JSON.stringify({
       people: Object.fromEntries(who.rows.map((r) => [String(r.first_name).toLowerCase(), r.id])),
       children: Object.fromEntries(kids.rows.map((r) => [String(r.first_name).toLowerCase(), r])),
+      pendingInvitation: pendingInvitationId,
       clubs: Object.fromEntries(
         (await db.query(`select public_slug, id from club where public_slug is not null`)).rows
           .map((r) => [r.public_slug, r.id]),
@@ -568,4 +593,4 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     }, null, 2) + '\n',
   );
 }
-console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club)');
+console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club) · new@example.com (brand-new, nothing yet)');

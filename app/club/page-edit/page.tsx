@@ -136,7 +136,7 @@ export default async function ClubPageEdit({ searchParams }: {
               <div style={{ fontSize: 14.5, fontWeight: 800 }}>{v.title}</div>
               <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.url}</div>
             </div>
-            <form action={removeClubVideo.bind(null, v.id)}>
+            <form action={removeClubVideo}><input type="hidden" name="videoId" value={v.id} />
               <button type="submit" style={{ height: 38, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
             </form>
           </div>

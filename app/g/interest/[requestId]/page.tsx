@@ -56,7 +56,7 @@ export default async function GuardianInterest({ params, searchParams }: {
     );
   }
 
-  const act = dispatchInterest.bind(null, requestId);
+  const act = dispatchInterest;
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
@@ -137,7 +137,7 @@ export default async function GuardianInterest({ params, searchParams }: {
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>A register is a list of who wants to be there, not a decision anyone owes {name} — so there is no result coming and nothing to be turned down from. If you&rsquo;d rather not, do nothing — this disappears by itself.</div>
         </div>
 
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
+        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}><input type="hidden" name="requestId" value={requestId} />
           <button type="submit" className="btn btn-primary">Register {name}&rsquo;s interest</button>
           <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Not this one</div>
         </form>

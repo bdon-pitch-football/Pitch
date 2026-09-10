@@ -45,7 +45,7 @@ export default function LinkState({ token, asked }: { token?: string; asked?: bo
             </div>
           </div>
         ) : (
-          <form action={requestAccess.bind(null, token)} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <form action={requestAccess} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 11 }}><input type="hidden" name="token" value={token} />
             <div style={{ fontSize: 14, fontWeight: 900 }}>Were you sent this link?</div>
             <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
               Tell the family who you are and they can send you a new one. We pass on exactly what you type and nothing else.

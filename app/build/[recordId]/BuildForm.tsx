@@ -29,7 +29,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
     setPositions((p) => (p.includes(code) ? p.filter((c) => c !== code) : p.length < 3 ? [...p, code] : p));
   const toggleStat = (k: string) =>
     setSurfaced((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
-  const act = saveDraft.bind(null, record.id);
+  const act = saveDraft;
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -61,7 +61,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
           <input type="file" name="photo" accept="image/*" required style={{ width: 108, fontSize: 11, color: T.muted, fontFamily: 'inherit' }} />
           <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 11, height: 36, padding: '0 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Upload</button>
         </form>
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}><input type="hidden" name="recordId" value={record.id} />
           <input type="hidden" name="positions" value={positions.join(',')} />
           <input type="hidden" name="surfaced" value={surfaced.join(',')} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

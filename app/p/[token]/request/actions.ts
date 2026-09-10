@@ -16,7 +16,14 @@ import { db } from '@/lib/db';
 import { accessRequestEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 
-export async function requestAccess(token: string, formData: FormData) {
+//
+// The token comes from the FORM. This one sits on the dead-link page — a
+// stranger, no session, often an in-app webview — which is the least
+// reliable place in the product for JavaScript, and a bound action answers
+// a 500 there instead of working. The token is the credential and it is
+// hashed and checked below either way; bind() never made it safer.
+export async function requestAccess(formData: FormData) {
+  const token = String(formData.get('token') ?? '');
   const name = String(formData.get('name') ?? '').trim().slice(0, 80);
   const role = String(formData.get('role') ?? '').trim().slice(0, 120);
   const done = `/p/${token}?asked=1`;

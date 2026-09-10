@@ -239,13 +239,49 @@ export default async function Home() {
     );
   }
 
+  // THE FIRST SCREEN A REAL USER SEES, and it used to be a title, one
+  // sentence and NOTHING ELSE — no link, no next step, a complete dead end
+  // at the exact moment somebody has just decided to trust us. Every fixture
+  // person already had something, so nobody had ever rendered it.
+  //
+  // These are the doors that actually work for an account with nothing on
+  // it. Nothing here is aspirational: each one is a page that exists.
   if (children.length === 0) {
     return (
       <Shell>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome, {me.first_name}</div>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Your account is set up. There is nothing on it yet.</div>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Your account is set up. Here is what you can do with it.</div>
         </div>
+
+        <Link href="/coach/edit" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Build a coach CV</div>
+            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Your roles, your licences, one link to send</div>
+          </div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Start</div>
+        </Link>
+
+        <Link href="/trials" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Trials near you</div>
+            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Every notice we hold, by date</div>
+          </div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
+        </Link>
+
+        <Link href="/jobs" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Coaching roles at clubs</div>
+            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Nothing here is ranked or recommended</div>
+          </div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
+        </Link>
+
+        <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+          Adding a child, claiming a club page and building a player CV are not on this screen yet — tell us which you came for and we will point you at it.
+        </div>
+        <Link href="/signout" className="btn btn-ghost">Sign out</Link>
       </Shell>
     );
   }

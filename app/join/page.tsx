@@ -80,6 +80,20 @@ export default function Join() {
                 I agree to the <a href="/terms" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Terms</a> and <a href="/privacy" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Privacy Policy</a>
               </span>
             </label>
+            {/* Three of the four role chips are selectable and CANNOT SIGN UP:
+                createAccount is player-shaped (it always makes a development
+                record), so parent, coach and club were gated out — leaving a
+                dead 45%-opacity button and no explanation. A door that is
+                closed has to say so; a door that looks open and does nothing
+                is the worst version. */}
+            {role !== 'player' && (
+              <div style={{ background: T.surface, border: '1px solid #eda100', borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                <b style={{ color: T.ink }}>This door is not open yet.</b> Player accounts are the only ones you can create here today.
+                {role === 'parent' && ' A parent joins when their child does — the child starts, and the approval comes to you by text and email.'}
+                {role === 'coach' && ' Coaches are being let in one at a time while we get it right — email help@pitchfootball.com.au and we will set you up.'}
+                {role === 'club' && ' Clubs are set up by a phone call with us, not a form — that call is what verifies you. Email help@pitchfootball.com.au.'}
+              </div>
+            )}
             <button disabled={!canContinue} onClick={() => setStep(age !== null && age < 16 ? 'parent' : 'account')} style={{
               background: T.accent, color: T.onAccent, borderRadius: 15, padding: 15, fontSize: 15, fontWeight: 900,
               border: 'none', cursor: canContinue ? 'pointer' : 'default', opacity: canContinue ? 1 : 0.45, fontFamily: 'inherit',

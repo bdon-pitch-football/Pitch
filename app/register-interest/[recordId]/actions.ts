@@ -6,7 +6,13 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { requireRecordActor } from '@/lib/record-guard';
 
-export async function composeInterest(recordId: string, formData: FormData) {
+//
+// Ids come from the FORM, not from bind(). A bound server action renders
+// $ACTION_REF_n plus encrypted arguments only the client runtime resolves,
+// so it 500s without JavaScript instead of degrading. Every id below was
+// already re-checked server-side — bind() never made one trustworthy.
+export async function composeInterest(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
   // Never trust the record id in the URL (D-94 §3).
   await requireRecordActor(recordId);
   const clubId = String(formData.get('clubId') ?? '');

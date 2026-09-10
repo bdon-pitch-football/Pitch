@@ -60,12 +60,12 @@ export default async function More({ params }: { params: Promise<{ recordId: str
                 <div style={{ fontSize: 13.5, fontWeight: 800 }}>{e.orgName}</div>
                 {e.period && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}</div>}
               </div>
-              <form action={removeExperience.bind(null, recordId, e.id)}>
+              <form action={removeExperience}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="experienceId" value={e.id} />
                 <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}
-          <form action={addExperience.bind(null, recordId)} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <form action={addExperience} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
             <input type="hidden" name="kind" value={PREVIOUS_CLUB} />
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Club</div>
@@ -90,12 +90,12 @@ export default async function More({ params }: { params: Promise<{ recordId: str
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{a.title}</div>
                 {a.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{a.detail}</div>}
               </div>
-              <form action={removeAchievement.bind(null, recordId, a.id)}>
+              <form action={removeAchievement}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="achievementId" value={a.id} />
                 <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}
-          <form action={addAchievement.bind(null, recordId)} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <form action={addAchievement} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Achievement</div>
               <input style={input} name="title" placeholder="e.g. U15 League — Runners up" required maxLength={80} />
@@ -117,12 +117,12 @@ export default async function More({ params }: { params: Promise<{ recordId: str
                 <div style={{ fontSize: 13.5, fontWeight: 800 }}>{e.orgName}</div>
                 {e.period && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}</div>}
               </div>
-              <form action={removeExperience.bind(null, recordId, e.id)}>
+              <form action={removeExperience}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="experienceId" value={e.id} />
                 <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}
-          <form action={addExperience.bind(null, recordId)} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <form action={addExperience} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={label}>Kind</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

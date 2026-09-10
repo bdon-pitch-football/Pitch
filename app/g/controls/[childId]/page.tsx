@@ -142,8 +142,8 @@ export default async function Controls({ params, searchParams }: {
               </div>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
-              <form action={renewLink.bind(null, childId, c.record_id)} style={{ flex: 1, display: 'flex' }}><button type="submit" style={ghost}>Renew</button></form>
-              <form action={replaceLink.bind(null, childId, c.record_id)} style={{ flex: 1, display: 'flex' }}><button type="submit" style={ghost}>Replace</button></form>
+              <form action={renewLink} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" style={ghost}>Renew</button></form>
+              <form action={replaceLink} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" style={ghost}>Replace</button></form>
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Replacing it kills the old one immediately. Anyone holding it stops being able to open the page.</div>
           </div>
@@ -156,7 +156,7 @@ export default async function Controls({ params, searchParams }: {
               <div style={{ fontSize: 14.5, fontWeight: 800 }}>{name}&rsquo;s page is {c.paused ? 'paused' : 'live'}</div>
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Switch it off and every link stops working until you switch it back on. Nothing is deleted.</div>
             </div>
-            <form action={setPause.bind(null, childId, !c.paused)}>
+            <form action={setPause}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="paused" value={String(!c.paused)} />
               <button type="submit" aria-label="Pause toggle" style={{ width: 46, height: 27, borderRadius: 999, border: 'none', cursor: 'pointer', background: c.paused ? T.surface2 : T.accent, display: 'flex', alignItems: 'center', justifyContent: c.paused ? 'flex-start' : 'flex-end', padding: 3 }}>
                 <div style={{ width: 21, height: 21, borderRadius: 999, background: c.paused ? T.muted : T.onAccent }} />
               </button>
@@ -210,7 +210,7 @@ export default async function Controls({ params, searchParams }: {
           <div style={{ fontSize: 15, fontWeight: 900, color: T.red }}>Delete everything</div>
           <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{theirs} page, photo, clips and stats. Gone, and not recoverable. No reason needed and nobody will ask you for one.</div>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>We keep one thing: a record that you gave permission and then withdrew it. No football, no photo, no page — just the fact it happened, because we have to be able to show it did.</div>
-          <form action={deleteEverything.bind(null, childId)}>
+          <form action={deleteEverything}><input type="hidden" name="childId" value={childId} />
             <button type="submit" style={{ width: '100%', height: 46, borderRadius: 13, border: `1px solid ${T.red}`, background: 'transparent', color: T.red, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Delete {name}&rsquo;s profile</button>
           </form>
         </div>

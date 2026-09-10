@@ -39,7 +39,7 @@ export default async function Clips({ params, searchParams }: {
   const band = rows[0].band as string;
   const cap = band === '18plus' ? CLIP_LIMIT_ADULT_FREE : CLIP_LIMIT_UNDER_18;
   const clips: { id: string; title: string; url: string; added: string }[] = rows[0].clips;
-  const add = addClip.bind(null, recordId);
+  const add = addClip;
 
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16 };
   const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
@@ -55,7 +55,7 @@ export default async function Clips({ params, searchParams }: {
         </div>
         {error && <div style={{ ...card, padding: '13px 14px', border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary }}>That link isn&rsquo;t from YouTube, Instagram or Veo — check it and try again.</div>}
         {full && <div style={{ ...card, padding: '13px 14px', border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary }}>All {cap} clip slots are used. Swap a clip out to add this one.</div>}
-        <form action={add} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <form action={add} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
           <div style={{ ...card, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={label}>Video link</div>
             <input style={input} name="url" placeholder="https://veo.co/matches/…" required />
@@ -80,7 +80,7 @@ export default async function Clips({ params, searchParams }: {
                   <div style={{ fontSize: 13.5, fontWeight: 800 }}>{c.title}</div>
                   <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>{sourceOf(c.url)} · added {c.added}</div>
                 </div>
-                <form action={removeClip.bind(null, recordId, c.id)}>
+                <form action={removeClip}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="clipId" value={c.id} />
                   <button type="submit" aria-label="Remove clip" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
                 </form>
               </div>

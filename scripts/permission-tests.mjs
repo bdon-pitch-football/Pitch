@@ -2535,6 +2535,28 @@ const sessSrc = readFileSync(fileURLToPath(new URL('../lib/session.ts', import.m
 check('env3: production refuses to sign a session without a real secret',
   /NODE_ENV === 'production'\)\s*\{\s*throw new Error\('SESSION_SECRET/.test(sessSrc), true);
 
+// A server action taking an id POSITIONALLY can only be fed by bind(), which
+// renders $ACTION_REF_n plus encrypted arguments the client runtime has to
+// resolve — so it 500s without JavaScript and cannot be driven by anything
+// that is not a browser. Every action takes a FormData and reads its ids
+// from it; every one of them already re-checked those ids anyway.
+{
+  const actionFiles = routeFiles.filter((f) => /actions\.ts$/.test(f));
+  check('bind1: there are action files to check', actionFiles.length >= 15, true);
+  const positional = [];
+  for (const f of actionFiles) {
+    const src = codeOnly(readFileSync(f, 'utf8'));
+    for (const m of src.matchAll(/export async function (\w+)\(([^)]*)\)/g)) {
+      const args = m[2].trim();
+      if (!args) continue;                       // session-derived: the safest shape
+      if (/^formData: FormData$/.test(args)) continue;
+      positional.push(`${f.slice(f.indexOf('app/'))}:${m[1]}`);
+    }
+  }
+  check(`bind2: no action takes an id positionally (${positional.join(', ') || 'none'})`,
+    positional.length, 0);
+}
+
 check('N12/D-122: no export, csv or download route exists',
   files.filter((f) => /export|csv|download/i.test(rel(f))).length, 0);
 check('C1/P11: no message or DM route exists',

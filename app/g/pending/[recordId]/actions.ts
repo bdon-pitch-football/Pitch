@@ -15,7 +15,19 @@ import { approvePendingVersion } from '@/lib/cv-build';
 import { db } from '@/lib/db';
 import { requireRecordActor } from '@/lib/record-guard';
 
-export async function approveChange(recordId: string) {
+//
+// FORM FIELDS, NOT bind(). A server action passed straight to
+// <form action={fn}> is progressively enhanced — Next renders a plain POST
+// with a stable action id and it works with no JavaScript. A BOUND one
+// renders $ACTION_REF_n plus encrypted arguments only the client runtime can
+// resolve, so without JS it returns a 500 rather than degrading, and it
+// cannot be exercised by anything that is not a browser.
+//
+// Moving the id into the form costs nothing in safety: every one of these
+// already re-checks its arguments server-side. bind() never made an argument
+// trustworthy — the authorisation below did.
+export async function approveChange(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
   // Guardian only. A child never approves their own edit, and silence never
   // publishes on its own.
   const { personId } = await requireRecordActor(recordId, ['guardian']);
@@ -25,7 +37,8 @@ export async function approveChange(recordId: string) {
 
 // Share-link issuance (D-53): >=128-bit random token, stored hashed; the raw
 // token exists only in the guardian's hands. U16 default expiry 90 days.
-export async function issueShareLink(recordId: string) {
+export async function issueShareLink(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
   const { personId } = await requireRecordActor(recordId, ['guardian']);
   const raw = randomBytes(24).toString('base64url'); // 192 bits
   await db.query(

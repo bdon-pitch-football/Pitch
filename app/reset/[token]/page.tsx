@@ -16,7 +16,7 @@ export default async function SetPassword({ params, searchParams }: {
 }) {
   const { token } = await params;
   const { short } = await searchParams;
-  const act = submitNewPassword.bind(null, token);
+  const act = submitNewPassword;
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
   return (
@@ -25,7 +25,7 @@ export default async function SetPassword({ params, searchParams }: {
         <HeaderMark />
         <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Set a new password</div>
         {short && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Use at least ten characters.</div>}
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}><input type="hidden" name="token" value={token} />
           <div style={card}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>New password</div>
             <input name="password" type="password" required minLength={10} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />

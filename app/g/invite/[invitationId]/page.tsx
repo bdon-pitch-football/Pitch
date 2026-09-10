@@ -59,7 +59,7 @@ export default async function GuardianInvite({ params, searchParams }: {
   }
 
   if (reply) {
-    const act = sendReply.bind(null, invitationId);
+    const act = sendReply;
     const Toggle = ({ nameAttr, title, sub }: { nameAttr: string; title: string; sub: string }) => (
       <label style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, cursor: 'pointer' }}>
         <div style={{ flex: 1 }}>
@@ -78,7 +78,7 @@ export default async function GuardianInvite({ params, searchParams }: {
             <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Reply to {r.club_name}</div>
             <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>You choose what goes with your answer. Everything below starts switched off.</div>
           </div>
-          <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="invitationId" value={invitationId} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={label}>Your answer</div>
               <div style={{ display: 'flex', gap: 8 }}>

@@ -11,7 +11,13 @@ import { requireRecordActor } from '@/lib/record-guard';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-export async function composeSend(recordId: string, formData: FormData) {
+//
+// Ids come from the FORM, not from bind(). A bound server action renders
+// $ACTION_REF_n plus encrypted arguments only the client runtime resolves,
+// so it 500s without JavaScript instead of degrading. Every id below was
+// already re-checked server-side — bind() never made one trustworthy.
+export async function composeSend(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
   // Never trust the record id in the URL (D-94 §3).
   await requireRecordActor(recordId);
   const clubName = String(formData.get('clubName') ?? '').trim();

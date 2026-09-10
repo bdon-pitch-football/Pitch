@@ -40,7 +40,23 @@ function newToken() {
   return { raw, hash: createHash('sha256').update(raw).digest(), hint: `${raw.slice(0, 4)}·${raw.slice(-4)}` };
 }
 
-export async function replaceLink(childId: string, recordId: string) {
+// FORM FIELDS, NOT bind(). A server action passed to <form action={fn}> is
+// progressively enhanced — Next renders a plain POST with a stable action id
+// and it works with no JavaScript at all. A BOUND one is not: it renders
+// $ACTION_REF_n plus encrypted arguments that only the client runtime can
+// resolve, so submitting it without JS returns a 500.
+//
+// These four are the guardian's controls — renew, replace, pause, delete.
+// They are the safety promises of the whole product, and they were the four
+// that needed JavaScript to work. They are also, for the same reason, the
+// four that could not be tested without driving a browser.
+//
+// Taking the ids from the form costs nothing in safety: every argument was
+// already hostile and already re-checked here. bind() never made them
+// trustworthy — assertGuardian and assertChildsRecord did.
+export async function replaceLink(formData: FormData) {
+  const childId = String(formData.get('childId') ?? '');
+  const recordId = String(formData.get('recordId') ?? '');
   const guardianId = await assertGuardian(childId);
   await assertChildsRecord(childId, recordId);
   const t = newToken();
@@ -67,7 +83,9 @@ export async function replaceLink(childId: string, recordId: string) {
 }
 
 // Renew: same link, another 90 days. No new token needed — nothing to show.
-export async function renewLink(childId: string, recordId: string) {
+export async function renewLink(formData: FormData) {
+  const childId = String(formData.get('childId') ?? '');
+  const recordId = String(formData.get('recordId') ?? '');
   const guardianId = await assertGuardian(childId);
   await assertChildsRecord(childId, recordId);
   // Only a link that is still ALIVE gets another 90 days. Without the expiry
@@ -87,7 +105,9 @@ export async function renewLink(childId: string, recordId: string) {
   redirect(`/g/controls/${childId}`);
 }
 
-export async function setPause(childId: string, paused: boolean) {
+export async function setPause(formData: FormData) {
+  const childId = String(formData.get('childId') ?? '');
+  const paused = String(formData.get('paused') ?? '') === 'true';
   const guardianId = await assertGuardian(childId);
   await db.query(
     `insert into guardian_setting (child_id, profile_paused, updated_by) values ($1,$2,$3)
@@ -101,7 +121,8 @@ export async function setPause(childId: string, paused: boolean) {
   redirect(`/g/controls/${childId}`);
 }
 
-export async function deleteEverything(childId: string) {
+export async function deleteEverything(formData: FormData) {
+  const childId = String(formData.get('childId') ?? '');
   const guardianId = await assertGuardian(childId);
   const client = await db.connect();
   try {

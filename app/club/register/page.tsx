@@ -280,7 +280,7 @@ export default async function Register({ searchParams }: {
                         <Link href={`/club/register/cv/${r.registration_id}`} style={{ background: T.surface2, borderRadius: 12, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                           {r.club_status === 'new' && (
-                            <form action={setStatus.bind(null, r.registration_id, 'shortlisted')}>
+                            <form action={setStatus}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
                               <button type="submit" style={{ height: 38, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 16px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
                             </form>
                           )}
@@ -315,7 +315,7 @@ export default async function Register({ searchParams }: {
                       <div style={{ display: 'flex', gap: 8 }}>
                         <Link href={`/club/register/cv/${r.registration_id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
                         {r.club_status === 'new' && (
-                          <form action={setStatus.bind(null, r.registration_id, 'shortlisted')} style={{ display: 'flex' }}>
+                          <form action={setStatus} style={{ display: 'flex' }}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
                             <button type="submit" style={{ height: 40, alignSelf: 'center', borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
                           </form>
                         )}

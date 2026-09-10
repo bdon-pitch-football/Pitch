@@ -22,8 +22,12 @@ const T = {
 export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
 
-async function revoke(token: string) {
+async function revoke(formData: FormData) {
   'use server';
+  // Same reason as /a/[id]: this arrives in a message. The token is the
+  // credential and it is checked below either way — bind() never made it
+  // safer, it only made it need JavaScript.
+  const token = String(formData.get('token') ?? '');
   // Revoking is idempotent and its answer never varies — a spent link, a
   // wrong one and a live one all end on the same page, for the same reason
   // the link-state page does not say which (D-77).
@@ -40,7 +44,7 @@ async function revoke(token: string) {
 
 export default async function Undo({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const act = revoke.bind(null, token);
+  const act = revoke;
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
   return (
@@ -51,7 +55,7 @@ export default async function Undo({ params }: { params: Promise<{ token: string
         <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
           The club will not be able to open the page any more. Nothing is deleted, and you can make a new link whenever you want to.
         </div>
-        <form action={act}>
+        <form action={act}><input type="hidden" name="token" value={token} />
           <button type="submit" style={{ width: '100%', background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Switch it off</button>
         </form>
         <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.55 }}>

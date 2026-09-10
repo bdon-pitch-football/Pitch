@@ -14,7 +14,13 @@ import { requireOperator } from '@/lib/ops-guard';
 import { guardianApprovalEmail, guardianApprovalSms } from '@/lib/messages';
 import { sendAndLog } from '@/lib/messaging';
 
-export async function resendApproval(invitationId: string) {
+//
+// Ids come from the FORM, not from bind(). A bound server action renders
+// $ACTION_REF_n plus encrypted arguments only the client runtime resolves,
+// so it 500s without JavaScript instead of degrading. Every id below was
+// already re-checked server-side — bind() never made one trustworthy.
+export async function resendApproval(formData: FormData) {
+  const invitationId = String(formData.get('invitationId') ?? '');
   await requireOperator();
   const { rows } = await db.query(
     `select first_name, dob, guardian_phone, guardian_email

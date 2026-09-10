@@ -9,7 +9,13 @@ import { getSessionPersonId } from '@/lib/session';
 import { bareWakeEmail, bareWakeSms } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 
-export async function sendInvitation(registrationId: string, formData: FormData) {
+//
+// Ids come from the FORM, not from bind(). A bound server action renders
+// $ACTION_REF_n plus encrypted arguments only the client runtime resolves,
+// so it 500s without JavaScript instead of degrading. Every id below was
+// already re-checked server-side — bind() never made one trustworthy.
+export async function sendInvitation(formData: FormData) {
+  const registrationId = String(formData.get('registrationId') ?? '');
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   const body = String(formData.get('body') ?? '').trim().slice(0, 400);

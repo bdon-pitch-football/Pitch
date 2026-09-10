@@ -134,7 +134,7 @@ export default async function Squads({ searchParams }: {
               </div>
             </div>
             {s.registrations === 0 && s.players === 0 ? (
-              <form action={removeSquad.bind(null, s.id)}>
+              <form action={removeSquad}><input type="hidden" name="squadId" value={s.id} />
                 <button type="submit" style={{ height: 38, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
               </form>
             ) : (

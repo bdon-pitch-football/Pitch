@@ -77,7 +77,7 @@ export default async function ClaimClub({ params, searchParams }: {
 
   // Step two: the code has gone to the club's published address.
   if (sent) {
-    const verify = claimClub.bind(null, slug);
+    const verify = claimClub;
     return (
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
@@ -93,7 +93,7 @@ export default async function ClaimClub({ params, searchParams }: {
               That code didn&rsquo;t work. Check the newest email — an older code stops working as soon as a new one is sent.
             </div>
           )}
-          <form action={verify} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <form action={verify} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="slug" value={slug} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={label}>Who are you at the club</div>
               {ROLES.map(([value, title, desc], i) => (
@@ -115,7 +115,7 @@ export default async function ClaimClub({ params, searchParams }: {
             </div>
             <button type="submit" className="btn btn-primary">Claim {c.name}</button>
           </form>
-          <form action={requestClaimCode.bind(null, slug)}>
+          <form action={requestClaimCode}><input type="hidden" name="slug" value={slug} />
             <button type="submit" style={{ width: '100%', height: 44, borderRadius: 12, border: 'none', background: 'transparent', color: T.muted, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Send it again</button>
           </form>
         </div>
@@ -123,7 +123,7 @@ export default async function ClaimClub({ params, searchParams }: {
     );
   }
 
-  const act = requestClaimCode.bind(null, slug);
+  const act = requestClaimCode;
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
@@ -145,7 +145,7 @@ export default async function ClaimClub({ params, searchParams }: {
           </div>
         </div>
 
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="slug" value={slug} />
           {/* The role is chosen on the NEXT screen, with the code. There is
               nothing to decide until the reader has proved they can open the
               club's inbox, and asking first implies the answer matters. */}

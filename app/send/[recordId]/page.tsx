@@ -60,7 +60,7 @@ export default async function SendCv({ params, searchParams }: {
     );
   }
 
-  const act = composeSend.bind(null, recordId);
+  const act = composeSend;
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
@@ -70,7 +70,7 @@ export default async function SendCv({ params, searchParams }: {
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Pick who it goes to. Your CV goes as a link, so it always shows what&rsquo;s on your page today.</div>
         </div>
         {error && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary }}>Check the club name and the email address — a wrong address just goes nowhere.</div>}
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="recordId" value={recordId} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div style={label}>Sending to</div>
             <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>

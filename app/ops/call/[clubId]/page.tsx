@@ -27,7 +27,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
   const { rows } = await db.query(`select name, suburb, state, contact_email from club where id = $1`, [clubId]);
   if (rows.length === 0) notFound();
   const c = rows[0];
-  const act = logCall.bind(null, clubId);
+  const act = logCall;
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -37,7 +37,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
           <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>Call sheet — {c.name}</div>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{[c.suburb, c.state].filter(Boolean).join(' ')}{c.contact_email ? ` · ${c.contact_email}` : ''}</div>
         </div>
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="clubId" value={clubId} />
           <div style={card}><div style={label}>Operator — the human. Named, every time. Never &ldquo;system&rdquo;, never &ldquo;admin&rdquo;.</div><input style={input} name="operator" placeholder="Your name" required /></div>
           <div style={card}><div style={label}>Number called — the actual number dialled</div><input style={input} name="number_called" required /></div>
           <div style={card}><div style={label}>Number source — where you found it. A blank here invalidates the call.</div><input style={input} name="number_source" placeholder={'e.g. club website /contact, FV club directory'} required /></div>
