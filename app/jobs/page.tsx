@@ -43,7 +43,7 @@ export default async function Jobs() {
             space. The number of open roles IS the news on this page. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>Coaching roles</div>
+            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>Coaching roles</h1>
             <div style={{ fontSize: 13.5, color: 'var(--secondary)', fontWeight: 500 }}>
               Clubs looking for coaches. Newest first — nothing here is ranked or recommended.
             </div>

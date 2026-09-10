@@ -40,7 +40,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Support</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Support</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Invitation state and resend. That is the whole console.</div>
         </div>
         <div style={{ background: T.surface, border: `1px solid ${T.red}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>

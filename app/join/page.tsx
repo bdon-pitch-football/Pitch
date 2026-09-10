@@ -40,7 +40,7 @@ export default function Join() {
         {step === 'signup' ? (
           <>
             <HeaderMark />
-            <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>What&rsquo;s your position?</div>
+            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>What&rsquo;s your position?</h1>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {ROLES.map(([key, title, sub]) => (
                 <button key={key} onClick={() => setRole(key)} style={{
@@ -109,7 +109,7 @@ export default function Join() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Last step</div>
-              <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your account</div>
+              <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your account</h1>
             </div>
             <form action={createAccount} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <input type="hidden" name="firstName" value={firstName} />
@@ -138,7 +138,7 @@ export default function Join() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Last step</div>
-              <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Who should we ask?</div>
+              <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Who should we ask?</h1>
               <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
                 You&rsquo;re {age}, so a parent has to approve your page before anyone can see it. Give us one way to reach them.
               </div>

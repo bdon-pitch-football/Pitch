@@ -27,7 +27,7 @@ export default async function Outbox() {
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Outbox</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Outbox</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>
             Development only. Nothing has been sent — these are the messages the product would send, exactly as written in doc 15.
           </div>

@@ -44,7 +44,7 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>The Interest Register</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>The Interest Register</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{c.name}. Your club page, your trial notices and CVs arriving by email are free and stay free.</div>
         </div>
 
@@ -79,7 +79,7 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
               <div className="field-label">Choose how you pay</div>
               {(['register_monthly', 'register_annual'] as const).map((k, i) => (
                 <label key={k} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-                  <input type="radio" name="plan" value={k} defaultChecked={i === 0} style={{ width: 20, height: 20, accentColor: T.accent }} />
+                  <input type="radio" name="plan" aria-label="Plan" value={k} defaultChecked={i === 0} style={{ width: 20, height: 20, accentColor: T.accent }} />
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 800 }}>{PRICES[k].label}</div>
                     <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
@@ -93,8 +93,8 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div className="field-label">Who is agreeing to this</div>
-              <div style={card}><div className="field-label">Your name</div><input style={input} name="personName" required /></div>
-              <div style={card}><div className="field-label">Your role at the club</div><input style={input} name="roleAtClub" placeholder="e.g. Treasurer" required /></div>
+              <label style={card}><div className="field-label">Your name</div><input style={input} name="personName" required /></label>
+              <label style={card}><div className="field-label">Your role at the club</div><input style={input} name="roleAtClub" placeholder="e.g. Treasurer" required /></label>
               <label style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 11, cursor: 'pointer' }}>
                 <input type="checkbox" name="authorised" required style={{ width: 20, height: 20, accentColor: T.accent, marginTop: 1 }} />
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5 }}>I am authorised by {c.name} to enter this agreement on its behalf.</div>

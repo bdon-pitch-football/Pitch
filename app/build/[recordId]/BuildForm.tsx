@@ -36,7 +36,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your CV</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your CV</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Two minutes. Edit anything later.</div>
         </div>
         {saved && (
@@ -58,7 +58,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             <div style={{ fontSize: 14, fontWeight: 800 }}>Add profile photo</div>
             <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>Optional</div>
           </div>
-          <input type="file" name="photo" accept="image/*" required style={{ width: 108, fontSize: 11, color: T.muted, fontFamily: 'inherit' }} />
+          <input type="file" name="photo" aria-label="Add profile photo" accept="image/*" required style={{ width: 108, fontSize: 11, color: T.muted, fontFamily: 'inherit' }} />
           <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 11, height: 36, padding: '0 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Upload</button>
         </form>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}><input type="hidden" name="recordId" value={record.id} />
@@ -95,12 +95,12 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
               </div>
               <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                 <div style={label}>Number</div>
-                <input style={{ ...input, textAlign: 'center', fontSize: 20, fontWeight: 900, color: T.accent }} name="squadNumber" type="number" min="1" max="99" defaultValue={record.squad_number ?? ''} placeholder="—" />
+                <input style={{ ...input, textAlign: 'center', fontSize: 20, fontWeight: 900, color: T.accent }} name="squadNumber" aria-label="Squad number" type="number" min="1" max="99" defaultValue={record.squad_number ?? ''} placeholder="—" />
               </div>
             </div>
             <div style={card}>
               <div style={label}>Preferred foot</div>
-              <select name="foot" defaultValue={record.foot ?? ''}>
+              <select name="foot" aria-label="Preferred foot" defaultValue={record.foot ?? ''}>
                 <option value="">—</option><option>Right</option><option>Left</option>
               </select>
             </div>
@@ -108,7 +108,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>About</div>
             <div style={card}>
-              <textarea name="about" defaultValue={record.about} rows={3} placeholder="Right-footed 10 who plays between the lines. Working on my weak foot and pressing triggers…" style={{ ...input, fontSize: 13.5, fontWeight: 500, lineHeight: 1.55, resize: 'vertical' }} />
+              <textarea name="about" aria-label="About" defaultValue={record.about} rows={3} placeholder="Right-footed 10 who plays between the lines. Working on my weak foot and pressing triggers…" style={{ ...input, fontSize: 13.5, fontWeight: 500, lineHeight: 1.55, resize: 'vertical' }} />
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -119,7 +119,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {STAT_KEYS.map((k: StatKey) => (
                 <div key={k} style={{ ...card, padding: '10px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: surfaced.includes(k) ? 1 : 0.45 }}>
-                  <input style={{ ...input, textAlign: 'center', fontSize: 19, fontWeight: 900 }} name={`stat_${k}`} type="number" min="0" defaultValue={record.stats[k] ?? ''} placeholder="—" />
+                  <input style={{ ...input, textAlign: 'center', fontSize: 19, fontWeight: 900 }} name={`stat_${k}`} aria-label={STAT_LABELS[k]} type="number" min="0" defaultValue={record.stats[k] ?? ''} placeholder="—" />
                   <button type="button" onClick={() => toggleStat(k)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: surfaced.includes(k) ? T.accent : T.muted, fontFamily: 'inherit' }}>{STAT_LABELS[k]}</button>
                 </div>
               ))}

@@ -67,11 +67,11 @@ export default function DesignGallery() {
 
         <Row title="Fields" note="The native select and file input were rendering as OS controls inside hand-made cards. On the crest uploader that meant a grey 'Choose file / No file chosen' button, which reads as a bug.">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 460 }}>
-            <div className="field"><span className="field-label">Text</span><input placeholder="you@example.com" /></div>
+            <label className="field"><span className="field-label">Text</span><input placeholder="you@example.com" /></label>
             <div className="field"><span className="field-label">Select — ours, not the browser&rsquo;s</span>
               <select defaultValue="U14"><option>U13</option><option>U14</option><option>U15</option></select>
             </div>
-            <div className="field"><span className="field-label">Long text</span><textarea rows={3} placeholder="Why this club, and what you&rsquo;d bring." /></div>
+            <label className="field"><span className="field-label">Long text</span><textarea rows={3} placeholder="Why this club, and what you&rsquo;d bring." /></label>
             <label className="filefield">
               <input type="file" accept="image/*" />
               <span className="filefield-title">Choose an image</span>

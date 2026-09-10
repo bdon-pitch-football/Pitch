@@ -45,7 +45,7 @@ export default async function CardApproval({ params, searchParams }: {
         <HeaderMark back={{ href: '/home', label: 'Your family' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name} made a card</div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{done ? `Approved. It's ${name}'s to post.` : 'This is the exact card'}</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{done ? `Approved. It's ${name}'s to post.` : 'This is the exact card'}</h1>
           {!done && <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Not a description of it — the image itself. Nothing exists anywhere until you say yes.</div>}
         </div>
 

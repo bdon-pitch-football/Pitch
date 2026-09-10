@@ -65,7 +65,7 @@ export default async function ClubRoles({ searchParams }: {
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Coaching roles</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Coaching roles</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>{c.name} · <b style={{ color: T.ink }}>{roles.filter((r) => !r.closed_at).length} open</b></div>
         </div>
 
@@ -75,14 +75,14 @@ export default async function ClubRoles({ searchParams }: {
 
         <form action={postRole} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Post a role</div>
-          <div className="field">
+          <label className="field">
             <div className="field-label">Role</div>
-            <input style={input} name="title" placeholder="Head Coach — U14 Boys" required maxLength={80} />
-          </div>
+            <input style={input} name="title" aria-label="Role" placeholder="Head Coach — U14 Boys" required maxLength={80} />
+          </label>
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
             <div className="field" style={{ flex: 1, minWidth: 150 }}>
               <div className="field-label">Age group</div>
-              <select name="ageGroup" defaultValue="">
+              <select name="ageGroup" aria-label="Age group" defaultValue="">
                 <option value="">Not specific</option>
                 {stages.map((st) => (
                   <optgroup key={st} label={STAGE_LABEL[st] ?? st}>
@@ -93,20 +93,20 @@ export default async function ClubRoles({ searchParams }: {
             </div>
             <div className="field" style={{ flex: 1, minWidth: 150 }}>
               <div className="field-label">Commitment</div>
-              <input style={input} name="commitment" placeholder="Tue & Thu, 6–7:30pm" maxLength={120} />
+              <input style={input} name="commitment" aria-label="Commitment" placeholder="Tue & Thu, 6–7:30pm" maxLength={120} />
             </div>
             <div className="field" style={{ flex: 1, minWidth: 130 }}>
               <div className="field-label">Closes</div>
-              <input style={input} name="closesOn" type="date" />
+              <input style={input} name="closesOn" aria-label="Closes" type="date" />
             </div>
           </div>
-          <div className="field">
+          <label className="field">
             <div className="field-label">About the role</div>
-            <textarea name="detail" rows={4} maxLength={1500} placeholder="What the squad is, what you're after, and what the club offers."
+            <textarea name="detail" aria-label="About the role" rows={4} maxLength={1500} placeholder="What the squad is, what you're after, and what the club offers."
               style={{ ...input, resize: 'vertical', lineHeight: 1.5, fontWeight: 500, fontSize: 14 }} />
-          </div>
+          </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, fontWeight: 700, color: T.secondary, cursor: 'pointer' }}>
-            <input type="checkbox" name="paid" style={{ width: 18, height: 18, accentColor: T.accent }} />
+            <input type="checkbox" name="paid" aria-label="Paid role" style={{ width: 18, height: 18, accentColor: T.accent }} />
             This role is paid
           </label>
           <button type="submit" className="btn btn-primary">Post it</button>

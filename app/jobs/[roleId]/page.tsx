@@ -46,7 +46,7 @@ export default async function Role({ params, searchParams }: {
       <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{r.title}</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{r.title}</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 700 }}>
             {r.public_slug ? <Link href={`/fc/${r.public_slug}`} style={{ color: T.secondary, textDecoration: 'none' }}>{r.club}</Link> : r.club}
             {r.club_state === 'verified' && <span style={{ color: T.accent }}> · Verified club</span>}
@@ -81,7 +81,7 @@ export default async function Role({ params, searchParams }: {
         ) : (
           <form action={applyForRole} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12 }}><input type="hidden" name="roleId" value={roleId} />
             <div style={{ fontSize: 14, fontWeight: 900 }}>Apply for this role</div>
-            <textarea name="message" rows={5} maxLength={1200} placeholder="Why this club, and what you'd bring. If you want them to phone or email you, put it here — we don't pass it on otherwise."
+            <textarea name="message" aria-label="Why this club" rows={5} maxLength={1200} placeholder="Why this club, and what you'd bring. If you want them to phone or email you, put it here — we don't pass it on otherwise."
               style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '11px 12px', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }} />
             <button type="submit" className="btn btn-primary">Send it to {r.club}</button>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>

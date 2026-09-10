@@ -40,7 +40,7 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Report this page</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Report this page</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
             A person reads every report. You don&rsquo;t need an account and you don&rsquo;t need to give a reason.
           </div>
@@ -48,14 +48,14 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
         <form action={fileReport} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <input type="hidden" name="subjectRef" value={page ?? ''} />
           <input type="hidden" name="subjectKind" value={kind ?? 'other'} />
-          <div style={card}>
+          <label style={card}>
             <div style={label}>What&rsquo;s wrong — optional</div>
             <textarea name="reason" rows={4} placeholder="Tell us as much or as little as you like." style={{ ...input, lineHeight: 1.5, resize: 'vertical' }} />
-          </div>
-          <div style={card}>
+          </label>
+          <label style={card}>
             <div style={label}>Your email — optional, if you&rsquo;d like a reply</div>
             <input style={input} name="reporterEmail" type="email" placeholder="you@example.com" />
-          </div>
+          </label>
           <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             If this is about your own child appearing in someone else&rsquo;s content, say so and we will take it down while we look — you do not need to explain further.
           </div>

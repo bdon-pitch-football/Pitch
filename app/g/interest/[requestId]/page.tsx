@@ -49,7 +49,7 @@ export default async function GuardianInterest({ params, searchParams }: {
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-          <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>{name} is on {r.club_name}&rsquo;s register.</div>
+          <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>{name} is on {r.club_name}&rsquo;s register.</h1>
           <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You can take {name} off the register any time from the Manage page. Their access ends when you do.</div>
         </div>
       </div>
@@ -63,7 +63,7 @@ export default async function GuardianInterest({ params, searchParams }: {
         <HeaderMark back={{ href: '/home', label: 'Your family' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name} asked you to send this</div>
-          <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>Put {name} on {r.club_name.replace(/ FC$| SC$/, '')}&rsquo;s register?</div>
+          <h1 style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>Put {name} on {r.club_name.replace(/ FC$| SC$/, '')}&rsquo;s register?</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Nothing has been sent. It only goes if you send it.</div>
         </div>
 

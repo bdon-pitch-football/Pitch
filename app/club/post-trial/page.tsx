@@ -49,31 +49,31 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Post a trial</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Post a trial</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Goes on your club page and on the trials board the same minute. {c.name}.</div>
         </div>
         <form action={postTrial} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={section}>Which squad</div>
-            <div style={card}><div className="field-label">Notice title</div><input style={input} name="title" placeholder="U14 & U15 Boys trials" required /></div>
+            <label style={card}><div className="field-label">Notice title</div><input style={input} name="title" aria-label="Notice title" placeholder="U14 & U15 Boys trials" required /></label>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={section}>When and where</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <div style={{ ...card, flex: 1 }}><div className="field-label">Date</div><input style={input} name="trial_on" type="date" required /></div>
-              <div style={{ ...card, flex: 1 }}><div className="field-label">Time</div><input style={input} name="time" placeholder="9:00 AM" required /></div>
+              <label style={{ ...card, flex: 1 }}><div className="field-label">Date</div><input style={input} name="trial_on" aria-label="Date" type="date" required /></label>
+              <label style={{ ...card, flex: 1 }}><div className="field-label">Time</div><input style={input} name="time" aria-label="Time" placeholder="9:00 AM" required /></label>
             </div>
-            <div style={card}><div className="field-label">Ground</div><input style={input} name="ground" placeholder="Riverside Park, Pitch 2" required /></div>
+            <label style={card}><div className="field-label">Ground</div><input style={input} name="ground" aria-label="Ground" placeholder="Riverside Park, Pitch 2" required /></label>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={section}>Positions you&rsquo;re short of</div>
-            <div style={card}><div className="field-label">Codes, comma-separated — blank for an open trial</div><input style={input} name="positions" placeholder="GK, CB" /></div>
+            <label style={card}><div className="field-label">Codes, comma-separated — blank for an open trial</div><input style={input} name="positions" aria-label="Positions you are short of" placeholder="GK, CB" /></label>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Leave it blank for an open trial. Naming positions is what gets the right players in front of you — a keeper scanning the board sees your notice first.</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={section}>How to register</div>
-            <div style={card}><textarea name="how" rows={2} placeholder="Turn up 15 minutes early. Boots, shin pads, water. Registration at the clubhouse." style={{ ...input, fontWeight: 500, fontSize: 13.5, lineHeight: 1.5, resize: 'vertical' }} /></div>
-            <div style={card}><div className="field-label">Where CVs should go</div><input style={{ ...input, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13.5, fontWeight: 500 }} name="cv_email" type="email" defaultValue={c.contact_email ?? ''} placeholder="football@yourclub.com.au" /></div>
+            <div style={card}><textarea name="how" aria-label="How to register" rows={2} placeholder="Turn up 15 minutes early. Boots, shin pads, water. Registration at the clubhouse." style={{ ...input, fontWeight: 500, fontSize: 13.5, lineHeight: 1.5, resize: 'vertical' }} /></div>
+            <label style={card}><div className="field-label">Where CVs should go</div><input style={{ ...input, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13.5, fontWeight: 500 }} name="cv_email" aria-label="Where CVs should go" type="email" defaultValue={c.contact_email ?? ''} placeholder="football@yourclub.com.au" /></label>
           </div>
           <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>

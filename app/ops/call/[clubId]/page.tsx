@@ -38,10 +38,10 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{[c.suburb, c.state].filter(Boolean).join(' ')}{c.contact_email ? ` · ${c.contact_email}` : ''}</div>
         </div>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="clubId" value={clubId} />
-          <div style={card}><div style={label}>Operator — the human. Named, every time. Never &ldquo;system&rdquo;, never &ldquo;admin&rdquo;.</div><input style={input} name="operator" placeholder="Your name" required /></div>
-          <div style={card}><div style={label}>Number called — the actual number dialled</div><input style={input} name="number_called" required /></div>
-          <div style={card}><div style={label}>Number source — where you found it. A blank here invalidates the call.</div><input style={input} name="number_source" placeholder={'e.g. club website /contact, FV club directory'} required /></div>
-          <div style={card}><div style={label}>Answered by — name and role as they gave it</div><input style={input} name="answered_by" /></div>
+          <label style={card}><div style={label}>Operator — the human. Named, every time. Never &ldquo;system&rdquo;, never &ldquo;admin&rdquo;.</div><input style={input} name="operator" placeholder="Your name" required /></label>
+          <label style={card}><div style={label}>Number called — the actual number dialled</div><input style={input} name="number_called" required /></label>
+          <label style={card}><div style={label}>Number source — where you found it. A blank here invalidates the call.</div><input style={input} name="number_source" placeholder={'e.g. club website /contact, FV club directory'} required /></label>
+          <label style={card}><div style={label}>Answered by — name and role as they gave it</div><input style={input} name="answered_by" /></label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div style={card}><div style={label}>Club confirmed — is this the club</div><select style={select} name="club_confirmed"><option value="yes">yes</option><option value="no">no</option></select></div>
             <div style={card}><div style={label}>Person confirmed — did they independently name the claimant</div><select style={select} name="person_confirmed"><option value="yes">yes</option><option value="no">no</option></select></div>
@@ -58,7 +58,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
               <option value="takedown">takedown</option>
             </select>
           </div>
-          <div style={card}><div style={label}>Notes — anything that felt off belongs here even if you verified anyway</div><textarea style={{ ...input, resize: 'vertical' }} rows={3} name="notes" /></div>
+          <label style={card}><div style={label}>Notes — anything that felt off belongs here even if you verified anyway</div><textarea style={{ ...input, resize: 'vertical' }} rows={3} name="notes" /></label>
           <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             &ldquo;Incorporated&rdquo; and &ldquo;authority&rdquo; answered no or unknown do not fail verification — they flag the subscription, not the safety check. Verifying releases every held registration to this club.
           </div>

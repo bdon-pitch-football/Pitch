@@ -157,7 +157,7 @@ export default async function Register({ searchParams }: {
             families waiting should see ninety-nine. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>Interest register</div>
+            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>Interest register</h1>
             <div style={{ fontSize: 13.5, color: 'var(--secondary)', fontWeight: 500 }}>{c.name}</div>
           </div>
           {c.club_state === 'verified' && all.length > 0 && (

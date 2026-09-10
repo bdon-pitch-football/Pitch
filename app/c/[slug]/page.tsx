@@ -118,7 +118,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
             <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', background: hasBanner ? 'rgba(6,19,12,.5)' : 'transparent', marginBottom: hasBanner ? 8 : 0 }}>Coach</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{name}</div>
+            <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{name}</h1>
             {current && <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 500 }}>{current.title}</div>}
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               {showCrest && (

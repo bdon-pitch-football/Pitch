@@ -66,7 +66,7 @@ export default async function SendCv({ params, searchParams }: {
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Send my CV</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Send my CV</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Pick who it goes to. Your CV goes as a link, so it always shows what&rsquo;s on your page today.</div>
         </div>
         {error && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary }}>Check the club name and the email address — a wrong address just goes nowhere.</div>}
@@ -75,13 +75,13 @@ export default async function SendCv({ params, searchParams }: {
             <div style={label}>Sending to</div>
             <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Club</div>
-              <input style={input} name="clubName" placeholder="e.g. Northern United SC" required maxLength={60} />
+              <input style={input} name="clubName" aria-label="Club" placeholder="e.g. Northern United SC" required maxLength={60} />
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div style={label}>Their email address</div>
             <div style={card}>
-              <input style={{ ...input, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} name="address" type="email" placeholder="football@theclub.com.au" required />
+              <input style={{ ...input, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} name="address" aria-label="Their email address" type="email" placeholder="football@theclub.com.au" required />
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>From the club&rsquo;s own trial notice. Check it&rsquo;s right — a wrong address just goes nowhere.</div>
           </div>

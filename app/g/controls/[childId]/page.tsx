@@ -121,7 +121,7 @@ export default async function Controls({ params, searchParams }: {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 48, height: 48, borderRadius: 15, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 900, color: T.secondary }}>{name[0]}</div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>{name}</div>
+            <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>{name}</h1>
           </div>
         </div>
 

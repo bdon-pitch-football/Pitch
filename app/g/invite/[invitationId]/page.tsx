@@ -75,7 +75,7 @@ export default async function GuardianInvite({ params, searchParams }: {
           <HeaderMark back={{ href: '/home', label: 'Your family' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name}{isTrial ? ' · trial invitation' : ''}</div>
-            <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Reply to {r.club_name}</div>
+            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Reply to {r.club_name}</h1>
             <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>You choose what goes with your answer. Everything below starts switched off.</div>
           </div>
           <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="invitationId" value={invitationId} />
@@ -121,7 +121,7 @@ export default async function GuardianInvite({ params, searchParams }: {
         <HeaderMark back={{ href: '/home', label: 'Your family' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>Waiting on you</div>
-          <div style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>{r.club_name} would like {name} at a trial</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>{r.club_name} would like {name} at a trial</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>{name} has not been told. Nothing happens until you decide.</div>
         </div>
         <div style={{ ...card, border: `1px solid ${T.purple}`, display: 'flex', flexDirection: 'column', gap: 0 }}>

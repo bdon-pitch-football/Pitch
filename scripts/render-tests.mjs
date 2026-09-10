@@ -494,15 +494,50 @@ const georgia = ids.children.georgia;
 // note in the review. This pins the front door so it cannot regress while
 // the sweep is decided.
 {
-  for (const path of ['/signin', '/join']) {
-    const { html } = await get(path);
-    const inLabels = [...html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((m) => m[1]).join('');
-    const fields = [...html.matchAll(/<(input|textarea|select)[^>]*>/g)]
-      .filter((i) => !/type="hidden"/.test(i[0]));
-    const bare = fields.filter((i) => !inLabels.includes(i[0]) && !/aria-label=/.test(i[0]));
-    check(`a1: every field on ${path} has a real label (${bare.length} bare of ${fields.length})`,
-      bare.length, 0);
+  // Thirty-one of thirty-three pages had NO <h1> — every title in the product
+  // was a styled <div>, so a screen-reader user had no page name and no
+  // structure to move through. And 57 form controls had no accessible name
+  // at all: the visible label was a sibling <div>, which looks identical and
+  // reads as "edit text, blank".
+  //
+  // Crawled rather than spot-checked, because both defects were everywhere
+  // and a sample would have missed most of them.
+  const seats = Object.entries({
+    'signed out': null, parent: ids.people.alex, player: ids.people.jordan,
+    'club TD': ids.people.marina, coach: ids.people.sam, 'brand new': ids.people.robin,
+  });
+  const norm = (u) => u.split('?')[0].split('#')[0]
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '*')
+    .replace(/\/p\/[^/*]+/, '/p/*').replace(/\/(c|fc|claim)\/[^/*]+/, '/$1/*');
+  const noHeading = new Set(); const unnamed = [];
+  for (const [, who] of seats) {
+    const seen = new Set(); const queue = ['/', '/home', '/trials', '/jobs', '/signin', '/join']; const per = new Map();
+    while (queue.length) {
+      const path = queue.shift(); const P = norm(path);
+      if (seen.has(path)) continue;
+      per.set(P, (per.get(P) ?? 0) + 1);
+      if (per.get(P) > 1) continue;
+      seen.add(path);
+      const r = await get(path, who);
+      if (r.status !== 200) continue;
+      if (!/<h1[\s>]/.test(r.html)) noHeading.add(P);
+      const inLabels = [...r.html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((m) => m[1]).join('');
+      for (const f of [...r.html.matchAll(/<(input|textarea|select)[^>]*>/g)]) {
+        if (/type="hidden"/.test(f[0])) continue;
+        if (inLabels.includes(f[0]) || /aria-label=/.test(f[0])) continue;
+        unnamed.push(`${P} ${/name="([^"]*)"/.exec(f[0])?.[1] ?? '?'}`);
+      }
+      for (const m of r.html.matchAll(/href="(\/[^"#][^"]*)"/g)) {
+        const u = m[1];
+        if (u.startsWith('/_next') || u.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt)$/.test(u)) continue;
+        if (!seen.has(u)) queue.push(u);
+      }
+    }
   }
+  check(`a1: every page announces itself with an h1 (${[...noHeading].join(', ') || 'all do'})`,
+    noHeading.size, 0);
+  check(`a2: every form control has an accessible name (${[...new Set(unnamed)].join(', ') || 'all do'})`,
+    unnamed.length, 0);
 }
 
 // The trials board shipped in launch scope and NOTHING LINKED TO IT.

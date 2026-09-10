@@ -127,7 +127,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
             <PositionMap positions={p.positions} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
-            <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{p.firstName} {p.lastName}</div>
+            <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{p.firstName} {p.lastName}</h1>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 500 }}>{posLine} · #{p.squadNumber} · {p.foot} footed</div>
             {/* The club line carried a HARDCODED 'Melbourne VIC' — every player
                 in the country read as Melbourne. The locality now comes from

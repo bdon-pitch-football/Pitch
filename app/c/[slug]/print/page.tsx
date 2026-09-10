@@ -61,7 +61,7 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
       <PrintButton />
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <div style={{ borderBottom: '2px solid #0b120e', paddingBottom: 16, marginBottom: 22 }}>
-          <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.05 }}>{name}</div>
+          <h1 style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.05 }}>{name}</h1>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#3a4a42', marginTop: 4 }}>
             {[roles.find((r) => !r.to)?.title, roles.find((r) => !r.to)?.org, c.region].filter(Boolean).join(' · ')}
           </div>

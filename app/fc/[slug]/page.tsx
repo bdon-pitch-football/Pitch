@@ -157,7 +157,7 @@ export default async function ClubPage({ params, searchParams }: {
             <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', background: hasBanner ? 'rgba(6,19,12,.5)' : 'transparent', marginBottom: hasBanner ? 10 : 0 }}>Club</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{c.name}</div>
+            <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{c.name}</h1>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 500 }}>{[c.established ? `Est. ${c.established}` : null, [c.suburb, c.state].filter(Boolean).join(' ')].filter(Boolean).join(' · ')}</div>
             {c.pathway_line && <div style={{ fontSize: 13, color: 'rgba(255,255,255,.62)', fontWeight: 500 }}>{c.pathway_line}</div>}
             {/* The hero had the most room on the page and did the least with

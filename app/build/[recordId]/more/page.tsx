@@ -48,7 +48,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: `/build/${recordId}`, label: 'Back to the CV' }} />
         <div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your football history</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your football history</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>The clubs you&rsquo;ve been at, what you&rsquo;ve won, and the football outside your club.</div>
         </div>
 
@@ -69,11 +69,11 @@ export default async function More({ params }: { params: Promise<{ recordId: str
             <input type="hidden" name="kind" value={PREVIOUS_CLUB} />
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Club</div>
-              <input style={input} name="orgName" placeholder="e.g. Northcote City FC" required maxLength={80} />
+              <input style={input} name="orgName" aria-label="Where" placeholder="e.g. Northcote City FC" required maxLength={80} />
             </div>
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Years — optional</div>
-              <input style={input} name="period" placeholder="e.g. 2022–2024" maxLength={40} />
+              <input style={input} name="period" aria-label="When" placeholder="e.g. 2022–2024" maxLength={40} />
             </div>
             <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add a club</button>
           </form>
@@ -98,11 +98,11 @@ export default async function More({ params }: { params: Promise<{ recordId: str
           <form action={addAchievement} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Achievement</div>
-              <input style={input} name="title" placeholder="e.g. U15 League — Runners up" required maxLength={80} />
+              <input style={input} name="title" aria-label="Achievement" placeholder="e.g. U15 League — Runners up" required maxLength={80} />
             </div>
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>When / where — optional</div>
-              <input style={input} name="detail" placeholder="e.g. 2026 season" maxLength={80} />
+              <input style={input} name="detail" aria-label="When or where" placeholder="e.g. 2026 season" maxLength={80} />
             </div>
             <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add achievement</button>
           </form>
@@ -136,11 +136,11 @@ export default async function More({ params }: { params: Promise<{ recordId: str
             </div>
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Where</div>
-              <input style={input} name="orgName" placeholder="e.g. Melbourne Futsal U15" required maxLength={80} />
+              <input style={input} name="orgName" aria-label="Where" placeholder="e.g. Melbourne Futsal U15" required maxLength={80} />
             </div>
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>When — optional</div>
-              <input style={input} name="period" placeholder="e.g. Summer 2025–26" maxLength={40} />
+              <input style={input} name="period" aria-label="When" placeholder="e.g. Summer 2025–26" maxLength={40} />
             </div>
             <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add other football</button>
           </form>

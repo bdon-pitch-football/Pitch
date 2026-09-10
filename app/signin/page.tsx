@@ -29,7 +29,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
       <div className="door" style={{ width: '100%', maxWidth: 560, minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>
             {out ? 'Signed out on this device.' : reset ? 'Password saved. Sign in with it.' : 'One account, whichever seat you hold.'}
           </div>

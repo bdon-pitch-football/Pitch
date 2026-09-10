@@ -22,7 +22,7 @@ export default function LinkState({ token, asked }: { token?: string; asked?: bo
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em' }}>This link doesn&rsquo;t open anything</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em' }}>This link doesn&rsquo;t open anything</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>It may have been switched off, it may have expired, or it may never have been a link at all. We don&rsquo;t say which.</div>
         </div>
         <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' }}>

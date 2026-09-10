@@ -40,7 +40,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
         <HeaderMark back={{ href: '/club/register', label: 'The register' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.amber }}>{r.club_name}</div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Invite {name}</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Invite {name}</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{name} went on your register in {r.reg_month}. This is the only way you can reach {name}.</div>
         </div>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="registrationId" value={registrationId} />
@@ -66,7 +66,7 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="field-label">A line from you, if you want</div>
             <div style={{ ...card, minHeight: 74 }}>
-              <textarea name="body" rows={3} placeholder={`Saw ${name} at the trials. We're short in the 16s and we'd like a proper look.`} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
+              <textarea name="body" aria-label="A line from you, if you want" rows={3} placeholder={`Saw ${name} at the trials. We're short in the 16s and we'd like a proper look.`} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Football only. A parent reads this before {name} does.</div>
           </div>

@@ -438,7 +438,7 @@ export default function ComingSoon() {
                 <div style={{ width: 8, height: 8, borderRadius: 999, background: '#e34948', boxShadow: '0 0 10px #e34948', animation: 'pulse 1.6s infinite' }} />
                 <div style={{ ...kicker, color: '#eef5f0' }}>{filmTime}</div>
               </div>
-              <div className="hero-headline" style={{ position: 'relative', fontSize: 'clamp(40px, 7.4vw, 112px)', fontWeight: 900, lineHeight: 0.9, letterSpacing: '-.05em', color: '#fff', textShadow: '0 10px 50px rgba(0,0,0,.6)' }}>
+              <h1 className="hero-headline" style={{ position: 'relative', fontSize: 'clamp(40px, 7.4vw, 112px)', fontWeight: 900, lineHeight: 0.9, letterSpacing: '-.05em', color: '#fff', textShadow: '0 10px 50px rgba(0,0,0,.6)' }}>
                 {([
                   [0, <>Somebody should be <span style={{ color: '#3ddc84' }}>writing this down.</span></>],
                   [1, <>A goal lasts <span style={{ color: '#3ddc84', opacity: Number(ease(0.19, 0.26, fp).toFixed(2)), transition: 'opacity .3s' }}>a second.</span></>],
@@ -449,7 +449,7 @@ export default function ComingSoon() {
                 ] as [number, React.ReactNode][]).map(([i, node]) => (
                   <div key={i} style={{ position: 'absolute', left: 0, bottom: 0, ...cap(i), transition: 'opacity .25s, transform .25s', textWrap: 'balance' as never }}>{node}</div>
                 ))}
-              </div>
+              </h1>
               {/* ANNA COPY PASS v1 §1: product clarity paragraph (D-03 phrase verbatim) */}
               <div style={{ fontSize: 15, fontWeight: 500, color: '#dfe8e2', lineHeight: 1.55, maxWidth: 560, textShadow: '0 2px 16px rgba(0,0,0,.6)', textWrap: 'pretty' as never }}>
                 Pitch is a <strong style={{ color: '#eef5f0' }}>player development and pathway platform</strong>. One page holding a player’s clubs, seasons, positions and clips — built once, and still theirs when the coach, the committee and the club have all changed.
@@ -1334,7 +1334,7 @@ export default function ComingSoon() {
               <div style={{ width: 54, height: 54, borderRadius: 999, background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#06130c" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
               </div>
-              <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-.02em', lineHeight: 1.1 }}>You&apos;re on the list.</div>
+              <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-.02em', lineHeight: 1.1 }}>You&apos;re on the list.</h1>
               <div style={{ fontSize: 14.5, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.6 }}>We&apos;ll email you once, when it opens. Nothing else until then.</div>
               <div style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: '#7d8f85' }}>What we hold</div>

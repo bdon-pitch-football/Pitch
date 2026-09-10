@@ -83,7 +83,7 @@ export default async function ClaimClub({ params, searchParams }: {
         <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Check the club&rsquo;s inbox</div>
+            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Check the club&rsquo;s inbox</h1>
             <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
               We sent a six-digit code to <b style={{ color: T.ink }}>{c.contact_email}</b> — the address on {c.name}&rsquo;s own public listing. It works once and expires in 30 minutes.
             </div>
@@ -129,7 +129,7 @@ export default async function ClaimClub({ params, searchParams }: {
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Claim {c.name}</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Claim {c.name}</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>This page already exists — we built it from your public notices. Claiming it means you control what&rsquo;s on it and you can post trials.</div>
         </div>
 

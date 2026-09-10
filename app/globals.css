@@ -384,3 +384,23 @@ button:active, a[href]:active { transform: scale(.975); }
 
 /* A quiet divider that does not compete with the row content. */
 .rule { height: 1px; background: var(--line); border: none; margin: 0; }
+
+/* ---------------------------------------------------------------------------
+   Headings carry MEANING, not size.
+
+   Thirty-one of thirty-three pages had no <h1> at all — every title in the
+   product was a styled <div>, so a screen-reader user had no document
+   structure to move through and no page name announced. The brief asks for
+   semantic HTML and this is where it earns its keep.
+
+   The reset is what makes fixing that safe: an <h1> here inherits its font
+   and carries no margin, so swapping a <div> for an <h1> changes the meaning
+   and nothing about the picture. Every title already sets its own size and
+   weight inline (D-140's tokens), and those keep winning.
+   --------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  margin: 0;
+}

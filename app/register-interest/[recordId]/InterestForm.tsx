@@ -41,7 +41,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Register your interest</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Register your interest</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{club.name} keep a register of players who want to be there. Put your name on it and they have your CV when they&rsquo;re looking.</div>
         </div>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="recordId" value={recordId} />
@@ -60,7 +60,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div className="field-label">Which squad</div>
             <div style={card}>
-              <select name="squadId" defaultValue={preselectSquad ?? ''}>
+              <select name="squadId" aria-label="Which squad" defaultValue={preselectSquad ?? ''}>
                 <option value="">—</option>
                 {squads.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -89,7 +89,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
               <div style={{ fontSize: 11, fontWeight: 700, color: T.muted }}>{note.length} / 140</div>
             </div>
             <div style={card}>
-              <textarea name="note" value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="Right-footed 10. Happy anywhere across the front three." style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical', minHeight: 40 }} />
+              <textarea name="note" aria-label="One line, if you want" value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="Right-footed 10. Happy anywhere across the front three." style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical', minHeight: 40 }} />
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Football only. Your parent reads this before it goes anywhere.</div>
           </div>

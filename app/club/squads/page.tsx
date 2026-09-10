@@ -71,7 +71,7 @@ export default async function Squads({ searchParams }: {
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Squads</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Squads</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>
             {c.name} · <b style={{ color: T.ink }}>{squads.length} squads</b>
           </div>
@@ -88,14 +88,14 @@ export default async function Squads({ searchParams }: {
 
         <form action={addSquad} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Add a squad</div>
-          <div className="field">
+          <label className="field">
             <div className="field-label">What you call it</div>
-            <input style={input} name="name" placeholder="U14 Boys" required />
-          </div>
+            <input style={input} name="name" aria-label="What you call it" placeholder="U14 Boys" required />
+          </label>
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
             <div className="field" style={{ flex: 1, minWidth: 150 }}>
               <div className="field-label">Age group</div>
-              <select name="ageGroup" defaultValue="U14">
+              <select name="ageGroup" aria-label="Age group" defaultValue="U14">
                 {stages.map((st) => (
                   <optgroup key={st} label={STAGE_LABEL[st] ?? st}>
                     {ages.filter((a) => a.stage === st).map((a) => (
@@ -107,13 +107,13 @@ export default async function Squads({ searchParams }: {
             </div>
             <div className="field" style={{ flex: 1, minWidth: 130 }}>
               <div className="field-label">Who plays in it</div>
-              <select name="gender" defaultValue="boys">
+              <select name="gender" aria-label="Who plays in it" defaultValue="boys">
                 {GENDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
             <div className="field" style={{ flex: 1, minWidth: 110 }}>
               <div className="field-label">Season</div>
-              <input style={input} name="season" defaultValue="2026" required />
+              <input style={input} name="season" aria-label="Season" defaultValue="2026" required />
             </div>
           </div>
           <button type="submit" className="btn btn-primary">Add it</button>

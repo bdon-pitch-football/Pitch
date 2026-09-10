@@ -50,7 +50,7 @@ export default async function Home() {
     return (
       <Shell>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>One account, whichever seat you hold.</div>
         </div>
         <Link href="/signin" className="btn btn-primary">Sign in</Link>
@@ -144,7 +144,7 @@ export default async function Home() {
     return (
       <Shell>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{clubSeat.name}</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{clubSeat.name}</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>
             {me.first_name} · {clubSeat.role === 'technical_director' ? 'Technical Director' : 'Club administrator'}
           </div>
@@ -183,7 +183,7 @@ export default async function Home() {
     return (
       <Shell>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your coach CV</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your coach CV</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>{me.first_name}{coachSeat.club ? ` · ${coachSeat.club}` : ''}</div>
         </div>
         {coachSeat.public_slug && (
@@ -208,7 +208,7 @@ export default async function Home() {
     const pg = me.my_page as { positions: string[]; squad_number: number | null; clips: number } | null;
     return (
       <Shell>
-        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your CV</div>
+        <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your CV</h1>
         <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
           {me.photo_path ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -250,7 +250,7 @@ export default async function Home() {
     return (
       <Shell>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome, {me.first_name}</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome, {me.first_name}</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Your account is set up. Here is what you can do with it.</div>
         </div>
 
@@ -346,7 +346,7 @@ export default async function Home() {
   return (
     <Shell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your family</div>
+        <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your family</h1>
         <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everything about your children on Pitch, and every control over it, is here.</div>
       </div>
 

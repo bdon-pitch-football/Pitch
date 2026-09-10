@@ -60,7 +60,7 @@ export default async function TrialsBoard({ searchParams }: {
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Trials board</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Trials board</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Club trials listed below, by trial date.</div>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>

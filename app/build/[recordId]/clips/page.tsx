@@ -50,7 +50,7 @@ export default async function Clips({ params, searchParams }: {
       <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: `/build/${recordId}`, label: 'Back to the CV' }} />
         <div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Highlights</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Highlights</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Paste a link from YouTube, Instagram or Veo. No uploading, no waiting.</div>
         </div>
         {error && <div style={{ ...card, padding: '13px 14px', border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary }}>That link isn&rsquo;t from YouTube, Instagram or Veo — check it and try again.</div>}
@@ -58,11 +58,11 @@ export default async function Clips({ params, searchParams }: {
         <form action={add} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
           <div style={{ ...card, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={label}>Video link</div>
-            <input style={input} name="url" placeholder="https://veo.co/matches/…" required />
+            <input style={input} name="url" aria-label="Video link" placeholder="https://veo.co/matches/…" required />
           </div>
           <div style={{ ...card, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={label}>Title</div>
-            <input style={input} name="title" placeholder="e.g. vs Northern Utd — 2 goals" required maxLength={80} />
+            <input style={input} name="title" aria-label="Title" placeholder="e.g. vs Northern Utd — 2 goals" required maxLength={80} />
           </div>
           <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 15, padding: 14, fontSize: 15, fontWeight: 900, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Add highlight</button>
         </form>
