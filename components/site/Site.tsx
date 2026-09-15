@@ -314,7 +314,11 @@ export default function Site() {
     const update = () => {
       frame = 0;
       setHowProgress(progressThrough(howRef.current));
-      setVisionProgress(progressThrough(visionRef.current, 0.9));
+      const vb = visionRef.current?.getBoundingClientRect();
+      if (vb) {
+        const range = vb.height + window.innerHeight * 0.45;
+        setVisionProgress(Math.min(1, Math.max(0, (window.innerHeight * 0.9 - vb.top) / range)));
+      }
       const mid = window.innerHeight * 0.5;
       const steps = stepRefs.current.filter(Boolean) as HTMLDivElement[];
       const lefts = steps.map((el) => el.getBoundingClientRect().left);
@@ -369,7 +373,7 @@ export default function Site() {
   const section$: React.CSSProperties = { width: '100%', maxWidth: 1160, margin: '0 auto', padding: '0 22px', boxSizing: 'border-box' };
   const h2: React.CSSProperties = { fontSize: 'clamp(30px, 5vw, 46px)', fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.05, margin: 0 };
   const lead: React.CSSProperties = { fontSize: 17, color: C.secondary, fontWeight: 500, lineHeight: 1.6, margin: 0, maxWidth: 620 };
-  const litZones = Math.min(3, Math.floor(visionProgress * 3.2) + (visionProgress > 0.02 ? 1 : 0));
+  const litZones = visionProgress > 0.7 ? 3 : visionProgress > 0.38 ? 2 : visionProgress > 0.05 ? 1 : 0;
 
   return (
     <div style={{ background: C.bg, color: C.ink, minHeight: '100dvh', overflowX: 'clip' }}>
