@@ -121,6 +121,27 @@ export async function setPause(formData: FormData) {
   redirect(`/g/controls/${childId}`);
 }
 
+// L6/L7: a 16-17's own sending, on or off. fn_can_dispatch has honoured this
+// switch since 0021, and doc 15 §22 tells the parent "the switch is yours" —
+// but nothing on this screen could change it, so the promise pointed at a
+// column. Off stops the PLAYER sending; either guardian setting it is enough
+// (most restrictive wins), and the player is told only that it is off.
+export async function setSendSwitch(formData: FormData) {
+  const childId = String(formData.get('childId') ?? '');
+  const off = String(formData.get('sendOff') ?? '') === 'true';
+  const guardianId = await assertGuardian(childId);
+  await db.query(
+    `insert into guardian_setting (child_id, send_disabled, updated_by) values ($1,$2,$3)
+     on conflict (child_id) do update set send_disabled=$2, updated_by=$3, updated_at=now()`,
+    [childId, off, guardianId],
+  );
+  await db.query(
+    `insert into consent_event (event, actor_id, subject_id, detail) values ('send_switch_changed',$1,$2, jsonb_build_object('send_disabled',$3::boolean))`,
+    [guardianId, childId, off],
+  );
+  redirect(`/g/controls/${childId}`);
+}
+
 export async function deleteEverything(formData: FormData) {
   const childId = String(formData.get('childId') ?? '');
   const guardianId = await assertGuardian(childId);

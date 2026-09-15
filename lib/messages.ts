@@ -99,28 +99,54 @@ export const helpReplySms = (): Composed => ({
 // §19 · A CV sent to a club — to the club. Never the surname beside the club,
 // never an attachment, never a photograph, never a date of birth, never the
 // word "trial".
-export const cvToClubEmail = (childFirstName: string, age: number, positions: string, clubOfPlayer: string, token: string): Composed => ({
-  key: 'doc15.§19',
-  channel: 'email',
-  subject: `${childFirstName} (${age}) has sent you their football CV`,
-  body:
-`${childFirstName}'s family has sent you ${childFirstName}'s football CV.
+// §19 has three senders since the send flow learned the other two bands
+// (D-99): the FAMILY (a guardian, for an under-16 or on a 16-17's behalf), a
+// 16-17 sending for themselves, and an adult. The first line and the
+// paragraphs about under-18s follow the sender, because "Jordan's family has
+// sent you Jordan's football CV" is false when a 22-year-old sent it.
+export const cvToClubEmail = (
+  childFirstName: string, age: number, positions: string, clubOfPlayer: string, token: string,
+  sender: 'family' | 'self' = 'family', band: 'u16' | '16_17' | '18plus' = 'u16',
+): Composed => {
+  const self = sender === 'self';
+  const adult = band === '18plus';
+  const opener = self
+    ? `${childFirstName} has sent you their football CV.`
+    : `${childFirstName}'s family has sent you ${childFirstName}'s football CV.`;
+  const control = adult
+    ? `This is a link, not a file. ${childFirstName} controls it — they can switch it off or replace it at any time, and it expires on its own. If it stops working, that is their choice, not a fault.`
+    : self
+      ? `This is a link, not a file. ${childFirstName} and their family control it — they can pause or replace it at any time, and it expires on its own. If it stops working, that is normal and it is their choice, not a fault.`
+      : `This is a link, not a file. The family controls it — they can pause or replace it at any time, and it expires on its own. If it stops working, that is normal and it is their choice, not a fault.`;
+  const contact = adult
+    ? `Replies to this message do not reach ${childFirstName}. Pitch does not pass messages on.`
+    : `Replies to this message do not reach the family. There is no way to reply to a family through Pitch — at any tier, for anybody. That is deliberate, and it is the same rule for every under-18 on here.
+
+If you want ${childFirstName} at a trial, post it on Pitch or send an invitation through their guardian. Both go to the parent, and both keep a record.`;
+  const why = self
+    ? `You received this because a player sent you their CV. We did not add you to a list and there is nothing to unsubscribe from.`
+    : `You received this because a family sent you their child's CV. We did not add you to a list and there is nothing to unsubscribe from.`;
+  return {
+    key: 'doc15.§19',
+    channel: 'email',
+    subject: `${childFirstName} (${age}) has sent you their football CV`,
+    body:
+`${opener}
 
 Open ${childFirstName}'s CV: ${SITE}/p/${token}
 
 ${childFirstName} plays ${positions}, currently at ${clubOfPlayer}.
 
-This is a link, not a file. The family controls it — they can pause or replace it at any time, and it expires on its own. If it stops working, that is normal and it is their choice, not a fault.
+${control}
 
-Replies to this message do not reach the family. There is no way to reply to a family through Pitch — at any tier, for anybody. That is deliberate, and it is the same rule for every under-18 on here.
-
-If you want ${childFirstName} at a trial, post it on Pitch or send an invitation through their guardian. Both go to the parent, and both keep a record.
+${contact}
 
 — Pitch
 ${SITE} · ${HELP}
 
-You received this because a family sent you their child's CV. We did not add you to a list and there is nothing to unsubscribe from.`,
-});
+${why}`,
+  };
+};
 
 // §20 · A send waiting on you — to the guardian. Email only, deliberately:
 // an SMS manufactures pressure around a decision designed to be pressure-free.
@@ -149,16 +175,36 @@ ${SITE} · ${HELP}`,
 // §21 · Your CV has gone — to the player. Never "great news", never an
 // exclamation mark, never a suggestion to send to more clubs, and never
 // anything about whether the link has been opened.
-export const cvSentToPlayerEmail = (clubName: string): Composed => ({
+export const cvSentToPlayerEmail = (clubName: string, adult = false): Composed => ({
   key: 'doc15.§21',
   channel: 'email',
   subject: `Your CV has been sent to ${clubName}`,
   body:
 `Your CV has gone to ${clubName}. That is everything on your side — there is nothing else you need to do.
 
-Clubs answer when they answer, and plenty never answer at all. That is normal and it is not about your page.
+Clubs answer when they answer, and plenty never answer at all. That is normal and it is not about your page.${adult ? '' : `
 
-If anyone from the club writes back, it comes to you and your parent together.
+If anyone from the club writes back, it comes to you and your parent together.`}
+
+— Pitch`,
+});
+
+// §22 · Your child sent their CV — to the guardian of a 16–17. On EVERY send,
+// never a digest (D-99, D-22), and to both guardians identically where there
+// are two (D-51, F5). Doc 15's example says "his": the product holds no gender
+// for a child (D-25), so it cannot know, and it says "their".
+export const childSentCvEmail = (childFirstName: string, clubName: string, address: string, childId: string): Composed => ({
+  key: 'doc15.§22',
+  channel: 'email',
+  subject: `${childFirstName} sent their CV to ${clubName}`,
+  body:
+`${childFirstName} sent their football CV to ${clubName} today, at ${address}.
+
+${childFirstName} does not need your approval for this — at sixteen and seventeen, sending is theirs to do. You are told every time, and the switch is yours if you ever want it off.
+
+See what they sent, or turn sending off: ${SITE}/g/controls/${childId}
+
+Turning it off is not a punishment and ${childFirstName} will not be told it was you — they will simply see that sending is off on their account, and the two of you can sort it out between you.
 
 — Pitch`,
 });
@@ -467,6 +513,6 @@ Nothing else. No copy, no archive, no "in case you come back".
 export const CATALOGUE_KEYS = [
   'doc15.§1', 'doc15.§2', 'doc15.§3', 'doc15.§10', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
-  'doc15.§6', 'doc15.§21', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
+  'doc15.§6', 'doc15.§21', 'doc15.§22', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
   'doc15.§33', 'doc15.§34',
 ] as const;

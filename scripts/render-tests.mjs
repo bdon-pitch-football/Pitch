@@ -292,6 +292,10 @@ const georgia = ids.children.georgia;
     // Every other fixture person already has something, so this state had
     // never been rendered by anyone and /home was a total dead end on it.
     'brand new': ids.people.robin,
+    // A 16-17 signs in and sends their own CV (doc 14 L5). No seat walked
+    // that band, and its send screen told a seventeen-year-old they were
+    // under sixteen.
+    '16–17 player': ids.children.nate.child_id,
     // The operator console had never been walked by ANY seat, so its pages
     // were outside every check the crawl makes. Two things were sitting in
     // there: a queue heading that was still a styled <div>, and a call sheet

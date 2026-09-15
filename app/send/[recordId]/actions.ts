@@ -1,13 +1,28 @@
 'use server';
 // "Send my CV" (D-99): never automated, never batched, never an attachment.
-// u16: the child composes; the request routes to the guardian, who checks
-// the address and presses send. The club address is typed from the club's
-// own notice — hostile free text, validated as an email shape only.
+// Who presses send depends on the band AT THE MOMENT OF SENDING (G1):
+//
+//   under 16  the child composes; the request routes to the guardian (D-91)
+//   16–17     the player sends; every guardian is told, every time (§22)
+//   18+       the player sends alone
+//
+// It used to know only the first. Every player at every age was told to ask a
+// parent, and an adult — who has no guardian — composed a request that went to
+// nobody, and was then told it had been asked. Postgres had permitted the
+// other two bands all along (fn_can_dispatch, doc 14 L5 and L8 green); nothing
+// in the product ever called it for anyone but a guardian.
+//
+// The club address is typed from the club's own notice — hostile free text,
+// validated as an email shape only.
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { SEND_DAILY_CAP } from '@/lib/football';
 import { sendWaitingEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
+import { checkRate } from '@/lib/ratelimit-db';
 import { requireRecordActor } from '@/lib/record-guard';
+import { dispatchShareRequest } from '@/lib/send-dispatch';
+import { sendState } from '@/lib/send-state';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -19,11 +34,38 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export async function composeSend(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
   // Never trust the record id in the URL (D-94 §3).
-  await requireRecordActor(recordId);
+  const { personId } = await requireRecordActor(recordId);
   const clubName = String(formData.get('clubName') ?? '').trim();
   const address = String(formData.get('address') ?? '').trim();
+
+  const state = await sendState(recordId, personId);
+  // L10/L11: paused, unapproved, or not this person's to send — no send row.
+  if (!state || state.mode === 'none') redirect('/home');
+  // L6: sending is switched off. Nothing is created and nothing is logged,
+  // because the log records what happened, never what was stopped (L56).
+  if (state.mode === 'off') redirect(`/send/${recordId}`);
   if (!clubName || !EMAIL_RE.test(address)) redirect(`/send/${recordId}?error=1`);
 
+  if (state.mode === 'self') {
+    // L38-L41, on the same terms as the guardian's door: counted per sending
+    // actor, and a limited send lands on exactly the page a real one does.
+    const withinLimit = await checkRate(`send:actor:${personId}`, SEND_DAILY_CAP, 24 * 60 * 60);
+    if (!withinLimit) {
+      await db.query(`insert into abuse_signal (actor_id, reason, surface) values ($1,'rate_limited','send')`, [personId]);
+      redirect(`/send/${recordId}?sent=1`);
+    }
+    const { rows } = await db.query(
+      `insert into share_request (record_id, requested_by, destination) values ($1,$2,$3) returning id`,
+      [recordId, personId, `${clubName} <${address}>`],
+    );
+    const done = await dispatchShareRequest(rows[0].id, personId);
+    // The switch can be turned off between the page and the press. Fail
+    // closed, onto the screen that says so, rather than claiming a send.
+    if (!done) redirect(`/send/${recordId}`);
+    redirect(`/send/${recordId}?sent=1`);
+  }
+
+  // Under 16: the request is composed here and waits for a guardian.
   const client = await db.connect();
   try {
     await client.query('begin');

@@ -50,7 +50,10 @@ for (const p of PLAYER_FIXTURES) {
   // navigation was the one path never crawled, never render-tested and never
   // walked. The three children are guardian-managed; an adult player signs
   // in as themselves.
-  const seatEmail = p.slug === 'jordan' ? 'player@example.com' : null;
+  // Nate gets one too. A 16-17 sends their own CV (doc 14 L5), and with no
+  // way to sign in that path had never been walked by anything — which is
+  // how it came to go nowhere. The two under-16s stay guardian-managed.
+  const seatEmail = p.slug === 'jordan' ? 'player@example.com' : p.slug === 'nate' ? 'nate@example.com' : null;
   await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,$2,$3,$4,$5)`,
     [personId, p.firstName, p.lastName, p.dob, seatEmail]);
   if (!isAdult) {
@@ -593,4 +596,4 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     }, null, 2) + '\n',
   );
 }
-console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club) · new@example.com (brand-new, nothing yet)');
+console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club) · new@example.com (brand-new, nothing yet)');

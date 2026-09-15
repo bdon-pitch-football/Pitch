@@ -69,6 +69,10 @@ const recActor = async (who, rec) =>
 const srcOf = (rel) => readFileSync(fileURLToPath(new URL('../' + rel, import.meta.url)), 'utf8');
 const eOg = srcOf('app/p/[token]/opengraph-image.tsx');
 const dispatchSrc = srcOf('app/g/send/[requestId]/actions.ts');
+// The send itself moved out of the guardian's action into the one path every
+// sender uses, when the player's own send (L5, L8) finally got a door onto it.
+const dispatchLib = srcOf('lib/send-dispatch.ts');
+const composeSrc = srcOf('app/send/[recordId]/actions.ts');
 
 // Strip comments before searching source for a forbidden word. Three checks
 // in this file have now matched their own explanatory comment — a comment
@@ -686,7 +690,7 @@ for (const [what, pat] of [['the recipient', /destination/], ['what the club get
   check(`N2: the consent screen shows ${what}`, pat.test(gSendPage), true);
 }
 check('N3: the send row names the disclosing guardian and the child',
-  /actor_id/.test(dispatchSrc) && /subject_id|r\.person_id/.test(dispatchSrc), true);
+  /actor_id/.test(dispatchLib) && /subject_id|r\.person_id/.test(dispatchLib), true);
 
 // C2/C3/C4/E13/P11 — the last few.
 check('C2: no route accepts a 16-17 as a message recipient', msgRoutes.length, 0);
@@ -1062,14 +1066,24 @@ const undoMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts'
 // L17/U-2: the other guardian is actually NOTIFIED — the message, the undo
 // token and the route all existed, and nothing connected them.
 check('L17: the dispatch notifies the other approved guardian',
-  /sendMadeByOtherGuardianEmail/.test(dispatchSrc), true);
+  /sendMadeByOtherGuardianEmail/.test(dispatchLib), true);
 check('L17b: minting them a single-use undo that expires in 24 hours',
-  /insert into undo_token/.test(dispatchSrc) && /24 hours/.test(dispatchSrc), true);
+  /insert into undo_token/.test(dispatchLib) && /24 hours/.test(dispatchLib), true);
 // Compare the CALL SITE, not the import — the import naturally sits at the
 // top of the file, before everything.
-const dispatchBody = dispatchSrc.split('export async function')[1] ?? '';
+const dispatchBody = dispatchLib.split('export async function')[1] ?? '';
 check('L17c: and it is sent after the transaction, not inside it',
   dispatchBody.indexOf('client.release()') < dispatchBody.indexOf('sendMadeByOtherGuardianEmail('), true);
+
+// ONE dispatch path. A player's own send and a guardian's must mint the token,
+// write the consent row and email the club in the same place, or one of them
+// is wrong later — the send flow knew only the guardian's for its whole life,
+// and an adult's send went to nobody.
+check('L5/L8: the player and the guardian send through ONE dispatch path',
+  /dispatchShareRequest/.test(composeSrc) && /dispatchShareRequest/.test(dispatchSrc)
+    && !/insert into share_token/.test(composeSrc + dispatchSrc), true);
+check('L5/L8b: and Postgres, not the caller, decides whether the actor may send',
+  /fn_can_dispatch\(\$2, sr\.record_id\)/.test(dispatchLib), true);
 
 check('U-2: the notification says plainly that the email cannot be recalled',
   /cannot recall|already arrived/i.test(undoMsg), true);

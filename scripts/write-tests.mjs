@@ -80,6 +80,9 @@ function forms(html) {
 const SEATS = {
   parent: ids.people.alex, player: ids.people.jordan, 'club TD': ids.people.marina,
   coach: ids.people.sam, 'unverified club': ids.people['m.'], 'brand new': ids.people.robin,
+  // A 16-17 sends their own CV (doc 14 L5). No seat walked that path, and it
+  // went nowhere for every player who was not under 16.
+  '16–17 player': ids.children.nate.child_id,
 };
 
 // Reachable pages per seat, by following links exactly as the render crawl does.
@@ -171,6 +174,93 @@ const weight = (e) => /delete/i.test(e.form.submit) ? 2 : /remove|close/i.test(e
 all.sort((a, b) => weight(a) - weight(b));
 
 console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length + 1} seats\n`);
+
+// ---------------------------------------------------------------------------
+// 0 · A CV SENT FROM EACH BAND ACTUALLY ARRIVES, AND THE RIGHT PEOPLE ARE TOLD.
+//
+// x1 below would not have caught the bug this exists for. "Send my CV" told
+// every player to ask a parent, and an adult's send — a 303 and a new row, so
+// a pass by every measure x1 has — reached nobody at all. "It did not 500" is
+// not "the CV got to the club". This reads the outbox, which is what the
+// product would actually have sent (doc 15), and asks the question per band.
+//
+// Runs FIRST, on the fresh database: the generic sweep below pauses profiles
+// and flips switches, and x3 deletes a child.
+// ---------------------------------------------------------------------------
+{
+  const parent = SEATS.parent;
+  const nate = ids.children.nate;
+  const deniz = ids.children.deniz;
+  const decode = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+  const outbox = async () => decode((await get('/dev/outbox', parent)).html);
+  const esc = (a) => a.replace(/[.+]/g, (c) => '\\' + c);
+  const to = (text, section, address) => new RegExp(`doc15\\.§${section}\\s*→\\s*${esc(address)}`).test(text);
+  const sendForm = async (who, recordId) =>
+    forms((await get(`/send/${recordId}`, who)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+  const postSend = async (who, recordId, form, clubName, address) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    fd.append('clubName', clubName); fd.append('address', address);
+    const r = await fetch(BASE + `/send/${recordId}`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+
+  // 18+ — Jordan, 22, no guardian. doc 14 L8.
+  const jordanRec = /href="\/build\/([0-9a-f-]{36})"/.exec((await get('/home', SEATS.player)).html)?.[1];
+  const jf = await sendForm(SEATS.player, jordanRec);
+  const aLoc = await postSend(SEATS.player, jordanRec, jf, 'Adult Test FC', 'adult@send.example');
+  let box = await outbox();
+  check('x0a: an adult’s send is SENT, not asked for', aLoc.includes('sent=1'), true);
+  check('x0b: AND IT REACHES THE CLUB — it used to reach nobody (L8)', to(box, 19, 'adult@send.example'), true);
+  check('x0c: the club is told the player sent it, not "the family"',
+    box.includes('Jordan has sent you their football CV.') && !box.includes("Jordan's family has sent you"), true);
+  check('x0d: the adult gets their receipt (§21)', to(box, 21, 'player@example.com'), true);
+  check('x0e: and no parent is asked, because there is no parent', box.includes('It goes to: adult@send.example'), false);
+
+  // 16–17 — Nate, 17. doc 14 L5, doc 15 §22.
+  const nf = await sendForm(nate.child_id, nate.record_id);
+  const nLoc = await postSend(nate.child_id, nate.record_id, nf, 'Teen Test FC', 'teen@send.example');
+  box = await outbox();
+  check('x0f: a 16-17 sends for themselves (L5)', nLoc.includes('sent=1'), true);
+  check('x0g: it reaches the club', to(box, 19, 'teen@send.example'), true);
+  check('x0h: the 16-17 gets their receipt', to(box, 21, 'nate@example.com'), true);
+  check('x0i: AND THE GUARDIAN IS TOLD, with the address it went to (§22)',
+    to(box, 22, 'guardian@example.com') && box.includes('today, at teen@send.example'), true);
+
+  // Under 16 — Deniz, 14. doc 14 L1: composed, never transmitted.
+  const df = await sendForm(parent, deniz.record_id);
+  const dLoc = await postSend(parent, deniz.record_id, df, 'Child Test FC', 'child@send.example');
+  box = await outbox();
+  check('x0j: an under-16’s send is asked for, not sent (L1)', dLoc.includes('asked=1'), true);
+  check('x0k: nothing reaches the club until a guardian presses send', to(box, 19, 'child@send.example'), false);
+  check('x0l: the guardian is asked, with the address in full (§20)', box.includes('It goes to: child@send.example'), true);
+
+  // The switch — doc 14 L6, and §22's "the switch is yours".
+  const ctl = `/g/controls/${nate.child_id}`;
+  const flip = async () => {
+    const f = forms((await get(ctl, parent)).html).find((x) => 'sendOff' in x.fields);
+    if (!f) return 0;
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(f.fields)) fd.append(k, v);
+    const r = await fetch(BASE + ctl, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(parent) } });
+    await r.text();
+    return r.status;
+  };
+  const heldForm = await sendForm(nate.child_id, nate.record_id);   // taken BEFORE the switch goes off
+  check('x0m: the guardian of a 16-17 has a switch for their sending', await flip(), 303);
+  const offPage = (await get(`/send/${nate.record_id}`, nate.child_id)).html;
+  check('x0n: the player is told plainly that sending is off, with no form (L6)',
+    offPage.includes('Sending is off on your account') && !/name="clubName"/.test(offPage), true);
+  check('x0o: and never who switched it', /Alex|switched it off|your guardian turned/i.test(decode(offPage)), false);
+  await postSend(nate.child_id, nate.record_id, heldForm, 'Blocked Test FC', 'blocked@send.example');
+  box = await outbox();
+  check('x0p: a send posted anyway, from a form held open, goes NOWHERE — the server refuses, not the page',
+    box.includes('blocked@send.example'), false);
+  await flip();
+  check('x0q: switching it back on restores the form',
+    /name="clubName"/.test((await get(`/send/${nate.record_id}`, nate.child_id)).html), true);
+}
 
 // ---------------------------------------------------------------------------
 // 1 · EVERY FORM SUBMITS WITHOUT JAVASCRIPT.

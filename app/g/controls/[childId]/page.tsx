@@ -8,7 +8,7 @@ import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
-import { deleteEverything, renewLink, replaceLink, setPause } from './actions';
+import { deleteEverything, renewLink, replaceLink, setPause, setSendSwitch } from './actions';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -41,6 +41,7 @@ export default async function Controls({ params, searchParams }: {
     `select p.first_name, fn_age_band(p.dob) as band,
        (select id from development_record where person_id = p.id) as record_id,
        (select coalesce((select profile_paused from guardian_setting where child_id = p.id), false)) as paused,
+       (select coalesce((select send_disabled from guardian_setting where child_id = p.id), false)) as send_off,
        (select row_to_json(t) from (
           select token_hint, to_char(expires_at at time zone 'Australia/Melbourne', 'DD Month') as expires
           from share_token st join development_record dr on dr.id = st.record_id
@@ -85,8 +86,12 @@ export default async function Controls({ params, searchParams }: {
   // "guardian_landed" on the screen whose entire job is to tell them plainly
   // what happened is worse than showing nothing. Found walking Deniz's
   // history: four of them were rendering as enum values.
+  //
+  // No pronoun is derived for a child anywhere on this screen: the product
+  // holds no gender (D-25), so every line uses the name or "their". Eight of
+  // these said "his" and "He" for every child — Georgia included.
   const EVENT_LINES: Record<string, string> = {
-    invite_created: 'We were asked to set up his profile',
+    invite_created: 'We were asked to set up their profile',
     email_sent: 'We emailed you to ask permission',
     email_delivered: 'That email reached your inbox',
     email_opened: 'You opened that email',
@@ -105,19 +110,20 @@ export default async function Controls({ params, searchParams }: {
     share_issued: 'Link created',
     share_revoked: 'Link replaced — the old one stopped working',
     share_paused: 'You changed the pause switch',
-    share_request_created: `${name} asked you to send his CV`,
-    share_dispatched: 'You sent his CV to a club',
+    share_request_created: `${name} asked you to send their CV`,
+    share_dispatched: `${theirs} CV was sent to a club`,
     card_requested: `${name} asked for a share card`,
     card_approved: 'You approved a share card',
-    outside_contact_logged: 'Someone outside his club asked to reach him',
-    age_transition: 'His age band changed',
-    registration_created: 'He went onto a club register',
-    registration_withdrawn: 'He came off a club register',
-    invitation_created: 'A club invited him',
+    outside_contact_logged: `Someone outside ${theirs} club asked to reach them`,
+    age_transition: `${theirs} age band changed`,
+    registration_created: `${name} went onto a club register`,
+    registration_withdrawn: `${name} came off a club register`,
+    invitation_created: `A club invited ${name}`,
     invitation_replied: 'You replied to a club',
     deletion_requested: 'You asked us to delete everything',
     deletion_completed: 'Everything was deleted',
     report_filed: 'A page was reported',
+    send_switch_changed: `You changed whether ${name} can send their own CV`,
   };
 
   return (
@@ -170,6 +176,31 @@ export default async function Controls({ params, searchParams }: {
           </div>
         </div>
 
+        {/* L6/L7, and doc 15 §22's "the switch is yours". A 16-17 sends their
+            own CV; this is the parent's control over that, and it existed
+            only as a database column until now. Under 16 there is nothing to
+            switch — the guardian is already the one who sends. */}
+        {c.band === '16_17' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <h2 style={label}>Sending</h2>
+            <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 800 }}>{c.send_off ? 'Sending is off' : `${name} can send their own CV`}</div>
+                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
+                  {c.send_off
+                    ? `${name} sees that sending is off on their account, and nothing about who switched it.`
+                    : `You’re told every time they send. Switch it off and they can’t send from their own account until you switch it back on.`}
+                </div>
+              </div>
+              <form action={setSendSwitch}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="sendOff" value={String(!c.send_off)} />
+                <button type="submit" aria-label="Sending toggle" style={{ width: 46, height: 27, borderRadius: 999, border: 'none', cursor: 'pointer', background: c.send_off ? T.surface2 : T.accent, display: 'flex', alignItems: 'center', justifyContent: c.send_off ? 'flex-start' : 'flex-end', padding: 3 }}>
+                  <div style={{ width: 21, height: 21, borderRadius: 999, background: c.send_off ? T.muted : T.onAccent }} />
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Doc 14 L57 in the product, not only in the database: every send,
             recipient address in full. A parent's first question is "who has
             my child's page?", and until now this screen could not answer it
@@ -200,7 +231,7 @@ export default async function Controls({ params, searchParams }: {
           <div style={{ ...card, padding: '6px 14px' }}>
             {(c.timeline as { at: string; event: string }[]).length === 0 && (
               <div style={{ fontSize: 12.5, fontWeight: 500, color: T.muted, padding: '4px 0' }}>
-                Nothing yet beyond your approval. Anything you do here — renewing his link, pausing his page, replying to a club — is written down and shows up in this list.
+                Nothing yet beyond your approval. Anything you do here — renewing their link, pausing their page, replying to a club — is written down and shows up in this list.
               </div>
             )}
             {(c.timeline as { at: string; event: string }[]).map((e, i) => (
