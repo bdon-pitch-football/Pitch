@@ -374,7 +374,7 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
                 ['No feed, no likes, no followers', 'A page you choose to send — not somewhere to scroll.'],
                 ['A club can’t message a child', 'It can send one invitation to trial. The parent sees it at the same moment, and approves the reply.'],
                 ['Every club checked by a person', 'Nothing about a child reaches a club until someone at Pitch has verified it.'],
-                ['Out of search engines', 'Under-18 pages are never indexed. A link only works for the people it was sent to.'],
+                ['Out of search engines', 'Under-18 pages are never indexed. A page opens only with its link, and a parent can switch that link off at any time.'],
               ].map(([t, b]) => (
                 <div key={t} style={{ background: 'rgba(18,27,22,.7)', border: `1px solid ${C.line}`, borderRadius: 16, padding: '16px 15px' }}>
                   <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>{t}</div>
