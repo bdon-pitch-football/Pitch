@@ -20,7 +20,7 @@
 // the content"). No words changed. No libraries. Nothing is sent anywhere:
 // the chosen role is kept in this browser's localStorage only. Everything
 // that moves stops for prefers-reduced-motion.
-//   · the hero phone can be scrolled by hand; it resumes on its own
+//   · the hero phone pauses while a mouse is over it or a finger is on it
 //   · "How it works" follows the reader's scroll: active step, travelling ball
 //   · any screen opens full size (tap, Esc or the close button to shut)
 //   · choosing who you are highlights your price and pre-selects the form
@@ -66,7 +66,7 @@ function Phone({ src, alt, width = 280, tilt = 0, eager = false, onOpen }: { src
   const inner = width - 20;
   return (
     <button type="button" className="sp-zoomable" onClick={() => onOpen({ src, alt })} aria-label={`Open full size: ${alt}`}
-      style={{ ...phoneShell, width, transform: `rotate(${tilt}deg)`, border: 'none', cursor: 'zoom-in', fontFamily: 'inherit', color: 'inherit' }}>
+      style={{ ...phoneShell, width, ['--tilt' as never]: `${tilt}deg`, transform: 'rotate(var(--tilt))', border: 'none', cursor: 'zoom-in', fontFamily: 'inherit', color: 'inherit' }}>
       <div style={{ position: 'relative', borderRadius: 34, overflow: 'hidden', height: Math.round(inner * (844 / 390)), background: C.bg }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt="" width={600} height={1298} loading={eager ? 'eager' : 'lazy'} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
@@ -76,41 +76,30 @@ function Phone({ src, alt, width = 280, tilt = 0, eager = false, onOpen }: { src
   );
 }
 
-// The hero phone: a full-height capture of a real player page. It scrolls
-// slowly by itself; touch, wheel or drag inside it and the reader takes over,
-// and it picks up again a few seconds after they let go.
+// The hero phone: a full-height capture of a real player page, scrolling
+// slowly by itself. It pauses while a mouse is over it or a finger is on it,
+// and carries on from the same spot. It used to switch into a scroll box of
+// its own on hover and tap, which made the picture jump (BUZ, 16 Sep).
 function HeroPhone({ width = 300 }: { width?: number }) {
   const inner = width - 20;
   const frame = Math.round(inner * (844 / 390));
-  const boxRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [manual, setManual] = useState(false);
-  const idle = useRef<number | null>(null);
-
-  const takeOver = useCallback(() => {
-    const box = boxRef.current, img = imgRef.current;
-    if (!box || !img) return;
-    if (!manual) {
-      // Start the hand scroll from wherever the animation had got to.
-      const t = getComputedStyle(img).translate;
-      const y = t && t !== 'none' ? parseFloat(t.split(' ')[1] ?? '0') : 0;
-      setManual(true);
-      requestAnimationFrame(() => { box.scrollTop = Math.max(0, -y); });
-    }
-    if (idle.current) window.clearTimeout(idle.current);
-    idle.current = window.setTimeout(() => { box.scrollTop = 0; setManual(false); }, 4500);
-  }, [manual]);
-
-  useEffect(() => () => { if (idle.current) window.clearTimeout(idle.current); }, []);
+  const [paused, setPaused] = useState(false);
+  const resume = useRef<number | null>(null);
+  const hold = () => { if (resume.current) window.clearTimeout(resume.current); setPaused(true); };
+  const release = (delay: number) => {
+    if (resume.current) window.clearTimeout(resume.current);
+    resume.current = window.setTimeout(() => setPaused(false), delay);
+  };
+  useEffect(() => () => { if (resume.current) window.clearTimeout(resume.current); }, []);
 
   return (
-    <div style={{ ...phoneShell, width }}>
-      <div ref={boxRef} className={manual ? 'sp-hero-manual' : undefined}
-        onPointerEnter={(e) => { if (e.pointerType === 'mouse') takeOver(); }}
-        onPointerDown={takeOver} onWheel={takeOver} onTouchStart={takeOver} onScroll={() => manual && takeOver()}
-        style={{ position: 'relative', borderRadius: 34, overflow: manual ? 'auto' : 'hidden', height: frame, background: C.bg, overscrollBehavior: 'contain' }}>
+    <div style={{ ...phoneShell, width }}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') hold(); }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') release(0); }}
+      onTouchStart={hold} onTouchEnd={() => release(2500)} onTouchCancel={() => release(2500)}>
+      <div style={{ position: 'relative', borderRadius: 34, overflow: 'hidden', height: frame, background: C.bg }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img ref={imgRef} src="/site/hero-cv.webp" alt="A player’s page on Pitch" width={600} height={2188} fetchPriority="high" className={manual ? undefined : 'sp-autoscroll'} draggable={false}
+        <img src="/site/hero-cv.webp" alt="A player’s page on Pitch" width={600} height={2188} fetchPriority="high" className="sp-autoscroll" data-paused={paused ? 'true' : 'false'} draggable={false}
           style={{ width: '100%', height: 'auto', display: 'block', ['--frame' as never]: `${frame}px` }} />
       </div>
     </div>
@@ -137,12 +126,15 @@ function Lightbox({ shot, onClose }: { shot: Shot | null; onClose: () => void })
   useEffect(() => {
     if (!shot) return;
     const opener = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
+    closeRef.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     const prev = document.body.style.overflow;
+    const prevPad = document.body.style.paddingRight;
+    const scrollbar = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = 'hidden';
+    if (scrollbar > 0) document.body.style.paddingRight = `${scrollbar}px`;
     window.addEventListener('keydown', onKey);
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; opener?.focus(); };
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; document.body.style.paddingRight = prevPad; opener?.focus({ preventScroll: true }); };
   }, [shot, onClose]);
   if (!shot) return null;
   return (
@@ -269,14 +261,16 @@ export default function Site() {
   const [tried, setTried] = useState(false);
   const [shot, setShot] = useState<Shot | null>(null);
   const [activeStep, setActiveStep] = useState(0);
-  const [howProgress, setHowProgress] = useState(0);
-  const [visionProgress, setVisionProgress] = useState(0);
+  const [litZones, setLitZones] = useState(0);
   const [section, setSection] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const howRef = useRef<HTMLDivElement>(null);
   const visionRef = useRef<HTMLDivElement>(null);
   const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
   const swipe = useRef<number | null>(null);
+  const howFillRef = useRef<HTMLDivElement>(null);
+  const howBallRef = useRef<HTMLSpanElement>(null);
+  const visionBallRef = useRef<HTMLSpanElement>(null);
 
   const openShot = useCallback((s: Shot) => setShot(s), []);
 
@@ -313,11 +307,19 @@ export default function Site() {
     let frame = 0;
     const update = () => {
       frame = 0;
-      setHowProgress(progressThrough(howRef.current));
+      const howP = progressThrough(howRef.current);
+      if (howFillRef.current) howFillRef.current.style.width = `${Math.round(howP * 100)}%`;
+      if (howBallRef.current) howBallRef.current.style.left = `calc(${(howP * 100).toFixed(1)}% - 6px)`;
       const vb = visionRef.current?.getBoundingClientRect();
       if (vb) {
         const range = vb.height + window.innerHeight * 0.45;
-        setVisionProgress(Math.min(1, Math.max(0, (window.innerHeight * 0.9 - vb.top) / range)));
+        const vp = Math.min(1, Math.max(0, (window.innerHeight * 0.9 - vb.top) / range));
+        const lit = vp > 0.7 ? 3 : vp > 0.38 ? 2 : vp > 0.05 ? 1 : 0;
+        setLitZones(lit);
+        if (visionBallRef.current) {
+          visionBallRef.current.style.left = `calc(${(4 + vp * 92).toFixed(1)}% - 7px)`;
+          visionBallRef.current.style.boxShadow = `0 0 18px ${lit >= 3 ? C.purple : lit === 2 ? C.amber : C.accent}`;
+        }
       }
       const mid = window.innerHeight * 0.5;
       const steps = stepRefs.current.filter(Boolean) as HTMLDivElement[];
@@ -373,7 +375,6 @@ export default function Site() {
   const section$: React.CSSProperties = { width: '100%', maxWidth: 1160, margin: '0 auto', padding: '0 22px', boxSizing: 'border-box' };
   const h2: React.CSSProperties = { fontSize: 'clamp(30px, 5vw, 46px)', fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.05, margin: 0 };
   const lead: React.CSSProperties = { fontSize: 17, color: C.secondary, fontWeight: 500, lineHeight: 1.6, margin: 0, maxWidth: 620 };
-  const litZones = visionProgress > 0.7 ? 3 : visionProgress > 0.38 ? 2 : visionProgress > 0.05 ? 1 : 0;
 
   return (
     <div style={{ background: C.bg, color: C.ink, minHeight: '100dvh', overflowX: 'clip' }}>
@@ -400,12 +401,11 @@ export default function Site() {
         .sp-header[data-scrolled="true"] { border-bottom-color: #24322a; }
         .sp-autoscroll { animation: spScroll 26s cubic-bezier(.45,0,.55,1) infinite alternate; }
         @keyframes spScroll { 0%, 8% { translate: 0 0; } 92%, 100% { translate: 0 calc(-100% + var(--frame)); } }
-        .sp-hero-manual { scrollbar-width: none; }
-        .sp-hero-manual::-webkit-scrollbar { display: none; }
+        .sp-autoscroll[data-paused="true"] { animation-play-state: paused; }
         .sp-armed { opacity: 0; transform: translateY(18px); transition: opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1); }
         .sp-armed.sp-in { opacity: 1; transform: none; }
         .sp-zoomable { transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s; }
-        .sp-zoomable:hover { transform: translateY(-4px) rotate(0deg) !important; }
+        .sp-zoomable:hover { transform: translateY(-3px) rotate(var(--tilt, 0deg)) !important; }
         .sp-zoomable:focus-visible { outline: 2px solid #3ddc84; outline-offset: 4px; }
         .sp-step { transition: opacity .45s cubic-bezier(.22,1,.36,1), filter .45s; }
         @media (min-width: 900px) { .sp-step[data-active="false"] { opacity: .42; filter: saturate(.6); } }
@@ -413,9 +413,12 @@ export default function Site() {
         .sp-step[data-active="true"] .sp-step-num { transform: scale(1.08); text-shadow: 0 0 28px rgba(61,220,132,.45); }
         .sp-link { opacity: 0; }
         .sp-step[data-active="true"] .sp-link { animation: spLink 3.4s cubic-bezier(.65,0,.35,1) infinite; }
-        @keyframes spLink { 0% { left: 6%; opacity: 0; } 12% { opacity: 1; } 70% { left: 78%; opacity: 1; } 84%, 100% { left: 78%; opacity: 0; } }
+        @keyframes spLink { 0% { transform: translateX(6%); opacity: 0; } 12% { opacity: 1; } 70% { transform: translateX(78%); opacity: 1; } 84%, 100% { transform: translateX(78%); opacity: 0; } }
         .sp-ball { transition: left .18s linear; }
-        .sp-panel { animation: spPanel .45s cubic-bezier(.22,1,.36,1) both; }
+        .sp-who-stack { display: grid; }
+        .sp-who-stack > .sp-who-panel { grid-area: 1 / 1; }
+        .sp-who-panel[data-active="false"] { visibility: hidden; opacity: 0; pointer-events: none; }
+        .sp-who-panel[data-active="true"] { animation: spPanel .45s cubic-bezier(.22,1,.36,1) both; }
         @keyframes spPanel { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
         .sp-zone { transition: opacity .6s cubic-bezier(.22,1,.36,1), background .6s; }
         .sp-zone[data-lit="false"] { opacity: .38; }
@@ -460,7 +463,7 @@ export default function Site() {
         details.sp-faq::details-content { height: 0; overflow: clip; transition: height .35s cubic-bezier(.22,1,.36,1), content-visibility .35s allow-discrete; }
         details.sp-faq[open]::details-content { height: auto; }
         @media (prefers-reduced-motion: reduce) {
-          .sp-autoscroll, .sp-step[data-active="true"] .sp-link, .sp-panel, .sp-lightbox, .sp-lightbox-img, .sp-goal-ball, .sp-goal-net { animation: none; }
+          .sp-autoscroll, .sp-step[data-active="true"] .sp-link, .sp-who-panel, .sp-lightbox, .sp-lightbox-img, .sp-goal-ball, .sp-goal-net { animation: none; }
           .sp-armed { opacity: 1; transform: none; transition: none; }
           .sp-ball, .sp-zone, .sp-step, .sp-price-card, .sp-zoomable, .sp-vcard { transition: none; }
           .sp-zoomable:hover, .sp-vcard:hover { transform: none !important; }
@@ -525,8 +528,8 @@ export default function Site() {
             <h2 style={h2}>From your first page to a trial.</h2>
           </div>
           <div aria-hidden style={{ position: 'relative', height: 2, background: C.line, margin: '0 0 44px' }}>
-            <div style={{ position: 'absolute', left: 0, top: 0, height: 2, width: `${Math.round(howProgress * 100)}%`, background: C.accent, opacity: .6 }} />
-            <span className="sp-ball" style={{ position: 'absolute', top: -5, left: `calc(${(howProgress * 100).toFixed(1)}% - 6px)`, width: 12, height: 12, borderRadius: 999, background: C.ink, boxShadow: `0 0 18px ${C.accent}` }} />
+            <div ref={howFillRef} style={{ position: 'absolute', left: 0, top: 0, height: 2, width: '0%', background: C.accent, opacity: .6 }} />
+            <span ref={howBallRef} className="sp-ball" style={{ position: 'absolute', top: -5, left: 'calc(0% - 6px)', width: 12, height: 12, borderRadius: 999, background: C.ink, boxShadow: `0 0 18px ${C.accent}` }} />
           </div>
           <div className="sp-steps">
             {[
@@ -544,8 +547,10 @@ export default function Site() {
                 <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 6 }}>
                   <Phone src={s.src} alt={s.alt} width={250} tilt={i === 1 ? 0 : i === 0 ? -2 : 2} onOpen={openShot} />
                   {i === 1 && (
-                    <span className="sp-link" aria-hidden style={{ position: 'absolute', top: '42%', background: C.accent, color: C.onAccent, borderRadius: 999, padding: '7px 12px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap', boxShadow: '0 10px 30px -8px rgba(61,220,132,.6)', pointerEvents: 'none' }}>
-                      pitchfootball.com.au/p/…
+                    <span className="sp-link" aria-hidden style={{ position: 'absolute', top: '42%', left: 0, right: 0, pointerEvents: 'none' }}>
+                      <span style={{ display: 'inline-block', background: C.accent, color: C.onAccent, borderRadius: 999, padding: '7px 12px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap', boxShadow: '0 10px 30px -8px rgba(61,220,132,.6)' }}>
+                        pitchfootball.com.au/p/…
+                      </span>
                     </span>
                   )}
                 </div>
@@ -564,13 +569,16 @@ export default function Site() {
           </div>
           <div role="tablist" aria-label="Who are you?" onKeyDown={onTabKey} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 36 }}>
             {ROLES.map((r) => (
-              <button key={r} type="button" role="tab" id={`tab-${r}`} aria-controls="who-panel" aria-selected={who === r} tabIndex={who === r ? 0 : -1} className="sp-chip"
+              <button key={r} type="button" role="tab" id={`tab-${r}`} aria-controls={`who-panel-${r}`} aria-selected={who === r} tabIndex={who === r ? 0 : -1} className="sp-chip"
                 onClick={() => choose(r)} style={{ ['--acc' as never]: ACCENT[r] }}>
                 {WHO[r].label}
               </button>
             ))}
           </div>
-          <div id="who-panel" role="tabpanel" aria-labelledby={`tab-${who}`} className="sp-grid-2 sp-panel" key={who}
+          {/* All four panels sit in the same grid cell, sized by the tallest, and
+              only the chosen one shows. Switching used to swap a phone for the
+              shorter club laptop and move the whole page by 219px (BUZ, 16 Sep). */}
+          <div className="sp-who-stack"
             onTouchStart={(e) => { swipe.current = e.touches[0].clientX; }}
             onTouchEnd={(e) => {
               if (swipe.current === null) return;
@@ -579,25 +587,30 @@ export default function Site() {
               if (Math.abs(dx) < 60) return;
               choose(ROLES[(ROLES.indexOf(who) + (dx < 0 ? 1 : ROLES.length - 1)) % ROLES.length]);
             }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h3 style={{ fontSize: 'clamp(26px, 3.6vw, 36px)', fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.1, margin: 0 }}>{WHO[who].title}</h3>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {WHO[who].points.map((p) => (
-                  <li key={p} style={{ display: 'flex', gap: 12, fontSize: 16, color: C.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={ACCENT[who]} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 3 }} aria-hidden><path d="M5 12.5 L10 17.5 L19 7" /></svg>
-                    {p}
-                  </li>
-                ))}
-              </ul>
-              <button type="button" onClick={() => joinAs(who)} className="sp-btn sp-btn-primary" style={{ alignSelf: 'flex-start', padding: '0 26px', background: ACCENT[who] }}>
-                Join as a {WHO[who].label.toLowerCase()}
-              </button>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              {WHO[who].shot.laptop
-                ? <Laptop src={WHO[who].shot.src} alt={WHO[who].shot.alt} onOpen={openShot} />
-                : <Phone src={WHO[who].shot.src} alt={WHO[who].shot.alt} width={290} eager onOpen={openShot} />}
-            </div>
+            {ROLES.map((r) => (
+              <div key={r} id={`who-panel-${r}`} role="tabpanel" aria-labelledby={`tab-${r}`} aria-hidden={who !== r} inert={who !== r}
+                className="sp-grid-2 sp-who-panel" data-active={who === r ? 'true' : 'false'}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <h3 style={{ fontSize: 'clamp(26px, 3.6vw, 36px)', fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.1, margin: 0 }}>{WHO[r].title}</h3>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {WHO[r].points.map((pt) => (
+                      <li key={pt} style={{ display: 'flex', gap: 12, fontSize: 16, color: C.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={ACCENT[r]} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 3 }} aria-hidden><path d="M5 12.5 L10 17.5 L19 7" /></svg>
+                        {pt}
+                      </li>
+                    ))}
+                  </ul>
+                  <button type="button" onClick={() => joinAs(r)} className="sp-btn sp-btn-primary" style={{ alignSelf: 'flex-start', padding: '0 26px', background: ACCENT[r] }}>
+                    Join as a {WHO[r].label.toLowerCase()}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  {WHO[r].shot.laptop
+                    ? <Laptop src={WHO[r].shot.src} alt={WHO[r].shot.alt} onOpen={openShot} />
+                    : <Phone src={WHO[r].shot.src} alt={WHO[r].shot.alt} width={290} eager onOpen={openShot} />}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -645,7 +658,7 @@ export default function Site() {
               <rect x="10" y="110" width="110" height="180" fill="none" stroke="#3ddc84" strokeWidth="2" />
               <rect x="880" y="110" width="110" height="180" fill="none" stroke="#3ddc84" strokeWidth="2" />
             </svg>
-            <span aria-hidden className="sp-vball sp-ball" style={{ position: 'absolute', zIndex: 2, bottom: 14, left: `calc(${(4 + visionProgress * 92).toFixed(1)}% - 7px)`, width: 14, height: 14, borderRadius: 999, background: C.ink, boxShadow: `0 0 18px ${litZones >= 3 ? C.purple : litZones === 2 ? C.amber : C.accent}` }} />
+            <span ref={visionBallRef} aria-hidden className="sp-vball sp-ball" style={{ position: 'absolute', zIndex: 2, bottom: 14, left: 'calc(4% - 7px)', width: 14, height: 14, borderRadius: 999, background: C.ink, boxShadow: `0 0 18px ${C.accent}` }} />
             <div className="sp-vision" style={{ position: 'relative' }}>
               {VISION.map((z, i) => (
                 <div key={z.zone} className="sp-zone" data-lit={i < litZones ? 'true' : 'false'}
