@@ -29,10 +29,12 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
      from registration r
      join person p on p.id = r.player_id
      join development_record dr on dr.person_id = p.id
-     where r.id = $1 and r.withdrawn_at is null
-       and fn_can_work_register($2, r.club_id)
-       and exists (select 1 from club c where c.id = r.club_id and c.club_state = 'verified')
-       and fn_register_active(r.club_id)`,
+     -- fn_can_invite is the one answer to "may this club act on this
+     -- registration": this club's worker, verified, and either the paid
+     -- register or a registration against a trial the club posted (D-153).
+     -- This page carried its own copy of the paid half, so a free club could
+     -- invite a player and then 404 on the button to read their CV.
+     where r.id = $1 and fn_can_invite($2, r.id)`,
     [registrationId, me],
   );
   if (auth.rows.length === 0) notFound();

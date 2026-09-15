@@ -425,8 +425,8 @@ D-117, D-138. **The rule: an invitation is the single sanctioned club-to-child c
 
 | # | Case | Expected |
 |---|---|---|
-| P1 | Verified club invites a u16 | Lands in the **guardian's** account. Assert the child has no read path until the guardian acts (D-117) |
-| P2 | Verified club invites a 16–17 player | Lands with the **player**. Guardian is told a verified club made contact and is **not** shown its content. Assert the guardian read path returns the fact, not the message |
+| P1 | Verified club invites a u16 | Lands in the **guardian's and the child's** accounts. The child may write a reply; **nothing reaches the club until a guardian approves it** (D-117, D-153 — supersedes "no read path until the guardian acts") |
+| P2 | Verified club invites a 16–17 player | Lands with the **player and the guardian**, who both see its content. The player may write the reply; **it reaches the club only when a guardian approves it** (D-153 — supersedes "told the fact, not the message", and doc 15 §26's "does not need your approval") |
 | P3 | Verified club invites an 18+ player | Lands with the player. No guardian anywhere |
 | P4 | The outbound notification | Contains **no player name, no club name, no message text**. Assert on the rendered body, in all three bands |
 | P5 | `club_unverified` attempts to invite | **Denied.** Assert no invitation row can exist whose club is not `verified` |
@@ -437,6 +437,12 @@ D-117, D-138. **The rule: an invitation is the single sanctioned club-to-child c
 | P10 | Club attempts a second message on the thread | **No such path.** An invitation is one object, not a conversation |
 | P11 | Any club-to-player message outside this path | **Cannot exist.** Assert by route enumeration — John's red line, structural not stylistic |
 | P12 | Invitation to a player whose link is revoked or paused | **Denied.** A club may not invite a family that has withdrawn from it |
+| P13 | A verified club with **no subscription** invites someone who registered interest in a trial **that club posted** | **Permitted** (D-153, the free tier). Someone who joined its register without that trial is **not** invitable without the paid plan |
+| P14 | A registration or invitation names another club's trial, or a club invites from another club's register | **Denied at write** |
+| P15 | Who approves an 18+ player's reply | **The player alone.** A re-granted guardian cannot — visibility, not control (L9) |
+| P16 | A second reply to one invitation | **Denied.** One reply per invitation (P10) |
+| P17 | A u16 or 16–17 player writes their own reply | A **draft**. The club's state stays `sent` until a guardian approves it, and the player cannot approve their own |
+| P18 | What a free verified club reads | Only registrations against **its own** trials, and nothing at an unverified club |
 
 ---
 

@@ -1471,7 +1471,11 @@ const invState = async (who) => (await db.query('select fn_invitation_state($1,$
 check('P7a: the club sees "sent"', await invState(ID.td), 'sent');
 await db.query(`update invitation set read_at = now() where id = $1`, [pInv]);
 check('P6: the guardian reading it changes nothing the club can see', await invState(ID.td), 'sent');
-await db.query(`insert into invitation_reply (invitation_id, replied_by) values ($1,$2)`, [pInv, ID.guardian]);
+// D-153: a reply is an answer only once approved. A draft looks, to the club,
+// exactly like silence — and only a parent may approve a minor's.
+await db.query(`insert into invitation_reply (invitation_id, replied_by) values ($1,$2)`, [pInv, ID.deniz]);
+check('P7f: a reply not yet approved is not an answer — the club still sees "sent"', await invState(ID.td), 'sent');
+await db.query(`update invitation_reply set approved_by = $1, approved_at = now() where invitation_id = $2`, [ID.guardian, pInv]);
 check('P7b: answering is the only other state', await invState(ID.td), 'answered');
 check('P7c: "read" and "lapsed" are unreachable from any club actor',
   /'read'|'lapsed'/.test((await db.query(`select prosrc from pg_proc where proname='fn_invitation_state'`)).rows[0].prosrc), false);
@@ -1481,6 +1485,89 @@ check('P7e: nor does an anonymous caller', await invState(null), null);
 // P8/P9 — nothing is shared by default.
 const reply = (await db.query(`select shared_fields from invitation_reply where invitation_id = $1`, [pInv])).rows[0];
 check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared_fields), '{}');
+
+// ---- D-153: clubs invite players to trial, in every band, on the free tier ----
+// One object and one route still (P11): an invitation hangs off a registration.
+// What changed is who may create one, and what counts as an answer.
+{
+  const trialAt = async (club) => (await db.query(
+    `insert into trial_notice (club_id, title, trial_on, time_venue)
+     values ($1, 'Trials', (now() + interval '30 days')::date, 'Sun 9:00 AM · Oval') returning id`, [club])).rows[0].id;
+  const canInvite = async (who, reg) => (await db.query('select fn_can_invite($1,$2) as c', [who, reg])).rows[0].c;
+  const newReg = async (player, club, trial = null) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into registration (id, player_id, club_id, policy_version, trial_notice_id)
+      values ($1,$2,$3,'20@v2.4',$4)`, [id, player, club, trial]);
+    return id;
+  };
+  const riversideTrial = await trialAt(CLUB.riverside);
+  const bayviewTrial = await trialAt(CLUB.other);
+  await db.query(`update club set subscription_status = null where id = $1`, [CLUB.other]);
+
+  // The free tier.
+  const freeTagged = await newReg(ID.marcus, CLUB.other, bayviewTrial);
+  const freeUntagged = await newReg(ID.nate, CLUB.other);
+  check('P13: a free verified club may invite someone who registered against its own trial',
+    await canInvite(ID.adminOther, freeTagged), true);
+  check('P13b: but not someone who only joined its register — the year-round list is the paid plan',
+    await canInvite(ID.adminOther, freeUntagged), false);
+  await db.query(`update club set subscription_status = 'active' where id = $1`, [CLUB.other]);
+  check('P13c: a paying club may invite anyone on its register', await canInvite(ID.adminOther, freeUntagged), true);
+  await db.query(`update club set subscription_status = null where id = $1`, [CLUB.other]);
+  check('P13d: another club’s worker may invite nobody here', await canInvite(ID.td, freeTagged), false);
+  const unvAdmin = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Unverified Admin',$2)`, [unvAdmin, yearsAgo(40)]);
+  await mem(unvAdmin, CLUB.unverified, null, 'club_admin');
+  const unvReg = await newReg(ID.marcus, CLUB.unverified, await trialAt(CLUB.unverified));
+  check('P13e: an unverified club may invite nobody, even from its own trial (D-126)',
+    await canInvite(unvAdmin, unvReg), false);
+
+  // A tag, and an invitation, only ever point at the club's own trial.
+  await expectFail('P14: a registration cannot be tagged to another club’s trial',
+    `insert into registration (player_id, club_id, policy_version, trial_notice_id)
+     values ('${ID.nate}','${CLUB.other}','20@v2.4','${riversideTrial}')`);
+  await expectFail('P14b: nor can an invitation name another club’s trial',
+    `insert into invitation (club_id, registration_id, body, trial_notice_id)
+     values ('${CLUB.other}','${freeTagged}','x','${riversideTrial}')`);
+  await expectFail('P14c: nor can a club invite from another club’s register',
+    `insert into invitation (club_id, registration_id, body) values ('${CLUB.riverside}','${freeTagged}','x')`);
+
+  // Who may put a reply in front of the club.
+  const adultInv = (await db.query(
+    `insert into invitation (club_id, registration_id, body, trial_notice_id) values ($1,$2,'{"kind":"trial"}',$3) returning id`,
+    [CLUB.other, freeTagged, bayviewTrial])).rows[0].id;
+  const stateAt = async (who, inv) => (await db.query('select fn_invitation_state($1,$2) as s', [who, inv])).rows[0].s;
+  await expectFail('P15: an adult’s reply can be approved by nobody but the adult',
+    `insert into invitation_reply (invitation_id, replied_by, approved_by, approved_at)
+     values ('${adultInv}','${ID.guardian}','${ID.guardian}', now())`);
+  await db.query(`insert into invitation_reply (invitation_id, replied_by, approved_by, approved_at) values ($1,$2,$2,now())`,
+    [adultInv, ID.marcus]);
+  check('P15b: an adult answers for themselves, and the club sees the answer', await stateAt(ID.adminOther, adultInv), 'answered');
+  await expectFail('P16: one reply per invitation — an invitation is not a thread (P10)',
+    `insert into invitation_reply (invitation_id, replied_by, approved_by, approved_at)
+     values ('${adultInv}','${ID.marcus}','${ID.marcus}', now())`);
+
+  const teenInv = (await db.query(
+    `insert into invitation (club_id, registration_id, body) values ($1,$2,'{"kind":"trial"}') returning id`,
+    [CLUB.riverside, await newReg(ID.nate, CLUB.riverside, riversideTrial)])).rows[0].id;
+  await db.query(`insert into invitation_reply (invitation_id, replied_by, shared_fields) values ($1,$2,'{"answer":"yes"}')`,
+    [teenInv, ID.nate]);
+  check('P17: a 16-17’s own reply is a draft — the club still sees "sent"', await stateAt(ID.td, teenInv), 'sent');
+  await expectFail('P17b: the 16-17 cannot approve their own reply',
+    `update invitation_reply set approved_by = '${ID.nate}', approved_at = now() where invitation_id = '${teenInv}'`);
+  await expectFail('P17c: nor can someone who is not their parent',
+    `update invitation_reply set approved_by = '${ID.td}', approved_at = now() where invitation_id = '${teenInv}'`);
+  await db.query(`update invitation_reply set approved_by = $1, approved_at = now() where invitation_id = $2`, [ID.guardian, teenInv]);
+  check('P17d: a parent approves it, and only then does the club see the answer', await stateAt(ID.td, teenInv), 'answered');
+
+  // What a free club reads: its own trials' registrants, and nobody else.
+  const trialRows = async (who, club) => (await db.query('select registration_id from fn_trial_interest_rows($1,$2)', [who, club])).rows.map((r) => r.registration_id);
+  const free = await trialRows(ID.adminOther, CLUB.other);
+  check('P18: a free club sees who registered against its trials', free.includes(freeTagged), true);
+  check('P18b: and not who merely joined its register', free.includes(freeUntagged), false);
+  check('P18c: an unverified club sees nobody, whatever it posted', (await trialRows(unvAdmin, CLUB.unverified)).length, 0);
+  check('P18d: another club’s worker sees nothing here', (await trialRows(ID.td, CLUB.other)).length, 0);
+}
 
 // ---------------------------------------------------------------------------
 // Table L — the send flows (D-99, D-91). Sixty-one cases, and the largest

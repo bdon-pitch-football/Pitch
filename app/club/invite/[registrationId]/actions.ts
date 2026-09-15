@@ -1,12 +1,18 @@
 'use server';
-// Sending an invitation (D-117): it lands INSIDE Pitch, the only club→family
-// route. Creating it also moves the registration to 'invited'. The outbound
-// notification, when messaging lands, is a bare wake — no name, no club, no
-// message (doc 15 §24); the substance stays here.
+// Sending an invitation (D-117, D-153): it lands INSIDE Pitch — the only
+// club-to-family route — and it now reaches whoever it is for.
+//
+//   under 18  every parent, and the player, are woken (doc 15 §24 — a bare
+//             wake: no name, no club, no message). The content stays in Pitch.
+//   18+       the player gets doc 15 §27, which names the club and nothing more.
+//
+// It used to wake one guardian and nobody else — so an adult a club invited
+// was never told, and a 16-17 never saw their own invitation.
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
-import { bareWakeEmail, bareWakeSms } from '@/lib/messages';
+import { adultInvitationEmail, bareWakeEmail, bareWakeSms } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 
 //
@@ -18,19 +24,23 @@ export async function sendInvitation(formData: FormData) {
   const registrationId = String(formData.get('registrationId') ?? '');
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
+  if (!isUuid(registrationId)) redirect('/club/register');
   const body = String(formData.get('body') ?? '').trim().slice(0, 400);
-  const kind = String(formData.get('kind') ?? 'trial');
+  const kind = String(formData.get('kind') ?? 'trial') === 'interested' ? 'interested' : 'trial';
 
+  let invitationId = '';
+  let player = { id: '', band: 'u16', email: null as string | null, club: '' };
   const client = await db.connect();
   try {
     await client.query('begin');
+    // fn_can_invite decides — including the free tier (D-153). And one
+    // invitation per registration: P10, no second message.
     const reg = await client.query(
-      `select r.id, r.club_id, r.player_id from registration r
-       where r.id = $1 and r.withdrawn_at is null
-         and fn_can_work_register($2, r.club_id)
-         and exists (select 1 from club c where c.id = r.club_id and c.club_state = 'verified')
-         and fn_register_active(r.club_id)
-       for update`,
+      `select r.id, r.club_id, r.player_id, r.trial_notice_id, fn_age_band(p.dob) as band, p.email, c.name as club_name
+       from registration r join person p on p.id = r.player_id join club c on c.id = r.club_id
+       where r.id = $1 and fn_can_invite($2, r.id)
+         and not exists (select 1 from invitation i where i.registration_id = r.id)
+       for update of r`,
       [registrationId, me],
     );
     if (reg.rows.length === 0) {
@@ -38,10 +48,12 @@ export async function sendInvitation(formData: FormData) {
       redirect('/club/register');
     }
     const r = reg.rows[0];
-    await client.query(
-      `insert into invitation (club_id, registration_id, body) values ($1,$2,$3)`,
-      [r.club_id, registrationId, JSON.stringify({ kind, note: body })],
+    player = { id: r.player_id, band: r.band, email: r.email, club: r.club_name };
+    const inv = await client.query(
+      `insert into invitation (club_id, registration_id, body, trial_notice_id) values ($1,$2,$3,$4) returning id`,
+      [r.club_id, registrationId, JSON.stringify({ kind, note: body }), kind === 'trial' ? r.trial_notice_id : null],
     );
+    invitationId = inv.rows[0].id;
     await client.query(`select fn_set_club_status($1, $2, 'invited')`, [me, registrationId]);
     await client.query(
       `insert into consent_event (event, actor_id, subject_id, detail)
@@ -56,17 +68,20 @@ export async function sendInvitation(formData: FormData) {
     client.release();
   }
 
-  // doc 15 §24: a BARE WAKE. No child's name, no club name, no message, no
-  // hint of what it is about — a phone face-up on a bench shows nothing.
-  const g = await db.query(
-    `select p2.email from registration r
-     join person c on c.id = r.player_id
-     join guardianship_link gl on gl.child_id = c.id and gl.approved_at is not null and gl.revoked_at is null
-     join person p2 on p2.id = gl.guardian_id
-     where r.id = $1 and p2.email is not null limit 1`,
-    [registrationId],
-  );
-  if (g.rows[0]) await send(bareWakeEmail(), { address: g.rows[0].email });
+  // Sent after the transaction and after the client is released.
+  if (player.band === '18plus') {
+    if (player.email) await send(adultInvitationEmail(player.club, invitationId), { address: player.email, personId: player.id });
+  } else {
+    const guardians = await db.query(
+      `select p.id, p.email from guardianship_link g join person p on p.id = g.guardian_id
+       where g.child_id = $1 and g.approved_at is not null and g.revoked_at is null and p.email is not null`,
+      [player.id],
+    );
+    for (const g of guardians.rows as { id: string; email: string }[]) {
+      await send(bareWakeEmail(), { address: g.email, personId: g.id });
+    }
+    if (player.email) await send(bareWakeEmail(), { address: player.email, personId: player.id });
+  }
   void bareWakeSms; // SMS half sends once the sender ID is registered (D-81)
-  redirect('/club/register');
+  redirect(`/club/invite/${registrationId}`);
 }

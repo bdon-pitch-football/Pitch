@@ -83,6 +83,9 @@ const SEATS = {
   // A 16-17 sends their own CV (doc 14 L5). No seat walked that path, and it
   // went nowhere for every player who was not under 16.
   '16–17 player': ids.children.nate.child_id,
+  // D-153: a verified club with no subscription, which invites for free from
+  // its own posted trial. No seat walked that path before this.
+  'free club': ids.people.dana,
 };
 
 // Reachable pages per seat, by following links exactly as the render crawl does.
@@ -260,6 +263,150 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   await flip();
   check('x0q: switching it back on restores the form',
     /name="clubName"/.test((await get(`/send/${nate.record_id}`, nate.child_id)).html), true);
+}
+
+// ---------------------------------------------------------------------------
+// 0b · D-153 — A CLUB INVITES A PLAYER TO TRIAL, IN EVERY BAND, ON THE FREE TIER.
+//
+// Walked through the real screens, and the outbox read for what would actually
+// have gone. Before D-153 every step of this was broken for somebody: the
+// trials board's buttons did nothing, an adult or 16-17 who registered interest
+// never reached a register, a free club could not invite, and an invitation
+// woke one guardian and nobody else — so an adult a club invited was never told.
+// ---------------------------------------------------------------------------
+{
+  const parent = SEATS.parent, adult = SEATS.player, teen = ids.children.nate.child_id, club = ids.people.dana;
+  const kingsway = ids.clubs['kingsway-rovers'];
+  const decode = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
+  const outbox = async () => decode((await get('/dev/outbox', parent)).html);
+  const esc = (a) => a.replace(/[.+]/g, (c) => '\\' + c);
+  const count = (text, key, address) => (text.match(new RegExp(`doc15\\.§${esc(key)}\\s*→\\s*${esc(address)}`, 'g')) ?? []).length;
+  const postTo = async (path, who, form, extra = {}) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form?.fields ?? {})) fd.append(k, v);
+    for (const [k, v] of Object.entries(extra)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '' };
+  };
+  const formOn = (html, needle) => forms(html).find((f) => needle(f));
+  const inviteLinkFor = (html, name) => new RegExp(`>${name}<[\\s\\S]*?/club/invite/([0-9a-f-]{36})`).exec(html)?.[1];
+
+  // The trials board opens the club's door, carrying the trial.
+  const board = (await get('/trials', adult)).html;
+  const trialId = /href="\/fc\/kingsway-rovers\?trial=([0-9a-f-]{36})#play"/.exec(board)?.[1];
+  check('d0a: "I’m interested" on the trials board is a real link, carrying the trial', Boolean(trialId), true);
+  check('d0b: "Send my CV" on an unclaimed listing is a real link too', /href="\/fc\/westgate-rangers#play"/.test(board), true);
+  const westgate = decode((await get('/fc/westgate-rangers', adult)).html);
+  check('d0c: an unclaimed club offers "send my CV", never a register nobody reads',
+    westgate.includes('Send my CV to Westgate Rangers') && !westgate.includes('Register my interest'), true);
+
+  // ---- 18+ — Jordan ----------------------------------------------------------
+  const jordanRec = /href="\/build\/([0-9a-f-]{36})"/.exec((await get('/home', adult)).html)?.[1];
+  const regPath = (rec) => `/register-interest/${rec}?club=${kingsway}&trial=${trialId}`;
+  let html = (await get(regPath(jordanRec), adult)).html;
+  check('d1: an adult is offered the register themselves, not "ask my parent"',
+    html.includes('Put me on the register') && /name="trialId"/.test(html), true);
+  let res = await postTo(regPath(jordanRec), adult, formOn(html, (f) => 'trialId' in f.fields), { note: 'Left-footed nine.' });
+  check('d2: AND THE ADULT GOES ON THE REGISTER — it used to reach no one', res.location.includes('registered=1'), true);
+
+  html = (await get('/club/register', club)).html;
+  check('d3: the free club sees who registered interest in its trial', decode(html).includes('Interest in your trials'), true);
+  const jordanReg = inviteLinkFor(html, 'Jordan');
+  check('d3b: including the adult who just did', Boolean(jordanReg), true);
+  html = (await get(`/club/invite/${jordanReg}`, club)).html;
+  let box0 = await outbox();
+  res = await postTo(`/club/invite/${jordanReg}`, club, formOn(html, (f) => 'registrationId' in f.fields), { kind: 'trial', body: 'Come and have a look.' });
+  check('d4: the FREE club can invite them to its trial', res.status, 303);
+  let box = await outbox();
+  check('d5: and the adult is told, by name of club (§27) — they used to be told nothing',
+    count(box, '27', 'player@example.com') - count(box0, '27', 'player@example.com'), 1);
+  const jordanInv = /href="\/g\/invite\/([0-9a-f-]{36})"/.exec((await get('/home', adult)).html)?.[1];
+  check('d6: the invitation is on the adult’s own home', Boolean(jordanInv), true);
+  html = (await get(`/g/invite/${jordanInv}?reply=1`, adult)).html;
+  box0 = await outbox();
+  res = await postTo(`/g/invite/${jordanInv}`, adult, formOn(html, (f) => 'invitationId' in f.fields),
+    { answer: 'yes', share_email: 'on', share_phone: '0400 111 222', note: 'See you there.' });
+  check('d7: an adult’s reply goes straight to the club', res.status, 303);
+  box = await outbox();
+  check('d8: the club is told a family replied (§28), and nothing else',
+    count(box, '28', 'football@kingswayrovers.example.au') - count(box0, '28', 'football@kingswayrovers.example.au'), 1);
+  const clubView = decode((await get(`/club/invite/${jordanReg}`, club)).html);
+  check('d9: the club reads the answer and exactly what was handed over',
+    clubView.includes('Jordan replied') && clubView.includes('player@example.com') && clubView.includes('0400 111 222'), true);
+
+  // ---- 16–17 — Nate ----------------------------------------------------------
+  const nateRec = ids.children.nate.record_id;
+  html = (await get(regPath(nateRec), teen)).html;
+  res = await postTo(regPath(nateRec), teen, formOn(html, (f) => 'trialId' in f.fields), {});
+  check('e1: a 16-17 goes on the register themselves', res.location.includes('registered=1'), true);
+  html = (await get('/club/register', club)).html;
+  const nateReg = inviteLinkFor(html, 'Nate');
+  html = (await get(`/club/invite/${nateReg}`, club)).html;
+  box0 = await outbox();
+  res = await postTo(`/club/invite/${nateReg}`, club, formOn(html, (f) => 'registrationId' in f.fields), { kind: 'trial', body: '' });
+  box = await outbox();
+  check('e2: the free club invites the 16-17', res.status, 303);
+  check('e3: and BOTH the player and the parent are woken — a bare wake, nothing in it',
+    count(box, '24.email', 'nate@example.com') - count(box0, '24.email', 'nate@example.com') === 1
+      && count(box, '24.email', 'guardian@example.com') - count(box0, '24.email', 'guardian@example.com') === 1, true);
+  const nateInv = /href="\/g\/invite\/([0-9a-f-]{36})"/.exec((await get('/home', teen)).html)?.[1];
+  const nateSees = decode((await get(`/g/invite/${nateInv}`, teen)).html);
+  check('e4: the player sees their own invitation, and that their parent can too',
+    nateSees.includes('would like you at a trial') && nateSees.includes('Your parent can see this too'), true);
+  html = (await get(`/g/invite/${nateInv}?reply=1`, teen)).html;
+  check('e4b: a minor’s reply form offers no contact details to hand over', /name="share_email"|name="share_phone"/.test(html), false);
+  box0 = await outbox();
+  await postTo(`/g/invite/${nateInv}`, teen, formOn(html, (f) => 'invitationId' in f.fields), { answer: 'yes', note: 'Keen.' });
+  box = await outbox();
+  check('e5: THE CLUB SEES NOTHING until a parent approves', decode((await get(`/club/invite/${nateReg}`, club)).html).includes('Nate replied'), false);
+  check('e6: the parent is woken to approve it',
+    count(box, '24.email', 'guardian@example.com') - count(box0, '24.email', 'guardian@example.com'), 1);
+  check('e6b: and the club is not told anything yet',
+    count(box, '28', 'football@kingswayrovers.example.au') - count(box0, '28', 'football@kingswayrovers.example.au'), 0);
+  check('e7: the parent’s home says the player wants to reply',
+    decode((await get('/home', parent)).html).includes('Nate wants to reply to Kingsway Rovers FC'), true);
+  html = (await get(`/g/invite/${nateInv}?reply=1`, parent)).html;
+  check('e7b: the parent reviews it with the player’s words already in it', decode(html).includes('Approve Nate'), true);
+  await postTo(`/g/invite/${nateInv}`, parent, formOn(html, (f) => 'invitationId' in f.fields), { answer: 'yes', note: 'Keen.' });
+  check('e8: once the parent approves, the club sees the answer',
+    decode((await get(`/club/invite/${nateReg}`, club)).html).includes('Nate replied'), true);
+
+  // ---- Under 16 — Deniz ------------------------------------------------------
+  const denizRec = ids.children.deniz.record_id;
+  html = (await get(regPath(denizRec), parent)).html;
+  res = await postTo(regPath(denizRec), parent, formOn(html, (f) => 'trialId' in f.fields), {});
+  check('f1: an under-16’s interest waits for the parent', res.location.includes('asked=1'), true);
+  const interestReq = [...(await get('/home', parent)).html.matchAll(/href="\/g\/interest\/([0-9a-f-]{36})"/g)].map((m) => m[1]);
+  for (const rid of interestReq) {
+    const page = (await get(`/g/interest/${rid}`, parent)).html;
+    if (!decode(page).includes('Kingsway')) continue;
+    check('f2a: the parent’s consent screen shows the trial (N2)', decode(page).includes('U16–U18 and Seniors trials'), true);
+    await postTo(`/g/interest/${rid}`, parent, formOn(page, (f) => 'requestId' in f.fields), {});
+  }
+  html = (await get('/club/register', club)).html;
+  const denizReg = inviteLinkFor(html, 'Deniz');
+  check('f2: once the parent sends it, the free club sees the under-16 against its trial', Boolean(denizReg), true);
+  html = (await get(`/club/invite/${denizReg}`, club)).html;
+  box0 = await outbox();
+  await postTo(`/club/invite/${denizReg}`, club, formOn(html, (f) => 'registrationId' in f.fields), { kind: 'trial', body: '' });
+  box = await outbox();
+  check('f3: the parent is woken about an under-16’s invitation',
+    count(box, '24.email', 'guardian@example.com') - count(box0, '24.email', 'guardian@example.com'), 1);
+  let denizInv = null;
+  for (const m of (await get('/home', parent)).html.matchAll(/href="\/g\/invite\/([0-9a-f-]{36})"/g)) {
+    const page = decode((await get(`/g/invite/${m[1]}`, parent)).html);
+    if (page.includes('Kingsway') && page.includes('Deniz')) { denizInv = m[1]; break; }
+  }
+  html = (await get(`/g/invite/${denizInv}?reply=1`, parent)).html;
+  await postTo(`/g/invite/${denizInv}`, parent, formOn(html, (f) => 'invitationId' in f.fields), { answer: 'interested_not_date' });
+  check('f4: a parent may answer directly, and the club sees it',
+    decode((await get(`/club/invite/${denizReg}`, club)).html).includes('Interested, but not that date'), true);
+
+  // ---- The free tier's edge ---------------------------------------------------
+  const riversideReg = /\/club\/register\/cv\/([0-9a-f-]{36})/.exec((await get('/club/register', ids.people.marina)).html)?.[1];
+  check('g1: a free club cannot open another club’s registration — not found, not "no longer accepting"',
+    (await get(`/club/invite/${riversideReg}`, club)).status, 404);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 'use client';
-// RegisterInterest.dc.html form body — copy verbatim, u16 variant.
+// RegisterInterest.dc.html form body — copy verbatim for the under-16 variant.
+// The self-registering lines (16–17, 18+) are new, awaiting BUZ (D-153).
 import { useState } from 'react';
 import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
@@ -14,13 +15,19 @@ const T = {
 const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
 const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
-export default function InterestForm({ recordId, club, squads, cvPositions, preselectSquad }: {
+export default function InterestForm({ recordId, club, squads, cvPositions, preselectSquad, mode, band, trial }: {
   recordId: string;
   club: { id: string; name: string; suburb: string };
   squads: { id: string; name: string }[];
   cvPositions: string[];
   preselectSquad?: string;
+  // 'self' — a 16-17 or adult going on the register themselves; 'ask' — an
+  // under-16, whose parent sends it (D-153, D-91).
+  mode: 'self' | 'ask';
+  band: 'u16' | '16_17' | '18plus';
+  trial?: { id: string; title: string; date: string };
 }) {
+  const self = mode === 'self';
   const [positions, setPositions] = useState<string[]>(cvPositions);
   const [note, setNote] = useState('');
   const toggle = (code: string) =>
@@ -47,6 +54,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="recordId" value={recordId} />
           <input type="hidden" name="clubId" value={club.id} />
           <input type="hidden" name="positions" value={positions.join(',')} />
+          {trial && <input type="hidden" name="trialId" value={trial.id} />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div className="field-label">Interested in</div>
             <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -54,6 +62,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800 }}>{club.name}</div>
                 <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{club.suburb}</div>
+                {trial && <div style={{ fontSize: 12, color: T.accent, fontWeight: 800, marginTop: 2 }}>For {trial.title} · {trial.date}</div>}
               </div>
             </div>
           </div>
@@ -91,7 +100,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
             <div style={card}>
               <textarea name="note" aria-label="One line, if you want" value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="Right-footed 10. Happy anywhere across the front three." style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical', minHeight: 40 }} />
             </div>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Football only. Your parent reads this before it goes anywhere.</div>
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{self ? `Football only. ${club.name} read it on their register.` : 'Football only. Your parent reads this before it goes anywhere.'}</div>
           </div>
           <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
             <Row ok>A link to your CV — the live page, not a copy of it.</Row>
@@ -100,6 +109,17 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
             <Row ok={false}>Not your birthday, your phone, your email, your address or your school.</Row>
             <Row ok={false}>Take yourself off and the link stops working the same minute.</Row>
           </div>
+          {self ? (
+            <div style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(61,220,132,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
+            </div>
+            <div>
+              <div style={{ fontSize: 14.5, fontWeight: 900 }}>This goes straight on their register</div>
+              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{band === '16_17' ? 'Your parent can see which clubs you are on. ' : ''}If {club.name} want you at a trial, they invite you through Pitch.</div>
+            </div>
+          </div>
+          ) : (
           <div style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(164,121,226,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="2.6" /><circle cx="16.5" cy="9.5" r="2" /><path d="M4.5 20 c0-3 2-5 4.5-5 s4.5 2 4.5 5 M14 20 c0-2.4 1.2-4 2.5-4 s2.5 1.6 2.5 4" /></svg>
@@ -109,12 +129,13 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
               <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>You&rsquo;re under 16, so we ask your parent to read it and press send. It&rsquo;s the same for every club.</div>
             </div>
           </div>
+          )}
           <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
             <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>Being on a register isn&rsquo;t a trial spot and it isn&rsquo;t a decision, so there is nothing here to be turned down from. You stay on it until you take yourself off — this season, and the next one.</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <button type="submit" className="btn btn-primary">Ask my parent to send it</button>
+            <button type="submit" className="btn btn-primary">{self ? 'Put me on the register' : 'Ask my parent to send it'}</button>
             <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Cancel</div>
           </div>
         </form>

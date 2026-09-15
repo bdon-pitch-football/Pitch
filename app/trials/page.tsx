@@ -29,7 +29,7 @@ export default async function TrialsBoard({ searchParams }: {
   // Chronological and filtered only by what the family chose. No recommender,
   // no personalisation, ever (D-74).
   const { rows } = await db.query(
-    `select t.title, t.time_venue, t.source, t.age_group, t.competition_gender,
+    `select t.id, t.title, t.time_venue, t.source, t.age_group, t.competition_gender,
        upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
        to_char(t.added_on, 'DD Mon') as listed, to_char(t.last_checked, 'DD Mon') as checked,
        c.name as club_name, c.club_state, c.public_slug
@@ -42,7 +42,7 @@ export default async function TrialsBoard({ searchParams }: {
   );
   const listings = rows as {
     title: string; time_venue: string; source: string; mon: string; day: string;
-    listed: string; checked: string; club_name: string; club_state: string; public_slug: string | null;
+    id: string; listed: string; checked: string; club_name: string; club_state: string; public_slug: string | null;
   }[];
   const lastChecked = listings.length ? listings[listings.length - 1].checked : null;
 
@@ -113,11 +113,16 @@ export default async function TrialsBoard({ searchParams }: {
                         {verified ? 'On Pitch — verified club' : 'Unclaimed listing · register via club'}
                       </div>
                     </div>
-                    {verified ? (
-                      <div style={{ background: T.accent, color: T.onAccent, borderRadius: 999, padding: '6px 11px', fontSize: 11, fontWeight: 900 }}>I&rsquo;m interested</div>
+                    {/* These were two styled boxes that did nothing when pressed — the
+                        board's only call to action, dead for every family. They
+                        open the club's page at its door now: a verified club's
+                        register, carrying this trial so the club can invite to
+                        it (D-153), or an unclaimed club's "send my CV". */}
+                    {l.public_slug && (verified ? (
+                      <Link href={`/fc/${l.public_slug}?trial=${l.id}#play`} style={{ background: T.accent, color: T.onAccent, borderRadius: 999, padding: '0 14px', minHeight: 44, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 900, textDecoration: 'none', flexShrink: 0 }}>I&rsquo;m interested</Link>
                     ) : (
-                      <div style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 999, padding: '6px 11px', fontSize: 11, fontWeight: 700 }}>Send my CV</div>
-                    )}
+                      <Link href={`/fc/${l.public_slug}#play`} style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 999, padding: '0 14px', minHeight: 44, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>Send my CV</Link>
+                    ))}
                   </div>
                 </div>
               </div>

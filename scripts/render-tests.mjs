@@ -296,6 +296,8 @@ const georgia = ids.children.georgia;
     // that band, and its send screen told a seventeen-year-old they were
     // under sixteen.
     '16–17 player': ids.children.nate.child_id,
+    // D-153: a verified club with no subscription, inviting from its own trial.
+    'free club': ids.people.dana,
     // The operator console had never been walked by ANY seat, so its pages
     // were outside every check the crawl makes. Two things were sitting in
     // there: a queue heading that was still a styled <div>, and a call sheet

@@ -167,6 +167,11 @@ export async function deleteEverything(formData: FormData) {
     // the record cascades: stats, entries, clips, versions, tokens, requests
     await client.query(`delete from development_record where person_id=$1`, [childId]);
     await client.query(`delete from membership where person_id=$1`, [childId]);
+    // A club's invitation, and any reply, reference the registration with no
+    // cascade — so deleting a child a club had invited would roll back.
+    await client.query(`delete from invitation_reply where invitation_id in (
+      select i.id from invitation i join registration r on r.id = i.registration_id where r.player_id=$1)`, [childId]);
+    await client.query(`delete from invitation where registration_id in (select id from registration where player_id=$1)`, [childId]);
     await client.query(`delete from registration where player_id=$1`, [childId]);
     await client.query(`delete from share_request where requested_by=$1 or dispatched_by=$1`, [childId]);
     await client.query(`delete from share_card_approval where requested_by=$1 or approved_by=$1`, [childId]);

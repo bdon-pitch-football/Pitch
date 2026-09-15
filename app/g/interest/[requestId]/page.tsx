@@ -36,7 +36,10 @@ export default async function GuardianInterest({ params, searchParams }: {
   const { rows } = await db.query(
     `select rr.note, rr.positions, rr.dispatched_at, p.first_name,
        c.name as club_name, c.club_state,
-       (select name from squad where id = rr.squad_target) as squad_name
+       (select name from squad where id = rr.squad_target) as squad_name,
+       (select row_to_json(t) from (
+          select tn.title, to_char(tn.trial_on, 'Dy FMDD Mon') as date
+          from trial_notice tn where tn.id = rr.trial_notice_id) t) as trial
      from registration_request rr
      join development_record dr on dr.id = rr.record_id
      join person p on p.id = dr.person_id
@@ -71,6 +74,8 @@ export default async function GuardianInterest({ params, searchParams }: {
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name} asked you to send this</div>
           <h1 style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>Put {name} on {r.club_name.replace(/ FC$| SC$/, '')}&rsquo;s register?</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Nothing has been sent. It only goes if you send it.</div>
+          {/* Doc 14 N2: the consent screen shows the trial at the moment of the press. */}
+          {r.trial && <div style={{ fontSize: 13, color: T.accent, fontWeight: 800 }}>For {r.trial.title} · {r.trial.date}</div>}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>

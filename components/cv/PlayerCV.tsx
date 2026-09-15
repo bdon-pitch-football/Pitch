@@ -277,7 +277,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
           <div style={{ ...card, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ fontSize: 12.5, fontWeight: 800, color: T.secondary }}>There is no way to reply to a family through Pitch.</div>
             <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-              At any tier, for anybody — it is the same rule for every under-18 on here. If you want {p.firstName} at a trial, post it on Pitch or send an invitation through their guardian. Both go to the parent, and both keep a record.
+              At any tier, for anybody — it is the same rule for every under-18 on here. If you want {p.firstName} at a trial, post it on Pitch: families register their interest from your trial, and that is where you can invite them. It goes to {p.firstName} and their parent together, and a record is kept.
             </div>
           </div>
         )}

@@ -56,10 +56,10 @@ function splitArrow(line: string): [string, string | null] {
 
 export default async function ClubPage({ params, searchParams }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ squad?: string }>;
+  searchParams: Promise<{ squad?: string; trial?: string }>;
 }) {
   const { slug } = await params;
-  const { squad: squadParam } = await searchParams;
+  const { squad: squadParam, trial: trialParam } = await searchParams;
   const { rows } = await db.query(
     `select c.id, c.name, c.suburb, c.state, c.club_state, c.philosophy, c.established, c.pathway_line, c.public_slug, c.crest_path, c.banner_path, c.contact_email,
        -- Squads sort by age NUMERICALLY, not by name. Sorting the name as
@@ -71,7 +71,7 @@ export default async function ClubPage({ params, searchParams }: {
         from squad s left join age_group ag on ag.code = s.age_group
         where s.club_id = c.id) as squads,
        (select coalesce(json_agg(json_build_object(
-           'title', t.title, 'timeVenue', t.time_venue,
+           'id', t.id, 'title', t.title, 'timeVenue', t.time_venue,
            'mon', upper(to_char(t.trial_on, 'Mon')), 'day', to_char(t.trial_on, 'DD'),
            'how', t.how_to_register) order by t.trial_on), '[]'::json)
         from trial_notice t where t.club_id = c.id
@@ -90,7 +90,7 @@ export default async function ClubPage({ params, searchParams }: {
   if (rows.length === 0) notFound();
   const c = rows[0];
   const squads: { id: string; name: string; gender: string }[] = c.squads;
-  const trials: { title: string; timeVenue: string; mon: string; day: string; how: string | null }[] = c.trials;
+  const trials: { id: string; title: string; timeVenue: string; mon: string; day: string; how: string | null }[] = c.trials;
   const wanted: { title: string; detail: string | null }[] = c.wanted;
   const alumni: { line: string; detail: string | null }[] = c.alumni;
   const videos: { url: string; title: string }[] = c.videos;
@@ -103,15 +103,17 @@ export default async function ClubPage({ params, searchParams }: {
         `select
            (select id from development_record where person_id = $1) as my_record,
            (select coalesce(json_agg(json_build_object(
-               'name', ch.first_name,
+               'name', ch.first_name, 'band', fn_age_band(ch.dob),
                'recordId', (select id from development_record where person_id = ch.id))), '[]'::json)
             from guardianship_link g join person ch on ch.id = g.child_id
             where g.guardian_id = $1 and g.approved_at is not null and g.revoked_at is null) as children`,
         [me],
       )).rows[0]
     : null;
-  const children: { name: string; recordId: string | null }[] = (viewer?.children ?? []).filter(
-    (k: { recordId: string | null }) => k.recordId,
+  // A parent registers an UNDER-16. A 16-17 goes on a register themselves (doc
+  // 14 N4), so offering the parent a button for them only led to a bounce.
+  const children: { name: string; recordId: string | null; band: string }[] = (viewer?.children ?? []).filter(
+    (k: { recordId: string | null; band: string }) => k.recordId && k.band === 'u16',
   );
   const myRecord: string | null = viewer?.my_record ?? null;
 
@@ -123,7 +125,12 @@ export default async function ClubPage({ params, searchParams }: {
   // signed in or not.
   const hasBanner = Boolean(c.banner_path);
   const picked = squads.find((s) => s.id === squadParam) ?? null;
-  const squadQuery = picked ? `&squad=${picked.id}` : '';
+  // D-153: a trial chosen on the board or below travels into the registration,
+  // so the club can invite to it — and on the free tier, invite at all.
+  const pickedTrial = trials.find((t) => t.id === trialParam) ?? null;
+  const squadQuery = `${picked ? `&squad=${picked.id}` : ''}${pickedTrial ? `&trial=${pickedTrial.id}` : ''}`;
+  // An unclaimed listing has no register anybody reads. That family sends a CV.
+  const onPitch = c.club_state === 'claimed' || c.club_state === 'verified';
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -216,7 +223,7 @@ export default async function ClubPage({ params, searchParams }: {
             <h2 style={label}>Trials</h2>
             <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 0 }}>
               {trials.map((t, i) => (
-                <div key={t.title} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
+                <Link key={t.id} href={pickedTrial?.id === t.id ? `/fc/${slug}#play` : `/fc/${slug}?trial=${t.id}#play`} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}`, textDecoration: 'none', color: 'inherit', minHeight: 44 }}>
                   <div style={{ background: 'rgba(61,220,132,.12)', borderRadius: 11, padding: '7px 10px', textAlign: 'center', flexShrink: 0 }}>
                     <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: T.accent }}>{t.mon}</div>
                     <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1 }}>{t.day}</div>
@@ -225,7 +232,7 @@ export default async function ClubPage({ params, searchParams }: {
                     <div style={{ fontSize: 14, fontWeight: 800 }}>{t.title}</div>
                     <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{t.timeVenue}</div>
                   </div>
-                </div>
+                </Link>
               ))}
               <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 11, fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
                 <b style={{ color: T.secondary }}>How to register:</b> go on {c.name}&rsquo;s register below and your CV goes with you. The club works one list all year — you do not have to catch a particular week.
@@ -246,15 +253,37 @@ export default async function ClubPage({ params, searchParams }: {
         <div id="play" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11, scrollMarginTop: 18 }}>
           <div style={{ fontSize: 15.5, fontWeight: 900, letterSpacing: '-0.015em' }}>Want to play here?</div>
           <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-            Go on {c.name}&rsquo;s register and your football goes with you. It is not a trial spot and it is not a decision — there is nothing here to be turned down from.
+            {onPitch
+              ? <>Go on {c.name}&rsquo;s register and your football goes with you. It is not a trial spot and it is not a decision — there is nothing here to be turned down from.</>
+              : <>{c.name} isn&rsquo;t on Pitch yet, so there is no register here. Send them your CV instead — it goes as a link, and you can switch it off.</>}
           </div>
+          {pickedTrial && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.surface2, borderRadius: 12, padding: '9px 12px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>For <b style={{ color: T.ink }}>{pickedTrial.title}</b> — {c.name} can invite you to it.</div>
+            </div>
+          )}
           {picked && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.surface2, borderRadius: 12, padding: '9px 12px' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>For <b style={{ color: T.ink }}>{picked.name}</b> — you can change it on the next screen.</div>
             </div>
           )}
-          {!me ? (
+          {!onPitch ? (
+            !me ? (
+              <Link href="/signin" className="btn btn-primary">Sign in to send your CV</Link>
+            ) : myRecord ? (
+              <Link href={`/send/${myRecord}`} className="btn btn-primary">Send my CV to {c.name}</Link>
+            ) : children.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {children.map((k) => (
+                  <Link key={k.recordId} href={`/send/${k.recordId}`} className="btn btn-primary">Send {k.name}&rsquo;s CV to {c.name}</Link>
+                ))}
+              </div>
+            ) : (
+              <Link href="/join" className="btn btn-primary">Build a CV first — it is what the club reads</Link>
+            )
+          ) : !me ? (
             <Link href="/signin" className="btn btn-primary">Sign in to register your interest</Link>
           ) : myRecord ? (
             <Link href={`/register-interest/${myRecord}?club=${c.id}${squadQuery}`} className="btn btn-primary">Register my interest</Link>

@@ -535,6 +535,31 @@ await db.query(
   [await personOf('Nate'), riverside],
 );
 
+// A FREE verified club (D-153): verified by call, no subscription, one posted
+// trial, and a family who registered interest in that trial. Riverside is on
+// the paid register, so without this club "a free club can invite players to
+// its trial" had no fixture at all — and the paths no fixture walks are the
+// ones that turn out broken.
+const kingsway = randomUUID();
+const kingswayCall = randomUUID();
+await db.query(`insert into club (id, name, suburb, state, club_state, public_slug, contact_email)
+  values ($1,'Kingsway Rovers FC','Brunswick West','VIC','claimed','kingsway-rovers','football@kingswayrovers.example.au')`, [kingsway]);
+await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+  values ($1,$2,now(),'BUZ','03 9000 0001','FV club directory','verified','27@v1.0')`, [kingswayCall, kingsway]);
+await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [kingswayCall, kingsway]);
+const kingswayAdmin = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Dana','Kovac','1984-07-09','kingsway@example.com')`, [kingswayAdmin]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [kingswayAdmin, kingsway]);
+const kingswayTrial = (await db.query(
+  `insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,age_group,competition_gender,cv_email)
+   values ($1,'U16–U18 and Seniors trials','2026-10-25','Sun 10:00 AM · Brunswick West Oval',array['GK','ST']::text[],'U18','mixed','football@kingswayrovers.example.au')
+   returning id`, [kingsway])).rows[0].id as string;
+await db.query(
+  `insert into registration (player_id, club_id, positions, club_status, disclosed_by, policy_version, trial_notice_id, trial_on)
+   values ($1,$2,array['CM'],'new',$3,'20@v2.4',$4,'2026-10-25')`,
+  [await personOf('Georgia'), kingsway, guardian, kingswayTrial],
+);
+
 const server = new PGLiteSocketServer({ db, port: 54322, host: '127.0.0.1', inspect: false });
 await server.start();
 console.log('dev db ready on 127.0.0.1:54322');
@@ -596,4 +621,4 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     }, null, 2) + '\n',
   );
 }
-console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club) · new@example.com (brand-new, nothing yet)');
+console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club) · kingsway@example.com (free verified club) · new@example.com (brand-new, nothing yet)');

@@ -122,7 +122,7 @@ export const cvToClubEmail = (
     ? `Replies to this message do not reach ${childFirstName}. Pitch does not pass messages on.`
     : `Replies to this message do not reach the family. There is no way to reply to a family through Pitch — at any tier, for anybody. That is deliberate, and it is the same rule for every under-18 on here.
 
-If you want ${childFirstName} at a trial, post it on Pitch or send an invitation through their guardian. Both go to the parent, and both keep a record.`;
+If you want ${childFirstName} at a trial, post it on Pitch. Families register their interest from your trial, and that is where you can invite them — it goes to ${childFirstName} and their parent together, and a record is kept.`;
   const why = self
     ? `You received this because a player sent you their CV. We did not add you to a list and there is nothing to unsubscribe from.`
     : `You received this because a family sent you their child's CV. We did not add you to a list and there is nothing to unsubscribe from.`;
@@ -521,10 +521,47 @@ Nothing else. No copy, no archive, no "in case you come back".
 — Pitch`,
 });
 
+// §27 · The invitation — to an adult (18+). No guardian, no copy, no wake
+// dressing: an adult gets the content. Written in doc 15 on 27 August and
+// never sent by anything until D-153, because invitations only ever reached
+// a guardian — so an adult a club invited was told nothing at all.
+export const adultInvitationEmail = (clubName: string, invitationId: string): Composed => ({
+  key: 'doc15.§27',
+  channel: 'email',
+  subject: `${clubName} would like to talk to you`,
+  body:
+`${clubName} has read your registration and would like to take it further.
+
+Read it on Pitch: ${SITE}/g/invite/${invitationId}
+
+They do not have your phone number or your email address. If you want them to, that is yours to hand over — Pitch will not do it for you.
+
+— Pitch
+${SITE} · ${HELP}`,
+});
+
+// §28 · A family has replied — to the club. Bare on purpose: a club inbox is
+// shared and forwarded, so no player name, no squad, no note, no count. It is
+// also the only version that stays true if the family later withdraws.
+export const familyRepliedEmail = (clubName: string): Composed => ({
+  key: 'doc15.§28',
+  channel: 'email',
+  subject: 'A family has replied on Pitch',
+  body:
+`A family has replied to ${clubName} on Pitch.
+
+Sign in to read it: ${SITE}/club/register
+
+We keep replies about players inside Pitch rather than in email. Signing in takes a moment and it is what lets a family switch access off and have it actually stop.
+
+— Pitch
+${SITE} · ${HELP}`,
+});
+
 // The closed set. A key not in here cannot be sent.
 export const CATALOGUE_KEYS = [
   'doc15.§1', 'doc15.§2', 'doc15.§3', 'doc15.§10', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
   'doc15.§6', 'doc15.§21', 'doc15.§22', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
-  'doc15.§33', 'doc15.§34',
+  'doc15.§33', 'doc15.§34', 'doc15.§27', 'doc15.§28',
 ] as const;

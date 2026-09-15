@@ -59,8 +59,19 @@ export default async function Home() {
   }
 
   const { rows } = await db.query(
-    `select p.first_name, p.photo_path,
+    `select p.first_name, p.photo_path, fn_age_band(p.dob) as band,
        (select id from development_record where person_id = p.id) as record_id,
+       -- D-153: a player sees an invitation a club sent them. Until now only a
+       -- guardian could, so an adult a club invited was never told anything.
+       (select row_to_json(q4) from (
+          select i.id, cl4.name as club,
+            exists(select 1 from invitation_reply ir4 where ir4.invitation_id = i.id and ir4.approved_at is null) as draft
+          from invitation i
+          join registration r4 on r4.id = i.registration_id
+          join club cl4 on cl4.id = i.club_id
+          where r4.player_id = p.id
+            and not exists (select 1 from invitation_reply ir5 where ir5.invitation_id = i.id and ir5.approved_at is not null)
+          order by i.created_at desc limit 1) q4) as my_invitation,
        (select row_to_json(rec) from (
           select dr.positions, dr.squad_number,
             (select count(*)::int from highlight h where h.record_id = dr.id) as clips
@@ -101,11 +112,14 @@ export default async function Home() {
               join development_record dr2 on dr2.id = pv.record_id
               where dr2.person_id = c.id and pv.status = 'pending'),
            'invitation', (select row_to_json(q3) from (
-              select i.id, i.created_at as at, cl2.name as club from invitation i
+              select i.id, i.created_at as at, cl2.name as club,
+                exists(select 1 from invitation_reply ird where ird.invitation_id = i.id and ird.approved_at is null) as draft
+              from invitation i
               join registration r2 on r2.id = i.registration_id
               join club cl2 on cl2.id = i.club_id
               where r2.player_id = c.id
-                and not exists (select 1 from invitation_reply ir where ir.invitation_id = i.id)
+                -- a player's draft is still waiting on the parent, so it stays on the list
+                and not exists (select 1 from invitation_reply ir where ir.invitation_id = i.id and ir.approved_at is not null)
               order by i.created_at desc limit 1) q3),
            'sendRequest', (select row_to_json(q) from (
               select sr.id, sr.created_at as at, sr.destination from share_request sr
@@ -130,7 +144,7 @@ export default async function Home() {
     id: string; firstName: string; photo: string | null; recordId: string | null; approvedOn: string;
     linkExpiry: string | null; expiresInDays: number | null; registers: number;
     hasPending: boolean; pendingAt: string | null;
-    invitation: { id: string; at: string; club: string } | null;
+    invitation: { id: string; at: string; club: string; draft: boolean } | null;
     sendRequest: { id: string; at: string; destination: string } | null;
     interestRequest: { id: string; at: string; club: string } | null;
   }[] = me.children;
@@ -224,6 +238,17 @@ export default async function Home() {
             </div>
           </div>
         </div>
+        {me.my_invitation && (
+          <Link href={`/g/invite/${me.my_invitation.id}`} className="lift" style={{ ...card, border: `1px solid ${T.purple}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
+            <div>
+              <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>{me.my_invitation.club} would like you at a trial</div>
+              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
+                {me.my_invitation.draft ? 'Your reply is with your parent to approve.' : me.band === '18plus' ? 'Reply when you are ready — or don’t.' : 'Your parent can see it too.'}
+              </div>
+            </div>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
+          </Link>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <Link href={`/build/${me.record_id}`} className="btn btn-primary">Build your CV</Link>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -308,8 +333,12 @@ export default async function Home() {
     ...children.filter((c) => c.invitation).map((c) => ({
       key: c.invitation!.id, kind: 'invite' as const, at: c.invitation!.at,
       href: `/g/invite/${c.invitation!.id}`, tone: T.purple,
-      title: `${c.invitation!.club} would like ${c.firstName} at a trial`,
-      body: `${c.firstName} has not been told. Nothing happens until you decide.`,
+      title: c.invitation!.draft
+        ? `${c.firstName} wants to reply to ${c.invitation!.club}`
+        : `${c.invitation!.club} would like ${c.firstName} at a trial`,
+      body: c.invitation!.draft
+        ? `Nothing goes to the club until you approve it.`
+        : `${c.firstName} can see it too. Nothing goes back to the club until you approve a reply.`,
       cta: 'Review it',
     })),
     ...children.filter((c) => c.sendRequest).map((c) => ({

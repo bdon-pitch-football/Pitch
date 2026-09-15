@@ -80,6 +80,16 @@ export default async function Register({ searchParams }: {
   const c = club.rows[0];
 
   const all = (await db.query(`select * from fn_register_rows($1, $2)`, [me, c.id])).rows as Row[];
+  // D-153: a verified club with no subscription still invites — the people
+  // who registered interest in a trial it posted, and nobody else.
+  const active = c.club_state === 'verified'
+    && Boolean((await db.query('select fn_register_active($1) as a', [c.id])).rows[0]?.a);
+  type TrialRow = { registration_id: string; player_first_name: string; positions: string[]; note: string | null;
+                    club_status: string; trial_title: string; trial_on: string; has_clips: boolean };
+  const trialRows = c.club_state === 'verified' && !active
+    ? (await db.query(`select registration_id, player_first_name, positions, note, club_status, trial_title,
+         to_char(trial_on, 'Dy FMDD Mon') as trial_on, has_clips from fn_trial_interest_rows($1, $2)`, [me, c.id])).rows as TrialRow[]
+    : [];
   const held = all.length === 0 ? (await db.query(`select fn_register_count($1,$2) as n`, [me, c.id])).rows[0].n : 0;
 
   // Filters are applied AFTER the permission function, never inside the query
@@ -187,6 +197,44 @@ export default async function Register({ searchParams }: {
             <div style={{ fontSize: 22, fontWeight: 900, color: T.amber }}>{held} waiting</div>
             <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Registrations are held until your club is verified — a short phone call with us. You&rsquo;ll see the list, and nothing about anyone under 18 reaches any club before that call. Paying doesn&rsquo;t change it and can&rsquo;t.</div>
           </div>
+        ) : !active ? (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.015em' }}>Interest in your trials</h2>
+              <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Players who registered interest in a trial you posted. Invite any of them — it&rsquo;s free.</div>
+            </div>
+            {trialRows.length === 0 ? (
+              <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                Nobody has registered interest in your trials yet. <Link href="/club/post-trial" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Post a trial</Link> and families register from it.
+              </div>
+            ) : trialRows.map((t) => (
+              <div key={t.registration_id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 800 }}>{t.player_first_name}</div>
+                    <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{t.positions.join(' · ')}{t.has_clips && ' · clips'}</div>
+                    <div style={{ fontSize: 12, color: T.secondary, fontWeight: 700, marginTop: 2 }}>{t.trial_title} · {t.trial_on}</div>
+                  </div>
+                </div>
+                {t.note && (
+                  <div style={{ background: T.surface2, borderRadius: 12, padding: '10px 12px', fontSize: 12.5, fontStyle: 'italic', color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>&ldquo;{t.note}&rdquo;</div>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Link href={`/club/register/cv/${t.registration_id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
+                  {t.club_status === 'invited' ? (
+                    <Link href={`/club/invite/${t.registration_id}`} style={{ flex: 1, height: 46, borderRadius: 14, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invitation sent</Link>
+                  ) : (
+                    <Link href={`/club/invite/${t.registration_id}`} style={{ flex: 1, height: 46, borderRadius: 14, background: T.accent, color: T.onAccent, fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invite to trial</Link>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 14, fontWeight: 900 }}>The whole register is a plan</div>
+              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everyone who registers interest in your club, all year — not only for a trial — with squads, filters and a shortlist.</div>
+              <Link href="/club/billing" style={{ fontSize: 13, fontWeight: 800, color: T.accent, textDecoration: 'none' }}>See the Interest Register</Link>
+            </div>
+          </>
         ) : (
           <>
             <div style={{ background: 'rgba(61,220,132,.07)', border: `1px solid ${T.line}`, borderRadius: 12, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -288,7 +336,7 @@ export default async function Register({ searchParams }: {
                             <Link href={`/club/invite/${r.registration_id}`} style={{ height: 42, borderRadius: 12, background: T.accent, color: T.onAccent, fontSize: 13.5, fontWeight: 800, padding: '0 18px', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>Invite to trial</Link>
                           )}
                           {r.club_status === 'invited' && (
-                            <div style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>Invitation sent</div>
+                            <Link href={`/club/invite/${r.registration_id}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.secondary, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>Invitation sent</Link>
                           )}
                         </div>
                       </div>
@@ -321,6 +369,9 @@ export default async function Register({ searchParams }: {
                         )}
                         {r.club_status === 'shortlisted' && (
                           <Link href={`/club/invite/${r.registration_id}`} style={{ flex: 1, height: 50, borderRadius: 14, background: T.accent, color: T.onAccent, fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invite to trial</Link>
+                        )}
+                        {r.club_status === 'invited' && (
+                          <Link href={`/club/invite/${r.registration_id}`} style={{ flex: 1, height: 46, borderRadius: 14, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invitation sent</Link>
                         )}
                       </div>
                     </div>
