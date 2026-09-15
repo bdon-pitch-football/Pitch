@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
+import { answerCoachInvite } from '@/app/coach/invite/actions';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -85,7 +86,15 @@ export default async function Home() {
        (select row_to_json(co) from (
           select cp.public_slug,
             (select c3.name from membership m2 join club c3 on c3.id = m2.club_id
-             where m2.person_id = p.id and m2.role = 'coach' and m2.ended_at is null limit 1) as club
+             where m2.person_id = p.id and m2.role = 'coach' and m2.ended_at is null limit 1) as club,
+            -- D-154: the teams whose registrations this coach reads today.
+            (select count(*)::int from register_grant g
+             where g.person_id = p.id and g.revoked_at is null
+               and g.squad_id in (select fn_register_grant_squads(p.id, g.club_id))) as register_teams,
+            (select coalesce(json_agg(json_build_object('id', ci.id, 'club', c4.name,
+                'teams', (select array_agg(sq.name order by sq.name) from squad sq where sq.id = any(ci.squad_ids)))), '[]'::json)
+             from coach_invite ci join club c4 on c4.id = ci.club_id
+             where ci.person_id = p.id and ci.answered_at is null) as invites
           from coach_profile cp where cp.person_id = p.id) co) as coach_seat,
        (select coalesce(json_agg(json_build_object(
            'id', c.id, 'firstName', c.first_name, 'photo', c.photo_path,
@@ -150,7 +159,10 @@ export default async function Home() {
   }[] = me.children;
 
   const clubSeat = me.club_seat as { id: string; name: string; club_state: string; public_slug: string | null; role: string; register_count: number } | null;
-  const coachSeat = me.coach_seat as { public_slug: string | null; club: string | null } | null;
+  const coachSeat = me.coach_seat as {
+    public_slug: string | null; club: string | null; register_teams: number;
+    invites: { id: string; club: string; teams: string[] }[];
+  } | null;
 
   // Club seat: TD or administrator. The register is the working surface.
   if (clubSeat) {
@@ -176,7 +188,12 @@ export default async function Home() {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <Link href="/club/register" className="btn btn-primary">Interest register</Link>
+          {/* D-154: a named person reads the register — the TD. An administrator
+              keeps the club's page, squads, trials and billing, and before
+              verification the waiting count, which holds no child's details. */}
+          {(clubSeat.role === 'technical_director' || !verified) && (
+            <Link href="/club/register" className="btn btn-primary">Interest register</Link>
+          )}
           <Link href="/club/squads" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Squads &amp; age groups</Link>
           <Link href="/club/page-edit" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Crest &amp; club page</Link>
           <Link href="/club/roles" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Coaching roles</Link>
@@ -206,8 +223,25 @@ export default async function Home() {
             <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{coachSeat.public_slug}</div>
           </div>
         )}
+        {coachSeat.invites.map((inv) => (
+          <div key={inv.id} style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 800 }}>{inv.club} wants you as their coach for {inv.teams.join(', ')}</div>
+            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>You&rsquo;ll be able to read the registrations for those teams. You won&rsquo;t be able to invite a family or change anything, and every one you open is recorded.</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <form action={answerCoachInvite} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="inviteId" value={inv.id} /><input type="hidden" name="answer" value="accept" />
+                <button type="submit" className="btn btn-primary">Accept</button>
+              </form>
+              <form action={answerCoachInvite} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="inviteId" value={inv.id} /><input type="hidden" name="answer" value="decline" />
+                <button type="submit" className="btn btn-secondary">Not now</button>
+              </form>
+            </div>
+          </div>
+        ))}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <Link href="/coach/edit" className="btn btn-primary">Edit my coach CV</Link>
+          {coachSeat.register_teams > 0 && (
+            <Link href="/coach/register" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Registrations</Link>
+          )}
           {coachSeat.public_slug && (
             <Link href={`/c/${coachSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>See my public page</Link>
           )}

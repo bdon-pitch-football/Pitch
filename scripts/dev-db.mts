@@ -165,6 +165,12 @@ await db.query(`update club set subscription_status='active' where id=$1`, [rive
 const td = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Marina','Petrovic','1980-04-12','td@example.com')`, [td]);
 await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'technical_director')`, [td, riverside]);
+// A club ADMINISTRATOR at a verified, paying club (D-154): keeps the page,
+// squads, trials and billing, and reads no registration. No seat walked
+// that wall before D-154 made it the rule.
+const riversideAdmin = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Pat','Nguyen','1983-06-14','admin@example.com')`, [riversideAdmin]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [riversideAdmin, riverside]);
 
 const sunbury = randomUUID();
 await db.query(`insert into club (id, name, suburb, state, club_state, contact_email) values ($1,'Sunbury United','Sunbury','VIC','claimed','football@sunburyunited.example.au')`, [sunbury]);
@@ -424,6 +430,13 @@ const sam = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Sam','Kaya','1988-02-02','coach@example.com')`, [sam]);
 await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'coach')`, [sam, riverside]);
 await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [sam, riverside, td]);
+// D-154: Marina has brought Sam in for two teams, so a coach's read-only
+// register exists to be walked.
+await db.query(
+  `insert into register_grant (club_id, person_id, squad_id, granted_by)
+   select distinct on (s.name) $1::uuid, $2::uuid, s.id, $3::uuid from squad s
+   where s.club_id = $1 and s.name in ('U14 Boys','U15 Girls') order by s.name, s.id`,
+  [riverside, sam, td]);
 // A photo, so the coach hero can be judged with a face in it rather than
 // initials. Put through sharp at the same 512 square the upload route uses.
 // The source is our own brand photography — it is not a real coach's
@@ -560,7 +573,9 @@ await db.query(`insert into verification_call (id, club_id, called_at, operator,
 await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [kingswayCall, kingsway]);
 const kingswayAdmin = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Dana','Kovac','1984-07-09','kingsway@example.com')`, [kingswayAdmin]);
-await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [kingswayAdmin, kingsway]);
+// Kingsway's one seat is its technical director: under D-154 an administrator
+// reads no registration, and a free club still works its own trials (D-153).
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'technical_director')`, [kingswayAdmin, kingsway]);
 const kingswayTrial = (await db.query(
   `insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,age_group,competition_gender,cv_email)
    values ($1,'U16–U18 and Seniors trials','2026-10-25','Sun 10:00 AM · Brunswick West Oval',array['GK','ST']::text[],'U18','mixed','football@kingswayrovers.example.au')
@@ -632,4 +647,4 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     }, null, 2) + '\n',
   );
 }
-console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · sunbury@example.com (unverified club) · kingsway@example.com (free verified club) · new@example.com (brand-new, nothing yet)');
+console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · admin@example.com (club administrator) · sunbury@example.com (unverified club) · kingsway@example.com (free verified club, TD) · new@example.com (brand-new, nothing yet)');

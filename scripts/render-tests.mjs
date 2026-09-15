@@ -298,6 +298,8 @@ const georgia = ids.children.georgia;
     '16–17 player': ids.children.nate.child_id,
     // D-153: a verified club with no subscription, inviting from its own trial.
     'free club': ids.people.dana,
+    // D-154: an administrator at a verified, paying club reads no registration.
+    'club admin': ids.people.pat,
     // The operator console had never been walked by ANY seat, so its pages
     // were outside every check the crawl makes. Two things were sitting in
     // there: a queue heading that was still a styled <div>, and a call sheet
@@ -438,6 +440,46 @@ const georgia = ids.children.georgia;
     const nav = navOf((await get(path, ids.people.marina)).html, 'Operator');
     check(`s4: ${path} carries the operator sidebar`, nav !== null, true);
   }
+  // D-154 — the administrator's frame and walls. The same subset rule, and
+  // the register itself is not one of her doors at a verified club.
+  {
+    const pat = ids.people.pat;
+    const patHome = new Set(hrefs((await get('/home', pat)).html));
+    patHome.add('/home');
+    check('s10: a verified club’s administrator is offered no register on /home', patHome.has('/club/register'), false);
+    for (const path of ['/club/squads', '/club/page-edit', '/club/roles', '/club/post-trial', '/club/billing']) {
+      const nav = navOf((await get(path, pat)).html, 'Club');
+      check(`s10b: club admin ${path} carries the club sidebar`, nav !== null, true);
+      if (!nav) continue;
+      const extra = hrefs(nav).filter((h) => !patHome.has(h));
+      check(`s10c: club admin ${path} sidebar offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
+    }
+    check('s11: the register page sends her home (N17)', (await get('/club/register', pat)).status, 307);
+    const regId = /\/club\/register\/cv\/([0-9a-f-]{36})/.exec((await get('/club/register', ids.people.marina)).html)?.[1];
+    check('s11b: a registration’s CV is not found for her, not forbidden', (await get(`/club/register/cv/${regId}`, pat)).status, 404);
+    check('s11c: nor its invite page', (await get(`/club/invite/${regId}`, pat)).status, 404);
+    const squadsHtml = (await get('/club/squads', pat)).html;
+    check('s11d: and she is not shown who reads the register, or asked to bring a coach in', /Coaches who read your register|Bring in a coach/.test(squadsHtml), false);
+  }
+  // D-154 — a granted coach's registrations: their teams, read-only.
+  {
+    const sam = ids.people.sam;
+    const res = await get('/coach/register', sam);
+    check('s12: a granted coach has a registrations page', res.status, 200);
+    const squadsShown = [...res.html.matchAll(/<div style="font-size:14px;font-weight:900">([^<]+)<!-- -->/g)].map((m) => m[1].trim());
+    check(`s12b: showing only the teams the club granted (${squadsShown.join(', ') || 'none'})`,
+      squadsShown.length > 0 && squadsShown.every((n) => n === 'U14 Boys' || n === 'U15 Girls'), true);
+    check('s12c: with no invite, shortlist or status control anywhere on it', /Invite to trial|Shortlist|name="status"/.test(res.html), false);
+    const cv = /\/club\/register\/cv\/([0-9a-f-]{36})/.exec(res.html)?.[1];
+    check('s12d: a CV on his team opens', cv ? (await get(`/club/register/cv/${cv}`, sam)).status : null, 200);
+    const tdIds = [...(await get('/club/register', ids.people.marina)).html.matchAll(/\/club\/register\/cv\/([0-9a-f-]{36})/g)].map((m) => m[1]);
+    const samIds = new Set([...res.html.matchAll(/\/club\/register\/cv\/([0-9a-f-]{36})/g)].map((m) => m[1]));
+    const offTeam = tdIds.find((id) => !samIds.has(id));
+    check('s12e: a CV off his teams is not found', offTeam ? (await get(`/club/register/cv/${offTeam}`, sam)).status : null, 404);
+    check('s12f: and the TD’s register page is not his', (await get('/club/register', sam)).status, 307);
+    check('s12g: a coach with no grant has no registrations page', (await get('/coach/register', ids.people.robin)).status, 307);
+  }
+
   // The coach's frame (BUZ, 15 Sep): the coach's own doors from /home, the
   // same subset rule, and a role page counts as the roles board.
   {

@@ -1381,7 +1381,7 @@ await db.query(`update guardianship_link set revoked_at = null where guardian_id
 const mClub = crypto.randomUUID(), mReg = crypto.randomUUID(), mAdmin = crypto.randomUUID();
 await db.query(`insert into club (id, name, club_state, subscription_status) values ($1,'Held FC','claimed','active')`, [mClub]);
 await db.query(`insert into person (id, first_name, dob) values ($1,'Held Admin','${yearsAgo(40)}')`, [mAdmin]);
-await mem(mAdmin, mClub, null, 'club_admin');
+await mem(mAdmin, mClub, null, 'technical_director');   // D-154: the register's reader is a named TD
 await db.query(`insert into registration (id, player_id, club_id, note, policy_version) values ($1,$2,$3,'Keen','20@v2.4')`,
   [mReg, ID.georgia, mClub]);
 
@@ -1533,6 +1533,11 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
     return id;
   };
   const riversideTrial = await trialAt(CLUB.riverside);
+  // D-154: an administrator reads no registration, so the club that invites
+  // here needs its technical director.
+  const tdOther = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Other TD',$2)`, [tdOther, yearsAgo(41)]);
+  await mem(tdOther, CLUB.other, null, 'technical_director');
   const bayviewTrial = await trialAt(CLUB.other);
   await db.query(`update club set subscription_status = null where id = $1`, [CLUB.other]);
 
@@ -1540,11 +1545,11 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
   const freeTagged = await newReg(ID.marcus, CLUB.other, bayviewTrial);
   const freeUntagged = await newReg(ID.nate, CLUB.other);
   check('P13: a free verified club may invite someone who registered against its own trial',
-    await canInvite(ID.adminOther, freeTagged), true);
+    await canInvite(tdOther, freeTagged), true);
   check('P13b: but not someone who only joined its register — the year-round list is the paid plan',
-    await canInvite(ID.adminOther, freeUntagged), false);
+    await canInvite(tdOther, freeUntagged), false);
   await db.query(`update club set subscription_status = 'active' where id = $1`, [CLUB.other]);
-  check('P13c: a paying club may invite anyone on its register', await canInvite(ID.adminOther, freeUntagged), true);
+  check('P13c: a paying club may invite anyone on its register', await canInvite(tdOther, freeUntagged), true);
   await db.query(`update club set subscription_status = null where id = $1`, [CLUB.other]);
   check('P13d: another club’s worker may invite nobody here', await canInvite(ID.td, freeTagged), false);
   const unvAdmin = crypto.randomUUID();
@@ -1574,7 +1579,7 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
      values ('${adultInv}','${ID.guardian}','${ID.guardian}', now())`);
   await db.query(`insert into invitation_reply (invitation_id, replied_by, approved_by, approved_at) values ($1,$2,$2,now())`,
     [adultInv, ID.marcus]);
-  check('P15b: an adult answers for themselves, and the club sees the answer', await stateAt(ID.adminOther, adultInv), 'answered');
+  check('P15b: an adult answers for themselves, and the club sees the answer', await stateAt(tdOther, adultInv), 'answered');
   await expectFail('P16: one reply per invitation — an invitation is not a thread (P10)',
     `insert into invitation_reply (invitation_id, replied_by, approved_by, approved_at)
      values ('${adultInv}','${ID.marcus}','${ID.marcus}', now())`);
@@ -1592,13 +1597,155 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
   await db.query(`update invitation_reply set approved_by = $1, approved_at = now() where invitation_id = $2`, [ID.guardian, teenInv]);
   check('P17d: a parent approves it, and only then does the club see the answer', await stateAt(ID.td, teenInv), 'answered');
 
+  // P20 / doc 32 B5a — an invitation's message is not a channel. N15 pointed
+  // the other way: an under-16 reads this at the same moment their parent does.
+  {
+    const p20Reg = await newReg(ID.marcus, CLUB.riverside);
+    for (const [label, note] of [
+      ['a web address', 'our trial page is https://example.com/trials'],
+      ['a bare domain', 'details on riversidefc.com.au'],
+      ['an email address', 'email coach@riverside.example'],
+      ['a phone number', 'ring me on 0412 345 678'],
+      ['a spaced-out phone number', 'call 0 4 1 2 3 4 5 6 7 8'],
+      ['an @handle', 'follow us @riverside_juniors'],
+    ]) {
+      await expectFail(`P20: an invitation carrying ${label} is refused at write`,
+        `insert into invitation (club_id, registration_id, body) values ('${CLUB.riverside}', '${p20Reg}', ${JSON.stringify(JSON.stringify({ kind: 'trial', note })).replace(/^"|"$/g, "'").replace(/\\"/g, '"')})`);
+    }
+    await expectFail('P20b: plain text is checked too, not only the app\u2019s JSON shape',
+      `insert into invitation (club_id, registration_id, body) values ('${CLUB.riverside}', '${p20Reg}', 'text me 0412345678')`);
+    await expectFail('P20c: and one over the cap',
+      `insert into invitation (club_id, registration_id, body) values ('${CLUB.riverside}', '${p20Reg}', '${JSON.stringify({ kind: 'trial', note: 'x'.repeat(401) })}')`);
+    const ok = await db.query(`insert into invitation (club_id, registration_id, body) values ($1,$2,$3) returning id`,
+      [CLUB.riverside, p20Reg, JSON.stringify({ kind: 'trial', note: "Saw you at the U16 trials. We're short in midfield and we'd like a proper look." })]);
+    check('P20d: an ordinary message about football goes through', ok.rows.length, 1);
+  }
+
   // What a free club reads: its own trials' registrants, and nobody else.
   const trialRows = async (who, club) => (await db.query('select registration_id from fn_trial_interest_rows($1,$2)', [who, club])).rows.map((r) => r.registration_id);
-  const free = await trialRows(ID.adminOther, CLUB.other);
+  const free = await trialRows(tdOther, CLUB.other);
   check('P18: a free club sees who registered against its trials', free.includes(freeTagged), true);
   check('P18b: and not who merely joined its register', free.includes(freeUntagged), false);
   check('P18c: an unverified club sees nobody, whatever it posted', (await trialRows(unvAdmin, CLUB.unverified)).length, 0);
   check('P18d: another club’s worker sees nothing here', (await trialRows(ID.td, CLUB.other)).length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// D-154 — a club does not read its register; a named person does (doc 14
+// N16-N24, John's doc 34, BUZ 15 Sep: up to three teams a coach, ten coaches
+// a club, and no administrator).
+// ---------------------------------------------------------------------------
+{
+  const plan = (await db.query(`select subscription_status from club where id = $1`, [CLUB.riverside])).rows[0].subscription_status;
+  await db.query(`update club set subscription_status = 'active' where id = $1`, [CLUB.riverside]);
+  const q1 = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const canRead = async (who, reg) => (await q1('select fn_can_read_registration($1,$2) as c', [who, reg])).c;
+  const canInv = async (who, reg) => (await q1('select fn_can_invite($1,$2) as c', [who, reg])).c;
+  const rowIds = async (who, club) => (await db.query('select registration_id from fn_register_rows($1,$2)', [who, club])).rows.map((r) => r.registration_id);
+  const squad = async (name) => (await q1(
+    `insert into squad (club_id, name, age_group, competition_gender, season) values ($1,$2,'U14','boys','2026') returning id`,
+    [CLUB.riverside, name])).id;
+  const [sqA, sqB, sqC, sqD] = [await squad('N-A'), await squad('N-B'), await squad('N-C'), await squad('N-D')];
+  const reg = async (player, sq) => (await q1(
+    `insert into registration (player_id, club_id, squad_target, policy_version) values ($1,$2,$3,'20@v2.4') returning id`,
+    [player, CLUB.riverside, sq])).id;
+  const [regA, regB, regD, regUnfiled] = [await reg(ID.marcus, sqA), await reg(ID.marcus, sqB), await reg(ID.marcus, sqD), await reg(ID.marcus, null)];
+  const coach = async (name) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`, [id, name, yearsAgo(35)]);
+    await mem(id, CLUB.riverside, null, 'coach');
+    await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [id, CLUB.riverside, ID.td]);
+    return id;
+  };
+  const grantSql = (who, sq, by) =>
+    `insert into register_grant (club_id, person_id, squad_id, granted_by) values ('${CLUB.riverside}','${who}','${sq}','${by}')`;
+  const nCoach = await coach('Granted Coach');
+
+  // N16 / N17 — a named person, never an administrator.
+  check('N16: the TD reads a registration aimed at a team', await canRead(ID.td, regA), true);
+  check('N16b: and the whole register, unfiled included', (await rowIds(ID.td, CLUB.riverside)).includes(regUnfiled), true);
+  check('N17: a club administrator reads no registration (D-154 upholding D-93)', await canRead(ID.clubAdmin, regA), false);
+  check('N17b: gets no register rows', (await rowIds(ID.clubAdmin, CLUB.riverside)).length, 0);
+  check('N17c: cannot invite', await canInv(ID.clubAdmin, regA), false);
+  check('N17d: cannot set a status', (await q1(`select fn_set_club_status($1,$2,'shortlisted') as ok`, [ID.clubAdmin, regA])).ok, false);
+  check('N17e: but still sees the held count, which is a number and not a child', (await q1('select fn_register_count($1,$2) as n', [ID.clubAdmin, CLUB.riverside])).n > 0, true);
+  check('N16c: a coach with no grant reads nothing', (await rowIds(nCoach, CLUB.riverside)).length, 0);
+
+  // N18 — who may grant, to whom, how many.
+  await expectFail('N18: an administrator cannot grant register access', grantSql(nCoach, sqA, ID.clubAdmin));
+  await expectFail('N18b: nor can the coach grant it to themselves', grantSql(nCoach, sqA, nCoach));
+  await expectFail('N18c: a person who is not a coach at the club cannot hold it', grantSql(ID.marcus, sqA, ID.td));
+  const noWwcc = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'No Check',$2)`, [noWwcc, yearsAgo(30)]);
+  await mem(noWwcc, CLUB.riverside, null, 'coach');
+  await expectFail('N18d: nor a coach without the club’s WWCC attestation', grantSql(noWwcc, sqA, ID.td));
+  const otherSquad = (await q1(`insert into squad (club_id, name, age_group, competition_gender, season) values ($1,'Other U14','U14','boys','2026') returning id`, [CLUB.other])).id;
+  await expectFail('N18e: nor a team belonging to another club', grantSql(nCoach, otherSquad, ID.td));
+  await db.query(grantSql(nCoach, sqA, ID.td));
+  await db.query(grantSql(nCoach, sqB, ID.td));
+  await db.query(grantSql(nCoach, sqC, ID.td));
+  await expectFail('N18f: a coach reads at most three teams', grantSql(nCoach, sqD, ID.td));
+  const nine = [];
+  for (let i = 0; i < 9; i++) { const c = await coach(`Cap Coach ${i}`); await db.query(grantSql(c, sqD, ID.td)); nine.push(c); }
+  const eleventh = await coach('Eleventh Coach');
+  await expectFail('N18g: a club brings in at most ten coaches', grantSql(eleventh, sqD, ID.td));
+  await expectFail('N18h: a grant is never edited into a different team — only removed',
+    `update register_grant set squad_id = '${sqD}' where person_id = '${nCoach}' and squad_id = '${sqA}'`);
+  await expectFail('N18i: a coach request is the TD’s to make, not an administrator’s',
+    `insert into coach_invite (club_id, person_id, invited_by, squad_ids, wwcc_checked) values ('${CLUB.riverside}','${eleventh}','${ID.clubAdmin}', array['${sqA}']::uuid[], true)`);
+  await expectFail('N18j: and names at most three teams',
+    `insert into coach_invite (club_id, person_id, invited_by, squad_ids, wwcc_checked) values ('${CLUB.riverside}','${eleventh}','${ID.td}', array['${sqA}','${sqB}','${sqC}','${sqD}']::uuid[], true)`);
+  // Release the cap for the rest of the file.
+  await db.query(`update register_grant set revoked_at = now(), revoked_by = $1 where person_id = any($2)`, [ID.td, nine]);
+
+  // N19 / N20 — what a granted coach reads, and what they cannot do.
+  const coachRows = await rowIds(nCoach, CLUB.riverside);
+  check('N19: a granted coach reads the registrations aimed at their teams', [regA, regB].every((r) => coachRows.includes(r)), true);
+  check('N19b: and not another team’s', coachRows.includes(regD), false);
+  check('N19c: and never an unfiled registration — that stays with the TD', coachRows.includes(regUnfiled), false);
+  check('N19d: may open a CV on their team', await canRead(nCoach, regA), true);
+  check('N19e: but not on another team', await canRead(nCoach, regD), false);
+  await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1, true, $2)
+    on conflict (child_id) do update set profile_paused = true`, [ID.georgia, ID.guardian]);
+  const pausedOnTeam = await reg(ID.georgia, sqA);
+  check('N19f: and carries P19’s refusals — a paused child on their team is not readable', await canRead(nCoach, pausedOnTeam), false);
+  await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [ID.georgia]);
+  check('N20: a granted coach cannot invite', await canInv(nCoach, regA), false);
+  check('N20b: nor set a status', (await q1(`select fn_set_club_status($1,$2,'shortlisted') as ok`, [nCoach, regA])).ok, false);
+
+  // N21 — it ends with the relationship, at the next read.
+  await db.query(`update membership set ended_at = now() where person_id = $1 and club_id = $2 and role = 'coach'`, [nCoach, CLUB.riverside]);
+  check('N21: the coach leaves the club — the grant stops resolving', await canRead(nCoach, regA), false);
+  await db.query(`update membership set ended_at = null where person_id = $1 and club_id = $2 and role = 'coach'`, [nCoach, CLUB.riverside]);
+  await db.query(`update wwcc_attestation set revoked_at = now() where person_id = $1`, [nCoach]);
+  check('N21b: the WWCC attestation is revoked — same', (await rowIds(nCoach, CLUB.riverside)).length, 0);
+  await db.query(`update wwcc_attestation set revoked_at = null where person_id = $1`, [nCoach]);
+  check('N21c: restored, it resolves again (the check is the attestation, not the coach)', await canRead(nCoach, regA), true);
+  await db.query(`update register_grant set revoked_at = now(), revoked_by = $1 where person_id = $2 and squad_id = $3`, [ID.td, nCoach, sqA]);
+  check('N21d: the TD removes a team — that team is gone at once', await canRead(nCoach, regA), false);
+  check('N21e: and the others stay', await canRead(nCoach, regB), true);
+
+  // N22 — every read is attributed.
+  const logCols = (await q1(`select string_agg(column_name, ',') as c from information_schema.columns where table_name = 'register_read_log'`)).c ?? '';
+  check('N22: the read log names a person, a registration, a surface and a time',
+    ['person_id', 'registration_id', 'surface', 'read_at'].every((k) => logCols.includes(k)), true);
+  const srcOf = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  for (const [rel, what] of [['../app/club/register/page.tsx', 'the register list'], ['../app/club/register/cv/[registrationId]/page.tsx', 'a CV opened from it'], ['../app/coach/register/page.tsx', 'a coach’s list']]) {
+    check(`N22b: ${what} writes the read log`, /insert into register_read_log/.test(srcOf(rel)), true);
+  }
+  check('N22c: the CV page is gated on the named-person function, not the club-level one',
+    /fn_can_read_registration\(\$2, r\.id\)/.test(srcOf('../app/club/register/cv/[registrationId]/page.tsx')), true);
+
+  // N23 / N24 — the TD sees the list; the request never tells who is on Pitch.
+  const squadsSrc = srcOf('../app/club/squads/page.tsx'), actSrc = srcOf('../app/club/squads/actions.ts');
+  check('N23: the TD’s squads screen lists who holds register access', /from register_grant g/.test(squadsSrc) && /isTd/.test(squadsSrc), true);
+  check('N23b: and never lists requests still waiting — that would reveal which emails have accounts', /from coach_invite/.test(squadsSrc), false);
+  const inviteFn = actSrc.slice(actSrc.indexOf('export async function inviteCoach'), actSrc.indexOf('export async function revokeCoach'));
+  check('N24: bringing a coach in ends in one answer, account or not', (inviteFn.match(/redirect\('\/club\/squads\?coachAsked=1'\)/g) ?? []).length, 1);
+  check('N24b: and the lookup result never chooses a different redirect',
+    /if \(coach\.rows\.length > 0\) \{[^}]*redirect/.test(inviteFn), false);
+
+  await db.query(`update club set subscription_status = $1 where id = $2`, [plan, CLUB.riverside]);
 }
 
 // ---------------------------------------------------------------------------

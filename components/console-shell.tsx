@@ -67,7 +67,7 @@ export async function ClubConsole({ active, floodlight, children }: {
   const verified = seat.club_state === 'verified';
   const items: Item[] = [
     { key: 'home', href: '/home', label: 'Home' },
-    { key: 'register', href: '/club/register', label: 'Interest register' },
+    ...(seat.role === 'technical_director' || !verified ? [{ key: 'register', href: '/club/register', label: 'Interest register' }] : []),
     { key: 'squads', href: '/club/squads', label: 'Squads & age groups' },
     { key: 'page-edit', href: '/club/page-edit', label: 'Crest & club page' },
     { key: 'roles', href: '/club/roles', label: 'Coaching roles' },
@@ -104,19 +104,22 @@ export async function ClubConsole({ active, floodlight, children }: {
 // club seat outranks a coach seat, so a TD who also keeps a coach CV sees the
 // club's frame on club screens and no frame here — the same doors /home gives.
 export async function CoachConsole({ active, children }: {
-  active: 'edit' | 'jobs'; children: React.ReactNode;
+  active: 'edit' | 'jobs' | 'register'; children: React.ReactNode;
 }) {
   const me = await getSessionPersonId();
   const seat = me ? (await db.query(
     `select p.first_name, cp.public_slug,
        (select c.name from membership m2 join club c on c.id = m2.club_id
-        where m2.person_id = p.id and m2.role = 'coach' and m2.ended_at is null limit 1) as club
+        where m2.person_id = p.id and m2.role = 'coach' and m2.ended_at is null limit 1) as club,
+       (select count(*)::int from register_grant g
+        where g.person_id = p.id and g.revoked_at is null
+          and g.squad_id in (select fn_register_grant_squads(p.id, g.club_id))) as register_teams
      from person p join coach_profile cp on cp.person_id = p.id
      where p.id = $1
        and not exists (select 1 from membership m where m.person_id = p.id
          and m.role in ('technical_director','club_admin') and m.ended_at is null)`,
     [me],
-  )).rows[0] as { first_name: string; public_slug: string | null; club: string | null } | undefined : undefined;
+  )).rows[0] as { first_name: string; public_slug: string | null; club: string | null; register_teams: number } | undefined : undefined;
 
   if (!seat) {
     return (
@@ -129,6 +132,7 @@ export async function CoachConsole({ active, children }: {
   const items: Item[] = [
     { key: 'home', href: '/home', label: 'Home' },
     { key: 'edit', href: '/coach/edit', label: 'Edit my coach CV' },
+    ...(seat.register_teams > 0 ? [{ key: 'register', href: '/coach/register', label: 'Registrations' }] : []),
     ...(seat.public_slug ? [{ key: 'public', href: `/c/${seat.public_slug}`, label: 'See my public page' }] : []),
     { key: 'jobs', href: '/jobs', label: 'Coaching roles at clubs' },
   ];

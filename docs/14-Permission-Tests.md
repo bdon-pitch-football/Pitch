@@ -390,6 +390,15 @@ D-108, D-115, D-122, D-128. **The rule: what a club receives is exactly the disc
 | N13 | Club cancels its subscription | Register contents deleted within 30 days, confirmed in writing. Assert the deletion is a scheduled job, not a person (D-128) |
 | N14 | Registration reaches 90 days past the trial date | Deleted by scheduled job. Assert the clock is identical whether or not the club ever opened it |
 | N15 | `note` exceeds the cap, or contains a URL, email or phone number | **Rejected at write.** A child's free-text field is not a channel |
+| N16 | Who reads a registration, by any path | **A named person only** (D-154): the club's `td_own`, or a coach holding a register grant for the squad the registration targets. Assert no read resolves for an actor that is only a club, and none for `club_admin_own` or `team_manager` |
+| N17 | `club_admin_own` opens the register, a registration's CV, or its invite page | **Denied — the same not-found as absence** (D-154 upholding D-93). The administrator keeps the club page, squads, trials and billing |
+| N18 | A register grant is written | **Only by the club's `td_own`**, for a person holding a current `coach` membership at that club with a live WWCC attestation, at a verified club. **At most 3 squads per coach and 10 coaches per club.** Refused at write otherwise — the cap is a constraint, not a screen |
+| N19 | A granted coach reads the register | **Only registrations targeting a granted squad.** Never an unfiled registration, never another squad's, the N6 payload only, and the CV only through `fn_can_invite`'s refusals (P19) |
+| N20 | A granted coach sets `club_status` or creates an invitation | **Denied.** The one club-to-family route keeps one set of hands (D-117); the more restrictive reading, recorded in D-154 |
+| N21 | The coach's membership ends, the WWCC attestation is revoked, the club loses verification, or the TD removes the grant | **The grant stops resolving at the next read.** Computed from membership, attestation, verification and the grant row — never a stored visibility flag (doc 34 rule 7) |
+| N22 | Any register read — the list or a CV opened from it | **Logged against the named person, the registration and the time,** and disclosable to the guardian on request (doc 34 rule 6, doc 32 C4a) |
+| N23 | The club's grant list | **Always visible to the TD** on the club's own screens: who, which squads, since when (doc 34 rule 5) |
+| N24 | The TD brings a coach in by naming a Pitch account | **The response is identical whether or not the account exists.** The coach sees it inside Pitch and accepts; **no message is sent** (not in doc 15). The WWCC number is never asked for or shown — the TD attests they checked it (D-98) |
 
 ---
 
@@ -444,6 +453,7 @@ D-117, D-138. **The rule: an invitation is the single sanctioned club-to-child c
 | P17 | A u16 or 16–17 player writes their own reply | A **draft**. The club's state stays `sent` until a guardian approves it, and the player cannot approve their own |
 | P18 | What a free verified club reads | Only registrations against **its own** trials, and nothing at an unverified club |
 | P19 | A club opens the invite for a registration the write would refuse — withdrawn, paused, or an under-16 with no approved guardian | **Absent.** No button, and the invite page is the same not-found as for a registration the club never could invite. `fn_can_invite` refuses exactly what `invitation_club_entitled()` refuses — refusal is indistinguishable from absence (John's ruling on the invitation basis, §4) |
+| P20 | An invitation's message carries a URL, a bare domain, an email address, a phone number or an @handle, or exceeds 400 characters | **Refused at write** — doc 14 N15 pointed the other way (doc 32 B5a). An under-16 reads this text at the same moment their parent does |
 
 ---
 

@@ -86,6 +86,8 @@ const SEATS = {
   // D-153: a verified club with no subscription, which invites for free from
   // its own posted trial. No seat walked that path before this.
   'free club': ids.people.dana,
+  // D-154: an administrator at a verified club — every form she can reach.
+  'club admin': ids.people.pat,
 };
 
 // Reachable pages per seat, by following links exactly as the render crawl does.
@@ -432,6 +434,76 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   await postTo(`/g/controls/${georgia}`, parent, await (pauseForm('false'))());
   check('p19f: switched back on, the links return',
     doorsTo((await get('/club/register', club)).html)?.includes(`/club/register/cv/${gReg}`), true);
+}
+
+// ---------------------------------------------------------------------------
+// 0c · D-154 AND B5a — WALKED THROUGH THE REAL SCREENS.
+//
+// A TD brings a coach in; the answer does not say whether the email is a
+// Pitch account; the coach accepts on their own home screen and reads their
+// team; the TD removes them and it is gone. And an invitation carrying a
+// phone number comes back to the club with the reason, and never sends.
+// ---------------------------------------------------------------------------
+{
+  const td = ids.people.marina, sam = ids.people.sam;
+  const postForm = async (path, who, form, extra = {}) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form?.fields ?? {})) fd.append(k, v);
+    for (const [k, v] of Object.entries(extra)) {
+      for (const one of [].concat(v)) fd.append(k, one);
+    }
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '' };
+  };
+  const strip = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
+
+  // ---- B5a: the message is not a channel --------------------------------
+  const regHtml = (await get('/club/register', td)).html;
+  const inviteId = /href="\/club\/invite\/([0-9a-f-]{36})"[^>]*>Invite to trial</.exec(regHtml)?.[1];
+  check('b5a0: the TD has someone on the register to invite', Boolean(inviteId), true);
+  const compose = (await get(`/club/invite/${inviteId}`, td)).html;
+  const sendForm = forms(compose).find((f) => f.fields.registrationId === inviteId);
+  const messages = async () => (strip((await get('/dev/outbox', td)).html).match(/doc15\.§/g) ?? []).length;
+  const box0 = await messages();
+  const bad = await postForm(`/club/invite/${inviteId}`, td, sendForm, { kind: 'trial', body: 'Ring me on 0412 345 678 about the trial' });
+  check('b5a1: a message carrying a phone number comes back to the invite screen', /\/club\/invite\/[0-9a-f-]{36}\?cannot=1/.test(bad.location), true);
+  check('b5a2: which says why, instead of an error page',
+    strip((await get(`/club/invite/${inviteId}?cannot=1`, td)).html).includes('Take out the link, email address or phone number'), true);
+  const regAfter = (await get('/club/register', td)).html;
+  check('b5a3: and nothing was sent — the family still reads "Invite to trial", and the outbox is unchanged',
+    [new RegExp(`href="/club/invite/${inviteId}"[^>]*>Invite to trial<`).test(regAfter),
+     (await messages()) === box0], [true, true]);
+
+  // ---- D-154: a TD brings a coach in ------------------------------------
+  const squadsHtml = (await get('/club/squads', td)).html;
+  const bringForm = forms(squadsHtml).find((f) => f.visible.some((v) => v.name === 'wwcc'));
+  check('c0: the TD has a form to bring a coach in', Boolean(bringForm), true);
+  const teamIds = [...squadsHtml.matchAll(/<input[^>]*name="squadIds"[^>]*>/g)].map((m) => ({
+    id: /value="([0-9a-f-]{36})"/.exec(m[0])?.[1], name: /aria-label="([^"]+)"/.exec(m[0])?.[1],
+  }));
+  const u13g = teamIds.find((t) => t.name === 'U13 Girls');
+  const ghost = await postForm('/club/squads', td, bringForm, { email: 'nobody-here@example.com', squadIds: [u13g.id], wwcc: 'on' });
+  const real = await postForm('/club/squads', td, bringForm, { email: 'coach@example.com', squadIds: [u13g.id], wwcc: 'on' });
+  check('c1: an email with no account and a real coach get the identical answer (N24)', [ghost.status, ghost.location], [real.status, real.location]);
+  check('c1b: and it is the "if that is a coach" answer', /coachAsked=1/.test(real.location), true);
+  const noCheck = await postForm('/club/squads', td, bringForm, { email: 'coach@example.com', squadIds: [u13g.id] });
+  check('c2: without the WWCC confirmation nothing is asked', /coachError=1/.test(noCheck.location), true);
+  const tooMany = await postForm('/club/squads', td, bringForm, { email: 'coach@example.com', squadIds: teamIds.slice(0, 4).map((t) => t.id), wwcc: 'on' });
+  check('c2b: nor for more than three teams', /coachError=1/.test(tooMany.location), true);
+
+  const samHome = (await get('/home', sam)).html;
+  check('c3: the coach sees the club’s request on their own home screen', strip(samHome).includes('wants you as their coach for U13 Girls'), true);
+  const acceptForm = forms(samHome).find((f) => f.fields.answer === 'accept');
+  await postForm('/home', sam, acceptForm);
+  check('c4: accepted, the new team is on their registrations page',
+    strip((await get('/coach/register', sam)).html).includes('U13 Girls'), true);
+  check('c4b: and the TD sees who reads the register', strip((await get('/club/squads', td)).html).includes('U13 Girls'), true);
+
+  const revokeForm = forms((await get('/club/squads', td)).html).find((f) => f.fields.personId === sam);
+  await postForm('/club/squads', td, revokeForm);
+  check('c5: the TD removes the coach — the registrations page is gone at once', (await get('/coach/register', sam)).status, 307);
+  check('c5b: and the Registrations door leaves their home screen', /href="\/coach\/register"/.test((await get('/home', sam)).html), false);
 }
 
 // ---------------------------------------------------------------------------

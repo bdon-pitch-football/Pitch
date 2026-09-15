@@ -25,16 +25,15 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
   if (!isUuid(registrationId)) notFound();
 
   const auth = await db.query(
-    `select r.player_id, r.club_id, dr.id as record_id, fn_age_band(p.dob) as band
+    `select r.player_id, r.club_id, dr.id as record_id, fn_age_band(p.dob) as band,
+            fn_can_work_register($2, r.club_id) as td
      from registration r
      join person p on p.id = r.player_id
      join development_record dr on dr.person_id = p.id
-     -- fn_can_invite is the one answer to "may this club act on this
-     -- registration": this club's worker, verified, and either the paid
-     -- register or a registration against a trial the club posted (D-153).
-     -- This page carried its own copy of the paid half, so a free club could
-     -- invite a player and then 404 on the button to read their CV.
-     where r.id = $1 and fn_can_invite($2, r.id)`,
+     -- D-154: a named person reads a registration, never a club. The TD, or
+     -- a coach granted this registration's team — with every refusal
+     -- fn_can_invite carries (P19). An administrator gets not-found (N17).
+     where r.id = $1 and fn_can_read_registration($2, r.id)`,
     [registrationId, me],
   );
   if (auth.rows.length === 0) notFound();
@@ -66,6 +65,11 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
      values ('outside_contact_logged', $1, $2, jsonb_build_object('kind', 'register_cv_opened', 'registration_id', $3::uuid))`,
     [me, a.player_id, registrationId],
   );
+  // N22 / doc 32 C4a: the read carries a name, and a guardian can ask for it.
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface) values ($1, $2, 'cv')`,
+    [me, registrationId],
+  );
 
   // PlayerCV renders the public page, header and all, so the way back to the
   // register is a bar above it. Without this a TD who opened a row had to use
@@ -74,9 +78,9 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
     <>
       <div style={{ display: 'flex', justifyContent: 'center', background: '#0b120e' }}>
         <div className="reading" style={{ width: '100%', padding: '14px 18px 0 18px', boxSizing: 'border-box' }}>
-          <a href="/club/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', color: '#7d8f85', fontSize: 13, fontWeight: 700 }}>
+          <a href={a.td ? '/club/register' : '/coach/register'} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, gap: 6, textDecoration: 'none', color: '#7d8f85', fontSize: 13, fontWeight: 700 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
-            The register
+            {a.td ? 'The register' : 'Registrations'}
           </a>
         </div>
       </div>

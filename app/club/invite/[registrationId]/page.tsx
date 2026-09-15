@@ -20,8 +20,12 @@ export const metadata = { title: 'Invite a family', robots: { index: false, foll
 
 const ANSWER: Record<string, string> = { yes: 'Will be there', interested_not_date: 'Interested, but not that date' };
 
-export default async function InviteCompose({ params }: { params: Promise<{ registrationId: string }> }) {
+export default async function InviteCompose({ params, searchParams }: {
+  params: Promise<{ registrationId: string }>;
+  searchParams: Promise<{ cannot?: string }>;
+}) {
   const { registrationId } = await params;
+  const { cannot } = await searchParams;
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   // A malformed id is the same answer as a row that is not there.
@@ -118,6 +122,11 @@ export default async function InviteCompose({ params }: { params: Promise<{ regi
           </div>
         </div>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="registrationId" value={registrationId} />
+          {cannot && (
+            <div role="alert" style={{ background: 'rgba(227,73,72,.12)', border: '1px solid rgba(227,73,72,.35)', borderRadius: 12, padding: '11px 13px', fontSize: 13, fontWeight: 700, color: '#eef5f0', lineHeight: 1.5 }}>
+              Take out the link, email address or phone number, and keep it under 400 characters. The family chooses what contact details to hand over.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="field-label">What you&rsquo;re sending</div>
             <div style={{ display: 'flex', gap: 8 }}>

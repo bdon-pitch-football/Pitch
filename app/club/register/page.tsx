@@ -71,7 +71,7 @@ export default async function Register({ searchParams }: {
   const { pos, status, age } = await searchParams;
 
   const club = await db.query(
-    `select c.id, c.name, c.club_state from club c
+    `select c.id, c.name, c.club_state, m.role from club c
      join membership m on m.club_id = c.id and m.person_id = $1
        and m.role in ('technical_director','club_admin') and m.ended_at is null
      limit 1`,
@@ -79,6 +79,10 @@ export default async function Register({ searchParams }: {
   );
   if (club.rows.length === 0) redirect('/home');
   const c = club.rows[0];
+  // D-154: at a verified club the register is read by a named person — the
+  // TD. An administrator reaches this page only while the club is unverified,
+  // where it holds nothing but the waiting count D-126 promises (N17e).
+  if (c.role !== 'technical_director' && c.club_state === 'verified') redirect('/home');
 
   const all = (await db.query(`select * from fn_register_rows($1, $2)`, [me, c.id])).rows as Row[];
   // D-153: a verified club with no subscription still invites — the people
@@ -92,6 +96,15 @@ export default async function Register({ searchParams }: {
          to_char(trial_on, 'Dy FMDD Mon') as trial_on, has_clips from fn_trial_interest_rows($1, $2)`, [me, c.id])).rows as TrialRow[]
     : [];
   const held = all.length === 0 ? (await db.query(`select fn_register_count($1,$2) as n`, [me, c.id])).rows[0].n : 0;
+  // D-154 / doc 32 C4a: every registration this page is handed is a read by
+  // a named person, logged — filters narrow what is drawn, not what was read.
+  const readIds = [...all.map((r) => r.registration_id), ...trialRows.map((t) => t.registration_id)];
+  if (readIds.length > 0) {
+    await db.query(
+      `insert into register_read_log (person_id, registration_id, surface) select $1, unnest($2::uuid[]), 'list'`,
+      [me, readIds],
+    );
+  }
   // Doc 14 P19: a row carries its CV and invite links only when fn_can_invite
   // says yes — the same answer the CV page, the invite page and the write
   // trigger give. A paused profile or an under-16 with no approved guardian

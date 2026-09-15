@@ -29,6 +29,7 @@ export async function sendInvitation(formData: FormData) {
   const kind = String(formData.get('kind') ?? 'trial') === 'interested' ? 'interested' : 'trial';
 
   let invitationId = '';
+  let refused = false;
   let player = { id: '', band: 'u16', email: null as string | null, club: '' };
   const client = await db.connect();
   try {
@@ -63,10 +64,16 @@ export async function sendInvitation(formData: FormData) {
     await client.query('commit');
   } catch (e) {
     await client.query('rollback');
-    throw e;
+    // Doc 32 B5a / doc 14 P20: the database refuses a message carrying a
+    // link, an address or a number to call. That is the club's to fix, so it
+    // comes back to the same screen with a reason, not an error page.
+    const msg = (e as { message?: string }).message ?? '';
+    if (/an invitation cannot carry|that invitation is too long/.test(msg)) refused = true;
+    else throw e;
   } finally {
     client.release();
   }
+  if (refused) redirect(`/club/invite/${registrationId}?cannot=1`);
 
   // Sent after the transaction and after the client is released.
   if (player.band === '18plus') {
