@@ -99,7 +99,8 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
                   {(Object.keys(POSITIONS) as PositionCode[]).map((code) => {
                     const idx = positions.indexOf(code);
                     return (
-                      <button type="button" key={code} onClick={() => toggle(code)} style={{
+                      <button type="button" key={code} onClick={() => toggle(code)}
+                        aria-label={`${POSITIONS[code].label}${idx >= 0 ? `, choice ${idx + 1}` : ''}`} title={POSITIONS[code].label} style={{
                         minHeight: 44, borderRadius: 999, padding: '6px 13px', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
                         fontWeight: idx === 0 ? 900 : 800,
                         background: idx === 0 ? T.accent : idx > 0 ? 'rgba(61,220,132,.14)' : 'transparent',
@@ -107,7 +108,8 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
                         border: idx >= 0 ? '1px solid transparent' : `1px dashed #3a4a42`,
                       }}>
                         {idx >= 0 && <span style={{ fontSize: 9, fontWeight: 900, opacity: 0.6, marginRight: 4 }}>{idx + 1}</span>}
-                        {POSITIONS[code].label}
+                        {/* Short codes, like the player's page (BUZ, 16 Sep); the full name is read out. */}
+                        {code}
                       </button>
                     );
                   })}
