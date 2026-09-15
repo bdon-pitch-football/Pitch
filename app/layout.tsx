@@ -15,14 +15,14 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pitchfootball.com.
 // never described as a social network, anywhere, including meta tags.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Pitch Football — every season on the record. Coming soon.',
+  title: 'Pitch Football | Your football, on one page',
   description:
-    'A goal lasts a second. The run took a season. Pitch keeps a footballer’s development on the record — for players, coaches, clubs and parents. Australia first. Join the waitlist.',
-  keywords: ['football', 'soccer', 'player development', 'football CV', 'grassroots football', 'Australia', 'Melbourne'],
+    'Build your football CV once and send it to any club with a link. Pitch is a player development and pathway platform for players, parents, coaches and clubs. Starting in Australia. Join the waitlist.',
+  keywords: ['football', 'soccer', 'player development', 'football CV', 'football trials', 'Australia', 'Melbourne'],
   openGraph: {
-    title: 'Pitch Football — every season on the record.',
+    title: 'Pitch Football | Your football, on one page',
     description:
-      'A goal lasts a second. The run took a season. Pitch keeps the record — for players, coaches, clubs and parents. Australia first.',
+      'Build your football CV once and send it to any club with a link. For players, parents, coaches and clubs. Starting in Australia.',
     url: SITE_URL,
     siteName: 'Pitch Football',
     images: [{ url: '/assets/film-3.webp', width: 1600, height: 900 }],
