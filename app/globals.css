@@ -21,6 +21,30 @@ input:focus,
 select:focus {
   outline: none;
 }
+/* A native select or file picker that sits outside a .field well rendered as
+   the browser's white system control on a Night Match page (the CV builder's
+   preferred-foot select and photo picker). Dark by default; .field select
+   keeps its own transparent style by specificity. */
+select {
+  background: var(--surface-2, #1a2420);
+  color: var(--ink, #eef5f0);
+  border: 1px solid var(--line, #24322a);
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+input[type="file"]::file-selector-button {
+  background: var(--surface-2, #1a2420);
+  color: var(--ink, #eef5f0);
+  border: 1px solid var(--line, #24322a);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: 8px;
+}
 ::-webkit-scrollbar {
   height: 0;
   width: 0;
