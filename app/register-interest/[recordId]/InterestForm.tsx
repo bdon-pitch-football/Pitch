@@ -77,18 +77,23 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div className="field-label">Where you&rsquo;d play</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 6 }}>
               {(Object.keys(POSITIONS) as PositionCode[]).map((code) => {
                 const on = positions.includes(code);
                 return (
-                  <button type="button" key={code} onClick={() => toggle(code)} style={{
-                    minHeight: 44, minWidth: 48, borderRadius: 999, padding: '7px 12px', fontSize: 12, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+                  <button type="button" key={code} onClick={() => toggle(code)} aria-label={POSITIONS[code].label} aria-pressed={on} title={POSITIONS[code].label} style={{
+                    width: '100%', minHeight: 44, borderRadius: 999, padding: '7px 0', fontSize: 12, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
                     background: on ? 'rgba(61,220,132,.14)' : 'transparent',
                     color: on ? T.accent : T.muted,
                     border: on ? '1px solid transparent' : `1px solid ${T.line}`,
                   }}>{code}</button>
                 );
               })}
+            </div>
+            <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 600, color: positions.length ? T.secondary : T.muted, lineHeight: 1.45 }}>
+              {positions.length
+                ? (Object.keys(POSITIONS) as PositionCode[]).filter((c) => positions.includes(c)).map((c) => POSITIONS[c].label).join(' · ')
+                : 'Not sure what a code means? Tap it and the full name shows here.'}
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Filled in from your CV. Change it if you&rsquo;d play somewhere else for this club.</div>
           </div>

@@ -89,42 +89,50 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
               <div style={label}>Full name</div>
               <div style={{ fontSize: 15, fontWeight: 700 }}>{record.first_name} {record.last_name}</div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 92px', gap: 8 }}>
-              <div style={card}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <div style={label}>Positions</div>
-                  <div style={{ fontSize: 9.5, fontWeight: 700, color: T.placeholder }}>Up to 3 · tap to order</div>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                  {(Object.keys(POSITIONS) as PositionCode[]).map((code) => {
-                    const idx = positions.indexOf(code);
-                    return (
-                      <button type="button" key={code} onClick={() => toggle(code)}
-                        aria-label={`${POSITIONS[code].label}${idx >= 0 ? `, choice ${idx + 1}` : ''}`} title={POSITIONS[code].label} style={{
-                        minHeight: 44, borderRadius: 999, padding: '6px 13px', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
-                        fontWeight: idx === 0 ? 900 : 800,
-                        background: idx === 0 ? T.accent : idx > 0 ? 'rgba(61,220,132,.14)' : 'transparent',
-                        color: idx === 0 ? T.onAccent : idx > 0 ? T.accent : T.placeholder,
-                        border: idx >= 0 ? '1px solid transparent' : `1px dashed #3a4a42`,
-                      }}>
-                        {idx >= 0 && <span style={{ fontSize: 9, fontWeight: 900, opacity: 0.6, marginRight: 4 }}>{idx + 1}</span>}
-                        {/* Short codes, like the player's page (BUZ, 16 Sep); the full name is read out. */}
-                        {code}
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* Positions take the full width so all ten codes sit in two rows of
+                five at 44px (BUZ, 16 Sep). The full names of what's picked show
+                underneath, so a young player never has to guess what "DM" means. */}
+            <div style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <div style={label}>Positions</div>
+                <div style={{ fontSize: 9.5, fontWeight: 700, color: T.placeholder }}>Up to 3 · tap to order</div>
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 6, marginTop: 8 }}>
+                {(Object.keys(POSITIONS) as PositionCode[]).map((code) => {
+                  const idx = positions.indexOf(code);
+                  return (
+                    <button type="button" key={code} onClick={() => toggle(code)}
+                      aria-label={`${POSITIONS[code].label}${idx >= 0 ? `, choice ${idx + 1}` : ''}`} title={POSITIONS[code].label} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%',
+                      minHeight: 44, borderRadius: 999, padding: '6px 0', fontSize: 12.5, fontFamily: 'inherit', cursor: 'pointer',
+                      fontWeight: idx === 0 ? 900 : 800,
+                      background: idx === 0 ? T.accent : idx > 0 ? 'rgba(61,220,132,.14)' : 'transparent',
+                      color: idx === 0 ? T.onAccent : idx > 0 ? T.accent : T.placeholder,
+                      border: idx >= 0 ? '1px solid transparent' : `1px dashed #3a4a42`,
+                    }}>
+                      {idx >= 0 && <span style={{ fontSize: 9, fontWeight: 900, opacity: 0.6, marginRight: 3 }}>{idx + 1}</span>}
+                      {code}
+                    </button>
+                  );
+                })}
+              </div>
+              <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 600, color: positions.length ? T.secondary : T.placeholder, marginTop: 9, lineHeight: 1.45 }}>
+                {positions.length
+                  ? positions.map((c, i) => `${i + 1} ${POSITIONS[c as PositionCode].label}`).join(' · ')
+                  : 'Not sure what a code means? Tap it and the full name shows here.'}
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: 8 }}>
               <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                 <div style={label}>Number</div>
                 <input style={{ ...input, textAlign: 'center', fontSize: 20, fontWeight: 900, color: T.accent }} name="squadNumber" aria-label="Squad number" type="number" min="1" max="99" defaultValue={record.squad_number ?? ''} placeholder="—" />
               </div>
-            </div>
-            <div style={card}>
+              <div style={card}>
               <div style={label}>Preferred foot</div>
               <select name="foot" aria-label="Preferred foot" defaultValue={record.foot ?? ''}>
                 <option value="">—</option><option>Right</option><option>Left</option>
               </select>
+            </div>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
