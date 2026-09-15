@@ -478,6 +478,31 @@ const georgia = ids.children.georgia;
     check('s12e: a CV off his teams is not found', offTeam ? (await get(`/club/register/cv/${offTeam}`, sam)).status : null, 404);
     check('s12f: and the TD’s register page is not his', (await get('/club/register', sam)).status, 307);
     check('s12g: a coach with no grant has no registrations page', (await get('/coach/register', ids.people.robin)).status, 307);
+
+    // BUZ, 15 Sep: filter a coach's registrations by team and position, like
+    // the club register. Filters narrow what is DRAWN, never what is read.
+    const cardsOf = (html) => [...html.matchAll(/data-registration="([0-9a-f-]{36})"[\s\S]*?<\/div><div style="font-size:12.5px[^"]*">([^<]*)</g)]
+      .map((m) => ({ id: m[1], positions: m[2].split(' · ').map((x) => x.trim()) }));
+    const allCards = cardsOf(res.html);
+    check('s13: the unfiltered page draws a card per registration it read', allCards.length > 0, true);
+    const posChip = /href="\/coach\/register\?pos=([A-Z]+)"/.exec(res.html)?.[1];
+    check('s13b: it offers a position filter', Boolean(posChip), true);
+    const byPos = cardsOf((await get(`/coach/register?pos=${posChip}`, sam)).html);
+    check(`s13c: filtering by ${posChip} draws only players who list ${posChip}`,
+      byPos.length > 0 && byPos.every((c) => c.positions.includes(posChip)), true);
+    const teamChip = /href="\/coach\/register\?team=([0-9a-f-]{36})"/.exec(res.html)?.[1];
+    check('s13d: with two teams, it offers a team filter', Boolean(teamChip), true);
+    const byTeamHtml = (await get(`/coach/register?team=${teamChip}`, sam)).html;
+    const teamHeads = [...byTeamHtml.matchAll(/<div style="font-size:14px;font-weight:900">([^<]+)<!-- -->/g)].map((m) => m[1].trim());
+    check(`s13e: filtering by team draws one team (${teamHeads.join(', ')})`, teamHeads.length, 1);
+    const allIds = new Set(allCards.map((c) => c.id));
+    check('s13f: no filter ever draws a registration the page did not already read',
+      [...byPos, ...cardsOf(byTeamHtml)].every((c) => allIds.has(c.id)), true);
+    const unreadable = tdIds.find((id) => !allIds.has(id));
+    const forged = (await get(`/coach/register?team=${crypto.randomUUID()}&pos=ZZ`, sam)).html;
+    check('s13g: an invented team or position is ignored — the full list, not an empty or wider one',
+      cardsOf(forged).length, allCards.length);
+    check('s13h: and a filter cannot pull in a registration off his teams', unreadable ? forged.includes(unreadable) : null, false);
   }
 
   // The coach's frame (BUZ, 15 Sep): the coach's own doors from /home, the
