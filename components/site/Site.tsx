@@ -62,14 +62,14 @@ const phoneShell: React.CSSProperties = { borderRadius: 44, padding: 10, backgro
 const Notch = () => <div aria-hidden style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', width: 86, height: 24, borderRadius: 999, background: '#050806', pointerEvents: 'none' }} />;
 
 // A phone holding one real screen. Tapping it opens the screen full size.
-function Phone({ src, alt, width = 280, tilt = 0, onOpen }: { src: string; alt: string; width?: number; tilt?: number; onOpen: (s: Shot) => void }) {
+function Phone({ src, alt, width = 280, tilt = 0, eager = false, onOpen }: { src: string; alt: string; width?: number; tilt?: number; eager?: boolean; onOpen: (s: Shot) => void }) {
   const inner = width - 20;
   return (
     <button type="button" className="sp-zoomable" onClick={() => onOpen({ src, alt })} aria-label={`Open full size: ${alt}`}
       style={{ ...phoneShell, width, transform: `rotate(${tilt}deg)`, border: 'none', cursor: 'zoom-in', fontFamily: 'inherit', color: 'inherit' }}>
       <div style={{ position: 'relative', borderRadius: 34, overflow: 'hidden', height: Math.round(inner * (844 / 390)), background: C.bg }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" width={600} height={1298} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
+        <img src={src} alt="" width={600} height={1298} loading={eager ? 'eager' : 'lazy'} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
         <Notch />
       </div>
     </button>
@@ -123,7 +123,7 @@ function Laptop({ src, alt, onOpen }: { src: string; alt: string; onOpen: (s: Sh
       style={{ width: '100%', maxWidth: 620, background: 'none', border: 'none', padding: 0, cursor: 'zoom-in', fontFamily: 'inherit', color: 'inherit' }}>
       <div style={{ borderRadius: '16px 16px 0 0', padding: '10px 10px 0', background: 'linear-gradient(160deg,#2a332e,#111714)', boxShadow: '0 0 0 1px #2f3a34 inset' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" width={1400} height={875} loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px 8px 0 0' }} />
+        <img src={src} alt="" width={1400} height={875} decoding="async" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px 8px 0 0' }} />
       </div>
       <div style={{ height: 14, borderRadius: '0 0 18px 18px', background: 'linear-gradient(#27302b,#161c19)', margin: '0 -18px', boxShadow: '0 30px 60px -30px rgba(0,0,0,.9)' }} />
     </button>
@@ -253,10 +253,10 @@ const PRICE_FOR: Record<Role, 'Players' | 'Coaches' | 'Clubs'> = { player: 'Play
 
 // How far the reader has scrolled through an element: 0 as it enters the
 // middle of the screen, 1 as it leaves it.
-function progressThrough(el: HTMLElement | null): number {
+function progressThrough(el: HTMLElement | null, anchor = 0.55): number {
   if (!el) return 0;
   const r = el.getBoundingClientRect();
-  const mid = window.innerHeight * 0.55;
+  const mid = window.innerHeight * anchor;
   return Math.min(1, Math.max(0, (mid - r.top) / Math.max(1, r.height)));
 }
 
@@ -279,6 +279,11 @@ export default function Site() {
   const swipe = useRef<number | null>(null);
 
   const openShot = useCallback((s: Shot) => setShot(s), []);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => { ROLES.forEach((r) => { const img = new Image(); img.src = WHO[r].shot.src; }); }, 1500);
+    return () => window.clearTimeout(t);
+  }, []);
   const closeShot = useCallback(() => setShot(null), []);
 
   // Gentle reveal as sections enter; nothing hidden if JS never runs.
@@ -309,14 +314,15 @@ export default function Site() {
     const update = () => {
       frame = 0;
       setHowProgress(progressThrough(howRef.current));
-      setVisionProgress(progressThrough(visionRef.current));
+      setVisionProgress(progressThrough(visionRef.current, 0.9));
       const mid = window.innerHeight * 0.5;
       const steps = stepRefs.current.filter(Boolean) as HTMLDivElement[];
       const lefts = steps.map((el) => el.getBoundingClientRect().left);
       const oneRow = lefts.length > 1 && Math.max(...lefts) - Math.min(...lefts) > 100;
       if (oneRow) {
         // Side by side: step through them as the reader moves down the section.
-        setActiveStep(Math.min(steps.length - 1, Math.floor(progressThrough(howRef.current) * steps.length)));
+        const hp = progressThrough(howRef.current);
+        setActiveStep(hp < 0.3 ? 0 : hp < 0.5 ? 1 : 2);
       } else {
         let best = 0, bestDist = Infinity;
         steps.forEach((el, i) => {
@@ -586,7 +592,7 @@ export default function Site() {
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               {WHO[who].shot.laptop
                 ? <Laptop src={WHO[who].shot.src} alt={WHO[who].shot.alt} onOpen={openShot} />
-                : <Phone src={WHO[who].shot.src} alt={WHO[who].shot.alt} width={290} onOpen={openShot} />}
+                : <Phone src={WHO[who].shot.src} alt={WHO[who].shot.alt} width={290} eager onOpen={openShot} />}
             </div>
           </div>
         </div>
