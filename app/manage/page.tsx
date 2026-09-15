@@ -5,7 +5,7 @@ import { PitchWordmark, QuietShell } from '@/components/quiet-shell';
 import { ROLES } from '@/lib/consent';
 
 export const metadata: Metadata = {
-  title: 'Manage your details — Pitch Football',
+  title: 'Manage your details',
   robots: { index: false, follow: false },
 };
 

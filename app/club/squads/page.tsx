@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { ClubConsole } from '@/components/console-shell';
 import { addSquad, removeSquad } from './actions';
 
 const T = {
@@ -67,7 +68,7 @@ export default async function Squads({ searchParams }: {
   const stages = [...new Set(ages.map((a) => a.stage))];
 
   return (
-    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <ClubConsole active="squads">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div>
@@ -135,7 +136,7 @@ export default async function Squads({ searchParams }: {
             </div>
             {s.registrations === 0 && s.players === 0 ? (
               <form action={removeSquad}><input type="hidden" name="squadId" value={s.id} />
-                <button type="submit" style={{ height: 38, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+                <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
               </form>
             ) : (
               <div style={{ fontSize: 11.5, fontWeight: 700, color: T.muted, textAlign: 'right', maxWidth: 130 }}>In use — can&rsquo;t be removed</div>
@@ -145,6 +146,6 @@ export default async function Squads({ searchParams }: {
 
         <Link href="/club/register" className="btn btn-ghost">Back to the register</Link>
       </div>
-    </div>
+    </ClubConsole>
   );
 }

@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { ClubConsole } from '@/components/console-shell';
 import { addClubVideo, removeClubVideo } from './actions';
 
 const T = {
@@ -41,8 +42,8 @@ export default async function ClubPageEdit({ searchParams }: {
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
   return (
-    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+    <ClubConsole active="page-edit">
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your club page</h1>
@@ -137,7 +138,7 @@ export default async function ClubPageEdit({ searchParams }: {
               <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.url}</div>
             </div>
             <form action={removeClubVideo}><input type="hidden" name="videoId" value={v.id} />
-              <button type="submit" style={{ height: 38, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+              <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
             </form>
           </div>
         ))}
@@ -153,6 +154,6 @@ export default async function ClubPageEdit({ searchParams }: {
         )}
         <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>
-    </div>
+    </ClubConsole>
   );
 }

@@ -61,7 +61,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
                 {e.period && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}</div>}
               </div>
               <form action={removeExperience}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="experienceId" value={e.id} />
-                <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
+                <button type="submit" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}
@@ -91,7 +91,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
                 {a.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{a.detail}</div>}
               </div>
               <form action={removeAchievement}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="achievementId" value={a.id} />
-                <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
+                <button type="submit" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}
@@ -118,7 +118,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
                 {e.period && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}</div>}
               </div>
               <form action={removeExperience}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="experienceId" value={e.id} />
-                <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
+                <button type="submit" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}

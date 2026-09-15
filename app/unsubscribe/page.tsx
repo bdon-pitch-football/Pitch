@@ -6,7 +6,7 @@ import { PitchWordmark, QuietShell } from '@/components/quiet-shell';
 // (doc 29 §5). Works with no account, from any device.
 
 export const metadata: Metadata = {
-  title: 'Unsubscribe — Pitch Football',
+  title: 'Unsubscribe',
   robots: { index: false, follow: false },
 };
 

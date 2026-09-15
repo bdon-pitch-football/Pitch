@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
+import { OpsConsole } from '@/components/console-shell';
 import { requireOperator } from '@/lib/ops-guard';
 
 const T = {
@@ -32,7 +33,7 @@ export default async function OpsVerification() {
   const heldTotal = rows.filter((r) => r.club_state === 'claimed').reduce((s, r) => s + r.held, 0);
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <OpsConsole active="verification">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div>
@@ -60,11 +61,11 @@ export default async function OpsVerification() {
               <div style={{ background: T.surface2, borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: r.club_state === 'verified' ? T.accent : r.club_state === 'suspended' ? T.red : T.amber }}>
                 {r.club_state === 'verified' ? 'Verified' : r.club_state === 'suspended' ? 'Suspended' : 'Awaiting call'}
               </div>
-              <Link href={`/ops/call/${r.id}`} style={{ border: `1px solid ${T.line}`, borderRadius: 12, height: 36, padding: '0 12px', display: 'flex', alignItems: 'center', fontSize: 12.5, fontWeight: 700, color: T.secondary, textDecoration: 'none', flexShrink: 0 }}>Open call sheet</Link>
+              <Link href={`/ops/call/${r.id}`} style={{ border: `1px solid ${T.line}`, borderRadius: 12, height: 44, padding: '0 14px', display: 'flex', alignItems: 'center', fontSize: 12.5, fontWeight: 700, color: T.secondary, textDecoration: 'none', flexShrink: 0 }}>Open call sheet</Link>
             </div>
           ))}
         </div>
       </div>
-    </div>
+    </OpsConsole>
   );
 }

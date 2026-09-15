@@ -58,8 +58,8 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             <div style={{ fontSize: 14, fontWeight: 800 }}>Add profile photo</div>
             <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>Optional</div>
           </div>
-          <input type="file" name="photo" aria-label="Add profile photo" accept="image/*" required style={{ width: 108, fontSize: 11, color: T.muted, fontFamily: 'inherit' }} />
-          <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 11, height: 36, padding: '0 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Upload</button>
+          <input type="file" name="photo" aria-label="Add profile photo" accept="image/*" required style={{ width: 108, height: 44, fontSize: 11, color: T.muted, fontFamily: 'inherit' }} />
+          <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 11, height: 44, padding: '0 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Upload</button>
         </form>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}><input type="hidden" name="recordId" value={record.id} />
           <input type="hidden" name="positions" value={positions.join(',')} />
@@ -80,7 +80,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
                     const idx = positions.indexOf(code);
                     return (
                       <button type="button" key={code} onClick={() => toggle(code)} style={{
-                        borderRadius: 999, padding: '6px 11px', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
+                        minHeight: 44, borderRadius: 999, padding: '6px 13px', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
                         fontWeight: idx === 0 ? 900 : 800,
                         background: idx === 0 ? T.accent : idx > 0 ? 'rgba(61,220,132,.14)' : 'transparent',
                         color: idx === 0 ? T.onAccent : idx > 0 ? T.accent : T.placeholder,
@@ -120,7 +120,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
               {STAT_KEYS.map((k: StatKey) => (
                 <div key={k} style={{ ...card, padding: '10px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: surfaced.includes(k) ? 1 : 0.45 }}>
                   <input style={{ ...input, textAlign: 'center', fontSize: 19, fontWeight: 900 }} name={`stat_${k}`} aria-label={STAT_LABELS[k]} type="number" min="0" defaultValue={record.stats[k] ?? ''} placeholder="—" />
-                  <button type="button" onClick={() => toggleStat(k)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: surfaced.includes(k) ? T.accent : T.muted, fontFamily: 'inherit' }}>{STAT_LABELS[k]}</button>
+                  <button type="button" onClick={() => toggleStat(k)} style={{ minHeight: 44, width: '100%', margin: '0 0 -10px 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: surfaced.includes(k) ? T.accent : T.muted, fontFamily: 'inherit' }}>{STAT_LABELS[k]}</button>
                 </div>
               ))}
             </div>

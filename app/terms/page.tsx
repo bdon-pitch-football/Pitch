@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { renderLegal } from '@/app/legal/legal-page';
 
 export const metadata: Metadata = {
-  title: 'Terms of service — Pitch Football',
+  title: 'Terms of service',
   robots: { index: false, follow: false }, // only the front page ranks (doc 29 §7)
 };
 

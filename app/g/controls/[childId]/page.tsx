@@ -169,8 +169,10 @@ export default async function Controls({ params, searchParams }: {
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Switch it off and every link stops working until you switch it back on. Nothing is deleted.</div>
             </div>
             <form action={setPause}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="paused" value={String(!c.paused)} />
-              <button type="submit" aria-label="Pause toggle" style={{ width: 46, height: 27, borderRadius: 999, border: 'none', cursor: 'pointer', background: c.paused ? T.surface2 : T.accent, display: 'flex', alignItems: 'center', justifyContent: c.paused ? 'flex-start' : 'flex-end', padding: 3 }}>
-                <div style={{ width: 21, height: 21, borderRadius: 999, background: c.paused ? T.muted : T.onAccent }} />
+              <button type="submit" aria-label="Pause toggle" style={{ width: 52, height: 44, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 46, height: 27, borderRadius: 999, background: c.paused ? T.surface2 : T.accent, display: 'flex', alignItems: 'center', justifyContent: c.paused ? 'flex-start' : 'flex-end', padding: 3, boxSizing: 'border-box' }}>
+                  <div style={{ width: 21, height: 21, borderRadius: 999, background: c.paused ? T.muted : T.onAccent }} />
+                </div>
               </button>
             </form>
           </div>
@@ -193,8 +195,10 @@ export default async function Controls({ params, searchParams }: {
                 </div>
               </div>
               <form action={setSendSwitch}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="sendOff" value={String(!c.send_off)} />
-                <button type="submit" aria-label="Sending toggle" style={{ width: 46, height: 27, borderRadius: 999, border: 'none', cursor: 'pointer', background: c.send_off ? T.surface2 : T.accent, display: 'flex', alignItems: 'center', justifyContent: c.send_off ? 'flex-start' : 'flex-end', padding: 3 }}>
-                  <div style={{ width: 21, height: 21, borderRadius: 999, background: c.send_off ? T.muted : T.onAccent }} />
+                <button type="submit" aria-label="Sending toggle" style={{ width: 52, height: 44, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 46, height: 27, borderRadius: 999, background: c.send_off ? T.surface2 : T.accent, display: 'flex', alignItems: 'center', justifyContent: c.send_off ? 'flex-start' : 'flex-end', padding: 3, boxSizing: 'border-box' }}>
+                    <div style={{ width: 21, height: 21, borderRadius: 999, background: c.send_off ? T.muted : T.onAccent }} />
+                  </div>
                 </button>
               </form>
             </div>

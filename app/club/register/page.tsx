@@ -18,6 +18,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { ClubConsole } from '@/components/console-shell';
 import { POSITIONS } from '@/lib/football';
 import { setStatus } from './actions';
 
@@ -159,7 +160,7 @@ export default async function Register({ searchParams }: {
   // state and the style hook, so a screen reader and the stylesheet agree.
 
   return (
-    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <ClubConsole active="register">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         {/* The header is the hero of this screen. It used to render the whole
@@ -325,15 +326,15 @@ export default async function Register({ searchParams }: {
                         </div>
                         <div style={{ fontSize: 12, fontStyle: r.note ? 'italic' : 'normal', color: r.note ? T.secondary : T.muted, fontWeight: 500, lineHeight: 1.4 }}>{r.note ? `“${r.note}”` : '—'}</div>
                         <div><span style={{ background: chip.bg, color: chip.fg, borderRadius: 7, padding: '4px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{chip.label}</span></div>
-                        <Link href={`/club/register/cv/${r.registration_id}`} style={{ background: T.surface2, borderRadius: 12, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
+                        <Link href={`/club/register/cv/${r.registration_id}`} style={{ background: T.surface2, borderRadius: 12, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                           {r.club_status === 'new' && (
                             <form action={setStatus}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
-                              <button type="submit" style={{ height: 38, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 16px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
+                              <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 16px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
                             </form>
                           )}
                           {r.club_status === 'shortlisted' && (
-                            <Link href={`/club/invite/${r.registration_id}`} style={{ height: 42, borderRadius: 12, background: T.accent, color: T.onAccent, fontSize: 13.5, fontWeight: 800, padding: '0 18px', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>Invite to trial</Link>
+                            <Link href={`/club/invite/${r.registration_id}`} style={{ height: 44, borderRadius: 12, background: T.accent, color: T.onAccent, fontSize: 13.5, fontWeight: 800, padding: '0 18px', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>Invite to trial</Link>
                           )}
                           {r.club_status === 'invited' && (
                             <Link href={`/club/invite/${r.registration_id}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.secondary, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>Invitation sent</Link>
@@ -364,7 +365,7 @@ export default async function Register({ searchParams }: {
                         <Link href={`/club/register/cv/${r.registration_id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
                         {r.club_status === 'new' && (
                           <form action={setStatus} style={{ display: 'flex' }}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
-                            <button type="submit" style={{ height: 40, alignSelf: 'center', borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
+                            <button type="submit" style={{ height: 44, alignSelf: 'center', borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
                           </form>
                         )}
                         {r.club_status === 'shortlisted' && (
@@ -393,6 +394,6 @@ export default async function Register({ searchParams }: {
         )}
         <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>
-    </div>
+    </ClubConsole>
   );
 }

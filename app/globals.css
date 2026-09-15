@@ -140,12 +140,34 @@ button:active, a[href]:active { transform: scale(.975); }
 /* Avatar ring for photos on dark surfaces */
 .avatar-ring { box-shadow: 0 0 0 1.5px rgba(61,220,132,.35), 0 4px 18px rgba(0,0,0,.4); }
 
-/* Console surfaces (D-147): reading column on mobile, sidebar-free wide
-   table at >=1024px. Attach .console to the page column; .d-only rows
-   render as table lines on desktop, .m-only cards below. */
+/* Console surfaces (D-147): reading column on mobile, sidebar + wide table
+   at >=1024px. Attach .console to the page column; .d-only rows render as
+   table lines on desktop, .m-only cards below. The sidebar is
+   components/console-shell.tsx and exists only at >=1024px. */
 .console { width: 100%; max-width: 560px; }
 .d-only { display: none; }
+.console-frame { width: 100%; display: flex; justify-content: center; }
+.console-main { width: 100%; min-width: 0; display: flex; justify-content: center; }
+.console-nav { display: none; }
+.console-nav-link {
+  display: flex; align-items: center; min-height: 44px; padding: 0 12px;
+  border-radius: var(--r-well); text-decoration: none;
+  font-size: 14px; font-weight: 700; color: var(--secondary);
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.console-nav-link:hover { background: var(--surface-2); color: var(--ink); }
+.console-nav-link[aria-current="page"] { background: var(--surface-2); color: var(--ink); box-shadow: inset 3px 0 0 var(--accent); }
 @media (min-width: 1024px) {
+  .console-frame { max-width: 1200px; display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; }
+  .console-nav {
+    display: flex; flex-direction: column; gap: 2px;
+    position: sticky; top: 0; height: 100dvh; overflow-y: auto;
+    padding: 22px 14px 22px 18px; box-sizing: border-box;
+    border-right: 1px solid var(--line);
+  }
+  /* Reading-width screens (billing, post a trial, club page) sit beside the
+     sidebar, not floating in the middle of what is left. */
+  .console-main { justify-content: flex-start; }
   .console { max-width: 1200px; }
   .m-only { display: none !important; }
   .d-only { display: grid; }
@@ -267,6 +289,12 @@ button:active, a[href]:active { transform: scale(.975); }
   background-repeat: no-repeat;
 }
 .field select option { background: var(--surface-2); color: var(--ink); }
+/* D-147: a native select is only as tall as its text (16-19px), and the
+   well around it is not part of the control — tapping the padding opens
+   nothing. 44px of select; inside a well the negative margin hands the
+   extra height back, so the well is the size it always was. */
+select { min-height: 44px; }
+.field select { margin-block: -12px; }
 
 /* File input: the native button is hidden and the wrapper becomes the target. */
 .filefield {
@@ -311,7 +339,7 @@ button:active, a[href]:active { transform: scale(.975); }
    CHIPS — filters and status. Filters toggle; status chips never do.
    --------------------------------------------------------------------------- */
 .chip {
-  height: 32px; border-radius: var(--r-pill); padding: 0 13px;
+  height: 44px; border-radius: var(--r-pill); padding: 0 14px;
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12.5px; font-weight: 700; white-space: nowrap;
   text-decoration: none; cursor: pointer;

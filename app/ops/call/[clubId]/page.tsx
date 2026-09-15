@@ -5,6 +5,7 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
+import { OpsConsole } from '@/components/console-shell';
 import { logCall } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
 import { isUuid } from '@/lib/ids';
@@ -33,8 +34,8 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
   const act = logCall;
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
+    <OpsConsole active="verification">
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/ops/verification', label: 'The queue' }} />
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>Call sheet — {c.name}</h1>
@@ -68,6 +69,6 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
           <button type="submit" className="btn btn-primary">Log the call</button>
         </form>
       </div>
-    </div>
+    </OpsConsole>
   );
 }

@@ -5,6 +5,7 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
+import { OpsConsole } from '@/components/console-shell';
 import { resendApproval } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
 
@@ -36,7 +37,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
     : [];
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <OpsConsole active="support">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div>
@@ -51,7 +52,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
         </div>
         <form style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10 }}>
           <input name="q" aria-label="Invitation id, guardian email or mobile" defaultValue={q ?? ''} placeholder="Invitation id, guardian email or mobile" style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }} />
-          <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 11, height: 38, padding: '0 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Look up</button>
+          <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 11, height: 44, padding: '0 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Look up</button>
         </form>
         {q && rows.length === 0 && (
           <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 13, color: T.muted, fontWeight: 500 }}>Nothing matches that.</div>
@@ -73,6 +74,6 @@ export default async function Support({ searchParams }: { searchParams: Promise<
           </div>
         ))}
       </div>
-    </div>
+    </OpsConsole>
   );
 }

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { ClubConsole } from '@/components/console-shell';
 import { postTrial } from './actions';
 
 const T = {
@@ -34,18 +35,18 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
 
   if (posted) {
     return (
-      <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+      <ClubConsole active="post-trial" floodlight>
         <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark back={{ href: '/home' }} />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>Posted. It&rsquo;s on your club page and the trials board now.</div>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>It comes down by itself the day after the trial, so nobody turns up to something that already happened.</div>
         </div>
-      </div>
+      </ClubConsole>
     );
   }
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <ClubConsole active="post-trial" floodlight>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -82,6 +83,6 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
           <button type="submit" className="btn btn-primary">Post it</button>
         </form>
       </div>
-    </div>
+    </ClubConsole>
   );
 }

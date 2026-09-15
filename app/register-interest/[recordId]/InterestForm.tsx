@@ -82,7 +82,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
                 const on = positions.includes(code);
                 return (
                   <button type="button" key={code} onClick={() => toggle(code)} style={{
-                    borderRadius: 999, padding: '7px 12px', fontSize: 12, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+                    minHeight: 44, minWidth: 48, borderRadius: 999, padding: '7px 12px', fontSize: 12, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
                     background: on ? 'rgba(61,220,132,.14)' : 'transparent',
                     color: on ? T.accent : T.muted,
                     border: on ? '1px solid transparent' : `1px solid ${T.line}`,

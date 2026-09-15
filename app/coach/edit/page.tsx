@@ -142,7 +142,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
                 <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{r.org} · {r.from} — {r.to ?? 'now'}</div>
               </div>
               <form action={removeRole}><input type="hidden" name="roleId" value={r.id} />
-                <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
+                <button type="submit" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}
@@ -191,7 +191,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
                 )}
               </div>
               <form action={removeLicence}><input type="hidden" name="licenceId" value={l.id} />
-                <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
+                <button type="submit" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}
@@ -224,7 +224,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
                 {a.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{a.detail}</div>}
               </div>
               <form action={removeCoachAchievement}><input type="hidden" name="achievementId" value={a.id} />
-                <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
+                <button type="submit" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}
@@ -264,7 +264,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
                 <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.url}</div>
               </div>
               <form action={removeCoachClip}><input type="hidden" name="clipId" value={v.id} />
-                <button type="submit" style={{ height: 36, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 13px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+                <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 13px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
               </form>
             </div>
           ))}

@@ -406,6 +406,45 @@ const georgia = ids.children.georgia;
   check(`crawl: one walk answered all of the above (${fetched} responses)`, fetched > 0, true);
 }
 
+// D-147: console surfaces are "sidebar + content". The sidebar is a second
+// way to the SAME doors /home offers the seat — never a new door, because a
+// desktop-only capability is a permission surface nobody tested. So the test
+// is not "a nav exists", it is "the nav's links ARE the home page's links".
+{
+  const hrefs = (html) => [...new Set([...html.matchAll(/href="(\/[^"#]*)"/g)].map((m) => m[1])
+    .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|ico)$/.test(h)))];
+  const navOf = (html, label) => {
+    const m = new RegExp(`<nav[^>]*aria-label="${label}"[^>]*>([\\s\\S]*?)</nav>`).exec(html);
+    return m ? m[1] : null;
+  };
+  const CLUB = { '/club/register': 'Interest register', '/club/squads': 'Squads & age groups',
+    '/club/page-edit': 'Crest & club page', '/club/roles': 'Coaching roles',
+    '/club/post-trial': 'Post a trial', '/club/billing': 'Plan & billing' };
+  for (const [seat, who] of [['club TD', ids.people.marina], ['free club', ids.people.dana]]) {
+    const home = new Set(hrefs((await get('/home', who)).html));
+    home.add('/home');
+    for (const path of Object.keys(CLUB)) {
+      const { html } = await get(path, who);
+      const nav = navOf(html, 'Club');
+      check(`s1: ${seat} ${path} carries the club sidebar`, nav !== null, true);
+      if (!nav) continue;
+      const extra = hrefs(nav).filter((h) => !home.has(h));
+      check(`s2: ${seat} ${path} sidebar offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
+      const current = [...nav.matchAll(/href="([^"]*)"[^>]*aria-current="page"|aria-current="page"[^>]*href="([^"]*)"/g)].map((m) => m[1] ?? m[2]);
+      check(`s3: ${seat} ${path} marks exactly itself as the current page`, current, [path]);
+    }
+  }
+  for (const path of ['/ops/verification', '/ops/support']) {
+    const nav = navOf((await get(path, ids.people.marina)).html, 'Operator');
+    check(`s4: ${path} carries the operator sidebar`, nav !== null, true);
+  }
+  // Reading surfaces stay sidebar-free — a parent's screens are not a console.
+  for (const [path, who] of [['/home', ids.people.alex], [`/g/controls/${ids.children.deniz.child_id}`, ids.people.alex], ['/home', ids.people.marina]]) {
+    const html = (await get(path, who)).html;
+    check(`s5: ${path} is a reading surface with no console sidebar`, /class="console-nav"/.test(html), false);
+  }
+}
+
 // A brand-new account is where somebody has just decided to trust us. It
 // showed a title, one sentence, and no way to do anything at all.
 {

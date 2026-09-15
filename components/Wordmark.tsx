@@ -35,7 +35,7 @@ export function HeaderMark({ back }: { back?: { href: string; label?: string } }
           display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
           color: 'var(--muted, #7d8f85)', fontSize: 13, fontWeight: 700,
           // 44px of tappable height without 44px of visual weight (D-147).
-          margin: '-10px 0', padding: '10px 0',
+          minHeight: 44, margin: '-10px 0', paddingRight: 8,
         }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
           {back.label ?? 'Back'}

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { ClubConsole } from '@/components/console-shell';
 import { postRole, closeRole } from './actions';
 
 const T = {
@@ -61,7 +62,7 @@ export default async function ClubRoles({ searchParams }: {
   const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
   return (
-    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <ClubConsole active="roles">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div>
@@ -124,7 +125,7 @@ export default async function ClubRoles({ searchParams }: {
               </div>
               {!r.closed_at && (
                 <form action={closeRole}><input type="hidden" name="roleId" value={r.id} />
-                  <button type="submit" style={{ height: 36, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 13px', cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+                  <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 13px', cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
                 </form>
               )}
             </div>
@@ -150,6 +151,6 @@ export default async function ClubRoles({ searchParams }: {
         </div>
         <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>
-    </div>
+    </ClubConsole>
   );
 }

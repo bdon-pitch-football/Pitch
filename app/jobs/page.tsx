@@ -14,7 +14,7 @@ const T = {
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Coaching roles — Pitch',
+  title: 'Coaching roles',
   description: 'Clubs hiring coaches. Posted by the club, chronological, nothing ranked.',
 };
 
@@ -37,7 +37,7 @@ export default async function Jobs() {
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         {/* The board opened with a title and then two cards in a lot of empty
             space. The number of open roles IS the news on this page. */}

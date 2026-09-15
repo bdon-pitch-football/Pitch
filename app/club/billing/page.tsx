@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { ClubConsole } from '@/components/console-shell';
 import { billingConfigured, PRICES } from '@/lib/billing';
 import { openPortal, startCheckout } from './actions';
 
@@ -40,7 +41,7 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
   const pastDue = c.subscription_status === 'past_due';
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <ClubConsole active="billing" floodlight>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -112,6 +113,6 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
           </form>
         )}
       </div>
-    </div>
+    </ClubConsole>
   );
 }

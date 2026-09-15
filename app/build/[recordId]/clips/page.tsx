@@ -81,7 +81,7 @@ export default async function Clips({ params, searchParams }: {
                   <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>{sourceOf(c.url)} · added {c.added}</div>
                 </div>
                 <form action={removeClip}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="clipId" value={c.id} />
-                  <button type="submit" aria-label="Remove clip" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
+                  <button type="submit" aria-label="Remove clip" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
                 </form>
               </div>
             </div>
