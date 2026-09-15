@@ -58,7 +58,7 @@ export const DENIZ: PlayerFixture = {
   firstName: 'Deniz',
   lastName: 'Yılmaz',
   dob: '2012-03-14', // 14 in 2026 — u16 band: guardian approval, no search surface, guardian-held link
-  positions: ['CAM', 'LW'],
+  positions: ['AM', 'LW'],
   squadNumber: 10,
   foot: 'Right',
   club: 'Riverside FC',

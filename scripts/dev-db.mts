@@ -247,7 +247,7 @@ const BOYS = ['Amir','Cormac','Eli','Goran','Idris','Jonty','Mateo','Omar','Sion
 const GIRLS = ['Bella','Divya','Freya','Hana','Kiri','Lucia','Nadia','Priya','Rania','Tara',
   'Vida','Wanjiru','Zara','Cleo','Gia','Ines','Lena','Noor','Pia','Talia',
   'Wren','Yara','Anouk','Esme','Maeve','Sadia','Thea','Xanthe','Imogen','Nell'];
-const POS_POOL = ['GK','RB','CB','LB','DM','CM','CAM','RW','LW','ST'];
+const POS_POOL = ['GK','RB','CB','LB','DM','CM','AM','RW','LW','ST'];
 const LINES = [
   'Played every game last season. Want a step up.',
   'Left-footed, comfortable either side.',

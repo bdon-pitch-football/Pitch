@@ -20,7 +20,7 @@ const T = {
 // Position dots for the mini pitch map (attack →), x/y in % of the map box.
 const POS_XY: Record<PositionCode, [number, number]> = {
   GK: [8, 50], CB: [24, 50], LB: [26, 16], RB: [26, 84], DM: [40, 50],
-  CM: [54, 50], CAM: [68, 50], LW: [74, 16], RW: [74, 84], ST: [90, 50],
+  CM: [54, 50], AM: [68, 50], LW: [74, 16], RW: [74, 84], ST: [90, 50],
 };
 
 const kicker: React.CSSProperties = {
@@ -79,7 +79,8 @@ function PositionMap({ positions }: { positions: PositionCode[] }) {
 
 export default function PlayerCV({ p }: { p: PlayerFixture }) {
   const initials = `${p.firstName[0]}${p.lastName[0] ?? ''}`;
-  const posLine = p.positions.map((c) => POSITIONS[c].label).join(' · ');
+  // Short codes on a player's page (BUZ, 16 Sep): "ST · LW", not "Striker · Left wing".
+  const posLine = p.positions.join(' · ');
   const group = positionGroup(p.positions);
   // Resolve the clip list once, so the section can ask whether it has any
   // before deciding to render a heading at all.

@@ -267,7 +267,7 @@ export default async function Home() {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 17, fontWeight: 900 }}>{me.first_name}{pg?.squad_number ? ` · #${pg.squad_number}` : ''}</div>
             <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500 }}>
-              {(pg?.positions ?? []).map((c) => POSITIONS[c as PositionCode]?.label ?? c).join(' · ') || 'No positions picked yet'}
+              {(pg?.positions ?? []).join(' · ') || 'No positions picked yet'}
               {typeof pg?.clips === 'number' ? ` · ${pg.clips} clip${pg.clips === 1 ? '' : 's'}` : ''}
             </div>
           </div>

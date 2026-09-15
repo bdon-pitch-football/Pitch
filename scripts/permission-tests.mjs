@@ -176,7 +176,7 @@ for (const [g, ch] of [[ID.guardian, ID.deniz], [ID.guardian2, ID.deniz], [ID.gu
 await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at, revoked_at) values ($1,$2,now(),now())`, [ID.exGuardian, ID.deniz]);
 
 for (const [rec, p] of [[REC.deniz, ID.deniz], [REC.georgia, ID.georgia], [REC.nate, ID.nate], [REC.marcus, ID.marcus]]) {
-  await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CAM'])`, [rec, p]);
+  await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['AM'])`, [rec, p]);
 }
 // coachFormer authored a verified entry on Deniz's record, then left (A10/D-48).
 // The order matters and the database now insists on it: the entry is written

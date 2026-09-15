@@ -30,7 +30,7 @@ export const DEAD_LINK_METADATA: Metadata = {
 
 export function cvMetadata(cv: CvData): Metadata {
   const name = cvDisplayName(cv);
-  const positions = (cv.positions as PositionCode[]).map((c) => POSITIONS[c]?.label ?? c).join(' · ');
+  const positions = cv.positions.join(' · ');
   // A minor's description carries no club, no age group and no region —
   // the same locator rule as the card, for the same caching reason.
   const detail = [positions, cv.squadNumber ? `#${cv.squadNumber}` : '', isAdultBand(cv) ? cv.club : '']

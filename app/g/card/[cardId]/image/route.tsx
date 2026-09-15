@@ -66,7 +66,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
             {c.squad_number ? (
               <div style={{ display: 'flex', fontSize: big * 0.45, fontWeight: 900, color: '#06130c', background: '#3ddc84', borderRadius: big * 0.18, padding: `${big * 0.08}px ${big * 0.24}px` }}>#{c.squad_number}</div>
             ) : null}
-            <div style={{ display: 'flex', fontSize: big * 0.42, fontWeight: 700, color: '#b9c8bf' }}>{positions.map((p) => POSITIONS[p]?.label ?? p).join('  ·  ')}</div>
+            <div style={{ display: 'flex', fontSize: big * 0.42, fontWeight: 700, color: '#b9c8bf' }}>{positions.join('  ·  ')}</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: big * 0.7 }}>

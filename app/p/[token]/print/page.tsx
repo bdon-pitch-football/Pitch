@@ -51,7 +51,7 @@ export default async function PrintCv({ params, searchParams }: {
           <div>
             <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.02em' }}>{cv.firstName} {cv.lastName}</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#3f5145', marginTop: 4 }}>
-              {cv.positions.map((c) => POSITIONS[c as PositionCode]?.label ?? c).join(' · ')}
+              {cv.positions.join(' · ')}
               {cv.squadNumber ? ` · #${cv.squadNumber}` : ''}{cv.foot ? ` · ${cv.foot} footed` : ''}
             </div>
             {cv.club && <div style={{ fontSize: 13, color: '#5b6b60', marginTop: 2 }}>{cv.club}{cv.squad?.name ? ` — ${cv.squad.name}` : ''}</div>}

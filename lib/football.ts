@@ -12,7 +12,8 @@ export const POSITIONS = {
   LB: { label: 'Left back', group: 'DEF' },
   DM: { label: 'Defensive midfielder', group: 'MID' },
   CM: { label: 'Central midfielder', group: 'MID' },
-  CAM: { label: 'Attacking midfielder', group: 'MID' },
+  // D-92 and doc 16 name this AM. The build said CAM until 16 Sep (0039).
+  AM: { label: 'Attacking midfielder', group: 'MID' },
   RW: { label: 'Right wing', group: 'FWD' },
   LW: { label: 'Left wing', group: 'FWD' },
   ST: { label: 'Striker', group: 'FWD' },

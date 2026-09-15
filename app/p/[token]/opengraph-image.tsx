@@ -105,7 +105,7 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
                 {cv.squadNumber ? (
                   <div style={{ display: 'flex', fontSize: 30, fontWeight: 900, color: '#06130c', background: '#3ddc84', borderRadius: 12, padding: '6px 18px' }}>#{cv.squadNumber}</div>
                 ) : null}
-                <div style={{ display: 'flex', fontSize: 30, fontWeight: 700, color: '#b9c8bf' }}>{positions.map((c) => POSITIONS[c]?.label ?? c).join('   ·   ')}</div>
+                <div style={{ display: 'flex', fontSize: 30, fontWeight: 700, color: '#b9c8bf' }}>{positions.join('   ·   ')}</div>
               </div>
             </div>
 
