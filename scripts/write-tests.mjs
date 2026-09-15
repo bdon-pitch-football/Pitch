@@ -407,6 +407,31 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const riversideReg = /\/club\/register\/cv\/([0-9a-f-]{36})/.exec((await get('/club/register', ids.people.marina)).html)?.[1];
   check('g1: a free club cannot open another club’s registration — not found, not "no longer accepting"',
     (await get(`/club/invite/${riversideReg}`, club)).status, 404);
+
+  // ---- Doc 14 P19: refusal looks exactly like absence ------------------------
+  // The register offered "Invite to trial" for a paused child, the database
+  // refused the write, and the page 500ed. Now the links are simply not there,
+  // and the pages behind them are the same not-found as a stranger's.
+  const georgia = ids.children.georgia.child_id;
+  const gReg = /\/club\/register\/cv\/([0-9a-f-]{36})[\s\S]*?/.exec(
+    ((await get('/club/register', club)).html.split('>Georgia<')[1] ?? ''))?.[1];
+  check('p19a: Kingsway can open Georgia’s CV from its trial list before anything changes', Boolean(gReg), true);
+  const pauseForm = (want) => async () => formOn((await get(`/g/controls/${georgia}`, parent)).html,
+    (f) => f.fields.childId === georgia && f.fields.paused === want);
+  const pause = await (pauseForm('true'))();
+  check('p19b: her parent has a pause switch to press', Boolean(pause), true);
+  await postTo(`/g/controls/${georgia}`, parent, pause);
+  const pausedRegister = (await get('/club/register', club)).html;
+  // Links, not the bare id: React keys the row by its registration id in the
+  // page payload, and a key is not a door — the club already sees the row.
+  const doorsTo = (html) => gReg ? [`/club/register/cv/${gReg}`, `/club/invite/${gReg}`].filter((d) => html.includes(d)) : null;
+  check('p19c: paused, the register carries no link to her CV or an invite', doorsTo(pausedRegister), []);
+  check('p19d: and her invite page is not found — not an error, not "paused"',
+    (await get(`/club/invite/${gReg}`, club)).status, 404);
+  check('p19e: nor is her CV page', (await get(`/club/register/cv/${gReg}`, club)).status, 404);
+  await postTo(`/g/controls/${georgia}`, parent, await (pauseForm('false'))());
+  check('p19f: switched back on, the links return',
+    doorsTo((await get('/club/register', club)).html)?.includes(`/club/register/cv/${gReg}`), true);
 }
 
 // ---------------------------------------------------------------------------

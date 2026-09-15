@@ -276,6 +276,17 @@ for (let i = 0; i < 96; i++) {
   const first = pool[i % pool.length];
   await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`,
     [pid, first, `${2008 + (i % 8)}-0${1 + (i % 9)}-1${i % 10}`]);
+  // A PARENT, because an under-18 registrant without one cannot exist (A17,
+  // D-96). Sixty-one of these had none, and the moment fn_can_invite asked
+  // the trigger's A17 question (doc 14 P19) their CV and invite links went —
+  // correctly. One fictional parent each, never Alex: ninety-six children on
+  // the house parent's home page would be a different, worse fixture.
+  const bulkParent = randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Register','Parent','1980-01-01')`, [bulkParent]);
+  await db.query(
+    `insert into guardianship_link (guardian_id, child_id, approved_at)
+     select $1, p.id, now() from person p where p.id = $2 and fn_age_band(p.dob) <> '18plus'`,
+    [bulkParent, pid]);
   const nPos = 1 + rnd(2);
   const positions: string[] = [];
   while (positions.length < nPos) {

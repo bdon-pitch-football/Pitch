@@ -443,6 +443,7 @@ D-117, D-138. **The rule: an invitation is the single sanctioned club-to-child c
 | P16 | A second reply to one invitation | **Denied.** One reply per invitation (P10) |
 | P17 | A u16 or 16–17 player writes their own reply | A **draft**. The club's state stays `sent` until a guardian approves it, and the player cannot approve their own |
 | P18 | What a free verified club reads | Only registrations against **its own** trials, and nothing at an unverified club |
+| P19 | A club opens the invite for a registration the write would refuse — withdrawn, paused, or an under-16 with no approved guardian | **Absent.** No button, and the invite page is the same not-found as for a registration the club never could invite. `fn_can_invite` refuses exactly what `invitation_club_entitled()` refuses — refusal is indistinguishable from absence (John's ruling on the invitation basis, §4) |
 
 ---
 

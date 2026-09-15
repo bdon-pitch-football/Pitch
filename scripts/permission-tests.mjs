@@ -1462,7 +1462,39 @@ await db.query(`insert into registration (id, player_id, club_id, policy_version
   [pPaused, ID.georgia, CLUB.riverside]);
 await expectFail('P12b: nor one whose profile is paused',
   `insert into invitation (club_id, registration_id, body) values ('${CLUB.riverside}', '${pPaused}', 'hello')`);
+
+// P19 — the affordance is absent in exactly the cases the write refuses.
+// fn_can_invite once hid fewer cases than the trigger refused, so the
+// register offered "Invite to trial" for a paused or unapproved child and
+// pressing it 500ed. John: refusal is indistinguishable from absence.
+const canInviteP = async (reg) => (await db.query('select fn_can_invite($1,$2) as c', [ID.td, reg])).rows[0].c;
+// The positive controls need a tier that would otherwise say yes, so the only
+// thing that can flip the answer is the pause or the guardian.
+const riversidePlan = (await db.query(`select subscription_status from club where id = $1`, [CLUB.riverside])).rows[0].subscription_status;
+await db.query(`update club set subscription_status = 'active' where id = $1`, [CLUB.riverside]);
+check('P19a: no invite is offered for a family that has withdrawn', await canInviteP(pWithdrawn), false);
+check('P19b: nor for a paused profile — the same case the write refuses', await canInviteP(pPaused), false);
 await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [ID.georgia]);
+check('P19c: unpaused, the same registration is invitable again (the check is the pause, not the child)',
+  await canInviteP(pPaused), true);
+const revoked = (await db.query(
+  `update guardianship_link set revoked_at = now() where child_id = $1 and revoked_at is null returning id`,
+  [ID.georgia])).rows.map((r) => r.id);
+check('P19d: an under-16 with no approved guardian is offered to nobody (A17)', await canInviteP(pPaused), false);
+await expectFail('P19e: and the write refuses the same registration — function and trigger agree',
+  `insert into invitation (club_id, registration_id, body) values ('${CLUB.riverside}', '${pPaused}', 'hello')`);
+await db.query(`update guardianship_link set revoked_at = null where id = any($1)`, [revoked]);
+check('P19f: the guardian restored, the offer returns', await canInviteP(pPaused), true);
+await db.query(`update club set subscription_status = $1 where id = $2`, [riversidePlan, CLUB.riverside]);
+{
+  // The live definitions, not the migration files: a later migration that
+  // replaces either function without the other is what this catches.
+  const src = async (fn) => (await db.query(`select prosrc from pg_proc where proname = $1`, [fn])).rows[0].prosrc;
+  const [can, trig] = [await src('fn_can_invite'), await src('invitation_club_entitled')];
+  check('P19g: the function and the trigger both ask the pause and A17 questions',
+    ['profile_paused', 'fn_has_approved_guardian', 'withdrawn_at', "club_state = 'verified'"]
+      .map((w) => [w, can.includes(w), trig.includes(w)]).filter(([, a, b]) => !(a && b)).map(([w]) => w), []);
+}
 
 // P6/P7 — what the club may learn. Two states, and silence looks like
 // nothing ever arrived.

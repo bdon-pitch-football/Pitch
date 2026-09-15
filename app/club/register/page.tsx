@@ -92,6 +92,14 @@ export default async function Register({ searchParams }: {
          to_char(trial_on, 'Dy FMDD Mon') as trial_on, has_clips from fn_trial_interest_rows($1, $2)`, [me, c.id])).rows as TrialRow[]
     : [];
   const held = all.length === 0 ? (await db.query(`select fn_register_count($1,$2) as n`, [me, c.id])).rows[0].n : 0;
+  // Doc 14 P19: a row carries its CV and invite links only when fn_can_invite
+  // says yes — the same answer the CV page, the invite page and the write
+  // trigger give. A paused profile or an under-16 with no approved guardian
+  // stays on the list with no way in, which looks exactly like a row that
+  // never had one.
+  const invitable = new Set((await db.query(
+    `select r.id from registration r where r.club_id = $2 and fn_can_invite($1, r.id)`, [me, c.id],
+  )).rows.map((x: { id: string }) => x.id));
 
   // Filters are applied AFTER the permission function, never inside the query
   // that decides what this person may see. Narrowing a list is a different
@@ -220,14 +228,14 @@ export default async function Register({ searchParams }: {
                 {t.note && (
                   <div style={{ background: T.surface2, borderRadius: 12, padding: '10px 12px', fontSize: 12.5, fontStyle: 'italic', color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>&ldquo;{t.note}&rdquo;</div>
                 )}
-                <div style={{ display: 'flex', gap: 8 }}>
+                {invitable.has(t.registration_id) && <div style={{ display: 'flex', gap: 8 }}>
                   <Link href={`/club/register/cv/${t.registration_id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
                   {t.club_status === 'invited' ? (
                     <Link href={`/club/invite/${t.registration_id}`} style={{ flex: 1, height: 46, borderRadius: 14, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invitation sent</Link>
                   ) : (
                     <Link href={`/club/invite/${t.registration_id}`} style={{ flex: 1, height: 46, borderRadius: 14, background: T.accent, color: T.onAccent, fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invite to trial</Link>
                   )}
-                </div>
+                </div>}
               </div>
             ))}
             <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -326,17 +334,17 @@ export default async function Register({ searchParams }: {
                         </div>
                         <div style={{ fontSize: 12, fontStyle: r.note ? 'italic' : 'normal', color: r.note ? T.secondary : T.muted, fontWeight: 500, lineHeight: 1.4 }}>{r.note ? `“${r.note}”` : '—'}</div>
                         <div><span style={{ background: chip.bg, color: chip.fg, borderRadius: 7, padding: '4px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{chip.label}</span></div>
-                        <Link href={`/club/register/cv/${r.registration_id}`} style={{ background: T.surface2, borderRadius: 12, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
+                        {invitable.has(r.registration_id) ? <Link href={`/club/register/cv/${r.registration_id}`} style={{ background: T.surface2, borderRadius: 12, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link> : <div />}
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                           {r.club_status === 'new' && (
                             <form action={setStatus}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
                               <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 16px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
                             </form>
                           )}
-                          {r.club_status === 'shortlisted' && (
+                          {r.club_status === 'shortlisted' && invitable.has(r.registration_id) && (
                             <Link href={`/club/invite/${r.registration_id}`} style={{ height: 44, borderRadius: 12, background: T.accent, color: T.onAccent, fontSize: 13.5, fontWeight: 800, padding: '0 18px', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>Invite to trial</Link>
                           )}
-                          {r.club_status === 'invited' && (
+                          {r.club_status === 'invited' && invitable.has(r.registration_id) && (
                             <Link href={`/club/invite/${r.registration_id}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.secondary, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>Invitation sent</Link>
                           )}
                         </div>
@@ -362,16 +370,16 @@ export default async function Register({ searchParams }: {
                         <div style={{ background: T.surface2, borderRadius: 12, padding: '10px 12px', fontSize: 12.5, fontStyle: 'italic', color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>&ldquo;{r.note}&rdquo;</div>
                       )}
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <Link href={`/club/register/cv/${r.registration_id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
+                        {invitable.has(r.registration_id) && <Link href={`/club/register/cv/${r.registration_id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>}
                         {r.club_status === 'new' && (
                           <form action={setStatus} style={{ display: 'flex' }}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
                             <button type="submit" style={{ height: 44, alignSelf: 'center', borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
                           </form>
                         )}
-                        {r.club_status === 'shortlisted' && (
+                        {r.club_status === 'shortlisted' && invitable.has(r.registration_id) && (
                           <Link href={`/club/invite/${r.registration_id}`} style={{ flex: 1, height: 50, borderRadius: 14, background: T.accent, color: T.onAccent, fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invite to trial</Link>
                         )}
-                        {r.club_status === 'invited' && (
+                        {r.club_status === 'invited' && invitable.has(r.registration_id) && (
                           <Link href={`/club/invite/${r.registration_id}`} style={{ flex: 1, height: 46, borderRadius: 14, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invitation sent</Link>
                         )}
                       </div>
