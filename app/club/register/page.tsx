@@ -38,7 +38,7 @@ const STATUS_CHIP: Record<string, { bg: string; fg: string; label: string }> = {
 };
 
 const GENDER_LABEL: Record<string, string> = {
-  boys: 'Boys', girls: 'Girls', mixed: 'Mixed', open: 'Open', men: 'Men', women: 'Women',
+  boys: 'Boys', girls: 'Girls', men: 'Men', women: 'Women',
 };
 
 type Row = {

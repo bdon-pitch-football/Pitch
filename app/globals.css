@@ -337,6 +337,10 @@ select { min-height: 44px; }
 }
 .filefield .filefield-title { font-size: 14px; font-weight: 800; color: var(--ink); }
 .filefield .filefield-hint  { font-size: 12px; font-weight: 500; color: var(--muted); }
+/* The CV builder's photo form uploads as soon as a photo is chosen. Without
+   JavaScript that cannot happen, so its Upload button shows only once a file
+   has been picked — never a dead button, never a squeezed row. */
+.photo-form:not(:has(input[type="file"]:valid)) .photo-save { display: none; }
 
 /* ---------------------------------------------------------------------------
    BUTTONS. The charter's two, named — plus a GHOST, which is a stretch and

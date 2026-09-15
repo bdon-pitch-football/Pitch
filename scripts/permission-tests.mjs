@@ -144,7 +144,7 @@ for (const [club, call] of [[CLUB.riverside, CALL.riverside], [CLUB.other, CALL.
 
 await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values
   ($1,$2,'U15 Boys','U15','boys','2026'), ($3,$2,'U16 Girls','U16','girls','2026'),
-  ($4,$2,'U18 Boys','U18','boys','2026'), ($5,$6,'Seniors','SEN','open','2026'), ($7,$8,'U14','U14','mixed','2026')`,
+  ($4,$2,'U18 Boys','U18','boys','2026'), ($5,$6,'Seniors','SEN','men','2026'), ($7,$8,'U14','U14','boys','2026')`,
   [SQUAD.u15, CLUB.riverside, SQUAD.u16g, SQUAD.u18, SQUAD.otherSq, CLUB.other, SQUAD.unvSq, CLUB.unverified]);
 
 const mem = (p, c, sq, role) =>
@@ -1746,6 +1746,19 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
     /if \(coach\.rows\.length > 0\) \{[^}]*redirect/.test(inviteFn), false);
 
   await db.query(`update club set subscription_status = $1 where id = $2`, [plan, CLUB.riverside]);
+}
+
+// D-68 as amended 15 Sep — competition gender is boys, girls, men or women.
+for (const bad of ['mixed', 'open']) {
+  await expectFail(`D-68: a squad cannot be "${bad}"`,
+    `insert into squad (club_id, name, age_group, competition_gender, season) values ('${CLUB.riverside}', 'Bad ${bad}', 'U14', '${bad}', '2026')`);
+  await expectFail(`D-68: nor can a trial notice`,
+    `insert into trial_notice (club_id, title, trial_on, time_venue, competition_gender) values ('${CLUB.riverside}', 'Bad', (now() + interval '9 days')::date, 'x', '${bad}')`);
+}
+{
+  const ok = await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, competition_gender) values ($1,'Open to all',(now() + interval '9 days')::date,'x',null) returning id`, [CLUB.riverside]);
+  check('D-68: a trial open to everyone leaves gender blank', ok.rows.length, 1);
+  await db.query(`delete from trial_notice where id = $1`, [ok.rows[0].id]);
 }
 
 // ---------------------------------------------------------------------------

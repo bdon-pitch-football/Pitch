@@ -213,7 +213,7 @@ for (const pl of players.rows as { id: string; first_name: string }[]) {
 // shape is the point: a tidy symmetrical list would hide the whole reason
 // Pitch lets the club decide.
 const bulkSquads = [
-  ['MiniRoos U9', 'U9', 'mixed'],
+  ['MiniRoos U9', 'U9', 'boys'],
   ['U13 Boys', 'U13', 'boys'], ['U13 Girls', 'U13', 'girls'],
   ['U14 Boys', 'U14', 'boys'],
   ['U15 Boys', 'U15', 'boys'], ['U15 Girls', 'U15', 'girls'],
@@ -578,7 +578,7 @@ await db.query(`insert into person (id, first_name, last_name, dob, email) value
 await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'technical_director')`, [kingswayAdmin, kingsway]);
 const kingswayTrial = (await db.query(
   `insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,age_group,competition_gender,cv_email)
-   values ($1,'U16–U18 and Seniors trials','2026-10-25','Sun 10:00 AM · Brunswick West Oval',array['GK','ST']::text[],'U18','mixed','football@kingswayrovers.example.au')
+   values ($1,'U16–U18 and Seniors trials','2026-10-25','Sun 10:00 AM · Brunswick West Oval',array['GK','ST']::text[],'U18',null,'football@kingswayrovers.example.au')
    returning id`, [kingsway])).rows[0].id as string;
 await db.query(
   `insert into registration (player_id, club_id, positions, club_status, disclosed_by, policy_version, trial_notice_id, trial_on)

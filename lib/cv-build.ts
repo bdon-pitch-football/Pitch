@@ -179,7 +179,7 @@ async function buildSnapshot(client: Client, recordId: string, season: string) {
     squad: {
       name: m?.squad_name ?? '',
       ageGroup: m?.age_group ?? '',
-      competitionGender: (m?.competition_gender ?? 'mixed') as 'boys' | 'girls' | 'mixed' | 'open',
+      competitionGender: (m?.competition_gender ?? null) as 'boys' | 'girls' | 'men' | 'women' | null,
     },
     highlightsUsed: r.highlights.length, season,
     ...r.core,

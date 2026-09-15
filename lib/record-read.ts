@@ -104,7 +104,7 @@ export async function assembleCv(recordId: string, personId: string, band: strin
     squad: {
       name: row.membership?.squad_name ?? '',
       ageGroup: row.membership?.age_group ?? '',
-      competitionGender: row.membership?.competition_gender ?? 'mixed',
+      competitionGender: row.membership?.competition_gender ?? null,
     },
     about: row.core.about ?? '',
     stats: row.stats,

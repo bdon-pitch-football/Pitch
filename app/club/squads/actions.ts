@@ -11,7 +11,8 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { isUuid } from '@/lib/ids';
 
-const GENDERS = ['boys', 'girls', 'mixed', 'open', 'men', 'women'];
+// D-68 as amended 15 Sep: four values, no mixed and no open.
+const GENDERS = ['boys', 'girls', 'men', 'women'];
 
 async function clubIManage(personId: string): Promise<string | null> {
   const { rows } = await db.query(

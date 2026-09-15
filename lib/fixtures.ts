@@ -32,7 +32,7 @@ export interface PlayerFixture {
   club: string;
   clubCrestPath?: string;  // the CURRENT club's badge — from membership, never typed
   locality?: string;       // 'Brunswick VIC' — the club's, not the child's address
-  squad: { name: string; ageGroup: string; competitionGender: 'boys' | 'girls' | 'mixed' | 'open' };
+  squad: { name: string; ageGroup: string; competitionGender: 'boys' | 'girls' | 'men' | 'women' | null };
   // Clubs before this one. The player's own account (D-72) — free text, no
   // FK, grants nothing. Never derived from membership: membership only knows
   // clubs that were on Pitch, so deriving it would start everyone's history
@@ -179,7 +179,7 @@ export const JORDAN: PlayerFixture = {
   foot: 'Left',
   club: 'Coburg City FC',
   locality: 'Coburg VIC',
-  squad: { name: 'Seniors Men', ageGroup: 'SEN', competitionGender: 'open' },
+  squad: { name: 'Seniors Men', ageGroup: 'SEN', competitionGender: 'men' },
   previousClubs: [
     { orgName: 'Pascoe Vale SC', period: '2023–2025' },
     { orgName: 'Moreland Zebras FC', period: '2021–2023' },

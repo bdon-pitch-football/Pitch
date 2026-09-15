@@ -22,8 +22,8 @@ const STAGE_LABEL: Record<string, string> = {
   miniroos: 'MiniRoos', junior: 'Juniors', youth: 'Youth', senior: 'Seniors',
 };
 const GENDERS = [
-  ['boys', 'Boys'], ['girls', 'Girls'], ['mixed', 'Mixed'],
-  ['open', 'Open'], ['men', 'Men'], ['women', 'Women'],
+  // D-68 as amended 15 Sep: four values, no mixed and no open.
+  ['boys', 'Boys'], ['girls', 'Girls'], ['men', 'Men'], ['women', 'Women'],
 ];
 
 export default async function Squads({ searchParams }: {

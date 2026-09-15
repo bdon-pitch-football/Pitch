@@ -23,6 +23,8 @@ const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacin
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
 export default function BuildForm({ record, saved }: { record: RecordData; saved: boolean }) {
+  const [photoName, setPhotoName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [positions, setPositions] = useState<string[]>(record.positions ?? []);
   const [surfaced, setSurfaced] = useState<string[]>(record.surfaced_stats?.length ? record.surfaced_stats : ['apps', 'goals', 'assists']);
   const toggle = (code: string) =>
@@ -44,22 +46,40 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             Saved. {record.has_pending ? 'Your parent will see this change before it goes out.' : ''}
           </div>
         )}
-        {/* photo leads the build screen: every good CV has one */}
-        <form action={`/build/${record.id}/photo`} method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', alignItems: 'center', gap: 14 }}>
-          {record.photo_path ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={record.photo_path} alt="" width={52} height={52} style={{ borderRadius: 16, objectFit: 'cover' }} />
-          ) : (
-            <div style={{ width: 52, height: 52, borderRadius: 16, background: T.surface2, border: '1.5px dashed #3a4a42', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8 h2.5 l1.5-2 h6 l1.5 2 H19 a1.5 1.5 0 0 1 1.5 1.5 v8 A1.5 1.5 0 0 1 19 19 H5 a1.5 1.5 0 0 1-1.5-1.5 v-8 A1.5 1.5 0 0 1 5 8 Z" /><circle cx="12" cy="13" r="3.2" /></svg>
+        {/* photo leads the build screen: every good CV has one. One big target
+            instead of a squeezed row: choosing a photo uploads it straight
+            away. Without JavaScript the Upload button appears once a file is
+            chosen (globals.css .photo-form), so the form still works. */}
+        <form action={`/build/${record.id}/photo`} method="post" encType="multipart/form-data" className="photo-form"
+          onSubmit={() => setUploading(true)}
+          style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 18, background: T.surface2, border: record.photo_path ? `1px solid ${T.line}` : '1.5px dashed #3a4a42', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+              {record.photo_path ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={record.photo_path} alt="" width={64} height={64} style={{ objectFit: 'cover' }} />
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 8 h2.5 l1.5-2 h6 l1.5 2 H19 a1.5 1.5 0 0 1 1.5 1.5 v8 A1.5 1.5 0 0 1 19 19 H5 a1.5 1.5 0 0 1-1.5-1.5 v-8 A1.5 1.5 0 0 1 5 8 Z" /><circle cx="12" cy="13" r="3.2" /></svg>
+              )}
             </div>
-          )}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 800 }}>Add profile photo</div>
-            <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>Optional</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 800 }}>Add profile photo</div>
+              <div style={{ fontSize: 12.5, fontWeight: 500, color: T.muted }}>Optional, but every good CV has one.</div>
+            </div>
           </div>
-          <input type="file" name="photo" aria-label="Add profile photo" accept="image/*" required style={{ width: 108, height: 44, fontSize: 11, color: T.muted, fontFamily: 'inherit' }} />
-          <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 11, height: 44, padding: '0 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Upload</button>
+          <label className="filefield">
+            <input type="file" name="photo" aria-label="Add profile photo" accept="image/*" required
+              onChange={(e) => {
+                const file = e.currentTarget.files?.[0];
+                if (!file) return;
+                setPhotoName(file.name);
+                setUploading(true);
+                e.currentTarget.form?.requestSubmit();
+              }} />
+            <span className="filefield-title">{uploading ? 'Uploading…' : photoName ?? (record.photo_path ? 'Choose a new photo' : 'Choose a photo')}</span>
+            <span className="filefield-hint">JPG or PNG. Cropped to a square.</span>
+          </label>
+          <button type="submit" className="btn btn-secondary photo-save">Upload photo</button>
         </form>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}><input type="hidden" name="recordId" value={record.id} />
           <input type="hidden" name="positions" value={positions.join(',')} />

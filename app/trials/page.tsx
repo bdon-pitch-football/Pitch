@@ -80,7 +80,7 @@ export default async function TrialsBoard({ searchParams }: {
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: -4 }}>
           <Link href={href({ gender: null })} style={pill(!gender)}>All</Link>
-          {[['boys', 'Boys'], ['girls', 'Girls'], ['mixed', 'Mixed']].map(([v, t]) => (
+          {[['boys', 'Boys'], ['girls', 'Girls'], ['men', 'Men'], ['women', 'Women']].map(([v, t]) => (
             <Link key={v} href={href({ gender: gender === v ? null : v })} style={pill(gender === v)}>{t}</Link>
           ))}
         </div>
