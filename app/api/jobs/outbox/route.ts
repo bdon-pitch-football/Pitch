@@ -51,13 +51,13 @@ export async function GET(request: Request) {
        limit $1
        for update skip locked
      )
-     returning id, channel, to_address, subject, body`,
+     returning id, message_key, channel, to_address, subject, body`,
     [BATCH],
   );
 
   let sent = 0;
-  for (const r of rows as { id: string; channel: string; to_address: string; subject: string | null; body: string }[]) {
-    if (await dispatch(r.id, r.channel, r.to_address, r.subject ?? '', r.body)) sent += 1;
+  for (const r of rows as { id: string; message_key: string; channel: string; to_address: string; subject: string | null; body: string }[]) {
+    if (await dispatch(r.id, r.channel, r.to_address, r.subject ?? '', r.body, r.message_key)) sent += 1;
   }
   // Counts only. This response is read in a Vercel log, and a log is not a
   // place a child's name or a guardian's number ever goes.

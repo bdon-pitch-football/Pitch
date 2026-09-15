@@ -175,19 +175,31 @@ ${SITE} · ${HELP}`,
 // §21 · Your CV has gone — to the player. Never "great news", never an
 // exclamation mark, never a suggestion to send to more clubs, and never
 // anything about whether the link has been opened.
-export const cvSentToPlayerEmail = (clubName: string, adult = false): Composed => ({
-  key: 'doc15.§21',
-  channel: 'email',
-  subject: `Your CV has been sent to ${clubName}`,
-  body:
+export const cvSentToPlayerEmail = (clubName: string, band: 'u16' | '16_17' | '18plus' = 'u16'): Composed => {
+  // John's U-11: nobody can reply to a send. This line used to promise the
+  // opposite — "if anyone from the club writes back, it comes to you and your
+  // parent together" — to a player who would then wait for a reply that has
+  // no route to arrive by. What IS true: a club that wants them has to ask
+  // through Pitch, and who hears about it follows the band (doc 15 §25-§27).
+  const contact = band === '18plus'
+    ? `The club can't reply to the email it got. If it wants to talk to you, it has to ask through Pitch.`
+    : band === '16_17'
+      ? `The club can't reply to the email it got. If it wants to talk to you, it has to ask through Pitch — it comes to you, and your parent is told.`
+      : `The club can't reply to the email it got. If it wants to talk to you, it has to ask through Pitch, and it comes to you and your parent together.`;
+  return {
+    key: 'doc15.§21',
+    channel: 'email',
+    subject: `Your CV has been sent to ${clubName}`,
+    body:
 `Your CV has gone to ${clubName}. That is everything on your side — there is nothing else you need to do.
 
-Clubs answer when they answer, and plenty never answer at all. That is normal and it is not about your page.${adult ? '' : `
+Clubs answer when they answer, and plenty never answer at all. That is normal and it is not about your page.
 
-If anyone from the club writes back, it comes to you and your parent together.`}
+${contact}
 
 — Pitch`,
-});
+  };
+};
 
 // §22 · Your child sent their CV — to the guardian of a 16–17. On EVERY send,
 // never a digest (D-99, D-22), and to both guardians identically where there

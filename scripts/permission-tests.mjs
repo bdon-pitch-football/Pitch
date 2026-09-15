@@ -2165,6 +2165,29 @@ check('act15: the operator console reads an explicit allowlist', /OPS_EMAILS/.te
     cronAllowed(null, undefined, D), true);
 }
 
+// U-11, where the email actually leaves. John ruled there is no reply route
+// and the CV email to a club says so — but every email carried one global
+// Reply-To, set to a person's own work inbox, so a club replying about a
+// child would have landed there. The decision is a pure function now.
+{
+  const { replyToFor } = await import('../lib/reply-policy.ts');
+  const S = 'help@pitchfootball.com.au';
+  check('U-11 reply-to a: the CV email to a club carries NO reply-to, so a reply reaches nobody',
+    replyToFor('doc15.§19', S) === undefined, true);
+  check('U-11 reply-to b: other messages reply to the support inbox', replyToFor('doc15.§32', S), S);
+  check('U-11 reply-to c: a message that cannot be identified fails closed — no reply-to',
+    replyToFor(undefined, S) === undefined, true);
+  check('U-11 reply-to d: no reply-to at all when support is not configured',
+    replyToFor('doc15.§32', '') === undefined, true);
+  const documented = /^EMAIL_REPLY_TO=(\S*)/m.exec(srcOf('.env.example'))?.[1] ?? '';
+  check(`U-11 reply-to e: the documented reply address is the support inbox, not a person (${documented})`,
+    documented, 'help@pitchfootball.com.au');
+  check('U-11 reply-to f: the email transport reads no reply address of its own',
+    /EMAIL_REPLY_TO/.test(codeOnly(srcOf('lib/providers.ts'))), false);
+  check('U-11 reply-to g: a retried message keeps its key, so a re-sent §19 is still no-reply',
+    /message_key/.test(codeOnly(srcOf('app/api/jobs/outbox/route.ts'))), true);
+}
+
 // --- Football history (0028) and the club line -----------------------------
 // A previous club is the player's own account and grants NOTHING (D-72). The
 // properties that make that true are structural, so they are asserted

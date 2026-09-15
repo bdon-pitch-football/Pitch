@@ -113,10 +113,11 @@ export async function dispatchShareRequest(requestId: string, actorId: string): 
   }
 
   if (selfSend) {
-    // doc 15 §21: the receipt goes to the player who pressed send. For an
-    // adult it drops the line about a parent, because there isn't one.
+    // doc 15 §21: the receipt goes to the player who pressed send, and says
+    // plainly that the club cannot reply — who hears from a club follows the
+    // band (John, U-11).
     if (row.email) {
-      await send(cvSentToPlayerEmail(clubName, band === '18plus'), { address: row.email, personId });
+      await send(cvSentToPlayerEmail(clubName, band), { address: row.email, personId });
     }
     // doc 15 §22 / doc 14 L5: a 16-17's guardians are told on EVERY send, one
     // message per send per guardian — no digest, no batching, no roll-up.

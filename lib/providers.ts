@@ -16,7 +16,7 @@ export type Dispatch =
   | { ok: false; reason: string; permanent: boolean };
 
 /** Resend. Transactional mail from the send. subdomain, never the apex (D-81). */
-export async function sendEmail(to: string, subject: string, body: string): Promise<Dispatch> {
+export async function sendEmail(to: string, subject: string, body: string, replyTo?: string): Promise<Dispatch> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   if (!key || !from) return { ok: false, reason: 'not_configured', permanent: false };
@@ -34,7 +34,11 @@ export async function sendEmail(to: string, subject: string, body: string): Prom
         // Sending it as text/plain is not a limitation — an HTML wrapper is
         // one more thing to get wrong in a message a parent has to trust.
         text: body,
-        ...(process.env.EMAIL_REPLY_TO ? { reply_to: process.env.EMAIL_REPLY_TO } : {}),
+        // The Reply-To is decided by lib/reply-policy — per message, and absent
+        // entirely on the CV email to a club (John, U-11). This file used to
+        // read one global address itself, which is how that email came to
+        // carry one.
+        ...(replyTo ? { reply_to: replyTo } : {}),
       }),
     });
   } catch {

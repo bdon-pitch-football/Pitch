@@ -28,6 +28,13 @@ reporting D-81 asks for.)
 
 ## 4 · Optional — inbound MX (only if we ever receive mail at send.*)
 
+> **Leave this record out.** The CV a family sends a club (doc 15 §19) goes
+> out with no Reply-To, so a club hitting reply writes to the From address on
+> `send.` — and with no inbound MX, that reaches nobody. That is what the email
+> promises the club and what John's U-11 ruling requires. Adding this MX would
+> quietly start receiving club replies about children. Do not add it without
+> taking U-11 back to John first.
+
 | Type | Name | Value | Priority |
 |---|---|---|---|
 | MX | `send` (full: `send.pitchfootball.com.au`) | `inbound-smtp.ap-northeast-1.amazonaws.com` | 10 |

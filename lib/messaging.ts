@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 import { db } from './db';
 import { CATALOGUE_KEYS, type Composed } from './messages';
 import { sendEmail, sendSms } from './providers';
+import { replyToFor } from './reply-policy';
 
 const KEYS = new Set<string>(CATALOGUE_KEYS);
 const SMS_PER_NUMBER_24H = 3;
@@ -85,7 +86,7 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
   // In development nothing leaves the machine — /dev/outbox is the inbox —
   // and that stays true whether or not a key happens to be in the shell.
   if (process.env.NODE_ENV === 'production') {
-    await dispatch(id, msg.channel, to.address, msg.subject ?? '', msg.body);
+    await dispatch(id, msg.channel, to.address, msg.subject ?? '', msg.body, msg.key);
   }
   return { queued: true, id };
 }
@@ -99,6 +100,10 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
  */
 export async function dispatch(
   id: string, channel: string, address: string, subject: string, body: string,
+  // Which doc 15 message this is. It decides the Reply-To (lib/reply-policy),
+  // and it must travel with a retried row too, or a re-sent §19 would pick up
+  // an address the first attempt never had.
+  messageKey?: string,
 ): Promise<boolean> {
   // Deliberately does NOT stamp attempts. The CALLER claims the row — the
   // sweep in the same statement that selects it, and send() in the insert —
@@ -106,7 +111,7 @@ export async function dispatch(
   // claim at all.
   const result = channel === 'sms'
     ? await sendSms(address, body)
-    : await sendEmail(address, subject, body);
+    : await sendEmail(address, subject, body, replyToFor(messageKey, process.env.EMAIL_REPLY_TO));
 
   if (result.ok) {
     await db.query(
