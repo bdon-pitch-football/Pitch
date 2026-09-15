@@ -84,45 +84,45 @@ const Chip = ({ children, color }: { children: React.ReactNode; color: string })
 const WHO: Record<Role, { label: string; title: string; points: string[]; shot: { src: string; alt: string; laptop?: boolean } }> = {
   player: {
     label: 'Player',
-    title: 'Never rebuild your football history again.',
+    title: 'Your football history in one place.',
     points: [
-      'Every club, season and position you’ve played, with the numbers and clips that make your case.',
-      'Send it to any club in one link. It opens live, as it is today — never a PDF lost in an inbox.',
-      'Find trials near you and put your name down with the club in a tap.',
-      'Free for good. Under 18, every feature, free forever.',
+      'Every club, season and position you’ve played, plus your stats and clips.',
+      'Send it to a club with a link. They see your page as it is today, not an old PDF.',
+      'Find trials and register your interest with a club in a couple of taps.',
+      'Free to use. If you’re under 18, it stays free.',
     ],
     shot: { src: '/preview/player-cv.png', alt: 'A player’s page on Pitch' },
   },
   parent: {
     label: 'Parent',
-    title: 'You hold the keys until it’s theirs.',
+    title: 'You stay in charge until they turn 18.',
     points: [
-      'Under 16, nothing about your child reaches a club until you’ve read it and sent it.',
-      'At 16 and 17 they send their own page — you’re told every time, and you can switch sending off.',
-      'A club that wants your child at a trial invites them through Pitch. You both see it, and you approve the reply.',
-      'Pause the page in one tap. Delete everything in one tap.',
+      'Under 16, nothing goes to a club until you send it.',
+      'At 16 and 17 they send their own page. You’re told each time, and you can turn sending off.',
+      'If a club wants your child at a trial, they invite them through Pitch. You both see it, and you approve the reply.',
+      'You can pause the page, or delete everything, whenever you like.',
     ],
     shot: { src: '/preview/parent-invite.png', alt: 'A parent reading a club’s invitation to trial' },
   },
   coach: {
     label: 'Coach',
-    title: 'A coaching CV that does the talking.',
+    title: 'Your coaching CV.',
     points: [
-      'Your roles, licences, philosophy and clips on one public page, with a link you paste anywhere.',
-      'Browse coaching roles at clubs and apply with your page and a message.',
-      'When your club brings you in for your teams, read who has registered for them — and filter by position.',
-      'Free for good, for every coach — volunteer or paid.',
+      'Your roles, licences, coaching philosophy and clips on one page, with a link you can share.',
+      'Browse coaching roles at clubs and apply with your page.',
+      'If your club brings you in for a team, you can see who has registered for it and filter by position.',
+      'Free for every coach, whether you volunteer or get paid.',
     ],
     shot: { src: '/preview/coach-register.png', alt: 'A coach reading registrations for their teams' },
   },
   club: {
     label: 'Club',
-    title: 'The players who want to play for you, sorted.',
+    title: 'See who wants to play for your club.',
     points: [
-      'A free club page with your squads and trial notices. CVs arrive as live player pages.',
-      'The Interest Register: everyone who wants in, all year, filtered by squad, age group and position.',
-      'Invite players to trial through Pitch. Bring your age-group coaches in to read their teams.',
-      'Every club is checked by a real person before it sees anything about a child.',
+      'A free club page with your squads and trial notices. Player CVs arrive as live pages.',
+      'The Interest Register lists everyone who wants to join, all year, by squad, age group and position.',
+      'Invite players to trial through Pitch, and give your age-group coaches access to their teams.',
+      'We check every club before it can see anything about a child.',
     ],
     shot: { src: '/preview/club-register.png', alt: 'A club’s Interest Register on a laptop', laptop: true },
   },
@@ -131,35 +131,35 @@ const WHO: Record<Role, { label: string; title: string; points: string[]; shot: 
 const VISION: { zone: string; chip: string; color: string; items: [string, string][] }[] = [
   {
     zone: 'Now', chip: 'At launch', color: C.accent, items: [
-      ['Your football CV', 'Player, coach and club pages, built once and carried for good.'],
-      ['One link to any club', 'Send your page, or put your name down for a trial.'],
-      ['The Interest Register', 'Clubs keep the players who want in, and invite them to trial through Pitch.'],
+      ['Football CVs', 'Pages for players, coaches and clubs.'],
+      ['Send to any club', 'Send your page with a link, or register your interest in a trial.'],
+      ['The Interest Register', 'Clubs see everyone who wants to join, and invite players to trial.'],
     ],
   },
   {
     zone: 'Next', chip: 'Coming soon', color: C.amber, items: [
-      ['Verified development', 'Coaches record what they actually see, in plain words — and it carries a verified mark self-reported stats never can.'],
-      ['Clubs find verified players', 'Verified clubs and coaches can find players 16 and over. Under 18 with a parent’s say. Under 16, never.'],
-      ['Match Day', 'Minutes, subs and goals tracked from the sideline — the numbers nobody can argue with.'],
+      ['Coach-verified development', 'Coaches record what they see in plain language, and it’s marked as verified.'],
+      ['Clubs find players', 'Verified clubs and coaches can search for players 16 and over. Under 18 only with a parent’s okay, and never under 16.'],
+      ['Match Day', 'Track minutes, subs and goals from the sideline.'],
     ],
   },
   {
     zone: 'Later', chip: 'Coming soon', color: C.purple, items: [
-      ['Squads on Pitch', 'Coaches and team managers run their squads in one place, inside the club.'],
-      ['The whole pathway', 'A club sees every squad’s development, MiniRoos to seniors, in one view.'],
-      ['The game’s benchmark', 'Anonymous, league-wide development trends. No child named, no club named, ever.'],
+      ['Squads', 'Coaches and team managers run their squads on Pitch.'],
+      ['The club pathway', 'Clubs see how every squad is developing, from MiniRoos to seniors.'],
+      ['League benchmarks', 'Anonymous development trends across a league. No player or club is ever named.'],
     ],
   },
 ];
 
 const FAQ: [string, string][] = [
-  ['How does it work?', 'You build a page with your football on it — clubs, seasons, positions, the numbers you choose and a few clips. You send it to a club with one link, or register your interest in a club’s trial. A club that wants you invites you to trial through Pitch. Under 18, a parent approves before anything goes.'],
-  ['Who is it for?', 'Players, the parents of players under 18, coaches and clubs — grassroots to NPL. Australia first.'],
-  ['When does it open?', 'We’re building now, and we open when it’s ready rather than on a countdown. Join the waitlist and you’ll get one email when the whistle goes — nothing before it.'],
-  ['What does it cost?', 'A player’s page is free for good, and under 18 is free forever — every feature, nothing to upgrade. A coach’s page and a club’s page are free too. Clubs can choose the Interest Register for $54 a month or $329 a year.'],
-  ['How does Pitch treat under-18s?', 'Under 16, a parent sends everything. At 16 and 17 a player sends their own page and a parent is told every time, with a switch to turn sending off. A club can’t message a child — it can send one invitation to trial, which reaches the child and parent together, and nothing goes back without a parent’s yes. Under-18 pages stay out of search engines.'],
-  ['Is Pitch a social network?', 'No. Pitch is a player development and pathway platform. There’s no feed, no likes and no followers — a page you choose to send, and a record that grows season on season.'],
-  ['What happens with my email address?', 'It’s stored in Australia with the exact consent wording you saw when you joined, it’s used for one email when we open, and every message we ever send carries an unsubscribe link. The privacy policy says the rest, plainly.'],
+  ['How does it work?', 'You build a page with your football on it: clubs, seasons, positions, stats and clips. You send it to a club with a link, or register your interest in a club’s trial. If a club wants you, they invite you to trial through Pitch. If you’re under 18, a parent approves before anything is sent back.'],
+  ['Who is it for?', 'Anyone in football, at any level. Players, parents of players under 18, coaches and clubs. We’re starting in Australia.'],
+  ['When does it open?', 'We’re building it now and we’ll open when it’s ready. Join the waitlist and we’ll email you once, when we open.'],
+  ['What does it cost?', 'Players under 18 are free, and that won’t change. Players over 18 and coaches are free too, and we may add paid options for them later. Club pages are free. Clubs can add the Interest Register for $54 a month or $329 a year.'],
+  ['How does Pitch treat under-18s?', 'Under 16, a parent sends everything. At 16 and 17, players send their own page, and a parent is told every time and can turn sending off. Clubs can’t message children. A club can send one invitation to trial, which goes to the child and a parent together, and nothing goes back without a parent’s okay. Under-18 pages are kept out of search engines.'],
+  ['Is Pitch a social network?', 'No. Pitch is a player development and pathway platform. There’s no feed, likes or followers. It’s a page you choose to send, and a record that builds each season.'],
+  ['What happens with my email address?', 'It’s stored in Australia with the exact consent wording you saw when you joined. We use it for one email when we open, and every email we send has an unsubscribe link. The privacy policy has the details.'],
 ];
 
 export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
@@ -236,7 +236,7 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
 
       {/* ---- preview banner: this is not the live site ---- */}
       <div style={{ background: C.amber, color: '#1a1200', fontSize: 12.5, fontWeight: 800, textAlign: 'center', padding: '8px 12px' }}>
-        PREVIEW — not live. The site at pitchfootball.com.au is unchanged.
+        PREVIEW. Not live. The site at pitchfootball.com.au is unchanged.
       </div>
 
       {/* ---- header ---- */}
@@ -260,7 +260,7 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
               Your football,<br /><span style={{ color: C.accent }}>on one page.</span>
             </h1>
             <p style={{ ...lead, fontSize: 19, color: C.ink }}>
-              Build your football CV once — clubs, seasons, positions, numbers and clips. Send it to any club with one link. It stays yours when the coach, the club and the season all change.
+              Build your football CV once, with your clubs, seasons, positions, stats and clips. Send it to any club with a link. It stays with you when you change clubs.
             </p>
             <p style={{ ...lead, fontSize: 14.5, color: C.muted }}>
               Pitch is a player development and pathway platform for players, parents, coaches and clubs.
@@ -269,17 +269,17 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
               <button type="button" onClick={() => joinAs('player')} className="btn btn-primary" style={{ width: 'auto', padding: '0 26px' }}>Join the waitlist</button>
               <a href="#how" className="btn btn-secondary" style={{ width: 'auto', padding: '0 24px' }}>See how it works</a>
             </div>
-            <div style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>Free for players. Free forever under 18.</div>
+            <div style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>Free for players and coaches.</div>
           </div>
           <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
             <Phone width={300} scroll>{liveCv}</Phone>
-            <div className="sp-float" style={{ position: 'absolute', left: 'max(0px, calc(50% - 250px))', top: '18%', background: C.surface, border: `1px solid ${C.line}`, borderRadius: 14, padding: '10px 13px', boxShadow: '0 20px 40px -20px rgba(0,0,0,.8)' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.muted }}>This is the real page</div>
-              <div style={{ fontSize: 13, fontWeight: 800 }}>Not a mock-up</div>
+            <div className="sp-float" style={{ position: 'absolute', left: 'max(0px, calc(50% - 330px))', top: '8%', background: C.surface, border: `1px solid ${C.line}`, borderRadius: 14, padding: '10px 13px', boxShadow: '0 20px 40px -20px rgba(0,0,0,.8)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.muted }}>Real app screen</div>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>Jordan’s page, as a club sees it</div>
             </div>
             <div className="sp-float" style={{ position: 'absolute', right: 'max(0px, calc(50% - 250px))', bottom: '16%', background: C.surface, border: `1px solid ${C.accent}`, borderRadius: 14, padding: '10px 13px', display: 'flex', gap: 9, alignItems: 'center', boxShadow: '0 20px 40px -20px rgba(0,0,0,.8)' }}>
               <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: C.accent }} />
-              <div style={{ fontSize: 13, fontWeight: 800 }}>Sent to a club · opens live</div>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>Sent to a club</div>
             </div>
           </div>
         </div>
@@ -290,7 +290,7 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
         <div style={section}>
           <div className="sp-reveal" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 50 }}>
             <Kicker>How it works</Kicker>
-            <h2 style={h2}>Three steps. That’s the whole idea.</h2>
+            <h2 style={h2}>From your first page to a trial.</h2>
           </div>
           {/* the touchline: a ball runs the length of the three steps */}
           <div aria-hidden style={{ position: 'relative', height: 2, background: C.line, margin: '0 0 44px' }}>
@@ -298,9 +298,9 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
           </div>
           <div className="sp-steps">
             {[
-              { n: '1', t: 'Build your page', b: 'Add your clubs and seasons, tap up to three positions, pick the numbers that make your case and add your best clips. Under 16, a parent sets it up with you.', src: '/preview/build.png', alt: 'Building a player page' },
-              { n: '2', t: 'Send it, or put your name down', b: 'Send your page to a club in one link — it opens live, not as an attachment. Or find a trial on the trials board and register your interest with that club.', src: '/preview/trials.png', alt: 'The trials board' },
-              { n: '3', t: 'The club invites you in', b: 'A club that wants a look invites you to trial through Pitch. Under 18 it reaches you and your parent together, and your parent approves the reply.', src: '/preview/parent-invite.png', alt: 'An invitation to trial' },
+              { n: '1', t: 'Build your page', b: 'Add the clubs you’ve played for, your positions, your stats and a few clips. If you’re under 16, a parent sets it up with you.', src: '/preview/build.png', alt: 'Building a player page' },
+              { n: '2', t: 'Send it, or put your name down', b: 'Send your page to a club with a link, and they see it as it is today. Or find a trial on the trials board and register your interest.', src: '/preview/trials.png', alt: 'The trials board' },
+              { n: '3', t: 'The club invites you to trial', b: 'If a club wants a look, they invite you through Pitch. If you’re under 18, the invite goes to you and a parent, and a parent approves your reply.', src: '/preview/parent-invite.png', alt: 'An invitation to trial' },
             ].map((s, i) => (
               <div key={s.n} className="sp-reveal" style={{ display: 'flex', flexDirection: 'column', gap: 18, transitionDelay: `${i * 90}ms` }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'baseline' }}>
@@ -327,7 +327,7 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
         <div style={section}>
           <div className="sp-reveal" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 30 }}>
             <Kicker color={ACCENT[who]}>Who it’s for</Kicker>
-            <h2 style={h2}>One record. Four people who need it.</h2>
+            <h2 style={h2}>Players, parents, coaches and clubs.</h2>
           </div>
           <div role="tablist" aria-label="Who are you?" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 36 }}>
             {(Object.keys(WHO) as Role[]).map((r) => (
@@ -366,15 +366,15 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
         <div style={section}>
           <div className="sp-reveal sp-grid-2" style={{ alignItems: 'start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <Kicker color={C.purple}>Built for families first</Kicker>
-              <h2 style={h2}>A record to grow into. Nothing to disappear into.</h2>
+              <Kicker color={C.purple}>For parents</Kicker>
+              <h2 style={h2}>Built with your child’s safety first.</h2>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
               {[
-                ['No feed, no likes, no followers', 'A page you choose to send — not somewhere to scroll.'],
-                ['A club can’t message a child', 'It can send one invitation to trial. The parent sees it at the same moment, and approves the reply.'],
-                ['Every club checked by a person', 'Nothing about a child reaches a club until someone at Pitch has verified it.'],
-                ['Out of search engines', 'Under-18 pages are never indexed. A page opens only with its link, and a parent can switch that link off at any time.'],
+                ['No feed, likes or followers', 'Pitch is a page you send, not an app to scroll.'],
+                ['Clubs can’t message children', 'A club can send one invitation to trial. A parent sees it at the same time and approves any reply.'],
+                ['Every club is checked', 'A person at Pitch verifies each club before it can see anything about a child.'],
+                ['Kept out of Google', 'Under-18 pages are never indexed. A page only opens with its link, and a parent can turn the link off.'],
               ].map(([t, b]) => (
                 <div key={t} style={{ background: 'rgba(18,27,22,.7)', border: `1px solid ${C.line}`, borderRadius: 16, padding: '16px 15px' }}>
                   <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>{t}</div>
@@ -391,9 +391,9 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
         <div style={section}>
           <div className="sp-reveal" style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 44 }}>
             <Kicker>Where it’s going</Kicker>
-            <h2 style={{ ...h2, maxWidth: 900 }}>The CV is kick-off. <span style={{ color: C.accent }}>The record is the game.</span></h2>
+            <h2 style={{ ...h2, maxWidth: 900 }}>It starts with your CV.</h2>
             <p style={lead}>
-              Pitch is where football’s people prove who they are: a living record of every player’s development, a way for the right clubs to see it, and a stage for what they’ve achieved — for players, coaches and clubs alike.
+              Over time, Pitch becomes a full record of how players develop, checked by their coaches, and a better way for clubs to find the right players. Here’s what’s ready at launch and what’s coming after.
             </p>
           </div>
           <div className="sp-reveal" style={{ position: 'relative', borderRadius: 22, overflow: 'hidden', border: `1px solid ${C.line}`, background: 'repeating-linear-gradient(90deg, #0f1a14 0 80px, #0d1611 80px 160px)' }}>
@@ -422,7 +422,7 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
             </div>
           </div>
           <p className="sp-reveal" style={{ ...lead, fontSize: 14, color: C.muted, marginTop: 18 }}>
-            No dates on anything we haven’t built. When something is ready, it moves left.
+            We don’t put dates on things we haven’t built yet.
           </p>
         </div>
       </section>
@@ -431,14 +431,14 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
       <section id="pricing" style={{ padding: '80px 0', background: C.surface, borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
         <div style={section}>
           <div className="sp-reveal" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 36 }}>
-            <Kicker>What it costs</Kicker>
-            <h2 style={h2}>Free for families. One price for clubs.</h2>
+            <Kicker>Pricing</Kicker>
+            <h2 style={h2}>Free for players and coaches.</h2>
           </div>
           <div className="sp-price">
             {[
-              { t: 'Players', p: 'Free', s: 'for good', b: 'Your page, your clips, the send link and a PDF whenever you want one. Under 18, every feature, free forever.', c: C.accent },
-              { t: 'Coaches', p: 'Free', s: 'for good', b: 'Your coaching page, your public link and the coaching roles board. Volunteer or paid, it costs nothing.', c: C.orange },
-              { t: 'Clubs', p: '$54', s: 'a month · or $329 a year', b: 'Your club page, squads and trial notices are free. The Interest Register is the paid part — cancel any time.', c: C.amber },
+              { t: 'Players', p: 'Free', s: '', b: 'Under 18, free and staying free. Over 18, free now, with a paid option for extra features later.', c: C.accent },
+              { t: 'Coaches', p: 'Free', s: '', b: 'Your coaching page, share link and the coaching roles board. We may add a paid option later.', c: C.orange },
+              { t: 'Clubs', p: '$54', s: 'a month, or $329 a year', b: 'Your club page, squads and trial notices are free. The Interest Register is the paid part. Cancel any time.', c: C.amber },
             ].map((x) => (
               <div key={x.t} className="sp-reveal" style={{ background: C.bg, border: `1px solid ${C.line}`, borderTop: `3px solid ${x.c}`, borderRadius: 18, padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.muted }}>{x.t}</div>
@@ -450,7 +450,6 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
               </div>
             ))}
           </div>
-          <p style={{ ...lead, fontSize: 14, color: C.muted, marginTop: 18 }}>Extras for adults may come later. Anything free now stays free.</p>
         </div>
       </section>
 
@@ -459,13 +458,13 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
         <div ref={formRef} className="sp-reveal" style={{ ...section, maxWidth: 640 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center', alignItems: 'center', marginBottom: 26 }}>
             <Kicker>The waitlist</Kicker>
-            <h2 style={h2}>You’re early. That’s the whole offer.</h2>
-            <p style={{ ...lead, fontSize: 15.5 }}>No countdown, no date, no launch week. One email when we open.</p>
+            <h2 style={h2}>We’ll let you know when we open.</h2>
+            <p style={{ ...lead, fontSize: 15.5 }}>Join the waitlist and we’ll send you one email when Pitch opens.</p>
           </div>
           {state === 'done' ? (
             <div style={{ background: C.surface, border: `1px solid ${C.accent}`, borderRadius: 18, padding: '26px 22px', textAlign: 'center' }}>
               <div style={{ fontSize: 22, fontWeight: 900 }}>You’re on the list.</div>
-              <div style={{ fontSize: 14.5, color: C.secondary, fontWeight: 500, marginTop: 6 }}>One email when we open. Nothing before it.</div>
+              <div style={{ fontSize: 14.5, color: C.secondary, fontWeight: 500, marginTop: 6 }}>We’ll email you once, when we open.</div>
             </div>
           ) : (
             <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 18, padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
