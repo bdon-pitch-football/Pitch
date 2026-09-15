@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { CoachConsole } from '@/components/console-shell';
 import Link from 'next/link';
 import { addCoachAchievement, addCoachClip, addLicence, addRole, removeCoachAchievement, removeCoachClip, removeLicence, removeRole, saveCoachProfile } from './actions';
 import { COACH_CLIP_CAP } from '@/lib/football';
@@ -55,7 +56,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
   const wins: { id: string; title: string; detail: string | null }[] = c.wins ?? [];
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <CoachConsole active="edit">
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div>
@@ -319,6 +320,6 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Your CV publishes without it. Verification is what unlocks anything to do with players, and it&rsquo;s free on every tier.</div>
         </div>
       </div>
-    </div>
+    </CoachConsole>
   );
 }

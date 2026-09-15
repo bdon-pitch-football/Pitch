@@ -97,6 +97,50 @@ export async function ClubConsole({ active, floodlight, children }: {
   return <Frame label="Club" head={head} items={items} active={active} floodlight={floodlight}>{children}</Frame>;
 }
 
+// The coach's frame (BUZ, 15 Sep: "give coaches the sidebar now with what
+// they can already do"). The coach's three doors from /home and nothing else.
+// A squad view waits for Stage 2; registrations stay with the TD unless a
+// D-number and John say otherwise. Home's precedence is mirrored exactly: a
+// club seat outranks a coach seat, so a TD who also keeps a coach CV sees the
+// club's frame on club screens and no frame here — the same doors /home gives.
+export async function CoachConsole({ active, children }: {
+  active: 'edit' | 'jobs'; children: React.ReactNode;
+}) {
+  const me = await getSessionPersonId();
+  const seat = me ? (await db.query(
+    `select p.first_name, cp.public_slug,
+       (select c.name from membership m2 join club c on c.id = m2.club_id
+        where m2.person_id = p.id and m2.role = 'coach' and m2.ended_at is null limit 1) as club
+     from person p join coach_profile cp on cp.person_id = p.id
+     where p.id = $1
+       and not exists (select 1 from membership m where m.person_id = p.id
+         and m.role in ('technical_director','club_admin') and m.ended_at is null)`,
+    [me],
+  )).rows[0] as { first_name: string; public_slug: string | null; club: string | null } | undefined : undefined;
+
+  if (!seat) {
+    return (
+      <div className="floodlight" style={{ minHeight: '100dvh', color: 'var(--ink)', display: 'flex', justifyContent: 'center' }}>
+        {children}
+      </div>
+    );
+  }
+
+  const items: Item[] = [
+    { key: 'home', href: '/home', label: 'Home' },
+    { key: 'edit', href: '/coach/edit', label: 'Edit my coach CV' },
+    ...(seat.public_slug ? [{ key: 'public', href: `/c/${seat.public_slug}`, label: 'See my public page' }] : []),
+    { key: 'jobs', href: '/jobs', label: 'Coaching roles at clubs' },
+  ];
+  const head = (
+    <div>
+      <div style={{ fontSize: 14.5, fontWeight: 900, lineHeight: 1.25 }}>{seat.first_name}</div>
+      {seat.club && <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, marginTop: 2 }}>{seat.club}</div>}
+    </div>
+  );
+  return <Frame label="Coach" head={head} items={items} active={active} floodlight>{children}</Frame>;
+}
+
 export function OpsConsole({ active, children }: {
   active: 'verification' | 'support'; children: React.ReactNode;
 }) {

@@ -438,6 +438,33 @@ const georgia = ids.children.georgia;
     const nav = navOf((await get(path, ids.people.marina)).html, 'Operator');
     check(`s4: ${path} carries the operator sidebar`, nav !== null, true);
   }
+  // The coach's frame (BUZ, 15 Sep): the coach's own doors from /home, the
+  // same subset rule, and a role page counts as the roles board.
+  {
+    const sam = ids.people.sam;
+    const samHome = new Set(hrefs((await get('/home', sam)).html));
+    samHome.add('/home');
+    const roleLink = hrefs((await get('/jobs', sam)).html).find((h) => /^\/jobs\/[0-9a-f-]{36}$/.test(h));
+    check('s6: the roles board lists at least one role to open', Boolean(roleLink), true);
+    for (const [path, current] of [['/coach/edit', '/coach/edit'], ['/jobs', '/jobs'], [roleLink, '/jobs']]) {
+      if (!path) continue;
+      const nav = navOf((await get(path, sam)).html, 'Coach');
+      const P = path.replace(/[0-9a-f-]{36}/, '*');
+      check(`s6: coach ${P} carries the coach sidebar`, nav !== null, true);
+      if (!nav) continue;
+      const extra = hrefs(nav).filter((h) => !samHome.has(h));
+      check(`s7: coach ${P} sidebar offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
+      const marked = [...nav.matchAll(/href="([^"]*)"[^>]*aria-current="page"|aria-current="page"[^>]*href="([^"]*)"/g)].map((m) => m[1] ?? m[2]);
+      check(`s8: coach ${P} marks ${current} as the current page`, marked, [current]);
+    }
+    // The jobs board is public. Nobody who is not in a coach seat gets a
+    // coach's frame on it — not a stranger, not a parent, and not a TD, whose
+    // /home is the club's.
+    for (const [who, label] of [[null, 'signed out'], [ids.people.alex, 'a parent'], [ids.people.marina, 'a club TD']]) {
+      const html = (await get('/jobs', who)).html;
+      check(`s9: /jobs for ${label} carries no sidebar`, /class="console-nav"/.test(html), false);
+    }
+  }
   // Reading surfaces stay sidebar-free — a parent's screens are not a console.
   for (const [path, who] of [['/home', ids.people.alex], [`/g/controls/${ids.children.deniz.child_id}`, ids.people.alex], ['/home', ids.people.marina]]) {
     const html = (await get(path, who)).html;

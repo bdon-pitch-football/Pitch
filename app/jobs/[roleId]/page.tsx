@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { CoachConsole } from '@/components/console-shell';
 import { applyForRole } from '@/app/coach/edit/actions';
 
 const T = {
@@ -44,13 +45,13 @@ export default async function Role({ params, searchParams }: {
   const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <CoachConsole active="jobs">
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{r.title}</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 700 }}>
-            {r.public_slug ? <Link href={`/fc/${r.public_slug}`} style={{ color: T.secondary, textDecoration: 'none' }}>{r.club}</Link> : r.club}
+            {r.public_slug ? <Link href={`/fc/${r.public_slug}`} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, margin: '-14px 0', color: T.secondary, textDecoration: 'none' }}>{r.club}</Link> : r.club}
             {r.club_state === 'verified' && <span style={{ color: T.accent }}> · Verified club</span>}
           </div>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
@@ -94,6 +95,6 @@ export default async function Role({ params, searchParams }: {
 
         <Link href="/jobs" className="btn btn-ghost">All roles</Link>
       </div>
-    </div>
+    </CoachConsole>
   );
 }
