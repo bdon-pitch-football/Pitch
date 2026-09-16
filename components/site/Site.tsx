@@ -5,8 +5,7 @@
 // stranger needs them:
 //   1. what it is, literally, with a real app screen in a phone
 //   2. how it works: three steps, real screens
-//   3. who it is for: the screen each person actually uses, and short
-//      walkthroughs of the app doing that person's job (16 Sep)
+//   3. who it is for: the screen each person actually uses
 //   4. what protects a child, accurate by age band
 //   5. where it is going: Now, Next, Later across a pitch
 //   6. what it costs
@@ -21,7 +20,7 @@
 // the content"). No words changed. No libraries. Nothing is sent anywhere:
 // the chosen role is kept in this browser's localStorage only. Everything
 // that moves stops for prefers-reduced-motion.
-//   · the hero phone pauses while a mouse is over it or a finger is on it
+//   · the hero phone scrolls by itself and by hand (wheel or keys); it carries on after
 //   · "How it works" follows the reader's scroll: active step, travelling ball
 //   · any screen opens full size (tap, Esc or the close button to shut)
 //   · choosing who you are highlights your price and pre-selects the form
@@ -77,31 +76,64 @@ function Phone({ src, alt, width = 280, tilt = 0, eager = false, onOpen }: { src
   );
 }
 
-// The hero phone: a full-height capture of a real player page, scrolling
-// slowly by itself. It pauses while a mouse is over it or a finger is on it,
-// and carries on from the same spot. It used to switch into a scroll box of
-// its own on hover and tap, which made the picture jump (BUZ, 16 Sep).
+// The hero phone: a full-height capture of a real player page that scrolls
+// by itself, and that you can scroll yourself (BUZ, 16 Sep: "the hero phone
+// where it scrolls doesn't work" — it crept along too slowly to notice,
+// froze under the mouse, and could not be scrolled by hand).
+//
+// The screen is ONE scroll box the whole time, moved by requestAnimationFrame,
+// so the automatic scroll and your own scrolling share one position and
+// nothing ever jumps (the jolt of 16 Sep came from swapping a CSS animation
+// for a scroll box mid-hover). Scroll it with a wheel or the keyboard and it
+// waits three seconds, then carries on from where you left it. On a touch
+// screen it moves by itself but never catches a swipe — a finger on the hero
+// scrolls the page, as it should. With reduced motion it never moves by
+// itself, and can still be scrolled by hand.
 function HeroPhone({ width = 300 }: { width?: number }) {
   const inner = width - 20;
   const frame = Math.round(inner * (844 / 390));
-  const [paused, setPaused] = useState(false);
-  const resume = useRef<number | null>(null);
-  const hold = () => { if (resume.current) window.clearTimeout(resume.current); setPaused(true); };
-  const release = (delay: number) => {
-    if (resume.current) window.clearTimeout(resume.current);
-    resume.current = window.setTimeout(() => setPaused(false), delay);
-  };
-  useEffect(() => () => { if (resume.current) window.clearTimeout(resume.current); }, []);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const SPEED = 55;       // px a second: enough to see it move at once
+    const HOLD = 1400;      // ms resting at the top and the bottom
+    const IDLE = 3000;      // ms after a person scrolls before it carries on
+    let raf = 0, last = 0, dir = 1, pos = 0;
+    let waitUntil = performance.now() + 900;
+    const takeOver = () => { waitUntil = performance.now() + IDLE; pos = el.scrollTop; };
+    const tick = (now: number) => {
+      const dt = last ? Math.min(64, now - last) : 0;
+      last = now;
+      const max = el.scrollHeight - el.clientHeight;
+      if (!still && max > 0 && now >= waitUntil && !document.hidden) {
+        pos += dir * SPEED * (dt / 1000);
+        if (pos >= max) { pos = max; dir = -1; waitUntil = now + HOLD; }
+        else if (pos <= 0) { pos = 0; dir = 1; waitUntil = now + HOLD; }
+        el.scrollTop = pos;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    el.addEventListener('wheel', takeOver, { passive: true });
+    el.addEventListener('keydown', takeOver);
+    el.addEventListener('pointerdown', takeOver);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener('wheel', takeOver);
+      el.removeEventListener('keydown', takeOver);
+      el.removeEventListener('pointerdown', takeOver);
+    };
+  }, []);
 
   return (
-    <div style={{ ...phoneShell, width }}
-      onPointerEnter={(e) => { if (e.pointerType === 'mouse') hold(); }}
-      onPointerLeave={(e) => { if (e.pointerType === 'mouse') release(0); }}
-      onTouchStart={hold} onTouchEnd={() => release(2500)} onTouchCancel={() => release(2500)}>
-      <div style={{ position: 'relative', borderRadius: 34, overflow: 'hidden', height: frame, background: C.bg }}>
+    <div style={{ ...phoneShell, width }}>
+      <div ref={box} className="sp-hero-screen" tabIndex={0} aria-label="A player’s page on Pitch"
+        style={{ position: 'relative', borderRadius: 34, height: frame, background: C.bg }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/site/hero-cv.webp" alt="A player’s page on Pitch" width={600} height={2188} fetchPriority="high" className="sp-autoscroll" data-paused={paused ? 'true' : 'false'} draggable={false}
-          style={{ width: '100%', height: 'auto', display: 'block', ['--frame' as never]: `${frame}px` }} />
+        <img src="/site/hero-cv.webp" alt="" width={600} height={2188} fetchPriority="high" className="sp-autoscroll" draggable={false}
+          style={{ width: '100%', height: 'auto', display: 'block' }} />
       </div>
     </div>
   );
@@ -149,62 +181,6 @@ function Lightbox({ shot, onClose }: { shot: Shot | null; onClose: () => void })
       <img src={shot.src} alt={shot.alt} onClick={(e) => e.stopPropagation()} className="sp-lightbox-img"
         style={{ maxWidth: shot.laptop ? 'min(1200px, 100%)' : 'min(440px, 100%)', maxHeight: '88vh', width: 'auto', height: 'auto', borderRadius: shot.laptop ? 12 : 28, boxShadow: '0 40px 100px -30px rgba(0,0,0,.9)', cursor: 'default' }} />
     </div>
-  );
-}
-
-// Walkthroughs of the redesigned app (16 Sep), rendered from the same reels
-// the socials post, captured from the real build. Each person sees their own.
-// The caption is the reel's own first line. Coaches have one so far.
-const WALKS: Record<Role, { file: string; label: string }[]> = {
-  player: [
-    { file: 'walk-player-build', label: 'Build it once.' },
-    { file: 'walk-player-choose', label: 'You pick what a club sees.' },
-    { file: 'walk-player-send', label: 'Send it as a link.' },
-  ],
-  parent: [
-    { file: 'walk-parent-approve', label: 'Nothing goes out without you.' },
-    { file: 'walk-parent-whohas', label: 'Every club that has a link.' },
-    { file: 'walk-parent-takeoff', label: 'Take one off.' },
-  ],
-  coach: [
-    { file: 'walk-coach-build', label: 'Six years of coaching. One page.' },
-  ],
-  club: [
-    { file: 'walk-club-register', label: 'This is the register.' },
-    { file: 'walk-club-queue', label: 'Hold it. Move it. Answer it.' },
-    { file: 'walk-club-trial', label: 'Post the trial once.' },
-  ],
-};
-
-// One walkthrough. Muted, looping, and only playing while most of it is on
-// screen, so a phone is never decoding three videos nobody is looking at.
-// Nothing downloads until it is near the screen (preload none + poster). With
-// reduced motion it never plays by itself: the still shows, with controls.
-function Walk({ file, label }: { file: string; label: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  const [manual, setManual] = useState(false);
-  useEffect(() => {
-    const v = ref.current;
-    if (!v) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setManual(true); return; }
-    const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting && e.intersectionRatio >= 0.6) v.play().catch(() => setManual(true));
-      else v.pause();
-    }, { threshold: [0, 0.6] });
-    io.observe(v);
-    return () => { io.disconnect(); v.pause(); };
-  }, []);
-  return (
-    <figure className="sp-walk" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ position: 'relative', aspectRatio: '9 / 16', borderRadius: 22, overflow: 'hidden', background: C.surface, border: `1px solid ${C.line}`, boxShadow: '0 30px 60px -34px rgba(0,0,0,.9)' }}>
-        <video ref={ref} src={`/site/walk/${file}.mp4`} poster={`/site/walk/${file}.webp`} muted playsInline loop preload="none"
-          controls={manual} aria-label={`Walkthrough: ${label}`}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-      </div>
-      {/* Two lines kept for every caption, so a one-line label and a two-line
-          one make the same row height and switching tabs moves nothing. */}
-      <figcaption style={{ fontSize: 14, fontWeight: 800, color: C.ink, lineHeight: 1.3, minHeight: '2.6em' }}>{label}</figcaption>
-    </figure>
   );
 }
 
@@ -456,9 +432,10 @@ export default function Site() {
         .sp-navlink[aria-current="true"]::after { transform: scaleX(1); }
         .sp-header { position: sticky; top: 0; z-index: 40; background: rgba(11,18,14,.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid transparent; transition: border-color .3s; }
         .sp-header[data-scrolled="true"] { border-bottom-color: #24322a; }
-        .sp-autoscroll { animation: spScroll 26s cubic-bezier(.45,0,.55,1) infinite alternate; }
-        @keyframes spScroll { 0%, 8% { translate: 0 0; } 92%, 100% { translate: 0 calc(-100% + var(--frame)); } }
-        .sp-autoscroll[data-paused="true"] { animation-play-state: paused; }
+        .sp-hero-screen { overflow-y: auto; overflow-x: hidden; scrollbar-width: none; overscroll-behavior-y: auto; outline: none; }
+        .sp-hero-screen::-webkit-scrollbar { display: none; }
+        .sp-hero-screen:focus-visible { box-shadow: 0 0 0 2px #3ddc84; }
+        @media (hover: none), (pointer: coarse) { .sp-hero-screen { overflow-y: hidden; } }
         .sp-armed { opacity: 0; transform: translateY(18px); transition: opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1); }
         .sp-armed.sp-in { opacity: 1; transform: none; }
         .sp-zoomable { transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s; }
@@ -492,9 +469,6 @@ export default function Site() {
         @keyframes spGoal { 0% { transform: translate(-70px, 34px) scale(.8); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(1); opacity: 1; } }
         .sp-goal-net { animation: spNet .5s ease-out 1.15s both; transform-origin: 50% 0; }
         @keyframes spNet { 0% { transform: scaleY(1); } 40% { transform: scaleY(1.12); } 100% { transform: scaleY(1); } }
-        .sp-walks { display: grid; grid-auto-flow: column; grid-auto-columns: clamp(180px, 56vw, 240px); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; scrollbar-width: none; }
-        .sp-walks::-webkit-scrollbar { display: none; }
-        .sp-walks > .sp-walk { scroll-snap-align: start; }
         .sp-grid-2 { display: grid; grid-template-columns: 1fr; gap: 40px; align-items: center; }
         .sp-steps { display: grid; grid-template-columns: 1fr; gap: 56px; }
         .sp-vision { display: grid; grid-template-columns: 1fr; gap: 14px; }
@@ -505,7 +479,6 @@ export default function Site() {
         .sp-vball { display: none; }
         @media (min-width: 900px) {
           .sp-grid-2 { grid-template-columns: 1.05fr .95fr; }
-          .sp-walks { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 300px)); grid-auto-columns: auto; overflow: visible; }
           .sp-steps { grid-template-columns: repeat(3, 1fr); gap: 28px; }
           .sp-vision { grid-template-columns: repeat(3, 1fr); gap: 0; }
           .sp-price { grid-template-columns: repeat(3, 1fr); }
@@ -524,7 +497,7 @@ export default function Site() {
         details.sp-faq::details-content { height: 0; overflow: clip; transition: height .35s cubic-bezier(.22,1,.36,1), content-visibility .35s allow-discrete; }
         details.sp-faq[open]::details-content { height: auto; }
         @media (prefers-reduced-motion: reduce) {
-          .sp-autoscroll, .sp-step[data-active="true"] .sp-link, .sp-who-panel, .sp-lightbox, .sp-lightbox-img, .sp-goal-ball, .sp-goal-net { animation: none; }
+          .sp-step[data-active="true"] .sp-link, .sp-who-panel, .sp-lightbox, .sp-lightbox-img, .sp-goal-ball, .sp-goal-net { animation: none; }
           .sp-armed { opacity: 1; transform: none; transition: none; }
           .sp-ball, .sp-zone, .sp-step, .sp-price-card, .sp-zoomable, .sp-vcard { transition: none; }
           .sp-zoomable:hover, .sp-vcard:hover { transform: none !important; }
@@ -672,19 +645,6 @@ export default function Site() {
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* Walkthroughs for whoever is chosen above. Only that person's are
-              rendered, so hidden tabs never load or play video. Every row is
-              the same height, so switching tabs moves nothing. */}
-          <div style={{ marginTop: 56, display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <Kicker color={ACCENT[who]}>Watch it work</Kicker>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.muted }}>The app as it is, in about nine seconds each.</div>
-            </div>
-            <div className="sp-walks" key={who}>
-              {WALKS[who].map((w) => <Walk key={w.file} file={w.file} label={w.label} />)}
-            </div>
           </div>
         </div>
       </section>
