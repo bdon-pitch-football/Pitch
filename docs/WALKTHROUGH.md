@@ -1,10 +1,11 @@
-# Pitch — walkthrough script
+# Pitch — walkthrough
 
-**Everything below runs on your machine only.** Nothing is live. The site at
-pitchfootball.com.au is still the coming-soon page; the app lives on the local
-`app` branch, which has never been pushed.
+**Everything below runs on your machine only.** The app lives on the local
+`app` branch, which has never been pushed. pitchfootball.com.au is the
+marketing site on `main`, and only changes when you say so.
 
-Both servers are already running. If you ever need to restart them:
+Two things need to be running. The desktop app starts both for you; if you
+ever need to start them by hand:
 
 ```bash
 cd "/Users/bdonmez22/Desktop/Life/Work/Pitch 3.0/repo" && node scripts/dev-db.mts
@@ -16,180 +17,145 @@ then in a second terminal:
 cd "/Users/bdonmez22/Desktop/Life/Work/Pitch 3.0/repo" && npm run dev
 ```
 
-**http://localhost:3000 is still the coming-soon page, on purpose** — the app
-does not replace it, it sits alongside it on its own routes. The waitlist page
-stays the front door until you say otherwise.
+**http://localhost:3000 is still the old coming-soon page, on purpose.** The
+app starts at **http://localhost:3000/signin**.
 
-The app starts at **http://localhost:3000/signin**. The other entry points:
+## Seats
 
-| | |
-|---|---|
-| Sign in (all four seats) | `/signin` |
-| Create an account | `/join` |
-| A player's public CV, as a club sees it | `/p/dev-deniz` |
-| An adult player's CV (18+ — no guardian anywhere) | `/p/dev-jordan` |
-| A dead share link | `/p/dev-revoked` |
-| The trials noticeboard | `/trials` |
-| A coach's public page | `/c/sam-kaya` |
-| A club's public page | `/fc/riverside-fc` |
-| Change seats | `/signout` |
-| The local stand-in for the inbox | `/dev/outbox` |
+Leave the password box empty: in development an account with no password
+signs in on the email alone, so you can hop between seats. Production has no
+such shortcut. **Go to `/signout` before changing seats.**
 
-Sign in with any of these. **Leave the password box empty** — these four seats
-have no password set, and in development an account without one signs in on the
-email alone so you can hop between seats freely. (In production that shortcut
-does not exist; a password is required.)
+| Who | Email | Lands on |
+|---|---|---|
+| Alex — parent of Deniz, Nate and Georgia | `guardian@example.com` | Your family |
+| Jordan — adult player | `player@example.com` | Player home |
+| Nate — 16–17 player | `nate@example.com` | Player home |
+| Sam Kaya — coach | `coach@example.com` | Coach home |
+| Marina — Technical Director, Riverside FC (verified) | `td@example.com` | Club home |
+| Pat — club administrator | `admin@example.com` | Club home |
+| Sunbury United — claimed, not verified | `sunbury@example.com` | Club home |
+| Kingsway — verified, free plan | `kingsway@example.com` | Club home |
+| A brand-new account | `new@example.com` | Nothing yet |
 
-| Who | Email |
-|---|---|
-| Alex — parent of all three players | `guardian@example.com` |
-| Marina — Technical Director, Riverside FC | `td@example.com` |
-| Sam Kaya — coach | `coach@example.com` |
-| Sunbury United — claimed but NOT yet verified | `sunbury@example.com` |
-
-**To change seats, go to `/signout` first** — otherwise you are still wearing the
-last hat and the pages will look wrong.
-
-If you want to see the real password machinery, do this once with Alex:
-`/reset` → type `guardian@example.com` → the screen says *"If there's a Pitch
-account for that address, a reset link is on its way"* (it says exactly that
-whether or not the account exists — the message is not allowed to tell a
-stranger who has an account) → open **`/dev/outbox`**, which is the local stand-in
-for the inbox until Resend is wired, and follow the reset link → set a password →
-sign in with it. That link then dies: opening it a second time refuses and sends
-you back to `/reset`. Alex now needs that password, so remember it or reset again.
+Pages that need no sign-in: `/p/dev-deniz` (a player's CV as a club sees it),
+`/p/dev-jordan` (an adult's), `/p/dev-revoked` (a dead link), `/trials`,
+`/c/sam-kaya` (coach page), `/fc/riverside-fc` (club page), `/dev/outbox`
+(the local stand-in for the inbox).
 
 ---
 
-## 1 · The stranger — what a club sees when a link arrives
+## What changed in the redesign (15–16 Sep)
 
-Open these without signing in. This is the product's front door.
+Every signed-in seat now sits inside a frame: a sidebar on a laptop and a
+tab bar on a phone. A frame only offers pages that seat's home already links
+to, and the render tests check this for every seat. Try each one at phone
+width (the desktop app's Viewport menu) and at laptop width.
 
-1. **http://localhost:3000/p/dev-deniz** — Deniz's CV as a club sees it.
-   *Watch:* the stats count up like a scoreboard, the small pitch in the hero
-   pings his position, "Parent-approved", a clip you can press play on
-   (nothing loads from YouTube until you do).
-2. **http://localhost:3000/p/dev-nate** — the keeper test. Two numbers only,
-   and no negative statistic exists anywhere. Does it still look worth sending?
-3. **http://localhost:3000/p/dev-georgia** — the sparse test: modest numbers,
-   one clip. Does it still look like a real CV?
-4. **http://localhost:3000/p/dev-expired** — an expired link.
-   Then **/p/dev-revoked**, then make one up: **/p/anything**.
-   *Watch:* all three are the identical page. Nobody can use a wrong link to
-   find out whether a child is on Pitch.
-5. **http://localhost:3000/p/dev-deniz/opengraph-image** — the card that shows
-   in WhatsApp. First name + initial, never his club or age.
+### 1 · The player — `player@example.com`, then `nate@example.com`
 
-Public pages worth a look: **/c/sam-kaya** (coach CV), **/fc/riverside-fc**
-(club page — girls' and women's squads as first-class rows, alumni wall),
-**/trials** (the board: verified clubs vs compiled listings).
+- **Home** is a dashboard now: how far through the six steps you are, the
+  next trial that fits you, and your link.
+- **Build your CV** shows progress as you type: number, about and stats fill
+  the ring live. Positions are short codes in two rows. Tap one and its full
+  name shows underneath.
+- Finish all six and you land on **the moment** (`/build/…/ready`): your page
+  is ready, or live, or, for an under-16, sent to your parent.
+- **Trials** has filters: age group (only the groups actually on the board),
+  gender, state and position. They sit behind a button on a phone and in a card
+  on a laptop. Chips remove one filter at a time, with counts.
 
----
+### 2 · The parent — `guardian@example.com`
 
-## 2 · The parent — sign in as `guardian@example.com`
+- A tab per child, or one **Children** tab once there are more than two.
+- **Manage** a child, then **Everything that's happened**: every club a CV
+  went to now has its own **Take this one off**. It switches off that one
+  link and leaves the rest alone. You get a confirmation, and the history
+  says "one link switched off".
+- The four waiting items (trial invite, a send to approve, a register
+  request, a changed page) work as before.
 
-You land on **Your family**. Three children, each with their real status.
-There are four things waiting on you — open each:
+### 3 · The coach — `coach@example.com`
 
-1. **Riverside FC would like Georgia at a trial** → *Review it*.
-   *Watch:* Georgia has not been told. Read the club's note, then
-   *Reply* — everything you could hand over starts switched **off**.
-2. **Georgia wants to send her CV to Sunbury United** → *Review it*.
-   *Watch:* the address she typed, what the club gets and never gets, and
-   "do nothing and this disappears by itself".
-3. **Nate wants to go on Riverside's register** → *Read it*.
-   *Watch:* his exact words, before they reach anyone.
-4. **Deniz changed his page** → *Review it*.
-   *Watch:* his old words struck through against the new ones. Until you
-   approve, every club holding his link still reads the old version.
+- **Coach home** has the steps to a finished coach page, the teams you read
+  the register for (names only, never a count), open roles and a copy button
+  for your page.
+- Tabs: Home · My CV · Registrations (only if a club gave you access) · Roles.
+- **New (needs your OK):** a coach page is an adult's page. Someone under 18
+  can keep a coach profile, but it can never be given a public link or a
+  public contact. The database refuses both, the page and sitemap won't show
+  one, and the editor doesn't offer the contact field to an under-18. Sign
+  in as `nate@example.com` and open `/coach/edit` to see it.
 
-Then **Manage** on any child — the cockpit:
-- His link (shown as a fragment; the full link only ever appears once, when
-  it's made)
-- **Renew** / **Replace** — replacing kills the old one for everyone, instantly
-- The **pause** switch — flip it, then open his `/p/` link in another tab: dead.
-  Flip it back: alive.
-- **Everything that's happened** — your consent history in plain words
-- **Delete everything** — the honest copy about the one thing we keep
+### 4 · The club — `td@example.com`
 
----
+- **Club home** is new: how many are on the register (the TD only), your
+  trials with how many are interested, open roles, and your page link.
+- Tabs on a phone: Home · Register · Squads, then **More** for the rest.
+- **Post a trial** picks age groups, gender and positions as chips. **Your
+  trials** lists what you've posted, and **Change** edits one. The date locks
+  once anyone has registered.
+- **Register**: the table fits the card at laptop width, and the status chips
+  use the palette.
+- Sign in as `sunbury@example.com` and open Register: a count and not one
+  name, until you verify them.
 
-**The adult band without signing up:** open **http://localhost:3000/p/dev-jordan**.
-Jordan is 22. Compare it to Deniz: no *Parent-approved* chip, and no "there is
-no way to reply to a family" block — an adult is reachable through their own
-account and has no guardian to point a club at. His page is assembled live
-from his own record; there is no approval step between him and it.
+### 5 · You, the operator
 
----
-
-## 3 · The player — sign in as an adult you create
-
-Go to **http://localhost:3000/join**, choose Player, use a birthday that makes
-you 18+, tick the terms, and create an account with any email. You land on your
-own build surface: **Build your CV** (positions as tap chips, your number,
-about, stats where blank stays blank — no zeros), **Highlights** (paste a
-YouTube link), **Achievements & other football**.
-
-To see the under-16 door instead, start again with a birthday that makes you 14
-— you'll be asked for a parent's name and mobile, then land on
-*"Your page is built. One person to go."*
+**/ops/verification** has the same frame with its own bar. Open Sunbury's
+call sheet, log it as verified, then sign back in as `sunbury@example.com`
+and watch the register go from a count to named players.
 
 ---
 
-## 4 · The club — sign in as `td@example.com`
+## Overnight, 16–17 Sep
 
-**http://localhost:3000/club/register** — the Interest Register, the thing
-clubs pay for.
-- On a wide window it's a table; on a phone it's cards. Same data, same actions.
-- Nate is shortlisted → **Invite to trial** opens the composer. Read
-  "Where this actually goes" before you send.
-- **Open the CV** on any row.
-- Read the two cards at the bottom: *There is no download* and
-  *New, shortlisted, invited — and nothing else*.
-
-**http://localhost:3000/club/post-trial** — post a trial; it appears on the
-club page and the trials board the same minute.
-
-Now sign in as **`sunbury@example.com`** and open **/club/register** again.
-*Watch:* a count and not one name — "Paying doesn't change it and can't."
-
----
-
-## 5 · You, the operator
-
-**http://localhost:3000/ops/verification** — clubs awaiting your call, with
-their held counts. Open Sunbury's **call sheet**: the thirteen fields, your
-name required as operator, and where you found the number required.
-Log it as **verified** — then sign back in as `sunbury@example.com` and watch
-the register go from a bare count to named players.
+- **Coach pages are adults only** (above). Migration 0042, with seven
+  permission checks and two render checks.
+- **Security headers:** every page now carries a Content-Security-Policy.
+  Scripts run only from this site and only with a one-time code for that
+  request, and no other site can frame a page. Every page renders fresh per
+  request so the code is always there.
+- **Tap targets:** every text box sits inside a card that is the tap target,
+  so the whole card (at least 44px) focuses the field. Save as PDF is 44px.
+  Links inside sentences are left as they are, which the accessibility
+  standard allows.
+- **A dead link fixed:** "Copy this link" on a coach page copied
+  `pitchfootball.com.au/<name>` with no `/c/`. It copies the real address now.
+- **A full sweep:** every page, as every seat, at phone and laptop width.
+  Result in the summary.
 
 ---
 
 ## Running the checks
 
-Two suites, and the difference between them is the point.
-
 ```bash
 npm run test:perms
 ```
 
-696 checks against Postgres and the source. It needs no server.
+Permission and gate checks against Postgres and the source. No server needed.
 
 ```bash
 npm run test:render
 ```
 
-32 checks that fetch the actual pages and read what you would see. It needs
-both dev processes running, because it signs in as the fixture people and
-asks the product what it serves. It exists because a check that reads source
-text can be green while the thing it describes is false — that happened
-twice, and the second time it was hiding a 500 on every signed-in builder
-route.
+Fetches the real pages as each seat and reads what they serve. Needs both
+processes running.
+
+Also: `node scripts/write-tests.mjs` (it changes the dev database, so
+restart `dev-db.mts` afterwards), `node scripts/gate-coverage.mjs`,
+`node scripts/palette-check.mjs`, `python3 scripts/corpus-check.py` and
+`npx tsc --noEmit`.
+
+Last full run (17 Sep, overnight): typecheck clean · palette green ·
+render 330/330 · write 92/92 · permission 827/827 · gate 261/261 open 0 ·
+corpus clean. Also checked in a production build: 400 page views across
+10 seats with no security-policy errors, and the pages come alive
+(builder progress, trials filters).
 
 ---
 
 ## What to tell me
 
-Anything that feels wrong, ugly, slow, confusing, or off-brand. Screens I
-should push harder on. Copy that doesn't sound like you. I'll take the list as
-the punch list — the full design polish pass is still deliberately open.
+Anything that feels wrong, ugly, slow or confusing, and any copy that doesn't
+sound like you.
