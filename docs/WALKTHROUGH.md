@@ -56,8 +56,8 @@ width (the desktop app's Viewport menu) and at laptop width.
 
 - **Home** is a dashboard now: how far through the six steps you are, the
   next trial that fits you, and your link.
-- **Build your CV** shows progress as you type: number, about and stats fill
-  the ring live. Positions are short codes in two rows. Tap one and its full
+- **Build your CV** shows progress as you type: the "5 of 6 done" bar
+  moves live as you fill in number, about and stats. Positions are short codes in two rows. Tap one and its full
   name shows underneath.
 - Finish all six and you land on **the moment** (`/build/…/ready`): your page
   is ready, or live, or, for an under-16, sent to your parent.
@@ -69,9 +69,9 @@ width (the desktop app's Viewport menu) and at laptop width.
 
 - A tab per child, or one **Children** tab once there are more than two.
 - **Manage** a child, then **Everything that's happened**: every club a CV
-  went to now has its own **Take this one off**. It switches off that one
+  went to now has its own **Switch off**. It switches off that one club's
   link and leaves the rest alone. You get a confirmation, and the history
-  says "one link switched off".
+  says "One club's link was switched off".
 - The four waiting items (trial invite, a send to approve, a register
   request, a changed page) work as before.
 
