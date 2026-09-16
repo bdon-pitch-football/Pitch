@@ -142,9 +142,12 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Season stats · self-reported</div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: T.accent }}>Tap a name to show or hide it</div>
+            {/* At 390 the two labels together are wider than the column, so
+                the heading used to break mid-phrase beside the hint. Each
+                keeps its own line now, and the hint drops underneath. */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 12, rowGap: 3 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted, whiteSpace: 'nowrap' }}>Season stats · self-reported</div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: T.accent, whiteSpace: 'nowrap' }}>Tap a name to show or hide it</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {STAT_KEYS.map((k: StatKey) => (
