@@ -296,7 +296,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
         {c.public_slug && (
           <Link href={`/c/${c.public_slug}`} className="lift" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'center', textDecoration: 'none' }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your public coaching CV</div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{c.public_slug}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/c/{c.public_slug}</div>
           </Link>
         )}
 

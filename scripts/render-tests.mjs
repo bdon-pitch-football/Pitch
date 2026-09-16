@@ -829,6 +829,32 @@ const georgia = ids.children.georgia;
   check('t5b: and Mixed is not a way in (D-68 as amended)', /gender=mixed/.test(all), false);
 }
 
+// A link a screen SHOWS is a promise — a coach pastes it, a TD prints it.
+// Four screens showed pitchfootball.com.au/<name>, which does not exist: the
+// pages live at /c/<name> and /fc/<name>. Every full link shown must open.
+// (A player's link is shown as a hint with dots and is not a full link.)
+{
+  // What a person SEES: script payloads and tag attributes (the share image
+  // in the page's meta tags) are not links anyone reads or copies.
+  const shownLinks = (html) => {
+    const text = html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<!-- -->/g, '').replace(/<[^>]*>/g, ' ');
+    return [...new Set([...text.matchAll(/pitchfootball\.com\.au\/([a-z0-9][a-z0-9/_-]*)/gi)].map((m) => '/' + m[1]))];
+  };
+  const sam = ids.people.sam, marina = ids.people.marina;
+  const pages = [['/home', sam, 'coach home'], ['/coach/edit', sam, 'coach editor'], ['/c/sam-kaya/print', null, 'printed coach CV'], ['/club/page-edit', marina, 'club page editor']];
+  for (const [path, who, label] of pages) {
+    const links = shownLinks((await get(path, who)).html);
+    check(`pl1: the ${label} shows its public link`, links.length > 0, true);
+    const dead = [];
+    for (const l of links) if ((await get(l, null)).status !== 200) dead.push(l);
+    check(`pl2: every link the ${label} shows opens (${dead.join(' ') || 'all do'})`, dead, []);
+  }
+  const coachHome = (await get('/home', sam)).html.replace(/<!-- -->/g, '');
+  check('ch1: the coach home says how much of their page is done', /\d of 5 done/.test(coachHome), true);
+  check('ch2: and names the teams they read, never who registered', /Registrations for your teams/.test(coachHome), true);
+  check('ch3: and offers the link to copy — a coach\'s page is public by design (D-100)', /pitchfootball\.com\.au\/c\/sam-kaya/.test(coachHome) && />Copy</.test(coachHome), true);
+}
+
 // The trials board shipped in launch scope and NOTHING LINKED TO IT.
 {
   for (const [seat, who] of [['a parent', ids.people.alex], ['a player', ids.people.jordan]]) {

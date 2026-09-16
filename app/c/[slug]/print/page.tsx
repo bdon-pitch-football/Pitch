@@ -152,7 +152,7 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
         )}
 
         <div style={{ fontSize: 11.5, color: '#5c6f65', borderTop: '1px solid #e6ece9', paddingTop: 12 }}>
-          pitchfootball.com.au/{c.public_slug}
+          pitchfootball.com.au/c/{c.public_slug}
         </div>
       </div>
     </div>

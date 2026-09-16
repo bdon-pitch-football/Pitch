@@ -11,6 +11,7 @@ import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
 import { PlayerFrame, GuardianFrame } from '@/components/player-shell';
 import { CoachConsole } from '@/components/console-shell';
+import CopyLink from '@/components/CopyLink';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -120,6 +121,20 @@ export default async function Home() {
           limit 1) cl) as club_seat,
        (select row_to_json(co) from (
           select cp.public_slug,
+            (cp.philosophy is not null and length(btrim(cp.philosophy)) > 0) as has_philosophy,
+            exists(select 1 from coach_role cr where cr.coach_profile_id = cp.id) as has_role,
+            exists(select 1 from coach_licence cl where cl.coach_profile_id = cp.id) as has_licence,
+            exists(select 1 from coach_clip cc where cc.coach_profile_id = cp.id) as has_clip,
+            -- The team NAMES this coach reads, never a count of who registered:
+            -- counting would mean handing this page the rows, which is a read
+            -- by a named person that D-154 logs where the rows are shown.
+            (select coalesce(array_agg(distinct sq.name order by sq.name), '{}') from register_grant g2
+               join squad sq on sq.id = g2.squad_id
+              where g2.person_id = p.id and g2.revoked_at is null
+                and g2.squad_id in (select fn_register_grant_squads(p.id, g2.club_id))) as register_team_names,
+            (select count(*)::int from coaching_role r9 join club c9 on c9.id = r9.club_id
+              where r9.closed_at is null
+                and (r9.closes_on is null or r9.closes_on >= (now() at time zone 'Australia/Melbourne')::date)) as open_roles,
             (select c3.name from membership m2 join club c3 on c3.id = m2.club_id
              where m2.person_id = p.id and m2.role = 'coach' and m2.ended_at is null limit 1) as club,
             -- D-154: the teams whose registrations this coach reads today.
@@ -196,6 +211,8 @@ export default async function Home() {
   const clubSeat = me.club_seat as { id: string; name: string; club_state: string; public_slug: string | null; role: string; register_count: number } | null;
   const coachSeat = me.coach_seat as {
     public_slug: string | null; club: string | null; register_teams: number;
+    has_philosophy: boolean; has_role: boolean; has_licence: boolean; has_clip: boolean;
+    register_team_names: string[]; open_roles: number;
     invites: { id: string; club: string; teams: string[] }[];
   } | null;
 
@@ -244,46 +261,118 @@ export default async function Home() {
     );
   }
 
-  // Coach seat — inside the coach's frame (D-147, amended 16 Sep).
+  // Coach seat — inside the coach's frame (D-147, amended 16 Sep). This was
+  // the same title-and-grey-buttons menu the player's home was. It is now
+  // the state of the coach's football: their public page and its link to
+  // copy (D-100 — public by design, so it CAN be shown in full, unlike a
+  // player's), how complete the page is, the teams they read for a club,
+  // and the roles clubs are hiring for.
   if (coachSeat) {
+    const url = coachSeat.public_slug ? `pitchfootball.com.au/c/${coachSeat.public_slug}` : null;
+    const steps = [
+      { done: Boolean(me.photo_path), label: 'Add a profile photo' },
+      { done: coachSeat.has_philosophy, label: 'Write how you coach' },
+      { done: coachSeat.has_role, label: 'Add a coaching role' },
+      { done: coachSeat.has_licence, label: 'Add a licence or course' },
+      { done: coachSeat.has_clip, label: 'Add a session clip' },
+    ];
+    const done = steps.filter((x) => x.done).length;
+    const todo = steps.filter((x) => !x.done).slice(0, 2);
     return (
       <CoachConsole active="home">
-      <Shell framed>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your coach CV</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>{me.first_name}{coachSeat.club ? ` · ${coachSeat.club}` : ''}</div>
-        </div>
-        {coachSeat.public_slug && (
-          <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your public link</div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{coachSeat.public_slug}</div>
-          </div>
-        )}
-        {coachSeat.invites.map((inv) => (
-          <div key={inv.id} style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 800 }}>{inv.club} wants you as their coach for {inv.teams.join(', ')}</div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>You&rsquo;ll be able to read the registrations for those teams. You won&rsquo;t be able to invite a family or change anything, and every one you open is recorded.</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <form action={answerCoachInvite} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="inviteId" value={inv.id} /><input type="hidden" name="answer" value="accept" />
-                <button type="submit" className="btn btn-primary">Accept</button>
-              </form>
-              <form action={answerCoachInvite} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="inviteId" value={inv.id} /><input type="hidden" name="answer" value="decline" />
-                <button type="submit" className="btn btn-secondary">Not now</button>
-              </form>
+        <div className="console h-rise" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+          <HeaderMark />
+          <div className="player-grid">
+          <div>
+            <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+                {me.photo_path ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={me.photo_path} alt="" width={52} height={52} className="avatar-ring" style={{ borderRadius: 16, objectFit: 'cover', flexShrink: 0 }} />
+                ) : (
+                  <div aria-hidden style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 19, flexShrink: 0 }}>{me.first_name[0]}</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h1 style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15, margin: 0 }}>Your coach page</h1>
+                  <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500, marginTop: 3 }}>{me.first_name}{coachSeat.club ? ` · ${coachSeat.club}` : ''}</div>
+                </div>
+              </div>
+              {url ? (
+                <div style={{ background: 'rgba(11,18,14,.5)', border: `1px solid ${T.line}`, borderRadius: 12, padding: '8px 8px 8px 13px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{url}</div>
+                    <div style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,.6)' }}>Public · paste it wherever you talk to clubs and families</div>
+                  </div>
+                  <CopyLink url={`https://${url}`} />
+                </div>
+              ) : (
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'rgba(255,255,255,.7)', lineHeight: 1.5 }}>Your page gets its own link once you publish it.</div>
+              )}
             </div>
+
+            {coachSeat.invites.map((inv) => (
+              <div key={inv.id} style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 800 }}>{inv.club} wants you as their coach for {inv.teams.join(', ')}</div>
+                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>You&rsquo;ll be able to read the registrations for those teams. You won&rsquo;t be able to invite a family or change anything, and every one you open is recorded.</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <form action={answerCoachInvite} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="inviteId" value={inv.id} /><input type="hidden" name="answer" value="accept" />
+                    <button type="submit" className="btn btn-primary">Accept</button>
+                  </form>
+                  <form action={answerCoachInvite} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="inviteId" value={inv.id} /><input type="hidden" name="answer" value="decline" />
+                    <button type="submit" className="btn btn-secondary">Not now</button>
+                  </form>
+                </div>
+              </div>
+            ))}
+
+            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                <h2 style={label}>Your page</h2>
+                <div style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{done} of {steps.length} done</div>
+              </div>
+              <div aria-hidden style={{ height: 6, borderRadius: 999, background: T.surface2, overflow: 'hidden' }}>
+                <div style={{ width: `${Math.round((done / steps.length) * 100)}%`, height: 6, borderRadius: 999, background: T.accent }} />
+              </div>
+              {todo.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {todo.map((t) => (
+                    <Link key={t.label} href="/coach/edit" className="lift" style={{ display: 'flex', alignItems: 'center', gap: 11, minHeight: 44, background: T.surface2, borderRadius: 12, padding: '0 12px', textDecoration: 'none' }}>
+                      <div style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: T.ink }}>{t.label}</div>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>Every part of your page is filled in.</div>
+              )}
+            </div>
+
+            {coachSeat.register_teams > 0 && (
+              <Link href="/coach/register" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: T.ink }}>Registrations for your teams</div>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{coachSeat.register_team_names.join(' · ')}</div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+              </Link>
+            )}
           </div>
-        ))}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <Link href="/coach/edit" className="btn btn-primary">Edit my coach CV</Link>
-          {coachSeat.register_teams > 0 && (
-            <Link href="/coach/register" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Registrations</Link>
-          )}
-          {coachSeat.public_slug && (
-            <Link href={`/c/${coachSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>See my public page</Link>
-          )}
-          <Link href="/jobs" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Coaching roles at clubs</Link>
+
+          <div>
+            <Link href="/coach/edit" className="btn btn-primary">Edit my coach CV</Link>
+            {coachSeat.public_slug && (
+              <Link href={`/c/${coachSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>See my public page</Link>
+            )}
+            {coachSeat.register_teams > 0 && (
+              <Link href="/coach/register" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Registrations</Link>
+            )}
+            <Link href="/jobs" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.secondary }}>Coaching roles at clubs</div>
+              {coachSeat.open_roles > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.accent }}>{coachSeat.open_roles} open</div>}
+            </Link>
+          </div>
+          </div>
         </div>
-      </Shell>
       </CoachConsole>
     );
   }

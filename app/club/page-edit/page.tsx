@@ -149,7 +149,7 @@ export default async function ClubPageEdit({ searchParams }: {
         {c.public_slug && (
           <Link href={`/fc/${c.public_slug}`} className="lift" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'center', textDecoration: 'none' }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your club page link</div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/{c.public_slug}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/fc/{c.public_slug}</div>
           </Link>
         )}
         <Link href="/home" className="btn btn-ghost">Back</Link>
