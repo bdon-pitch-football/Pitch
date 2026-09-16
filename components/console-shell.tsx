@@ -135,8 +135,8 @@ export async function ClubConsole({ active, floodlight, children }: {
   const verified = seat.club_state === 'verified';
   const items: Item[] = [
     { key: 'home', href: '/home', label: 'Home', icon: 'home' },
-    ...(seat.role === 'technical_director' || !verified ? [{ key: 'register', href: '/club/register', label: 'Interest register', short: 'Register', icon: 'register' as const }] : []),
-    { key: 'squads', href: '/club/squads', label: 'Squads & age groups', short: 'Squads', icon: 'children' },
+    ...(seat.role === 'technical_director' || !verified ? [{ key: 'register', href: '/club/register', label: 'Register', icon: 'register' as const }] : []),
+    { key: 'squads', href: '/club/squads', label: 'Squads', icon: 'children' },
     { key: 'page-edit', href: '/club/page-edit', label: 'Crest & club page', short: 'Club page', icon: 'crest' },
     { key: 'roles', href: '/club/roles', label: 'Coaching roles', icon: 'roles' },
     ...(verified ? [{ key: 'post-trial', href: '/club/post-trial', label: 'Post a trial', icon: 'trials' as const }] : []),

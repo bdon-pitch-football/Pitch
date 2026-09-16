@@ -239,9 +239,9 @@ export default async function Home() {
               keeps the club's page, squads, trials and billing, and before
               verification the waiting count, which holds no child's details. */}
           {(clubSeat.role === 'technical_director' || !verified) && (
-            <Link href="/club/register" className="btn btn-primary">Interest register</Link>
+            <Link href="/club/register" className="btn btn-primary">Register</Link>
           )}
-          <Link href="/club/squads" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Squads &amp; age groups</Link>
+          <Link href="/club/squads" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Squads</Link>
           <Link href="/club/page-edit" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Crest &amp; club page</Link>
           <Link href="/club/roles" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Coaching roles</Link>
           {verified && (

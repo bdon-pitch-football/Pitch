@@ -419,7 +419,7 @@ const georgia = ids.children.georgia;
     const m = new RegExp(`<nav[^>]*aria-label="${label}"[^>]*>([\\s\\S]*?)</nav>`).exec(html);
     return m ? m[1] : null;
   };
-  const CLUB = { '/club/register': 'Interest register', '/club/squads': 'Squads & age groups',
+  const CLUB = { '/club/register': 'Register', '/club/squads': 'Squads',
     '/club/page-edit': 'Crest & club page', '/club/roles': 'Coaching roles',
     '/club/post-trial': 'Post a trial', '/club/billing': 'Plan & billing' };
   for (const [seat, who] of [['club TD', ids.people.marina], ['free club', ids.people.dana]]) {
