@@ -9,6 +9,7 @@ import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
+import { PlayerFrame } from '@/components/player-shell';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -74,9 +75,35 @@ export default async function Home() {
             and not exists (select 1 from invitation_reply ir5 where ir5.invitation_id = i.id and ir5.approved_at is not null)
           order by i.created_at desc limit 1) q4) as my_invitation,
        (select row_to_json(rec) from (
-          select dr.positions, dr.squad_number,
-            (select count(*)::int from highlight h where h.record_id = dr.id) as clips
+          select dr.positions, dr.squad_number, dr.foot,
+            (select count(*)::int from highlight h where h.record_id = dr.id) as clips,
+            (dr.about is not null and length(btrim(dr.about)) > 0) as has_about,
+            exists(select 1 from player_stat ps where ps.record_id = dr.id and ps.value is not null) as has_stats,
+            -- The live link, as the guardian's controls screen shows it: the
+            -- HINT, never the token. The token is stored hashed and cannot be
+            -- reconstructed here (D-80), so this page states what is true and
+            -- sends people to the route that actually dispatches a link.
+            (select row_to_json(tk) from (
+               select st.token_hint,
+                 to_char(st.expires_at at time zone 'Australia/Melbourne', 'DD Month') as expires
+               from share_token st
+               where st.record_id = dr.id and st.revoked_at is null and st.paused = false
+                 and (st.expires_at is null or st.expires_at > now())
+               order by st.issued_at desc limit 1) tk) as link
           from development_record dr where dr.person_id = p.id) rec) as my_page,
+       -- What is coming up: the next trial at a club this player is already on
+       -- the register of. Never their club_status, which no player ever sees
+       -- (D-108, doc 14 N10).
+       (select row_to_json(nx) from (
+          select cl7.name as club, tn.title,
+            to_char(tn.trial_on, 'Mon') as month, to_char(tn.trial_on, 'FMDD') as day, tn.time_venue
+          from registration r7
+          join club cl7 on cl7.id = r7.club_id
+          join trial_notice tn on tn.club_id = r7.club_id
+          where r7.player_id = p.id and r7.withdrawn_at is null
+            and tn.trial_on >= (now() at time zone 'Australia/Melbourne')::date
+          order by tn.trial_on limit 1) nx) as next_trial,
+       (select count(*)::int from registration r8 where r8.player_id = p.id and r8.withdrawn_at is null) as my_registers,
        (select row_to_json(cl) from (
           select c2.id, c2.name, c2.club_state, c2.public_slug, m.role,
             (select count(*)::int from registration r6 where r6.club_id = c2.id and r6.withdrawn_at is null) as register_count
@@ -251,50 +278,145 @@ export default async function Home() {
     );
   }
 
-  // Player seat: their page today, then the build surface.
+  // Player seat. This was a title and four grey buttons on a screen with
+  // 400px of nothing under them (BUZ, 16 Sep: "it looks like just words
+  // slapped on an app"). It is now the state of your football: whether your
+  // page is live, how much of it is built and what to do next, and what is
+  // coming up — inside the player frame, so no screen is a dead end.
   if (children.length === 0 && me.record_id) {
-    const pg = me.my_page as { positions: string[]; squad_number: number | null; clips: number } | null;
+    const pg = me.my_page as {
+      positions: string[]; squad_number: number | null; foot: string | null; clips: number;
+      has_about: boolean; has_stats: boolean;
+      link: { token_hint: string | null; expires: string | null } | null;
+    } | null;
+    const next = me.next_trial as { club: string; title: string; month: string; day: string; time_venue: string } | null;
+    const rec = me.record_id as string;
+
+    // Six things make a page worth sending. Each one is a real field, and
+    // each undone one links to the screen that fills it in — nothing here is
+    // a score, and nothing is invented.
+    const steps = [
+      { done: Boolean(me.photo_path), label: 'Add a profile photo', href: `/build/${rec}` },
+      { done: (pg?.positions?.length ?? 0) > 0, label: 'Pick your positions', href: `/build/${rec}` },
+      { done: pg?.squad_number != null, label: 'Add your squad number', href: `/build/${rec}` },
+      { done: Boolean(pg?.has_about), label: 'Write your one line', href: `/build/${rec}` },
+      { done: Boolean(pg?.has_stats), label: 'Add a season stat', href: `/build/${rec}` },
+      { done: (pg?.clips ?? 0) > 0, label: 'Add a highlight clip', href: `/build/${rec}/clips` },
+    ];
+    const done = steps.filter((x) => x.done).length;
+    const todo = steps.filter((x) => !x.done).slice(0, 2);
+    const live = Boolean(pg?.link);
+
     return (
-      <Shell>
-        <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your CV</h1>
-        <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          {me.photo_path ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={me.photo_path} alt="" width={58} height={58} className="avatar-ring" style={{ borderRadius: 18, objectFit: 'cover' }} />
-          ) : (
-            <div style={{ width: 58, height: 58, borderRadius: 18, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 20 }}>{me.first_name[0]}</div>
-          )}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 17, fontWeight: 900 }}>{me.first_name}{pg?.squad_number ? ` · #${pg.squad_number}` : ''}</div>
-            <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500 }}>
-              {(pg?.positions ?? []).join(' · ') || 'No positions picked yet'}
-              {typeof pg?.clips === 'number' ? ` · ${pg.clips} clip${pg.clips === 1 ? '' : 's'}` : ''}
-            </div>
-          </div>
-        </div>
-        {me.my_invitation && (
-          <Link href={`/g/invite/${me.my_invitation.id}`} className="lift" style={{ ...card, border: `1px solid ${T.purple}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
-            <div>
-              <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>{me.my_invitation.club} would like you at a trial</div>
-              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
-                {me.my_invitation.draft ? 'Your reply is with your parent to approve.' : me.band === '18plus' ? 'Reply when you are ready — or don’t.' : 'Your parent can see it too.'}
+      <PlayerFrame active="home">
+        <div className="console h-rise" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+          <HeaderMark />
+          <div className="player-grid">
+          <div>
+          <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
+              {me.photo_path ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={me.photo_path} alt="" width={52} height={52} className="avatar-ring" style={{ borderRadius: 16, objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div aria-hidden style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 19, flexShrink: 0 }}>{me.first_name[0]}</div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h1 style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15, margin: 0 }}>
+                  {live ? 'Your page is live' : 'Your page is ready to build'}
+                </h1>
+                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500, marginTop: 3 }}>
+                  {[
+                    (pg?.positions ?? []).join(' · ') || null,
+                    pg?.squad_number ? `#${pg.squad_number}` : null,
+                    me.first_name ? null : null,
+                  ].filter(Boolean).join(' · ') || 'No positions picked yet'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: live ? 'rgba(61,220,132,.16)' : 'rgba(255,255,255,.1)', borderRadius: 999, padding: '5px 10px', flexShrink: 0 }}>
+                <div aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: live ? T.accent : T.muted }} />
+                <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: live ? T.accent : 'rgba(255,255,255,.75)' }}>{live ? 'Live' : 'Not sent yet'}</div>
               </div>
             </div>
-            <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
-          </Link>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <Link href={`/build/${me.record_id}`} className="btn btn-primary">Build your CV</Link>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Link href={`/build/${me.record_id}/clips`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Highlights</Link>
-            <Link href={`/build/${me.record_id}/more`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Achievements</Link>
+            {live ? (
+              <div style={{ background: 'rgba(11,18,14,.5)', border: `1px solid ${T.line}`, borderRadius: 12, padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/p/{pg?.link?.token_hint ?? '····'}</div>
+                <div style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,.6)' }}>
+                  {pg?.link?.expires ? `Live · expires ${pg.link.expires.trim()}` : 'Live · no expiry'}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, fontWeight: 500, color: 'rgba(255,255,255,.7)', lineHeight: 1.5 }}>
+                Nothing is public yet. Your page goes to a club as a link, when you send it.
+              </div>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 9 }}>
-            <Link href="/trials" className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Trials near you</Link>
+
+          {me.my_invitation && (
+            <Link href={`/g/invite/${me.my_invitation.id}`} className="lift" style={{ ...card, border: `1px solid ${T.purple}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
+              <div>
+                <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>{me.my_invitation.club} would like you at a trial</div>
+                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
+                  {me.my_invitation.draft ? 'Your reply is with your parent to approve.' : me.band === '18plus' ? 'Reply when you are ready — or don’t.' : 'Your parent can see it too.'}
+                </div>
+              </div>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
+            </Link>
+          )}
+
+          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+              <h2 style={label}>Your page</h2>
+              <div style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{done} of {steps.length} done</div>
+            </div>
+            <div aria-hidden style={{ height: 6, borderRadius: 999, background: T.surface2, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.round((done / steps.length) * 100)}%`, height: 6, borderRadius: 999, background: T.accent }} />
+            </div>
+            {todo.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {todo.map((t) => (
+                  <Link key={t.label} href={t.href} className="lift" style={{ display: 'flex', alignItems: 'center', gap: 11, minHeight: 44, background: T.surface2, borderRadius: 12, padding: '0 12px', textDecoration: 'none' }}>
+                    <div style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: T.ink }}>{t.label}</div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>Every part of your page is filled in.</div>
+            )}
           </div>
-          <Link href={`/send/${me.record_id}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Send my CV to a club</Link>
+
+          {next && (
+            <Link href="/trials" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none' }}>
+              <div aria-hidden style={{ width: 46, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: T.surface2, borderRadius: 12, padding: '7px 0' }}>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.accent }}>{next.month}</div>
+                <div className="tnum" style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: T.ink }}>{next.day}</div>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: T.ink }}>{next.club} · {next.title}</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{next.time_venue}</div>
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: T.accent, marginTop: 2 }}>You are on their register</div>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+            </Link>
+          )}
+
+          </div>
+
+          <div>
+            <Link href={`/send/${rec}`} className="btn btn-primary">Send my CV to a club</Link>
+            <div style={{ display: 'flex', gap: 9 }}>
+              <Link href={`/build/${rec}`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Build your CV</Link>
+              <Link href="/trials" className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Trials near you</Link>
+            </div>
+            <div style={{ display: 'flex', gap: 9 }}>
+              <Link href={`/build/${rec}/clips`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Highlights</Link>
+              <Link href={`/build/${rec}/more`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Achievements</Link>
+            </div>
+          </div>
+          </div>
         </div>
-      </Shell>
+      </PlayerFrame>
     );
   }
 

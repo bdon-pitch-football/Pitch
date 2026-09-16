@@ -2,6 +2,7 @@
 // Click-to-play façades only on any public render (D-97); this screen never
 // embeds anything either.
 import { notFound } from 'next/navigation';
+import { PlayerFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
 import { requireRecordActor } from '@/lib/record-guard';
 import { HeaderMark } from '@/components/Wordmark';
@@ -46,7 +47,7 @@ export default async function Clips({ params, searchParams }: {
   const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <PlayerFrame active="cv">
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: `/build/${recordId}`, label: 'Back to the CV' }} />
         <div>
@@ -95,6 +96,6 @@ export default async function Clips({ params, searchParams }: {
         </div>
         <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted, textAlign: 'center' }}>Swap a clip out any time.</div>
       </div>
-    </div>
+    </PlayerFrame>
   );
 }

@@ -2,6 +2,7 @@
 // tap-to-select chips; ChooseStats/Highlights screens follow). Dev-gated
 // until sessions exist: in production this route requires auth.
 import { notFound } from 'next/navigation';
+import { PlayerFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
 import BuildForm from './BuildForm';
 import { requireRecordActor } from '@/lib/record-guard';
@@ -23,5 +24,9 @@ export default async function Build({ params, searchParams }: { params: Promise<
     [recordId],
   );
   if (rows.length === 0) notFound();
-  return <BuildForm record={JSON.parse(JSON.stringify(rows[0]))} saved={saved === '1'} />;
+  return (
+    <PlayerFrame active="cv">
+      <BuildForm record={JSON.parse(JSON.stringify(rows[0]))} saved={saved === '1'} />
+    </PlayerFrame>
+  );
 }

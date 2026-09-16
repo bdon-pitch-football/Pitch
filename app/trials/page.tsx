@@ -4,6 +4,7 @@
 // Verified clubs get the in-Pitch route; unclaimed listings say plainly
 // they were compiled and route via the club.
 import Link from 'next/link';
+import { PlayerFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
 import Wordmark from '@/components/Wordmark';
 
@@ -65,7 +66,7 @@ export default async function TrialsBoard({ searchParams }: {
   };
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <PlayerFrame active="trials">
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -130,6 +131,6 @@ export default async function TrialsBoard({ searchParams }: {
           })}
         </div>
       </div>
-    </div>
+    </PlayerFrame>
   );
 }

@@ -2,6 +2,7 @@
 // (CLAUDE.md build order §3). Chip + free text for experience entries; the
 // entry grants access to nobody, ever (D-72).
 import { notFound } from 'next/navigation';
+import { PlayerFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { EXPERIENCE_KIND_LABELS, OTHER_FOOTBALL_KINDS, PREVIOUS_CLUB } from '@/lib/football';
@@ -44,7 +45,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
   const section: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <PlayerFrame active="cv">
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: `/build/${recordId}`, label: 'Back to the CV' }} />
         <div>
@@ -146,6 +147,6 @@ export default async function More({ params }: { params: Promise<{ recordId: str
           </form>
         </div>
       </div>
-    </div>
+    </PlayerFrame>
   );
 }

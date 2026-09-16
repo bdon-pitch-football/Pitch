@@ -384,6 +384,55 @@ select { min-height: 44px; }
 .console-btn-primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 800; }
 .console-btn-primary:hover { filter: brightness(1.06); }
 
+/* The home rise, lifted out of /home's own <style> so the player frame can
+   use it too (it renders its own console, not /home's reading Shell). */
+@keyframes homeRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.h-rise > * { animation: homeRise .55s cubic-bezier(.22, 1, .36, 1) both; }
+.h-rise > *:nth-child(2) { animation-delay: .06s; }
+.h-rise > *:nth-child(3) { animation-delay: .12s; }
+.h-rise > *:nth-child(4) { animation-delay: .18s; }
+.h-rise > *:nth-child(5) { animation-delay: .24s; }
+@media (prefers-reduced-motion: reduce) { .h-rise > * { animation: none; } }
+
+/* The player's home is a dashboard, so at a laptop it earns a second column:
+   what is true about your page down the left, what you can do with it down
+   the right. Below 1024 it is one column in the 390px order. */
+.player-grid { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+.player-grid > * { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (min-width: 1024px) {
+  .player-grid { grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; }
+}
+
+/* ---------------------------------------------------------------------------
+   THE PLAYER'S BAR — the phone half of the player frame (BUZ, 16 Sep).
+   A player screen used to be an island: a title, a back link, nowhere else.
+   The bar carries the same four doors the rail carries at 1024 and up, so a
+   phone and a laptop offer exactly the same capability (D-147).
+   --------------------------------------------------------------------------- */
+.player-tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: rgba(11, 18, 14, .94);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.player-tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; min-height: 60px; text-decoration: none;
+  font-size: 10px; font-weight: 700; letter-spacing: var(--ls-button);
+  color: var(--muted); transition: color .16s var(--ease);
+}
+.player-tab[aria-current="page"] { color: var(--accent); font-weight: 800; }
+.player-tab:hover { color: var(--ink); }
+/* The bar sits over the page, so the page ends above it, not behind it. */
+.player-frame .console-main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 1024px) {
+  .player-tabs { display: none; }
+  .player-frame .console-main { padding-bottom: 0; }
+}
+@media print { .player-tabs { display: none; } }
+
 /* ---------------------------------------------------------------------------
    CHIPS — filters and status. Filters toggle; status chips never do.
    --------------------------------------------------------------------------- */

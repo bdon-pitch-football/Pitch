@@ -532,6 +532,41 @@ const georgia = ids.children.georgia;
       check(`s9: /jobs for ${label} carries no sidebar`, /class="console-nav"/.test(html), false);
     }
   }
+  // The player's frame (BUZ, 16 Sep). Same rule as the club console: the
+  // frame is a second way to the doors /home already offers this seat, and
+  // the bar a phone gets and the rail a laptop gets are the SAME four doors —
+  // a capability at one width and not the other is a surface nobody tested.
+  {
+    const jordan = ids.people.jordan;
+    const homeHtml = (await get('/home', jordan)).html;
+    const jordanHome = new Set(hrefs(homeHtml));
+    jordanHome.add('/home');
+    const rec = hrefs(homeHtml).find((h) => /^\/build\/[0-9a-f-]{36}$/.test(h));
+    check('s14: the player home offers the build screen to frame around', Boolean(rec), true);
+    const recId = rec ? rec.split('/')[2] : null;
+    for (const [path, current] of [['/home', '/home'], [rec, rec], ['/trials', '/trials'],
+                                   [recId ? `/send/${recId}` : null, recId ? `/send/${recId}` : null]]) {
+      if (!path) continue;
+      const html = (await get(path, jordan)).html;
+      const P = path.replace(/[0-9a-f-]{36}/, '*');
+      const rail = navOf(html, 'Player');
+      const bar = navOf(html, 'Player bar');
+      check(`s15: player ${P} carries the frame`, rail !== null && bar !== null, true);
+      if (!rail || !bar) continue;
+      const extra = hrefs(rail).filter((h) => !jordanHome.has(h));
+      check(`s16: player ${P} frame offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
+      check(`s17: player ${P} bar and rail are the same four doors`, hrefs(bar), hrefs(rail));
+      const marked = [...rail.matchAll(/href="([^"]*)"[^>]*aria-current="page"|aria-current="page"[^>]*href="([^"]*)"/g)].map((m) => m[1] ?? m[2]);
+      check(`s18: player ${P} marks ${P} as the current page`, marked, [current]);
+    }
+    // Nobody who is not in a player seat gets a player's frame — not a
+    // stranger on the public board, not a parent, not a club.
+    for (const [who, label] of [[null, 'signed out'], [ids.people.alex, 'a parent'], [ids.people.marina, 'a club TD']]) {
+      const html = (await get('/trials', who)).html;
+      check(`s19: /trials for ${label} carries no player frame`, /class="player-tabs"/.test(html), false);
+    }
+  }
+
   // Reading surfaces stay sidebar-free — a parent's screens are not a console.
   for (const [path, who] of [['/home', ids.people.alex], [`/g/controls/${ids.children.deniz.child_id}`, ids.people.alex], ['/home', ids.people.marina]]) {
     const html = (await get(path, who)).html;

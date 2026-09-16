@@ -8,6 +8,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
+import { PlayerFrame } from '@/components/player-shell';
 import { HeaderMark } from '@/components/Wordmark';
 import { composeSend } from './actions';
 
@@ -35,12 +36,12 @@ const Row = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
 );
 
 const Shell = ({ children }: { children: React.ReactNode }) => (
-  <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+  <PlayerFrame active="send">
     <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
       <HeaderMark back={{ href: '/home' }} />
       {children}
     </div>
-  </div>
+  </PlayerFrame>
 );
 
 const Status = ({ dot, kicker, title, children }: { dot: string; kicker: string; title: string; children: React.ReactNode }) => (

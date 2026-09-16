@@ -34,7 +34,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
   const act = saveDraft;
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <div style={{ width: '100%', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
         <div>
