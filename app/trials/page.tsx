@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { TrialsFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
 import Wordmark from '@/components/Wordmark';
+import { POSITIONS, type PositionCode } from '@/lib/football';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -23,67 +24,151 @@ export const metadata = {
   alternates: { canonical: '/trials' },
 };
 
-export default async function TrialsBoard({ searchParams }: {
-  searchParams: Promise<{ age?: string; gender?: string }>;
-}) {
-  const { age, gender } = await searchParams;
+const AGES = ['U13', 'U14', 'U15', 'U16', 'U18'] as const;
+const GENDERS: [string, string][] = [['boys', 'Boys'], ['girls', 'Girls'], ['men', 'Men'], ['women', 'Women']];
+const STATES: Record<string, string> = { VIC: 'Victoria', NSW: 'New South Wales' };
+
+type Params = { age?: string; gender?: string; state?: string; pos?: string };
+
+export default async function TrialsBoard({ searchParams }: { searchParams: Promise<Params> }) {
+  const raw = await searchParams;
+  // D-74: the board's day-one filters are age group, region, competition
+  // gender and positions wanted. It shipped with two of the four. Region is
+  // the club's STATE — Victoria and New South Wales first (D-04) — because no
+  // region taxonomy exists yet and inventing one here would be a guess.
+  // Anything not on these lists is ignored rather than trusted (D-94 §6).
+  const age = AGES.includes(raw.age as (typeof AGES)[number]) ? raw.age! : null;
+  const gender = GENDERS.some(([v]) => v === raw.gender) ? raw.gender! : null;
+  const state = raw.state && raw.state in STATES ? raw.state : null;
+  const pos = raw.pos && raw.pos in POSITIONS ? raw.pos : null;
+
   // Chronological and filtered only by what the family chose. No recommender,
   // no personalisation, ever (D-74).
   const { rows } = await db.query(
-    `select t.id, t.title, t.time_venue, t.source, t.age_group, t.competition_gender,
+    `select t.id, t.title, t.time_venue, t.source, t.age_group, t.competition_gender, t.position_needs,
        upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
        to_char(t.added_on, 'DD Mon') as listed, to_char(t.last_checked, 'DD Mon') as checked,
-       c.name as club_name, c.club_state, c.public_slug
+       c.name as club_name, c.club_state, c.public_slug, c.state
      from trial_notice t join club c on c.id = t.club_id
      where t.trial_on >= (now() at time zone 'Australia/Melbourne')::date
-       and ($1::text is null or t.age_group = $1)
-       and ($2::text is null or t.competition_gender = $2)
      order by t.trial_on`,
-    [age || null, gender || null],
   );
-  const listings = rows as {
-    title: string; time_venue: string; source: string; mon: string; day: string;
+  type Listing = {
+    title: string; time_venue: string; source: string; mon: string; day: string; age_group: string | null;
+    competition_gender: string | null; position_needs: string[]; state: string | null;
     id: string; listed: string; checked: string; club_name: string; club_state: string; public_slug: string | null;
-  }[];
+  };
+  const upcoming = rows as Listing[];
+  const matches = (l: Listing, f: { age: string | null; gender: string | null; state: string | null; pos: string | null }) =>
+    (!f.age || l.age_group === f.age) && (!f.gender || l.competition_gender === f.gender)
+    && (!f.state || l.state === f.state) && (!f.pos || (l.position_needs ?? []).includes(f.pos));
+  const current = { age, gender, state, pos };
+  const listings = upcoming.filter((l) => matches(l, current));
   const lastChecked = listings.length ? listings[listings.length - 1].checked : null;
 
-  const pill = (on: boolean): React.CSSProperties => ({
-    // D-147: >=44px at every width. These were 29px — and they are the day-one
-    // filters (D-74), the only way anybody narrows this board on a phone.
-    borderRadius: 999, minHeight: 44, padding: '0 16px', fontSize: 12, fontWeight: on ? 900 : 700,
-    background: on ? T.accent : T.surface, color: on ? T.onAccent : T.secondary,
-    border: on ? '1px solid transparent' : `1px solid ${T.line}`, textDecoration: 'none',
-    display: 'inline-flex', alignItems: 'center',
-  });
-  const href = (next: { age?: string | null; gender?: string | null }) => {
+  // Each option shows how many trials it would leave, given the other
+  // choices already made — so nobody taps their way into an empty board.
+  const count = (next: Partial<typeof current>) => upcoming.filter((l) => matches(l, { ...current, ...next })).length;
+  const statesHere = Object.keys(STATES).filter((k) => upcoming.some((l) => l.state === k));
+  const posHere = (Object.keys(POSITIONS) as PositionCode[]).filter((c) => upcoming.some((l) => (l.position_needs ?? []).includes(c)));
+
+  const href = (next: Partial<typeof current>) => {
     const p = new URLSearchParams();
-    const a = next.age === undefined ? age : next.age;
-    const g = next.gender === undefined ? gender : next.gender;
-    if (a) p.set('age', a);
-    if (g) p.set('gender', g);
+    const merged = { ...current, ...next };
+    if (merged.age) p.set('age', merged.age);
+    if (merged.gender) p.set('gender', merged.gender);
+    if (merged.state) p.set('state', merged.state);
+    if (merged.pos) p.set('pos', merged.pos);
     const qs = p.toString();
     return qs ? `/trials?${qs}` : '/trials';
   };
+
+  const active = [
+    age && { key: 'age', label: age, clear: href({ age: null }) },
+    gender && { key: 'gender', label: GENDERS.find(([v]) => v === gender)![1], clear: href({ gender: null }) },
+    state && { key: 'state', label: STATES[state], clear: href({ state: null }) },
+    pos && { key: 'pos', label: `${pos} wanted`, clear: href({ pos: null }) },
+  ].filter(Boolean) as { key: string; label: string; clear: string }[];
+
+  const groupLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
+  const Chip = ({ to, on, children, title }: { to: string; on: boolean; children: React.ReactNode; title?: string }) => (
+    <Link href={to} className="chip" aria-pressed={on} title={title}>{children}</Link>
+  );
+  // A link, not a control, like the club's register: every filtered view has
+  // its own address, works with no JavaScript, and can be sent to a parent.
+  const groups = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={groupLabel}>Age group</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+          <Chip to={href({ age: null })} on={!age}>Any age</Chip>
+          {AGES.map((a) => <Chip key={a} to={href({ age: age === a ? null : a })} on={age === a}>{a}<span className="chip-count">{count({ age: a })}</span></Chip>)}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={groupLabel}>Competition</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+          <Chip to={href({ gender: null })} on={!gender}>All</Chip>
+          {GENDERS.map(([v, t]) => <Chip key={v} to={href({ gender: gender === v ? null : v })} on={gender === v}>{t}<span className="chip-count">{count({ gender: v })}</span></Chip>)}
+        </div>
+      </div>
+      {statesHere.length > 1 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div style={groupLabel}>State</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            <Chip to={href({ state: null })} on={!state}>Both</Chip>
+            {statesHere.map((k) => <Chip key={k} to={href({ state: state === k ? null : k })} on={state === k}>{STATES[k]}<span className="chip-count">{count({ state: k })}</span></Chip>)}
+          </div>
+        </div>
+      )}
+      {posHere.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div style={groupLabel}>Positions wanted</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            <Chip to={href({ pos: null })} on={!pos}>Any</Chip>
+            {posHere.map((c) => <Chip key={c} to={href({ pos: pos === c ? null : c })} on={pos === c} title={POSITIONS[c].label}>{c}<span className="chip-count">{count({ pos: c })}</span></Chip>)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <TrialsFrame>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Trials board</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Club trials listed below, by trial date.</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Trials board</h1>
+            <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Club trials listed below, by trial date.</div>
+          </div>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-          <Link href={href({ age: null })} style={pill(!age)}>All ages</Link>
-          {['U13', 'U14', 'U15', 'U16', 'U18'].map((a) => (
-            <Link key={a} href={href({ age: age === a ? null : a })} style={pill(age === a)}>{a}</Link>
+
+        {/* Phone: the four groups fold into one Filters button, and what is
+            chosen stays on screen as chips you can take off one at a time.
+            <details> opens and closes with no JavaScript. At a laptop there is
+            room, so the groups sit open in a card instead. */}
+        <details className="m-only trial-filters">
+          <summary className="chip" style={{ alignSelf: 'flex-start', cursor: 'pointer', listStyle: 'none' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M3 6h18M6 12h12M10 18h4" /></svg>
+            Filters
+            {active.length > 0 && <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: T.accent, color: T.onAccent, fontSize: 10.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{active.length}</span>}
+          </summary>
+          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', marginTop: 10 }}>{groups}</div>
+        </details>
+        <div className="d-only" style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' }}>{groups}</div>
+
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7, marginTop: -4 }}>
+          {active.map((a) => (
+            <Link key={a.key} href={a.clear} className="chip" aria-pressed="true" aria-label={`Remove ${a.label}`}>
+              {a.label}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </Link>
           ))}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: -4 }}>
-          <Link href={href({ gender: null })} style={pill(!gender)}>All</Link>
-          {[['boys', 'Boys'], ['girls', 'Girls'], ['men', 'Men'], ['women', 'Women']].map(([v, t]) => (
-            <Link key={v} href={href({ gender: gender === v ? null : v })} style={pill(gender === v)}>{t}</Link>
-          ))}
+          <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 700, color: T.muted, padding: '0 4px' }}>
+            {listings.length} {listings.length === 1 ? 'trial' : 'trials'}
+          </div>
+          {active.length > 1 && <Link href="/trials" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', padding: '0 4px' }}>Clear</Link>}
         </div>
         <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>

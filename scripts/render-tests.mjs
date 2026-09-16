@@ -807,6 +807,28 @@ const georgia = ids.children.georgia;
     outlines.every(([, n]) => n >= 1), true);
 }
 
+// D-74: the board's day-one filters are age group, region, competition
+// gender and positions wanted. It shipped with two. The four are links, not
+// controls — each filtered view has an address and needs no JavaScript — and
+// anything not on their lists is ignored rather than trusted (D-94 §6).
+{
+  const shown = (html) => Number(/(\d+) trials?</.exec(html.replace(/<!-- -->/g, ''))?.[1] ?? NaN);
+  const all = (await get('/trials', null)).html;
+  const everyone = shown(all);
+  check('t1: the board says how many trials it is showing', Number.isFinite(everyone) && everyone > 0, true);
+  check('t2: age, competition and positions-wanted filters are all on the board',
+    ['Age group', 'Competition', 'Positions wanted'].every((g) => all.includes(g)), true);
+  check('t3: on a phone they fold into one Filters button that opens without JavaScript',
+    /<details[^>]*class="[^"]*trial-filters[^"]*"[^>]*>\s*<summary/.test(all), true);
+  const gk = (await get('/trials?pos=GK', null)).html;
+  check('t4: "goalkeepers wanted" narrows the board', shown(gk) > 0 && shown(gk) < everyone, true);
+  check('t4b: and the choice shows as a chip that takes only itself off',
+    /href="\/trials"[^>]*aria-label="Remove GK wanted"|aria-label="Remove GK wanted"[^>]*href="\/trials"/.test(gk), true);
+  const junk = (await get('/trials?age=%3Cscript%3E&state=QLD&pos=XX&gender=mixed', null)).html;
+  check('t5: anything not on the lists is ignored, never trusted', [shown(junk), /Remove /.test(junk)], [everyone, false]);
+  check('t5b: and Mixed is not a way in (D-68 as amended)', /gender=mixed/.test(all), false);
+}
+
 // The trials board shipped in launch scope and NOTHING LINKED TO IT.
 {
   for (const [seat, who] of [['a parent', ids.people.alex], ['a player', ids.people.jordan]]) {

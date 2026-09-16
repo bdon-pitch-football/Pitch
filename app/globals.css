@@ -450,6 +450,11 @@ select { min-height: 44px; }
 .chip:hover { border-color: var(--muted); color: var(--ink); }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 800; }
 .chip-count { opacity: .65; font-variant-numeric: tabular-nums; }
+/* The trials board's Filters button is a <summary>: no marker, and it reads
+   as pressed while the panel is open. */
+.trial-filters > summary::-webkit-details-marker { display: none; }
+.trial-filters > summary::marker { content: ''; }
+.trial-filters[open] > summary { border-color: var(--accent); color: var(--ink); }
 
 .tag {
   border-radius: 7px; padding: 4px 8px;
