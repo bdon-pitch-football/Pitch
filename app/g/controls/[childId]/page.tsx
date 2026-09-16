@@ -252,7 +252,7 @@ export default async function Controls({ params, searchParams }: {
             {(c.timeline as { at: string; event: string; kind: string | null }[]).map((e, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}` }}>
                 <div style={{ width: 78, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{e.at}</div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{e.event === 'share_revoked' && e.kind === 'one' ? 'One club\u2019s link was switched off' : EVENT_LINES[e.event] ?? 'Something was recorded'}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{e.event === 'share_revoked' && e.kind === 'one' ? 'One club\u2019s link was switched off' : e.event === 'share_revoked' && e.kind === 'pitch' ? 'Pitch switched off every link, to keep families safe. A new link you send works as normal.' : EVENT_LINES[e.event] ?? 'Something was recorded'}</div>
               </div>
             ))}
           </div>

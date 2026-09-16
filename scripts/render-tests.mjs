@@ -324,7 +324,7 @@ const georgia = ids.children.georgia;
     const queue = ['/', '/home', '/trials', '/jobs', '/signin', '/join'];
     // Nothing in the product links to the operator console, so it has to be
     // seeded or it is never seen.
-    if (seat === 'operator') queue.push('/ops/verification', '/ops/support');
+    if (seat === 'operator') queue.push('/ops/verification', '/ops/support', '/ops/switches');
     const per = new Map();
     const broken = []; const stuck = new Set();
     while (queue.length) {
@@ -447,7 +447,7 @@ const georgia = ids.children.georgia;
       }
     }
   }
-  for (const path of ['/ops/verification', '/ops/support']) {
+  for (const path of ['/ops/verification', '/ops/support', '/ops/switches']) {
     const opHtml = (await get(path, ids.people.marina)).html;
     const nav = navOf(opHtml, 'Operator');
     check(`s4: ${path} carries the operator sidebar`, nav !== null, true);

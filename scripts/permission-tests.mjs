@@ -3056,5 +3056,56 @@ for (const f of srcFiles) {
 check('D-94 §6: dangerouslySetInnerHTML appears nowhere', dsi, 0);
 check('D-98: no code references a WWCC number', wwccNum, 0);
 
+// ---------------------------------------------------------------------------
+// The kill switches (D-94 §10; 0044). LAST in the file on purpose: the
+// revoke-all check switches off every link in this database.
+// ---------------------------------------------------------------------------
+{
+  const ksTok = sha('kill-switch-live');
+  const ksRec = [];
+  for (const r of Object.values(REC)) {
+    const h = sha('ks-probe-' + r);
+    await db.query(`insert into share_token (record_id, token_hash, issued_by) values ($1,$2,$3)`, [r, h, ID.guardian]);
+    if (await tok(h)) { ksRec.push(r); break; }
+  }
+  await db.query(`insert into share_token (record_id, token_hash, issued_by) values ($1,$2,$3)`, [ksRec[0], ksTok, ID.guardian]);
+  check('ks0: the kill-switch fixture starts with a live link', Boolean(await tok(ksTok)), true);
+
+  const refused = async (sql, args = []) => { try { await db.query(sql, args); return false; } catch { return true; } };
+  check('ks1: there is exactly one switch row, and a second cannot be added',
+    [(await db.query('select count(*)::int as n from ops_switch')).rows[0].n, await refused('insert into ops_switch (id) values (false)')], [1, true]);
+
+  const setPaused = async (on, reason = 'test run') =>
+    (await db.query('select fn_ops_set_links_paused($1,$2,$3,$4) as c', [on, ID.guardian, 'op@example.com', reason])).rows[0].c;
+  check('ks2: pausing changes the switch', await setPaused(true), true);
+  check('ks3: while paused, a live link reads exactly as a dead one (D-77)', await tok(ksTok), null);
+  check('ks4: pausing again writes nothing', await setPaused(true), false);
+  check('ks5: resuming changes it back', await setPaused(false), true);
+  check('ks6: and the same link is live again, nothing lost', Boolean(await tok(ksTok)), true);
+  check('ks7: a switch with no reason is refused', await refused('select fn_ops_set_links_paused(true,$1,$2,$3)', [ID.guardian, 'op@example.com', ' ']), true);
+  check('ks8: the pause lives inside the single read path (D-80)', /fn_public_links_paused\(\)/.test(await procSrc('fn_token_read')), true);
+
+  const log = (await db.query(`select action, operator_email, reason from ops_switch_event order by id`)).rows;
+  check('ks9: every change is logged with the operator and the reason, and only changes are',
+    log.map((r) => `${r.action}|${r.operator_email}|${r.reason}`), ['links_paused|op@example.com|test run', 'links_resumed|op@example.com|test run']);
+  check('ks10: the switch log cannot be edited', await refused(`update ops_switch_event set reason = 'nothing happened'`), true);
+  check('ks11: nor deleted', await refused(`delete from ops_switch_event`), true);
+
+  const liveBefore = (await db.query(`select count(*)::int as n from share_token where revoked_at is null`)).rows[0].n;
+  const childrenBefore = (await db.query(`select count(*)::int as n from consent_event where detail->>'kind' = 'pitch'`)).rows[0].n;
+  const people = (await db.query(
+    `select count(distinct dr.person_id)::int as n from share_token st join development_record dr on dr.id = st.record_id where st.revoked_at is null`)).rows[0].n;
+  const revoked = (await db.query('select fn_ops_revoke_all_links($1,$2,$3) as n', [ID.guardian, 'op@example.com', 'breach drill'])).rows[0].n;
+  check(`ks12: switching off every link switches off every live one (${liveBefore})`, revoked, liveBefore);
+  check('ks13: none is left live', (await db.query(`select count(*)::int as n from share_token where revoked_at is null`)).rows[0].n, 0);
+  check('ks14: the link no longer reads', await tok(ksTok), null);
+  check('ks15: each affected child\'s timeline says Pitch did it, once',
+    (await db.query(`select count(*)::int as n from consent_event where detail->>'kind' = 'pitch'`)).rows[0].n - childrenBefore, people);
+  check('ks16: and the log carries the count and the reason',
+    (await db.query(`select links_affected, reason from ops_switch_event where action = 'links_all_revoked'`)).rows[0], { links_affected: liveBefore, reason: 'breach drill' });
+  check('ks17: the timeline row carries no token and no free text',
+    (await db.query(`select detail from consent_event where detail->>'kind' = 'pitch' limit 1`)).rows[0].detail, { kind: 'pitch' });
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

@@ -16,7 +16,7 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 
 export type IconKey = 'home' | 'cv' | 'trials' | 'send' | 'roles' | 'register' | 'child' | 'children'
-  | 'crest' | 'page' | 'card' | 'shield' | 'help' | 'more';
+  | 'crest' | 'page' | 'card' | 'shield' | 'help' | 'more' | 'power';
 // short: the label a phone tab uses when the full one would wrap.
 export type Item = { key: string; href: string; label: string; short?: string; icon?: IconKey };
 
@@ -35,6 +35,7 @@ export const ICONS: Record<IconKey, React.ReactNode> = {
   card: <><rect x="3" y="5.5" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></>,
   shield: <><path d="M12 3 19 6v5c0 4.6-2.9 8.1-7 10-4.1-1.9-7-5.4-7-10V6Z" /><path d="m9 12 2 2 4-4.5" /></>,
   help: <><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6M12 17h.01" /></>,
+  power: <><path d="M12 3v8" /><path d="M6.4 6.9a8 8 0 1 0 11.2 0" /></>,
   more: <><circle cx="5.5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="18.5" cy="12" r="1.2" /></>,
 };
 
@@ -216,12 +217,13 @@ export async function CoachConsole({ active, children }: {
 }
 
 export function OpsConsole({ active, children }: {
-  active: 'verification' | 'support'; children: React.ReactNode;
+  active: 'verification' | 'support' | 'switches'; children: React.ReactNode;
 }) {
   const items: Item[] = [
     { key: 'home', href: '/home', label: 'Home', icon: 'home' },
     { key: 'verification', href: '/ops/verification', label: 'Verification', icon: 'shield' },
     { key: 'support', href: '/ops/support', label: 'Support', icon: 'help' },
+    { key: 'switches', href: '/ops/switches', label: 'Emergency switches', short: 'Switches', icon: 'power' },
   ];
   const head = <div className="kicker">Operator</div>;
   return <Frame label="Operator" head={head} items={items} active={active} floodlight bar>{children}</Frame>;

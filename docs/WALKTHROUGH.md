@@ -110,6 +110,14 @@ width (the desktop app's Viewport menu) and at laptop width.
 call sheet, log it as verified, then sign back in as `sunbury@example.com`
 and watch the register go from a count to named players.
 
+**/ops/switches** (17 Sep) holds the two emergency switches:
+- **Pause every shared link.** Every player's link shows the dead-link page
+  until you switch it back on. Nothing is lost.
+- **Switch off every link.** For a breach. It can't be undone: you type
+  `SWITCH OFF EVERY LINK`, and each family's timeline says Pitch did it.
+
+Both need a reason, and both go in the switch log with your email.
+
 ---
 
 ## Overnight, 16–17 Sep
@@ -146,7 +154,8 @@ npm run test:render
 Fetches the real pages as each seat and reads what they serve. Needs both
 processes running.
 
-Also: `node scripts/write-tests.mjs` (it changes the dev database, so
+Also: `node scripts/secret-scan.mjs --history` (secrets in any commit),
+`node scripts/write-tests.mjs` (it changes the dev database, so
 restart `dev-db.mts` afterwards), `node scripts/gate-coverage.mjs`,
 `node scripts/palette-check.mjs`, `python3 scripts/corpus-check.py` and
 `npx tsc --noEmit`.

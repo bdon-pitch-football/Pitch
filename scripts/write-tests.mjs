@@ -714,6 +714,56 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   }
 }
 
+// ---------------------------------------------------------------------------
+// 4 · THE KILL SWITCHES WORK THROUGH THE REAL PAGE (D-94 §10; 0044).
+//     Last, because the final check switches off every link in the dev
+//     database. In development any signed-in person with an email is an
+//     operator (lib/ops-policy), so Marina drives the console here; who may
+//     open it in production is pinned by the permission suite.
+// ---------------------------------------------------------------------------
+{
+  const op = ids.people.marina, parent = ids.people.alex;
+  const title = (h) => /<title>([^<]*)<\/title>/.exec(h)?.[1];
+  const deadTitle = title((await get('/p/never-a-real-link-xyz', null)).html);
+  const jordanLive = title((await get('/p/dev-jordan', null)).html);
+  check('ks-w0: the fixture link is live to begin with', jordanLive !== deadTitle, true);
+  const drive = async (label, extra) => {
+    const form = forms((await get('/ops/switches', op)).html).find((f) => f.submit.startsWith(label));
+    if (!form) return 'no form';
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    for (const [k, v] of Object.entries(extra)) fd.append(k, v);
+    const r = await fetch(BASE + '/ops/switches', { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(op) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+
+  check('ks-w1: a pause with no reason is refused', /error=reason/.test(await drive('Pause every shared link', { reason: '' })), true);
+  check('ks-w2: and changed nothing', title((await get('/p/dev-jordan', null)).html), jordanLive);
+  check('ks-w3: the pause switches on', /done=paused/.test(await drive('Pause every shared link', { reason: 'write-test drill' })), true);
+  check('ks-w4: a live link now shows the dead-link page (D-77)', title((await get('/p/dev-jordan', null)).html), deadTitle);
+  check('ks-w5: switching back on works', /done=resumed/.test(await drive('Switch shared links back on', { reason: 'drill over' })), true);
+  check('ks-w6: and the same link is live again', title((await get('/p/dev-jordan', null)).html), jordanLive);
+  const log = (await get('/ops/switches', op)).html;
+  check('ks-w7: the switch log names the reason', /write-test drill/.test(log) && /drill over/.test(log), true);
+
+  check('ks-w8: switching off every link without the exact words is refused',
+    /error=confirm/.test(await drive('Switch off every link', { reason: 'drill', confirm: 'switch off every link' })), true);
+  check('ks-w9: and nothing was switched off', title((await get('/p/dev-jordan', null)).html), jordanLive);
+  check('ks-w10: with the words, every link goes',
+    /done=revoked&n=[1-9]/.test(await drive('Switch off every link', { reason: 'breach drill', confirm: 'SWITCH OFF EVERY LINK' })), true);
+  check('ks-w11: the fixture link is dead', title((await get('/p/dev-jordan', null)).html), deadTitle);
+  // x3 deleted one of Alex's children; the others are still on file.
+  const timelines = [];
+  for (const c of Object.values(ids.children)) {
+    const r = await get(`/g/controls/${c.child_id}`, parent);
+    if (r.status === 200) timelines.push(/Pitch switched off every link/.test(r.html));
+  }
+  check(`ks-w12: and a parent's timeline says Pitch did it, not them (${timelines.length} children)`,
+    timelines.length > 0 && timelines.some(Boolean), true);
+  check('ks-w13: someone signed out cannot reach the console', (await get('/ops/switches', null)).status, 307);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 console.log('NOTE: this mutated the dev database. Restart scripts/dev-db.mts for a clean one.');
 process.exit(failures.length ? 1 : 0);

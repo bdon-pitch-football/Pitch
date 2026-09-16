@@ -28,3 +28,7 @@ export function operatorAllowed(
   if (allow.length === 0) return false;
   return allow.includes(email.trim().toLowerCase());
 }
+
+// Typed in full before every live link is switched off (0044). It cannot be
+// undone, so a click is not enough.
+export const REVOKE_ALL_PHRASE = 'SWITCH OFF EVERY LINK';
