@@ -2300,6 +2300,28 @@ const canApply = async (who) => (await db.query('select fn_can_apply_for_role($1
 check('job1: an adult with a coaching profile may apply', await canApply(ID.coachV), true);
 check('job2: a 17-year-old coach may not — restrictive by default (D-94)', await canApply(minorCoach), false);
 check('job3: an adult with no coaching profile may not', await canApply(ID.marcus), false);
+
+// 0042: a coach page is public, so only an adult's profile may carry a
+// public link or a public contact. A minor coach keeps the profile itself.
+const refuses = async (sql, args) => { try { await db.query(sql, args); return false; } catch { return true; } };
+check('cpa1: a 17-year-old coach cannot be given a public link',
+  await refuses(`update coach_profile set public_slug = 'teen-coach' where id = $1`, [minorProfile]), true);
+check('cpa2: nor a public contact',
+  await refuses(`update coach_profile set public_contact = 'teen@example.com' where id = $1`, [minorProfile]), true);
+const teen2 = crypto.randomUUID();
+await db.query(`insert into person (id, first_name, dob) values ($1,'Teen Two',$2)`, [teen2, yearsAgo(16)]);
+check('cpa3: nor be created with one',
+  await refuses(`insert into coach_profile (person_id, public_contact) values ($1, 'x@example.com')`, [teen2]), true);
+check('cpa4: an adult coach can publish',
+  await refuses(`update coach_profile set public_contact = 'coach@example.com' where id = $1`, [samProfile]), false);
+check('cpa5: a page is public only while its owner is an adult',
+  JSON.stringify((await db.query('select fn_coach_page_public($1) as a, fn_coach_page_public($2) as m', [samProfile, minorProfile])).rows[0]), '{"a":true,"m":false}');
+const coachSrcAll = ['page.tsx', 'print/page.tsx', 'opengraph-image.tsx']
+  .map((f) => readFileSync(fileURLToPath(new URL('../app/c/[slug]/' + f, import.meta.url)), 'utf8'));
+check('cpa6: every coach page lookup asks whether the owner is an adult',
+  coachSrcAll.every((src) => (src.match(/public_slug = \$1/g) ?? []).length === (src.match(/public_slug = \$1 and fn_coach_page_public\(cp\.id\)/g) ?? []).length), true);
+check('cpa7: and so does the sitemap',
+  /fn_coach_page_public/.test(readFileSync(fileURLToPath(new URL('../app/sitemap.ts', import.meta.url)), 'utf8')), true);
 check('job4: an anonymous caller may not', await canApply(null), false);
 
 const roleId = crypto.randomUUID();

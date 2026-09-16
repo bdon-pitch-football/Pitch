@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { rows } = await db.query(
     `select p.first_name, coalesce(p.last_name,'') as last_name
        from coach_profile cp join person p on p.id = cp.person_id
-      where cp.public_slug = $1`, [slug]);
+      where cp.public_slug = $1 and fn_coach_page_public(cp.id)`, [slug]);
   const c = rows[0];
   return {
     title: c ? `${`${c.first_name} ${c.last_name}`.trim()} — Coach CV` : 'Coach CV',
@@ -54,7 +54,7 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
        (select coalesce(json_agg(json_build_object('title', a.title, 'detail', a.detail) order by a.sort), '[]'::json)
         from coach_achievement a where a.coach_profile_id = cp.id) as wins
      from coach_profile cp join person p on p.id = cp.person_id
-     where cp.public_slug = $1`,
+     where cp.public_slug = $1 and fn_coach_page_public(cp.id)`,
     [slug],
   );
   if (rows.length === 0) notFound();

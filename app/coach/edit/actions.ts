@@ -15,11 +15,15 @@ export async function saveCoachProfile(formData: FormData) {
   // clubs and adults, absent for a signed-in minor (0027). This is not Pitch
   // handing over somebody else's details, which stays forbidden (D-100).
   const contact = String(formData.get('publicContact') ?? '').trim().slice(0, 120);
+  // An under-18 is never contactable (0042 refuses it in the database too),
+  // so whatever was posted is dropped rather than turned into an error.
+  const adult = (await db.query(
+    `select fn_age_band(dob) = '18plus' as adult from person where id = $1`, [me])).rows[0]?.adult === true;
   await db.query(
     `insert into coach_profile (person_id, region, philosophy, public_contact)
      values ($1,$2,$3,$4)
      on conflict (person_id) do update set region=$2, philosophy=$3, public_contact=$4`,
-    [me, region || null, philosophy || null, contact || null],
+    [me, region || null, philosophy || null, (adult && contact) || null],
   );
   redirect('/coach/edit?saved=1');
 }

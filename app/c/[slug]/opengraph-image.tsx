@@ -28,7 +28,7 @@ export default async function CoachCard({ params }: { params: Promise<{ slug: st
        (select cr.title from coach_role cr where cr.coach_profile_id = cp.id and cr.ended_year is null
         order by cr.sort limit 1) as current_title
      from coach_profile cp join person p on p.id = cp.person_id
-     where cp.public_slug = $1`,
+     where cp.public_slug = $1 and fn_coach_page_public(cp.id)`,
     [slug],
   );
   const c = rows[0];

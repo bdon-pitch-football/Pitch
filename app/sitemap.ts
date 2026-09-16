@@ -23,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const c of clubs.rows) entries.push({ url: `${base}/fc/${c.public_slug}`, changeFrequency: 'weekly', priority: 0.7 });
 
     // Coaches are adults with a public link they chose to have (D-100).
-    const coaches = await db.query('select public_slug from coach_profile where public_slug is not null');
+    const coaches = await db.query('select public_slug from coach_profile cp where public_slug is not null and fn_coach_page_public(cp.id)');
     for (const c of coaches.rows) entries.push({ url: `${base}/c/${c.public_slug}`, changeFrequency: 'weekly', priority: 0.6 });
   } catch {
     // A sitemap is not worth a 500 on a cold database.

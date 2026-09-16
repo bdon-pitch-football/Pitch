@@ -25,6 +25,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
   const { rows } = await db.query(
     `select p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, cp.public_contact,
        cp.region, cp.philosophy, cp.public_slug, cp.banner_path,
+       fn_age_band(p.dob) = '18plus' as adult,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select c.name from wwcc_attestation w join club c on c.id = w.club_id where w.person_id = p.id and w.revoked_at is null limit 1) as wwcc_club,
        (select c2.name from membership m join club c2 on c2.id = m.club_id where m.person_id = p.id and m.role = 'coach' and m.ended_at is null limit 1) as coach_club,
@@ -81,7 +82,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
           <label className="filefield">
             <input type="file" name="photo" accept="image/png,image/jpeg,image/webp" required />
             <span className="filefield-title">Choose a photo</span>
-            <span className="filefield-hint">PNG or JPEG, under 8MB. Cropped square.</span>
+            <span className="filefield-hint">PNG or JPEG, under 8MB.</span>
           </label>
           <button type="submit" className="btn btn-secondary">Save the photo</button>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
@@ -97,25 +98,29 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
               <div style={label}>Full name</div>
               <div style={{ fontSize: 15, fontWeight: 700 }}>{c.first_name} {c.last_name}</div>
             </div>
-            <div style={card}>
+            <label style={card}>
               <div style={label}>Region</div>
               <input style={input} name="region" aria-label="Region" defaultValue={c.region ?? ''} placeholder="Melbourne, VIC" />
-          <div style={card}>
-            <div style={label}>How clubs reach you — optional</div>
-            <input style={input} name="publicContact" aria-label="Public contact" type="email" placeholder="you@example.com"
-              defaultValue={c.public_contact ?? ''} />
-            <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5, marginTop: 6 }}>
-              Shown on your public page to clubs and other adults, and never to a signed-in under-18. Leave it blank and no contact route appears at all.
-            </div>
-          </div>
-            </div>
+            </label>
+            {/* A public contact is an adult's (0042): an under-18 is never
+                contactable, so the field is not offered at all. */}
+            {c.adult && (
+              <label style={card}>
+                <div style={label}>How clubs reach you — optional</div>
+                <input style={input} name="publicContact" aria-label="Public contact" type="email" placeholder="you@example.com"
+                  defaultValue={c.public_contact ?? ''} />
+                <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5, marginTop: 6 }}>
+                  Shown on your public page to clubs and other adults, and never to a signed-in under-18. Leave it blank and no contact route appears at all.
+                </div>
+              </label>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={label}>How you want to play</div>
-            <div style={card}>
+            <label style={card}>
               <textarea name="philosophy" aria-label="Coaching philosophy" defaultValue={c.philosophy ?? ''} rows={3} placeholder="Possession with purpose. Every player touches the ball every drill, every session — confidence first, patterns second." style={{ ...input, fontWeight: 500, fontSize: 13.5, lineHeight: 1.55, resize: 'vertical' }} />
-            </div>
+            </label>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>The part a technical director actually reads, and the part a parent decides on. Say it the way you&rsquo;d say it at the coffee.</div>
           </div>
 
@@ -191,18 +196,18 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
             </div>
           ))}
           <form action={addLicence} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Licence</div>
               <input style={input} name="title" aria-label="Title" placeholder="e.g. AFC B Diploma" required maxLength={80} />
-            </div>
-            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            </label>
+            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Who issued it — optional</div>
               <input style={input} name="issuer" aria-label="Who issued it" placeholder="e.g. Football Australia" maxLength={80} />
-            </div>
-            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            </label>
+            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Year — optional</div>
               <input style={input} name="year" aria-label="Year" placeholder="e.g. 2024" maxLength={20} />
-            </div>
+            </label>
             <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add a licence</button>
           </form>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
@@ -224,14 +229,14 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
             </div>
           ))}
           <form action={addCoachAchievement} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>What happened</div>
               <input style={input} name="title" aria-label="Title" placeholder="e.g. Promotion to State League 1" required maxLength={90} />
-            </div>
-            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            </label>
+            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Where and when — optional</div>
               <input style={input} name="detail" aria-label="Where and when" placeholder="e.g. Riverside FC U15 Boys, 2026" maxLength={90} />
-            </div>
+            </label>
             <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add an accomplishment</button>
           </form>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
@@ -265,14 +270,14 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
           ))}
           {clips.length < COACH_CLIP_CAP && (
             <form action={addCoachClip} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
+              <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
                 <div style={label}>Title</div>
                 <input style={input} name="title" aria-label="Title" placeholder="U14 session — pressing patterns" required maxLength={80} />
-              </div>
-              <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
+              </label>
+              <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
                 <div style={label}>Link</div>
                 <input style={input} name="url" aria-label="Link" placeholder="https://www.youtube.com/watch?v=…" required />
-              </div>
+              </label>
               <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add a clip</button>
               <div style={{ fontSize: 12, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
                 YouTube, Veo or Instagram. The video stays where it is — we keep the link, and nothing loads until someone presses play.

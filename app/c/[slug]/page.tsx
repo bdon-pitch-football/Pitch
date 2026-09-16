@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { rows } = await db.query(
     `select p.first_name, coalesce(p.last_name,'') as last_name, cp.region
        from coach_profile cp join person p on p.id = cp.person_id
-      where cp.public_slug = $1`, [slug]);
+      where cp.public_slug = $1 and fn_coach_page_public(cp.id)`, [slug]);
   const c = rows[0];
   if (!c) return { title: 'Coach CV' };
   const name = `${c.first_name} ${c.last_name}`.trim();
@@ -67,7 +67,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
        (select coalesce(json_agg(json_build_object('title', a.title, 'detail', a.detail) order by a.sort), '[]'::json)
         from coach_achievement a where a.coach_profile_id = cp.id) as wins
      from coach_profile cp join person p on p.id = cp.person_id
-     where cp.public_slug = $1`,
+     where cp.public_slug = $1 and fn_coach_page_public(cp.id)`,
     [slug],
   );
   if (rows.length === 0) notFound();
@@ -312,7 +312,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
           </div>
         )}
 
-        <CopyLink url={`https://pitchfootball.com.au/${c.public_slug}`} label="Copy this link" />
+        <CopyLink url={`https://pitchfootball.com.au/c/${c.public_slug}`} label="Copy this link" />
 
         <a href={`/c/${c.public_slug}/print`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Print or save as PDF</a>
 
