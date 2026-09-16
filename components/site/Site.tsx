@@ -5,7 +5,8 @@
 // stranger needs them:
 //   1. what it is, literally, with a real app screen in a phone
 //   2. how it works: three steps, real screens
-//   3. who it is for: the screen each person actually uses
+//   3. who it is for: the screen each person actually uses, and short
+//      walkthroughs of the app doing that person's job (16 Sep)
 //   4. what protects a child, accurate by age band
 //   5. where it is going: Now, Next, Later across a pitch
 //   6. what it costs
@@ -148,6 +149,62 @@ function Lightbox({ shot, onClose }: { shot: Shot | null; onClose: () => void })
       <img src={shot.src} alt={shot.alt} onClick={(e) => e.stopPropagation()} className="sp-lightbox-img"
         style={{ maxWidth: shot.laptop ? 'min(1200px, 100%)' : 'min(440px, 100%)', maxHeight: '88vh', width: 'auto', height: 'auto', borderRadius: shot.laptop ? 12 : 28, boxShadow: '0 40px 100px -30px rgba(0,0,0,.9)', cursor: 'default' }} />
     </div>
+  );
+}
+
+// Walkthroughs of the redesigned app (16 Sep), rendered from the same reels
+// the socials post, captured from the real build. Each person sees their own.
+// The caption is the reel's own first line. Coaches have one so far.
+const WALKS: Record<Role, { file: string; label: string }[]> = {
+  player: [
+    { file: 'walk-player-build', label: 'Build it once.' },
+    { file: 'walk-player-choose', label: 'You pick what a club sees.' },
+    { file: 'walk-player-send', label: 'Send it as a link.' },
+  ],
+  parent: [
+    { file: 'walk-parent-approve', label: 'Nothing goes out without you.' },
+    { file: 'walk-parent-whohas', label: 'Every club that has a link.' },
+    { file: 'walk-parent-takeoff', label: 'Take one off.' },
+  ],
+  coach: [
+    { file: 'walk-coach-build', label: 'Six years of coaching. One page.' },
+  ],
+  club: [
+    { file: 'walk-club-register', label: 'This is the register.' },
+    { file: 'walk-club-queue', label: 'Hold it. Move it. Answer it.' },
+    { file: 'walk-club-trial', label: 'Post the trial once.' },
+  ],
+};
+
+// One walkthrough. Muted, looping, and only playing while most of it is on
+// screen, so a phone is never decoding three videos nobody is looking at.
+// Nothing downloads until it is near the screen (preload none + poster). With
+// reduced motion it never plays by itself: the still shows, with controls.
+function Walk({ file, label }: { file: string; label: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [manual, setManual] = useState(false);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setManual(true); return; }
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting && e.intersectionRatio >= 0.6) v.play().catch(() => setManual(true));
+      else v.pause();
+    }, { threshold: [0, 0.6] });
+    io.observe(v);
+    return () => { io.disconnect(); v.pause(); };
+  }, []);
+  return (
+    <figure className="sp-walk" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ position: 'relative', aspectRatio: '9 / 16', borderRadius: 22, overflow: 'hidden', background: C.surface, border: `1px solid ${C.line}`, boxShadow: '0 30px 60px -34px rgba(0,0,0,.9)' }}>
+        <video ref={ref} src={`/site/walk/${file}.mp4`} poster={`/site/walk/${file}.webp`} muted playsInline loop preload="none"
+          controls={manual} aria-label={`Walkthrough: ${label}`}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      </div>
+      {/* Two lines kept for every caption, so a one-line label and a two-line
+          one make the same row height and switching tabs moves nothing. */}
+      <figcaption style={{ fontSize: 14, fontWeight: 800, color: C.ink, lineHeight: 1.3, minHeight: '2.6em' }}>{label}</figcaption>
+    </figure>
   );
 }
 
@@ -435,6 +492,9 @@ export default function Site() {
         @keyframes spGoal { 0% { transform: translate(-70px, 34px) scale(.8); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(1); opacity: 1; } }
         .sp-goal-net { animation: spNet .5s ease-out 1.15s both; transform-origin: 50% 0; }
         @keyframes spNet { 0% { transform: scaleY(1); } 40% { transform: scaleY(1.12); } 100% { transform: scaleY(1); } }
+        .sp-walks { display: grid; grid-auto-flow: column; grid-auto-columns: clamp(180px, 56vw, 240px); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; scrollbar-width: none; }
+        .sp-walks::-webkit-scrollbar { display: none; }
+        .sp-walks > .sp-walk { scroll-snap-align: start; }
         .sp-grid-2 { display: grid; grid-template-columns: 1fr; gap: 40px; align-items: center; }
         .sp-steps { display: grid; grid-template-columns: 1fr; gap: 56px; }
         .sp-vision { display: grid; grid-template-columns: 1fr; gap: 14px; }
@@ -445,6 +505,7 @@ export default function Site() {
         .sp-vball { display: none; }
         @media (min-width: 900px) {
           .sp-grid-2 { grid-template-columns: 1.05fr .95fr; }
+          .sp-walks { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 300px)); grid-auto-columns: auto; overflow: visible; }
           .sp-steps { grid-template-columns: repeat(3, 1fr); gap: 28px; }
           .sp-vision { grid-template-columns: repeat(3, 1fr); gap: 0; }
           .sp-price { grid-template-columns: repeat(3, 1fr); }
@@ -611,6 +672,19 @@ export default function Site() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Walkthroughs for whoever is chosen above. Only that person's are
+              rendered, so hidden tabs never load or play video. Every row is
+              the same height, so switching tabs moves nothing. */}
+          <div style={{ marginTop: 56, display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <Kicker color={ACCENT[who]}>Watch it work</Kicker>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.muted }}>The app as it is, in about nine seconds each.</div>
+            </div>
+            <div className="sp-walks" key={who}>
+              {WALKS[who].map((w) => <Walk key={w.file} file={w.file} label={w.label} />)}
+            </div>
           </div>
         </div>
       </section>
