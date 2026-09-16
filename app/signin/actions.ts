@@ -51,7 +51,12 @@ export async function signIn(formData: FormData) {
            (select p2.email from guardianship_link g join person p2 on p2.id = g.guardian_id
             where g.child_id = p.id and g.approved_at is not null and g.revoked_at is null
               and p2.email is not null limit 1),
-           case when fn_age_band(p.dob) = 'u16' then null else p.email end) as recipient
+           -- A parent made at approval has no DOB, which reads as under 16;
+           -- they are still the account holder (see lib/auth createReset).
+           case when fn_age_band(p.dob) = 'u16'
+                 and not (p.dob is null and exists(select 1 from guardianship_link g3
+                   where g3.guardian_id = p.id and g3.approved_at is not null and g3.revoked_at is null))
+                then null else p.email end) as recipient
          from person p where p.id = $1`,
         [personId],
       );

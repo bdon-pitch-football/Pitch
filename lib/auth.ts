@@ -54,14 +54,21 @@ export async function createReset(email: string): Promise<{ token: string; sendT
     `select p.id, p.email, fn_age_band(p.dob) as band,
        (select p2.email from guardianship_link g join person p2 on p2.id = g.guardian_id
         where g.child_id = p.id and g.approved_at is not null and g.revoked_at is null
-          and p2.email is not null limit 1) as guardian_email
+          and p2.email is not null limit 1) as guardian_email,
+       -- A parent is created at approval with no date of birth (lib/
+       -- guardian-flow), and fn_age_band reads a missing DOB as under 16 —
+       -- the restrictive default. Without this, the reset went to the
+       -- parent's own "guardian", who does not exist, and a newly approved
+       -- parent could never set a password or sign in to manage their child.
+       (p.dob is null and exists(select 1 from guardianship_link g2
+          where g2.guardian_id = p.id and g2.approved_at is not null and g2.revoked_at is null)) as dobless_guardian
      from person p where lower(p.email) = lower($1)`,
     [email],
   );
   const p = rows[0];
   if (!p) return null;
 
-  const recipient = p.band === 'u16' ? p.guardian_email : p.email;
+  const recipient = p.band === 'u16' && !p.dobless_guardian ? p.guardian_email : p.email;
   if (!recipient) return null;
 
   const token = randomBytes(24).toString('base64url');

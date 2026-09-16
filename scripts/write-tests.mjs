@@ -103,7 +103,7 @@ async function reach(who, extra = []) {
     pages.push({ path, html: r.html });
     for (const m of r.html.matchAll(/href="(\/[^"#][^"]*)"/g)) {
       const h = m[1];
-      if (h.startsWith('/_next') || h.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt)$/.test(h)) continue;
+      if (h.startsWith('/_next') || h.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)) continue;
       if (!seen.has(h)) queue.push(h);
     }
   }
@@ -652,6 +652,67 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   // Posting the publish action anyway, with an adult's form, changes nothing.
   await send(nate, publish);
   check('cp14: a 17-year-old who posts it anyway gets no page', slugOf((await get('/coach/edit', nate)).html), undefined);
+}
+
+// ---------------------------------------------------------------------------
+// A parent approves from inside another app's browser, and can get in
+// afterwards (doc 08 step 3; D-17). Mila's invitation is the seeded one.
+// Every request here carries Instagram's in-app User-Agent and no cookie,
+// which is how the most important write in the product actually arrives.
+// ---------------------------------------------------------------------------
+{
+  const inv = ids.pendingInvitation;
+  const IG = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 339.0.3.12.108';
+  const ig = async (path, init = {}) => {
+    const r = await fetch(BASE + path, { redirect: 'manual', ...init, headers: { 'user-agent': IG, ...(init.headers ?? {}) } });
+    return { status: r.status, location: r.headers.get('location') ?? '', html: await r.text() };
+  };
+  const post = async (path, form, extra = {}) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    for (const [k, v] of Object.entries(extra)) fd.append(k, v);
+    return ig(path, { method: 'POST', body: fd });
+  };
+  const plain = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
+
+  const page = await ig(`/a/${inv}`);
+  check('ia1: the approval page opens inside Instagram, signed out', page.status, 200);
+  const again = await ig(`/a/${inv}`);
+  check('ia2: opening it twice uses nothing up (a mail scanner or a webview preload cannot approve or burn it)', again.status, 200);
+  const approveForm = forms(page.html).find((f) => /Approve/.test(f.submit));
+  const done = await post(`/a/${inv}`, approveForm);
+  check('ia3: approving works there, with no JavaScript and no cookie', /\/a\/[0-9a-f-]+\/done/.test(done.location), true);
+
+  const landing = await ig(`/a/${inv}/done`);
+  check('ia4: the landing names the app the parent is inside', /data-in-app="Instagram"/.test(landing.html), true);
+  check('ia5: and offers Safari, with the link to copy', /x-safari-http/.test(landing.html) && /Copy the link/.test(landing.html), true);
+  check('ia6: the landing never shows the parent\'s email address', /priya@example\.com/.test(landing.html), false);
+  check('ia7: and has no dead buttons: the next step is a real one', /Email me the link/.test(landing.html) && !/>Manage</.test(landing.html), true);
+
+  const setup = forms(landing.html).find((f) => /Email me the link/.test(f.submit));
+  const sentTo = await post(`/a/${inv}/done`, setup);
+  check('ia8: asking for the link says it is on its way', /sent=1/.test(sentTo.location), true);
+  const box = plain((await get('/dev/outbox', ids.people.alex)).html);
+  const token = /\/reset\/([A-Za-z0-9_-]{20,})/.exec(box)?.[1];
+  check('ia9: a NEW parent (no date of birth on file) gets the set-a-password email, to their own address',
+    Boolean(token) && /priya@example\.com/.test(box), true);
+
+  const resetPage = await ig(`/reset/${token}`);
+  check('ia10: the emailed link says it is inside an app too', /data-in-app="Instagram"/.test(resetPage.html), true);
+  await ig(`/reset/${token}`);
+  const pw = forms(resetPage.html).find((f) => /Save it/.test(f.submit));
+  const saved = await post(`/reset/${token}`, pw, { password: 'parent-password-2468' });
+  check('ia11: opening the link did not use it up; setting the password works', /signin\?reset=1/.test(saved.location), true);
+  const signin = forms((await ig('/signin')).html).find((f) => /^Sign in$/.test(f.submit));
+  const signedIn = await fetch(BASE + '/signin', { method: 'POST', redirect: 'manual', headers: { 'user-agent': IG },
+    body: (() => { const fd = new FormData(); for (const [k, v] of Object.entries(signin.fields)) fd.append(k, v);
+      fd.append('email', 'priya@example.com'); fd.append('password', 'parent-password-2468'); return fd; })() });
+  const cookie = (signedIn.headers.get('set-cookie') ?? '').split(';')[0];
+  const home = await fetch(BASE + '/home', { headers: { cookie } });
+  check('ia12: and the parent is in, looking at their child', /Mila/.test(await home.text()), true);
+  check('ia13: the landing now says sign in, not set a password', /href="\/signin"/.test((await ig(`/a/${inv}/done`)).html), true);
+  check('ia14: "No password yet? Email me a link" is a real link now, not a second submit on the password form',
+    /href="\/reset"[^>]*>No password yet/.test((await ig('/signin')).html), true);
 }
 
 // ---------------------------------------------------------------------------

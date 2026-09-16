@@ -1,5 +1,6 @@
 // Set a new password. The token is single-use and expires in an hour; it is
 // only ever compared as a hash.
+import OpenInBrowser from '@/components/OpenInBrowser';
 import { HeaderMark } from '@/components/Wordmark';
 import { submitNewPassword } from '../actions';
 import { T } from '@/lib/palette';
@@ -20,6 +21,9 @@ export default async function SetPassword({ params, searchParams }: {
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Set a new password</h1>
+        {/* The emailed link most often opens inside the mail app. Setting the
+            password works there; the sign-in that follows would not carry. */}
+        <OpenInBrowser path={`/reset/${token}`} />
         {short && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Use at least ten characters.</div>}
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}><input type="hidden" name="token" value={token} />
           <label style={card}>

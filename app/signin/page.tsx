@@ -2,6 +2,7 @@
 // password path is inert and the email match signs in directly; production
 // swaps in Supabase Auth behind the same form. Responses are identical
 // whether or not an account exists (D-94 §2 — no enumeration).
+import OpenInBrowser from '@/components/OpenInBrowser';
 import { HeaderMark } from '@/components/Wordmark';
 import { signIn } from './actions';
 import { T } from '@/lib/palette';
@@ -24,6 +25,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
         @media (prefers-reduced-motion: reduce) { .door > * { animation: none } }`}</style>
       <div className="door reading" style={{ width: '100%', minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
+        <OpenInBrowser path="/signin" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>
@@ -42,7 +44,11 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <button type="submit" className="btn btn-primary">Sign in</button>
-            <button type="submit" style={{ background: 'transparent', border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Email me a link instead</button>
+            {/* This was a second submit button on the password form, and no
+                emailed sign-in link exists (doc 15 has no such message), so in
+                production it signed nobody in. The emailed link that does
+                exist is §10's: choose a password. */}
+            <a href="/reset" className="btn btn-secondary" style={{ color: T.secondary }}>No password yet? Email me a link</a>
           </div>
         </form>
         <div style={{ fontSize: 13, fontWeight: 700, color: T.muted, textAlign: 'center' }}>Forgotten your password? <a href="/reset" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Reset it</a></div>

@@ -5,7 +5,7 @@
 // has built content there is nothing to preview and the promises + decision
 // stand alone.
 import { notFound } from 'next/navigation';
-import { getPendingInvitation } from '@/lib/guardian-flow';
+import { getInvitationForParentPage } from '@/lib/guardian-flow';
 import { approve } from './actions';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
@@ -22,7 +22,7 @@ const PROMISES: [string, string][] = [
 
 export default async function Approval({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const inv = await getPendingInvitation(id);
+  const inv = await getInvitationForParentPage(id);
   if (!inv || inv.approved_at) notFound();
 
   const name: string = inv.first_name;

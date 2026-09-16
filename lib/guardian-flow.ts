@@ -76,6 +76,19 @@ export async function getPendingInvitation(id: string) {
   return rows[0] ?? null;
 }
 
+// The parent's own pages (/a/[id] and /a/[id]/done) arrive from an SMS, so
+// anyone holding the link can open them. They show the child's first name
+// and age and nothing else, so that is all they read — never the parent's
+// phone or email (D-25).
+export async function getInvitationForParentPage(id: string) {
+  if (!isUuid(id)) return null;
+  const { rows } = await db.query(
+    `select id, first_name, dob, approved_at from pending_invitation where id = $1`,
+    [id],
+  );
+  return (rows[0] ?? null) as { id: string; first_name: string; dob: string; approved_at: string | null } | null;
+}
+
 // Approval: the guardian's single tap. One transaction (D-17, D-26's
 // auditability): guardian person + child person + approved guardianship +
 // empty development record + the consent rows that prove it, stamped with

@@ -2169,7 +2169,12 @@ check('D-94: a non-existent account still does the hashing work (no timing oracl
 check('D-94: sign-in has exactly one outcome, whatever happened',
   (signinSrc.match(/redirect\(/g) ?? []).length, 1);
 check('D-94: reset request has exactly one outcome', resetSrc.includes("redirect('/reset?sent=1')"), true);
-check('§10 amendment: an under-16 reset routes to the guardian', authSrc.includes("band === 'u16' ? p.guardian_email"), true);
+check('§10 amendment: an under-16 reset routes to the guardian', authSrc.includes("band === 'u16' && !p.dobless_guardian ? p.guardian_email"), true);
+// The one exception: a parent created at approval, who has no date of birth
+// and so reads as under 16. It can only ever be someone with NO date of
+// birth who is an approved guardian — never a child with a real DOB.
+check('§10 amendment: only a parent with no DOB is exempt, never a child with one',
+  /\(p\.dob is null and exists\(select 1 from guardianship_link g2\s+where g2\.guardian_id = p\.id and g2\.approved_at is not null and g2\.revoked_at is null\)\) as dobless_guardian/.test(authSrc), true);
 check('D-94 §4: reset tokens are stored hashed, never raw', /token_hash/.test(authSrc) && !/values \(\$1, *token\)/.test(authSrc), true);
 check('§33: the sign-in alert carries no IP, city or device string',
   /ip|city|geo|fingerprint/i.test(msgCode.split('newSignInEmail')[1]?.split('export const')[0] ?? ''), false);
@@ -2341,6 +2346,33 @@ check('slug4: a name with no plain letters still gets an address', coachSlugBase
 check('slug5: never longer than 40', coachSlugBase('A'.repeat(30), 'B'.repeat(30)).length <= 40, true);
 check('slug6: never ends in a hyphen after trimming', /-$/.test(coachSlugBase('Abcdefghij'.repeat(4).slice(0, 39), 'x')), false);
 check('slug7: a clash tries name-2, then name-3', coachSlugCandidates('sam-kaya', 3), ['sam-kaya', 'sam-kaya-2', 'sam-kaya-3']);
+
+// In-app browsers (lib/in-app-browser.ts): named when we can, never flagged
+// when the link opens in the phone's own browser.
+{
+  const { detectInAppBrowser, openInBrowserHref } = await import('../lib/in-app-browser.ts');
+  const UA = {
+    instagram: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 339.0.3.12.108',
+    facebookAndroid: 'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/126.0 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/470.0.0.0;]',
+    messenger: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/460.0]',
+    tiktok: 'Mozilla/5.0 (Linux; Android 13; SM-S911B; wv) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36 musical_ly_2023',
+    genericWebview: 'Mozilla/5.0 (Linux; Android 13; SM-A536E; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0 Mobile Safari/537.36',
+    safari: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    chrome: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36',
+    desktop: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+  };
+  const d = (k) => detectInAppBrowser(UA[k]);
+  check('iab1: Instagram on an iPhone is named', d('instagram'), { app: 'Instagram', platform: 'ios' });
+  check('iab2: Facebook on Android is named', d('facebookAndroid'), { app: 'Facebook', platform: 'android' });
+  check('iab3: Messenger is not mistaken for Facebook', d('messenger')?.app, 'Messenger');
+  check('iab4: TikTok is named', d('tiktok')?.app, 'TikTok');
+  check('iab5: an unnamed Android WebView is still caught', d('genericWebview')?.app, 'another app');
+  check('iab6: Safari, Chrome and a laptop are left alone', [d('safari'), d('chrome'), d('desktop'), detectInAppBrowser(null)], [null, null, null, null]);
+  check('iab7: iOS is offered Safari', openInBrowserHref('https://pitchfootball.com.au/a/x/done', 'ios'), 'x-safari-https://pitchfootball.com.au/a/x/done');
+  check('iab8: Android is offered Chrome', openInBrowserHref('https://pitchfootball.com.au/signin', 'android'),
+    'intent://pitchfootball.com.au/signin#Intent;scheme=https;package=com.android.chrome;end');
+  check('iab9: nothing but http(s) is ever turned into a link', [openInBrowserHref('javascript:alert(1)', 'ios'), openInBrowserHref('not a url', 'android')], [null, null]);
+}
 check('job4: an anonymous caller may not', await canApply(null), false);
 
 const roleId = crypto.randomUUID();
