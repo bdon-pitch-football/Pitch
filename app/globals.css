@@ -4,6 +4,13 @@ html {
 body {
   margin: 0;
   background: #070b09;
+  /* Installed on an iPhone home screen, the page runs under the status bar
+     (layout.tsx: black-translucent, viewport-fit=cover). These insets are
+     zero in an ordinary browser tab, so nothing moves there. The bottom
+     inset is handled by the tab bar itself. */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 a {
   color: #3ddc84;

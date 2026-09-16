@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Archivo } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import { connection } from 'next/server';
@@ -38,7 +38,21 @@ export const metadata: Metadata = {
     type: 'website',
   },
   twitter: { card: 'summary_large_image' },
-  icons: { icon: '/assets/brand/pitch-app-icon.svg', apple: '/assets/brand/app-icon-180.png' },
+  // apple-touch-icon is square and fully green: iOS draws its own rounded
+  // corners and fills any transparency with black.
+  icons: { icon: '/assets/brand/pitch-app-icon.svg', apple: '/assets/brand/apple-touch-icon.png' },
+  // iOS home screen (D-52): opens without Safari's bars, named "Pitch",
+  // status bar over the dark page. Android reads app/manifest.ts.
+  appleWebApp: { capable: true, title: 'Pitch', statusBarStyle: 'black-translucent' },
+  formatDetection: { telephone: false },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0b120e',
+  colorScheme: 'dark',
+  // black-translucent puts the page under the status bar and the home
+  // indicator; the frame pads itself with the safe-area insets.
+  viewportFit: 'cover',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

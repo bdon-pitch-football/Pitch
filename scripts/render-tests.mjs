@@ -369,7 +369,7 @@ const georgia = ids.children.georgia;
       }
 
       const links = [...new Set([...r.html.matchAll(/href="(\/[^"#][^"]*)"/g)].map((m) => m[1])
-        .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt)$/.test(h)))];
+        .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)))];
       if (who && links.length === 0 && !TERMINAL.some((t) => P.includes(t))) stuck.add(P);
       for (const h of links) if (!seen.has(h)) queue.push(h);
     }
@@ -414,7 +414,7 @@ const georgia = ids.children.georgia;
 // is not "a nav exists", it is "the nav's links ARE the home page's links".
 {
   const hrefs = (html) => [...new Set([...html.matchAll(/href="(\/[^"#]*)"/g)].map((m) => m[1])
-    .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|ico)$/.test(h)))];
+    .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|ico|webmanifest)$/.test(h)))];
   const navOf = (html, label) => {
     const m = new RegExp(`<nav[^>]*aria-label="${label}"[^>]*>([\\s\\S]*?)</nav>`).exec(html);
     return m ? m[1] : null;
@@ -955,6 +955,29 @@ const georgia = ids.children.georgia;
   check('csp5: nobody may frame a page', /frame-ancestors 'none'/.test(one.csp ?? ''), true);
   const p = await get('/p/dev-jordan');
   check('csp6: the shared CV page has it too', Boolean(p.csp), true);
+}
+
+// Installable (D-52): a manifest Android can install from, and the iOS
+// home-screen tags. And the in-app browser note shows only inside an app.
+{
+  const m = await fetch(BASE + '/manifest.webmanifest');
+  const man = m.ok ? await m.json() : {};
+  check('pwa1: the manifest is served', m.headers.get('content-type')?.includes('manifest+json'), true);
+  check('pwa2: it names the app and opens standalone at /home',
+    [man.short_name, man.display, man.start_url], ['Pitch', 'standalone', '/home']);
+  const sizes = (man.icons ?? []).map((i) => `${i.sizes}:${i.purpose}`);
+  check('pwa3: with 192 and 512 icons, and a maskable one', ['192x192:any', '512x512:any', '512x512:maskable'].every((x) => sizes.includes(x)), true);
+  const icons = [];
+  for (const i of man.icons ?? []) icons.push((await fetch(BASE + i.src)).headers.get('content-type'));
+  check('pwa4: every icon it names exists', icons.length > 0 && icons.every((t) => t === 'image/png'), true);
+  const { html } = await get('/signin');
+  check('pwa5: iOS gets its home-screen tags and a square icon',
+    /apple-mobile-web-app-title" content="Pitch"/.test(html) && /rel="apple-touch-icon" href="\/assets\/brand\/apple-touch-icon\.png"/.test(html) && /viewport-fit=cover/.test(html), true);
+  check('pwa6: every page links the manifest', /rel="manifest"/.test(html), true);
+
+  const ig = await (await fetch(BASE + '/signin', { headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/470.0.0.0;]' } })).text();
+  check('iab-r1: inside Facebook, sign-in says so and offers Chrome', /data-in-app="Facebook"/.test(ig) && /intent:\/\/[^"]*package=com\.android\.chrome/.test(ig), true);
+  check('iab-r2: in an ordinary browser there is no note', /data-in-app=/.test(html), false);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
