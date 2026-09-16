@@ -19,7 +19,8 @@ export default async function Build({ params, searchParams }: { params: Promise<
             coalesce(dr.about,'') as about, dr.surfaced_stats,
             (select coalesce(json_object_agg(stat_key, value), '{}'::json) from player_stat
               where record_id = dr.id and season='2026' and source_experience_id is null) as stats,
-            exists(select 1 from profile_version where record_id = dr.id and status='pending') as has_pending
+            exists(select 1 from profile_version where record_id = dr.id and status='pending') as has_pending,
+            (select count(*)::int from highlight h where h.record_id = dr.id) as clips
      from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
     [recordId],
   );

@@ -567,6 +567,33 @@ const georgia = ids.children.georgia;
     }
   }
 
+  // The builder's progress and the moment at the end of it (BUZ, 16 Sep).
+  // Finishing a page used to pass in silence. The moment is a real screen,
+  // and it is as closed as every other record surface: a record that is not
+  // yours is indistinguishable from one that does not exist (D-77).
+  {
+    const jordan = ids.people.jordan;
+    const rec = hrefs((await get('/home', jordan)).html).find((h) => /^\/build\/[0-9a-f-]{36}$/.test(h));
+    if (rec) {
+      const build = (await get(rec, jordan)).html;
+      // React writes <!-- --> between adjacent expressions, so the sentence
+      // is only contiguous once those are stripped.
+      check('s20: the builder shows how much of the page is done', /\d of 6 done/.test(build.replace(/<!-- -->/g, '')), true);
+      check('s20b: and offers the other two build surfaces', [`${rec}/clips`, `${rec}/more`].every((h) => build.includes(`href="${h}"`)), true);
+      const ready = await get(`${rec}/ready`, jordan);
+      check('s21: the finished-page screen renders for the player', ready.status, 200);
+      check('s21b: and names the page, never a working link', /Your page is (ready|live)/.test(ready.html) && !/\/p\/[A-Za-z0-9_-]{16,}/.test(ready.html), true);
+      const doors = hrefs(ready.html);
+      check('s21c: and offers sending it and going back to building',
+        doors.includes(`/send/${rec.split('/')[2]}`) && doors.includes(rec), true);
+      // Not yours reads exactly like not there: both are sent home.
+      const theirs = await get(`${rec}/ready`, ids.people.sam);
+      const absent = await get('/build/00000000-0000-0000-0000-000000000000/ready', ids.people.sam);
+      check('s22: someone else\'s finished-page screen is closed, and says nothing',
+        [theirs.status, absent.status], [307, 307]);
+    }
+  }
+
   // Reading surfaces stay sidebar-free — a parent's screens are not a console.
   for (const [path, who] of [['/home', ids.people.alex], [`/g/controls/${ids.children.deniz.child_id}`, ids.people.alex], ['/home', ids.people.marina]]) {
     const html = (await get(path, who)).html;

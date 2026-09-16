@@ -15,7 +15,7 @@ const T = {
 interface RecordData {
   id: string; first_name: string; last_name: string; photo_path: string | null; positions: string[];
   squad_number: number | null; foot: string | null; about: string;
-  surfaced_stats: string[]; stats: Record<string, number>; has_pending: boolean;
+  surfaced_stats: string[]; stats: Record<string, number>; has_pending: boolean; clips: number;
 }
 
 const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
@@ -26,6 +26,13 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [positions, setPositions] = useState<string[]>(record.positions ?? []);
+  // Tracked so the progress line answers the screen as it is NOW, not as it
+  // was when the page loaded: filling a field should move the bar.
+  const [num, setNum] = useState<string>(record.squad_number == null ? '' : String(record.squad_number));
+  const [about, setAbout] = useState<string>(record.about ?? '');
+  const [stats, setStats] = useState<Record<string, string>>(
+    Object.fromEntries(STAT_KEYS.map((k) => [k, record.stats?.[k] == null ? '' : String(record.stats[k])])),
+  );
   const [surfaced, setSurfaced] = useState<string[]>(record.surfaced_stats?.length ? record.surfaced_stats : ['apps', 'goals', 'assists']);
   const toggle = (code: string) =>
     setPositions((p) => (p.includes(code) ? p.filter((c) => c !== code) : p.length < 3 ? [...p, code] : p));
@@ -33,13 +40,41 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
     setSurfaced((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
   const act = saveDraft;
 
+  // Six things make a page worth sending, and they are the same six /home
+  // counts. Each is a real field — nothing here is a score.
+  const steps = [
+    Boolean(record.photo_path),
+    positions.length > 0,
+    num.trim() !== '',
+    about.trim() !== '',
+    Object.values(stats).some((v) => v.trim() !== ''),
+    record.clips > 0,
+  ];
+  const done = steps.filter(Boolean).length;
+
   return (
     <div style={{ width: '100%', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your CV</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Two minutes. Edit anything later.</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your CV</h1>
+            <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Two minutes. Edit anything later.</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>Your page</div>
+              <div aria-live="polite" style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{done} of {steps.length} done</div>
+            </div>
+            <div aria-hidden style={{ height: 6, borderRadius: 999, background: T.surface2, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.round((done / steps.length) * 100)}%`, height: 6, borderRadius: 999, background: T.accent, transition: 'width .3s cubic-bezier(.22,1,.36,1)' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 7 }}>
+            <div aria-current="page" style={{ minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 999, background: T.accent, color: T.onAccent, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.02em' }}>Your football</div>
+            <a href={`/build/${record.id}/clips`} style={{ minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 999, background: T.surface2, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>Highlights</a>
+            <a href={`/build/${record.id}/more`} style={{ minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 999, background: T.surface2, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>Achievements</a>
+          </div>
         </div>
         {saved && (
           <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>
@@ -125,7 +160,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: 8 }}>
               <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                 <div style={label}>Number</div>
-                <input style={{ ...input, textAlign: 'center', fontSize: 20, fontWeight: 900, color: T.accent }} name="squadNumber" aria-label="Squad number" type="number" min="1" max="99" defaultValue={record.squad_number ?? ''} placeholder="—" />
+                <input style={{ ...input, textAlign: 'center', fontSize: 20, fontWeight: 900, color: T.accent }} name="squadNumber" aria-label="Squad number" type="number" min="1" max="99" value={num} onChange={(e) => setNum(e.target.value)} placeholder="—" />
               </div>
               <div style={card}>
               <div style={label}>Preferred foot</div>
@@ -138,7 +173,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>About</div>
             <div style={card}>
-              <textarea name="about" aria-label="About" defaultValue={record.about} rows={3} placeholder="Right-footed 10 who plays between the lines. Working on my weak foot and pressing triggers…" style={{ ...input, fontSize: 13.5, fontWeight: 500, lineHeight: 1.55, resize: 'vertical' }} />
+              <textarea name="about" aria-label="About" value={about} onChange={(e) => setAbout(e.target.value)} rows={3} placeholder="Right-footed 10 who plays between the lines. Working on my weak foot and pressing triggers…" style={{ ...input, fontSize: 13.5, fontWeight: 500, lineHeight: 1.55, resize: 'vertical' }} />
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -152,7 +187,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {STAT_KEYS.map((k: StatKey) => (
                 <div key={k} style={{ ...card, padding: '10px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: surfaced.includes(k) ? 1 : 0.45 }}>
-                  <input style={{ ...input, textAlign: 'center', fontSize: 19, fontWeight: 900 }} name={`stat_${k}`} aria-label={STAT_LABELS[k]} type="number" min="0" defaultValue={record.stats[k] ?? ''} placeholder="—" />
+                  <input style={{ ...input, textAlign: 'center', fontSize: 19, fontWeight: 900 }} name={`stat_${k}`} aria-label={STAT_LABELS[k]} type="number" min="0" value={stats[k] ?? ''} onChange={(e) => setStats((v) => ({ ...v, [k]: e.target.value }))} placeholder="—" />
                   <button type="button" onClick={() => toggleStat(k)} style={{ minHeight: 44, width: '100%', margin: '0 0 -10px 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: surfaced.includes(k) ? T.accent : T.muted, fontFamily: 'inherit' }}>{STAT_LABELS[k]}</button>
                 </div>
               ))}
