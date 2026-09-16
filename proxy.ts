@@ -1,3 +1,4 @@
+// Next 16 renamed middleware.ts to proxy.ts (same job, Node.js runtime).
 // The Content-Security-Policy (D-94 §8: "a real Content-Security-Policy — no
 // unsafe-inline scripts"). Every other header in that list was already set in
 // next.config.mjs; this one was missing, found 16 Sep.
@@ -41,7 +42,7 @@ function policy(nonce: string): string {
   ].join('; ');
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
   const csp = policy(nonce);
   const headers = new Headers(req.headers);

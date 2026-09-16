@@ -57,12 +57,15 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Every page renders per request, because the Content-Security-Policy
-  // (middleware.ts) carries a fresh nonce each time and Next stamps it on its
+  // (proxy.ts) carries a fresh nonce each time and Next stamps it on its
   // scripts while rendering. A page built ahead of time would ship scripts
   // with no nonce, and the browser would refuse to run them.
   await connection();
   return (
-    <html lang="en-AU">
+    // data-scroll-behavior: globals.css sets smooth scrolling for in-page
+    // anchors. Next 16 stopped switching it off during a page change, so this
+    // asks it to, and moving between pages stays instant.
+    <html lang="en-AU" data-scroll-behavior="smooth">
       <body className={archivo.className}>
         {children}
         {/* Vercel Web Analytics — cookieless aggregate counts only (doc 29 §9

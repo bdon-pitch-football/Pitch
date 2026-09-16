@@ -2,7 +2,7 @@
   "name": "pitch-coming-soon",
   "private": true,
   "version": "0.1.0",
-  "description": "Pitch Football \u2014 pre-launch site at pitchfootball.com.au (doc 29)",
+  "description": "Pitch Football — pre-launch site at pitchfootball.com.au (doc 29)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -17,7 +17,7 @@
     "@electric-sql/pglite-socket": "^0.2.11",
     "@vercel/analytics": "^2.0.1",
     "marked": "^15.0.6",
-    "next": "^15.5.2",
+    "next": "^16.3.5",
     "pg": "^8.23.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

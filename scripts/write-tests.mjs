@@ -735,7 +735,7 @@ console.log(`     (${all.length - skipped.length} of ${all.length} submitted, up
 //     can read it and post it back. The server has to be what says no.
 // ---------------------------------------------------------------------------
 const leaked = [];
-// The page's CSP nonce is fresh every request (middleware.ts) and rides in
+// The page's CSP nonce is fresh every request (proxy.ts) and rides in
 // the page payload, so it is taken out before two renders are compared.
 const settled = (h) => { const n = /nonce="([^"]+)"/.exec(h)?.[1]; return strip(n ? h.split(n).join('NONCE') : h); };
 for (const e of all) {
