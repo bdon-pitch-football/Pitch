@@ -610,11 +610,25 @@ const georgia = ids.children.georgia;
     }
   }
 
-  // A club's home stays a reading surface: its doors are the console's, on
-  // the console's own screens.
+  // A club's home joins the frame (D-147 as amended 16 Sep): Home is its
+  // first door. And the dashboard shows register numbers only to the person
+  // who reads the register — never an administrator (D-154), never a club
+  // that is not yet verified, which sees a held count and nothing else
+  // (D-126).
   {
-    const html = (await get('/home', ids.people.marina)).html;
-    check('s5: a club TD\'s /home carries no frame', /class="console-nav"/.test(html), false);
+    const tdHome = (await get('/home', ids.people.marina)).html;
+    const nav = navOf(tdHome, 'Club');
+    check('s5: a club TD\'s /home carries the club frame', nav !== null && navOf(tdHome, 'Club bar') !== null, true);
+    if (nav) {
+      const marked = [...nav.matchAll(/href="([^"]*)"[^>]*aria-current="page"|aria-current="page"[^>]*href="([^"]*)"/g)].map((m) => m[1] ?? m[2]);
+      check('s5b: and marks Home as the current page', marked, ['/home']);
+    }
+    const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<!-- -->/g, '');
+    check('s5c: the TD\'s home shows what is on the register', /On your register/.test(plain(tdHome)), true);
+    const adminHome = plain((await get('/home', ids.people.pat)).html);
+    check('s5d: an administrator\'s home shows no register numbers', /On your register|new on the register|interested/.test(adminHome), false);
+    const heldHome = plain((await get('/home', ids.people['m.'])).html);
+    check('s5e: an unverified club sees a waiting count and nothing else', [/\d+ waiting/.test(heldHome), /On your register|interested/.test(heldHome)], [true, false]);
   }
 
   // The parent's frame and the coach's bar (D-147, amended 16 Sep). Same

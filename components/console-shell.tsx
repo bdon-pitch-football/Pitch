@@ -109,7 +109,7 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
 }
 
 export async function ClubConsole({ active, floodlight, children }: {
-  active: 'register' | 'squads' | 'page-edit' | 'roles' | 'post-trial' | 'billing';
+  active: 'home' | 'register' | 'squads' | 'page-edit' | 'roles' | 'post-trial' | 'billing';
   floodlight?: boolean; children: React.ReactNode;
 }) {
   const me = await getSessionPersonId();

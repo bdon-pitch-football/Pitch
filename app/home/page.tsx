@@ -10,7 +10,7 @@ import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
 import { PlayerFrame, GuardianFrame } from '@/components/player-shell';
-import { CoachConsole } from '@/components/console-shell';
+import { ClubConsole, CoachConsole } from '@/components/console-shell';
 import CopyLink from '@/components/cv/CopyLink';
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
@@ -211,48 +211,152 @@ export default async function Home() {
     invites: { id: string; club: string; teams: string[] }[];
   } | null;
 
-  // Club seat: TD or administrator. The register is the working surface.
+  // Club seat: TD or administrator — inside the club's frame (D-147 as
+  // amended 16 Sep). This was a register count and six grey links. It is now
+  // what a club comes back for: what is waiting on the register, the trials
+  // coming up, and its own page with the link to copy.
+  //
+  // The register numbers come from fn_register_rows — the same permission
+  // function the register page reads — aggregated IN THE DATABASE, so only
+  // totals reach this page and no child's details do. Only the technical
+  // director sees them: under D-154 an administrator reads no registration,
+  // and before verification the club sees a held count and nothing else
+  // (D-126).
   if (clubSeat) {
     const verified = clubSeat.club_state === 'verified';
+    const isTd = clubSeat.role === 'technical_director';
+    const counts = verified && isTd
+      ? Object.fromEntries((await db.query(
+          `select club_status, count(*)::int as n from fn_register_rows($1, $2) group by club_status`,
+          [personId, clubSeat.id],
+        )).rows.map((r: { club_status: string; n: number }) => [r.club_status, r.n])) as Record<string, number>
+      : {};
+    const onRegister = Object.values(counts).reduce((a, b) => a + b, 0);
+    const trials = verified ? (await db.query(
+      `select t.id, t.title, to_char(t.trial_on, 'Mon') as month, to_char(t.trial_on, 'FMDD') as day, t.time_venue,
+         (select count(*)::int from registration r where r.trial_notice_id = t.id and r.withdrawn_at is null) as interested
+       from trial_notice t
+       where t.club_id = $1 and t.trial_on >= (now() at time zone 'Australia/Melbourne')::date
+       order by t.trial_on limit 3`,
+      [clubSeat.id],
+    )).rows as { id: string; title: string; month: string; day: string; time_venue: string; interested: number }[] : [];
+    const openRoles = (await db.query(
+      `select count(*)::int as n from coaching_role where club_id = $1 and closed_at is null
+         and (closes_on is null or closes_on >= (now() at time zone 'Australia/Melbourne')::date)`,
+      [clubSeat.id],
+    )).rows[0].n as number;
+    const pageUrl = clubSeat.public_slug ? `pitchfootball.com.au/fc/${clubSeat.public_slug}` : null;
+    const tile = (n: number, word: string, color: string) => (
+      <div>
+        <div className="numeral numeral-m" style={{ color }}>{n}</div>
+        <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{word}</div>
+      </div>
+    );
+
     return (
-      <Shell>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{clubSeat.name}</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>
-            {me.first_name} · {clubSeat.role === 'technical_director' ? 'Technical Director' : 'Club administrator'}
-          </div>
-        </div>
-        <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 58, height: 58, borderRadius: 18, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 22 }}>{clubSeat.name[0]}</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 17, fontWeight: 900 }}>{clubSeat.register_count} on your register</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-              <div style={{ width: 6, height: 6, borderRadius: 999, background: verified ? T.accent : T.amber }} />
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: verified ? T.accent : T.amber }}>
-                {verified ? 'Verified club' : 'Awaiting verification — registrations are held'}
+      <ClubConsole active="home" floodlight>
+        <div className="console h-rise" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+          <HeaderMark />
+          <div className="player-grid">
+          <div>
+            <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+                <div aria-hidden style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 20, flexShrink: 0 }}>{clubSeat.name[0]}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h1 style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15, margin: 0 }}>{clubSeat.name}</h1>
+                  <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500, marginTop: 3 }}>
+                    {me.first_name} · {isTd ? 'Technical Director' : 'Club administrator'}
+                  </div>
+                </div>
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: verified ? T.accent : T.amber }} />
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: verified ? T.accent : T.amber }}>
+                  {verified ? 'Verified club' : 'Awaiting verification — registrations are held'}
+                </div>
+              </div>
+              {verified && isTd && onRegister > 0 && (
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24, flexWrap: 'wrap' }}>
+                  <div>
+                    <div className="numeral numeral-l" style={{ color: T.ink }}>{onRegister}</div>
+                    <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>On your register</div>
+                  </div>
+                  {tile(counts.new ?? 0, 'New', T.accent)}
+                  {tile(counts.shortlisted ?? 0, 'Shortlisted', T.amber)}
+                  {tile(counts.invited ?? 0, 'Invited', T.purple)}
+                </div>
+              )}
+              {!verified && (
+                <div style={{ fontSize: 17, fontWeight: 900 }}>{clubSeat.register_count} waiting</div>
+              )}
             </div>
+
+            {verified && isTd && (counts.new ?? 0) > 0 && (
+              <Link href="/club/register?status=new" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none', border: `1px solid ${T.accent}` }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>{counts.new} new on the register</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 500, color: T.muted }}>Open a CV, shortlist, or invite to a trial.</div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+              </Link>
+            )}
+
+            {verified && (
+              <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <h2 style={label}>Coming up</h2>
+                {trials.length === 0 ? (
+                  <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>No trials coming up. Post one and it goes on your club page and the trials board the same minute.</div>
+                ) : trials.map((t) => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div aria-hidden style={{ width: 46, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: T.surface2, borderRadius: 12, padding: '7px 0' }}>
+                      <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.accent }}>{t.month}</div>
+                      <div className="tnum" style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: T.ink }}>{t.day}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800 }}>{t.title}</div>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{t.time_venue}</div>
+                    </div>
+                    {isTd && t.interested > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, flexShrink: 0 }}>{t.interested} interested</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {pageUrl && (
+              <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{pageUrl}</div>
+                  <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>Your club page · public</div>
+                </div>
+                <CopyLink url={`https://${pageUrl}`} label="Copy" compact />
+              </div>
+            )}
+          </div>
+
+          <div>
+            {/* D-154: a named person reads the register — the TD. An administrator
+                keeps the club's page, squads, trials and billing, and before
+                verification the waiting count, which holds no child's details. */}
+            {(isTd || !verified) && (
+              <Link href="/club/register" className="btn btn-primary">Register</Link>
+            )}
+            {verified && (
+              <Link href="/club/post-trial" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Post a trial</Link>
+            )}
+            <Link href="/club/squads" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Squads</Link>
+            <Link href="/club/page-edit" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Crest &amp; club page</Link>
+            <Link href="/club/roles" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.secondary }}>Coaching roles</div>
+              {openRoles > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.accent }}>{openRoles} open</div>}
+            </Link>
+            {clubSeat.public_slug && (
+              <Link href={`/fc/${clubSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Your club page</Link>
+            )}
+            <Link href="/club/billing" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Plan &amp; billing</Link>
+          </div>
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {/* D-154: a named person reads the register — the TD. An administrator
-              keeps the club's page, squads, trials and billing, and before
-              verification the waiting count, which holds no child's details. */}
-          {(clubSeat.role === 'technical_director' || !verified) && (
-            <Link href="/club/register" className="btn btn-primary">Register</Link>
-          )}
-          <Link href="/club/squads" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Squads</Link>
-          <Link href="/club/page-edit" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Crest &amp; club page</Link>
-          <Link href="/club/roles" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Coaching roles</Link>
-          {verified && (
-            <Link href="/club/post-trial" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Post a trial</Link>
-          )}
-          {clubSeat.public_slug && (
-            <Link href={`/fc/${clubSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Your club page</Link>
-          )}
-          <Link href="/club/billing" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Plan &amp; billing</Link>
-        </div>
-      </Shell>
+      </ClubConsole>
     );
   }
 

@@ -174,7 +174,7 @@ button:active, a[href]:active { transform: scale(.975); }
 .console-main { width: 100%; min-width: 0; display: flex; justify-content: center; }
 .console-nav { display: none; }
 .console-nav-link {
-  display: flex; align-items: center; min-height: 44px; padding: 0 12px;
+  display: flex; align-items: center; gap: 11px; min-height: 44px; padding: 0 12px;
   border-radius: var(--r-well); text-decoration: none;
   font-size: 14px; font-weight: 700; color: var(--secondary);
   transition: background .14s var(--ease), color .14s var(--ease);

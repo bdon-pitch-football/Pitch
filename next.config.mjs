@@ -15,6 +15,13 @@ const nextConfig = {
   // two never collide.
   distDir: process.env.NEXT_DIST_DIR || '.next',
 
+  // Development only. By default `next dev` throws a compiled page away after
+  // a minute unused, and the test suites walk dozens of pages — so the server
+  // spent the whole run recompiling the same routes at 10-20s each, climbed to
+  // several GB and 400% CPU, and the suites crawled (16 Sep, three times in a
+  // day). Keep compiled pages for an hour. No effect on a production build.
+  onDemandEntries: { maxInactiveAge: 60 * 60 * 1000, pagesBufferLength: 200 },
+
   async headers() {
     return [
       { source: '/(.*)', headers: securityHeaders },
