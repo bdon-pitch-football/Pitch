@@ -434,11 +434,25 @@ const georgia = ids.children.georgia;
       check(`s2: ${seat} ${path} sidebar offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
       const current = [...nav.matchAll(/href="([^"]*)"[^>]*aria-current="page"|aria-current="page"[^>]*href="([^"]*)"/g)].map((m) => m[1] ?? m[2]);
       check(`s3: ${seat} ${path} marks exactly itself as the current page`, current, [path]);
+      // The phone bar (D-147 as amended 16 Sep): its tabs and its More sheet
+      // together are exactly the rail's doors, and no more than four tabs.
+      const bar = navOf(html, 'Club bar');
+      check(`s3b: ${seat} ${path} carries the club bar`, bar !== null, true);
+      if (bar) {
+        check(`s3c: ${seat} ${path} bar and More sheet are the rail's doors`, hrefs(bar).sort(), hrefs(nav).sort());
+        const tabs = (bar.split('<details')[0].match(/class="seat-tab"/g) ?? []).length + (/<details/.test(bar) ? 1 : 0);
+        check(`s3d: ${seat} ${path} bar shows at most four tabs`, tabs <= 4, true);
+        const inBar = [...bar.matchAll(/href="([^"]*)"[^>]*aria-current="page"|aria-current="page"[^>]*href="([^"]*)"/g)].map((m) => m[1] ?? m[2]);
+        check(`s3e: ${seat} ${path} bar marks the same page`, inBar, [path]);
+      }
     }
   }
   for (const path of ['/ops/verification', '/ops/support']) {
-    const nav = navOf((await get(path, ids.people.marina)).html, 'Operator');
+    const opHtml = (await get(path, ids.people.marina)).html;
+    const nav = navOf(opHtml, 'Operator');
     check(`s4: ${path} carries the operator sidebar`, nav !== null, true);
+    const opBar = navOf(opHtml, 'Operator bar');
+    check(`s4b: ${path} carries the operator bar, with the same doors`, opBar && nav ? JSON.stringify(hrefs(opBar)) === JSON.stringify(hrefs(nav)) : false, true);
   }
   // D-154 — the administrator's frame and walls. The same subset rule, and
   // the register itself is not one of her doors at a verified club.

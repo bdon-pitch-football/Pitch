@@ -15,8 +15,10 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 
-export type IconKey = 'home' | 'cv' | 'trials' | 'send' | 'roles' | 'register' | 'child' | 'children';
-export type Item = { key: string; href: string; label: string; icon?: IconKey };
+export type IconKey = 'home' | 'cv' | 'trials' | 'send' | 'roles' | 'register' | 'child' | 'children'
+  | 'crest' | 'page' | 'card' | 'shield' | 'help' | 'more';
+// short: the label a phone tab uses when the full one would wrap.
+export type Item = { key: string; href: string; label: string; short?: string; icon?: IconKey };
 
 // One stroke set for every frame, so the bar reads the same in every seat.
 export const ICONS: Record<IconKey, React.ReactNode> = {
@@ -28,6 +30,12 @@ export const ICONS: Record<IconKey, React.ReactNode> = {
   register: <><path d="M9 6h11M9 12h11M9 18h11" /><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" /></>,
   child: <><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5" /></>,
   children: <><circle cx="9" cy="8.5" r="3" /><circle cx="17" cy="9.5" r="2.4" /><path d="M3 19c.9-3 3.2-4.6 6-4.6S14.1 16 15 19M16 14.2c2 .3 3.6 1.7 4.2 3.8" /></>,
+  crest: <path d="M12 3 19 6v5c0 4.6-2.9 8.1-7 10-4.1-1.9-7-5.4-7-10V6Z" />,
+  page: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z" /></>,
+  card: <><rect x="3" y="5.5" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></>,
+  shield: <><path d="M12 3 19 6v5c0 4.6-2.9 8.1-7 10-4.1-1.9-7-5.4-7-10V6Z" /><path d="m9 12 2 2 4-4.5" /></>,
+  help: <><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6M12 17h.01" /></>,
+  more: <><circle cx="5.5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="18.5" cy="12" r="1.2" /></>,
 };
 
 const Glyph = ({ k, on, size }: { k: IconKey; on: boolean; size: number }) => (
@@ -59,17 +67,43 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
         </nav>
         <div className="console-main">{children}</div>
       </div>
-      {bar && (
-        <nav className="seat-tabs" aria-label={`${label} bar`}>
-          {items.slice(0, 4).map((it) => (
-            <Link key={it.key} href={it.href} className="seat-tab"
-              aria-current={it.key === active ? 'page' : undefined}>
-              {it.icon && <Glyph k={it.icon} on={it.key === active} size={21} />}
-              <span>{it.label}</span>
-            </Link>
-          ))}
-        </nav>
-      )}
+      {bar && (() => {
+        // Four fit. More than four: the first three, and More opening the
+        // rest in a sheet — every rail door is still here, one tap deeper
+        // (D-147 as amended 16 Sep). A <details>, so it works without
+        // JavaScript; More reads as current when the page is in the sheet.
+        const tabs = items.length > 4 ? items.slice(0, 3) : items;
+        const rest = items.length > 4 ? items.slice(3) : [];
+        const inRest = rest.some((it) => it.key === active);
+        return (
+          <nav className="seat-tabs" aria-label={`${label} bar`}>
+            {tabs.map((it) => (
+              <Link key={it.key} href={it.href} className="seat-tab" aria-label={it.short ? it.label : undefined}
+                aria-current={it.key === active ? 'page' : undefined}>
+                {it.icon && <Glyph k={it.icon} on={it.key === active} size={21} />}
+                <span>{it.short ?? it.label}</span>
+              </Link>
+            ))}
+            {rest.length > 0 && (
+              <details className="seat-more">
+                <summary className="seat-tab" data-current={inRest ? 'true' : undefined}>
+                  <Glyph k="more" on={inRest} size={21} />
+                  <span>More</span>
+                </summary>
+                <div className="seat-sheet">
+                  {rest.map((it) => (
+                    <Link key={it.key} href={it.href} className="seat-sheet-link"
+                      aria-current={it.key === active ? 'page' : undefined}>
+                      {it.icon && <Glyph k={it.icon} on={it.key === active} size={19} />}
+                      <span>{it.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              </details>
+            )}
+          </nav>
+        );
+      })()}
     </div>
   );
 }
@@ -100,14 +134,14 @@ export async function ClubConsole({ active, floodlight, children }: {
 
   const verified = seat.club_state === 'verified';
   const items: Item[] = [
-    { key: 'home', href: '/home', label: 'Home' },
-    ...(seat.role === 'technical_director' || !verified ? [{ key: 'register', href: '/club/register', label: 'Interest register' }] : []),
-    { key: 'squads', href: '/club/squads', label: 'Squads & age groups' },
-    { key: 'page-edit', href: '/club/page-edit', label: 'Crest & club page' },
-    { key: 'roles', href: '/club/roles', label: 'Coaching roles' },
-    ...(verified ? [{ key: 'post-trial', href: '/club/post-trial', label: 'Post a trial' }] : []),
-    ...(seat.public_slug ? [{ key: 'public', href: `/fc/${seat.public_slug}`, label: 'Your club page' }] : []),
-    { key: 'billing', href: '/club/billing', label: 'Plan & billing' },
+    { key: 'home', href: '/home', label: 'Home', icon: 'home' },
+    ...(seat.role === 'technical_director' || !verified ? [{ key: 'register', href: '/club/register', label: 'Interest register', short: 'Register', icon: 'register' as const }] : []),
+    { key: 'squads', href: '/club/squads', label: 'Squads & age groups', short: 'Squads', icon: 'children' },
+    { key: 'page-edit', href: '/club/page-edit', label: 'Crest & club page', short: 'Club page', icon: 'crest' },
+    { key: 'roles', href: '/club/roles', label: 'Coaching roles', icon: 'roles' },
+    ...(verified ? [{ key: 'post-trial', href: '/club/post-trial', label: 'Post a trial', icon: 'trials' as const }] : []),
+    ...(seat.public_slug ? [{ key: 'public', href: `/fc/${seat.public_slug}`, label: 'Your club page', icon: 'page' as const }] : []),
+    { key: 'billing', href: '/club/billing', label: 'Plan & billing', icon: 'card' },
   ];
 
   const head = (
@@ -128,7 +162,7 @@ export async function ClubConsole({ active, floodlight, children }: {
     </div>
   );
 
-  return <Frame label="Club" head={head} items={items} active={active} floodlight={floodlight}>{children}</Frame>;
+  return <Frame label="Club" head={head} items={items} active={active} floodlight={floodlight} bar>{children}</Frame>;
 }
 
 // The coach's frame (BUZ, 15 Sep: "give coaches the sidebar now with what
@@ -185,10 +219,10 @@ export function OpsConsole({ active, children }: {
   active: 'verification' | 'support'; children: React.ReactNode;
 }) {
   const items: Item[] = [
-    { key: 'home', href: '/home', label: 'Home' },
-    { key: 'verification', href: '/ops/verification', label: 'Verification' },
-    { key: 'support', href: '/ops/support', label: 'Support' },
+    { key: 'home', href: '/home', label: 'Home', icon: 'home' },
+    { key: 'verification', href: '/ops/verification', label: 'Verification', icon: 'shield' },
+    { key: 'support', href: '/ops/support', label: 'Support', icon: 'help' },
   ];
   const head = <div className="kicker">Operator</div>;
-  return <Frame label="Operator" head={head} items={items} active={active} floodlight>{children}</Frame>;
+  return <Frame label="Operator" head={head} items={items} active={active} floodlight bar>{children}</Frame>;
 }
