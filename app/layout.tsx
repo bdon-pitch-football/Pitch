@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Archivo } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
+import { connection } from 'next/server';
 import './globals.css';
 
 const archivo = Archivo({
@@ -40,7 +41,12 @@ export const metadata: Metadata = {
   icons: { icon: '/assets/brand/pitch-app-icon.svg', apple: '/assets/brand/app-icon-180.png' },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Every page renders per request, because the Content-Security-Policy
+  // (middleware.ts) carries a fresh nonce each time and Next stamps it on its
+  // scripts while rendering. A page built ahead of time would ship scripts
+  // with no nonce, and the browser would refuse to run them.
+  await connection();
   return (
     <html lang="en-AU">
       <body className={archivo.className}>

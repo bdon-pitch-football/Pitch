@@ -630,13 +630,16 @@ console.log(`     (${all.length - skipped.length} of ${all.length} submitted, up
 //     can read it and post it back. The server has to be what says no.
 // ---------------------------------------------------------------------------
 const leaked = [];
+// The page's CSP nonce is fresh every request (middleware.ts) and rides in
+// the page payload, so it is taken out before two renders are compared.
+const settled = (h) => { const n = /nonce="([^"]+)"/.exec(h)?.[1]; return strip(n ? h.split(n).join('NONCE') : h); };
 for (const e of all) {
   if (/delete/i.test(e.form.submit)) continue;
   if (!e.who) continue;
   const intruder = Object.values(SEATS).find((p) => p !== e.who);
-  const before = strip((await get(e.path, e.who)).html);
+  const before = settled((await get(e.path, e.who)).html);
   await post(e.form.action ?? e.path, intruder, e.form);
-  const after = strip((await get(e.path, e.who)).html);
+  const after = settled((await get(e.path, e.who)).html);
   if (before !== after) leaked.push(`${e.seat} ${e.path} "${e.form.submit}"`);
 }
 check(`x2: no form can be driven by another account (${leaked.join(', ') || 'none can'})`,

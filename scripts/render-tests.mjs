@@ -43,7 +43,7 @@ async function get(path, personId) {
     redirect: 'manual',
     headers: personId ? { cookie: cookieFor(personId) } : {},
   });
-  return { status: res.status, location: res.headers.get('location'), html: await res.text() };
+  return { status: res.status, location: res.headers.get('location'), csp: res.headers.get('content-security-policy'), html: await res.text() };
 }
 
 /** Visible text, in document order, with tags and scripts stripped. */
@@ -924,6 +924,33 @@ const georgia = ids.children.georgia;
     new Set(dead).size, 1);
   check(`m6: and no dead state names anybody`,
     dead.every((d) => !/Deniz|Jordan|Abebe/.test(d)), true);
+}
+
+// 0042: a public contact belongs to an adult. The coach editor does not offer
+// the field to a 16-17 at all; an adult coach still sees it.
+{
+  const teen = await get('/coach/edit', ids.children.nate.child_id);
+  check('ca1: a 16-17 opening the coach editor is not offered a public contact',
+    teen.status === 200 && !/name="publicContact"/.test(teen.html), true);
+  const adult = await get('/coach/edit', ids.people.sam);
+  check('ca2: an adult coach is', /name="publicContact"/.test(adult.html), true);
+}
+
+// D-94 §8: a real Content-Security-Policy, no inline script. Scripts carry
+// this request's nonce, and the nonce changes every request.
+{
+  const one = await get('/signin'), two = await get('/signin');
+  const scriptSrc = (one.csp ?? '').split(';').map((d) => d.trim()).find((d) => d.startsWith('script-src')) ?? '';
+  const nonce = /'nonce-([^']+)'/.exec(scriptSrc)?.[1];
+  check('csp1: every page is sent with a Content-Security-Policy', Boolean(one.csp), true);
+  check('csp2: scripts run only with a nonce, never unsafe-inline', Boolean(nonce) && !/unsafe-inline/.test(scriptSrc), true);
+  check('csp3: the nonce is fresh each request', nonce !== /'nonce-([^']+)'/.exec(two.csp ?? '')?.[1], true);
+  const scripts = [...one.html.matchAll(/<script\b[^>]*>/g)].map((m) => m[0]);
+  check(`csp4: every script tag on the page carries it (${scripts.length} scripts)`,
+    scripts.length > 0 && scripts.every((t) => t.includes(`nonce="${nonce}"`)), true);
+  check('csp5: nobody may frame a page', /frame-ancestors 'none'/.test(one.csp ?? ''), true);
+  const p = await get('/p/dev-jordan');
+  check('csp6: the shared CV page has it too', Boolean(p.csp), true);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
