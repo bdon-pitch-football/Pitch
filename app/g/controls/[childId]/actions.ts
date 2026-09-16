@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
+import { switchOffOneLink } from '@/lib/link-switch';
 
 async function assertGuardian(childId: string): Promise<string> {
   const g = await getSessionPersonId();
@@ -201,4 +202,14 @@ export async function deleteEverything(formData: FormData) {
     client.release();
   }
   redirect('/home');
+}
+
+// "Take one off": the link one club has stops opening the page, and every
+// other club's keeps working. lib/link-switch re-checks the id against this
+// guardian's own view of the send log, so a forged id does nothing.
+export async function switchOffOne(formData: FormData) {
+  const childId = String(formData.get('childId') ?? '');
+  const g = await assertGuardian(childId);
+  const ok = await switchOffOneLink(g, childId, String(formData.get('tokenId') ?? ''));
+  redirect(`/g/controls/${childId}${ok ? '?off=1' : ''}`);
 }

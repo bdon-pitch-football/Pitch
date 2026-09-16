@@ -2833,6 +2833,41 @@ check('sendl19: its response carries counts, never addresses or names',
   /claimed: rows\.length, sent/.test(sweep), true);
 
 // ---------------------------------------------------------------------------
+// "Take one off" (16 Sep, 0041). fn_send_log names each send's own link —
+// the row id, never the token (D-80) — and whether it still opens the page.
+// Switching one off changes that row and no other. A stranger still gets
+// nothing at all.
+{
+  // Two sends the way lib/send-dispatch.ts writes them: a link each.
+  for (const club of ['Take-off FC', 'Keep-on FC']) {
+    const tok = (await db.query(
+      `insert into share_token (record_id, token_hash, token_hint, issued_by, expires_at)
+       values ($1, decode(md5($2), 'hex'), 'take·off', $3, now() + interval '30 days') returning id`,
+      [REC.deniz, club, ID.guardian])).rows[0].id;
+    await db.query(
+      `insert into consent_event (event, actor_id, subject_id, detail)
+       values ('share_dispatched', $1, $2, jsonb_build_object('club_name', $3::text, 'recipient', 'x@example.au', 'band_at_send', 'u16', 'token_id', $4::uuid))`,
+      [ID.guardian, ID.deniz, club, tok]);
+  }
+  const sent = { actor_id: ID.guardian, subject_id: ID.deniz };
+  check('TO1: a family has more than one send, each with its own link',
+    Number((await db.query(`select count(*) from consent_event where subject_id = $1 and event = 'share_dispatched' and detail ? 'token_id'`, [ID.deniz])).rows[0].count) >= 2, true);
+  if (sent) {
+    const log = async (v) => (await db.query('select token_id, live from fn_send_log($1,$2)', [v, sent.subject_id])).rows;
+    const before = (await log(sent.actor_id)).filter((r) => r.token_id);
+    check('TO2: the guardian\u2019s log names each send\u2019s link and says it is live',
+      before.length >= 2 && before.every((r) => r.token_id && r.live === true), true);
+    check('TO3: every send has a different link', new Set(before.map((r) => r.token_id)).size, before.length);
+    check('TO4: the log never returns the token itself', Object.keys(before[0] ?? {}).some((k) => /hash|raw|hint/.test(k)), false);
+    await db.query('update share_token set revoked_at = now() where id = $1', [before[0].token_id]);
+    const after = (await log(sent.actor_id)).filter((r) => r.token_id);
+    check('TO5: switching one off changes that row and no other',
+      after.map((r) => [r.token_id === before[0].token_id, r.live]).filter(([mine, live]) => mine ? live : !live).length, 0);
+    await db.query('update share_token set revoked_at = null where id = $1', [before[0].token_id]);
+    check('TO6: a stranger gets nothing', (await log(ID.marcus)).length, 0);
+  }
+}
+
 // The guardian's controls screen. fn_send_log has answered L57 correctly
 // since 0025 and the suite has been green on it the whole time — and NOTHING
 // IN THE APP CALLED IT. A launch-gate row can be green in the database and

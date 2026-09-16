@@ -9,7 +9,7 @@ import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
-import { deleteEverything, renewLink, replaceLink, setPause, setSendSwitch } from './actions';
+import { deleteEverything, renewLink, replaceLink, setPause, setSendSwitch, switchOffOne } from './actions';
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
 
@@ -21,10 +21,10 @@ const ghost: React.CSSProperties = { flex: 1, height: 44, borderRadius: 12, bord
 
 export default async function Controls({ params, searchParams }: {
   params: Promise<{ childId: string }>;
-  searchParams: Promise<{ link?: string }>;
+  searchParams: Promise<{ link?: string; off?: string }>;
 }) {
   const { childId } = await params;
-  const { link } = await searchParams;
+  const { link, off } = await searchParams;
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
@@ -56,9 +56,9 @@ export default async function Controls({ params, searchParams }: {
        -- accepted" above "you opened the permission page". Ordering by id
        -- after the timestamp restores insertion order within a second.
        (select coalesce(json_agg(json_build_object(
-           'at', to_char(e.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'event', e.event)
+           'at', to_char(e.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'event', e.event, 'kind', e.detail->>'kind')
            order by e.at desc, e.id desc), '[]'::json)
-        from (select at, id, event from consent_event where subject_id = p.id) e) as timeline,
+        from (select at, id, event, detail from consent_event where subject_id = p.id) e) as timeline,
        -- L57: the guardian sees EVERY send, with the recipient address in
        -- full. fn_send_log has answered this correctly since 0025 and the
        -- suite has been green on it — and NOTHING IN THE APP EVER CALLED IT.
@@ -66,7 +66,7 @@ export default async function Controls({ params, searchParams }: {
        -- the product, which is the one place a parent would look for it.
        (select coalesce(json_agg(json_build_object(
            'at', to_char(s.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'),
-           'club', s.club_name, 'recipient', s.recipient) order by s.at desc), '[]'::json)
+           'club', s.club_name, 'recipient', s.recipient, 'tokenId', s.token_id, 'live', s.live) order by s.at desc), '[]'::json)
         from fn_send_log($2, p.id) s) as sends
      from person p
      join guardianship_link g on g.child_id = p.id and g.guardian_id = $2 and g.approved_at is not null and g.revoked_at is null
@@ -126,6 +126,11 @@ export default async function Controls({ params, searchParams }: {
     <GuardianFrame active={`child:${childId}`}>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+        {off && (
+          <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>
+            Switched off. That club&rsquo;s link stopped working just now.
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 48, height: 48, borderRadius: 15, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 900, color: T.secondary }}>{name[0]}</div>
           <div>
@@ -210,18 +215,28 @@ export default async function Controls({ params, searchParams }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <h2 style={label}>Where {theirs} CV has been sent</h2>
             <div style={{ ...card, padding: '4px 14px' }}>
-              {(c.sends as { at: string; club: string | null; recipient: string }[]).map((sd, i) => (
-                <div key={`${sd.at}-${sd.recipient}`} style={{ display: 'flex', gap: 12, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}`, alignItems: 'baseline' }}>
+              {(c.sends as { at: string; club: string | null; recipient: string; tokenId: string | null; live: boolean }[]).map((sd, i) => (
+                <div key={`${sd.at}-${sd.recipient}-${i}`} style={{ display: 'flex', gap: 12, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}`, alignItems: 'center' }}>
                   <div style={{ width: 78, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{sd.at}</div>
-                  <div style={{ minWidth: 0 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     {sd.club && <div style={{ fontSize: 13.5, fontWeight: 800 }}>{sd.club}</div>}
                     <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, wordBreak: 'break-all' }}>{sd.recipient}</div>
                   </div>
+                  {/* Take one off: that club's link stops opening the page;
+                      every other club's keeps working. */}
+                  {sd.live && sd.tokenId ? (
+                    <form action={switchOffOne} style={{ flexShrink: 0 }}>
+                      <input type="hidden" name="childId" value={childId} /><input type="hidden" name="tokenId" value={sd.tokenId} />
+                      <button type="submit" className="console-btn">Switch off</button>
+                    </form>
+                  ) : (
+                    <div style={{ fontSize: 12, fontWeight: 800, color: T.muted, flexShrink: 0 }}>Off</div>
+                  )}
                 </div>
               ))}
             </div>
             <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
-              The full address, every time, for as long as the record exists. Replacing {theirs} link stops all of them opening the page.
+              The full address, every time, for as long as the record exists. Switch one off and that club&rsquo;s link stops working straight away; the others keep working. Replacing {theirs} link stops all of them.
             </div>
           </div>
         )}
@@ -234,10 +249,10 @@ export default async function Controls({ params, searchParams }: {
                 Nothing yet beyond your approval. Anything you do here — renewing their link, pausing their page, replying to a club — is written down and shows up in this list.
               </div>
             )}
-            {(c.timeline as { at: string; event: string }[]).map((e, i) => (
+            {(c.timeline as { at: string; event: string; kind: string | null }[]).map((e, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}` }}>
                 <div style={{ width: 78, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{e.at}</div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{EVENT_LINES[e.event] ?? 'Something was recorded'}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{e.event === 'share_revoked' && e.kind === 'one' ? 'One club\u2019s link was switched off' : EVENT_LINES[e.event] ?? 'Something was recorded'}</div>
               </div>
             ))}
           </div>

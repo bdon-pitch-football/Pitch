@@ -437,6 +437,71 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// 0a · The launch walkthroughs, walked for real (16 Sep).
+//
+// "Take one off — it stops working, that minute": a parent switches off the
+// link ONE club has, and the others keep working. "Post the trial once.
+// Change it once": a club edits its own trial, never another club's, and the
+// date stays put once families have registered for it.
+// ---------------------------------------------------------------------------
+{
+  const alex = ids.people.alex, marina = ids.people.marina, dana = ids.people.dana;
+  const submit = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) for (const one of [].concat(v)) fd.append(k, one);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+  const text = (h) => h.replace(/<!-- -->/g, '').replace(/&#x27;|&rsquo;|&#39;|’/g, "'");
+
+  // ---- take one off ------------------------------------------------------
+  const child = ids.children.deniz.child_id;
+  const ctlPath = `/g/controls/${child}`;
+  const ctl0 = (await get(ctlPath, alex)).html;
+  const offForms = forms(ctl0).filter((f) => f.fields.tokenId);
+  check('to0: every live send on the controls screen can be switched off on its own', offForms.length >= 2, true);
+  const live0 = offForms.length;
+  // A link another family holds does nothing, and says nothing.
+  const nate = ids.children.nate.child_id;
+  const theirs = forms((await get(`/g/controls/${nate}`, alex)).html).find((f) => f.fields.tokenId);
+  if (theirs) {
+    const forged = await submit(ctlPath, alex, { ...offForms[0].fields, tokenId: theirs.fields.tokenId });
+    check('to1: another child\'s link id does nothing on this child\'s screen', [/off=1/.test(forged), forms((await get(`/g/controls/${nate}`, alex)).html).filter((f) => f.fields.tokenId).length > 0], [false, true]);
+  }
+  const done = await submit(ctlPath, alex, offForms[0].fields);
+  check('to2: switching one off says so', /off=1/.test(done), true);
+  const ctl1 = text((await get(ctlPath, alex)).html);
+  check('to3: exactly that one is off — the rest still work', forms(ctl1).filter((f) => f.fields.tokenId).length, live0 - 1);
+  check('to4: and the history says one club\'s link was switched off', ctl1.includes("One club's link was switched off"), true);
+  const again = await submit(ctlPath, alex, offForms[0].fields);
+  check('to5: switching the same one off twice changes nothing more', [/off=1/.test(again), forms((await get(ctlPath, alex)).html).filter((f) => f.fields.tokenId).length], [false, live0 - 1]);
+
+  // ---- change it once ----------------------------------------------------
+  const board = async (q) => text((await get(`/trials${q}`, null)).html);
+  const postPath = '/club/post-trial';
+  const base = { time: '10:00 AM', ground: 'Riverside Park, Pitch 4', how: '', cv_email: 'football@riversidefc.example.au' };
+  const action = forms((await get(postPath, marina)).html)[0].fields;
+  await submit(postPath, marina, { ...action, ...base, title: 'Changeable sweep trial', trial_on: '2026-11-28', ages: ['U12'], gender: 'boys' });
+  const listHtml = (await get(postPath, marina)).html;
+  // The Change link sits after the title in the same row.
+  const editId = /edit=([0-9a-f-]{36})/.exec(listHtml.slice(listHtml.indexOf('Changeable sweep trial')))?.[1];
+  check('ct0: the club sees its posted trial with a way to change it', Boolean(editId) && listHtml.includes('Changeable sweep trial'), true);
+  const edited = await submit(postPath, marina, { ...action, ...base, trial_id: editId, title: 'Changed sweep trial', trial_on: '2026-11-29', ages: ['U12', 'U13'], gender: 'girls' });
+  check('ct1: a change saves', /updated=1/.test(edited), true);
+  check('ct2: and shows on the board, under the new age group and competition', [(await board('?age=U13&gender=girls')).includes('Changed sweep trial'), (await board('')).includes('Changeable sweep trial')], [true, false]);
+  // Another club's trial cannot be changed from here.
+  const kingsway = [...(await get(postPath, dana)).html.matchAll(/edit=([0-9a-f-]{36})/g)].map((m) => m[1])[0];
+  check('ct3: the other club has a trial of its own to test against', Boolean(kingsway), true);
+  await submit(postPath, marina, { ...action, ...base, trial_id: kingsway, title: 'Hijacked by another club', trial_on: '2026-12-01', ages: ['U12'] });
+  check('ct4: a club cannot change another club\'s trial', (await board('')).includes('Hijacked by another club'), false);
+  // Families have registered for Kingsway's trial: its date stays put.
+  const danaAction = forms((await get(`${postPath}?edit=${kingsway}`, dana)).html)[0].fields;
+  await submit(postPath, dana, { ...danaAction, ...base, trial_id: kingsway, title: 'U16–U18 and Seniors trials', trial_on: '2026-12-20', ages: ['U16', 'U17', 'U18', 'SEN'] });
+  check('ct5: once families have registered, the date does not move', [(await board('?age=SEN')).includes('25'), (await board('?age=SEN')).includes('>20<')], [true, false]);
+}
+
+// ---------------------------------------------------------------------------
 // 0b · D-68 as amended 16 Sep — a trial names every age group it is for.
 //
 // A trial a club posted used to record no age group and no gender, so the

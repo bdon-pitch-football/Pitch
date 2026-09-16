@@ -119,17 +119,25 @@ for (const p of PLAYER_FIXTURES) {
   // function has answered this since 0025 and no page called it, which is
   // exactly the kind of gap an empty fixture hides.
   if (p.slug === 'deniz') {
+    // Each send mints its own link, exactly as lib/send-dispatch.ts does, so
+    // "take one off" has something real to switch off (16 Sep).
+    const sendLink = async (daysAgo: number) => (await db.query(
+      `insert into share_token (record_id, token_hash, token_hint, issued_by, issued_at, expires_at)
+       values ($1, $2, $3, $4, now() - ($5 || ' days')::interval, now() + interval '60 days') returning id`,
+      [recordId, sha(`dev-deniz-send-${daysAgo}`), `send·${daysAgo}`, guardian, String(daysAgo)],
+    )).rows[0].id as string;
+    const [northern, kingswayLink] = [await sendLink(31), await sendLink(12)];
     await db.query(
       `insert into consent_event (at, event, actor_id, subject_id, detail) values
          (now() - interval '31 days', 'share_dispatched', $1, $2,
           jsonb_build_object('club_name','Northern United SC',
                              'recipient','football@northernunited.example.au',
-                             'band_at_send','u16')),
+                             'band_at_send','u16', 'token_id', $3::uuid)),
          (now() - interval '12 days', 'share_dispatched', $1, $2,
           jsonb_build_object('club_name','Kingsway Rovers FC',
                              'recipient','recruitment@kingswayrovers.example.au',
-                             'band_at_send','u16'))`,
-      [guardian, personId],
+                             'band_at_send','u16', 'token_id', $4::uuid))`,
+      [guardian, personId, northern, kingswayLink],
     );
   }
 
