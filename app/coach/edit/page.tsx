@@ -9,18 +9,12 @@ import { CoachConsole } from '@/components/console-shell';
 import Link from 'next/link';
 import { addCoachAchievement, addCoachClip, addLicence, addRole, removeCoachAchievement, removeCoachClip, removeLicence, removeRole, saveCoachProfile } from './actions';
 import { COACH_CLIP_CAP } from '@/lib/football';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', placeholder: '#6b7d73',
-  accent: '#3ddc84', onAccent: '#06130c', amber: '#eda100',
-};
+import { T } from '@/lib/palette';
+import { card, fieldLabel as label } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Build your coach CV', robots: { index: false, follow: false } };
 
-const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
-const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
 export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; banner?: string; removed?: string }> }) {

@@ -4,8 +4,7 @@
 // sandboxed iframe; other allowed hosts open in a new tab (no referrer —
 // the page already sends none, and noreferrer belts it).
 import { useState } from 'react';
-
-const T = { surface: '#121b16', line: '#24322a', ink: '#eef5f0', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c' };
+import { T } from '@/lib/palette';
 
 function youtubeId(url: string): string | null {
   const m = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,20})/.exec(url);

@@ -8,11 +8,7 @@ import { HeaderMark } from '@/components/Wordmark';
 import { OpsConsole } from '@/components/console-shell';
 import { resendApproval } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
-
-const T = {
-  surface: '#121b16', surface2: '#1a2420', line: '#24322a', ink: '#eef5f0',
-  secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', amber: '#eda100', red: '#e34948',
-};
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Support', robots: { index: false, follow: false } };

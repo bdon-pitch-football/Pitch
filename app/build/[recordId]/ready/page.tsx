@@ -14,11 +14,7 @@ import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { PlayerFrame } from '@/components/player-shell';
 import { requireRecordActor } from '@/lib/record-guard';
-
-const T = {
-  surface: '#121b16', surface2: '#1a2420', line: '#24322a', ink: '#eef5f0',
-  secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', amber: '#eda100',
-};
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your page', robots: { index: false, follow: false } };

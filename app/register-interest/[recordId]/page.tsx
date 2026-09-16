@@ -12,11 +12,7 @@ import { HeaderMark } from '@/components/Wordmark';
 import InterestForm from './InterestForm';
 import { requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', line: '#24322a', ink: '#eef5f0',
-  secondary: '#b9c8bf', muted: '#7d8f85', amber: '#eda100', accent: '#3ddc84',
-};
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Register interest', robots: { index: false, follow: false } };

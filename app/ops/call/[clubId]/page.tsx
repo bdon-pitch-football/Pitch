@@ -9,17 +9,13 @@ import { OpsConsole } from '@/components/console-shell';
 import { logCall } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
 import { isUuid } from '@/lib/ids';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c',
-};
+import { T } from '@/lib/palette';
+import { fieldLabel as label } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Verification call', robots: { index: false, follow: false } };
 
 const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 4 };
-const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
 const select: React.CSSProperties = { ...input, appearance: 'none' as const };
 

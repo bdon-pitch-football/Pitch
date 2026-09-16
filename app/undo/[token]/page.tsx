@@ -13,11 +13,8 @@ import Link from 'next/link';
 import { createHash } from 'node:crypto';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c',
-};
+import { T } from '@/lib/palette';
+import { card } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Undo', robots: { index: false, follow: false } };
@@ -45,7 +42,6 @@ async function revoke(formData: FormData) {
 export default async function Undo({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const act = revoke;
-  const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>

@@ -8,11 +8,7 @@ import { notFound } from 'next/navigation';
 import { getPendingInvitation } from '@/lib/guardian-flow';
 import { approve } from './actions';
 import { HeaderMark } from '@/components/Wordmark';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', line: '#24322a', ink: '#eef5f0',
-  secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c', purple: '#a479e2',
-};
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Approve a profile', robots: { index: false, follow: false } };

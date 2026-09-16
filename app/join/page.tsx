@@ -5,13 +5,7 @@
 import { useState } from 'react';
 import { createAccount, startPendingInvitation } from './actions';
 import { HeaderMark } from '@/components/Wordmark';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', placeholder: '#6b7d73',
-  accent: '#3ddc84', onAccent: '#06130c',
-};
-
+import { T } from '@/lib/palette';
 
 const field: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 };
 const fieldLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
@@ -23,7 +17,6 @@ const ROLES = [
   ['parent', 'Parent / Guardian', 'Approve and see their record'],
   ['club', 'Club', "Your club's home ground"],
 ] as const;
-
 
 export default function Join() {
   const [role, setRole] = useState('player');
@@ -88,7 +81,7 @@ export default function Join() {
                 closed has to say so; a door that looks open and does nothing
                 is the worst version. */}
             {role !== 'player' && (
-              <div style={{ background: T.surface, border: '1px solid #eda100', borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+              <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
                 <b style={{ color: T.ink }}>This door is not open yet.</b> Player accounts are the only ones you can create here today.
                 {role === 'parent' && ' A parent joins when their child does — the child starts, and the approval comes to you by text and email.'}
                 {role === 'coach' && ' Coaches are being let in one at a time while we get it right — email help@pitchfootball.com.au and we will set you up.'}

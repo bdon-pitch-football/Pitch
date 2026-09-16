@@ -7,12 +7,8 @@ import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { CoachConsole } from '@/components/console-shell';
 import { applyForRole } from '@/app/coach/edit/actions';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', amber: '#eda100',
-};
+import { T } from '@/lib/palette';
+import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,8 +37,7 @@ export default async function Role({ params, searchParams }: {
     ? (await db.query(`select 1 from role_application where role_id = $1 and coach_id = $2`, [roleId, me])).rows.length > 0
     : false;
 
-  const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
-  const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
+  const label = sectionLabel;
 
   return (
     <CoachConsole active="jobs">

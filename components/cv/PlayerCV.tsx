@@ -11,11 +11,7 @@ import { POSITIONS, STAT_LABELS, positionGroup, type PositionCode, type StatKey 
 import { HeaderMark } from '@/components/Wordmark';
 import ClipCard from '@/components/cv/ClipCard';
 import StatTile from '@/components/cv/StatTile';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', line: '#24322a', ink: '#eef5f0',
-  secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c',
-};
+import { T } from '@/lib/palette';
 
 // Position dots for the mini pitch map (attack →), x/y in % of the map box.
 const POS_XY: Record<PositionCode, [number, number]> = {

@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import { readCvByToken } from '@/lib/record-read';
 import { POSITIONS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
+import { T } from '@/lib/palette';
 
 // D-94 §5: the card endpoint OUTLIVES revocation in every platform's cache,
 // so it must re-check the token on every request and must never be served
@@ -31,11 +32,11 @@ const FONTS = [
 const BG = 'radial-gradient(ellipse 90% 70% at 50% -10%, #1a4a34 0%, #123326 34%, #0c1d14 68%, #0a1510 100%)';
 
 const Mark = ({ dim }: { dim?: boolean }) => (
-  <div style={{ display: 'flex', alignItems: 'center', fontSize: 38, fontWeight: 900, letterSpacing: '-1.5px', color: dim ? '#b9c8bf' : '#eef5f0' }}>
+  <div style={{ display: 'flex', alignItems: 'center', fontSize: 38, fontWeight: 900, letterSpacing: '-1.5px', color: dim ? T.secondary : T.ink }}>
     P
     <svg viewBox="0 0 74 97" width="23" height="30" style={{ margin: '0 -1px' }}>
-      <line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" strokeWidth="13" strokeLinecap="round" />
-      <circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" strokeWidth="10" />
+      <line x1="37" y1="6.5" x2="37" y2="90.5" stroke={T.accent} strokeWidth="13" strokeLinecap="round" />
+      <circle cx="37" cy="48.5" r="32" fill="none" stroke={T.accent} strokeWidth="10" />
     </svg>
     TCH
   </div>
@@ -50,7 +51,7 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
       (
         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 26, background: BG }}>
           <Mark />
-          <div style={{ display: 'flex', fontSize: 32, fontWeight: 700, color: '#b9c8bf' }}>Every season on the record.</div>
+          <div style={{ display: 'flex', fontSize: 32, fontWeight: 700, color: T.secondary }}>Every season on the record.</div>
         </div>
       ),
       { ...size, fonts: FONTS },
@@ -91,21 +92,21 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
 
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: '100%', padding: '54px 64px 48px 64px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', fontSize: 21, fontWeight: 800, letterSpacing: '7px', color: '#3ddc84' }}>PLAYER CV · SEASON 2026</div>
+            <div style={{ display: 'flex', fontSize: 21, fontWeight: 800, letterSpacing: '7px', color: T.accent }}>PLAYER CV · SEASON 2026</div>
             <Mark />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 26 }}>
-                <div style={{ display: 'flex', fontSize: 124, fontWeight: 900, color: '#eef5f0', letterSpacing: '-6px', lineHeight: 0.95 }}>{cv.firstName}</div>
+                <div style={{ display: 'flex', fontSize: 124, fontWeight: 900, color: T.ink, letterSpacing: '-6px', lineHeight: 0.95 }}>{cv.firstName}</div>
                 <div style={{ display: 'flex', fontSize: 124, fontWeight: 900, color: 'rgba(238,245,240,.35)', letterSpacing: '-6px', lineHeight: 0.95 }}>{cv.lastName ? (isAdult ? cv.lastName : `${cv.lastName[0]}.`) : ''}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 22 }}>
                 {cv.squadNumber ? (
-                  <div style={{ display: 'flex', fontSize: 30, fontWeight: 900, color: '#06130c', background: '#3ddc84', borderRadius: 12, padding: '6px 18px' }}>#{cv.squadNumber}</div>
+                  <div style={{ display: 'flex', fontSize: 30, fontWeight: 900, color: T.onAccent, background: T.accent, borderRadius: 12, padding: '6px 18px' }}>#{cv.squadNumber}</div>
                 ) : null}
-                <div style={{ display: 'flex', fontSize: 30, fontWeight: 700, color: '#b9c8bf' }}>{positions.join('   ·   ')}</div>
+                <div style={{ display: 'flex', fontSize: 30, fontWeight: 700, color: T.secondary }}>{positions.join('   ·   ')}</div>
               </div>
             </div>
 
@@ -115,12 +116,12 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
                 <div style={{ display: 'flex', gap: 52 }}>
                   {tiles.map((t) => (
                     <div key={t.key} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                      <div style={{ display: 'flex', fontSize: 74, fontWeight: 900, letterSpacing: '-3px', lineHeight: 1, color: t.key === 'goals' || t.key === 'clean_sheets' ? '#3ddc84' : '#eef5f0' }}>{String(t.value)}</div>
-                      <div style={{ display: 'flex', fontSize: 19, fontWeight: 700, color: '#7d8f85', textTransform: 'uppercase', letterSpacing: '3.5px', marginTop: 6 }}>{STAT_LABELS[t.key]}</div>
+                      <div style={{ display: 'flex', fontSize: 74, fontWeight: 900, letterSpacing: '-3px', lineHeight: 1, color: t.key === 'goals' || t.key === 'clean_sheets' ? T.accent : T.ink }}>{String(t.value)}</div>
+                      <div style={{ display: 'flex', fontSize: 19, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '3.5px', marginTop: 6 }}>{STAT_LABELS[t.key]}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', fontSize: 19, fontWeight: 500, color: '#7d8f85' }}>Self-reported · pitchfootball.com.au</div>
+                <div style={{ display: 'flex', fontSize: 19, fontWeight: 500, color: T.muted }}>Self-reported · pitchfootball.com.au</div>
               </div>
             </div>
           </div>

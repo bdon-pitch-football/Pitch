@@ -9,12 +9,8 @@ import ClipCard from '@/components/cv/ClipCard';
 import CopyLink from '@/components/cv/CopyLink';
 import { getSessionPersonId } from '@/lib/session';
 import Wordmark from '@/components/Wordmark';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', amber: '#eda100',
-};
+import { T } from '@/lib/palette';
+import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,8 +104,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
     'select fn_coach_contact_visible($1) as v', [viewer],
   )).rows[0].v;
 
-  const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
-  const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
+  const label = sectionLabel;
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -157,7 +152,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22, marginTop: 12, flexWrap: 'wrap' }}>
                 {yearsCoaching > 0 && (
                   <div>
-                    <div className="numeral numeral-m" style={{ color: '#eef5f0' }}>{yearsCoaching}</div>
+                    <div className="numeral numeral-m" style={{ color: T.ink }}>{yearsCoaching}</div>
                     <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Years coaching</div>
                   </div>
                 )}
@@ -277,7 +272,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
         )}
 
         {(licences.length > 0 || wins.length > 0) && (
-          <div style={{ fontSize: 11.5, color: '#6b7d73', fontWeight: 500, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 11.5, color: T.placeholder, fontWeight: 500, lineHeight: 1.5 }}>
             Licences and results above are {c.first_name}&rsquo;s own account. The Working With Children Check is the one thing on this page a club confirmed.
           </div>
         )}

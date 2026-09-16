@@ -1,13 +1,15 @@
+import { T } from '@/lib/palette';
+
 // The Pitch emblem — identical to the coming-soon site's wordmark (BUZ,
 // 4 Sep: the new emblem is THE emblem). "P" + the pitch glyph as the I +
 // "TCH". Placement rule unchanged: top right corner on every screen.
 export default function Wordmark({ size = 20 }: { size?: number }) {
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', fontWeight: 900, fontSize: size, letterSpacing: '-.035em', color: '#eef5f0', lineHeight: 1 }}>
+    <div style={{ display: 'inline-flex', alignItems: 'center', fontWeight: 900, fontSize: size, letterSpacing: '-.035em', color: T.ink, lineHeight: 1 }}>
       P
       <svg viewBox="0 0 74 97" style={{ height: '.715em', width: 'auto', margin: '0 -.085em', display: 'block' }} fill="none">
-        <line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" strokeWidth="13" strokeLinecap="round" />
-        <circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" strokeWidth="10" />
+        <line x1="37" y1="6.5" x2="37" y2="90.5" stroke={T.accent} strokeWidth="13" strokeLinecap="round" />
+        <circle cx="37" cy="48.5" r="32" fill="none" stroke={T.accent} strokeWidth="10" />
       </svg>
       TCH
     </div>
@@ -33,7 +35,7 @@ export function HeaderMark({ back }: { back?: { href: string; label?: string } }
       {back ? (
         <a href={back.href} style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
-          color: 'var(--muted, #7d8f85)', fontSize: 13, fontWeight: 700,
+          color: 'var(--muted)', fontSize: 13, fontWeight: 700,
           // 44px of tappable height without 44px of visual weight (D-147).
           minHeight: 44, margin: '-10px 0', paddingRight: 8,
         }}>

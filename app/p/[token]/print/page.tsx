@@ -10,6 +10,7 @@ import { readCvByToken } from '@/lib/record-read';
 import { cvMetadata, DEAD_LINK_METADATA } from '@/lib/cv-meta';
 import { POSITIONS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
 import PrintButton from './PrintButton';
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,11 +44,11 @@ export default async function PrintCv({ params, searchParams }: {
     .filter((t): t is { key: StatKey; value: number } => typeof t.value === 'number');
 
   return (
-    <div style={{ background: '#ffffff', color: '#0b120e', minHeight: '100dvh', padding: '32px 28px', fontFamily: 'inherit' }}>
+    <div style={{ background: '#ffffff', color: T.bg, minHeight: '100dvh', padding: '32px 28px', fontFamily: 'inherit' }}>
       <style>{`@media print { .no-print { display: none !important; } @page { margin: 14mm; } }`}</style>
       <PrintButton />
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0b120e', paddingBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: `2px solid ${T.bg}`, paddingBottom: 14 }}>
           <div>
             <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.02em' }}>{cv.firstName} {cv.lastName}</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#3f5145', marginTop: 4 }}>

@@ -8,12 +8,8 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { sendInvitation } from './actions';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', red: '#e34948', amber: '#eda100',
-};
+import { T } from '@/lib/palette';
+import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Invite a family', robots: { index: false, follow: false } };
@@ -52,8 +48,7 @@ export default async function InviteCompose({ params, searchParams }: {
   const minor = r.band !== '18plus';
   const trial = r.trial as { title: string; date: string; time_venue: string } | null;
 
-  const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
-  const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
+  const label = sectionLabel;
 
   // One invitation per registration (P10). Once it has gone, this is where
   // the club sees what came back: 'sent' or 'answered', never read or lapsed
@@ -123,7 +118,7 @@ export default async function InviteCompose({ params, searchParams }: {
         </div>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="registrationId" value={registrationId} />
           {cannot && (
-            <div role="alert" style={{ background: 'rgba(227,73,72,.12)', border: '1px solid rgba(227,73,72,.35)', borderRadius: 12, padding: '11px 13px', fontSize: 13, fontWeight: 700, color: '#eef5f0', lineHeight: 1.5 }}>
+            <div role="alert" style={{ background: 'rgba(227,73,72,.12)', border: '1px solid rgba(227,73,72,.35)', borderRadius: 12, padding: '11px 13px', fontSize: 13, fontWeight: 700, color: T.ink, lineHeight: 1.5 }}>
               Take out the link, email address or phone number, and keep it under 400 characters. The family chooses what contact details to hand over.
             </div>
           )}

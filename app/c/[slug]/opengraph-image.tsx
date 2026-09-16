@@ -12,6 +12,7 @@ import { ImageResponse } from 'next/og';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { db } from '@/lib/db';
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 export const size = { width: 1200, height: 630 };
@@ -35,18 +36,18 @@ export default async function CoachCard({ params }: { params: Promise<{ slug: st
 
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: 64, color: '#eef5f0' }}>
-        <div style={{ display: 'flex', fontSize: 22, fontWeight: 800, letterSpacing: '0.14em', color: '#7d8f85' }}>COACH</div>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: 64, color: T.ink }}>
+        <div style={{ display: 'flex', fontSize: 22, fontWeight: 800, letterSpacing: '0.14em', color: T.muted }}>COACH</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', fontSize: 84, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1 }}>{name}</div>
           <div style={{ display: 'flex', fontSize: 30, fontWeight: 700, color: 'rgba(255,255,255,.75)' }}>
             {[c?.current_title, c?.region].filter(Boolean).join(' · ')}
           </div>
           {c?.wwcc && (
-            <div style={{ display: 'flex', fontSize: 22, fontWeight: 800, color: '#3ddc84' }}>WWCC verified</div>
+            <div style={{ display: 'flex', fontSize: 22, fontWeight: 800, color: T.accent }}>WWCC verified</div>
           )}
         </div>
-        <div style={{ display: 'flex', fontSize: 24, fontWeight: 800, color: '#3ddc84' }}>PITCH</div>
+        <div style={{ display: 'flex', fontSize: 24, fontWeight: 800, color: T.accent }}>PITCH</div>
       </div>
     ),
     { ...size, fonts: [

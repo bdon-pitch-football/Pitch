@@ -5,12 +5,8 @@ import { useState } from 'react';
 import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, STAT_KEYS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
 import { saveDraft } from './actions';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', placeholder: '#6b7d73',
-  accent: '#3ddc84', onAccent: '#06130c',
-};
+import { T } from '@/lib/palette';
+import { card, fieldLabel as label } from '@/lib/ui';
 
 interface RecordData {
   id: string; first_name: string; last_name: string; photo_path: string | null; positions: string[];
@@ -18,8 +14,6 @@ interface RecordData {
   surfaced_stats: string[]; stats: Record<string, number>; has_pending: boolean; clips: number;
 }
 
-const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
-const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
 export default function BuildForm({ record, saved }: { record: RecordData; saved: boolean }) {

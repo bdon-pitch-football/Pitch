@@ -6,22 +6,15 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { claimClub, requestClaimCode } from './actions';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', placeholder: '#6b7d73',
-  accent: '#3ddc84', onAccent: '#06130c', amber: '#eda100',
-};
+import { T } from '@/lib/palette';
+import { card, sectionLabel as label } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Claim your club', robots: { index: false, follow: false } };
 
-const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
-const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
-
 const ROLES: [string, string, React.ReactNode][] = [
   ['technical_director', 'Technical Director', 'Runs the football side. From December, the only role that reads a player’s development record.'],
-  ['club_admin', 'Club administrator', <>Runs the page, the teams and the trial notices. <b style={{ color: '#b9c8bf' }}>Never reads a player&rsquo;s development record, by any route.</b></>],
+  ['club_admin', 'Club administrator', <>Runs the page, the teams and the trial notices. <b style={{ color: T.secondary }}>Never reads a player&rsquo;s development record, by any route.</b></>],
   ['committee', 'Committee or president', 'Same as an administrator. You can hand the football side to your TD once you’re in.'],
 ];
 

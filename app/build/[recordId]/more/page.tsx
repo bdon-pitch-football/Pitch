@@ -8,11 +8,8 @@ import { HeaderMark } from '@/components/Wordmark';
 import { EXPERIENCE_KIND_LABELS, OTHER_FOOTBALL_KINDS, PREVIOUS_CLUB } from '@/lib/football';
 import { requireRecordActor } from '@/lib/record-guard';
 import { addAchievement, addExperience, removeAchievement, removeExperience } from './actions';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c',
-};
+import { T } from '@/lib/palette';
+import { fieldLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'More about you', robots: { index: false, follow: false } };
@@ -40,7 +37,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
   const clubs: { id: string; orgName: string; period: string | null }[] = rows[0].clubs;
 
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16 };
-  const label: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
+  const label = fieldLabel;
   const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
   const section: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 

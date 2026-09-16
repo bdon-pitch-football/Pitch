@@ -11,18 +11,13 @@ import { sendState } from '@/lib/send-state';
 import { PlayerFrame } from '@/components/player-shell';
 import { HeaderMark } from '@/components/Wordmark';
 import { composeSend } from './actions';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', red: '#e34948', purple: '#a479e2', amber: '#eda100',
-};
+import { T } from '@/lib/palette';
+import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Send your CV', robots: { index: false, follow: false } };
 
-const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
-const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
+const label = sectionLabel;
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
 const hero: React.CSSProperties = { borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.line}`, padding: 17 };
 

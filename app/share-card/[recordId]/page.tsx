@@ -5,17 +5,13 @@ import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { requestCard } from './actions';
 import { requireRecordActor } from '@/lib/record-guard';
-
-const T = {
-  surface: '#121b16', surface2: '#1a2420', line: '#24322a', ink: '#eef5f0',
-  secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c',
-  red: '#e34948', purple: '#a479e2',
-};
+import { T } from '@/lib/palette';
+import { sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Share card', robots: { index: false, follow: false } };
 
-const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
+const label = sectionLabel;
 const SHAPES: [string, string, number, number][] = [['story', 'Story', 34, 60], ['square', 'Square', 52, 52], ['landscape', 'Landscape', 64, 34]];
 
 const Row = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (

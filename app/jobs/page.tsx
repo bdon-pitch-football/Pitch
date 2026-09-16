@@ -7,11 +7,8 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { CoachConsole } from '@/components/console-shell';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-};
+import { T } from '@/lib/palette';
+import { card } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
@@ -33,8 +30,6 @@ export default async function Jobs() {
     paid: boolean; closes_on: string | null; club: string; public_slug: string | null;
     club_state: string; applications: number;
   }[];
-
-  const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
   return (
     <CoachConsole active="jobs">

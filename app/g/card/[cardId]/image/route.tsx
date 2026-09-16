@@ -12,6 +12,7 @@ import { notFound, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { POSITIONS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
+import { T } from '@/lib/palette';
 
 const font = (w: number) => readFileSync(join(process.cwd(), 'assets/fonts', `Archivo-${w}.ttf`));
 const FONTS = [
@@ -59,21 +60,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
   return new ImageResponse(
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: size.width / 14, fontFamily: 'Archivo', background: 'radial-gradient(ellipse 120% 80% at 50% -15%, #1a4a34 0%, #123326 38%, #0c1d14 72%, #0a1510 100%)' }}>
-        <div style={{ display: 'flex', fontSize: big * 0.32, fontWeight: 700, letterSpacing: big * 0.09, color: '#3ddc84' }}>PITCH</div>
+        <div style={{ display: 'flex', fontSize: big * 0.32, fontWeight: 700, letterSpacing: big * 0.09, color: T.accent }}>PITCH</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: big * 0.22 }}>
-          <div style={{ display: 'flex', fontSize: big * 1.5, fontWeight: 900, color: '#eef5f0', letterSpacing: -big * 0.06, lineHeight: 1 }}>{name}</div>
+          <div style={{ display: 'flex', fontSize: big * 1.5, fontWeight: 900, color: T.ink, letterSpacing: -big * 0.06, lineHeight: 1 }}>{name}</div>
           <div style={{ display: 'flex', gap: big * 0.18, alignItems: 'center' }}>
             {c.squad_number ? (
-              <div style={{ display: 'flex', fontSize: big * 0.45, fontWeight: 900, color: '#06130c', background: '#3ddc84', borderRadius: big * 0.18, padding: `${big * 0.08}px ${big * 0.24}px` }}>#{c.squad_number}</div>
+              <div style={{ display: 'flex', fontSize: big * 0.45, fontWeight: 900, color: T.onAccent, background: T.accent, borderRadius: big * 0.18, padding: `${big * 0.08}px ${big * 0.24}px` }}>#{c.squad_number}</div>
             ) : null}
-            <div style={{ display: 'flex', fontSize: big * 0.42, fontWeight: 700, color: '#b9c8bf' }}>{positions.join('  ·  ')}</div>
+            <div style={{ display: 'flex', fontSize: big * 0.42, fontWeight: 700, color: T.secondary }}>{positions.join('  ·  ')}</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: big * 0.7 }}>
           {tiles.map((t) => (
             <div key={t.key} style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', fontSize: big, fontWeight: 900, lineHeight: 1, letterSpacing: -big * 0.04, color: t.key === 'goals' || t.key === 'clean_sheets' ? '#3ddc84' : '#eef5f0' }}>{String(t.value)}</div>
-              <div style={{ display: 'flex', fontSize: big * 0.26, fontWeight: 700, color: '#7d8f85', textTransform: 'uppercase', letterSpacing: big * 0.05, marginTop: big * 0.1 }}>{STAT_LABELS[t.key]}</div>
+              <div style={{ display: 'flex', fontSize: big, fontWeight: 900, lineHeight: 1, letterSpacing: -big * 0.04, color: t.key === 'goals' || t.key === 'clean_sheets' ? T.accent : T.ink }}>{String(t.value)}</div>
+              <div style={{ display: 'flex', fontSize: big * 0.26, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: big * 0.05, marginTop: big * 0.1 }}>{STAT_LABELS[t.key]}</div>
             </div>
           ))}
         </div>

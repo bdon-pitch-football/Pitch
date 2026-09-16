@@ -11,19 +11,14 @@ import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
 import { PlayerFrame, GuardianFrame } from '@/components/player-shell';
 import { CoachConsole } from '@/components/console-shell';
-import CopyLink from '@/components/CopyLink';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', amber: '#eda100', purple: '#a479e2',
-};
+import CopyLink from '@/components/cv/CopyLink';
+import { T } from '@/lib/palette';
+import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Home', robots: { index: false, follow: false } };
 
-const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
-const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
+const label = sectionLabel;
 
 // framed: the page sits inside a seat's frame, which already paints the
 // floodlight and fills the height — so the Shell brings only its column.
@@ -303,7 +298,7 @@ export default async function Home() {
                     <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{url}</div>
                     <div style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,.6)' }}>Public · paste it wherever you talk to clubs and families</div>
                   </div>
-                  <CopyLink url={`https://${url}`} />
+                  <CopyLink url={`https://${url}`} label="Copy" compact />
                 </div>
               ) : (
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: 'rgba(255,255,255,.7)', lineHeight: 1.5 }}>Your page gets its own link once you publish it.</div>
@@ -640,7 +635,7 @@ export default async function Home() {
           the form a parent can take in at a glance. */}
       <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 20px 18px 20px', display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
         <div>
-          <div className="numeral numeral-m" style={{ color: '#eef5f0' }}>{linksActive}</div>
+          <div className="numeral numeral-m" style={{ color: T.ink }}>{linksActive}</div>
           <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{linksActive === 1 ? 'Link active' : 'Links active'}</div>
         </div>
         <div>

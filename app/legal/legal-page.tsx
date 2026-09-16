@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { marked } from 'marked';
 import { PitchWordmark, QuietShell } from '@/components/quiet-shell';
+import { T } from '@/lib/palette';
 
 // The privacy policy and terms are served as real pages, not PDFs (doc 29 §7).
 // Content comes straight from docs/legal — the authoritative markdown. Four
@@ -18,18 +19,18 @@ export function renderLegal(file: string) {
       <PitchWordmark />
       <div
         className="legal-doc"
-        style={{ fontSize: 14.5, color: '#b9c8bf', fontWeight: 500, lineHeight: 1.65 }}
+        style={{ fontSize: 14.5, color: T.secondary, fontWeight: 500, lineHeight: 1.65 }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
       <style>{`
-        .legal-doc h1 { font-size: 28px; font-weight: 900; letter-spacing: -.02em; color: #eef5f0; line-height: 1.15; }
-        .legal-doc h2 { font-size: 20px; font-weight: 800; letter-spacing: -.015em; color: #eef5f0; margin-top: 2em; }
-        .legal-doc h3 { font-size: 16px; font-weight: 800; color: #eef5f0; margin-top: 1.6em; }
-        .legal-doc strong { color: #eef5f0; }
+        .legal-doc h1 { font-size: 28px; font-weight: 900; letter-spacing: -.02em; color: var(--ink); line-height: 1.15; }
+        .legal-doc h2 { font-size: 20px; font-weight: 800; letter-spacing: -.015em; color: var(--ink); margin-top: 2em; }
+        .legal-doc h3 { font-size: 16px; font-weight: 800; color: var(--ink); margin-top: 1.6em; }
+        .legal-doc strong { color: var(--ink); }
         .legal-doc table { border-collapse: collapse; width: 100%; font-size: 13px; }
-        .legal-doc th, .legal-doc td { border: 1px solid #24322a; padding: 8px 10px; text-align: left; vertical-align: top; }
-        .legal-doc code { background: #121b16; border-radius: 6px; padding: 1px 6px; font-size: 13px; }
-        .legal-doc hr { border: none; border-top: 1px solid #24322a; margin: 2em 0; }
+        .legal-doc th, .legal-doc td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .legal-doc code { background: var(--surface); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
+        .legal-doc hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
       `}</style>
     </QuietShell>
   );

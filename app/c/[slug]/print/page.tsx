@@ -12,6 +12,7 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import PrintButton from '@/app/p/[token]/print/PrintButton';
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,11 +71,11 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
   };
 
   return (
-    <div style={{ background: '#ffffff', color: '#0b120e', minHeight: '100dvh', padding: '32px 28px' }}>
+    <div style={{ background: '#ffffff', color: T.bg, minHeight: '100dvh', padding: '32px 28px' }}>
       <style>{`@media print { .no-print { display: none !important; } @page { margin: 14mm; } }`}</style>
       <PrintButton />
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <div style={{ borderBottom: '2px solid #0b120e', paddingBottom: 16, marginBottom: 22 }}>
+        <div style={{ borderBottom: `2px solid ${T.bg}`, paddingBottom: 16, marginBottom: 22 }}>
           <h1 style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.05 }}>{name}</h1>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#3a4a42', marginTop: 4 }}>
             {[roles.find((r) => !r.to)?.title, roles.find((r) => !r.to)?.org, c.region].filter(Boolean).join(' · ')}
@@ -136,7 +137,7 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
         )}
 
         {(licences.length > 0 || wins.length > 0) && (
-          <div style={{ fontSize: 10.5, color: '#7d8f85', marginBottom: 22, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 10.5, color: T.muted, marginBottom: 22, lineHeight: 1.5 }}>
             Licences and results above are {c.first_name}&rsquo;s own account. The Working With Children Check is the one thing here a club confirmed.
           </div>
         )}

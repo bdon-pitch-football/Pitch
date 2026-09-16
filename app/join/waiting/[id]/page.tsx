@@ -6,12 +6,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPendingInvitation } from '@/lib/guardian-flow';
 import { HeaderMark } from '@/components/Wordmark';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', amber: '#eda100', purple: '#a479e2',
-};
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Check your email', robots: { index: false, follow: false } };

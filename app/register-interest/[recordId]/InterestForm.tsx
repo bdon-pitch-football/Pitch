@@ -5,15 +5,10 @@ import { useState } from 'react';
 import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { composeInterest } from './actions';
+import { T } from '@/lib/palette';
+import { card, sectionLabel } from '@/lib/ui';
 
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', red: '#e34948', purple: '#a479e2',
-};
-
-const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
-const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
+const label = sectionLabel;
 
 export default function InterestForm({ recordId, club, squads, cvPositions, preselectSquad, mode, band, trial }: {
   recordId: string;

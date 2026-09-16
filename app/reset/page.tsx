@@ -3,17 +3,13 @@
 // whether an address is registered (doc 15 §10 amendment, D-94 §2).
 import { HeaderMark } from '@/components/Wordmark';
 import { requestReset } from './actions';
-
-const T = {
-  surface: '#121b16', surface2: '#1a2420', line: '#24322a', ink: '#eef5f0',
-  secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c',
-};
+import { T } from '@/lib/palette';
+import { card } from '@/lib/ui';
 
 export const metadata = { title: 'Reset your password', robots: { index: false, follow: false } };
 
 export default async function Reset({ searchParams }: { searchParams: Promise<{ sent?: string; expired?: string }> }) {
   const { sent, expired } = await searchParams;
-  const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>

@@ -9,6 +9,7 @@ import { assembleCv } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import PlayerCV from '@/components/cv/PlayerCV';
 import type { CvData } from '@/lib/record-read';
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Player CV', robots: { index: false, follow: false } };
@@ -76,9 +77,9 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
   // the browser's back button — and in the installed app there isn't one.
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'center', background: '#0b120e' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', background: T.bg }}>
         <div className="reading" style={{ width: '100%', padding: '14px 18px 0 18px', boxSizing: 'border-box' }}>
-          <a href={a.td ? '/club/register' : '/coach/register'} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, gap: 6, textDecoration: 'none', color: '#7d8f85', fontSize: 13, fontWeight: 700 }}>
+          <a href={a.td ? '/club/register' : '/coach/register'} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, gap: 6, textDecoration: 'none', color: T.muted, fontSize: 13, fontWeight: 700 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
             {a.td ? 'The register' : 'Registrations'}
           </a>

@@ -14,6 +14,7 @@
 // layout effect — before paint, so nobody sees the flash — and counts back
 // up. No JavaScript, no animation, correct number.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { T } from '@/lib/palette';
 
 // useLayoutEffect warns when React renders this on the server; useEffect is
 // the correct no-op there, because there is no paint to be ahead of.
@@ -47,7 +48,7 @@ export default function StatTile({ value, label, accent, delay = 0 }: {
 
   return (
     <div className="cv-rise" style={{ animationDelay: `${0.28 + delay}s`, background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: '10px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      <div className={done ? 'settle' : undefined} style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.04em', color: accent ? '#3ddc84' : '#eef5f0' }}>{shown}</div>
+      <div className={done ? 'settle' : undefined} style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.04em', color: accent ? T.accent : T.ink }}>{shown}</div>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,.72)', textTransform: 'uppercase' }}>{label}</div>
     </div>
   );

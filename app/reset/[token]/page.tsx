@@ -2,11 +2,8 @@
 // only ever compared as a hash.
 import { HeaderMark } from '@/components/Wordmark';
 import { submitNewPassword } from '../actions';
-
-const T = {
-  surface: '#121b16', line: '#24322a', ink: '#eef5f0',
-  secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c', amber: '#eda100',
-};
+import { T } from '@/lib/palette';
+import { card } from '@/lib/ui';
 
 export const metadata = { title: 'Set a new password', robots: { index: false, follow: false } };
 
@@ -17,7 +14,6 @@ export default async function SetPassword({ params, searchParams }: {
   const { token } = await params;
   const { short } = await searchParams;
   const act = submitNewPassword;
-  const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>

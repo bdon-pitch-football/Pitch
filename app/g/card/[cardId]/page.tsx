@@ -7,11 +7,7 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { approveCard } from './actions';
-
-const T = {
-  surface: '#121b16', surface2: '#1a2420', line: '#24322a', ink: '#eef5f0',
-  secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84', onAccent: '#06130c', purple: '#a479e2',
-};
+import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Share card', robots: { index: false, follow: false } };

@@ -10,18 +10,13 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { deleteEverything, renewLink, replaceLink, setPause, setSendSwitch } from './actions';
-
-const T = {
-  bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
-  ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', red: '#e34948',
-};
+import { T } from '@/lib/palette';
+import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Controls', robots: { index: false, follow: false } };
 
-const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
-const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
+const label = sectionLabel;
 const ghost: React.CSSProperties = { flex: 1, height: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' };
 
 export default async function Controls({ params, searchParams }: {
