@@ -1,6 +1,9 @@
 # Doc 29 §8 — CI. The corpus check asserts the documents agree with each
 # other; the build job asserts the site compiles; the static checks assert the
 # security posture (service-role key in exactly one file, no committed secrets).
+# D-94 §9 (17 Sep): the doc 14 permission suite — THE launch gate — runs on
+# every push, with gate coverage, a dependency audit and a secret scan over
+# the whole history.
 name: CI
 
 on:
@@ -60,5 +63,52 @@ jobs:
             echo "::error::A .env file is committed."
             exit 1
           fi
+      # D-94 §9: a critical advisory in anything that ships is a stop-work
+      # item. Dev-only tooling is left out; so are lower severities, which
+      # are reviewed by hand rather than allowed to block every push.
+      - name: Dependency audit (critical, shipped packages)
+        run: npm audit --omit=dev --audit-level=critical
       - run: npm run typecheck
+      # lib/db refuses to load in production without a database address, and
+      # the build loads every route. A placeholder is enough: nothing is
+      # prerendered from the database (every page renders per request, for
+      # the CSP nonce), and the sitemap's query fails soft.
       - run: npm run build
+        env:
+          SUPABASE_DB_URL: postgres://ci@127.0.0.1:5432/ci
+
+  gate:
+    name: Launch gate (doc 14 permission suite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # 24: the suite imports a TypeScript module directly, which Node runs
+      # without a build step from 23.6 on.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Permission suite, against its own in-process Postgres
+        run: node scripts/permission-tests.mjs
+      - name: Every doc 14 row is pinned by the suite
+        run: node scripts/gate-coverage.mjs
+      - name: One palette
+        run: node scripts/palette-check.mjs
+
+  secrets:
+    name: Secret scan (D-94 §1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: The scanner catches what it should
+        run: node scripts/secret-scan.mjs --self-test
+      - name: No secret in any tracked file
+        run: node scripts/secret-scan.mjs
+      - name: No secret in any commit ever made
+        run: node scripts/secret-scan.mjs --history

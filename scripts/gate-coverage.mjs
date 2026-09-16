@@ -10,10 +10,17 @@
 //   · template-literal labels — check(`N6: ... ${x}`) inside a loop
 //   · John's rulings (doc 31) are labelled U-1, U-2, U-5 and so on, and
 //     those are what pin the rows doc 14 left unruled
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const spec = readFileSync(fileURLToPath(new URL('../../14-Permission-Test-Spec.md', import.meta.url)), 'utf8');
+// The repo carries its own copy of doc 14 (docs/), which is what CI has. The
+// working folder's copy is the fallback.
+const specPath = [
+  fileURLToPath(new URL('../docs/14-Permission-Tests.md', import.meta.url)),
+  fileURLToPath(new URL('../../14-Permission-Test-Spec.md', import.meta.url)),
+].find((p) => existsSync(p));
+if (!specPath) { console.error('doc 14 not found'); process.exit(1); }
+const spec = readFileSync(specPath, 'utf8');
 const suite = readFileSync(fileURLToPath(new URL('./permission-tests.mjs', import.meta.url)), 'utf8');
 
 const ids = new Set([...spec.matchAll(/^\| ([A-Z]{1,2}\d+[a-z]?) \|/gm)].map((m) => m[1]));
