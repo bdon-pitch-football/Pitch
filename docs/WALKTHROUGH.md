@@ -81,6 +81,10 @@ width (the desktop app's Viewport menu) and at laptop width.
   the register for (names only, never a count), open roles and a copy button
   for your page.
 - Tabs: Home · My CV · Registrations (only if a club gave you access) · Roles.
+- **Publish (17 Sep):** at the bottom of **My CV**, *Publish my page* gives
+  the coach a link made from their name (`/c/sam-kaya`, or `-2` if that's
+  taken). *Take my page down* hides it. Publishing again brings back the
+  same link, because coaches paste it into emails that stay around.
 - **New (your call, 17 Sep; D-100 amended, register v4.14):** a coach page is an adult's page. Someone under 18
   can keep a coach profile, but it can never be given a public link or a
   public contact. The database refuses both, the page and sitemap won't show

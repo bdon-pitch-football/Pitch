@@ -611,6 +611,50 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// A coach publishes their page, takes it down, and gets the same link back
+// (D-75, D-100; 0043). Robin is an adult with no coach page yet. Nate is 17,
+// and a coach page is an adult's page (0042, D-100 amended 17 Sep).
+// ---------------------------------------------------------------------------
+{
+  const robin = ids.people.robin, nate = ids.children.nate.child_id;
+  const send = async (who, form) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    const r = await fetch(BASE + '/coach/edit', { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+  const formFor = async (who, label) => forms((await get('/coach/edit', who)).html).find((f) => f.submit === label);
+  const slugOf = (html) => /pitchfootball\.com\.au\/c\/([a-z0-9-]+)/.exec(html)?.[1];
+
+  const publish = await formFor(robin, 'Publish my page');
+  check('cp1: an adult with no page is offered Publish my page', Boolean(publish), true);
+  check('cp2: publishing says so', /published=1/.test(await send(robin, publish)), true);
+  const edit1 = (await get('/coach/edit', robin)).html;
+  const slug = slugOf(edit1);
+  check(`cp3: the address is made from their name (${slug})`, slug, 'robin-newman');
+  check('cp4: and it opens for anyone', (await get(`/c/${slug}`, null)).status, 200);
+  check('cp5: their home shows the link to copy', slugOf((await get('/home', robin)).html), slug);
+
+  const down = await formFor(robin, 'Take my page down');
+  check('cp6: a published page can be taken down', /hidden=1/.test(await send(robin, down)), true);
+  check('cp7: and then it does not open', (await get(`/c/${slug}`, null)).status, 404);
+  check('cp8: nor does its print view', (await get(`/c/${slug}/print`, null)).status, 404);
+  check('cp9: and home no longer offers the link', slugOf((await get('/home', robin)).html), undefined);
+
+  await send(robin, await formFor(robin, 'Publish my page'));
+  check('cp10: publishing again brings back the SAME link (D-100: stable)', slugOf((await get('/coach/edit', robin)).html), slug);
+  check('cp11: and it opens again', (await get(`/c/${slug}`, null)).status, 200);
+
+  const teen = (await get('/coach/edit', nate)).html;
+  check('cp12: a 17-year-old is not offered Publish my page', /Publish my page/.test(teen), false);
+  check('cp13: and is told when it opens', /once you turn 18/.test(teen.replace(/&rsquo;/g, "'")), true);
+  // Posting the publish action anyway, with an adult's form, changes nothing.
+  await send(nate, publish);
+  check('cp14: a 17-year-old who posts it anyway gets no page', slugOf((await get('/coach/edit', nate)).html), undefined);
+}
+
+// ---------------------------------------------------------------------------
 // 1 · EVERY FORM SUBMITS WITHOUT JAVASCRIPT.
 // ---------------------------------------------------------------------------
 const broke = []; const skipped = [];

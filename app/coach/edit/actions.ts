@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { COACH_CLIP_CAP } from '@/lib/football';
+import { coachSlugBase, coachSlugCandidates } from '@/lib/coach-slug';
 
 export async function saveCoachProfile(formData: FormData) {
   const me = await getSessionPersonId();
@@ -167,6 +168,52 @@ export async function removeCoachClip(formData: FormData) {
     [clipId, me],
   );
   redirect('/coach/edit?removed=clip');
+}
+
+// ---------------------------------------------------------------------------
+// Publishing the coach's page (D-75, D-100; 0043). An adult only (0042 and
+// D-100 as amended 17 Sep): the database refuses a public link on anyone
+// under 18 whatever this code does, and this check just answers them
+// plainly instead of with an error. The address is made once and kept:
+// taking the page down hides it and publishing again brings back the same
+// link, because a coach has pasted it into emails that still exist.
+// ---------------------------------------------------------------------------
+export async function publishCoachPage() {
+  const me = await getSessionPersonId();
+  if (!me) redirect('/signin');
+  const person = (await db.query(
+    `select first_name, coalesce(last_name,'') as last_name, fn_age_band(dob) = '18plus' as adult
+     from person where id = $1`, [me])).rows[0];
+  if (!person?.adult) redirect('/coach/edit');
+
+  await db.query(`insert into coach_profile (person_id) values ($1) on conflict (person_id) do nothing`, [me]);
+  const current = (await db.query(`select public_slug from coach_profile where person_id = $1`, [me])).rows[0];
+  if (current?.public_slug) {
+    await db.query(`update coach_profile set hidden_at = null where person_id = $1`, [me]);
+    redirect('/coach/edit?published=1');
+  }
+
+  // Try the name, then name-2, name-3 … The unique constraint is what
+  // decides a race between two coaches of the same name, not the lookup.
+  for (const slug of coachSlugCandidates(coachSlugBase(person.first_name, person.last_name))) {
+    const taken = await db.query(
+      `update coach_profile set public_slug = $2, hidden_at = null
+       where person_id = $1 and public_slug is null`, [me, slug],
+    ).then(() => false, (e: { code?: string }) => {
+      if (e.code === '23505') return true;
+      throw e;
+    });
+    if (!taken) break;
+  }
+  redirect('/coach/edit?published=1');
+}
+
+export async function hideCoachPage() {
+  const me = await getSessionPersonId();
+  if (!me) redirect('/signin');
+  await db.query(
+    `update coach_profile set hidden_at = now() where person_id = $1 and public_slug is not null and hidden_at is null`, [me]);
+  redirect('/coach/edit?hidden=1');
 }
 
 // ---------------------------------------------------------------------------

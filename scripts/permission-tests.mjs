@@ -2322,6 +2322,25 @@ check('cpa6: every coach page lookup asks whether the owner is an adult',
   coachSrcAll.every((src) => (src.match(/public_slug = \$1/g) ?? []).length === (src.match(/public_slug = \$1 and fn_coach_page_public\(cp\.id\)/g) ?? []).length), true);
 check('cpa7: and so does the sitemap',
   /fn_coach_page_public/.test(readFileSync(fileURLToPath(new URL('../app/sitemap.ts', import.meta.url)), 'utf8')), true);
+
+// 0043: a page taken down is not public, and keeps its address.
+await db.query(`update coach_profile set hidden_at = now() where id = $1`, [samProfile]);
+check('cpa8: a page its coach has taken down is not public',
+  (await db.query('select fn_coach_page_public($1) as p', [samProfile])).rows[0].p, false);
+check('cpa9: and its address stays reserved for them',
+  (await db.query('select public_slug from coach_profile where id = $1', [samProfile])).rows[0].public_slug, 'coach-v');
+await db.query(`update coach_profile set hidden_at = null where id = $1`, [samProfile]);
+check('cpa10: publishing again makes it public', (await db.query('select fn_coach_page_public($1) as p', [samProfile])).rows[0].p, true);
+
+// The address itself (lib/coach-slug.ts): plain letters, whatever the name.
+const { coachSlugBase, coachSlugCandidates } = await import('../lib/coach-slug.ts');
+check('slug1: accents and dotless i fold to plain letters', coachSlugBase('Deniz', 'Yılmaz'), 'deniz-yilmaz');
+check('slug2: so do the letters NFKD leaves alone', coachSlugBase('Søren', 'Groß-Æbelø'), 'soren-gross-aebelo');
+check('slug3: apostrophes and spaces become one hyphen', coachSlugBase("Siobhán", "O'Brien  Jr."), 'siobhan-o-brien-jr');
+check('slug4: a name with no plain letters still gets an address', coachSlugBase('李', '明'), 'coach');
+check('slug5: never longer than 40', coachSlugBase('A'.repeat(30), 'B'.repeat(30)).length <= 40, true);
+check('slug6: never ends in a hyphen after trimming', /-$/.test(coachSlugBase('Abcdefghij'.repeat(4).slice(0, 39), 'x')), false);
+check('slug7: a clash tries name-2, then name-3', coachSlugCandidates('sam-kaya', 3), ['sam-kaya', 'sam-kaya-2', 'sam-kaya-3']);
 check('job4: an anonymous caller may not', await canApply(null), false);
 
 const roleId = crypto.randomUUID();

@@ -7,7 +7,8 @@ import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { CoachConsole } from '@/components/console-shell';
 import Link from 'next/link';
-import { addCoachAchievement, addCoachClip, addLicence, addRole, removeCoachAchievement, removeCoachClip, removeLicence, removeRole, saveCoachProfile } from './actions';
+import { addCoachAchievement, addCoachClip, addLicence, addRole, hideCoachPage, publishCoachPage, removeCoachAchievement, removeCoachClip, removeLicence, removeRole, saveCoachProfile } from './actions';
+import CopyLink from '@/components/cv/CopyLink';
 import { COACH_CLIP_CAP } from '@/lib/football';
 import { T } from '@/lib/palette';
 import { card, fieldLabel as label } from '@/lib/ui';
@@ -17,14 +18,14 @@ export const metadata = { title: 'Build your coach CV', robots: { index: false, 
 
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
-export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; banner?: string; removed?: string }> }) {
+export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; banner?: string; removed?: string; published?: string; hidden?: string }> }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
-  const { saved, clip, photo, banner } = await searchParams;
+  const { saved, clip, photo, banner, published, hidden } = await searchParams;
   const { rows } = await db.query(
     `select p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, cp.public_contact,
-       cp.region, cp.philosophy, cp.public_slug, cp.banner_path,
+       cp.region, cp.philosophy, cp.public_slug, cp.banner_path, cp.hidden_at,
        fn_age_band(p.dob) = '18plus' as adult,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select c.name from wwcc_attestation w join club c on c.id = w.club_id where w.person_id = p.id and w.revoked_at is null limit 1) as wwcc_club,
@@ -49,6 +50,10 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
   const clips: { id: string; url: string; title: string }[] = c.clips ?? [];
   const licences: { id: string; title: string; issuer: string | null; year: string | null }[] = c.licences ?? [];
   const wins: { id: string; title: string; detail: string | null }[] = c.wins ?? [];
+  // Live = published and not taken down (0043). An under-18 can hold neither
+  // a link nor a contact (0042), so for them the card says when it opens.
+  const live = Boolean(c.public_slug) && !c.hidden_at && c.adult;
+  const pageUrl = c.public_slug ? `pitchfootball.com.au/c/${c.public_slug}` : null;
 
   return (
     <CoachConsole active="edit">
@@ -58,7 +63,9 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Build your coach CV</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Five minutes. Edit anything later.</div>
         </div>
-        {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Saved.{c.public_slug ? ` Live at pitchfootball.com.au/${c.public_slug}` : ''}</div>}
+        {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Saved.{live ? ` Live at pitchfootball.com.au/c/${c.public_slug}` : ''}</div>}
+        {published && live && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Your page is live. Copy the link below and paste it wherever you talk to clubs and families.</div>}
+        {hidden && !live && <div role="status" style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary }}>Your page is down. The link won&rsquo;t open until you publish again.</div>}
         {clip === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give it a title, and a YouTube, Veo or Instagram link.</div>}
         {photo === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A PNG or JPEG under 8MB.</div>}
         {banner === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A JPEG or PNG under 12MB, landscape if you have one.</div>}
@@ -289,15 +296,38 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
           )}
         </div>
 
-        {/* This card used to sit on the PUBLIC page, where it is furniture for
-            the coach and noise for whoever is reading them — and it was
-            duplicated there by a "Copy this link" button. It belongs here. */}
-        {c.public_slug && (
-          <Link href={`/c/${c.public_slug}`} className="lift" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'center', textDecoration: 'none' }}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your public coaching CV</div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/c/{c.public_slug}</div>
-          </Link>
-        )}
+        {/* Publishing (D-75, D-100; 0043). The link card used to sit on the
+            PUBLIC page, where it was furniture for the coach and noise for
+            whoever was reading them. It belongs here, with the switch. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={label}>Your public page</div>
+          {!c.adult ? (
+            <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+              Your coach page can go public once you turn 18. Until then you can build it here and nobody else sees it.
+            </div>
+          ) : live ? (
+            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+              <Link href={`/c/${c.public_slug}`} style={{ fontSize: 14, fontWeight: 800, color: T.accent, textDecoration: 'none', overflowWrap: 'anywhere', minHeight: 44, display: 'flex', alignItems: 'center' }}>{pageUrl}</Link>
+              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Live. Anyone with the link can read your page.</div>
+              <CopyLink url={`https://${pageUrl}`} label="Copy the link" />
+              <form action={hideCoachPage} style={{ display: 'flex' }}>
+                <button type="submit" className="btn btn-secondary">Take my page down</button>
+              </form>
+              <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
+                Taking it down stops the link opening for anyone who has it. Publish again and the same link works again.
+              </div>
+            </div>
+          ) : (
+            <form action={publishCoachPage} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+              <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                {c.public_slug
+                  ? <>Your page is down. Publish it again and <b style={{ color: T.ink }}>{pageUrl}</b> opens again.</>
+                  : 'Publish it and you get a link to paste wherever you talk to clubs and families. Anyone with the link can read your page.'}
+              </div>
+              <button type="submit" className="btn btn-primary">Publish my page</button>
+            </form>
+          )}
+        </div>
 
         <Link href="/jobs" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Coaching roles at clubs</Link>
 

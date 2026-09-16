@@ -115,7 +115,10 @@ export default async function Home() {
           where m.person_id = p.id and m.role in ('technical_director','club_admin') and m.ended_at is null
           limit 1) cl) as club_seat,
        (select row_to_json(co) from (
-          select cp.public_slug,
+          -- The link shows only while the page is live: published, not taken
+          -- down (0043), and its owner an adult (0042).
+          select case when cp.hidden_at is null and fn_coach_page_public(cp.id) then cp.public_slug end as public_slug,
+            fn_age_band(p.dob) = '18plus' as adult,
             (cp.philosophy is not null and length(btrim(cp.philosophy)) > 0) as has_philosophy,
             exists(select 1 from coach_role cr where cr.coach_profile_id = cp.id) as has_role,
             exists(select 1 from coach_licence cl where cl.coach_profile_id = cp.id) as has_licence,
@@ -205,7 +208,7 @@ export default async function Home() {
 
   const clubSeat = me.club_seat as { id: string; name: string; club_state: string; public_slug: string | null; role: string; register_count: number } | null;
   const coachSeat = me.coach_seat as {
-    public_slug: string | null; club: string | null; register_teams: number;
+    public_slug: string | null; adult: boolean; club: string | null; register_teams: number;
     has_philosophy: boolean; has_role: boolean; has_licence: boolean; has_clip: boolean;
     register_team_names: string[]; open_roles: number;
     invites: { id: string; club: string; teams: string[] }[];
@@ -374,6 +377,9 @@ export default async function Home() {
       { done: coachSeat.has_role, label: 'Add a coaching role' },
       { done: coachSeat.has_licence, label: 'Add a licence or course' },
       { done: coachSeat.has_clip, label: 'Add a session clip' },
+      // The last step is the one that makes the rest findable. An under-18
+      // cannot publish (0042), so it is not a step for them.
+      ...(coachSeat.adult ? [{ done: Boolean(coachSeat.public_slug), label: 'Publish your page' }] : []),
     ];
     const done = steps.filter((x) => x.done).length;
     const todo = steps.filter((x) => !x.done).slice(0, 2);
@@ -405,7 +411,7 @@ export default async function Home() {
                   <CopyLink url={`https://${url}`} label="Copy" compact />
                 </div>
               ) : (
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'rgba(255,255,255,.7)', lineHeight: 1.5 }}>Your page gets its own link once you publish it.</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'rgba(255,255,255,.7)', lineHeight: 1.5 }}>{coachSeat.adult ? 'Your page gets its own link once you publish it.' : 'Your coach page can go public once you turn 18.'}</div>
               )}
             </div>
 

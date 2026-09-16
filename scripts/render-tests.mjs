@@ -878,7 +878,7 @@ const georgia = ids.children.georgia;
     check(`pl2: every link the ${label} shows opens (${dead.join(' ') || 'all do'})`, dead, []);
   }
   const coachHome = (await get('/home', sam)).html.replace(/<!-- -->/g, '');
-  check('ch1: the coach home says how much of their page is done', /\d of 5 done/.test(coachHome), true);
+  check('ch1: the coach home says how much of their page is done', /\d of 6 done/.test(coachHome), true);
   check('ch2: and names the teams they read, never who registered', /Registrations for your teams/.test(coachHome), true);
   check('ch3: and offers the link to copy — a coach\'s page is public by design (D-100)', /pitchfootball\.com\.au\/c\/sam-kaya/.test(coachHome) && />Copy</.test(coachHome), true);
 }
@@ -934,6 +934,10 @@ const georgia = ids.children.georgia;
     teen.status === 200 && !/name="publicContact"/.test(teen.html), true);
   const adult = await get('/coach/edit', ids.people.sam);
   check('ca2: an adult coach is', /name="publicContact"/.test(adult.html), true);
+  check('ca3: a published coach can copy the link or take the page down',
+    /Copy the link/.test(adult.html) && /Take my page down/.test(adult.html), true);
+  check('ca4: a 16-17 is told the page can go public at 18, and offered no publish',
+    /once you turn 18/.test(teen.html.replace(/&rsquo;/g, "'")) && !/Publish my page/.test(teen.html), true);
 }
 
 // D-94 §8: a real Content-Security-Policy, no inline script. Scripts carry
