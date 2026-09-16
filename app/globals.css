@@ -196,8 +196,12 @@ button:active, a[href]:active { transform: scale(.975); }
   .m-only { display: none !important; }
   .d-only { display: grid; }
   .console-row {
-    grid-template-columns: minmax(170px, 1fr) minmax(200px, 1.6fr) 120px 150px 230px;
-    align-items: center; gap: 16px; padding: 13px 0;
+    /* The columns must fit INSIDE the card, not the viewport: 1200 frame
+       less the 232px sidebar, the console padding, the card padding and the
+       row's own padding leaves about 880px. The old minimums came to 934 and
+       pushed the action button out through the right-hand edge. */
+    grid-template-columns: minmax(140px, 1fr) minmax(170px, 1.5fr) 104px 132px minmax(150px, 180px);
+    align-items: center; gap: 12px; padding: 13px 0;
   }
 }
 
@@ -362,6 +366,23 @@ select { min-height: 44px; }
 .btn-ghost     { height: 44px; font-size: 13.5px; font-weight: 700; background: transparent; color: var(--muted); border: none; }
 .btn-ghost:hover { color: var(--secondary); }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* Console-table buttons. The charter allows two buttons and no third, which
+   a table row was quietly breaking: a filled well, an outlined button and a
+   bare link sat side by side. Same two roles as .btn-primary/.btn-secondary,
+   at the 44px density a data row needs. */
+.console-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 44px; padding: 0 14px; border-radius: var(--r-well);
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  letter-spacing: var(--ls-button); white-space: nowrap; text-decoration: none;
+  cursor: pointer; background: var(--surface-2); color: var(--ink);
+  border: 1px solid var(--line);
+  transition: background .18s var(--ease), filter .18s var(--ease);
+}
+.console-btn:hover { background: #1f2c26; }
+.console-btn-primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 800; }
+.console-btn-primary:hover { filter: brightness(1.06); }
 
 /* ---------------------------------------------------------------------------
    CHIPS — filters and status. Filters toggle; status chips never do.

@@ -25,16 +25,19 @@ import { setStatus } from './actions';
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
   ink: '#eef5f0', secondary: '#b9c8bf', muted: '#7d8f85', accent: '#3ddc84',
-  onAccent: '#06130c', amber: '#eda100', blue: '#3987e5',
+  onAccent: '#06130c', amber: '#eda100', purple: '#a479e2',
 };
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Interest register', robots: { index: false, follow: false } };
 
 const STATUS_CHIP: Record<string, { bg: string; fg: string; label: string }> = {
-  new: { bg: 'rgba(61,220,132,.14)', fg: T.accent, label: 'New' },
-  shortlisted: { bg: 'rgba(237,161,0,.14)', fg: T.amber, label: 'Shortlisted' },
-  invited: { bg: 'rgba(57,135,229,.16)', fg: T.blue, label: 'Invited' },
+  // Three states, three palette tokens. Invited was #3987e5 — the one colour
+  // on this screen with no token behind it, which is what made it read as
+  // off-palette beside the amber. Purple is a charter token already.
+  new: { bg: 'rgba(61,220,132,.14)', fg: 'var(--accent)', label: 'New' },
+  shortlisted: { bg: 'rgba(237,161,0,.14)', fg: 'var(--amber)', label: 'Shortlisted' },
+  invited: { bg: 'rgba(164,121,226,.16)', fg: 'var(--purple)', label: 'Invited' },
 };
 
 const GENDER_LABEL: Record<string, string> = {
@@ -207,7 +210,7 @@ export default async function Register({ searchParams }: {
                 <div className="kicker" style={{ marginTop: 6 }}>Shortlisted</div>
               </div>
               <div>
-                <div className="numeral numeral-m" style={{ color: T.blue }}>{counts.invited}</div>
+                <div className="numeral numeral-m" style={{ color: 'var(--purple)' }}>{counts.invited}</div>
                 <div className="kicker" style={{ marginTop: 6 }}>Invited</div>
               </div>
             </div>
@@ -347,15 +350,15 @@ export default async function Register({ searchParams }: {
                         </div>
                         <div style={{ fontSize: 12, fontStyle: r.note ? 'italic' : 'normal', color: r.note ? T.secondary : T.muted, fontWeight: 500, lineHeight: 1.4 }}>{r.note ? `“${r.note}”` : '—'}</div>
                         <div><span style={{ background: chip.bg, color: chip.fg, borderRadius: 7, padding: '4px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{chip.label}</span></div>
-                        {invitable.has(r.registration_id) ? <Link href={`/club/register/cv/${r.registration_id}`} style={{ background: T.surface2, borderRadius: 12, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link> : <div />}
+                        {invitable.has(r.registration_id) ? <Link href={`/club/register/cv/${r.registration_id}`} className="console-btn">Open the CV</Link> : <div />}
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                           {r.club_status === 'new' && (
                             <form action={setStatus}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
-                              <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 16px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
+                              <button type="submit" className="console-btn">Shortlist</button>
                             </form>
                           )}
                           {r.club_status === 'shortlisted' && invitable.has(r.registration_id) && (
-                            <Link href={`/club/invite/${r.registration_id}`} style={{ height: 44, borderRadius: 12, background: T.accent, color: T.onAccent, fontSize: 13.5, fontWeight: 800, padding: '0 18px', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>Invite to trial</Link>
+                            <Link href={`/club/invite/${r.registration_id}`} className="console-btn console-btn-primary">Invite to trial</Link>
                           )}
                           {r.club_status === 'invited' && invitable.has(r.registration_id) && (
                             <Link href={`/club/invite/${r.registration_id}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.secondary, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>Invitation sent</Link>

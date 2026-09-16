@@ -77,7 +77,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
                 e.currentTarget.form?.requestSubmit();
               }} />
             <span className="filefield-title">{uploading ? 'Uploading…' : photoName ?? (record.photo_path ? 'Choose a new photo' : 'Choose a photo')}</span>
-            <span className="filefield-hint">JPG or PNG. Cropped to a square.</span>
+            <span className="filefield-hint">JPG or PNG.</span>
           </label>
           <button type="submit" className="btn btn-secondary photo-save">Upload photo</button>
         </form>
