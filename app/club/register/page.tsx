@@ -252,7 +252,7 @@ export default async function Register({ searchParams }: {
             <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 14, fontWeight: 900 }}>The whole register is a plan</div>
               <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everyone who registers interest in your club, all year — not only for a trial — with squads, filters and a shortlist.</div>
-              <Link href="/club/billing" style={{ fontSize: 13, fontWeight: 800, color: T.accent, textDecoration: 'none' }}>See the Interest Register</Link>
+              <Link href="/club/billing" style={{ fontSize: 13, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start' }}>See the Interest Register</Link>
             </div>
           </>
         ) : (

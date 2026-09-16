@@ -108,16 +108,16 @@ export default async function SendCv({ params, searchParams }: {
       <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="recordId" value={recordId} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={label}>Sending to</div>
-          <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <label style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Club</div>
             <input style={input} name="clubName" aria-label="Club" placeholder="e.g. Northern United SC" required maxLength={60} />
-          </div>
+          </label>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={label}>Their email address</div>
-          <div style={card}>
+          <label style={card}>
             <input style={{ ...input, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} name="address" aria-label="Their email address" type="email" placeholder="football@theclub.com.au" required />
-          </div>
+          </label>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>From the club&rsquo;s own trial notice. Check it&rsquo;s right — a wrong address just goes nowhere.</div>
         </div>
         <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>

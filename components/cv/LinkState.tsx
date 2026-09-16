@@ -46,14 +46,14 @@ export default function LinkState({ token, asked }: { token?: string; asked?: bo
             <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
               Tell the family who you are and they can send you a new one. We pass on exactly what you type and nothing else.
             </div>
-            <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
+            <label style={{ display: 'block', background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your name</div>
               <input name="name" required maxLength={80} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
-            </div>
-            <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
+            </label>
+            <label style={{ display: 'block', background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your role and club</div>
               <input name="role" required maxLength={120} placeholder="Technical Director, Riverside FC" style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
-            </div>
+            </label>
             <button type="submit" style={{ background: T.surface2, border: `1px solid ${T.line}`, color: T.ink, borderRadius: 14, height: 46, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Ask the family</button>
           </form>
         ))}

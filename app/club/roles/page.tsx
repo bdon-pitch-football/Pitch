@@ -87,14 +87,14 @@ export default async function ClubRoles({ searchParams }: {
                 ))}
               </select>
             </div>
-            <div className="field" style={{ flex: 1, minWidth: 150 }}>
+            <label className="field" style={{ flex: 1, minWidth: 150 }}>
               <div className="field-label">Commitment</div>
               <input style={input} name="commitment" aria-label="Commitment" placeholder="Tue & Thu, 6–7:30pm" maxLength={120} />
-            </div>
-            <div className="field" style={{ flex: 1, minWidth: 130 }}>
+            </label>
+            <label className="field" style={{ flex: 1, minWidth: 130 }}>
               <div className="field-label">Closes</div>
               <input style={input} name="closesOn" aria-label="Closes" type="date" />
-            </div>
+            </label>
           </div>
           <label className="field">
             <div className="field-label">About the role</div>

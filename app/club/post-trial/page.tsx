@@ -148,7 +148,7 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={section}>How to register</div>
-            <div style={card}><textarea name="how" aria-label="How to register" rows={2} defaultValue={editing?.how_to_register ?? undefined} placeholder="Turn up 15 minutes early. Boots, shin pads, water. Registration at the clubhouse." style={{ ...input, fontWeight: 500, fontSize: 13.5, lineHeight: 1.5, resize: 'vertical' }} /></div>
+            <label style={card}><textarea name="how" aria-label="How to register" rows={2} defaultValue={editing?.how_to_register ?? undefined} placeholder="Turn up 15 minutes early. Boots, shin pads, water. Registration at the clubhouse." style={{ ...input, fontWeight: 500, fontSize: 13.5, lineHeight: 1.5, resize: 'vertical' }} /></label>
             <label style={card}><div className="field-label">Where CVs should go</div><input style={{ ...input, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13.5, fontWeight: 500 }} name="cv_email" aria-label="Where CVs should go" type="email" defaultValue={editing ? editing.cv_email ?? '' : c.contact_email ?? ''} placeholder="football@yourclub.com.au" /></label>
           </div>
           <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>

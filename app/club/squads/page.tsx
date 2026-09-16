@@ -120,10 +120,10 @@ export default async function Squads({ searchParams }: {
                 {GENDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
-            <div className="field" style={{ flex: 1, minWidth: 110 }}>
+            <label className="field" style={{ flex: 1, minWidth: 110 }}>
               <div className="field-label">Season</div>
               <input style={input} name="season" aria-label="Season" defaultValue="2026" required />
-            </div>
+            </label>
           </div>
           <button type="submit" className="btn btn-primary">Add it</button>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>

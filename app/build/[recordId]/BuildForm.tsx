@@ -152,10 +152,10 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: 8 }}>
-              <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+              <label style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                 <div style={label}>Number</div>
                 <input style={{ ...input, textAlign: 'center', fontSize: 20, fontWeight: 900, color: T.accent }} name="squadNumber" aria-label="Squad number" type="number" min="1" max="99" value={num} onChange={(e) => setNum(e.target.value)} placeholder="—" />
-              </div>
+              </label>
               <div style={card}>
               <div style={label}>Preferred foot</div>
               <select name="foot" aria-label="Preferred foot" defaultValue={record.foot ?? ''}>
@@ -166,9 +166,9 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>About</div>
-            <div style={card}>
+            <label style={card}>
               <textarea name="about" aria-label="About" value={about} onChange={(e) => setAbout(e.target.value)} rows={3} placeholder="Right-footed 10 who plays between the lines. Working on my weak foot and pressing triggers…" style={{ ...input, fontSize: 13.5, fontWeight: 500, lineHeight: 1.55, resize: 'vertical' }} />
-            </div>
+            </label>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {/* At 390 the two labels together are wider than the column, so
@@ -180,8 +180,8 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {STAT_KEYS.map((k: StatKey) => (
-                <div key={k} style={{ ...card, padding: '10px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: surfaced.includes(k) ? 1 : 0.45 }}>
-                  <input style={{ ...input, textAlign: 'center', fontSize: 19, fontWeight: 900 }} name={`stat_${k}`} aria-label={STAT_LABELS[k]} type="number" min="0" value={stats[k] ?? ''} onChange={(e) => setStats((v) => ({ ...v, [k]: e.target.value }))} placeholder="—" />
+                <div key={k} style={{ ...card, padding: '0 6px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: surfaced.includes(k) ? 1 : 0.45 }}>
+                  <input style={{ ...input, textAlign: 'center', fontSize: 19, fontWeight: 900, minHeight: 44 }} name={`stat_${k}`} aria-label={STAT_LABELS[k]} type="number" min="0" value={stats[k] ?? ''} onChange={(e) => setStats((v) => ({ ...v, [k]: e.target.value }))} placeholder="—" />
                   <button type="button" onClick={() => toggleStat(k)} style={{ minHeight: 44, width: '100%', margin: '0 0 -10px 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: surfaced.includes(k) ? T.accent : T.muted, fontFamily: 'inherit' }}>{STAT_LABELS[k]}</button>
                 </div>
               ))}

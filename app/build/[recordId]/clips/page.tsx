@@ -53,14 +53,14 @@ export default async function Clips({ params, searchParams }: {
         {error && <div style={{ ...card, padding: '13px 14px', border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary }}>That link isn&rsquo;t from YouTube, Instagram or Veo — check it and try again.</div>}
         {full && <div style={{ ...card, padding: '13px 14px', border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary }}>All {cap} clip slots are used. Swap a clip out to add this one.</div>}
         <form action={add} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
-          <div style={{ ...card, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <label style={{ ...card, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={label}>Video link</div>
             <input style={input} name="url" aria-label="Video link" placeholder="https://veo.co/matches/…" required />
-          </div>
-          <div style={{ ...card, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          </label>
+          <label style={{ ...card, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={label}>Title</div>
             <input style={input} name="title" aria-label="Title" placeholder="e.g. vs Northern Utd — 2 goals" required maxLength={80} />
-          </div>
+          </label>
           <button type="submit" style={{ background: T.accent, color: T.onAccent, borderRadius: 15, padding: 14, fontSize: 15, fontWeight: 900, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Add highlight</button>
         </form>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
