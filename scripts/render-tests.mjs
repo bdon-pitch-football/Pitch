@@ -559,11 +559,13 @@ const georgia = ids.children.georgia;
       const marked = [...rail.matchAll(/href="([^"]*)"[^>]*aria-current="page"|aria-current="page"[^>]*href="([^"]*)"/g)].map((m) => m[1] ?? m[2]);
       check(`s18: player ${P} marks ${P} as the current page`, marked, [current]);
     }
-    // Nobody who is not in a player seat gets a player's frame — not a
-    // stranger on the public board, not a parent, not a club.
-    for (const [who, label] of [[null, 'signed out'], [ids.people.alex, 'a parent'], [ids.people.marina, 'a club TD']]) {
+    // The board carries the frame of whoever is looking and nobody else's:
+    // a player's for a player, a parent's for a parent, none for a stranger
+    // or a club (D-147, amended 16 Sep).
+    for (const [who, label, want] of [[null, 'signed out', null], [ids.people.alex, 'a parent', 'Parent'], [ids.people.marina, 'a club TD', null]]) {
       const html = (await get('/trials', who)).html;
-      check(`s19: /trials for ${label} carries no player frame`, /class="player-tabs"/.test(html), false);
+      const frames = ['Player', 'Parent', 'Coach'].filter((f) => navOf(html, f) !== null);
+      check(`s19: /trials for ${label} carries ${want ?? 'no'} frame`, frames, want ? [want] : []);
     }
   }
 
@@ -594,11 +596,44 @@ const georgia = ids.children.georgia;
     }
   }
 
-  // Reading surfaces stay sidebar-free — a parent's screens are not a console.
-  for (const [path, who] of [['/home', ids.people.alex], [`/g/controls/${ids.children.deniz.child_id}`, ids.people.alex], ['/home', ids.people.marina]]) {
-    const html = (await get(path, who)).html;
-    check(`s5: ${path} is a reading surface with no console sidebar`, /class="console-nav"/.test(html), false);
+  // A club's home stays a reading surface: its doors are the console's, on
+  // the console's own screens.
+  {
+    const html = (await get('/home', ids.people.marina)).html;
+    check('s5: a club TD\'s /home carries no frame', /class="console-nav"/.test(html), false);
   }
+
+  // The parent's frame and the coach's bar (D-147, amended 16 Sep). Same
+  // rule as every frame: only doors that seat's /home offers, the phone bar
+  // and the laptop rail identical, and the page marks itself.
+  const frameChecks = async (seat, who, label, pages) => {
+    const home = new Set(hrefs((await get('/home', who)).html));
+    home.add('/home');
+    for (let [path, current] of pages) {
+      const html = (await get(path, who)).html;
+      const P = path.replace(/[0-9a-f-]{36}/, '*');
+      const rail = navOf(html, label);
+      const bar = navOf(html, `${label} bar`);
+      check(`s23: ${seat} ${P} carries the ${label.toLowerCase()} frame and bar`, rail !== null && bar !== null, true);
+      if (!rail || !bar) continue;
+      const extra = hrefs(rail).filter((h) => !home.has(h));
+      check(`s24: ${seat} ${P} frame offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
+      check(`s25: ${seat} ${P} bar and rail are the same doors`, hrefs(bar), hrefs(rail));
+      check(`s25b: ${seat} ${P} bar holds at most four doors`, hrefs(bar).length <= 4, true);
+      // Three or more children collapse to one Children tab, which a
+      // child's own page marks instead of a per-child tab.
+      if (current.startsWith('/g/controls/') && !rail.includes(`href="${current}"`)) current = '/home#children';
+      const marked = [...rail.matchAll(/href="([^"]*)"[^>]*aria-current="page"|aria-current="page"[^>]*href="([^"]*)"/g)].map((m) => m[1] ?? m[2]);
+      check(`s26: ${seat} ${P} marks ${current.replace(/[0-9a-f-]{36}/, '*')} as the current page`, marked, [current]);
+    }
+  };
+  const deniz = ids.children.deniz.child_id;
+  await frameChecks('parent', ids.people.alex, 'Parent', [
+    ['/home', '/home'], [`/g/controls/${deniz}`, `/g/controls/${deniz}`], ['/trials', '/trials'],
+  ]);
+  await frameChecks('coach', ids.people.sam, 'Coach', [
+    ['/home', '/home'], ['/coach/edit', '/coach/edit'], ['/jobs', '/jobs'],
+  ]);
 }
 
 // A brand-new account is where somebody has just decided to trust us. It

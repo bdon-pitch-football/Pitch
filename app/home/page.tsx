@@ -9,7 +9,8 @@ import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
-import { PlayerFrame } from '@/components/player-shell';
+import { PlayerFrame, GuardianFrame } from '@/components/player-shell';
+import { CoachConsole } from '@/components/console-shell';
 
 const T = {
   bg: '#0b120e', surface: '#121b16', surface2: '#1a2420', line: '#24322a',
@@ -23,7 +24,14 @@ export const metadata = { title: 'Home', robots: { index: false, follow: false }
 const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
 const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' };
 
-const Shell = ({ children }: { children: React.ReactNode }) => (
+// framed: the page sits inside a seat's frame, which already paints the
+// floodlight and fills the height — so the Shell brings only its column.
+const Shell = ({ children, framed }: { children: React.ReactNode; framed?: boolean }) => framed ? (
+  <div className="h-rise reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+    <HeaderMark />
+    {children}
+  </div>
+) : (
   <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
     <style>{`
       @keyframes homeRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -236,10 +244,11 @@ export default async function Home() {
     );
   }
 
-  // Coach seat.
+  // Coach seat — inside the coach's frame (D-147, amended 16 Sep).
   if (coachSeat) {
     return (
-      <Shell>
+      <CoachConsole active="home">
+      <Shell framed>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your coach CV</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>{me.first_name}{coachSeat.club ? ` · ${coachSeat.club}` : ''}</div>
@@ -275,6 +284,7 @@ export default async function Home() {
           <Link href="/jobs" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Coaching roles at clubs</Link>
         </div>
       </Shell>
+      </CoachConsole>
     );
   }
 
@@ -527,9 +537,10 @@ export default async function Home() {
   const expiringSoon = children.filter((c) => c.expiresInDays !== null && c.expiresInDays <= 30).length;
   const clubsHolding = children.reduce((n, c) => n + c.registers, 0);
 
-  // Guardian seat.
+  // Guardian seat — inside the parent's frame (D-147, amended 16 Sep).
   return (
-    <Shell>
+    <GuardianFrame active="home">
+    <Shell framed>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your family</h1>
         <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everything about your children on Pitch, and every control over it, is here.</div>
@@ -585,7 +596,7 @@ export default async function Home() {
       </Link>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <h2 style={label}>Your children</h2>
+        <h2 id="children" style={label}>Your children</h2>
         {children.map((c) => (
           <div key={c.id} className="lift" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -609,5 +620,6 @@ export default async function Home() {
         ))}
       </div>
     </Shell>
+    </GuardianFrame>
   );
 }

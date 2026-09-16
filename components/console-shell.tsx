@@ -15,27 +15,61 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 
-type Item = { key: string; href: string; label: string };
+export type IconKey = 'home' | 'cv' | 'trials' | 'send' | 'roles' | 'register' | 'child' | 'children';
+export type Item = { key: string; href: string; label: string; icon?: IconKey };
 
-function Frame({ label, head, items, active, floodlight, children }: {
+// One stroke set for every frame, so the bar reads the same in every seat.
+export const ICONS: Record<IconKey, React.ReactNode> = {
+  home: <><path d="M4 11.5 12 4l8 7.5" /><path d="M6 10.5V20h12v-9.5" /></>,
+  cv: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h3" /></>,
+  trials: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 11h18" /></>,
+  send: <path d="M21 4 3 11l7 3 3 7 8-17Z" />,
+  roles: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18" /></>,
+  register: <><path d="M9 6h11M9 12h11M9 18h11" /><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" /></>,
+  child: <><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5" /></>,
+  children: <><circle cx="9" cy="8.5" r="3" /><circle cx="17" cy="9.5" r="2.4" /><path d="M3 19c.9-3 3.2-4.6 6-4.6S14.1 16 15 19M16 14.2c2 .3 3.6 1.7 4.2 3.8" /></>,
+};
+
+const Glyph = ({ k, on, size }: { k: IconKey; on: boolean; size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={on ? 'var(--accent)' : 'var(--muted)'}
+    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{ICONS[k]}</svg>
+);
+
+// bar: the phone half of the frame (D-147 as amended 16 Sep). Under 1024 the
+// sidebar does not render, so a seat with a bar carries the SAME items along
+// the bottom — never a subset, never a superset. At most four, which is why
+// the club and operator frames, with more doors than that, stay rail-only.
+export function Frame({ label, head, items, active, floodlight, bar, children }: {
   label: string; head: React.ReactNode; items: Item[]; active: string;
-  floodlight?: boolean; children: React.ReactNode;
+  floodlight?: boolean; bar?: boolean; children: React.ReactNode;
 }) {
   return (
     <div className={floodlight ? 'floodlight' : undefined}
       style={{ minHeight: '100dvh', background: floodlight ? undefined : 'var(--bg)', color: 'var(--ink)', display: 'flex', justifyContent: 'center' }}>
-      <div className="console-frame">
+      <div className={bar ? 'console-frame seat-frame' : 'console-frame'}>
         <nav className="console-nav" aria-label={label}>
           <div style={{ padding: '4px 10px 18px 10px' }}>{head}</div>
           {items.map((it) => (
             <Link key={it.key} href={it.href} className="console-nav-link"
               aria-current={it.key === active ? 'page' : undefined}>
+              {it.icon && <Glyph k={it.icon} on={it.key === active} size={18} />}
               {it.label}
             </Link>
           ))}
         </nav>
         <div className="console-main">{children}</div>
       </div>
+      {bar && (
+        <nav className="seat-tabs" aria-label={`${label} bar`}>
+          {items.slice(0, 4).map((it) => (
+            <Link key={it.key} href={it.href} className="seat-tab"
+              aria-current={it.key === active ? 'page' : undefined}>
+              {it.icon && <Glyph k={it.icon} on={it.key === active} size={21} />}
+              <span>{it.label}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
@@ -104,7 +138,7 @@ export async function ClubConsole({ active, floodlight, children }: {
 // club seat outranks a coach seat, so a TD who also keeps a coach CV sees the
 // club's frame on club screens and no frame here — the same doors /home gives.
 export async function CoachConsole({ active, children }: {
-  active: 'edit' | 'jobs' | 'register'; children: React.ReactNode;
+  active: 'home' | 'edit' | 'jobs' | 'register'; children: React.ReactNode;
 }) {
   const me = await getSessionPersonId();
   const seat = me ? (await db.query(
@@ -129,12 +163,14 @@ export async function CoachConsole({ active, children }: {
     );
   }
 
+  // D-147 as amended 16 Sep: Home · My CV · Registrations · Roles, at both
+  // widths. The public page stays a door on /home, not in the frame — five
+  // doors do not fit a phone bar, and the frame may not differ by width.
   const items: Item[] = [
-    { key: 'home', href: '/home', label: 'Home' },
-    { key: 'edit', href: '/coach/edit', label: 'Edit my coach CV' },
-    ...(seat.register_teams > 0 ? [{ key: 'register', href: '/coach/register', label: 'Registrations' }] : []),
-    ...(seat.public_slug ? [{ key: 'public', href: `/c/${seat.public_slug}`, label: 'See my public page' }] : []),
-    { key: 'jobs', href: '/jobs', label: 'Coaching roles at clubs' },
+    { key: 'home', href: '/home', label: 'Home', icon: 'home' },
+    { key: 'edit', href: '/coach/edit', label: 'My CV', icon: 'cv' },
+    ...(seat.register_teams > 0 ? [{ key: 'register', href: '/coach/register', label: 'Registrations', icon: 'register' as const }] : []),
+    { key: 'jobs', href: '/jobs', label: 'Roles', icon: 'roles' },
   ];
   const head = (
     <div>
@@ -142,7 +178,7 @@ export async function CoachConsole({ active, children }: {
       {seat.club && <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, marginTop: 2 }}>{seat.club}</div>}
     </div>
   );
-  return <Frame label="Coach" head={head} items={items} active={active} floodlight>{children}</Frame>;
+  return <Frame label="Coach" head={head} items={items} active={active} floodlight bar>{children}</Frame>;
 }
 
 export function OpsConsole({ active, children }: {

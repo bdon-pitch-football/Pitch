@@ -404,34 +404,37 @@ select { min-height: 44px; }
 }
 
 /* ---------------------------------------------------------------------------
-   THE PLAYER'S BAR — the phone half of the player frame (BUZ, 16 Sep).
+   THE SEAT BAR — the phone half of a seat's frame (D-147, amended 16 Sep).
    A player screen used to be an island: a title, a back link, nowhere else.
    The bar carries the same four doors the rail carries at 1024 and up, so a
    phone and a laptop offer exactly the same capability (D-147).
    --------------------------------------------------------------------------- */
-.player-tabs {
+.seat-tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
   background: rgba(11, 18, 14, .94);
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.player-tab {
+.seat-tab {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 5px; min-height: 60px; text-decoration: none;
   font-size: 10px; font-weight: 700; letter-spacing: var(--ls-button);
   color: var(--muted); transition: color .16s var(--ease);
 }
-.player-tab[aria-current="page"] { color: var(--accent); font-weight: 800; }
-.player-tab:hover { color: var(--ink); }
+.seat-tab[aria-current="page"] { color: var(--accent); font-weight: 800; }
+.seat-tab:hover { color: var(--ink); }
 /* The bar sits over the page, so the page ends above it, not behind it. */
-.player-frame .console-main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+.seat-frame .console-main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 1024px) {
-  .player-tabs { display: none; }
-  .player-frame .console-main { padding-bottom: 0; }
+  .seat-tabs { display: none; }
+  .seat-frame .console-main { padding-bottom: 0; }
+  /* A reading column inside a frame sits beside the rail, as the club's
+     forms do (D-147 as amended 15 Sep), rather than floating mid-window. */
+  .console-main > .reading, .console-main > * > .reading { margin-left: 0; margin-right: 0; }
 }
-@media print { .player-tabs { display: none; } }
+@media print { .seat-tabs { display: none; } }
 
 /* ---------------------------------------------------------------------------
    CHIPS — filters and status. Filters toggle; status chips never do.

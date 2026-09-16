@@ -4,6 +4,7 @@
 // survives, because tokens live hashed (D-94 §4). Every control writes the
 // consent log.
 import { notFound, redirect } from 'next/navigation';
+import { GuardianFrame } from '@/components/player-shell';
 import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
@@ -127,7 +128,7 @@ export default async function Controls({ params, searchParams }: {
   };
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <GuardianFrame active={`child:${childId}`}>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home', label: 'Your family' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -256,6 +257,6 @@ export default async function Controls({ params, searchParams }: {
           </form>
         </div>
       </div>
-    </div>
+    </GuardianFrame>
   );
 }
