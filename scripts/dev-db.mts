@@ -407,9 +407,16 @@ await db.query(`update club set public_slug='riverside-fc', established='1974', 
 // used to insert its own U13 Girls as well, which gave the club two of them
 // and made the squads page look broken.
 await db.query(`insert into squad (club_id,name,age_group,competition_gender,season) values ($1,'Seniors Women','SEN','women','2026')`, [riverside]);
-await db.query(`insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,age_group,competition_gender,cv_email) values
-  ($1,'U14 & U15 Boys trials','2026-10-11','Sun 9:00 AM · Riverside Park, Pitch 2',array['GK','CB'],'U15','boys','football@riversidefc.example.au'),
-  ($1,'Girls U13–U16 trials','2026-10-18','Sun 10:00 AM · Riverside Park, Pitch 1',array[]::text[],'U16','girls','football@riversidefc.example.au')`, [riverside]);
+// A trial names every age group it is for (D-68 as amended 16 Sep).
+const trialAges = async (id: string, ages: string[]) => {
+  for (const a of ages) await db.query(`insert into trial_notice_age_group (trial_notice_id, age_group) values ($1,$2)`, [id, a]);
+};
+const [boysTrial, girlsTrial] = (await db.query(`insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,competition_gender,cv_email) values
+  ($1,'U14 & U15 Boys trials','2026-10-11','Sun 9:00 AM · Riverside Park, Pitch 2',array['GK','CB'],'boys','football@riversidefc.example.au'),
+  ($1,'Girls U13–U16 trials','2026-10-18','Sun 10:00 AM · Riverside Park, Pitch 1',array[]::text[],'girls','football@riversidefc.example.au')
+  returning id`, [riverside])).rows.map((r) => r.id as string);
+await trialAges(boysTrial, ['U14', 'U15']);
+await trialAges(girlsTrial, ['U13', 'U14', 'U15', 'U16']);
 await db.query(`insert into players_wanted_notice (club_id,title,detail) values ($1,'U13 Boys — Goalkeeper','Train Tue & Thu · immediate start'),($1,'U16 Girls — 2 outfield spots','Season 2027 squad')`, [riverside]);
 // Coaching roles a club is hiring for (0019), and one coach clip on Sam's
 // profile. Titles describe the session, never a child.
@@ -502,7 +509,7 @@ const westgate = randomUUID();
 // Compiled from public notices, including the address on them — which is
 // where a claim code goes, and the only place it can go (doc 15 §34).
 await db.query(`insert into club (id, name, suburb, state, club_state, public_slug, contact_email) values ($1,'Westgate Rangers','Altona','VIC','unclaimed','westgate-rangers','secretary@westgaterangers.example.au')`, [westgate]);
-await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, source, age_group, competition_gender) values ($1,'U13 Boys trials','2026-10-12','Mon 5:30 PM · Grant Reserve','compiled','U13','boys')`, [westgate]);
+await trialAges((await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, source, competition_gender) values ($1,'U13 Boys trials','2026-10-12','Mon 5:30 PM · Grant Reserve','compiled','boys') returning id`, [westgate])).rows[0].id, ['U13']);
 
 // --- walkthrough states: one of each waiting card, so every journey has
 // something real to open. All fictional (doc 16 §4).
@@ -577,9 +584,10 @@ await db.query(`insert into person (id, first_name, last_name, dob, email) value
 // reads no registration, and a free club still works its own trials (D-153).
 await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'technical_director')`, [kingswayAdmin, kingsway]);
 const kingswayTrial = (await db.query(
-  `insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,age_group,competition_gender,cv_email)
-   values ($1,'U16–U18 and Seniors trials','2026-10-25','Sun 10:00 AM · Brunswick West Oval',array['GK','ST']::text[],'U18',null,'football@kingswayrovers.example.au')
+  `insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,competition_gender,cv_email)
+   values ($1,'U16–U18 and Seniors trials','2026-10-25','Sun 10:00 AM · Brunswick West Oval',array['GK','ST']::text[],null,'football@kingswayrovers.example.au')
    returning id`, [kingsway])).rows[0].id as string;
+await trialAges(kingswayTrial, ['U16', 'U17', 'U18', 'SEN']);
 await db.query(
   `insert into registration (player_id, club_id, positions, club_status, disclosed_by, policy_version, trial_notice_id, trial_on)
    values ($1,$2,array['CM'],'new',$3,'20@v2.4',$4,'2026-10-25')`,

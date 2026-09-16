@@ -24,7 +24,6 @@ export const metadata = {
   alternates: { canonical: '/trials' },
 };
 
-const AGES = ['U13', 'U14', 'U15', 'U16', 'U18'] as const;
 const GENDERS: [string, string][] = [['boys', 'Boys'], ['girls', 'Girls'], ['men', 'Men'], ['women', 'Women']];
 const STATES: Record<string, string> = { VIC: 'Victoria', NSW: 'New South Wales' };
 
@@ -37,15 +36,18 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   // the club's STATE — Victoria and New South Wales first (D-04) — because no
   // region taxonomy exists yet and inventing one here would be a guess.
   // Anything not on these lists is ignored rather than trusted (D-94 §6).
-  const age = AGES.includes(raw.age as (typeof AGES)[number]) ? raw.age! : null;
   const gender = GENDERS.some(([v]) => v === raw.gender) ? raw.gender! : null;
   const state = raw.state && raw.state in STATES ? raw.state : null;
   const pos = raw.pos && raw.pos in POSITIONS ? raw.pos : null;
 
   // Chronological and filtered only by what the family chose. No recommender,
   // no personalisation, ever (D-74).
+  // A notice names every age group it is for (D-68 as amended 16 Sep), in
+  // the lookup's own order, so "U14 & U15" is found under both.
   const { rows } = await db.query(
-    `select t.id, t.title, t.time_venue, t.source, t.age_group, t.competition_gender, t.position_needs,
+    `select t.id, t.title, t.time_venue, t.source, t.competition_gender, t.position_needs,
+       array(select ta.age_group from trial_notice_age_group ta join age_group ag on ag.code = ta.age_group
+             where ta.trial_notice_id = t.id order by ag.sort) as age_groups,
        upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
        to_char(t.added_on, 'DD Mon') as listed, to_char(t.last_checked, 'DD Mon') as checked,
        c.name as club_name, c.club_state, c.public_slug, c.state
@@ -54,13 +56,18 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
      order by t.trial_on`,
   );
   type Listing = {
-    title: string; time_venue: string; source: string; mon: string; day: string; age_group: string | null;
+    title: string; time_venue: string; source: string; mon: string; day: string; age_groups: string[];
     competition_gender: string | null; position_needs: string[]; state: string | null;
     id: string; listed: string; checked: string; club_name: string; club_state: string; public_slug: string | null;
   };
   const upcoming = rows as Listing[];
+  // The age filter offers the groups the board holds right now, in the
+  // lookup's order — not a fixed list that missed U17 and seniors.
+  const lookup = (await db.query(`select code, sort from age_group order by sort`)).rows as { code: string }[];
+  const agesHere = lookup.map((a) => a.code).filter((code) => upcoming.some((l) => l.age_groups.includes(code)));
+  const age = raw.age && lookup.some((a) => a.code === raw.age) ? raw.age : null;
   const matches = (l: Listing, f: { age: string | null; gender: string | null; state: string | null; pos: string | null }) =>
-    (!f.age || l.age_group === f.age) && (!f.gender || l.competition_gender === f.gender)
+    (!f.age || l.age_groups.includes(f.age)) && (!f.gender || l.competition_gender === f.gender)
     && (!f.state || l.state === f.state) && (!f.pos || (l.position_needs ?? []).includes(f.pos));
   const current = { age, gender, state, pos };
   const listings = upcoming.filter((l) => matches(l, current));
@@ -84,7 +91,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   };
 
   const active = [
-    age && { key: 'age', label: age, clear: href({ age: null }) },
+    age && { key: 'age', label: age === 'SEN' ? 'Seniors' : age, clear: href({ age: null }) },
     gender && { key: 'gender', label: GENDERS.find(([v]) => v === gender)![1], clear: href({ gender: null }) },
     state && { key: 'state', label: STATES[state], clear: href({ state: null }) },
     pos && { key: 'pos', label: `${pos} wanted`, clear: href({ pos: null }) },
@@ -102,7 +109,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
         <div style={groupLabel}>Age group</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           <Chip to={href({ age: null })} on={!age}>Any age</Chip>
-          {AGES.map((a) => <Chip key={a} to={href({ age: age === a ? null : a })} on={age === a}>{a}<span className="chip-count">{count({ age: a })}</span></Chip>)}
+          {agesHere.map((a) => <Chip key={a} to={href({ age: age === a ? null : a })} on={age === a}>{a === 'SEN' ? 'Seniors' : a}<span className="chip-count">{count({ age: a })}</span></Chip>)}
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>

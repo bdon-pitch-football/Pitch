@@ -437,6 +437,45 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// 0b · D-68 as amended 16 Sep — a trial names every age group it is for.
+//
+// A trial a club posted used to record no age group and no gender, so the
+// board's filters could never find it. Posted through the real form: two age
+// groups and a gender, found under both; positions checked against the ten;
+// and a notice with no age group is refused rather than posted unfindable.
+// ---------------------------------------------------------------------------
+{
+  const td = ids.people.marina;
+  const postIt = async (extra) => {
+    const form = forms((await get('/club/post-trial', td)).html)[0];
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form?.fields ?? {})) fd.append(k, v);
+    for (const [k, v] of Object.entries(extra)) for (const one of [].concat(v)) fd.append(k, one);
+    const r = await fetch(BASE + '/club/post-trial', { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(td) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+  const base = { trial_on: '2026-11-21', time: '9:00 AM', ground: 'Riverside Park, Pitch 3', how: '', cv_email: 'football@riversidefc.example.au' };
+  const board = async (q) => (await get(`/trials${q}`, null)).html;
+
+  const ok = await postIt({ ...base, title: 'Agegroup sweep U12 and U13 trial', ages: ['U12', 'U13'], gender: 'boys', positions: ['gk', 'CAM', 'ST'] });
+  check('ag1: a trial posted with two age groups goes up', /posted=1/.test(ok), true);
+  check('ag2: and is found under the first', (await board('?age=U12')).includes('Agegroup sweep U12 and U13'), true);
+  check('ag3: and under the second', (await board('?age=U13')).includes('Agegroup sweep U12 and U13'), true);
+  check('ag4: and under its competition, and not another', [
+    (await board('?gender=boys')).includes('Agegroup sweep U12 and U13'),
+    (await board('?gender=girls')).includes('Agegroup sweep U12 and U13')], [true, false]);
+  check('ag5: a position typed in lower case still counts, alongside the others',
+    [(await board('?pos=GK')).includes('Agegroup sweep U12 and U13'), (await board('?pos=ST')).includes('Agegroup sweep U12 and U13')], [true, true]);
+
+  const none = await postIt({ ...base, title: 'Agegroup sweep with no age group', gender: 'girls' });
+  check('ag6: a trial with no age group is sent back to say why', /error=ages/.test(none), true);
+  check('ag7: and was never posted', (await board('')).includes('Agegroup sweep with no age group'), false);
+  const forged = await postIt({ ...base, title: 'Agegroup sweep forged', ages: ['U99', "'; drop table trial_notice; --"] });
+  check('ag8: an age group not in the lookup is refused, not stored', [/error=ages/.test(forged), (await board('')).includes('Agegroup sweep forged')], [true, false]);
+}
+
+// ---------------------------------------------------------------------------
 // 0c · D-154 AND B5a — WALKED THROUGH THE REAL SCREENS.
 //
 // A TD brings a coach in; the answer does not say whether the email is a

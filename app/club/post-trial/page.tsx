@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { ClubConsole } from '@/components/console-shell';
+import { POSITIONS, type PositionCode } from '@/lib/football';
 import { postTrial } from './actions';
 
 const T = {
@@ -23,7 +24,7 @@ const input: React.CSSProperties = { background: 'transparent', border: 'none', 
 export default async function PostATrial({ searchParams }: { searchParams: Promise<{ posted?: string; error?: string }> }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
-  const { posted } = await searchParams;
+  const { posted, error } = await searchParams;
   const { rows } = await db.query(
     `select c.name, c.contact_email from club c join membership m on m.club_id = c.id and m.person_id = $1
        and m.role in ('technical_director','club_admin') and m.ended_at is null
@@ -32,6 +33,29 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
   );
   if (rows.length === 0) redirect('/home');
   const c = rows[0];
+
+  // A trial names every age group it is for (D-68 as amended 16 Sep). The
+  // club's own squads' groups come first; the rest of the lookup sits behind
+  // one tap, so a club with no squads entered yet can still post.
+  const ages = (await db.query(
+    `select a.code, a.label,
+       exists(select 1 from squad s join membership m on m.club_id = s.club_id
+               where s.age_group = a.code and m.person_id = $1
+                 and m.role in ('technical_director','club_admin') and m.ended_at is null) as ours
+     from age_group a order by a.sort`,
+    [me],
+  )).rows as { code: string; label: string; ours: boolean }[];
+  const ours = ages.filter((a) => a.ours);
+  const rest = ours.length ? ages.filter((a) => !a.ours) : ages;
+
+  // Checkbox and radio chips: native inputs, so the form posts with no
+  // JavaScript, styled by globals.css .pick.
+  const Pick = ({ type, name, value, children, title }: { type: 'checkbox' | 'radio'; name: string; value: string; children: React.ReactNode; title?: string }) => (
+    <label className="chip pick" title={title}>
+      <input type={type} name={name} value={value} defaultChecked={type === 'radio' && value === ''} />
+      {children}
+    </label>
+  );
 
   if (posted) {
     return (
@@ -54,9 +78,36 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Goes on your club page and on the trials board the same minute. {c.name}.</div>
         </div>
         <form action={postTrial} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {error && (
+            <div role="alert" style={{ ...card, border: '1px solid var(--amber)', fontSize: 13, fontWeight: 700, color: T.secondary }}>
+              {error === 'ages' ? 'Pick at least one age group, so families can find it.' : 'Fill in the title, date, time and ground.'}
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={section}>Which squad</div>
             <label style={card}><div className="field-label">Notice title</div><input style={input} name="title" aria-label="Notice title" placeholder="U14 & U15 Boys trials" required /></label>
+            <fieldset style={{ ...card, border: `1px solid ${T.line}`, margin: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <legend className="field-label" style={{ padding: 0, float: 'left', marginBottom: 2 }}>Age groups — pick every one it&rsquo;s for</legend>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, clear: 'both' }}>
+                {(ours.length ? ours : rest).map((a) => <Pick key={a.code} type="checkbox" name="ages" value={a.code} title={a.label}>{a.code}</Pick>)}
+              </div>
+              {ours.length > 0 && rest.length > 0 && (
+                <details>
+                  <summary style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>More age groups</summary>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                    {rest.map((a) => <Pick key={a.code} type="checkbox" name="ages" value={a.code} title={a.label}>{a.code}</Pick>)}
+                  </div>
+                </details>
+              )}
+            </fieldset>
+            <fieldset style={{ ...card, border: `1px solid ${T.line}`, margin: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <legend className="field-label" style={{ padding: 0, float: 'left', marginBottom: 2 }}>Competition</legend>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, clear: 'both' }}>
+                {[['boys', 'Boys'], ['girls', 'Girls'], ['men', 'Men'], ['women', 'Women'], ['', 'Open to all']].map(([v, t]) => (
+                  <Pick key={v || 'open'} type="radio" name="gender" value={v}>{t}</Pick>
+                ))}
+              </div>
+            </fieldset>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={section}>When and where</div>
@@ -68,7 +119,14 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={section}>Positions you&rsquo;re short of</div>
-            <label style={card}><div className="field-label">Codes, comma-separated — blank for an open trial</div><input style={input} name="positions" aria-label="Positions you are short of" placeholder="GK, CB" /></label>
+            <fieldset style={{ ...card, border: `1px solid ${T.line}`, margin: 0 }}>
+              <legend className="field-label" style={{ padding: 0, float: 'left', marginBottom: 9 }}>Pick any — none for an open trial</legend>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 7, clear: 'both' }}>
+                {(Object.keys(POSITIONS) as PositionCode[]).map((code) => (
+                  <Pick key={code} type="checkbox" name="positions" value={code} title={POSITIONS[code].label}>{code}</Pick>
+                ))}
+              </div>
+            </fieldset>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Leave it blank for an open trial. Naming positions is what gets the right players in front of you — a keeper scanning the board sees your notice first.</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

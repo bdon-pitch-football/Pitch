@@ -1761,6 +1761,23 @@ for (const bad of ['mixed', 'open']) {
   await db.query(`delete from trial_notice where id = $1`, [ok.rows[0].id]);
 }
 
+// D-68 as amended 16 Sep — a trial's age groups are rows against the lookup
+// (D-73), so a code that is not an age group cannot be stored, and a notice
+// that comes down takes its age groups with it.
+{
+  const n = (await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue) values ($1,'Age rows',(now() + interval '9 days')::date,'x') returning id`, [CLUB.riverside])).rows[0].id;
+  await expectFail('D-68: a trial cannot name an age group that is not in the lookup',
+    `insert into trial_notice_age_group (trial_notice_id, age_group) values ('${n}', 'U99')`);
+  await db.query(`insert into trial_notice_age_group (trial_notice_id, age_group) values ($1,'U14'),($1,'U15')`, [n]);
+  check('D-68: a trial can name more than one age group', Number((await db.query(`select count(*) from trial_notice_age_group where trial_notice_id = $1`, [n])).rows[0].count), 2);
+  await expectFail('D-68: and the same one only once',
+    `insert into trial_notice_age_group (trial_notice_id, age_group) values ('${n}', 'U14')`);
+  await db.query(`delete from trial_notice where id = $1`, [n]);
+  check('D-68: a notice that comes down takes its age groups with it', Number((await db.query(`select count(*) from trial_notice_age_group where trial_notice_id = $1`, [n])).rows[0].count), 0);
+  const col = await db.query(`select 1 from information_schema.columns where table_name = 'trial_notice' and column_name = 'age_group'`);
+  check('D-68: and there is one place the answer lives — no single age_group column left', col.rows.length, 0);
+}
+
 // ---------------------------------------------------------------------------
 // Table L — the send flows (D-99, D-91). Sixty-one cases, and the largest
 // table in doc 14 because this is the distribution engine.
