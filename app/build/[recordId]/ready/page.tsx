@@ -80,7 +80,7 @@ export default async function Ready({ params }: { params: Promise<{ recordId: st
           <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>Your link</div>
             <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/p/{r.hint}</div>
-            <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>Switch it off any time and the club&rsquo;s copy stops working.</div>
+            <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>Switch your link off any time and the club&rsquo;s copy stops working.</div>
           </div>
         )}
 

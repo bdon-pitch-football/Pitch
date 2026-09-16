@@ -299,7 +299,7 @@ export default async function Home() {
       { done: Boolean(me.photo_path), label: 'Add a profile photo', href: `/build/${rec}` },
       { done: (pg?.positions?.length ?? 0) > 0, label: 'Pick your positions', href: `/build/${rec}` },
       { done: pg?.squad_number != null, label: 'Add your squad number', href: `/build/${rec}` },
-      { done: Boolean(pg?.has_about), label: 'Write your one line', href: `/build/${rec}` },
+      { done: Boolean(pg?.has_about), label: 'Write your About line', href: `/build/${rec}` },
       { done: Boolean(pg?.has_stats), label: 'Add a season stat', href: `/build/${rec}` },
       { done: (pg?.clips ?? 0) > 0, label: 'Add a highlight clip', href: `/build/${rec}/clips` },
     ];
@@ -323,7 +323,7 @@ export default async function Home() {
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h1 style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15, margin: 0 }}>
-                  {live ? 'Your page is live' : 'Your page is ready to build'}
+                  {live ? 'Your page is live' : 'Your page'}
                 </h1>
                 <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500, marginTop: 3 }}>
                   {[
@@ -347,7 +347,7 @@ export default async function Home() {
               </div>
             ) : (
               <div style={{ fontSize: 12.5, fontWeight: 500, color: 'rgba(255,255,255,.7)', lineHeight: 1.5 }}>
-                Nothing is public yet. Your page goes to a club as a link, when you send it.
+                You haven&rsquo;t sent your page to anyone yet. It goes to a club as a link.
               </div>
             )}
           </div>
