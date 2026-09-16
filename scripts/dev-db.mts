@@ -260,7 +260,9 @@ const LINES = [
   'Played every game last season. Want a step up.',
   'Left-footed, comfortable either side.',
   'Moved to the area in July. Looking for a club.',
-  'Came back from a broken wrist in May. Fully fit.',
+  // No health detail in sample lines: these fixtures end up in screenshots
+  // on the public site and in the decks (16 Sep).
+  'Plays in front of the back four. Two seasons at this level.',
   null, null, null, null,
 ];
 const GK_LINES = [
