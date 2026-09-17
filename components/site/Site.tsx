@@ -19,7 +19,8 @@
 // Interactive layer (BUZ, 15 Sep: "a little more interactive without changing
 // the content"). No words changed. No libraries. Nothing is sent anywhere:
 // the chosen role is kept in this browser's localStorage only. Everything
-// that moves stops for prefers-reduced-motion.
+// that moves stops for prefers-reduced-motion. (Since 17 Sep the waitlist POST
+// also carries the ad's utm tags, if the visit came from one; see below.)
 //   · the hero phone scrolls by itself and by hand (wheel or keys); it carries on after
 //   · "How it works" follows the reader's scroll: active step, travelling ball
 //   · any screen opens full size (tap, Esc or the close button to shut)
@@ -46,6 +47,11 @@ const C = {
 const ACCENT: Record<Role, string> = { player: C.accent, parent: C.purple, coach: C.orange, club: C.amber };
 const ROLES: Role[] = ['player', 'parent', 'coach', 'club'];
 const ROLE_KEY = 'pitch-site-role';
+// The ad a visitor arrived from (utm_source, utm_campaign, utm_content), kept
+// for this tab's session only and sent with the waitlist sign-up. First touch
+// wins. Campaign tags only; the server checks them and builds `source`.
+const UTM_KEY = 'pitch-site-utm';
+const UTM_FIELDS = ['utm_source', 'utm_campaign', 'utm_content'] as const;
 
 const Wordmark = ({ size = 22 }: { size?: number }) => (
   <span aria-label="Pitch" style={{ display: 'inline-flex', alignItems: 'center', fontWeight: 900, fontSize: size, letterSpacing: '-.035em', color: C.ink, lineHeight: 1 }}>
@@ -329,6 +335,17 @@ export default function Site() {
     } catch { /* storage unavailable: the page works without it */ }
   }, []);
 
+  // Remember which ad brought this visit, if any. Nothing renders from it.
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (!q.get('utm_source') || window.sessionStorage.getItem(UTM_KEY)) return;
+      const tags: Record<string, string> = {};
+      UTM_FIELDS.forEach((k) => { const v = q.get(k); if (v) tags[k] = v; });
+      window.sessionStorage.setItem(UTM_KEY, JSON.stringify(tags));
+    } catch { /* storage unavailable: the sign-up just records 'web' */ }
+  }, []);
+
   const choose = (r: Role) => {
     setWho(r); setRole(r); setChosen(true);
     try { window.localStorage.setItem(ROLE_KEY, r); } catch { /* ignore */ }
@@ -391,8 +408,13 @@ export default function Site() {
     setTried(true);
     if (!emailOk) return;
     setState('sending');
+    const utm: Record<string, string> = {};
     try {
-      const r = await fetch('/api/waitlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, role }) });
+      const saved = JSON.parse(window.sessionStorage.getItem(UTM_KEY) || '{}');
+      UTM_FIELDS.forEach((k) => { if (typeof saved?.[k] === 'string') utm[k] = saved[k]; });
+    } catch { /* no tags: the sign-up records 'web' */ }
+    try {
+      const r = await fetch('/api/waitlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...utm, email, role }) });
       setState(r.ok ? 'done' : 'error');
     } catch { setState('error'); }
   };

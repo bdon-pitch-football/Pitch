@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { insertWaitlist } from '@/lib/waitlist-db';
 import { CONSENT_TEXT, POLICY_VERSION, ROLES, EMAIL_RE, type Role } from '@/lib/consent';
 import { rateLimited } from '@/lib/ratelimit';
+import { waitlistSource } from '@/lib/waitlist-source';
 
 export const runtime = 'nodejs';
 
@@ -12,6 +13,8 @@ export const runtime = 'nodejs';
 // - identical response whether or not the address already exists
 // - never log the address
 // - send no confirmation email
+// The utm_* fields are optional campaign tags from the ad link; they are
+// checked in waitlistSource and a bad one is dropped, never rejected.
 //
 // Doc 29 §7: the form does not go public until the privacy policy and terms
 // are live. WAITLIST_ENABLED=true is the switch; anything else keeps it shut
@@ -41,7 +44,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'invalid' }, { status: 400 });
   }
 
-  const { email, role } = (body ?? {}) as { email?: unknown; role?: unknown };
+  const { email, role, utm_source, utm_campaign, utm_content } = (body ?? {}) as {
+    email?: unknown;
+    role?: unknown;
+    utm_source?: unknown;
+    utm_campaign?: unknown;
+    utm_content?: unknown;
+  };
   if (
     typeof email !== 'string' ||
     email.length > 254 ||
@@ -57,7 +66,7 @@ export async function POST(req: NextRequest) {
     role,
     consent_text: CONSENT_TEXT,
     policy_version: POLICY_VERSION,
-    source: 'web',
+    source: waitlistSource({ utm_source, utm_campaign, utm_content }),
   });
 
   switch (result) {
