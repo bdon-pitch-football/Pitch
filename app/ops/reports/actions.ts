@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
 import { requireOperator } from '@/lib/ops-guard';
+import { reportFamilyEmail, reportFinishedEmail } from '@/lib/messages';
+import { send } from '@/lib/messaging';
 
 const back = (q = '') => redirect(`/ops/reports${q}`);
 const text = (f: FormData, k: string, max = 300) => String(f.get(k) ?? '').trim().slice(0, max);
@@ -24,11 +26,23 @@ export async function holdRecord(formData: FormData) {
   if (!isUuid(reportId)) back();
   const recordId = await recordForReport(reportId);
   if (!recordId) back('?error=unresolved');
-  await db.query(
+  const placed = await db.query(
     `insert into content_hold (record_id, report_id, held_by, reason)
-     select $1, $2, $3, $4 where not exists (select 1 from content_hold where record_id = $1 and released_at is null)`,
+     select $1, $2, $3, $4 where not exists (select 1 from content_hold where record_id = $1 and released_at is null)
+     returning id`,
     [recordId, reportId, op.email, text(formData, 'reason') || 'Report under review'],
   );
+  // doc 15 §8: the family is told, once, when a page is hidden — the approved
+  // guardians of a child. An adult is not a "child"; this message is not theirs.
+  if (placed.rowCount) {
+    const fam = (await db.query(
+      `select c.first_name, array(select distinct g.email from guardianship_link l join person g on g.id = l.guardian_id
+         where l.child_id = c.id and l.approved_at is not null and l.revoked_at is null and g.email is not null) as emails
+       from development_record dr join person c on c.id = dr.person_id
+       where dr.id = $1 and fn_age_band(c.dob) <> '18plus'`, [recordId],
+    )).rows[0] as { first_name: string; emails: string[] } | undefined;
+    if (fam) for (const address of fam.emails) await send(reportFamilyEmail(fam.first_name), { address });
+  }
   back('?done=held');
 }
 
@@ -53,10 +67,14 @@ export async function closeReport(formData: FormData) {
   const reportId = text(formData, 'reportId', 40);
   const outcome = text(formData, 'outcome', 20);
   if (!isUuid(reportId) || !['removed', 'no_action', 'referred'].includes(outcome)) back('?error=outcome');
-  await db.query(
-    `update report set actioned_at = now(), actioned_by = $2, outcome = $3 where id = $1 and actioned_at is null`,
+  const closed = await db.query(
+    `update report set actioned_at = now(), actioned_by = $2, outcome = $3 where id = $1 and actioned_at is null
+     returning reporter_email`,
     [reportId, op.email, outcome],
   );
+  // doc 15 §18 says "taken action", so it goes only when something was done.
+  const to = closed.rows[0]?.reporter_email as string | null | undefined;
+  if (to && outcome !== 'no_action') await send(reportFinishedEmail(), { address: to });
   back('?done=closed');
 }
 

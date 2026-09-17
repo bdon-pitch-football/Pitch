@@ -4,7 +4,8 @@
 import { NextResponse } from 'next/server';
 import { cronAllowed } from '@/lib/cron-policy';
 import { db } from '@/lib/db';
-import { sixteenthBirthdayEmail } from '@/lib/messages';
+import { linkExpiringToClubsEmail, linkRenewalEmail, pendingNudgeSms, sixteenthBirthdayEmail } from '@/lib/messages';
+import { reissueChannelToken } from '@/lib/guardian-flow';
 import { send } from '@/lib/messaging';
 
 export async function GET(request: Request) {
@@ -44,6 +45,35 @@ export async function GET(request: Request) {
     noticed++;
   }
 
+  // doc 15 §3, day 10: once. The texted link is re-minted for the reminder
+  // (tokens are stored hashed, so the old one cannot be re-sent); a press
+  // already made on it still counts (D-156).
+  const { rows: nudges } = await db.query('select * from fn_pending_nudges()');
+  let nudged = 0;
+  for (const n of nudges as { invitation_id: string; first_name: string; guardian_phone: string }[]) {
+    const code = await reissueChannelToken(n.invitation_id, 'sms');
+    if (!code) continue;
+    await send(pendingNudgeSms(n.first_name, code), { address: n.guardian_phone });
+    await db.query(
+      `insert into consent_event (event, detail) values ('nudge_sent', jsonb_build_object('invitation_id', $1::uuid))`,
+      [n.invitation_id],
+    );
+    nudged++;
+  }
+
+  // doc 15 §5 / §23, a week before a guardian-held link expires: once per
+  // link, one email per child and day, naming the clubs when any hold it.
+  const { rows: expiring } = await db.query('select * from fn_links_to_remind()');
+  let reminded = 0;
+  for (const x of expiring as { child_id: string; first_name: string; expires_on: string; token_ids: string[]; clubs: string[]; emails: string[] }[]) {
+    const msg = x.clubs.length > 0
+      ? linkExpiringToClubsEmail(x.first_name, x.expires_on, x.clubs, x.child_id)
+      : linkRenewalEmail(x.first_name, x.expires_on, x.child_id);
+    for (const address of x.emails) await send(msg, { address });
+    await db.query(`update share_token set renewal_reminded_at = now() where id = any($1::uuid[])`, [x.token_ids]);
+    reminded++;
+  }
+
   return NextResponse.json({
     ok: true,
     purged: rows[0].purged,
@@ -53,5 +83,7 @@ export async function GET(request: Request) {
     lapsedInterestRequests: lapsedInterest[0].n,
     abuseSignalsPurged: abuse[0].n,
     birthdayNotices: noticed,
+    approvalNudges: nudged,
+    linkReminders: reminded,
   });
 }

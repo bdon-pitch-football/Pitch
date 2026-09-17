@@ -9,6 +9,8 @@ import { createHash, randomBytes } from 'node:crypto';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { switchOffOneLink } from '@/lib/link-switch';
+import { deletionConfirmedEmail } from '@/lib/messages';
+import { send } from '@/lib/messaging';
 
 async function assertGuardian(childId: string): Promise<string> {
   const g = await getSessionPersonId();
@@ -146,6 +148,16 @@ export async function setSendSwitch(formData: FormData) {
 export async function deleteEverything(formData: FormData) {
   const childId = String(formData.get('childId') ?? '');
   const guardianId = await assertGuardian(childId);
+  // doc 15 §16 goes to the guardians and the child together, after the
+  // deletion — so who to tell is read now, while the rows still exist.
+  const told = (await db.query(
+    `select c.first_name,
+       array(select distinct g.email from guardianship_link l join person g on g.id = l.guardian_id
+             where l.child_id = c.id and l.approved_at is not null and l.revoked_at is null and g.email is not null
+             union
+             select c.email where c.email is not null and fn_age_band(c.dob) <> 'u16') as emails
+     from person c where c.id = $1`, [childId],
+  )).rows[0] as { first_name: string; emails: string[] } | undefined;
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -200,6 +212,10 @@ export async function deleteEverything(formData: FormData) {
     throw e;
   } finally {
     client.release();
+  }
+  if (told) {
+    const msg = deletionConfirmedEmail(told.first_name);
+    for (const address of told.emails) await send(msg, { address });
   }
   redirect('/home');
 }

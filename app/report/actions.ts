@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { checkRate } from '@/lib/ratelimit-db';
+import { reportReceivedEmail } from '@/lib/messages';
+import { send } from '@/lib/messaging';
 
 export async function fileReport(formData: FormData) {
   const subjectRef = String(formData.get('subjectRef') ?? '').slice(0, 200);
@@ -27,6 +29,14 @@ export async function fileReport(formData: FormData) {
       [subjectKind, subjectRef || 'unknown', reason || null, reporterEmail || null, concern],
     );
     await db.query(`insert into consent_event (event, detail) values ('report_filed', jsonb_build_object('kind', $1::text))`, [subjectKind]);
+    // doc 15 §7, only when they left an address. The page is described by
+    // kind, never by anything the report carried.
+    if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reporterEmail)) {
+      const what: Record<string, string> = {
+        player_cv: "a player's page", coach_cv: 'a coach page', club_page: 'a club page', trial_notice: 'a trial notice', other: 'a page on Pitch',
+      };
+      await send(reportReceivedEmail(what[subjectKind]), { address: reporterEmail });
+    }
   }
   // Identical outcome whether or not the rate limit bit: a limit message is
   // an oracle, and a flooder must not be able to tell.

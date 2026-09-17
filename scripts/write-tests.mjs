@@ -942,7 +942,10 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('g32-1: the CV page\'s report link carries the link\'s fingerprint, never the link', Boolean(reportHref) && !/dev-nate/.test(reportHref), true);
   const reportForm = forms((await get(reportHref, null)).html).find((f) => /Send the report/.test(f.submit));
   check('g32-2: the report form offers "this account belongs to a child"', /I think this account belongs to a child/.test(txt((await get(reportHref, null)).html)), true);
-  await postAs(null, '/report', reportForm, { concern: 'child_account', reason: 'This looks like a 12-year-old.' });
+  const outbox = async () => txt((await get('/dev/outbox', op)).html);
+  await postAs(null, '/report', reportForm, { concern: 'child_account', reason: 'This looks like a 12-year-old.', reporterEmail: 'reporter@example.com' });
+  check('msg7: the reporter who left an address gets §7, naming the kind of page only',
+    /We've received your report/.test(await outbox()) && /about a player's page/.test(await outbox()), true);
   let d = txt(await desk());
   check('g32-3: the operator sees it, labelled, with the reason', /Says this account belongs to a child/.test(d) && /This looks like a 12-year-old/.test(d), true);
 
@@ -952,6 +955,8 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const holdForm = forms(await desk()).find((f) => /Hide this page while I look/.test(f.submit));
   check('g32-5: hiding says so', /done=held/.test(await postAs(op, '/ops/reports', holdForm, { reason: 'Checking the age' })), true);
   check('g32-6: now the link answers as dead (D-77)', title((await get('/p/dev-nate', null)).html), dead);
+  check('msg8: the family is told (§8), by first name, to the parent\'s address',
+    /Something about your child on Pitch needs your attention/.test(await outbox()) && /involves Nate/.test(await outbox()) && /guardian@example\.com/.test(await outbox()), true);
   check('g32-7: and the club register no longer lists Nate (A1: no club listing)', /Nate/.test(txt((await get('/club/register', op)).html)), false);
   check('g32-8: the parent still has everything: nothing was deleted', /Nate/.test(txt((await get(`/g/controls/${nate.child_id}`, alex)).html)), true);
   const release = forms(await desk()).find((f) => /Show it again/.test(f.submit));
@@ -960,7 +965,9 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     [title((await get('/p/dev-nate', null)).html) !== dead, /Nate/.test(txt((await get('/club/register', op)).html))], [true, true]);
   const close = forms(await desk()).find((f) => /Close report/.test(f.submit));
   check('g32-10: a report closes only with an outcome', /error=outcome/.test(await postAs(op, '/ops/reports', close)), true);
-  check('g32-11: and closes with one', /done=closed/.test(await postAs(op, '/ops/reports', close, { outcome: 'no_action' })), true);
+  const before18 = ((await outbox()).match(/We've finished looking at your report/g) ?? []).length;
+  check('g32-11: and closes with one', /done=closed/.test(await postAs(op, '/ops/reports', close, { outcome: 'removed' })), true);
+  check('msg18: the reporter hears it was acted on (§18)', ((await outbox()).match(/We've finished looking at your report/g) ?? []).length, before18 + 1);
 
   // --- A2: one parent's access, suppressed then restored --------------------
   const found = await get(`/ops/reports?parent=${encodeURIComponent('guardian@example.com')}`, op);
@@ -991,6 +998,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const loc = await postAs(jordan, `/register-interest/${jRec}`, regForm, { clubId: riv, squadId: u15, positions: 'ST' });
   check('g32-20: the registration answers as usual', /registered=1/.test(loc), true);
   check('g32-21: but Jordan is held: the link answers as dead', title((await get('/p/dev-jordan', null)).html), dead);
+  check('msg17: and gets §17, the non-accusatory note, once', ((await outbox()).match(/We need a moment on your Pitch signup/g) ?? []).length, 1);
   check('g32-22: and the operator sees the age check', /Age checks[\s\S]*Jordan/.test(txt(await desk())), true);
   const releaseAge = forms(await desk()).find((f) => /Checked — release/.test(f.submit));
   await postAs(op, '/ops/reports', releaseAge);
@@ -1043,6 +1051,14 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const tl = txt((await get(`/g/controls/${nate.child_id}`, alex)).html);
   check('tr8: the timeline records it in plain words', /Nate came off a club register/.test(tl), true);
   check('tr9: a registration already taken off has no button', takeForms((await get(`/g/controls/${nate.child_id}`, alex)).html).length, 0);
+}
+
+// The daily job runs clean and reports its reminders (0050).
+{
+  const r = await fetch(BASE + '/api/jobs/daily');
+  const j = r.ok ? await r.json() : {};
+  check('job1: the daily job runs, and reports the day-10 reminders and link reminders',
+    [r.status, typeof j.approvalNudges, typeof j.linkReminders], [200, 'number', 'number']);
 }
 
 // ---------------------------------------------------------------------------
@@ -1102,6 +1118,8 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     const status = await post(del.form.action ?? del.path, del.who, del.form);
     check('x3b: and the deletion completes rather than rolling back', status, 303);
     check('x3c: AND THE CHILD IS GONE — the promise on the consent screen', await exists(), false);
+    const box = (await get('/dev/outbox', ids.people.marina)).html;
+    check('x3d: and the parent is told it is done (doc 15 §16)', /Pitch record has been deleted/.test(box) && /Two things remain/.test(box.replace(/<[^>]+>/g, ' ')), true);
   }
 }
 

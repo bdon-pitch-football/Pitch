@@ -3167,6 +3167,65 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     ['20', '21', '22'].every((d) => /\*\*v\d+\.\d+\*\*/.test(reg.split('\n').find((l) => l.startsWith(`| **${d}** |`)) ?? '')), true);
 }
 
+// Every message written is sent from somewhere (doc 15 is the launch
+// catalogue). The only exceptions are named, each with why.
+{
+  const msgSrc = readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8');
+  const builders = [...msgSrc.matchAll(/^export const ([A-Za-z0-9]+) = \(/gm)].map((m) => m[1]);
+  const NOT_YET = {
+    verificationCodeSms: 'doc 15 §14: approval uses two links (D-156), not codes',
+    sendRequestLapsedEmail: 'doc 15 §35: the composer is an under-16 with no address; nothing to send to',
+    clubDeverifiedEmail: 'doc 15 §37: needs the child-safety reason class on the verification call (doc 32 D)',
+    paymentTakenEmail: 'doc 15 §31: Stripe is not connected yet',
+    paymentFailedEmail: 'doc 15 §32: Stripe is not connected yet',
+  };
+  const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]);
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const srcs = [...walk(join(root, 'app')), ...walk(join(root, 'lib'))].filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith('lib/messages.ts'))
+    .map((f) => readFileSync(f, 'utf8')).join('\n');
+  const unsent = builders.filter((b) => !new RegExp(`\\b${b}\\b`).test(srcs) && !(b in NOT_YET));
+  check(`msg-all: every doc 15 message in code is sent from somewhere (${unsent.join(', ') || 'all are'})`, unsent, []);
+  const staleExceptions = Object.keys(NOT_YET).filter((b) => new RegExp(`\\b${b}\\b`).test(srcs));
+  check(`msg-all-b: and no exception is listed for one that is now sent (${staleExceptions.join(', ') || 'none'})`, staleExceptions, []);
+}
+
+// Reminders (0050): doc 15 §3 once at day 10; §5/§23 a week before expiry.
+{
+  const nudges = async () => (await db.query('select invitation_id from fn_pending_nudges()')).rows.map((r) => r.invitation_id);
+  const mk = async (days, extra = '') => (await db.query(
+    `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, created_at${extra ? ', ' + extra.split('=')[0] : ''})
+     values ('Nudge', '2014-01-01', 'P', '0400 111 000', 'n@example.com', now() - ($1 || ' days')::interval${extra ? ', ' + extra.split('=')[1] : ''}) returning id`, [String(days)])).rows[0].id;
+  const due = await mk(11), young = await mk(3), held = await mk(11, 'held_at=now()');
+  let n = await nudges();
+  check('rm1: an under-16 invitation waiting 10+ days is due its one reminder', n.includes(due), true);
+  check('rm2: a fresh one is not', n.includes(young), false);
+  check('rm3: a held one never is (D-155)', n.includes(held), false);
+  await db.query(`insert into consent_event (event, detail) values ('nudge_sent', jsonb_build_object('invitation_id', $1::uuid))`, [due]);
+  check('rm4: once reminded, never again', (await nudges()).includes(due), false);
+
+  const kid = crypto.randomUUID(), kidRec = crypto.randomUUID(), adult = crypto.randomUUID(), adultRec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1, 'Remy', $2), ($3, 'Grown', $4)`, [kid, yearsAgo(13), adult, yearsAgo(25)]);
+  await db.query(`insert into development_record (id, person_id) values ($1, $2), ($3, $4)`, [kidRec, kid, adultRec, adult]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1, $2, now())`, [ID.guardian, kid]);
+  await db.query(`update person set email = coalesce(email, 'remind-guardian@example.com') where id = $1`, [ID.guardian]);
+  const tok = async (rec, days, who) => (await db.query(
+    `insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1, $2, $3, now() + ($4 || ' hours')::interval) returning id`,
+    [rec, sha('remind-' + crypto.randomUUID()), who, String(days * 24)])).rows[0].id;
+  const t1 = await tok(kidRec, 6.5, ID.guardian), t2 = await tok(kidRec, 6.6, ID.guardian), tFar = await tok(kidRec, 30, ID.guardian);
+  await tok(adultRec, 6.5, adult);
+  await db.query(`insert into consent_event (event, actor_id, subject_id, detail)
+    values ('share_dispatched', $1, $2, jsonb_build_object('token_id', $3::uuid, 'club_name', 'Reminder FC'))`, [ID.guardian, kid, t1]);
+  const rows = (await db.query('select * from fn_links_to_remind()')).rows;
+  const remy = rows.filter((r) => r.child_id === kid);
+  check('rm5: a child\'s links expiring in a week come as ONE reminder', remy.length, 1);
+  check('rm6: covering both links, not the one a month out', remy[0] && [remy[0].token_ids.includes(t1), remy[0].token_ids.includes(t2), remy[0].token_ids.includes(tFar)], [true, true, false]);
+  check('rm7: naming the club that holds one (§23)', remy[0]?.clubs, ['Reminder FC']);
+  check('rm8: to the approved guardian', (remy[0]?.emails ?? []).length > 0, true);
+  check('rm9: an adult\'s own links get no reminder', rows.some((r) => r.child_id === adult), false);
+  await db.query(`update share_token set renewal_reminded_at = now() where id = any($1::uuid[])`, [remy[0].token_ids]);
+  check('rm10: and once sent, not again', (await db.query('select * from fn_links_to_remind()')).rows.some((r) => r.child_id === kid), false);
+}
+
 // D-155 as amended (0048): a 16-17's parent is confirmed before the link
 // exists, and until then the 16-17 cannot send.
 {

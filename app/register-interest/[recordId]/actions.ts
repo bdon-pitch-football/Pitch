@@ -17,6 +17,8 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { legalStamp } from '@/lib/legal-stamp';
+import { signupHoldEmail } from '@/lib/messages';
+import { send } from '@/lib/messaging';
 import { isUuid } from '@/lib/ids';
 import { requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
@@ -62,10 +64,15 @@ export async function composeInterest(formData: FormData) {
     const ag = (await db.query('select age_group from squad where id = $1', [squadId])).rows[0]?.age_group as string | null;
     const n = ag ? Number(/^U(\d+)$/.exec(ag)?.[1]) : NaN;
     if (Number.isFinite(n) && n <= 17) {
-      await db.query(
-        `update person set signup_hold = true, signup_hold_at = coalesce(signup_hold_at, now()) where id = $1`,
+      const first = await db.query(
+        `update person set signup_hold = true, signup_hold_at = coalesce(signup_hold_at, now())
+         where id = $1 and not signup_hold returning email`,
         [personId],
       );
+      // doc 15 §17, once, when the hold is first set: non-accusatory, and
+      // it tells an under-18 how to get in properly.
+      const email = first.rows[0]?.email as string | undefined;
+      if (email) await send(signupHoldEmail(), { address: email, personId });
     }
   }
 

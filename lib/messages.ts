@@ -633,10 +633,105 @@ If you have questions, write to ${HELP}.
 — Pitch`,
 });
 
+// §5 · Share-link renewal reminder, a week before expiry. Once. Renewing and
+// letting it expire are given equal weight (D-53): expiry is a good choice.
+export const linkRenewalEmail = (childFirstName: string, date: string, childId: string): Composed => ({
+  key: 'doc15.§5',
+  channel: 'email',
+  subject: `${childFirstName}'s CV link expires in a week`,
+  body:
+`The link you shared for ${childFirstName}'s football CV expires on ${date}. After that, anyone who opens it sees a page telling them the profile is managed by the family — nothing else, no details.
+
+Renew for another 90 days: ${SITE}/g/controls/${childId}
+Let it expire: there's nothing to do.
+
+Letting it expire is a perfectly good choice. You can always make a new link later.
+
+— Pitch`,
+});
+
+// §23 · The same, when clubs hold the link — and it names them, because
+// "let it expire" is only a real choice if the parent knows who loses it.
+export const linkExpiringToClubsEmail = (childFirstName: string, date: string, clubs: string[], childId: string): Composed => ({
+  key: 'doc15.§23',
+  channel: 'email',
+  subject: `${childFirstName}'s CV link expires in a week`,
+  body:
+`The link for ${childFirstName}'s CV expires on ${date}. ${clubs.length} club${clubs.length === 1 ? ' has' : 's have'} been sent it: ${clubs.join(', ')}.
+
+After ${date} they will see a page saying the profile is managed by the family — no name, no club, no details.
+
+Renew for another 90 days: ${SITE}/g/controls/${childId}
+Let it expire: there's nothing to do.
+
+Letting it expire is a perfectly good choice, including when a club still has it. You can always make a new link and send it again.
+
+— Pitch`,
+});
+
+// §7 · Report received — to the reporter, when they left an address.
+export const reportReceivedEmail = (pageDescription: string): Composed => ({
+  key: 'doc15.§7',
+  channel: 'email',
+  subject: "We've received your report",
+  body:
+`Thanks — we have your report about ${pageDescription} and a person will look at it.
+
+We aim to respond within one business day. If it concerns a child's immediate safety, contact your local police first; we are not an emergency service.
+
+— Pitch · ${HELP}`,
+});
+
+// §8 · Report and takedown — to the affected family, when a page is hidden.
+export const reportFamilyEmail = (childFirstName: string): Composed => ({
+  key: 'doc15.§8',
+  channel: 'email',
+  subject: 'Something about your child on Pitch needs your attention',
+  body:
+`Someone has reported content on Pitch that involves ${childFirstName}.
+
+While we look at it, the content is not visible to anyone.
+
+A person from Pitch will contact you within one business day. If you would like it removed permanently, reply to this email and we will do it — you do not need to give a reason.
+
+— Pitch`,
+});
+
+// §18 · A report we've finished with — only when something was done: the
+// copy says "taken action", so a no-action close sends nothing.
+export const reportFinishedEmail = (): Composed => ({
+  key: 'doc15.§18',
+  channel: 'email',
+  subject: "We've finished looking at your report",
+  body:
+`Thanks for telling us. We've looked at it and taken action.
+
+We can't tell you what we did — that would identify other people — but the report was read by a person and it was not ignored. If you see the same thing again, report it again; a second report about the same thing tells us something the first one didn't.
+
+— Pitch · ${HELP}`,
+});
+
+// §17 · The age-contradiction hold (D-96) — the one message whose job is to
+// be non-accusatory.
+export const signupHoldEmail = (): Composed => ({
+  key: 'doc15.§17',
+  channel: 'email',
+  subject: 'We need a moment on your Pitch signup',
+  body:
+`Thanks for signing up. Something on your form doesn't add up — the date of birth and the team don't match — so a person is taking a look before we go further. That usually takes a few hours.
+
+If you made a typo, reply to this email and tell us what it should say.
+
+If you're under 18: that's completely fine, and Pitch is built for you. You'll just need a parent to approve your profile first. Reply and we'll send you the right link.
+
+— Pitch`,
+});
+
 // The closed set. A key not in here cannot be sent.
 export const CATALOGUE_KEYS = [
   'doc15.§1', 'doc15.§2', 'doc15.§1b', 'doc15.§2b', 'doc15.§3', 'doc15.§10', 'doc15.§10a', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
   'doc15.§6', 'doc15.§21', 'doc15.§22', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
   'doc15.§33', 'doc15.§34', 'doc15.§27', 'doc15.§28', 'doc15.§38',
+  'doc15.§5', 'doc15.§23', 'doc15.§7', 'doc15.§8', 'doc15.§18', 'doc15.§17',
 ] as const;
