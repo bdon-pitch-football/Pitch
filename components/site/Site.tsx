@@ -68,7 +68,19 @@ const phoneShell: React.CSSProperties = { borderRadius: 44, padding: 10, backgro
 const Notch = () => <div aria-hidden style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', width: 86, height: 24, borderRadius: 999, background: '#050806', pointerEvents: 'none' }} />;
 
 // A phone holding one real screen. Tapping it opens the screen full size.
-function Phone({ src, alt, width = 280, tilt = 0, eager = false, onOpen }: { src: string; alt: string; width?: number; tilt?: number; eager?: boolean; onOpen: (s: Shot) => void }) {
+// Doc 32 C5: the people in these screens are made up, and the site says so
+// where they appear as if they were users. An overlay, so no box changes size.
+function ExampleNote({ plural = false }: { plural?: boolean }) {
+  return (
+    <span aria-hidden style={{ position: 'absolute', left: 8, right: 8, bottom: 8, display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 2 }}>
+      <span style={{ background: 'rgba(7,11,9,.82)', color: 'rgba(238,245,240,.78)', borderRadius: 999, padding: '4px 10px', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
+        {plural ? 'Example profiles. Not real people.' : 'Example profile. Not a real player.'}
+      </span>
+    </span>
+  );
+}
+
+function Phone({ src, alt, width = 280, tilt = 0, eager = false, plural = false, onOpen }: { src: string; alt: string; width?: number; tilt?: number; eager?: boolean; plural?: boolean; onOpen: (s: Shot) => void }) {
   const inner = width - 20;
   return (
     <button type="button" className="sp-zoomable" onClick={() => onOpen({ src, alt })} aria-label={`Open full size: ${alt}`}
@@ -77,6 +89,7 @@ function Phone({ src, alt, width = 280, tilt = 0, eager = false, onOpen }: { src
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt="" width={600} height={1298} loading={eager ? 'eager' : 'lazy'} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
         <Notch />
+        <ExampleNote plural={plural} />
       </div>
     </button>
   );
@@ -134,7 +147,8 @@ function HeroPhone({ width = 300 }: { width?: number }) {
   }, []);
 
   return (
-    <div style={{ ...phoneShell, width }}>
+    <div style={{ ...phoneShell, width, position: 'relative' }}>
+      <ExampleNote />
       <div ref={box} className="sp-hero-screen" tabIndex={0} aria-label="A player’s page on Pitch"
         style={{ position: 'relative', borderRadius: 34, height: frame, background: C.bg }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -149,9 +163,10 @@ function Laptop({ src, alt, onOpen }: { src: string; alt: string; onOpen: (s: Sh
   return (
     <button type="button" className="sp-zoomable" onClick={() => onOpen({ src, alt, laptop: true })} aria-label={`Open full size: ${alt}`}
       style={{ width: '100%', maxWidth: 620, background: 'none', border: 'none', padding: 0, cursor: 'zoom-in', fontFamily: 'inherit', color: 'inherit' }}>
-      <div style={{ borderRadius: '16px 16px 0 0', padding: '10px 10px 0', background: 'linear-gradient(160deg,#2a332e,#111714)', boxShadow: '0 0 0 1px #2f3a34 inset' }}>
+      <div style={{ position: 'relative', borderRadius: '16px 16px 0 0', padding: '10px 10px 0', background: 'linear-gradient(160deg,#2a332e,#111714)', boxShadow: '0 0 0 1px #2f3a34 inset' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt="" width={1400} height={875} decoding="async" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px 8px 0 0' }} />
+        <ExampleNote plural />
       </div>
       <div style={{ height: 14, borderRadius: '0 0 18px 18px', background: 'linear-gradient(#27302b,#161c19)', margin: '0 -18px', boxShadow: '0 30px 60px -30px rgba(0,0,0,.9)' }} />
     </button>
@@ -186,6 +201,9 @@ function Lightbox({ shot, onClose }: { shot: Shot | null; onClose: () => void })
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={shot.src} alt={shot.alt} onClick={(e) => e.stopPropagation()} className="sp-lightbox-img"
         style={{ maxWidth: shot.laptop ? 'min(1200px, 100%)' : 'min(440px, 100%)', maxHeight: '88vh', width: 'auto', height: 'auto', borderRadius: shot.laptop ? 12 : 28, boxShadow: '0 40px 100px -30px rgba(0,0,0,.9)', cursor: 'default' }} />
+      <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: 18, textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'rgba(238,245,240,.75)', pointerEvents: 'none' }}>
+        Example {shot.laptop ? 'profiles. Not real people.' : 'profile. Not a real person.'}
+      </div>
     </div>
   );
 }
@@ -663,7 +681,7 @@ export default function Site() {
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                   {WHO[r].shot.laptop
                     ? <Laptop src={WHO[r].shot.src} alt={WHO[r].shot.alt} onOpen={openShot} />
-                    : <Phone src={WHO[r].shot.src} alt={WHO[r].shot.alt} width={290} eager onOpen={openShot} />}
+                    : <Phone src={WHO[r].shot.src} alt={WHO[r].shot.alt} width={290} eager plural={r !== 'player'} onOpen={openShot} />}
                 </div>
               </div>
             ))}
