@@ -115,7 +115,8 @@ export default function Join() {
                   <>
                     <label className="field"><div className="field-label">A parent or guardian&rsquo;s name</div><input style={input} name="guardianName" required /></label>
                     <label className="field"><div className="field-label">Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></label>
-                    <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.5 }}>You&rsquo;re {age}, so a parent stays in the loop — they hold the visibility off-switch until you&rsquo;re 18, and any club approach goes to you both together.</div>
+                    <label className="field"><div className="field-label">Their email</div><input style={input} name="guardianEmail" type="email" required /></label>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.5 }}>You&rsquo;re {age}, so a parent stays in the loop. We text and email them to confirm. Until they do, you can build your page but not send it. After that, they&rsquo;re told each time you send, and any club approach goes to you both together.</div>
                   </>
                 )}
               </div>

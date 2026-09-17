@@ -11,7 +11,7 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { requireOperator } from '@/lib/ops-guard';
-import { guardianApprovalEmail, guardianApprovalSms } from '@/lib/messages';
+import { guardianApprovalEmail, guardianApprovalSms, guardianConfirmEmail16, guardianConfirmSms16 } from '@/lib/messages';
 import { sendAndLog } from '@/lib/messaging';
 import { reissueChannelToken } from '@/lib/guardian-flow';
 
@@ -24,7 +24,7 @@ export async function resendApproval(formData: FormData) {
   const invitationId = String(formData.get('invitationId') ?? '');
   await requireOperator();
   const { rows } = await db.query(
-    `select first_name, dob, guardian_phone, guardian_email
+    `select first_name, dob, guardian_phone, guardian_email, child_id is not null as teen
      from pending_invitation where id = $1 and approved_at is null and held_at is null`,
     [invitationId],
   );
@@ -36,11 +36,11 @@ export async function resendApproval(formData: FormData) {
     // parent already confirmed stays confirmed.
     const smsToken = inv.guardian_phone ? await reissueChannelToken(invitationId, 'sms') : null;
     if (smsToken) {
-      await sendAndLog(guardianApprovalSms(inv.first_name, age, smsToken), { address: inv.guardian_phone }, 'sms_sent');
+      await sendAndLog((inv.teen ? guardianConfirmSms16 : guardianApprovalSms)(inv.first_name, age, smsToken), { address: inv.guardian_phone }, 'sms_sent');
     }
     const emailToken = inv.guardian_email ? await reissueChannelToken(invitationId, 'email') : null;
     if (emailToken) {
-      await sendAndLog(guardianApprovalEmail(inv.first_name, age, emailToken), { address: inv.guardian_email }, 'email_sent');
+      await sendAndLog((inv.teen ? guardianConfirmEmail16 : guardianApprovalEmail)(inv.first_name, age, emailToken), { address: inv.guardian_email }, 'email_sent');
     }
   }
   redirect('/ops/support');

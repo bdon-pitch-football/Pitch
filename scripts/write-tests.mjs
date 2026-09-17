@@ -804,6 +804,45 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('join4: a genuinely new account gets the identical answer', [/\/signin\?joined=1/.test(fresh.location), /pitch_session=/.test(fresh.cookie)], [true, false]);
   const newtIn = await post('/signin', signinForm, { email: 'newt@example.com', password: 'newt-password-123' });
   check('join5: and signs in with the password they chose', /pitch_session=[^;]+\./.test(newtIn.cookie), true);
+
+  // --- D-155 as amended (0048): a 16-17 names a parent, who confirms ------
+  const teenDob = new Date(Date.now() - 17 * 365.25 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const noParentEmail = await joinPost('createAccount', { firstName: 'Tess', dob: teenDob, email: 'tess@example.com', password: 'tess-password-123',
+    guardianName: 'Terry Parent', guardianPhone: '0400 555 666' });
+  check('t16a: a 16-17 sign-up without the parent\'s email is refused', /\/join\?error=1/.test(noParentEmail.location), true);
+  const ownEmail = await joinPost('createAccount', { firstName: 'Tess', dob: teenDob, email: 'tess@example.com', password: 'tess-password-123',
+    guardianName: 'Terry Parent', guardianPhone: '0400 555 666', guardianEmail: 'tess@example.com' });
+  check('t16b: nor with their own address as the parent\'s', /\/join\?error=1/.test(ownEmail.location), true);
+  const tessJoin = await joinPost('createAccount', { firstName: 'Tess', dob: teenDob, email: 'tess@example.com', password: 'tess-password-123',
+    guardianName: 'Terry Parent', guardianPhone: '0400 555 666', guardianEmail: 'terry@example.com' });
+  check('t16c: with it, the 16-17 is set up', /\/signin\?joined=1/.test(tessJoin.location), true);
+  const tessOut = (await get('/dev/outbox', ids.people.alex)).html.replace(/&#x27;|&rsquo;|’/g, "'");
+  check('t16d: the parent gets §1b and §2b, not the under-16 approval',
+    /Tess \(17\) has named you as their parent/.test(tessOut) && /Tess has named you as their parent on Pitch/.test(tessOut), true);
+  const tessIn = await post('/signin', signinForm, { email: 'tess@example.com', password: 'tess-password-123' });
+  const tessCookie = tessIn.cookie.split(';')[0];
+  const tessHome = await (await fetch(BASE + '/home', { headers: { cookie: tessCookie } })).text();
+  const tessRec = /\/build\/([0-9a-f-]{36})/.exec(tessHome)?.[1];
+  check('t16e: until the parent confirms, Tess sees "Waiting on your parent" and has no Send door',
+    /Waiting on your parent/.test(tessHome) && !/href="\/send\//.test(tessHome), true);
+  const tessSend = await fetch(BASE + `/send/${tessRec}`, { redirect: 'manual', headers: { cookie: tessCookie } });
+  check('t16f: and the send screen sends Tess home', tessSend.status >= 300 && tessSend.status < 400, true);
+
+  const tessLinks = [...tessOut.matchAll(/\/a\/([A-Za-z0-9_-]{20,})/g)].map((x) => x[1]).slice(0, 2);
+  for (const code of tessLinks) {
+    const yes = formWith((await ig(`/a/${code}`)).html, /Yes, it/);
+    if (yes) await post(`/a/${code}`, yes);
+  }
+  const tessApprove = await ig(`/a/${tessLinks[0]}`);
+  check('t16g: the parent is asked "Are you Tess\'s parent?", not to approve a page',
+    /Are you Tess.s parent\?/.test(plain(tessApprove.html)) && /Confirm I.m their parent/.test(plain(tessApprove.html)) && !/Approve this page/.test(tessApprove.html), true);
+  const confirmForm = formWith(tessApprove.html, /Confirm I/);
+  const tessDone = await post(`/a/${tessLinks[0]}`, confirmForm, { adult: 'on' });
+  const tessDonePage = plain((await ig(tessDone.location)).html);
+  check('t16h: confirming lands on "You confirmed you\'re Tess\'s parent"', /You confirmed you.re Tess.s parent/.test(tessDonePage) && /Confirmed by you on/.test(tessDonePage), true);
+  const tessHome2 = await (await fetch(BASE + '/home', { headers: { cookie: tessCookie } })).text();
+  check('t16i: and now Tess can send', /href="\/send\//.test(tessHome2) && !/Waiting on your parent/.test(tessHome2), true);
+
 }
 
 // ---------------------------------------------------------------------------

@@ -69,6 +69,44 @@
 
 ---
 
+## 1b · Confirm you're their parent — SMS, when a 16–17 names you (BUZ, 17 Sep)
+
+A 16–17 runs their own page, so this is not "approve before anything goes live". It asks the parent to confirm they are the parent, because the controls a 16–17's parent holds (§22, the send switch, the pause) are theirs only once they do (D-155 as amended, D-156).
+
+> **Pitch: Nate (17) has named you as their parent on their football profile. Please confirm it's you: pitchfootball.com.au/a/XXXX**
+> **Not you? Ignore it and nothing happens. Questions: help@pitchfootball.com.au**
+
+**Never:** the child's surname, a club, or urgency.
+
+---
+
+## 2b · Confirm you're their parent — email, when a 16–17 names you (BUZ, 17 Sep)
+
+**Subject:** `Nate has named you as their parent on Pitch`
+
+> Hi,
+>
+> Nate (17) has started a football profile on Pitch and named you as their parent or guardian.
+>
+> At seventeen, Nate builds their own page and sends it to clubs themselves — **but they can't send it until you confirm you're their parent.**
+>
+> **[Confirm it's me]**
+>
+> **Once you confirm:**
+>
+> - **You're told every time Nate sends their CV to a club**, and you can switch their sending off.
+> - **No one can contact Nate directly.** Any approach from outside their club comes to you and Nate together.
+> - **You can pause Nate's page at any time.** Every link stops working until you switch it back on.
+>
+> If you weren't expecting this, ignore this email — nothing happens, and the request disappears after 14 days.
+>
+> — Pitch
+> pitchfootball.com.au · help@pitchfootball.com.au
+
+**Why the three bullets are these three:** they are the controls a 16–17's parent actually has in the product today. Nothing here promises search controls or anything not built.
+
+---
+
 ## 3 · Day-10 pending-invite nudge — SMS
 
 Sent once. Never twice.
@@ -871,4 +909,4 @@ Sent when an operator uses the emergency switch that revokes every live share li
 
 **Never:** a child's name, a club, a count, or a promise we cannot keep ("your data is safe").
 
-*v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep.*
+*v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep. §1b and §2b added the same day (D-155 as amended).*

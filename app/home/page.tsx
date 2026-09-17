@@ -109,6 +109,7 @@ export default async function Home() {
             and tn.trial_on >= (now() at time zone 'Australia/Melbourne')::date
           order by tn.trial_on limit 1) nx) as next_trial,
        (select count(*)::int from registration r8 where r8.player_id = p.id and r8.withdrawn_at is null) as my_registers,
+       fn_has_approved_guardian(p.id) as has_guardian,
        (select row_to_json(cl) from (
           select c2.id, c2.name, c2.club_state, c2.public_slug, m.role,
             (select count(*)::int from registration r6 where r6.club_id = c2.id and r6.withdrawn_at is null) as register_count
@@ -609,7 +610,17 @@ export default async function Home() {
           </div>
 
           <div>
-            <Link href={`/send/${rec}`} className="btn btn-primary">Send my CV to a club</Link>
+            {me.band === '16_17' && !me.has_guardian ? (
+              // 0048: a 16–17 sends only once a parent has confirmed.
+              <div role="status" style={{ ...card, border: `1px solid ${T.amber}`, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>Waiting on your parent</div>
+                <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
+                  We&rsquo;ve texted and emailed them to confirm they&rsquo;re your parent. Once they do, you can send your CV to clubs. Keep building your page in the meantime.
+                </div>
+              </div>
+            ) : (
+              <Link href={`/send/${rec}`} className="btn btn-primary">Send my CV to a club</Link>
+            )}
             <div style={{ display: 'flex', gap: 9 }}>
               <Link href={`/build/${rec}`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Build your CV</Link>
               <Link href="/trials" className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Trials near you</Link>

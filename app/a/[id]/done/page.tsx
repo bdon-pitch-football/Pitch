@@ -40,7 +40,7 @@ export default async function Done({ params, searchParams }: { params: Promise<{
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your family</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You approved {inv.first_name}. Nothing is visible to anyone until there is a page and you have approved that too.</div>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{inv.existing_child ? `You confirmed you\u2019re ${inv.first_name}\u2019s parent. You\u2019ll hear from us each time they send their CV.` : `You approved ${inv.first_name}. Nothing is visible to anyone until there is a page and you have approved that too.`}</div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -50,12 +50,12 @@ export default async function Done({ params, searchParams }: { params: Promise<{
               <div style={{ width: 52, height: 52, borderRadius: 16, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, color: T.secondary, flexShrink: 0 }}>{(inv.first_name as string)[0]}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <div style={{ fontSize: 16, fontWeight: 800 }}>{inv.first_name}</div>
-                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Page not built yet</div>
+                {!inv.existing_child && <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Page not built yet</div>}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500 }}>Approved by you on {approvedDate}</div>
+              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500 }}>{inv.existing_child ? 'Confirmed' : 'Approved'} by you on {approvedDate}</div>
             </div>
           </div>
         </div>

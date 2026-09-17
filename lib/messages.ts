@@ -66,6 +66,42 @@ If you were not expecting this, you can ignore this email — the request disapp
 ${SITE} · ${HELP}`,
 });
 
+// §1b / §2b · Confirm you're their parent (BUZ, 17 Sep; D-155 as amended). A
+// 16–17 runs their own page, so this asks the named parent to confirm, not to
+// approve a page. The three bullets are the controls that parent really has.
+export const guardianConfirmSms16 = (childFirstName: string, age: number, code: string): Composed => ({
+  key: 'doc15.§1b',
+  channel: 'sms',
+  body:
+    `Pitch: ${childFirstName} (${age}) has named you as their parent on their football profile. Please confirm it's you: ${SITE}/a/${code}\n` +
+    `Not you? Ignore it and nothing happens. Questions: ${HELP}`,
+});
+
+export const guardianConfirmEmail16 = (childFirstName: string, age: number, code: string): Composed => ({
+  key: 'doc15.§2b',
+  channel: 'email',
+  subject: `${childFirstName} has named you as their parent on Pitch`,
+  body:
+`Hi,
+
+${childFirstName} (${age}) has started a football profile on Pitch and named you as their parent or guardian.
+
+At ${age === 16 ? 'sixteen' : 'seventeen'}, ${childFirstName} builds their own page and sends it to clubs themselves — but they can't send it until you confirm you're their parent.
+
+Confirm it's me: ${SITE}/a/${code}
+
+Once you confirm:
+
+- You're told every time ${childFirstName} sends their CV to a club, and you can switch their sending off.
+- No one can contact ${childFirstName} directly. Any approach from outside their club comes to you and ${childFirstName} together.
+- You can pause ${childFirstName}'s page at any time. Every link stops working until you switch it back on.
+
+If you weren't expecting this, ignore this email — nothing happens, and the request disappears after 14 days.
+
+— Pitch
+${SITE} · ${HELP}`,
+});
+
 // §3 · Day-10 nudge — SMS. Sent once. Never twice. Deletion is the headline.
 export const pendingNudgeSms = (childFirstName: string, code: string): Composed => ({
   key: 'doc15.§3',
@@ -599,7 +635,7 @@ If you have questions, write to ${HELP}.
 
 // The closed set. A key not in here cannot be sent.
 export const CATALOGUE_KEYS = [
-  'doc15.§1', 'doc15.§2', 'doc15.§3', 'doc15.§10', 'doc15.§10a', 'doc15.§13', 'doc15.§14',
+  'doc15.§1', 'doc15.§2', 'doc15.§1b', 'doc15.§2b', 'doc15.§3', 'doc15.§10', 'doc15.§10a', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
   'doc15.§6', 'doc15.§21', 'doc15.§22', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
   'doc15.§33', 'doc15.§34', 'doc15.§27', 'doc15.§28', 'doc15.§38',

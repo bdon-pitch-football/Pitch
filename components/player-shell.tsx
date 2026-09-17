@@ -18,7 +18,7 @@ export type PlayerTab = 'home' | 'cv' | 'trials' | 'send';
 
 type Child = { id: string; firstName: string };
 type Seat =
-  | { kind: 'player'; first_name: string; photo_path: string | null; record_id: string; club: string | null }
+  | { kind: 'player'; first_name: string; photo_path: string | null; record_id: string; club: string | null; can_send: boolean }
   | { kind: 'guardian'; first_name: string; children: Child[] }
   | null;
 
@@ -33,6 +33,8 @@ async function resolveSeat(): Promise<Seat> {
        exists(select 1 from membership m2 where m2.person_id = p.id
          and m2.role in ('technical_director','club_admin') and m2.ended_at is null) as club_seat,
        exists(select 1 from coach_profile cp where cp.person_id = p.id) as coach_seat,
+       -- 0048: a 16-17 whose parent has not confirmed has no Send door.
+       not (fn_age_band(p.dob) = '16_17' and not fn_has_approved_guardian(p.id)) as can_send,
        (select coalesce(json_agg(json_build_object('id', c.id, 'firstName', c.first_name) order by g.approved_at), '[]'::json)
           from guardianship_link g join person c on c.id = g.child_id
          where g.guardian_id = p.id and g.approved_at is not null and g.revoked_at is null) as children
@@ -43,7 +45,7 @@ async function resolveSeat(): Promise<Seat> {
   if (!r || r.club_seat || r.coach_seat) return null;
   const children = r.children as Child[];
   if (children.length > 0) return { kind: 'guardian', first_name: r.first_name, children };
-  if (r.record_id) return { kind: 'player', first_name: r.first_name, photo_path: r.photo_path, record_id: r.record_id, club: r.club };
+  if (r.record_id) return { kind: 'player', first_name: r.first_name, photo_path: r.photo_path, record_id: r.record_id, club: r.club, can_send: r.can_send };
   return null;
 }
 
@@ -59,7 +61,7 @@ function playerFrame(seat: Extract<Seat, { kind: 'player' }>, active: string, ch
     { key: 'home', href: '/home', label: 'Home', icon: 'home' },
     { key: 'cv', href: `/build/${seat.record_id}`, label: 'My CV', icon: 'cv' },
     { key: 'trials', href: '/trials', label: 'Trials', icon: 'trials' },
-    { key: 'send', href: `/send/${seat.record_id}`, label: 'Send', icon: 'send' },
+    ...(seat.can_send ? [{ key: 'send', href: `/send/${seat.record_id}`, label: 'Send', icon: 'send' as const }] : []),
   ];
   const head = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>

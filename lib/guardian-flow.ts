@@ -11,7 +11,7 @@ import 'server-only';
 import { db } from './db';
 import { isUuid } from './ids';
 import { createHash, randomBytes } from 'node:crypto';
-import { guardianApprovalEmail, guardianApprovalSms } from './messages';
+import { guardianApprovalEmail, guardianApprovalSms, guardianConfirmEmail16, guardianConfirmSms16 } from './messages';
 import { sendAndLog } from './messaging';
 
 // doc@version stamps (legal/00-Legal-Register.md): published versions at
@@ -32,6 +32,7 @@ export async function createPendingInvitation(input: {
   guardianName: string;
   guardianPhone: string;
   guardianEmail: string; // required (D-157)
+  childId?: string;      // a 16–17 who already has an account (D-155 as amended)
 }): Promise<{ id: string }> {
   const smsToken = newToken();
   const emailToken = newToken();
@@ -40,10 +41,10 @@ export async function createPendingInvitation(input: {
   try {
     await client.query('begin');
     const { rows } = await client.query(
-      `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, sms_token_hash, email_token_hash)
-       values ($1,$2,$3,$4,$5,$6,$7) returning id`,
+      `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, sms_token_hash, email_token_hash, child_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
       [input.firstName.trim(), input.dob, input.guardianName.trim(), input.guardianPhone.trim(), input.guardianEmail.trim(),
-        hashToken(smsToken), hashToken(emailToken)],
+        hashToken(smsToken), hashToken(emailToken), input.childId ?? null],
     );
     await client.query(
       `insert into consent_event (event, detail) values ('invite_created', jsonb_build_object('invitation_id', $1::uuid))`,
@@ -65,8 +66,12 @@ export async function createPendingInvitation(input: {
   // a single-connection pool — the request waits for a connection only it
   // can free.
   const age = Math.floor((Date.now() - new Date(input.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
-  await sendAndLog(guardianApprovalSms(input.firstName.trim(), age, smsToken), { address: input.guardianPhone.trim() }, 'sms_sent');
-  await sendAndLog(guardianApprovalEmail(input.firstName.trim(), age, emailToken), { address: input.guardianEmail.trim() }, 'email_sent');
+  // An under-16's parent approves a page (§1, §2); a 16–17's parent confirms
+  // they are the parent (§1b, §2b).
+  const sms = input.childId ? guardianConfirmSms16 : guardianApprovalSms;
+  const email = input.childId ? guardianConfirmEmail16 : guardianApprovalEmail;
+  await sendAndLog(sms(input.firstName.trim(), age, smsToken), { address: input.guardianPhone.trim() }, 'sms_sent');
+  await sendAndLog(email(input.firstName.trim(), age, emailToken), { address: input.guardianEmail.trim() }, 'email_sent');
   return { id: invitationId };
 }
 
@@ -103,13 +108,14 @@ export async function getPendingInvitation(id: string) {
 export type ApprovalLink = {
   id: string; first_name: string; dob: string; approved_at: string | null; held_at: string | null;
   channel: 'sms' | 'email' | null; sms_confirmed: boolean; email_confirmed: boolean;
+  existing_child: boolean; // a 16–17 naming a parent, not an under-16's new page
 };
 
 export async function resolveApprovalLink(code: string): Promise<ApprovalLink | null> {
   if (!code || code.length > 200) return null;
   const byId = isUuid(code);
   const { rows } = await db.query(
-    `select id, first_name, dob, approved_at, held_at,
+    `select id, first_name, dob, approved_at, held_at, child_id is not null as existing_child,
        sms_confirmed_at is not null as sms_confirmed, email_confirmed_at is not null as email_confirmed,
        case when $2 then null when sms_token_hash = $3 then 'sms' else 'email' end as channel
      from pending_invitation
@@ -123,10 +129,10 @@ export async function resolveApprovalLink(code: string): Promise<ApprovalLink | 
 export async function getInvitationForParentPage(id: string) {
   if (!isUuid(id)) return null;
   const { rows } = await db.query(
-    `select id, first_name, dob, approved_at, held_at from pending_invitation where id = $1`,
+    `select id, first_name, dob, approved_at, held_at, child_id is not null as existing_child from pending_invitation where id = $1`,
     [id],
   );
-  return (rows[0] ?? null) as { id: string; first_name: string; dob: string; approved_at: string | null; held_at: string | null } | null;
+  return (rows[0] ?? null) as { id: string; first_name: string; dob: string; approved_at: string | null; held_at: string | null; existing_child: boolean } | null;
 }
 
 /** "Yes, it's me — continue" (D-156). A press, never a page load. */
@@ -164,7 +170,7 @@ export async function approveInvitation(input: {
   try {
     await client.query('begin');
     const inv = await client.query(
-      `select id, first_name, dob, guardian_name, guardian_email from pending_invitation
+      `select id, first_name, dob, guardian_name, guardian_email, child_id from pending_invitation
        where id = $1 and approved_at is null and held_at is null
          and sms_confirmed_at is not null and email_confirmed_at is not null
        for update`,
@@ -194,17 +200,18 @@ export async function approveInvitation(input: {
       [gName.split(' ')[0] || 'Guardian', gName.split(' ').slice(1).join(' ') || null, p.guardian_email],
     )).rows[0].id;
     await client.query(`update person set adult_declared_at = coalesce(adult_declared_at, now()) where id = $1`, [guardianId]);
-    const child = await client.query(
+    // An under-16's page is created now. A 16–17 already exists (0048): the
+    // parent is linked to them, and nothing else about them changes.
+    const childId: string = p.child_id ?? (await client.query(
       `insert into person (first_name, dob, dob_locked) values ($1,$2,true) returning id`,
       [p.first_name, p.dob],
-    );
-    const childId = child.rows[0].id;
+    )).rows[0].id;
 
     await client.query(
       `insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`,
       [guardianId, childId],
     );
-    await client.query(`insert into development_record (person_id) values ($1)`, [childId]);
+    if (!p.child_id) await client.query(`insert into development_record (person_id) values ($1)`, [childId]);
     await client.query(`update pending_invitation set approved_at = now() where id = $1`, [p.id]);
 
     // The consent log IS the product's proof. Guardian approval is the ToS
@@ -216,9 +223,13 @@ export async function approveInvitation(input: {
          values ($1,$2,$3, jsonb_build_object('invitation_id', $4::uuid) || $6::jsonb, $5)`,
         [event, guardianId, childId, p.id, policy, JSON.stringify(extra)],
       );
-    await ev('approved', null, { adult_declared: true, channels: ['sms', 'email'] });
-    await ev('tos_accepted', TOS_VERSION);
-    await ev('policy_accepted', PRIVACY_VERSION);
+    await ev('approved', null, { adult_declared: true, channels: ['sms', 'email'], ...(p.child_id ? { kind: 'parent_confirmed' } : {}) });
+    // A 16–17 accepted the terms themselves at sign-up; only an under-16's
+    // parent accepts them on the child's behalf.
+    if (!p.child_id) {
+      await ev('tos_accepted', TOS_VERSION);
+      await ev('policy_accepted', PRIVACY_VERSION);
+    }
 
     await client.query('commit');
     return { invitationId: p.id };

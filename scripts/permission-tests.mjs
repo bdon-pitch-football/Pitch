@@ -3138,6 +3138,32 @@ for (const f of srcFiles) {
 check('D-94 §6: dangerouslySetInnerHTML appears nowhere', dsi, 0);
 check('D-98: no code references a WWCC number', wwccNum, 0);
 
+// D-155 as amended (0048): a 16-17's parent is confirmed before the link
+// exists, and until then the 16-17 cannot send.
+{
+  const teen = crypto.randomUUID(), teenRec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1, 'Unconfirmed', $2)`, [teen, yearsAgo(17)]);
+  await db.query(`insert into development_record (id, person_id) values ($1, $2)`, [teenRec, teen]);
+  const can = async () => (await db.query('select fn_can_dispatch($1, $2) as c', [teen, teenRec])).rows[0].c;
+  check('g16a: a 16-17 with no confirmed parent cannot send', await can(), false);
+  const parent = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, adult_declared_at) values ($1, 'Confirmed Parent', now())`, [parent]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1, $2, null)`, [parent, teen]);
+  check('g16b: nor with a parent named but not yet confirmed', await can(), false);
+  await db.query(`update guardianship_link set approved_at = now() where guardian_id = $1 and child_id = $2`, [parent, teen]);
+  check('g16c: once a parent has confirmed, they can', await can(), true);
+  const inv = (await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, child_id)
+    values ('Unconfirmed', $1, 'P', '0400 000 009', 'p16@example.com', $2) returning id`, [yearsAgo(17), teen])).rows[0].id;
+  await db.query(`delete from guardianship_link where child_id = $1`, [teen]);
+  await db.query(`delete from development_record where person_id = $1`, [teen]);
+  await db.query(`delete from person where id = $1`, [teen]);
+  check('g16d: a confirmation request goes when the teen does (D-26)', (await db.query('select count(*)::int as n from pending_invitation where id = $1', [inv])).rows[0].n, 0);
+  const joinSrc = readFileSync(fileURLToPath(new URL('../app/join/actions.ts', import.meta.url)), 'utf8');
+  check('g16e: sign-up never writes a guardian link itself', /insert into guardianship_link/.test(joinSrc), false);
+  check('g16f: a 16-17 sign-up needs the parent\'s email, and not their own',
+    /band === '16_17' && \(!guardianName \|\| !AU_MOBILE\.test\(guardianPhone\) \|\| !EMAIL_RE\.test\(guardianEmail\)\s*\|\| guardianEmail\.toLowerCase\(\) === email\)/.test(joinSrc), true);
+}
+
 // Who has read a registration (doc 34 rule 6, doc 32 C4b; 0047).
 {
   const readers = async (viewer, person) => (await db.query('select * from fn_register_readers($1,$2)', [viewer, person])).rows;
