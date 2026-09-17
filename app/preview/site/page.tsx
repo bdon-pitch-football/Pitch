@@ -8,6 +8,7 @@
 // drawing of one. Every other screen is a capture of the dev app at device
 // size, signed in as the fictional seats (public/preview/).
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import PlayerCV from '@/components/cv/PlayerCV';
 import { JORDAN } from '@/lib/fixtures';
 import SitePreview from '@/components/site-preview/SitePreview';
@@ -18,6 +19,8 @@ export const metadata: Metadata = {
 };
 
 export default function PreviewSite() {
+  // The live site is on main now (16 Sep); this mock-up never ships.
+  if (process.env.NODE_ENV === 'production') notFound();
   // The fixture carries no band (it is derived from DOB at read time in the
   // product), and PlayerCV falls back to the minor treatment when the band is
   // absent — which put a "Parent-approved" chip on a 22-year-old. Stated here.
