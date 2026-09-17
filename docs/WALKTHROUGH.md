@@ -139,6 +139,82 @@ Both need a reason, and both go in the switch log with your email.
 
 ---
 
+## During the day, 17 Sep
+
+Reseed first (restart `dev-db.mts`) so every example below is in its
+starting state.
+
+### Parent approval: two links, each needs a button press (D-155, D-156, D-157)
+
+- The parent of an under-16 now gets **two links**, one by text and one by
+  email. Opening a link does nothing on its own. Each page has a
+  **Yes, it's me** button, and the child's page is only approved once both
+  are confirmed. Try `/a/dev-mila-text`, then `/a/dev-mila-email`.
+- The second page asks the parent to tick that they're **18 or over**. An
+  account under 18 is never linked as a parent. It is held quietly, and the
+  screen looks exactly the same as a normal approval.
+- A parent email is now required, not optional.
+
+### 16–17 sign-up: the parent confirms too
+
+- A 16–17 who signs up at `/join` names a parent, who gets the same two
+  links. The account is made straight away and goes to sign-in. Until the
+  parent confirms, the player can build their page but **can't send their
+  CV**, because there's nobody yet to tell or to hold the switch.
+
+### Who has read it, and taking it off a register
+
+- On **Your family → Manage** (and on Nate's home), each register the child
+  is on shows **who at the club opened it**, their role, whether they
+  opened the list or the CV, and when. The club's own statuses never show.
+- **Take off this register** is under each one. The club loses the row and
+  the note straight away, and the child's page says it was taken off.
+
+### The player's own links — `player@example.com`
+
+- **Send my CV** → **Your links** lists every club the CV went to. Each one
+  has a **Switch off**, and **Make a fresh link** swaps every live link for
+  a new one in one go.
+
+### Reports and the report desk
+
+- **Report this page** (in the footer of every page) now asks what the
+  report is about, including "this account belongs to a child" and "my own
+  child is in it". The confirmation includes the 1800RESPECT number.
+- **/ops/reports** is your desk. From it you can hide a child's record
+  completely (no page, no link, no register row), release it again, take a
+  page down, pause one parent's access (reversible) or remove it for good
+  (court order only), and clear an age-contradiction hold. Every action
+  needs a reason and is logged with your email. Try it on your phone.
+
+### Messages that were missing
+
+- The messages doc 15 promised and nothing sent now send: the day-10
+  reminder to a parent who hasn't approved, the week-before notice when a
+  link is about to expire (naming the clubs that hold it), and the report
+  and takedown confirmations. See them in `/dev/outbox` after the daily job
+  runs.
+- Still not sent, on purpose: §12 (the coach "You're verified" message,
+  waiting on your approval of new copy), the Stripe receipts (§31, §32, until
+  Stripe is live), and §4, §11, §14, §35 and §37, which have no feature yet.
+
+### Around the edges
+
+- **Footer** on every page: privacy, terms, the family privacy page
+  (`/privacy/family`), report, and the business line (PITCH FOOTBALL,
+  held by EBSD Enterprises Pty Ltd).
+- **Installable:** on a phone, *Add to Home Screen* gives a Pitch icon that
+  opens full screen.
+- **Opened from a text message:** if the link opens inside another app's
+  browser, a banner offers to open it in the real browser so sign-in works.
+- **Emergency switches** (above) and **coach publish** (above) also landed
+  today.
+
+The ordered go-live checklist (Twilio, Resend, Supabase, Stripe, Vercel,
+then my part) is a separate page you can tick off on your phone.
+
+---
+
 ## Running the checks
 
 ```bash
@@ -160,11 +236,10 @@ restart `dev-db.mts` afterwards), `node scripts/gate-coverage.mjs`,
 `node scripts/palette-check.mjs`, `python3 scripts/corpus-check.py` and
 `npx tsc --noEmit`.
 
-Last full run (17 Sep, overnight): typecheck clean · palette green ·
-render 330/330 · write 92/92 · permission 827/827 · gate 261/261 open 0 ·
-corpus clean. Also checked in a production build: 400 page views across
-10 seats with no security-policy errors, and the pages come alive
-(builder progress, trials filters).
+Last full run (17 Sep, evening): typecheck clean · palette green ·
+secret scan green · render 359/359 · write 233/233 · permission 931/931 ·
+gate 261/261 open 0 · corpus clean · production build clean
+(`npm run build:check`).
 
 ---
 
