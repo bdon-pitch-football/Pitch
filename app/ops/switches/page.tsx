@@ -21,9 +21,9 @@ const ACTION: Record<string, string> = {
   links_all_revoked: 'Switched off every live link',
 };
 
-export default async function Switches({ searchParams }: { searchParams: Promise<{ done?: string; n?: string; error?: string }> }) {
+export default async function Switches({ searchParams }: { searchParams: Promise<{ done?: string; n?: string; told?: string; error?: string }> }) {
   await requireOperator();
-  const { done, n, error } = await searchParams;
+  const { done, n, told, error } = await searchParams;
   const state = (await db.query(
     `select fn_public_links_paused() as paused,
        (select count(*)::int from share_token where revoked_at is null and (expires_at is null or expires_at > now())) as live`,
@@ -46,8 +46,9 @@ export default async function Switches({ searchParams }: { searchParams: Promise
 
         {done === 'paused' && <div role="status" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Every shared link is paused.</div>}
         {done === 'resumed' && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Shared links are back on.</div>}
-        {done === 'revoked' && <div role="status" style={{ ...card, border: `1px solid ${T.red}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>{Number(n ?? 0)} links switched off.</div>}
+        {done === 'revoked' && <div role="status" style={{ ...card, border: `1px solid ${T.red}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>{Number(n ?? 0)} links switched off. {Number(told ?? 0)} families and players emailed.</div>}
         {error === 'reason' && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Say why. It goes in the log.</div>}
+        {error === 'family' && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Nothing was switched off. Write the sentence families will read.</div>}
         {error === 'confirm' && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Nothing was switched off. Type the words exactly as shown.</div>}
 
         <div className="player-grid">
@@ -76,11 +77,16 @@ export default async function Switches({ searchParams }: { searchParams: Promise
             <div style={{ ...sectionLabel, marginTop: 8 }}>Switch off every link</div>
             <form action={revokeAllLinks} style={{ ...card, border: `1px solid ${T.red}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                <b style={{ color: T.ink }}>This can&rsquo;t be undone.</b> Every live link stops working for good. Each family has to send a new one, and their timeline says Pitch switched it off. Use it when links may have got into the wrong hands.
+                <b style={{ color: T.ink }}>This can&rsquo;t be undone.</b> Every live link stops working for good. Each family has to send a new one. Their timeline says Pitch switched it off, and they get an email. Use it when links may have got into the wrong hands.
               </div>
               <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
                 <div style={fieldLabel}>Why</div>
                 <input name="reason" style={input} required minLength={3} maxLength={500} placeholder="What happened" />
+              </label>
+              <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
+                <div style={fieldLabel}>What families will read</div>
+                <textarea name="familyReason" required minLength={10} maxLength={300} rows={3} placeholder="One plain sentence about what happened. No names, no clubs, no guesses." style={{ ...input, fontWeight: 500, resize: 'vertical', lineHeight: 1.5 }} />
+                <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5, marginTop: 4 }}>Every guardian and every player 16 or over whose link goes is emailed, with this sentence in the middle.</div>
               </label>
               <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
                 <div style={fieldLabel}>Type {REVOKE_ALL_PHRASE}</div>

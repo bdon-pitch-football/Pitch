@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { consumeReset, createReset, setPassword } from '@/lib/auth';
 import { checkRate } from '@/lib/ratelimit-db';
-import { passwordResetEmail } from '@/lib/messages';
+import { firstPasswordEmail, passwordResetEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 
 export async function requestReset(formData: FormData) {
@@ -17,7 +17,9 @@ export async function requestReset(formData: FormData) {
 
   if (email && ok) {
     const made = await createReset(email);
-    if (made) await send(passwordResetEmail(made.token), { address: made.sendTo });
+    if (made) {
+        await send(made.firstPasswordChild ? firstPasswordEmail(made.token, made.firstPasswordChild) : passwordResetEmail(made.token), { address: made.sendTo });
+      }
   }
   // Identical either way.
   redirect('/reset?sent=1');

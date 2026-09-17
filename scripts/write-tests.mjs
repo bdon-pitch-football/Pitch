@@ -725,6 +725,8 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const token = /\/reset\/([A-Za-z0-9_-]{20,})/.exec(box)?.[1];
   check('ia9: a NEW parent (no date of birth on file) gets the set-a-password email, to their own address',
     Boolean(token) && /priya@example\.com/.test(box), true);
+  check('ia9b: and it is doc 15 §10a, naming the child they approved, not the reset email that reads like phishing',
+    /Set your Pitch password/.test(box) && /You approved Mila's football page/.test(box) && !/Someone asked to reset/.test(box), true);
 
   const resetPage = await ig(`/reset/${token}`);
   check('ia10: the emailed link says it is inside an app too', /data-in-app="Instagram"/.test(resetPage.html), true);
@@ -737,6 +739,11 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const home = await fetch(BASE + '/home', { headers: { cookie: signedIn.cookie.split(';')[0] } });
   check('ia12: and the parent is in, looking at their child', /Mila/.test(await home.text()), true);
   check('ia13: the landing now says sign in, not set a password', /href="\/signin"/.test((await ig(`/a/${inv}/done`)).html), true);
+  const resetForm = formWith((await ig('/reset')).html, /reset link/);
+  await post('/reset', resetForm, { email: 'priya@example.com' });
+  const box2 = plain((await get('/dev/outbox', ids.people.alex)).html);
+  check('ia13b: once the parent has a password, a reset is the ordinary §10 email again',
+    box2.indexOf('Reset your Pitch password') > -1 && box2.indexOf('Reset your Pitch password') < box2.indexOf('Set your Pitch password'), true);
   check('ia14: "No password yet? Email me a link" is a real link now, not a second submit on the password form',
     /href="\/reset"[^>]*>No password yet/.test((await ig('/signin')).html), true);
 
@@ -893,10 +900,19 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('ks-w7: the switch log names the reason', /write-test drill/.test(log) && /drill over/.test(log), true);
 
   check('ks-w8: switching off every link without the exact words is refused',
-    /error=confirm/.test(await drive('Switch off every link', { reason: 'drill', confirm: 'switch off every link' })), true);
+    /error=confirm/.test(await drive('Switch off every link', { reason: 'drill', confirm: 'switch off every link', familyReason: 'A drill sentence that families would read here.' })), true);
   check('ks-w9: and nothing was switched off', title((await get('/p/dev-jordan', null)).html), jordanLive);
-  check('ks-w10: with the words, every link goes',
-    /done=revoked&n=[1-9]/.test(await drive('Switch off every link', { reason: 'breach drill', confirm: 'SWITCH OFF EVERY LINK' })), true);
+  check('ks-w9b: without the sentence families will read, nothing is switched off (doc 15 §38)',
+    /error=family/.test(await drive('Switch off every link', { reason: 'drill', confirm: 'SWITCH OFF EVERY LINK' })), true);
+  check('ks-w9c: and the link still works', title((await get('/p/dev-jordan', null)).html), jordanLive);
+  const FAMILY = 'We found a problem that could have let the wrong person open a link, and we are fixing it.';
+  const revoked = await drive('Switch off every link', { reason: 'breach drill', confirm: 'SWITCH OFF EVERY LINK', familyReason: FAMILY });
+  check('ks-w10: with the words and the sentence, every link goes, and families are told',
+    /done=revoked&n=[1-9]\d*&told=[1-9]/.test(revoked), true);
+  const mail = (await get('/dev/outbox', op)).html.replace(/&#x27;|&rsquo;|&#39;/g, "'");
+  const s38 = [...mail.matchAll(/We've switched off your Pitch share links/g)].length;
+  check('ks-w10b: the §38 email went out, with the operator\'s sentence in it', s38 > 0 && mail.includes(FAMILY), true);
+  check('ks-w10c: to the parent and to the adult player', /guardian@example\.com/.test(mail) && /player@example\.com/.test(mail), true);
   check('ks-w11: the fixture link is dead', title((await get('/p/dev-jordan', null)).html), deadTitle);
   // x3 deleted one of Alex's children; the others are still on file.
   const timelines = [];

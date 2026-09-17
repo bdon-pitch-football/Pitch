@@ -326,7 +326,9 @@ The first thing most Australian clubs will ever see from Pitch, arriving in a ge
 >
 > This is a link, not a file. The family controls it — they can pause or replace it at any time, and it expires on its own. If it stops working, that is normal and it is their choice, not a fault.
 >
-> **If you'd like to reply**, just reply to this email. It goes to Deniz and their parent together, and a record is kept — that is how contact with an under-16 works on Pitch, without exception.
+> **Replies to this message do not reach the family.** There is no way to reply to a family through Pitch — at any tier, for anybody. That is deliberate, and it is the same rule for every under-18 on here.
+>
+> **If you want Deniz at a trial**, post it on Pitch or send an invitation through their guardian. Both go to the parent, and both keep a record.
 >
 > — Pitch
 > pitchfootball.com.au · help@pitchfootball.com.au
@@ -735,6 +737,27 @@ The claim address is one already published by the club. The code proves the read
 
 ---
 
+## 10a · Set your first password — to a parent who has never had one (BUZ, 17 Sep)
+
+Sent **instead of §10** when the account has never had a password — which is every parent on the day they approve (D-155/D-156), because approval creates the account and not a credential.
+
+**Why it exists (John, 17 Sep):** §10's opening, *"Someone asked to reset the password for this account"*, sent to a parent who has never had a password, **reads exactly like a phishing message** — and doc 21 teaches a child to spot one. This names the thing they just did instead.
+
+**Subject:** `Set your Pitch password`
+
+> You approved **Mila's** football page on Pitch. To sign in and see it — and every control over it — choose a password:
+>
+> **[Set your password]**
+>
+> This link works once and expires in an hour. If you didn't ask for this, ignore it — nothing changes.
+>
+> — Pitch
+> pitchfootball.com.au · help@pitchfootball.com.au
+
+**The child named is the one they approved most recently.** First name only, never a surname or a club (rule 7). §10's amendment still binds: the screen that asked for it says the same thing whether or not the account exists.
+
+---
+
 ## What is deliberately NOT here
 
 - **No message to any family when a club's payment fails or its register is suspended.** A family is not a party to a club's subscription, and telling them makes a commercial failure look like a safety event (D-135).
@@ -763,3 +786,89 @@ The claim address is one already published by the club. The code proves the read
 *Doc 15 · Transactional Message Copy · **v1.1 · 27 Aug 2026** · written by Leo (CTO) from register **v3.4 (D-01 – D-139)** · every message at launch is in this file; if a message is not here, it does not send.*
 
 *v1.1 adds §§24–34 — the eleven surfaces created on 27 August: the bare wake (D-117), the invitation at three age bands, the club's side of a reply, share-card approval, under-16 re-approval (D-119), the two billing messages (D-135, D-136, D-137), the new-device sign-in, and the club claim code (D-126) — plus an amendment to §10 and eight additions to the NOT list.*
+
+---
+
+## 35 · Your request expired — to the player who composed it (U-1)
+
+Sent when a composed-but-unsent send request reaches fourteen days and lapses.
+
+**The constraint is John's and it is absolute:** the player is told *their request expired*. They are never told, and must not be able to infer, that a parent ignored them. Doc 14's D-138 is about a club's silence; this is about a child's own action and their own record.
+
+**Subject:** `Your CV request has expired`
+
+> The request you made to send your CV to **[Club]** has expired, so it is no longer active.
+>
+> **You can ask again whenever you like.** Nothing has been sent, and nothing about your page has changed.
+>
+> — Pitch
+
+**What this message must never contain:** any reference to a parent, to waiting, to a decision, to someone not acting, or to how long it sat there.
+
+---
+
+## 36 · A CV was sent — to the other guardian (U-2)
+
+Sent immediately when one approved guardian sends a child's CV and a second approved guardian exists. Carries the twenty-four-hour undo.
+
+**John's boundary, and it must be said plainly:** the undo revokes the link. It does not un-send the email. *"We can stop a club opening the page. We cannot make them forget the message arrived, and a product that implies otherwise is lying to a frightened parent."*
+
+**Subject:** `Deniz's CV was sent to Riverside FC`
+
+> **[Other guardian's first name]** sent Deniz's football CV to **Riverside FC** today.
+>
+> You are being told because you are also Deniz's parent on Pitch, and you both hold the same controls.
+>
+> **[Switch this link off]**
+>
+> **If you switch it off, the club can no longer open Deniz's page.** The email itself has already arrived and we cannot recall that — nobody can. What you can do is stop what it opens.
+>
+> — Pitch
+
+---
+
+## 37 · A club you sent a CV to is no longer verified — to the guardian (M11)
+
+Sent **only** where a club's verification is withdrawn for a **child-safety** reason. Ordinary de-verification — lapsed paperwork, non-payment, an administrator change — sends nothing.
+
+**We do not say why.** That is somebody else's information and possibly an allegation. **We may withhold the reason; we must not withhold the ability to act.**
+
+**Subject:** `A club you shared with is no longer verified on Pitch`
+
+> **Riverside FC** is no longer a verified club on Pitch.
+>
+> You sent them a link to Deniz's page, and **that link still works** — you sent it, so it is yours to switch off.
+>
+> **[Switch this link off]**
+>
+> We are not telling you why the club is no longer verified, and we are not going to. What we can tell you is that you have the control, and that this takes one tap.
+>
+> **We have not switched it off for you.** You made the decision to share; the decision to stop is yours as well.
+>
+> — Pitch
+
+---
+
+## 38 · Every link switched off — to the families and players whose links Pitch revoked (BUZ, 17 Sep)
+
+Sent when an operator uses the emergency switch that revokes every live share link (D-94 §10). **To:** every approved guardian of a person whose link was switched off, and every affected player aged sixteen or over, once each. **Never** to an under-16 (they have no address, and D-19 routes safety messages through the guardian).
+
+**Why it exists (John, 17 Sep):** a mass revocation is an event families should hear about, and if it is a breach, the Notifiable Data Breaches assessment clock starts whether or not anything is in a timeline. **A control built for a breach with no notification path is half a control.**
+
+**Subject:** `We've switched off your Pitch share links`
+
+> We've switched off every share link on Pitch, including the ones you sent. Anyone who had one now sees a page that says it's no longer available.
+>
+> Nothing on your page has changed, and nothing has been deleted. When you're ready, you can send a new link from Pitch and it will work as normal.
+>
+> **[One sentence, written at the time, saying why.]**
+>
+> If you have questions, write to help@pitchfootball.com.au.
+>
+> — Pitch
+
+**The bracketed sentence is written by the operator when they use the switch, and the switch will not run without it.** It cannot be pre-written, because the reason cannot be known in advance. It is plain words about what happened, never speculation, never blame, and never anything about any one child.
+
+**Never:** a child's name, a club, a count, or a promise we cannot keep ("your data is safe").
+
+*v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep.*

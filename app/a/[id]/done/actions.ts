@@ -14,7 +14,7 @@ import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
 import { createReset } from '@/lib/auth';
 import { checkRate } from '@/lib/ratelimit-db';
-import { passwordResetEmail } from '@/lib/messages';
+import { firstPasswordEmail, passwordResetEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 
 export async function emailSetupLink(formData: FormData) {
@@ -30,7 +30,9 @@ export async function emailSetupLink(formData: FormData) {
        limit 1`, [invitationId])).rows[0]?.email as string | undefined;
     if (email) {
       const made = await createReset(email);
-      if (made) await send(passwordResetEmail(made.token), { address: made.sendTo });
+      if (made) {
+        await send(made.firstPasswordChild ? firstPasswordEmail(made.token, made.firstPasswordChild) : passwordResetEmail(made.token), { address: made.sendTo });
+      }
     }
   }
   redirect(`/a/${invitationId}/done?sent=1`);

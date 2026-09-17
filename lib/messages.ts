@@ -487,6 +487,25 @@ This link works once and expires in an hour. If it wasn't you, ignore this — n
 — Pitch`,
 });
 
+// §10a · Set your first password (BUZ, 17 Sep; John's ruling). Sent instead
+// of §10 when the account has never had one — every parent on the day they
+// approve. §10's "Someone asked to reset…" reads like phishing to them. The
+// child is named by first name only (rule 7).
+export const firstPasswordEmail = (token: string, childFirstName: string): Composed => ({
+  key: 'doc15.§10a',
+  channel: 'email',
+  subject: 'Set your Pitch password',
+  body:
+`You approved ${childFirstName}'s football page on Pitch. To sign in and see it — and every control over it — choose a password:
+
+Set your password: ${SITE}/reset/${token}
+
+This link works once and expires in an hour. If you didn't ask for this, ignore it — nothing changes.
+
+— Pitch
+${SITE} · ${HELP}`,
+});
+
 // §13 · Thirty days before a sixteenth birthday. Doc 14 §B11 gates the
 // discoverability transition on this having DELIVERED: no receipt, no
 // discovery. Without this message D-22 is unbuildable.
@@ -558,10 +577,30 @@ We keep replies about players inside Pitch rather than in email. Signing in take
 ${SITE} · ${HELP}`,
 });
 
+// §38 · Every link switched off (BUZ, 17 Sep; John's ruling). The emergency
+// switch sends it to each affected guardian and each affected player 16 or
+// over. The reason is one sentence the operator writes at the time; the
+// switch will not run without it. Never a child's name, a club or a count.
+export const linksSwitchedOffEmail = (reason: string): Composed => ({
+  key: 'doc15.§38',
+  channel: 'email',
+  subject: "We've switched off your Pitch share links",
+  body:
+`We've switched off every share link on Pitch, including the ones you sent. Anyone who had one now sees a page that says it's no longer available.
+
+Nothing on your page has changed, and nothing has been deleted. When you're ready, you can send a new link from Pitch and it will work as normal.
+
+${reason}
+
+If you have questions, write to ${HELP}.
+
+— Pitch`,
+});
+
 // The closed set. A key not in here cannot be sent.
 export const CATALOGUE_KEYS = [
-  'doc15.§1', 'doc15.§2', 'doc15.§3', 'doc15.§10', 'doc15.§13', 'doc15.§14',
+  'doc15.§1', 'doc15.§2', 'doc15.§3', 'doc15.§10', 'doc15.§10a', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
   'doc15.§6', 'doc15.§21', 'doc15.§22', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
-  'doc15.§33', 'doc15.§34', 'doc15.§27', 'doc15.§28',
+  'doc15.§33', 'doc15.§34', 'doc15.§27', 'doc15.§28', 'doc15.§38',
 ] as const;

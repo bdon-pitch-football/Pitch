@@ -54,7 +54,10 @@ export async function verifyPassword(email: string, password: string): Promise<s
 
 // Reset: the token is returned to the CALLER to put in a message; only its
 // hash is stored. For an under-16 the recipient is the guardian.
-export async function createReset(email: string): Promise<{ token: string; sendTo: string } | null> {
+// firstPasswordChild: set when this account has never had a password and is
+// an approved guardian — the reset email is then doc 15 §10a ("Set your Pitch
+// password", naming the child they approved most recently), not §10.
+export async function createReset(email: string): Promise<{ token: string; sendTo: string; firstPasswordChild: string | null } | null> {
   const { rows } = await db.query(
     `select p.id, p.email, fn_age_band(p.dob) as band,
        (select p2.email from guardianship_link g join person p2 on p2.id = g.guardian_id
@@ -66,7 +69,12 @@ export async function createReset(email: string): Promise<{ token: string; sendT
        -- parent's own "guardian", who does not exist, and a newly approved
        -- parent could never set a password or sign in to manage their child.
        (p.dob is null and exists(select 1 from guardianship_link g2
-          where g2.guardian_id = p.id and g2.approved_at is not null and g2.revoked_at is null)) as dobless_guardian
+          where g2.guardian_id = p.id and g2.approved_at is not null and g2.revoked_at is null)) as dobless_guardian,
+       case when not exists(select 1 from auth_credential ac where ac.person_id = p.id) then
+         (select c.first_name from guardianship_link g3 join person c on c.id = g3.child_id
+          where g3.guardian_id = p.id and g3.approved_at is not null and g3.revoked_at is null
+          order by g3.approved_at desc limit 1)
+       end as first_password_child
      from person p where lower(p.email) = lower($1)`,
     [email],
   );
@@ -82,7 +90,9 @@ export async function createReset(email: string): Promise<{ token: string; sendT
      values ($1, $2, now() + interval '1 hour')`,
     [p.id, createHash('sha256').update(token).digest()],
   );
-  return { token, sendTo: recipient };
+  // §10a only when the email is going to the account holder themselves.
+  const ownMail = recipient === p.email;
+  return { token, sendTo: recipient, firstPasswordChild: ownMail ? (p.first_password_child ?? null) : null };
 }
 
 // Single use: the row is marked used in the same statement that reads it, so
