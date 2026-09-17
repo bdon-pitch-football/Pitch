@@ -916,6 +916,54 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// "Take off this register" (D-108; doc 14 N7): a parent, or a 16-17 for
+// themselves. The club's list loses the row; the club is told nothing.
+// ---------------------------------------------------------------------------
+{
+  const nate = ids.children.nate, alex = ids.people.alex, td = ids.people.marina;
+  const txt = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;|’/g, "'").replace(/\s+/g, ' ');
+  const postAs = async (who, path, form, extra = {}) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    for (const [k, v] of Object.entries(extra)) fd.set(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+  const takeForms = (h) => forms(h).filter((f) => /Yes, take it off/.test(f.submit));
+
+  check('tr0: Riverside can see Nate on its register', /Nate/.test(txt((await get('/club/register', td)).html)), true);
+  const home = (await get('/home', nate.child_id)).html;
+  const mine = takeForms(home);
+  check('tr1: a 16-17 gets "Take off this register" on each of their registrations', mine.length >= 2, true);
+  // Which form is Riverside's: the one inside the Riverside card.
+  const section = home.slice(home.indexOf('id="readers"'));
+  const rivId = /Riverside FC[\s\S]*?name="registrationId" value="([0-9a-f-]{36})"/.exec(section)?.[1];
+  const rivForm = mine.find((f) => f.fields.registrationId === rivId);
+
+  // A stranger posting the same form gets nothing, and a crafted "back" goes nowhere odd.
+  const forged = await postAs(ids.people.jordan, '/home', rivForm, { back: 'https://evil.example.com' });
+  check('tr2: someone else posting it changes nothing, and is sent to /home', [forged, /Nate/.test(txt((await get('/club/register', td)).html))], ['/home#readers', true]);
+
+  const loc = await postAs(nate.child_id, '/home', rivForm);
+  check('tr3: taking it off says so', /\/home\?taken=1#readers/.test(loc), true);
+  const after = txt((await get('/home?taken=1', nate.child_id)).html);
+  check('tr4: the home confirms it and shows the registration as taken off',
+    /Taken off/.test(after) && /Riverside FC Registered [^·]+· taken off since/.test(after), true);
+  check('tr5: and Riverside\'s register no longer has Nate on it', /Nate/.test(txt((await get('/club/register', td)).html)), false);
+
+  const controls = (await get(`/g/controls/${nate.child_id}`, alex)).html;
+  const parentForms = takeForms(controls);
+  check('tr6: the parent can take off the rest', parentForms.length >= 1, true);
+  let ploc = '';
+  for (const f of parentForms) ploc = await postAs(alex, `/g/controls/${nate.child_id}`, f);
+  check('tr7: and lands back on the child\'s controls', new RegExp(`/g/controls/${nate.child_id}\\?taken=1#readers`).test(ploc), true);
+  const tl = txt((await get(`/g/controls/${nate.child_id}`, alex)).html);
+  check('tr8: the timeline records it in plain words', /Nate came off a club register/.test(tl), true);
+  check('tr9: a registration already taken off has no button', takeForms((await get(`/g/controls/${nate.child_id}`, alex)).html).length, 0);
+}
+
+// ---------------------------------------------------------------------------
 // 1 · EVERY FORM SUBMITS WITHOUT JAVASCRIPT.
 // ---------------------------------------------------------------------------
 const broke = []; const skipped = [];

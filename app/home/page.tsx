@@ -51,7 +51,8 @@ const StatusRow = ({ color, path, children }: { color: string; path: string; chi
   </div>
 );
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ taken?: string }> }) {
+  const { taken } = await searchParams;
   const personId = await getSessionPersonId();
   if (!personId) {
     return (
@@ -631,9 +632,9 @@ export default async function Home() {
             </div>
             {/* doc 34 rule 6 (0047): a player 16 or over sees who read their
                 registrations; an under-16's parent sees it on their controls. */}
-            {me.band !== 'u16' && me.my_registers > 0 && (
+            {me.band !== 'u16' && (me.my_registers > 0 || Boolean(taken)) && (
               <div style={{ marginTop: 16 }}>
-                <RegisterReaders viewerId={personId as string} personId={personId as string} name={null} />
+                <RegisterReaders viewerId={personId as string} personId={personId as string} name={null} back="/home" taken={Boolean(taken)} />
               </div>
             )}
           </div>

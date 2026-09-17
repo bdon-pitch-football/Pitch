@@ -22,10 +22,10 @@ const ghost: React.CSSProperties = { flex: 1, height: 44, borderRadius: 12, bord
 
 export default async function Controls({ params, searchParams }: {
   params: Promise<{ childId: string }>;
-  searchParams: Promise<{ link?: string; off?: string }>;
+  searchParams: Promise<{ link?: string; off?: string; taken?: string }>;
 }) {
   const { childId } = await params;
-  const { link, off } = await searchParams;
+  const { link, off, taken } = await searchParams;
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
@@ -243,7 +243,7 @@ export default async function Controls({ params, searchParams }: {
         )}
 
         {/* doc 34 rule 6 (0047): who at each club has read the registration. */}
-        <RegisterReaders viewerId={me as string} personId={childId} name={name} />
+        <RegisterReaders viewerId={me as string} personId={childId} name={name} back={`/g/controls/${childId}`} taken={Boolean(taken)} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <h2 style={label}>Everything that&rsquo;s happened</h2>

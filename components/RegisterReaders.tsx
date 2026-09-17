@@ -5,6 +5,7 @@
 import { db } from '@/lib/db';
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
+import { takeOffRegister } from '@/app/registers/actions';
 
 type Row = {
   registration_id: string; club_name: string; registered_at: string; withdrawn: boolean;
@@ -27,11 +28,13 @@ function groupByReader(reads: Row[]) {
   return [...by.values()];
 }
 
-export default async function RegisterReaders({ viewerId, personId, name }: { viewerId: string; personId: string; name: string | null }) {
+export default async function RegisterReaders({ viewerId, personId, name, back, taken = false }: {
+  viewerId: string; personId: string; name: string | null; back: string; taken?: boolean;
+}) {
   const rows = (await db.query('select * from fn_register_readers($1, $2)', [viewerId, personId])).rows as Row[];
-  const regs = new Map<string, { club: string; at: string; withdrawn: boolean; reads: Row[] }>();
+  const regs = new Map<string, { id: string; club: string; at: string; withdrawn: boolean; reads: Row[] }>();
   for (const r of rows) {
-    const g = regs.get(r.registration_id) ?? { club: r.club_name, at: r.registered_at, withdrawn: r.withdrawn, reads: [] };
+    const g = regs.get(r.registration_id) ?? { id: r.registration_id, club: r.club_name, at: r.registered_at, withdrawn: r.withdrawn, reads: [] };
     if (r.surface && r.last_read) g.reads.push(r);
     regs.set(r.registration_id, g);
   }
@@ -40,6 +43,7 @@ export default async function RegisterReaders({ viewerId, personId, name }: { vi
   return (
     <div id="readers" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
       <h2 style={sectionLabel}>Who has read {whose} registrations</h2>
+      {taken && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Taken off. That club&rsquo;s register no longer has {name ? name : 'you'} on it.</div>}
       {regs.size === 0 ? (
         <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>
           {name ? `${name} isn’t on any club register.` : 'You’re not on any club register.'}
@@ -70,6 +74,20 @@ export default async function RegisterReaders({ viewerId, personId, name }: { vi
               </div>
             </div>
           ))}
+          {!g.withdrawn && (
+            // A <details> confirm: works with no JavaScript, and needs two presses.
+            <details style={{ borderTop: `1px solid ${T.surface2}`, paddingTop: 8 }}>
+              <summary style={{ minHeight: 44, display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: T.secondary, listStyle: 'none' }}>Take off this register</summary>
+              <form action={takeOffRegister} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <input type="hidden" name="registrationId" value={g.id} />
+                <input type="hidden" name="back" value={back} />
+                <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
+                  {name ? name : 'You'} come{name ? 's' : ''} off {g.club}&rsquo;s register. The club isn&rsquo;t told why, and anything {name ? `${name} wrote` : 'you wrote'} to them is deleted.
+                </div>
+                <button type="submit" className="btn btn-secondary">Yes, take it off</button>
+              </form>
+            </details>
+          )}
         </div>
       ))}
       <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
