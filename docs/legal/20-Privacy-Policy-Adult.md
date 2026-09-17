@@ -6,6 +6,8 @@
 >
 > **v2.4, 3 September 2026.** **D-22 is flipped to guardian opt-in.** BUZ's call, 3 September 2026. A 16- or 17-year-old is **not discoverable to anybody until a guardian turns it on**. The player can ask for it in one tap; the guardian grants it in one tap; everything else about the band is unchanged — verified clubs and coaches only, never general search, and no adult may contact a minor at any age. **The cost is recorded rather than argued away: an opt-in that a disengaged guardian never presses removes the product from exactly the players a pathway platform is worth most to.** BUZ took that cost knowingly. **This policy did not previously tell a parent of a 16-year-old whether their child could be found at all** — a gap the flip made obvious. It does now.
 >
+> **⚠️ v2.7, 15 September 2026 — D-153, and it changes the sentence this policy repeated most often.** A verified club your child registered interest with may now send one invitation, and it reaches **you and your child at the same moment**. v2.6 told you four times that nobody can contact your child. **That is no longer true as an absolute, so it no longer says it.** What is true, and is now what the document says: the route exists only where your family opened it, it carries one message and no conversation, and **you approve anything your child writes back — at sixteen and seventeen as well as under sixteen.**
+>
 > **⚠️ v2.6, 7 September 2026 — the doc 30 rulings, and three of them change what a parent is told.**
 >
 > **Two guardians (U-2).** Either may send; the other is told at once and **can switch the link off with one tap for 24 hours.** This went against what was built — a pre-send veto sounds safer and is not, because **a send that waits for a second adult never goes in exactly the families where the second adult is not around**, and it hands one parent a standing block on the other's ordinary parenting.
@@ -125,8 +127,8 @@ The part most parents want, set out in full.
 **What approval means, precisely:**
 
 - **Clubs and coaches can see your child's profile.** That is the point — it is how a player gets a trial.
-- **Nobody can contact your child.** There is no messaging on Pitch. Not from a coach, not from a club, not from another player, not from us.
-- **No club ever receives your phone number or email address.** Not when they invite your child, not afterwards. If a club wants your child at a trial, **the invitation appears inside your Pitch account** — we send you a bare notification saying something is waiting, carrying no club message, no player name and nothing about your child. You reply in the app. If you then choose to give a club your own contact details, that is your decision about your own information.
+- **One route reaches your child, and only if your family opened it.** There is no messaging on Pitch — not from a coach, not from a club, not from another player, not from us. **The single exception: a verified club your child registered interest with may send one invitation to trial.** It arrives in your account and your child's at the same moment, it is one message and not a conversation, and **nothing your child writes back reaches the club until you approve it** (D-153).
+- **No club ever receives your phone number or email address.** Not when they invite your child, not afterwards. If a club wants your child at a trial, **the invitation appears inside your Pitch account and your child's** — we send you both a bare notification saying something is waiting, carrying no club message, no player name and nothing about your child. You reply in the app. If you then choose to give a club your own contact details, that is your decision about your own information.
 - **Your child is in no search.** Under-16s do not appear in any search result on Pitch. Their CV is reached only by a link, and **you** hold it.
 - **The link expires.** By default a child's CV link stops working after 90 days. Renew it in one tap, shorten it, extend it, regenerate it so the old one dies, or switch it off. You can pause the whole profile.
 - **Your child can ask to share; you do the sending.** Under 16, the share button on your child's own screen sends the request to you.
@@ -144,7 +146,7 @@ The part most parents want, set out in full.
 
 - **Discoverability starts off.** Until you turn it on, no club and no coach can find your child on Pitch — not by searching, not by browsing, not at all. Your child can ask you to turn it on. You decide, and **you can turn it off again whenever you like, without explaining why**.
 - **Turning it on means one thing only: clubs and coaches we have verified can find them.** It is never general search, never the open internet, and never anybody we have not checked.
-- **It does not change who can contact them, because nobody can.** There is no messaging on Pitch at any age under 18. An invitation still arrives in your account, and contact still routes to you and your child together.
+- **It does not change who can contact them.** There is still no messaging on Pitch at any age under 18, and an invitation is still the only route in. **It now arrives with you and your child together, and you approve the reply before it goes** — at sixteen and seventeen as well as under sixteen (D-153).
 - **You keep seeing everything they see**, for as long as they are under 18.
 
 *We start this off rather than on, and we want to be straight that it is a trade. A sixteen-year-old is here to be seen, and a switch you never get round to pressing leaves them unseen. We would rather ask you once than decide for you — but if your child is looking for a pathway, **this is the switch that matters**, and it is one tap.*
@@ -156,7 +158,7 @@ When a club has posted a trial and your child wants to be considered:
 - **Under 16, you press send.** Your child composes it; you see which club, which trial, exactly what is about to go, and the note your child wrote — and you are the one who sends it. At 16–17 the player sends and you are notified every time. At 18 they send alone.
 - **If there are two of you, either can send — and the other one can undo it.** The guardian who did not send is told immediately and, **for 24 hours, can switch that link off with one tap** from the notification. We do it this way round because a send that waits for two people often never goes at all, and the child it hurts is the one whose second parent is hardest to reach. **Being straight about the limit: switching the link off stops the club opening the page. It does not un-send the email**, and we will not pretend otherwise.
 - **We keep a record of who each send went to**, and you can see it in full. Your child sees the club's name and the date, not the address. *We keep it because your right to switch a link off is worth nothing if we cannot tell you who received it.*
-- **A club cannot reply to a send.** There is no route from a club back to you or your child through Pitch, at any tier, for anybody. If a club wants your child at a trial, it invites them, and that arrives in your account.
+- **A club cannot reply to a send.** There is no route from a club back to you or your child through Pitch, at any tier, for anybody. **Sending a CV gives a club no way to answer you.** If a club wants your child at a trial, it must invite them — and that is only open to a club your child registered interest with, arriving in your account and your child's together.
 - **What the club receives:** your child's name, age, current club, the squad they are interested in, a preferred position, one short line they wrote, and **a link to the page you approved.** Not a file, not a copy of the record, not your contact details.
 - **You can undo it.** Revoking the link or deleting the profile ends the club's access at that moment, **removes the note as well as the link**, and shows the registration as withdrawn.
 - **There is no download.** A club works its list inside Pitch. It cannot export a spreadsheet of children, because a spreadsheet would survive you switching the link off — and that would make everything above untrue.
@@ -309,4 +311,4 @@ If we change something that matters we will tell you before it takes effect and,
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · privacy policy · doc 20 · v2.6 draft · 7 September 2026 · supersedes v2.4, which is retained unaltered as the version the first consents were recorded against · entity named per D-148*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · privacy policy · doc 20 · v2.7 draft · 15 September 2026 · supersedes v2.4, which is retained unaltered as the version the first consents were recorded against · entity named per D-148*

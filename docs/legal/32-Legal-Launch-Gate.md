@@ -1,6 +1,6 @@
 # 32 · The legal launch gate — what must be true before a real child's record exists
 
-> **Doc 32 · v1.0 · 9 September 2026.** Entity: **EBSD Enterprises Pty Ltd** (ACN 701 879 718 · ABN 65 701 879 718), trading as Pitch Football.
+> **Doc 32 · v1.3 · 17 September 2026.** Entity: **EBSD Enterprises Pty Ltd** (ACN 701 879 718 · ABN 65 701 879 718), trading as Pitch Football.
 >
 > **Why this exists, and it is not tidiness.** D-47 makes **doc 14 green** the launch blocker. The PIA says **four other things are launch-blocking**. **Nobody has ever reconciled those two sentences, and they do not agree.**
 >
@@ -47,6 +47,7 @@
 | **B3** | **Doc 21 is shown inside the guardian approval flow**, not merely linked from it. A child-directed policy nobody is shown is a document, not a protection. | ☐ |
 | **B4** | **`/report` is reachable without an account, from any page**, and it names the legal entity. | ☐ |
 | **B5** | **The site names the legal person** — footer, and in the consent wording stored on every row. | ☐ |
+| **B5a** | **The invitation `body` is filtered before it reaches a child** — capped, and rejected at write where it contains a URL, an email address or a phone number, exactly as a child's registration `note` is under doc 14 N15. **D-153 gives an under-16 a read path to free text written by an adult, and nothing checks that text.** *The child's outbound note is filtered and the adult's inbound message is not. That asymmetry runs the wrong way and it is the one thing in D-153 I would not launch without.* | ☐ |
 | **B6** | **No published document promises a capability that does not exist.** Doc 22's suppression clause (6.5) and the 2.3 guardian-contact gate are marked *do not publish until built*. **If A1 and A2 are green, 6.5 may publish. If they are not, it must not.** | ☐ |
 
 ---
@@ -59,6 +60,9 @@
 | **C2** | **A point-in-time restore has actually been performed once** from the real Supabase project. *Doc 14 condition 6. A backup nobody has restored is a hypothesis.* | ☐ |
 | **C3** | **A standing contact exists with the AFP and with eSafety**, established before it is needed. **Doc 25 §Part 5 flags this as a gap and nothing has been done about it.** *A first call in a crisis is the wrong first call.* | ☐ |
 | **C4** | **The published response standards are ones one person can actually meet** — one business day published, an unpublished emergency class, and the appeal at five business days in docs 22, 24 and 25. **Each says plainly that the reviewer is not independent.** | ☐ |
+| **C4a** | **No read of a child's registration is attributed to an organisation.** Every register read carries a **named person** who holds an explicit grant, and the read is logged against that name. **Doc 14 N6 says "club reads a live registration" and there is no such actor** — see doc 34. *A guardian asking who looked at their child must get a name, and "the club" is a way of not answering.* | ☐ |
+| **C4b** | **A guardian who asks who read their child's registration can be given an answer.** The `register_read_log` exists; **no screen answers the question for a guardian or for support.** *Doc 34 rule 6 is the rule that makes the other seven enforceable, and a log nobody can query is not a disclosure — it is a record of a promise we cannot keep.* **Blocking from the day the register opens, not before.** | ☐ |
+| **C4c** | **The parent's approval is confirmed on two channels**, as D-24 requires and D-96's published copy already claims. *As built on 17 September it was one tap on one link. **We were about to publish "a guardian confirms on two channels" while confirming on one.*** | ☐ |
 | **C5** | **Nothing in any environment contains a real minor's data.** Seed and demonstration people are fictional, and the site says so where they appear as if they were users. | ☐ |
 
 ---
@@ -67,11 +71,11 @@
 
 *Recorded here so they are not argued about on the morning, and so nobody mistakes a real risk for a gate.*
 
-**The doc 31 rulings are not numbered.** Twelve entries are written out and waiting in the Board Room. **This blocks the build, not the launch** — the documents already say the right thing. But three of them describe behaviour that does not exist yet (the 24-hour undo, the abuse counter, the child-safety reason class), and **B6 applies to them exactly as it applies to 6.5: a document must not promise what is not built.** *If they are still unnumbered on the morning, the honest fix is to hold those sentences back, not to ship them as promises.*
+**The doc 31 rulings are not numbered.** Fifteen entries are now written out and waiting in the Board Room. **This blocks the build, not the launch** — the documents already say the right thing. But three of them describe behaviour that does not exist yet (the 24-hour undo, the abuse counter, the child-safety reason class), and **B6 applies to them exactly as it applies to 6.5: a document must not promise what is not built.** *If they are still unnumbered on the morning, the honest fix is to hold those sentences back, not to ship them as promises.*
 
 **Doc 28 is unsigned.** The company does not own the IP it sells access to. **That is a raise-and-sale problem, not a launch problem**, and I am not going to inflate it into one. It takes ten minutes and it should be done anyway.
 
-**There is no second responder.** Docs 22, 24 and 25 publish a five-business-day appeal and an urgent route, all resting on one person. **That is honest today only because all three documents say so in the open.** I have now raised it four times. **It should stop being a recommendation and become a risk BUZ accepts by D-number**, so it is on the record as a choice rather than an oversight — and so I stop repeating it.
+**There is no second responder, and that is now an accepted risk rather than an open recommendation.** BUZ accepted it on **9 September 2026**, having been asked four times. **What is accepted, stated so the record shows it was seen: for any period BUZ is unreachable, a parent appealing a child-safety decision about their own child has nobody to appeal to, and a report made through the no-account route is not read.** Docs 22, 24 and 25 publish a five-business-day appeal and an urgent route resting on one person, and **all three say so in the open — that disclosure is the mitigation and it is the only one.** *Reviewed the moment a second person joins Pitch in any capacity. Awaiting a D-number; it does not block launch.*
 
 **No solicitor has been engaged and the D-27 gate is unmet.** Recorded once, on BUZ's direction of 27 August. Not re-raised here.
 
@@ -87,4 +91,4 @@
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · the legal launch gate · doc 32 · v1.0 · 9 September 2026 · every row traces to a locked decision or to the PIA · nothing here is new policy*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · the legal launch gate · doc 32 · v1.3 · 17 September 2026 · every row traces to a locked decision or to the PIA · nothing here is new policy · v1.0 superseded the same day, second-responder acceptance recorded*

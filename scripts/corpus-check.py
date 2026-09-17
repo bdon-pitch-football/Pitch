@@ -35,7 +35,7 @@ import os, re, sys, html
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else '.'
 SKIP = ('_superseded', '_archive', '13-Board-Room', '_to_delete', 'repo', 'content')
-FALSE_POSITIVES_FIXED = 10  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
+FALSE_POSITIVES_FIXED = 11  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
                             # +1 S13 scaffolding, +1 S2 flagging a document's own dateline,
                             # 1 in v3 (S2 exempting by filename, so the register stopped being exempt when renamed)
 FALSE_NEGATIVES_FIXED = 1   # v3: S4 joined ROOT to a guessed 'legal/' and skipped the whole pack in the repo.
@@ -230,7 +230,32 @@ def s2():
                 # exemption list, because widening an exemption list is how a check
                 # stops checking. John predicted this shape for S10; it arrived at S2.
                 before = body[max(0, m.start() - 40):m.start()]
-                if re.search(r'v\d+\.\d+[^A-Za-z0-9]{0,6}$', before):
+                # Widened 15 Sep: the original pattern allowed only punctuation
+                # between the version token and the date, so it passed
+                # "v1.2 - 15 September" and still failed "v1.5 draft - 15
+                # September". Same false-positive class, incompletely fixed --
+                # so the fix is widened rather than counted again. The status
+                # word is a CLOSED list: anything outside it is still a failure.
+                if re.search(r'v\d+\.\d+[^A-Za-z0-9]{0,4}'
+                             r'(?:(?:draft|final|published|adopted|superseded)'
+                             r'[^A-Za-z0-9]{0,6})?$', before, re.I):
+                    continue
+                # Same class again: a dateline introduced by a currency phrase,
+                # where the version token follows the date instead of preceding
+                # it ("Current as of 15 September 2026 - register v4.x"). Closed
+                # lead-in list, so "we go live on" is still a failure.
+                if re.search(r'\b(?:current as of|as at|as of|dated)\s+$',
+                             before, re.I):
+                    continue
+                # False positive #11: the date a decision was TAKEN. "BUZ accepted
+                # it on 9 September 2026" records when something happened; it
+                # promises nobody anything. Deliberately restricted to four
+                # backward-looking verbs -- accepted / recorded / acknowledged /
+                # noted -- because 'decided on', 'signed on' and 'agreed on' all
+                # take a FUTURE date in ordinary English and would punch a hole in
+                # exactly the check this is. Negative-tested against those three.
+                if re.search(r'\b(accepted|recorded|acknowledged|noted)\b'
+                             r'(\s+\w+){0,3}\s+on\s+(\*\*)?$', before, re.I):
                     continue
                 fail('S2', f'{r} carries {label}: {m.group(0)!r} (D-131 removed the runway)')
 

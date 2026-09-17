@@ -16,7 +16,7 @@ export const CONSENT_TEXT =
 // because a consent row must resolve to the exact text that person read.
 // Bump this in the same commit that changes what /privacy serves — never
 // separately, in either direction.
-export const POLICY_VERSION = '20@v2.6';
+export const POLICY_VERSION = '20@v2.7';
 
 // ---------------------------------------------------------------------------
 // A version string is an assertion until it is bound to bytes (John, 3 Sep).
@@ -32,7 +32,7 @@ export const POLICY_VERSION = '20@v2.6';
 // policy_version is already text -- which is why it could be done today.
 // THIS CANNOT BE ADDED RETROSPECTIVELY: rows written before it keep
 // '20@v2.4' and resolve through legal/_superseded/ and git instead.
-export const POLICY_SHA256 = '1be16e97930ea8b62ece19d20e62dcefb2ac59bd2a6d4ee2a7706488fedcac19';
+export const POLICY_SHA256 = 'e8268292a4f5f4739971a39ee553057bef95150e192425ae004fa2ea10d107e9';
 export const POLICY_STAMP = `${POLICY_VERSION}+sha256:${POLICY_SHA256}`;
 
 export const ROLES = ['player', 'coach', 'club', 'parent'] as const;

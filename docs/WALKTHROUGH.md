@@ -168,7 +168,7 @@ starting state.
   is on shows **who at the club opened it**, their role, whether they
   opened the list or the CV, and when. The club's own statuses never show.
 - **Take off this register** is under each one. The club loses the row and
-  the note straight away, and the child's page says it was taken off.
+  the note straight away, and the page confirms it has been taken off.
 
 ### The player's own links — `player@example.com`
 
@@ -200,9 +200,10 @@ starting state.
 
 ### Around the edges
 
-- **Footer** on every page: privacy, terms, the family privacy page
-  (`/privacy/family`), report, and the business line (PITCH FOOTBALL,
-  held by EBSD Enterprises Pty Ltd).
+- **Footer** on every page: Privacy, Terms, Report a page, and the business
+  line (Pitch Football, a registered business name of EBSD Enterprises Pty
+  Ltd, with the ABN). The parent's approval page also links the family
+  privacy page (`/privacy/family`) in full.
 - **Installable:** on a phone, *Add to Home Screen* gives a Pitch icon that
   opens full screen.
 - **Opened from a text message:** if the link opens inside another app's

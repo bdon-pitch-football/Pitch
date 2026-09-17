@@ -4,7 +4,7 @@
 >
 > **Who owns what:** John (GC & Child Safety) owns the *content* of every instrument here. Leo (CTO) owns *placement*. **BUZ owns the decision to publish any of it.** No officer edits the built corpus directly (SO-02 §3).
 >
-> **Current as of 7 September 2026 · register v4.x (D-01 – D-152) · `JOHN-pack-v2.1` placed in full.**
+> **Current as of 15 September 2026 · register v4.x (D-01 – D-152) · `JOHN-pack-v2.1` placed in full.**
 
 ---
 
@@ -39,8 +39,8 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 
 | | Document | Version | Where | Who reads it |
 |---|---|---|---|---|
-| **20** | **Privacy Policy — adult** | **v2.6** | `/privacy` · **live** | Adults, clubs, coaches |
-| **21** | **Privacy Policy — child** | **v2.4** | `/privacy/family` · **shown inside the guardian approval flow, not merely linked** | A child, and a parent at the moment they decide |
+| **20** | **Privacy Policy — adult** | **v2.7** | `/privacy` · **live** | Adults, clubs, coaches |
+| **21** | **Privacy Policy — child** | **v2.5** | `/privacy/family` · **shown inside the guardian approval flow, not merely linked** | A child, and a parent at the moment they decide |
 | **22** | **Terms of Service** | **v1.8** | `/terms` · **live** · Schedule A at club checkout, before Stripe (D-136) | Everyone; Schedule A by clubs |
 | **24** | **Code of Conduct** | **v1.3** | `/conduct` | Adults who can write about others |
 | **25** | **Complaints and Takedown** | **v1.3** | `/report` · **reachable without an account, from any page** | Anyone, including a stranger |
@@ -50,14 +50,15 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 | | Document | Version | What it governs |
 |---|---|---|---|
 | **18** | **Solicitor Brief (D-27)** | **v1.4** | Fifteen questions for external counsel. Undated, so it does not go stale on the shelf. **Not our answers — our questions.** |
-| **19** | **Privacy Impact Assessment** | **v2.3** | The assessment behind the design. **Four launch-blocking recommendations: 1, 2, 3 and 12.** Re-run on any change to what is collected or who can see it. |
+| **19** | **Privacy Impact Assessment** | **v2.4** | The assessment behind the design. **Four launch-blocking recommendations: 1, 2, 3 and 12.** Re-run on any change to what is collected or who can see it. |
 | **23** | **Retention Statement** | **v1.5** | **Every deletion job implements a row of this table.** If a job and this document disagree, the document is right and the job is a bug. |
-| **26** | **Access Model** | **v1.4** | Who can see what, in prose. Doc 14 is the enforceable version; this is the one a human can check it against. |
+| **26** | **Access Model** | **v1.5** | Who can see what, in prose. Doc 14 is the enforceable version; this is the one a human can check it against. |
 | **28** | **Founder IP Assignment Deed** | **v1.2** | **NOT EXECUTED.** Assigns everything made before incorporation to the company. Two blanks, both BUZ's at signing. |
 | **30** | **Open decisions blocking the gate** | **v1.1** | The eleven questions doc 14 declined to answer. Answered at doc 31. |
 | **31** | **Rulings on doc 30** | **v1.1** | A ruling on each. **Three went against the built default.** Nothing binds until BUZ numbers it in doc 06. |
-| **32** | **The legal launch gate** | **v1.0** | **The other half of the gate.** D-47 makes doc 14 the launch blocker; the PIA calls four other things launch-blocking; **doc 14 tests three of the four nowhere at all.** Sections A, B and C block. Section D is named as not blocking so it cannot creep in on the morning. |
+| **32** | **The legal launch gate** | **v1.2** | **The other half of the gate.** D-47 makes doc 14 the launch blocker; the PIA calls four other things launch-blocking; **doc 14 tests three of the four nowhere at all.** Sections A, B and C block. Section D is named as not blocking so it cannot creep in on the morning. |
 | **33** | **Direct video upload** | **v1.0** | Not for minors yet; **18-and-over first**. Criminal Code s 474.25 makes a referral duty ours the moment we hold a file, and the DIS Standard 2024 expects deployed detection. **The case for upload is stronger than expected and is stated first.** |
+| **34** | **Register access — named persons** | **v1.0** | **Doc 14 N6 says "club reads a live registration" and there is no such actor.** `club_admin` is barred by D-93 and a verified coach is defined as assigned to a squad the player is not in. Eight rules, the core one being that **a read is attributed to a named person, logged, and disclosable to the guardian.** Recommendations; not yet called. |
 
 ---
 
