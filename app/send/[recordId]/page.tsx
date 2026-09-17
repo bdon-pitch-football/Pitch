@@ -10,7 +10,10 @@ import { requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
 import { PlayerFrame } from '@/components/player-shell';
 import { HeaderMark } from '@/components/Wordmark';
-import { composeSend } from './actions';
+import { composeSend, freshLink, switchOffMine } from './actions';
+import { db } from '@/lib/db';
+import Link from 'next/link';
+import CopyLink from '@/components/cv/CopyLink';
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
 
@@ -52,11 +55,11 @@ const Status = ({ dot, kicker, title, children }: { dot: string; kicker: string;
 
 export default async function SendCv({ params, searchParams }: {
   params: Promise<{ recordId: string }>;
-  searchParams: Promise<{ asked?: string; sent?: string; error?: string }>;
+  searchParams: Promise<{ asked?: string; sent?: string; error?: string; off?: string; link?: string }>;
 }) {
   const { recordId } = await params;
   const { personId } = await requireRecordActor(recordId);
-  const { asked, sent, error } = await searchParams;
+  const { asked, sent, error, off, link } = await searchParams;
   const state = await sendState(recordId, personId);
   if (!state) notFound();
   // L10/L11: no send surface at all, rather than one that goes nowhere.
@@ -151,9 +154,72 @@ export default async function SendCv({ params, searchParams }: {
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
           <button type="submit" className="btn btn-primary">{self ? 'Send it now' : 'Ask my parent to send it'}</button>
-          <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Cancel</div>
+          <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Cancel</Link>
         </div>
       </form>
+      {self && <YourLinks recordId={recordId} personId={personId} off={Boolean(off)} fresh={typeof link === 'string' && /^[A-Za-z0-9_-]{20,64}$/.test(link) ? link : null} />}
     </Shell>
+  );
+}
+
+// The player's own links (John's rulings, 17 Sep §3). What actually happened,
+// and never a number: no count, no "x of ten", no limit. A send the daily
+// limit held shows as one that didn't go (0046), with no figure. A player
+// here is 16 or over and sending for themselves ('self'), so the club's
+// address is theirs to see (U-5 hides it only from under-16s).
+async function YourLinks({ recordId, personId, off, fresh }: { recordId: string; personId: string; off: boolean; fresh: string | null }) {
+  const { rows } = await db.query(
+    `select * from (
+       select at, club_name, recipient, token_id, live, false as held from fn_send_log($1, $1)
+       union all
+       select at, club_name, null, null, false, true from send_held where person_id = $1
+     ) x order by at desc limit 50`,
+    [personId],
+  );
+  const sends = rows as { at: string; club_name: string | null; recipient: string | null; token_id: string | null; live: boolean; held: boolean }[];
+  const day = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Melbourne' });
+  const freshUrl = fresh ? `pitchfootball.com.au/p/${fresh}` : null;
+
+  return (
+    <div id="links" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <div style={label}>Your links</div>
+      {off && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Switched off. That club&rsquo;s link stopped working just now.</div>}
+      {freshUrl && (
+        <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 800 }}>Your fresh link</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{freshUrl}</div>
+          <CopyLink url={`https://${freshUrl}`} label="Copy the link" />
+          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Copy it now. We only show it this once. Every link you had before has stopped working.</div>
+        </div>
+      )}
+      {sends.length === 0 ? (
+        <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>You haven&rsquo;t sent your CV to a club yet.</div>
+      ) : sends.map((x, i) => (
+        <div key={i} style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 800 }}>{x.club_name ?? 'A club'}</div>
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflowWrap: 'anywhere' }}>
+              {day(x.at)}{x.recipient ? ` · ${x.recipient}` : ''}
+            </div>
+            {x.held && <div style={{ fontSize: 12, color: T.secondary, fontWeight: 500, marginTop: 2 }}>This one didn&rsquo;t go. You can send it again later.</div>}
+          </div>
+          {x.held ? null : x.live && x.token_id ? (
+            <form action={switchOffMine} style={{ flexShrink: 0 }}>
+              <input type="hidden" name="recordId" value={recordId} />
+              <input type="hidden" name="tokenId" value={x.token_id} />
+              <button type="submit" className="console-btn">Switch off</button>
+            </form>
+          ) : (
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.muted, flexShrink: 0 }}>Switched off</div>
+          )}
+        </div>
+      ))}
+      <form action={freshLink} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <input type="hidden" name="recordId" value={recordId} />
+        <div style={{ fontSize: 13.5, fontWeight: 800 }}>Make a fresh link</div>
+        <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>Every link you&rsquo;ve sent stops working straight away, and you get a new one to share. Clubs that had your old link won&rsquo;t be able to open it.</div>
+        <button type="submit" className="btn btn-secondary">Make a fresh link</button>
+      </form>
+    </div>
   );
 }

@@ -23,6 +23,7 @@ import { checkRate } from '@/lib/ratelimit-db';
 import { requireRecordActor } from '@/lib/record-guard';
 import { dispatchShareRequest } from '@/lib/send-dispatch';
 import { sendState } from '@/lib/send-state';
+import { replaceOwnLinks, switchOffOneLink } from '@/lib/link-switch';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -52,6 +53,9 @@ export async function composeSend(formData: FormData) {
     const withinLimit = await checkRate(`send:actor:${personId}`, SEND_DAILY_CAP, 24 * 60 * 60);
     if (!withinLimit) {
       await db.query(`insert into abuse_signal (actor_id, reason, surface) values ($1,'rate_limited','send')`, [personId]);
+      // The player's own list must not show this as sent (John, 17 Sep; 0046).
+      // The page they land on stays identical to a real send (U-3, J40).
+      await db.query(`insert into send_held (person_id, club_name) values ($1,$2)`, [personId, clubName.slice(0, 60)]);
       redirect(`/send/${recordId}?sent=1`);
     }
     const { rows } = await db.query(
@@ -107,4 +111,35 @@ export async function composeSend(formData: FormData) {
     if (rid) await send(sendWaitingEmail(g.rows[0].first_name, clubName, address, rid), { address: g.rows[0].email });
   }
   redirect(`/send/${recordId}?asked=1`);
+}
+
+
+// ---------------------------------------------------------------------------
+// The player's own link controls (John's rulings, 17 Sep §3). A player 16 or
+// over, sending for themselves, can switch off the link one club has, or make
+// a fresh link, which switches off every link they have. The link itself is
+// never shown again after it is made: tokens are stored hashed (D-80).
+// Both need the same standing as sending does — 'self' — so a 16-17 whose
+// parent switched sending off gets neither, and an under-16 never does.
+// ---------------------------------------------------------------------------
+async function requireSelfSender(recordId: string): Promise<string> {
+  const { personId } = await requireRecordActor(recordId, ['self']);
+  const state = await sendState(recordId, personId);
+  if (!state || state.mode !== 'self') redirect('/home');
+  return personId;
+}
+
+export async function switchOffMine(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
+  const personId = await requireSelfSender(recordId);
+  const ok = await switchOffOneLink(personId, personId, String(formData.get('tokenId') ?? ''));
+  redirect(`/send/${recordId}${ok ? '?off=1' : ''}#links`);
+}
+
+export async function freshLink(formData: FormData) {
+  const recordId = String(formData.get('recordId') ?? '');
+  const personId = await requireSelfSender(recordId);
+  const raw = await replaceOwnLinks(personId, recordId);
+  // Shown once, the same way a parent's Replace shows it.
+  redirect(`/send/${recordId}?link=${raw}#links`);
 }

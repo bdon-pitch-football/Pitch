@@ -3138,6 +3138,30 @@ for (const f of srcFiles) {
 check('D-94 §6: dangerouslySetInnerHTML appears nowhere', dsi, 0);
 check('D-98: no code references a WWCC number', wwccNum, 0);
 
+// A player's own send list (John's rulings, 17 Sep §3; 0046): what actually
+// happened, and never a number.
+{
+  const refused = async (sql, args = []) => { try { await db.query(sql, args); return false; } catch { return true; } };
+  const tmp = (await db.query(`insert into person (first_name, dob) values ('Held Sender', $1) returning id`, [yearsAgo(20)])).rows[0].id;
+  await db.query(`insert into send_held (person_id, club_name) values ($1, 'Somewhere FC')`, [tmp]);
+  check('sl1: a held send keeps the club name and nothing more',
+    (await db.query(`select string_agg(column_name, ',' order by column_name) as c from information_schema.columns where table_name = 'send_held'`)).rows[0].c,
+    'at,club_name,id,person_id');
+  check('sl2: an empty club name is refused', await refused(`insert into send_held (person_id, club_name) values ($1, '')`, [tmp]), true);
+  await db.query(`delete from person where id = $1`, [tmp]);
+  check('sl3: and it goes when the person goes (D-26)', (await db.query(`select count(*)::int as n from send_held where person_id = $1`, [tmp])).rows[0].n, 0);
+
+  const sendPage = readFileSync(fileURLToPath(new URL('../app/send/[recordId]/page.tsx', import.meta.url)), 'utf8');
+  const sendActs = readFileSync(fileURLToPath(new URL('../app/send/[recordId]/actions.ts', import.meta.url)), 'utf8');
+  const yl = sendPage.slice(sendPage.indexOf('async function YourLinks'));
+  check('sl4: the list never reads the daily cap', /SEND_DAILY_CAP|abuse_signal|ratelimit/.test(sendPage), false);
+  check('sl5: nor counts anything', /count\(|\.length\}|\{sends\.length/.test(yl.replace('sends.length === 0', '')), false);
+  check('sl6: a held send is written only on the limited path, and still lands on "Sent" (U-3)',
+    /if \(!withinLimit\) \{[\s\S]*?insert into send_held[\s\S]*?redirect\(`\/send\/\$\{recordId\}\?sent=1`\);/.test(sendActs), true);
+  check('sl7: the player controls need the player sending for themselves',
+    /requireRecordActor\(recordId, \['self'\]\)[\s\S]*?state\.mode !== 'self'/.test(sendActs), true);
+}
+
 // ---------------------------------------------------------------------------
 // The kill switches (D-94 §10; 0044). LAST in the file on purpose: the
 // revoke-all check switches off every link in this database.

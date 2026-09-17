@@ -807,6 +807,76 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// A player's own link controls (John's rulings, 17 Sep §3): the clubs they
+// sent to, a switch per club, a fresh link, and never a number.
+// ---------------------------------------------------------------------------
+{
+  const jordan = ids.people.jordan;
+  const rec = /\/build\/([0-9a-f-]{36})/.exec((await get('/home', jordan)).html)?.[1];
+  const page = async () => (await get(`/send/${rec}`, jordan)).html;
+  const plainP = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;|’/g, "'").replace(/\s+/g, ' ');
+  const linksPart = (h) => { const t = plainP(h); const i = t.indexOf('Your links'); return i < 0 ? '' : t.slice(i); };
+  const postTo = async (form, extra = {}) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    for (const [k, v] of Object.entries(extra)) fd.append(k, v);
+    const r = await fetch(BASE + `/send/${rec}`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(jordan) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+
+  let html = await page();
+  check('pl-a: an adult player sees "Your links" with a fresh-link button', /Your links/.test(plainP(html)) && /Make a fresh link/.test(html), true);
+  const sendForm = forms(html).find((f) => /Send it now/.test(f.submit));
+  await postTo(sendForm, { clubName: 'Links Test FC', address: 'coach@linkstest.example.au' });
+  html = await page();
+  check('pl-b: the club they sent to is on their list, with the address', /Links Test FC/.test(linksPart(html)) && /coach@linkstest\.example\.au/.test(linksPart(html)), true);
+  const offForm = forms(html).find((f) => /Switch off/.test(f.submit) && f.fields.tokenId);
+  check('pl-c: with a switch for that one club', Boolean(offForm), true);
+  const offLoc = await postTo(offForm);
+  check('pl-d: switching it off says so', /off=1/.test(offLoc), true);
+  html = await page();
+  check('pl-e: and that club now reads "Switched off"', /Links Test FC[^]*?Switched off/.test(linksPart(html)), true);
+
+  // The daily limit: keep sending until one is held. The page for a held
+  // send is the same "Sent" page (U-3); the list says it didn't go, with no number.
+  let heldSeen = false;
+  for (let i = 0; i < 12 && !heldSeen; i++) {
+    const f = forms(await page()).find((x) => /Send it now/.test(x.submit));
+    const loc = await postTo(f, { clubName: `Burst FC ${String.fromCharCode(65 + i)}`, address: `c${i}@burst.example.au` });
+    check(`pl-f${i}: every send, held or not, lands on "Sent"`, /sent=1/.test(loc), true);
+    heldSeen = /didn['’]t go/.test(linksPart(await page()));
+  }
+  const lp = linksPart(await page());
+  check('pl-g: a send the limit held shows as one that didn\'t go', heldSeen, true);
+  check('pl-h: and the list never names a number, a limit or what is left',
+    /\b(limit|remaining|left today|of 10|out of)\b/i.test(lp) || /\b\d+\s*(sends?|of)\b/i.test(lp), false);
+
+  const freshForm = forms(await page()).find((f) => /Make a fresh link/.test(f.submit));
+  const freshLoc = await postTo(freshForm);
+  const tok = /link=([A-Za-z0-9_-]{20,})/.exec(freshLoc)?.[1];
+  check('pl-i: a fresh link is made and shown once', Boolean(tok), true);
+  check('pl-j: it opens the player\'s CV', (await get(`/p/${tok}`, null)).status, 200);
+  const deadTitle = /<title>([^<]*)</.exec((await get('/p/not-a-real-link-at-all', null)).html)?.[1];
+  check('pl-k: and the old link is dead', /<title>([^<]*)</.exec((await get('/p/dev-jordan', null)).html)?.[1], deadTitle);
+  check('pl-l: every club link on the list is switched off too', !/Switch off<\/button>/.test(await page()), true);
+
+  // Nobody else gets these controls.
+  const nate = ids.children.nate;
+  const alexOnNate = await fetch(BASE + `/send/${nate.record_id}`, { redirect: 'manual', headers: { cookie: cookieFor(ids.people.alex) } });
+  const alexHtml = alexOnNate.status === 200 ? await alexOnNate.text() : '';
+  check('pl-m: a parent looking at a 16-17\'s send screen gets no player controls', /Make a fresh link/.test(alexHtml), false);
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(freshForm.fields)) fd.append(k, v);
+  fd.set('recordId', nate.record_id);
+  const forged = await fetch(BASE + `/send/${nate.record_id}`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(ids.people.alex) } });
+  check('pl-n: and a parent posting "fresh link" on the 16-17\'s record gets nothing', /link=/.test(forged.headers.get('location') ?? ''), false);
+  const deniz = ids.children.deniz;
+  const denizPage = await fetch(BASE + `/send/${deniz.record_id}`, { redirect: 'manual', headers: { cookie: cookieFor(ids.people.alex) } });
+  check('pl-o: an under-16\'s send screen has no "Your links"', /Your links/.test(denizPage.status === 200 ? await denizPage.text() : ''), false);
+}
+
+// ---------------------------------------------------------------------------
 // 1 · EVERY FORM SUBMITS WITHOUT JAVASCRIPT.
 // ---------------------------------------------------------------------------
 const broke = []; const skipped = [];
@@ -877,7 +947,15 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const op = ids.people.marina, parent = ids.people.alex;
   const title = (h) => /<title>([^<]*)<\/title>/.exec(h)?.[1];
   const deadTitle = title((await get('/p/never-a-real-link-xyz', null)).html);
-  const jordanLive = title((await get('/p/dev-jordan', null)).html);
+  // The sweep above pressed Jordan's "Make a fresh link" too, so dev-jordan is
+  // gone by now. Jordan makes a fresh one, and that is the fixture link.
+  const jRec = /\/build\/([0-9a-f-]{36})/.exec((await get('/home', ids.people.jordan)).html)?.[1];
+  const jFresh = forms((await get(`/send/${jRec}`, ids.people.jordan)).html).find((f) => /Make a fresh link/.test(f.submit));
+  const jfd = new FormData();
+  for (const [k, v] of Object.entries(jFresh.fields)) jfd.append(k, v);
+  const jLoc = (await fetch(BASE + `/send/${jRec}`, { method: 'POST', body: jfd, redirect: 'manual', headers: { cookie: cookieFor(ids.people.jordan) } })).headers.get('location') ?? '';
+  const FIXTURE = `/p/${/link=([A-Za-z0-9_-]{20,})/.exec(jLoc)?.[1]}`;
+  const jordanLive = title((await get(FIXTURE, null)).html);
   check('ks-w0: the fixture link is live to begin with', jordanLive !== deadTitle, true);
   const drive = async (label, extra) => {
     const form = forms((await get('/ops/switches', op)).html).find((f) => f.submit.startsWith(label));
@@ -891,20 +969,20 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   };
 
   check('ks-w1: a pause with no reason is refused', /error=reason/.test(await drive('Pause every shared link', { reason: '' })), true);
-  check('ks-w2: and changed nothing', title((await get('/p/dev-jordan', null)).html), jordanLive);
+  check('ks-w2: and changed nothing', title((await get(FIXTURE, null)).html), jordanLive);
   check('ks-w3: the pause switches on', /done=paused/.test(await drive('Pause every shared link', { reason: 'write-test drill' })), true);
-  check('ks-w4: a live link now shows the dead-link page (D-77)', title((await get('/p/dev-jordan', null)).html), deadTitle);
+  check('ks-w4: a live link now shows the dead-link page (D-77)', title((await get(FIXTURE, null)).html), deadTitle);
   check('ks-w5: switching back on works', /done=resumed/.test(await drive('Switch shared links back on', { reason: 'drill over' })), true);
-  check('ks-w6: and the same link is live again', title((await get('/p/dev-jordan', null)).html), jordanLive);
+  check('ks-w6: and the same link is live again', title((await get(FIXTURE, null)).html), jordanLive);
   const log = (await get('/ops/switches', op)).html;
   check('ks-w7: the switch log names the reason', /write-test drill/.test(log) && /drill over/.test(log), true);
 
   check('ks-w8: switching off every link without the exact words is refused',
     /error=confirm/.test(await drive('Switch off every link', { reason: 'drill', confirm: 'switch off every link', familyReason: 'A drill sentence that families would read here.' })), true);
-  check('ks-w9: and nothing was switched off', title((await get('/p/dev-jordan', null)).html), jordanLive);
+  check('ks-w9: and nothing was switched off', title((await get(FIXTURE, null)).html), jordanLive);
   check('ks-w9b: without the sentence families will read, nothing is switched off (doc 15 §38)',
     /error=family/.test(await drive('Switch off every link', { reason: 'drill', confirm: 'SWITCH OFF EVERY LINK' })), true);
-  check('ks-w9c: and the link still works', title((await get('/p/dev-jordan', null)).html), jordanLive);
+  check('ks-w9c: and the link still works', title((await get(FIXTURE, null)).html), jordanLive);
   const FAMILY = 'We found a problem that could have let the wrong person open a link, and we are fixing it.';
   const revoked = await drive('Switch off every link', { reason: 'breach drill', confirm: 'SWITCH OFF EVERY LINK', familyReason: FAMILY });
   check('ks-w10: with the words and the sentence, every link goes, and families are told',
@@ -913,7 +991,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const s38 = [...mail.matchAll(/We've switched off your Pitch share links/g)].length;
   check('ks-w10b: the §38 email went out, with the operator\'s sentence in it', s38 > 0 && mail.includes(FAMILY), true);
   check('ks-w10c: to the parent and to the adult player', /guardian@example\.com/.test(mail) && /player@example\.com/.test(mail), true);
-  check('ks-w11: the fixture link is dead', title((await get('/p/dev-jordan', null)).html), deadTitle);
+  check('ks-w11: the fixture link is dead', title((await get(FIXTURE, null)).html), deadTitle);
   // x3 deleted one of Alex's children; the others are still on file.
   const timelines = [];
   for (const c of Object.values(ids.children)) {

@@ -9,6 +9,7 @@ import 'server-only';
 // that is not yours is indistinguishable from one that does not exist.
 // An under-16 does not switch links off themselves: their guardian does,
 // the same way their guardian sends (D-91).
+import { createHash, randomBytes } from 'node:crypto';
 import { db } from './db';
 import { isUuid } from './ids';
 
@@ -47,4 +48,45 @@ export async function switchOffOneLink(actorId: string, personId: string, tokenI
   } finally {
     client.release();
   }
+}
+
+// A player 16 or over makes a fresh link (John's rulings, 17 Sep §3): every
+// live link on their record stops, and one new one is made and returned ONCE —
+// it is stored only as a hash (D-80). The caller has already checked the
+// player is sending for themselves; this re-checks the record is theirs.
+export async function replaceOwnLinks(personId: string, recordId: string): Promise<string> {
+  if (!isUuid(personId) || !isUuid(recordId)) throw new Error('bad id');
+  const raw = randomBytes(24).toString('base64url');
+  const hash = createHash('sha256').update(raw).digest();
+  const hint = `${raw.slice(0, 4)}·${raw.slice(-4)}`;
+  const client = await db.connect();
+  try {
+    await client.query('begin');
+    const mine = await client.query(
+      `select 1 from development_record dr join person p on p.id = dr.person_id
+       where dr.id = $1 and dr.person_id = $2 and fn_age_band(p.dob) <> 'u16'`,
+      [recordId, personId],
+    );
+    if (mine.rows.length === 0) throw new Error('not yours');
+    await client.query(`update share_token set revoked_at = now() where record_id = $1 and revoked_at is null`, [recordId]);
+    await client.query(
+      `insert into share_token (record_id, token_hash, token_hint, issued_by, expires_at)
+       values ($1,$2,$3,$4, now() + interval '90 days')`,
+      [recordId, hash, hint, personId],
+    );
+    // The same two rows a parent's Replace writes, so a 16-17's parent sees it
+    // on their timeline in the same words.
+    await client.query(
+      `insert into consent_event (event, actor_id, subject_id, detail)
+       values ('share_revoked',$1,$1,jsonb_build_object('kind','fresh')), ('share_issued',$1,$1,'{}')`,
+      [personId],
+    );
+    await client.query('commit');
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
+  return raw;
 }
