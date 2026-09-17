@@ -4,9 +4,16 @@
 // The page-preview card renders once the CV builder exists; until a child
 // has built content there is nothing to preview and the promises + decision
 // stand alone.
+//
+// D-156 (17 Sep): approval needs both channels. The texted link and the
+// emailed link each open this page with their own code; pressing "Yes, it's
+// me — continue" confirms that channel. Opening the page confirms nothing.
+// Reached by the invitation id (the child's "Show them my page"), it carries
+// no channel and says where the two links are.
 import { notFound } from 'next/navigation';
-import { getInvitationForParentPage } from '@/lib/guardian-flow';
-import { approve } from './actions';
+import { resolveApprovalLink } from '@/lib/guardian-flow';
+import { approve, confirmIt } from './actions';
+import { card } from '@/lib/ui';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
 
@@ -20,14 +27,21 @@ const PROMISES: [string, string][] = [
   ['You see everything they see.', 'Linked account, full visibility — and you can withdraw all of it at any time.'],
 ];
 
-export default async function Approval({ params }: { params: Promise<{ id: string }> }) {
+export default async function Approval({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ adult?: string }> }) {
   const { id } = await params;
-  const inv = await getInvitationForParentPage(id);
-  if (!inv || inv.approved_at) notFound();
+  const { adult } = await searchParams;
+  const code = decodeURIComponent(id);
+  const inv = await resolveApprovalLink(code);
+  // Approved and held (D-155) read the same: the link is finished.
+  if (!inv || inv.approved_at || inv.held_at) notFound();
+  const here = inv.channel;
+  const confirmedHere = here === 'sms' ? inv.sms_confirmed : here === 'email' ? inv.email_confirmed : false;
+  const bothConfirmed = inv.sms_confirmed && inv.email_confirmed;
+  // The other channel, named only by kind — never its address (D-156).
+  const other = here === 'sms' ? 'emailed' : 'texted';
 
   const name: string = inv.first_name;
   const age = Math.floor((Date.now() - new Date(inv.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
-  const approveWithId = approve;
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -54,13 +68,33 @@ export default async function Approval({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
-        <form action={approveWithId} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}><input type="hidden" name="invitationId" value={id} />
-          <button type="submit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: 15, borderRadius: 14, height: 50, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Approve this page</button>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.line}`, color: T.secondary, fontWeight: 700, fontSize: 14, borderRadius: 13, height: 48 }}>Not yet — I want to talk to {name} first</div>
-          <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, textAlign: 'center', lineHeight: 1.5 }}>
-            Approving accepts the Terms &amp; Privacy Policy on {name}&rsquo;s behalf, and you can undo it any time.<br />If you do nothing, all of this is deleted after 14 days.
+        {here === null ? (
+          <div role="note" style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55, marginTop: 'auto' }}>
+            <b style={{ color: T.ink }}>To approve, use the links we sent you.</b> We texted one and emailed one. Open each and press &ldquo;Yes, it&rsquo;s me&rdquo;. That&rsquo;s how we know the phone and the email are both yours.
           </div>
-        </form>
+        ) : !confirmedHere ? (
+          <form action={confirmIt} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
+            <input type="hidden" name="code" value={code} />
+            <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>First, tell us this {here === 'sms' ? 'text' : 'email'} reached you.</div>
+            <button type="submit" className="btn btn-primary">Yes, it&rsquo;s me &mdash; continue</button>
+          </form>
+        ) : !bothConfirmed ? (
+          <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55, marginTop: 'auto' }}>
+            <b style={{ color: T.ink }}>One more step.</b> Open the link we {other} to you, press &ldquo;Yes, it&rsquo;s me&rdquo;, and you can approve from there or here.
+          </div>
+        ) : (
+          <form action={approve} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
+            <input type="hidden" name="code" value={code} />
+            <label style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 10, minHeight: 44, cursor: 'pointer', border: `1px solid ${adult ? T.amber : T.line}` }}>
+              <input type="checkbox" name="adult" required style={{ marginTop: 2, width: 18, height: 18, accentColor: T.accent, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: T.secondary, fontWeight: 700, lineHeight: 1.5 }}>I&rsquo;m {name}&rsquo;s parent or guardian, and I&rsquo;m 18 or over.</span>
+            </label>
+            <button type="submit" className="btn btn-primary">Approve this page</button>
+            <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, textAlign: 'center', lineHeight: 1.5 }}>
+              Approving accepts the Terms &amp; Privacy Policy on {name}&rsquo;s behalf, and you can undo it any time.<br />Not ready? Do nothing. If you don&rsquo;t approve, all of this is deleted after 14 days.
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

@@ -18,6 +18,11 @@ import { db } from './db';
 const scrypt = promisify(_scrypt) as (p: string, s: string, k: number) => Promise<Buffer>;
 const KEYLEN = 64;
 
+/** The same scrypt work as setPassword, stored nowhere (join: timing). */
+export async function hashPasswordForTiming(password: string): Promise<void> {
+  await scrypt(password, randomBytes(16).toString('hex'), KEYLEN);
+}
+
 export async function setPassword(personId: string, password: string): Promise<void> {
   const salt = randomBytes(16).toString('hex');
   const derived = (await scrypt(password, salt, KEYLEN)).toString('hex');

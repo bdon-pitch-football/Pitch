@@ -802,8 +802,12 @@ const georgia = ids.children.georgia;
   check('w18: the approval landing renders for a stranger with the link', status, 200);
   check('w19: it uses no bound action',
     (html.match(/name="\$ACTION_REF_\d+"/g) ?? []).length, 0);
-  check('w20: and carries the invitation id in the form',
-    /name="invitationId"/.test(html), true);
+  // D-156: reached by the invitation id there is no channel, so no button.
+  check('w20: by the invitation id it offers no button at all', /<form/.test(html), false);
+  const text = await get('/a/dev-mila-text');
+  check('w20b: the texted link renders, with one control: "Yes, it\'s me"',
+    text.status === 200 && /name="code"/.test(text.html) && /Yes, it/.test(text.html) && !/Approve this page/.test(text.html), true);
+  check('w20c: and uses no bound action', (text.html.match(/name="\$ACTION_REF_\d+"/g) ?? []).length, 0);
 }
 
 // Section headings. The SAME 11px tracked caps is used three ways in this

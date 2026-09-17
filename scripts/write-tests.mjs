@@ -19,6 +19,7 @@
 // last, then reseed.
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // A genuine 1x1 PNG. Uploads are re-encoded server-side and type-checked by
 // CONTENT rather than extension (D-94 §7), so a text file pretending to be an
@@ -656,16 +657,18 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 
 // ---------------------------------------------------------------------------
 // A parent approves from inside another app's browser, and can get in
-// afterwards (doc 08 step 3; D-17). Mila's invitation is the seeded one.
-// Every request here carries Instagram's in-app User-Agent and no cookie,
-// which is how the most important write in the product actually arrives.
+// afterwards (doc 08 step 3; D-17). Two channels (D-156): the texted link
+// and the emailed link each need "Yes, it's me" pressed. A guardian is an
+// adult (D-155). Mila's invitation is the seeded one, with known dev links.
+// Every request carries Instagram's in-app User-Agent and no cookie.
 // ---------------------------------------------------------------------------
 {
   const inv = ids.pendingInvitation;
+  const TEXT = 'dev-mila-text', EMAIL = 'dev-mila-email';
   const IG = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 339.0.3.12.108';
   const ig = async (path, init = {}) => {
     const r = await fetch(BASE + path, { redirect: 'manual', ...init, headers: { 'user-agent': IG, ...(init.headers ?? {}) } });
-    return { status: r.status, location: r.headers.get('location') ?? '', html: await r.text() };
+    return { status: r.status, location: r.headers.get('location') ?? '', cookie: r.headers.get('set-cookie') ?? '', html: await r.text() };
   };
   const post = async (path, form, extra = {}) => {
     const fd = new FormData();
@@ -674,14 +677,40 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     return ig(path, { method: 'POST', body: fd });
   };
   const plain = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
+  const formWith = (html, re) => forms(html).find((f) => re.test(f.submit));
 
-  const page = await ig(`/a/${inv}`);
-  check('ia1: the approval page opens inside Instagram, signed out', page.status, 200);
-  const again = await ig(`/a/${inv}`);
-  check('ia2: opening it twice uses nothing up (a mail scanner or a webview preload cannot approve or burn it)', again.status, 200);
-  const approveForm = forms(page.html).find((f) => /Approve/.test(f.submit));
-  const done = await post(`/a/${inv}`, approveForm);
-  check('ia3: approving works there, with no JavaScript and no cookie', /\/a\/[0-9a-f-]+\/done/.test(done.location), true);
+  // --- D-156: opening confirms nothing; a press confirms one channel ----------
+  const text1 = await ig(`/a/${TEXT}`);
+  check('ia1: the texted link opens inside Instagram, signed out', text1.status, 200);
+  await ig(`/a/${TEXT}`); await ig(`/a/${EMAIL}`); await ig(`/a/${EMAIL}`);
+  const text2 = await ig(`/a/${TEXT}`);
+  check('ia2: opening both links (twice) confirms nothing: no approve button, only "Yes, it\'s me"',
+    Boolean(formWith(text2.html, /Yes, it/)) && !formWith(text2.html, /Approve/), true);
+  const byId = await ig(`/a/${inv}`);
+  check('ia2b: reached by the invitation id, the page carries no channel and no button', forms(byId.html).length, 0);
+  check('ia2c: no approval page ever shows the parent\'s email or phone',
+    [text1.html, text2.html, byId.html].some((h) => /priya@example\.com|0412 345 678/.test(h)), false);
+
+  await post(`/a/${TEXT}`, formWith(text2.html, /Yes, it/));
+  const text3 = await ig(`/a/${TEXT}`);
+  check('ia2d: after pressing on the texted link: "One more step", and still no approve',
+    /One more step/.test(plain(text3.html)) && /emailed to you/.test(plain(text3.html)) && !formWith(text3.html, /Approve/), true);
+  const email1 = await ig(`/a/${EMAIL}`);
+  check('ia2e: the emailed link still asks for its own press', Boolean(formWith(email1.html, /Yes, it/)), true);
+  await post(`/a/${EMAIL}`, formWith(email1.html, /Yes, it/));
+  const email2 = await ig(`/a/${EMAIL}`);
+  const approveForm = formWith(email2.html, /Approve/);
+  check('ia2f: with both pressed, the approve button appears, with the 18-or-over declaration',
+    Boolean(approveForm) && /name="adult"/.test(email2.html) && /18 or over/.test(plain(email2.html)), true);
+
+  // --- D-155: the declaration is required ------------------------------------
+  const noDecl = await post(`/a/${EMAIL}`, approveForm);
+  check('ia2g: approving without the 18-or-over tick approves nothing', /\?adult=1/.test(noDecl.location), true);
+  check('ia2h: and the invitation is still waiting', (await ig(`/a/${inv}/done`)).status, 404);
+
+  const done = await post(`/a/${EMAIL}`, approveForm, { adult: 'on' });
+  check('ia3: with it, approving works, with no JavaScript and no cookie', /\/a\/[0-9a-f-]+\/done/.test(done.location), true);
+  check('ia3b: and both links are finished', [(await ig(`/a/${TEXT}`)).status, (await ig(`/a/${EMAIL}`)).status], [404, 404]);
 
   const landing = await ig(`/a/${inv}/done`);
   check('ia4: the landing names the app the parent is inside', /data-in-app="Instagram"/.test(landing.html), true);
@@ -689,7 +718,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('ia6: the landing never shows the parent\'s email address', /priya@example\.com/.test(landing.html), false);
   check('ia7: and has no dead buttons: the next step is a real one', /Email me the link/.test(landing.html) && !/>Manage</.test(landing.html), true);
 
-  const setup = forms(landing.html).find((f) => /Email me the link/.test(f.submit));
+  const setup = formWith(landing.html, /Email me the link/);
   const sentTo = await post(`/a/${inv}/done`, setup);
   check('ia8: asking for the link says it is on its way', /sent=1/.test(sentTo.location), true);
   const box = plain((await get('/dev/outbox', ids.people.alex)).html);
@@ -700,19 +729,74 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const resetPage = await ig(`/reset/${token}`);
   check('ia10: the emailed link says it is inside an app too', /data-in-app="Instagram"/.test(resetPage.html), true);
   await ig(`/reset/${token}`);
-  const pw = forms(resetPage.html).find((f) => /Save it/.test(f.submit));
+  const pw = formWith(resetPage.html, /Save it/);
   const saved = await post(`/reset/${token}`, pw, { password: 'parent-password-2468' });
   check('ia11: opening the link did not use it up; setting the password works', /signin\?reset=1/.test(saved.location), true);
-  const signin = forms((await ig('/signin')).html).find((f) => /^Sign in$/.test(f.submit));
-  const signedIn = await fetch(BASE + '/signin', { method: 'POST', redirect: 'manual', headers: { 'user-agent': IG },
-    body: (() => { const fd = new FormData(); for (const [k, v] of Object.entries(signin.fields)) fd.append(k, v);
-      fd.append('email', 'priya@example.com'); fd.append('password', 'parent-password-2468'); return fd; })() });
-  const cookie = (signedIn.headers.get('set-cookie') ?? '').split(';')[0];
-  const home = await fetch(BASE + '/home', { headers: { cookie } });
+  const signinForm = formWith((await ig('/signin')).html, /^Sign in$/);
+  const signedIn = await post('/signin', signinForm, { email: 'priya@example.com', password: 'parent-password-2468' });
+  const home = await fetch(BASE + '/home', { headers: { cookie: signedIn.cookie.split(';')[0] } });
   check('ia12: and the parent is in, looking at their child', /Mila/.test(await home.text()), true);
   check('ia13: the landing now says sign in, not set a password', /href="\/signin"/.test((await ig(`/a/${inv}/done`)).html), true);
   check('ia14: "No password yet? Email me a link" is a real link now, not a second submit on the password form',
     /href="\/reset"[^>]*>No password yet/.test((await ig('/signin')).html), true);
+
+  // --- The sign-up forms live in a client component, so their action ids
+  //     come from Next's own manifest, and they post exactly as a
+  //     no-JavaScript form would. ------------------------------------------
+  await get('/join', null);
+  const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../.next/dev/server/server-reference-manifest.json', import.meta.url)), 'utf8'));
+  const actionId = (name) => Object.entries(manifest.node).find(([, v]) => v.filename === 'app/join/actions.ts' && v.exportedName === name)?.[0];
+  const joinPost = (name, fields) => post('/join', { fields: { [`$ACTION_ID_${actionId(name)}`]: '' } }, fields);
+  check('ia15: the sign-up actions are found', Boolean(actionId('startPendingInvitation') && actionId('createAccount')), true);
+
+  // --- D-157: a parent email is required -------------------------------------
+  const noEmail = await joinPost('startPendingInvitation', { firstName: 'Noah', dob: '2014-02-02', guardianName: 'No Email', guardianPhone: '0400 111 222' });
+  check('D-157: an under-16 sign-up without a parent email is refused', /\/join\?error=1/.test(noEmail.location), true);
+
+  // --- D-155: the named email belongs to a 17-year-old -> held, unseen -------
+  const heldJoin = await joinPost('startPendingInvitation', {
+    firstName: 'Zed', dob: '2014-03-03', guardianName: 'Not A Parent', guardianPhone: '0400 333 444', guardianEmail: 'nate@example.com',
+  });
+  const heldId = /\/join\/waiting\/([0-9a-f-]{36})/.exec(heldJoin.location)?.[1];
+  check('D-155: the sign-up itself looks ordinary', Boolean(heldId), true);
+  const outbox = (await get('/dev/outbox', ids.people.alex)).html;
+  const linkTo = (re) => { const m = [...outbox.matchAll(/\/a\/([A-Za-z0-9_-]{20,})/g)].map((x) => x[1]); return m; };
+  const zedLinks = linkTo().slice(0, 2); // the two newest messages are Zed's
+  for (const code of zedLinks) {
+    const pg = await ig(`/a/${code}`);
+    const yes = formWith(pg.html, /Yes, it/);
+    if (yes) await post(`/a/${code}`, yes);
+  }
+  const zedPage = await ig(`/a/${zedLinks[0]}`);
+  const zedApprove = formWith(zedPage.html, /Approve/);
+  check('D-155: both of Zed\'s links confirmed, the approve button shows as usual', Boolean(zedApprove), true);
+  const heldDone = zedApprove ? await post(`/a/${zedLinks[0]}`, zedApprove, { adult: 'on' }) : { location: '' };
+  check('D-155: "approving" for a 17-year-old lands on the same done page', heldDone.location, `/a/${heldId}/done`);
+  const heldLanding = plain((await ig(`/a/${heldId}/done`)).html);
+  check('D-155: which reads exactly like an approval', /Approved by you on/.test(heldLanding) && /Email me the link/.test(heldLanding), true);
+  const nateHome = plain((await get('/home', ids.children.nate.child_id)).html);
+  check('D-155: and the 17-year-old is nobody\'s guardian', /Zed/.test(nateHome), false);
+  const opsView = plain((await get(`/ops/support?q=${encodeURIComponent('nate@example.com')}`, ids.people.marina)).html);
+  check('D-155: an operator sees the hold', /Held/.test(opsView) && /Zed/.test(opsView), true);
+  const beforeSetup = (outbox.match(/Reset your Pitch password/g) ?? []).length;
+  const heldSetup = formWith((await ig(`/a/${heldId}/done`)).html, /Email me the link/);
+  const heldSent = await post(`/a/${heldId}/done`, heldSetup);
+  const afterSetup = ((await get('/dev/outbox', ids.people.alex)).html.match(/Reset your Pitch password/g) ?? []).length;
+  check('D-155: "Email me the link" answers the same and sends nothing to the named account',
+    [/sent=1/.test(heldSent.location), afterSetup - beforeSetup], [true, 0]);
+
+  // --- Sign-up never takes over an existing account --------------------------
+  const takeover = await joinPost('createAccount', { firstName: 'Mallory', dob: '1990-01-01', email: 'priya@example.com', password: 'attacker-password-1' });
+  check('join1: signing up with an existing address signs nobody in',
+    [/\/signin\?joined=1/.test(takeover.location), /pitch_session=/.test(takeover.cookie)], [true, false]);
+  const attackerIn = await post('/signin', signinForm, { email: 'priya@example.com', password: 'attacker-password-1' });
+  check('join2: and the attacker\'s password does not open that account', /pitch_session=[^;]+\./.test(attackerIn.cookie), false);
+  const ownerIn = await post('/signin', signinForm, { email: 'priya@example.com', password: 'parent-password-2468' });
+  check('join3: the owner\'s password still does', /pitch_session=[^;]+\./.test(ownerIn.cookie), true);
+  const fresh = await joinPost('createAccount', { firstName: 'Newt', dob: '1995-05-05', email: 'newt@example.com', password: 'newt-password-123' });
+  check('join4: a genuinely new account gets the identical answer', [/\/signin\?joined=1/.test(fresh.location), /pitch_session=/.test(fresh.cookie)], [true, false]);
+  const newtIn = await post('/signin', signinForm, { email: 'newt@example.com', password: 'newt-password-123' });
+  check('join5: and signs in with the password they chose', /pitch_session=[^;]+\./.test(newtIn.cookie), true);
 }
 
 // ---------------------------------------------------------------------------

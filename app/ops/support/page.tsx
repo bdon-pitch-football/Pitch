@@ -24,7 +24,11 @@ export default async function Support({ searchParams }: { searchParams: Promise<
         `select pi.id, pi.first_name, pi.guardian_name,
            to_char(pi.created_at at time zone 'Australia/Melbourne', 'DD Mon HH24:MI') as created,
            pi.approved_at is not null as approved,
-           (select count(*)::int from message_outbox mo where mo.body like '%' || pi.id || '%') as messages
+           pi.held_at is not null as held,
+           pi.sms_confirmed_at is not null as sms_ok, pi.email_confirmed_at is not null as email_ok,
+           (select count(*)::int from message_outbox mo
+            where mo.message_key in ('doc15.§1', 'doc15.§2')
+              and mo.to_address in (pi.guardian_phone, pi.guardian_email)) as messages
          from pending_invitation pi
          where pi.id::text = $1 or lower(pi.guardian_email) = lower($1) or pi.guardian_phone = $1
          order by pi.created_at desc limit 10`,
@@ -57,14 +61,22 @@ export default async function Support({ searchParams }: { searchParams: Promise<
           <div key={r.id} className="lift" style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ fontSize: 15, fontWeight: 800 }}>{r.first_name}</div>
-              <div style={{ background: r.approved ? 'rgba(61,220,132,.14)' : 'rgba(237,161,0,.14)', color: r.approved ? T.accent : T.amber, borderRadius: 7, padding: '3px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                {r.approved ? 'Approved' : 'Waiting on the guardian'}
+              <div style={{ background: r.approved ? 'rgba(61,220,132,.14)' : r.held ? 'rgba(255,107,107,.14)' : 'rgba(237,161,0,.14)', color: r.approved ? T.accent : r.held ? T.red : T.amber, borderRadius: 7, padding: '3px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                {r.approved ? 'Approved' : r.held ? 'Held' : 'Waiting on the guardian'}
               </div>
             </div>
             <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Asked {r.guardian_name ?? 'a guardian'} · created {r.created} · {r.messages} message{r.messages === 1 ? '' : 's'} queued</div>
-            {!r.approved && (
+            {!r.approved && !r.held && (
+              <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Text {r.sms_ok ? 'confirmed' : 'not confirmed yet'} · Email {r.email_ok ? 'confirmed' : 'not confirmed yet'}</div>
+            )}
+            {r.held && (
+              // D-155: the email named an account under 18. Nothing was linked and
+              // nobody was told. It purges at 14 days like any unapproved invitation.
+              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>Held: the parent&rsquo;s email belongs to an account under 18, so nothing was linked. The family sees an ordinary approval. It deletes itself after 14 days.</div>
+            )}
+            {!r.approved && !r.held && (
               <form action={resendApproval}><input type="hidden" name="invitationId" value={r.id} />
-                <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 42, padding: '0 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Resend the approval request</button>
+                <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, padding: '0 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Resend the approval request</button>
               </form>
             )}
           </div>

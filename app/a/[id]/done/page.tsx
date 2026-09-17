@@ -17,7 +17,8 @@ export default async function Done({ params, searchParams }: { params: Promise<{
   const { id } = await params;
   const { sent } = await searchParams;
   const inv = await getInvitationForParentPage(id);
-  if (!inv || !inv.approved_at) notFound();
+  // A hold (D-155) reads exactly as an approval: same page, same words.
+  if (!inv || !(inv.approved_at || inv.held_at)) notFound();
 
   // What the parent can do next depends on whether their account can be
   // signed in to yet. Only yes/no leaves the database — never the address.
@@ -25,9 +26,12 @@ export default async function Done({ params, searchParams }: { params: Promise<{
     `select p.email is not null as has_email,
        exists(select 1 from auth_credential ac where ac.person_id = p.id) as has_password
      from consent_event e join person p on p.id = e.actor_id
-     where e.event = 'approved' and e.detail->>'invitation_id' = $1 limit 1`, [id])).rows[0] ?? { has_email: false, has_password: false };
+     where e.event = 'approved' and e.detail->>'invitation_id' = $1 limit 1`, [id])).rows[0]
+    // Every parent now has an email (D-157), so a hold shows what a new
+    // parent sees: "Email me the link", which then sends nothing.
+    ?? { has_email: true, has_password: false };
 
-  const approvedDate = new Date(inv.approved_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', timeZone: 'Australia/Melbourne' });
+  const approvedDate = new Date((inv.approved_at ?? inv.held_at) as string).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', timeZone: 'Australia/Melbourne' });
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>

@@ -13,6 +13,7 @@ import { db } from '@/lib/db';
 import { requireOperator } from '@/lib/ops-guard';
 import { guardianApprovalEmail, guardianApprovalSms } from '@/lib/messages';
 import { sendAndLog } from '@/lib/messaging';
+import { reissueChannelToken } from '@/lib/guardian-flow';
 
 //
 // Ids come from the FORM, not from bind(). A bound server action renders
@@ -24,17 +25,22 @@ export async function resendApproval(formData: FormData) {
   await requireOperator();
   const { rows } = await db.query(
     `select first_name, dob, guardian_phone, guardian_email
-     from pending_invitation where id = $1 and approved_at is null`,
+     from pending_invitation where id = $1 and approved_at is null and held_at is null`,
     [invitationId],
   );
   const inv = rows[0];
   if (inv) {
     const age = Math.floor((Date.now() - new Date(inv.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
-    if (inv.guardian_phone) {
-      await sendAndLog(guardianApprovalSms(inv.first_name, age, invitationId), { address: inv.guardian_phone }, 'sms_sent');
+    // Each channel gets a fresh link (D-156): tokens are stored hashed, so
+    // the old one cannot be re-sent, and it stops working. A channel the
+    // parent already confirmed stays confirmed.
+    const smsToken = inv.guardian_phone ? await reissueChannelToken(invitationId, 'sms') : null;
+    if (smsToken) {
+      await sendAndLog(guardianApprovalSms(inv.first_name, age, smsToken), { address: inv.guardian_phone }, 'sms_sent');
     }
-    if (inv.guardian_email) {
-      await sendAndLog(guardianApprovalEmail(inv.first_name, age, invitationId), { address: inv.guardian_email }, 'email_sent');
+    const emailToken = inv.guardian_email ? await reissueChannelToken(invitationId, 'email') : null;
+    if (emailToken) {
+      await sendAndLog(guardianApprovalEmail(inv.first_name, age, emailToken), { address: inv.guardian_email }, 'email_sent');
     }
   }
   redirect('/ops/support');

@@ -362,16 +362,66 @@ check('G9 18 tomorrow (Melbourne) is 16_17', (await db.query(`select fn_age_band
 // ---------------------------------------------------------------------------
 await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, created_at)
   values ('Stale','2013-01-01','Old Parent','0400 000 000', now() - interval '15 days')`);
-await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, created_at, approved_at)
-  values ('Kept','2013-01-01','Fine Parent','0400 000 001', now() - interval '15 days', now() - interval '14 days')`);
+await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, created_at, approved_at, sms_confirmed_at, email_confirmed_at)
+  values ('Kept','2013-01-01','Fine Parent','0400 000 001', now() - interval '15 days', now() - interval '14 days', now() - interval '14 days', now() - interval '14 days')`);
 await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone)
   values ('Fresh','2013-01-01','New Parent','0400 000 002')`);
+// D-155: a held invitation purges exactly like any unapproved one.
+await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, created_at, held_at)
+  values ('Held','2013-01-01','Held Parent','0400 000 003', now() - interval '15 days', now() - interval '14 days')`);
 const purged = (await db.query('select fn_purge_pending() as n')).rows[0].n;
-check('D-17 purge removes exactly the stale unapproved invitation', purged, 1);
+check('D-17 purge removes exactly the stale unapproved invitations (one waiting, one held)', purged, 2);
 check('D-17 nothing readable survives the purge', (await db.query(`select count(*)::int as n from pending_invitation where first_name='Stale'`)).rows[0].n, 0);
 check('D-17 an approved invitation is never purged', (await db.query(`select count(*)::int as n from pending_invitation where first_name='Kept'`)).rows[0].n, 1);
 check('D-17 a fresh invitation is untouched', (await db.query(`select count(*)::int as n from pending_invitation where first_name='Fresh'`)).rows[0].n, 1);
-check('D-17 the purge leaves only the fact in the log', (await db.query(`select count(*)::int as n from consent_event where event='purged'`)).rows[0].n, 1);
+check('D-155: a held invitation purges at 14 days like any other', (await db.query(`select count(*)::int as n from pending_invitation where first_name='Held'`)).rows[0].n, 0);
+
+// D-156 and D-155, in the database — whatever the application does.
+{
+  const refused = async (sql, args = []) => { try { await db.query(sql, args); return false; } catch { return true; } };
+  const inv = (await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email)
+    values ('Two','2013-05-05','Two Channels','0400 000 004','two@example.com') returning id`)).rows[0].id;
+  check('D-156: an invitation cannot be approved with no channel confirmed',
+    await refused(`update pending_invitation set approved_at = now() where id = $1`, [inv]), true);
+  await db.query(`update pending_invitation set sms_confirmed_at = now() where id = $1`, [inv]);
+  check('D-156: nor with the text alone',
+    await refused(`update pending_invitation set approved_at = now() where id = $1`, [inv]), true);
+  await db.query(`update pending_invitation set sms_confirmed_at = null, email_confirmed_at = now() where id = $1`, [inv]);
+  check('D-156: nor with the email alone',
+    await refused(`update pending_invitation set approved_at = now() where id = $1`, [inv]), true);
+  await db.query(`update pending_invitation set sms_confirmed_at = now() where id = $1`, [inv]);
+  check('D-156: with both, it can', await refused(`update pending_invitation set approved_at = now() where id = $1`, [inv]), false);
+  const cols = (await db.query(`select column_name, data_type from information_schema.columns
+    where table_name = 'pending_invitation' and column_name like '%token%' order by 1`)).rows;
+  check('D-156: the two links are stored only as hashes', cols.map((c) => `${c.column_name}:${c.data_type}`), ['email_token_hash:bytea', 'sms_token_hash:bytea']);
+
+  const kid = (await db.query(`insert into person (first_name, dob) values ('Linked Kid', $1) returning id`, [yearsAgo(12)])).rows[0].id;
+  check('D-155: a 17-year-old can never be linked as a guardian',
+    await refused(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.nate, kid]), true);
+  const teen = (await db.query(`insert into person (first_name, dob, email) values ('Fifteen', $1, 'fifteen@example.com') returning id`, [yearsAgo(15)])).rows[0].id;
+  check('D-155: nor a 15-year-old',
+    await refused(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [teen, kid]), true);
+  check('D-155: an adult can', await refused(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, kid]), false);
+  check('D-155: a guardian cannot be swapped for a minor afterwards',
+    await refused(`update guardianship_link set guardian_id = $1 where guardian_id = $2 and child_id = $3`, [ID.nate, ID.guardian, kid]), true);
+}
+
+// D-155/D-156 in the application source: a page load never confirms, the
+// approval needs the adult declaration, and a hold is written without a link.
+{
+  const gf = readFileSync(fileURLToPath(new URL('../lib/guardian-flow.ts', import.meta.url)), 'utf8');
+  const page = readFileSync(fileURLToPath(new URL('../app/a/[id]/page.tsx', import.meta.url)), 'utf8');
+  const acts = readFileSync(fileURLToPath(new URL('../app/a/[id]/actions.ts', import.meta.url)), 'utf8');
+  check('D-156: the approval page never confirms a channel on load', /confirmChannel\(/.test(page), false);
+  check('D-156: only the button\'s action does', /export async function confirmIt[\s\S]*?confirmChannel\(code\)/.test(acts), true);
+  check('D-155: approving needs the adult declaration', /if \(!link \|\| !link\.channel \|\| !input\.adultDeclared\) return null/.test(gf), true);
+  check('D-155: a hold sets held_at and links nobody',
+    /if \(existing\?\.minor\) \{[\s\S]*?set held_at = now\(\)[\s\S]*?return \{ invitationId: p\.id \};\s*\}/.test(gf)
+      && !/if \(existing\?\.minor\) \{[^}]*guardianship_link/.test(gf), true);
+  check('D-155: a hold, an approval and an already-finished link all return the same shape',
+    (gf.match(/return \{ invitationId: p\.id \}/g) ?? []).length === 2 && /\? \{ invitationId: link\.id \} : null/.test(gf), true);
+}
+check('D-17 the purge leaves only the fact in the log, one row per invitation', (await db.query(`select count(*)::int as n from consent_event where event='purged'`)).rows[0].n, 2);
 
 // J1 — forbidden columns still absent after 0003
 const cols = await db.query(`select column_name from information_schema.columns

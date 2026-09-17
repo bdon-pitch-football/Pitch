@@ -626,10 +626,13 @@ let pendingInvitationId = '';
 // walkthrough could not reach it either.
 {
   const inv = await db.query(
-    `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email)
-     values ('Mila','2013-04-18','Priya Raman','0412 345 678','priya@example.com') returning id`,
+    // Two links, one per channel (D-156), with KNOWN dev tokens like the
+    // dev share links: /a/dev-mila-text and /a/dev-mila-email.
+    `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, sms_token_hash, email_token_hash)
+     values ('Mila','2013-04-18','Priya Raman','0412 345 678','priya@example.com',$1,$2) returning id`,
+    [sha('dev-mila-text'), sha('dev-mila-email')],
   );
-  console.log(`  approve: /a/${inv.rows[0].id}`);
+  console.log(`  approve: /a/dev-mila-text and /a/dev-mila-email (both needed) · no channel: /a/${inv.rows[0].id}`);
   pendingInvitationId = inv.rows[0].id as string;
 }
 

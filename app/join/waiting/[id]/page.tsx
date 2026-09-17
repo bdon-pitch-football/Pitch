@@ -21,7 +21,7 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
   const inv = await getPendingInvitation(id);
   if (!inv || inv.approved_at) notFound();
 
-  const channels = inv.guardian_email ? 'Text and email sent' : 'Text sent';
+  const channels = 'Text and email sent'; // both are required now (D-157)
   const initials = (inv.first_name as string).slice(0, 1).toUpperCase();
 
   return (
@@ -75,10 +75,10 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
           <div style={{ border: `1px solid ${T.line}`, borderRadius: 12, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13.5, fontWeight: 700, color: T.secondary }}>Keep editing it while you wait</div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={{ border: `1px solid ${T.line}`, borderRadius: 12, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13.5, fontWeight: 700, color: T.secondary }}>Send the text again</div>
-          <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13.5, fontWeight: 700, color: T.muted }}>Wrong number? Change who we ask</div>
-        </div>
+        {/* "Send the text again" and "Wrong number? Change who we ask" were
+            drawn here as buttons and did nothing. They are out until they are
+            built: a resend mints a new link (D-156), and changing who is
+            asked is a consent-spine question for John first. */}
 
         <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>

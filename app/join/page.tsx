@@ -143,13 +143,16 @@ export default function Join() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 <label className="field"><div className="field-label">Their name</div><input style={input} name="guardianName" required /></label>
                 <label className="field"><div className="field-label">Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></label>
-                <label className="field"><div className="field-label">Their email — optional</div><input style={input} name="guardianEmail" type="email" /></label>
+                <label className="field"><div className="field-label">Their email</div><input style={input} name="guardianEmail" type="email" required /></label>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {[
-                  'We send them one text with a link. Nothing else, ever, unless you ask them for something.',
+                  // D-156: a text and an email, one link each. "Wrong number? You
+                  // can change it while you wait" was promised here and never
+                  // built; it is out until it is (a child redirecting their own
+                  // approval is a question for John first).
+                  'We send them a text and an email, each with a link. Nothing else, ever, unless you ask them for something.',
                   'They approve your page, and after that they hold the controls.',
-                  'Wrong number? You can change it while you wait.',
                 ].map((t) => (
                   <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
