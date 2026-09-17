@@ -3138,6 +3138,37 @@ for (const f of srcFiles) {
 check('D-94 §6: dangerouslySetInnerHTML appears nowhere', dsi, 0);
 check('D-98: no code references a WWCC number', wwccNum, 0);
 
+// Who has read a registration (doc 34 rule 6, doc 32 C4b; 0047).
+{
+  const readers = async (viewer, person) => (await db.query('select * from fn_register_readers($1,$2)', [viewer, person])).rows;
+  const regN = crypto.randomUUID(), regD = crypto.randomUUID();
+  await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4'), ($4,$5,$3,'20@v2.4')`,
+    [regN, ID.nate, CLUB.riverside, regD, ID.deniz]);
+  await db.query(`insert into register_read_log (person_id, registration_id, surface, read_at) values
+    ($1,$2,'list', now() - interval '3 days'), ($1,$2,'list', now() - interval '1 day'), ($1,$2,'cv', now() - interval '2 days'),
+    ($1,$3,'list', now())`, [ID.td, regN, regD]);
+  const asGuardian = await readers(ID.guardian, ID.nate);
+  const nate = asGuardian.filter((r) => r.registration_id === regN);
+  check('rr1: a guardian sees who read their child\'s registration, by name and role',
+    nate.every((r) => r.reader_name === 'td' && r.reader_role === 'Technical director') && nate.length === 2, true);
+  check('rr2: one row per kind of read, with the latest of each',
+    nate.map((r) => r.surface).sort(), ['cv', 'list']);
+  const lastList = nate.find((r) => r.surface === 'list').last_read;
+  check('rr3: the list read shows the most recent time', Date.now() - new Date(lastList).getTime() < 26 * 3600 * 1000, true);
+  check('rr4: the 17-year-old sees the same about themselves', (await readers(ID.nate, ID.nate)).filter((r) => r.registration_id === regN).length, 2);
+  check('rr5: an under-16 does not ask for themselves (their guardian does)', (await readers(ID.deniz, ID.deniz)).length, 0);
+  check('rr6: their guardian does', (await readers(ID.guardian, ID.deniz)).some((r) => r.registration_id === regD && r.surface === 'list'), true);
+  check('rr7: a stranger gets nothing', (await readers(ID.coachOther, ID.nate)).length, 0);
+  check('rr8: nor does the club that read it', (await readers(ID.td, ID.nate)).length, 0);
+  check('rr9: nor another child\'s guardian', (await readers(ID.guardian2, ID.nate)).length, 0);
+  check('rr10: an adult\'s old guardian gets nothing unless re-granted', (await readers(ID.guardian, ID.marcus)).length, 0);
+  check('rr11: nobody signed out gets anything', (await readers(null, ID.nate)).length, 0);
+  const cols = (await db.query(`select string_agg(p.parameter_name, ',' order by p.ordinal_position) as c
+    from information_schema.parameters p join information_schema.routines r on r.specific_name = p.specific_name
+    where r.routine_name = 'fn_register_readers' and p.parameter_mode = 'OUT'`)).rows[0].c;
+  check('rr12: a family never gets the club\'s own status or the note (D-108, N10)', /status|note/.test(cols ?? ''), false);
+}
+
 // A player's own send list (John's rulings, 17 Sep §3; 0046): what actually
 // happened, and never a number.
 {

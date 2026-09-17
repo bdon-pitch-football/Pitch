@@ -984,5 +984,18 @@ const georgia = ids.children.georgia;
   check('iab-r2: in an ordinary browser there is no note', /data-in-app=/.test(html), false);
 }
 
+// doc 34 rule 6 (0047): the family sees who read a registration.
+{
+  await get('/club/register', ids.people.marina);   // Marina reads the list: that read is logged
+  const nate = ids.children.nate;
+  const parent = text((await get(`/g/controls/${nate.child_id}`, ids.people.alex)).html).join(' ');
+  check('rr-r1: the parent\'s controls say who has read the registration', /Who has read Nate.s registrations/i.test(parent), true);
+  check('rr-r2: naming the technical director, and what they did', /Marina/.test(parent) && /Technical director/.test(parent) && /Saw it in the list/.test(parent), true);
+  const own = text((await get('/home', nate.child_id)).html).join(' ');
+  check('rr-r3: the 16-17 sees it on their own home', /Who has read your registrations/i.test(own) && /Marina/.test(own), true);
+  const kid = text((await get(`/g/controls/${ids.children.deniz.child_id}`, ids.people.marina)).html).join(' ');
+  check('rr-r4: a club director cannot open a family\'s controls to read it', /Who has read/.test(kid), false);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 process.exit(failures.length ? 1 : 0);

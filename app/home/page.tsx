@@ -10,6 +10,7 @@ import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
 import { PlayerFrame, GuardianFrame } from '@/components/player-shell';
+import RegisterReaders from '@/components/RegisterReaders';
 import { ClubConsole, CoachConsole } from '@/components/console-shell';
 import CopyLink from '@/components/cv/CopyLink';
 import { T } from '@/lib/palette';
@@ -617,6 +618,13 @@ export default async function Home() {
               <Link href={`/build/${rec}/clips`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Highlights</Link>
               <Link href={`/build/${rec}/more`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Achievements</Link>
             </div>
+            {/* doc 34 rule 6 (0047): a player 16 or over sees who read their
+                registrations; an under-16's parent sees it on their controls. */}
+            {me.band !== 'u16' && me.my_registers > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <RegisterReaders viewerId={personId as string} personId={personId as string} name={null} />
+              </div>
+            )}
           </div>
           </div>
         </div>

@@ -12,6 +12,7 @@ import { HeaderMark } from '@/components/Wordmark';
 import { deleteEverything, renewLink, replaceLink, setPause, setSendSwitch, switchOffOne } from './actions';
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
+import RegisterReaders from '@/components/RegisterReaders';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Controls', robots: { index: false, follow: false } };
@@ -240,6 +241,9 @@ export default async function Controls({ params, searchParams }: {
             </div>
           </div>
         )}
+
+        {/* doc 34 rule 6 (0047): who at each club has read the registration. */}
+        <RegisterReaders viewerId={me as string} personId={childId} name={name} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <h2 style={label}>Everything that&rsquo;s happened</h2>
