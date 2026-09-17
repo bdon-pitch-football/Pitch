@@ -460,8 +460,12 @@ check('doc15 §A5: no link shortener in any message',
 check('doc15 §A6: every SMS carries the support address',
   smsBlocks.every((b) => b.includes('${HELP}') || b.includes('help@pitchfootball.com.au')), true);
 const msgCode = msgSrc.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+// §12 names the state a coach page shows — the literal words "WWCC verified",
+// which D-98 allows — and nothing else about a check may appear.
 check('doc15 §A7: no message can carry a WWCC number',
-  /wwcc/i.test(msgCode), false);
+  /wwcc/i.test(msgCode.replaceAll('"WWCC verified"', '')), false);
+check('doc15 §A7b: §12 names the verified state and interpolates only the club',
+  /coachVerifiedEmail = \(clubName: string\)/.test(msgCode) && !/\$\{(?!clubName\})/.test(msgCode.split('coachVerifiedEmail')[1].split('});')[0]), true);
 const wakeBlocks = msgCode.split(/export const /).filter((b) => b.startsWith('bareWake'));
 check('doc15 §24: the bare wake is defined and interpolates nothing at all',
   wakeBlocks.length === 2 && wakeBlocks.every((b) => !/\$\{(?!SITE|HELP)/.test(b)), true);

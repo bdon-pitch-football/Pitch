@@ -609,6 +609,26 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   await postForm('/club/squads', td, revokeForm);
   check('c5: the TD removes the coach — the registrations page is gone at once', (await get('/coach/register', sam)).status, 307);
   check('c5b: and the Registrations door leaves their home screen', /href="\/coach\/register"/.test((await get('/home', sam)).html), false);
+
+  // ---- doc 15 §12: "You're verified", once, the first time a club attests --
+  const box = async () => strip((await get('/dev/outbox', td)).html).replace(/&#x27;|&rsquo;|’/g, "'");
+  const verifiedTo = (text, club) => (text.match(new RegExp(`${club} has confirmed your Working With Children Check`, 'g')) ?? []).length;
+  check('v12a: Riverside had already attested Sam, so accepting again sent no "You\'re verified"',
+    verifiedTo(await box(), 'Riverside FC'), 0);
+
+  const dana = ids.people.dana;
+  const addForm = forms((await get('/club/squads', dana)).html).find((f) => f.visible.some((v) => v.name === 'ageGroup'));
+  await postForm('/club/squads', dana, addForm, { name: 'Kingsway Seniors', ageGroup: 'SEN', gender: 'men', season: '2026' });
+  const kHtml = (await get('/club/squads', dana)).html;
+  const kTeam = /<input[^>]*name="squadIds"[^>]*value="([0-9a-f-]{36})"/.exec(kHtml)?.[1];
+  const kBring = forms(kHtml).find((f) => f.visible.some((v) => v.name === 'wwcc'));
+  await postForm('/club/squads', dana, kBring, { email: 'coach@example.com', squadIds: [kTeam], wwcc: 'on' });
+  const kAccept = forms((await get('/home', sam)).html).find((f) => f.fields.answer === 'accept');
+  await postForm('/home', sam, kAccept);
+  const after = await box();
+  check('v12b: a club attesting Sam for the first time sends "You\'re verified" once, naming that club',
+    [(after.match(/doc15\.§12\s*→\s*coach@example\.com/g) ?? []).length, verifiedTo(after, 'Kingsway Rovers FC') > 0], [1, true]);
+  check('v12c: and it promises nothing Stage 2 delivers', /development record/i.test(after.slice(after.indexOf('Kingsway Rovers FC has confirmed'), after.indexOf('Kingsway Rovers FC has confirmed') + 400)), false);
 }
 
 // ---------------------------------------------------------------------------

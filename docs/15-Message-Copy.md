@@ -255,7 +255,9 @@ Routes to the guardian, never the child alone (D-19).
 
 **Subject:** `You're verified on Pitch`
 
-> Your Working With Children Check and club affiliation have been confirmed. You can now be assigned to squads and write development records for your players.
+> **{Club}** has confirmed your Working With Children Check. Your coach page now shows "WWCC verified", and {Club} can give you access to the registrations for the teams you coach.
+>
+> Pitch never shows your check number to anyone.
 >
 > Verification is free and stays free.
 >
@@ -263,7 +265,7 @@ Routes to the guardian, never the child alone (D-19).
 
 **Note:** that last line is in the message because D-82 makes it a rule, and rules that only live in a register get eroded. A coach who reads it once will notice if it ever changes.
 
----
+**Rewritten 17 Sep (BUZ approved):** the first version promised coaches could "write development records", which is Stage 2. This version says only what is true at launch: a club attests the WWCC (D-98), the page shows the verified state and never the number, and the club can grant register access (D-154). Sent once, when a club first attests a coach — the moment the coach accepts that club's request.
 
 ---
 
@@ -909,4 +911,4 @@ Sent when an operator uses the emergency switch that revokes every live share li
 
 **Never:** a child's name, a club, a count, or a promise we cannot keep ("your data is safe").
 
-*v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep. §1b and §2b added the same day (D-155 as amended).*
+*v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep. §1b and §2b added the same day (D-155 as amended). §12 rewritten the same day on BUZ's approval, so it promises nothing Stage 2 delivers.*

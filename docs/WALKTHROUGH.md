@@ -194,8 +194,11 @@ starting state.
   link is about to expire (naming the clubs that hold it), and the report
   and takedown confirmations. See them in `/dev/outbox` after the daily job
   runs.
-- Still not sent, on purpose: §12 (the coach "You're verified" message,
-  waiting on your approval of new copy), the Stripe receipts (§31, §32, until
+- **"You're verified"** (§12, rewritten and approved) now goes to a coach
+  the first time a club confirms their WWCC, which happens when the coach
+  accepts that club's request. It names the club and promises nothing from
+  Stage 2.
+- Still not sent, on purpose: the Stripe receipts (§31, §32, until
   Stripe is live), and §4, §11, §14, §35 and §37, which have no feature yet.
 
 ### Around the edges
@@ -238,7 +241,7 @@ restart `dev-db.mts` afterwards), `node scripts/gate-coverage.mjs`,
 `npx tsc --noEmit`.
 
 Last full run (17 Sep, evening): typecheck clean · palette green ·
-secret scan green · render 359/359 · write 233/233 · permission 931/931 ·
+secret scan green · render 359/359 · write 236/236 · permission 932/932 ·
 gate 261/261 open 0 · corpus clean · production build clean
 (`npm run build:check`).
 

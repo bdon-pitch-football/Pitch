@@ -727,11 +727,27 @@ If you're under 18: that's completely fine, and Pitch is built for you. You'll j
 — Pitch`,
 });
 
+// §12 · A club has confirmed a coach's WWCC (D-98). Rewritten 17 Sep so it
+// promises only what exists: development records are Stage 2.
+export const coachVerifiedEmail = (clubName: string): Composed => ({
+  key: 'doc15.§12',
+  channel: 'email',
+  subject: "You're verified on Pitch",
+  body:
+`${clubName} has confirmed your Working With Children Check. Your coach page now shows "WWCC verified", and ${clubName} can give you access to the registrations for the teams you coach.
+
+Pitch never shows your check number to anyone.
+
+Verification is free and stays free.
+
+— Pitch`,
+});
+
 // The closed set. A key not in here cannot be sent.
 export const CATALOGUE_KEYS = [
   'doc15.§1', 'doc15.§2', 'doc15.§1b', 'doc15.§2b', 'doc15.§3', 'doc15.§10', 'doc15.§10a', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
   'doc15.§6', 'doc15.§21', 'doc15.§22', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
   'doc15.§33', 'doc15.§34', 'doc15.§27', 'doc15.§28', 'doc15.§38',
-  'doc15.§5', 'doc15.§23', 'doc15.§7', 'doc15.§8', 'doc15.§18', 'doc15.§17',
+  'doc15.§5', 'doc15.§23', 'doc15.§7', 'doc15.§8', 'doc15.§18', 'doc15.§17', 'doc15.§12',
 ] as const;

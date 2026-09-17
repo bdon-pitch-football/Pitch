@@ -12,6 +12,8 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
+import { coachVerifiedEmail } from '@/lib/messages';
+import { send } from '@/lib/messaging';
 
 export async function answerCoachInvite(formData: FormData) {
   const inviteId = String(formData.get('inviteId') ?? '');
@@ -21,6 +23,8 @@ export async function answerCoachInvite(formData: FormData) {
   if (!isUuid(inviteId)) redirect('/home');
 
   let failed = false;
+  // doc 15 §12 goes once, the first time this club attests this coach.
+  let verified: { email: string; club: string } | null = null;
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -40,12 +44,18 @@ export async function answerCoachInvite(formData: FormData) {
            where not exists (select 1 from membership where person_id = $1 and club_id = $2 and role = 'coach' and ended_at is null)`,
           [me, i.club_id],
         );
-        await client.query(
+        const att = await client.query(
           `insert into wwcc_attestation (person_id, club_id, attested_by)
            select $1, $2, $3
            where not exists (select 1 from wwcc_attestation where person_id = $1 and club_id = $2 and revoked_at is null)`,
           [me, i.club_id, i.invited_by],
         );
+        if (att.rowCount === 1) {
+          const who = (await client.query(
+            `select p.email, c.name from person p, club c where p.id = $1 and c.id = $2`, [me, i.club_id],
+          )).rows[0] as { email: string | null; name: string } | undefined;
+          if (who?.email) verified = { email: who.email, club: who.name };
+        }
         for (const squadId of i.squad_ids) {
           await client.query(
             `insert into register_grant (club_id, person_id, squad_id, granted_by)
@@ -64,5 +74,6 @@ export async function answerCoachInvite(formData: FormData) {
   } finally {
     client.release();
   }
+  if (!failed && verified) await send(coachVerifiedEmail(verified.club), { address: verified.email, personId: me as string });
   redirect(failed ? '/home?coachInvite=failed' : '/home');
 }
