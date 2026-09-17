@@ -20,7 +20,9 @@ export const runtime = 'nodejs';
 // are live. WAITLIST_ENABLED=true is the switch; anything else keeps it shut
 // in production. Development stays open so the flow can be exercised.
 
-const OK = NextResponse.json({ ok: true });
+// A fresh response each time: a body can only be read once, so a shared one
+// came back empty from the second request on.
+const ok = () => NextResponse.json({ ok: true });
 
 export async function POST(req: NextRequest) {
   const enabled =
@@ -74,11 +76,11 @@ export async function POST(req: NextRequest) {
     case 'duplicate':
       // Identical body and status either way — "you're already on the list"
       // is an email-enumeration oracle (doc 29 §4).
-      return OK;
+      return ok();
     case 'unconfigured':
       // Local development without Supabase env: accept without storing so the
       // page can be exercised. In production this is a hard failure.
-      if (process.env.NODE_ENV !== 'production') return OK;
+      if (process.env.NODE_ENV !== 'production') return ok();
       return NextResponse.json({ ok: false, reason: 'unavailable' }, { status: 503 });
     default:
       return NextResponse.json({ ok: false, reason: 'error' }, { status: 500 });
