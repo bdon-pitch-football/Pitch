@@ -14,10 +14,10 @@ import { createHash, randomBytes } from 'node:crypto';
 import { guardianApprovalEmail, guardianApprovalSms, guardianConfirmEmail16, guardianConfirmSms16 } from './messages';
 import { sendAndLog } from './messaging';
 
-// doc@version stamps (legal/00-Legal-Register.md): published versions at
-// approval time. Bump when the published documents change.
-const TOS_VERSION = '22@v1.7';
-const PRIVACY_VERSION = '20@v2.4';
+// Consent stamps (doc 32 B2): the registered version bound to the bytes of
+// the file actually served — lib/legal-stamp. They were hand-kept strings
+// (doc@version, typed by hand) and had already fallen behind the register.
+import { legalStamp } from './legal-stamp';
 
 // Two links, one per channel (D-156). Each is a random token, stored only as
 // a hash, so the table yields no working link. Resending a channel mints a
@@ -227,9 +227,16 @@ export async function approveInvitation(input: {
     // A 16–17 accepted the terms themselves at sign-up; only an under-16's
     // parent accepts them on the child's behalf.
     if (!p.child_id) {
-      await ev('tos_accepted', TOS_VERSION);
-      await ev('policy_accepted', PRIVACY_VERSION);
+      await ev('tos_accepted', legalStamp('22'));
+      // The child's policy, shown on the approval page (B3), on their behalf.
+      await ev('policy_accepted', legalStamp('21'), { on_behalf_of_child: true });
     }
+    // The parent's own account is an adult account: doc 20.
+    await client.query(
+      `insert into consent_event (event, actor_id, subject_id, detail, policy_version)
+       values ('policy_accepted', $1, $1, jsonb_build_object('invitation_id', $2::uuid), $3)`,
+      [guardianId, p.id, legalStamp('20')],
+    );
 
     await client.query('commit');
     return { invitationId: p.id };

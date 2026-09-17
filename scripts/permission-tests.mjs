@@ -3138,6 +3138,35 @@ for (const f of srcFiles) {
 check('D-94 §6: dangerouslySetInnerHTML appears nowhere', dsi, 0);
 check('D-98: no code references a WWCC number', wwccNum, 0);
 
+// Doc 32 (0049): A1 hidden means off every club surface; A2 suppression is a
+// reversible revocation; B2 consent rows are stamped with version and hash.
+{
+  for (const fn of ['fn_register_rows', 'fn_register_count', 'fn_can_read_registration', 'fn_trial_interest_rows', 'fn_token_read']) {
+    check(`g32-p1: ${fn} asks whether the person is hidden`, /fn_person_hidden\(/.test(await procSrc(fn)), true);
+  }
+  const refused = async (sql, args = []) => { try { await db.query(sql, args); return false; } catch { return true; } };
+  const kid = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1, 'Suppressed Kid', $2)`, [kid, yearsAgo(10)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1, $2, now())`, [ID.guardian2, kid]);
+  check('g32-p2: a suppression is always a revocation', await refused(`update guardianship_link set suppressed_at = now() where child_id = $1`, [kid]), true);
+  await db.query(`update guardianship_link set revoked_at = now(), suppressed_at = now() where child_id = $1`, [kid]);
+  check('g32-p3: a suppressed parent has no standing', await level(ID.guardian2, kid) === 'full', false);
+  await db.query(`update guardianship_link set revoked_at = null, suppressed_at = null where child_id = $1`, [kid]);
+  check('g32-p4: restored, they do', await level(ID.guardian2, kid), 'full');
+  check('g32-p5: a report says what it is about, from a closed list',
+    await refused(`insert into report (subject_kind, subject_ref, concern) values ('other', 'x', 'anything')`), true);
+
+  const gf = readFileSync(fileURLToPath(new URL('../lib/guardian-flow.ts', import.meta.url)), 'utf8');
+  const joinSrc = readFileSync(fileURLToPath(new URL('../app/join/actions.ts', import.meta.url)), 'utf8');
+  check('g32-p6: consent rows are stamped from the served file, not typed (B2)',
+    /legalStamp\('22'\)/.test(gf) && /legalStamp\('21'\)/.test(gf) && /legalStamp\('20'\)/.test(joinSrc) && !/'2[02]@v\d/.test(gf + joinSrc), true);
+  const stampSrc = readFileSync(fileURLToPath(new URL('../lib/legal-stamp.ts', import.meta.url)), 'utf8');
+  check('g32-p7: a stamp is the registered version plus the sha256 of the bytes', /`\$\{doc\}@\$\{registeredVersion\(doc\)\}\+sha256:\$\{sha\}`/.test(stampSrc), true);
+  const reg = readFileSync(fileURLToPath(new URL('../docs/legal/00-Legal-Register.md', import.meta.url)), 'utf8');
+  check('g32-p8: the register gives a version for each stamped document',
+    ['20', '21', '22'].every((d) => /\*\*v\d+\.\d+\*\*/.test(reg.split('\n').find((l) => l.startsWith(`| **${d}** |`)) ?? '')), true);
+}
+
 // D-155 as amended (0048): a 16-17's parent is confirmed before the link
 // exists, and until then the 16-17 cannot send.
 {

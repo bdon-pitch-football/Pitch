@@ -10,6 +10,31 @@ import { T } from '@/lib/palette';
 // publication date) remain until the solicitor resolves them; the waitlist
 // form stays gated (WAITLIST_ENABLED) until they do.
 
+const LEGAL_CSS = `
+        .legal-doc h1 { font-size: 28px; font-weight: 900; letter-spacing: -.02em; color: var(--ink); line-height: 1.15; }
+        .legal-doc h2 { font-size: 20px; font-weight: 800; letter-spacing: -.015em; color: var(--ink); margin-top: 2em; }
+        .legal-doc h3 { font-size: 16px; font-weight: 800; color: var(--ink); margin-top: 1.6em; }
+        .legal-doc strong { color: var(--ink); }
+        .legal-doc table { border-collapse: collapse; width: 100%; font-size: 13px; }
+        .legal-doc th, .legal-doc td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .legal-doc code { background: var(--surface); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
+        .legal-doc hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
+        .legal-doc table { display: block; overflow-x: auto; }
+`;
+
+// A document rendered inside another page (doc 32 B3: doc 21 is SHOWN in the
+// approval flow, not merely linked). Same source, same renderer, same styles.
+export function LegalBody({ file }: { file: string }) {
+  const raw = fs.readFileSync(path.join(process.cwd(), 'docs', 'legal', file), 'utf8');
+  const html = marked.parse(raw, { async: false });
+  return (
+    <>
+      <div className="legal-doc" style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: html }} />
+      <style>{LEGAL_CSS}</style>
+    </>
+  );
+}
+
 export function renderLegal(file: string) {
   const raw = fs.readFileSync(path.join(process.cwd(), 'docs', 'legal', file), 'utf8');
   const html = marked.parse(raw, { async: false });
@@ -22,16 +47,7 @@ export function renderLegal(file: string) {
         style={{ fontSize: 14.5, color: T.secondary, fontWeight: 500, lineHeight: 1.65 }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      <style>{`
-        .legal-doc h1 { font-size: 28px; font-weight: 900; letter-spacing: -.02em; color: var(--ink); line-height: 1.15; }
-        .legal-doc h2 { font-size: 20px; font-weight: 800; letter-spacing: -.015em; color: var(--ink); margin-top: 2em; }
-        .legal-doc h3 { font-size: 16px; font-weight: 800; color: var(--ink); margin-top: 1.6em; }
-        .legal-doc strong { color: var(--ink); }
-        .legal-doc table { border-collapse: collapse; width: 100%; font-size: 13px; }
-        .legal-doc th, .legal-doc td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
-        .legal-doc code { background: var(--surface); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
-        .legal-doc hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
-      `}</style>
+      <style>{LEGAL_CSS}</style>
     </QuietShell>
   );
 }

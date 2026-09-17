@@ -2,6 +2,7 @@
 // can reach a record through, and it reaches the data exclusively via
 // lib/record-read (D-80). A dead link of any kind renders LinkState with a
 // 200 — never a 404, never a different body (D-77).
+import { createHash } from 'node:crypto';
 import PlayerCV from '@/components/cv/PlayerCV';
 import LinkState from '@/components/cv/LinkState';
 import { readCvByToken } from '@/lib/record-read';
@@ -28,5 +29,7 @@ export default async function SharedCv({ params, searchParams }: {
   const { asked } = await searchParams;
   const cv = await readCvByToken(token);
   if (!cv) return <LinkState token={token} asked={asked === '1'} />;
-  return <PlayerCV p={cv} />;
+  // The operator finds the record from the hash; the token never leaves this page.
+  const reportRef = createHash('sha256').update(token).digest('hex');
+  return <PlayerCV p={cv} reportRef={reportRef} />;
 }

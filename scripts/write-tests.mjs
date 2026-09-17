@@ -916,6 +916,88 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// Doc 32's controls, operated through the real pages: a report that says a
+// child is involved, a page hidden without deleting it (A1, A5, C1), one
+// parent's access suppressed and restored (A2), and the age check (A4).
+// Marina drives the operator console (any signed-in email in development).
+// ---------------------------------------------------------------------------
+{
+  const op = ids.people.marina, alex = ids.people.alex, nate = ids.children.nate, jordan = ids.people.jordan;
+  const txt = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;|’/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const title = (h) => /<title>([^<]*)<\/title>/.exec(h)?.[1];
+  const dead = title((await get('/p/never-a-real-link-abc', null)).html);
+  const postAs = async (who, path, form, extra = {}) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    for (const [k, v] of Object.entries(extra)) fd.set(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+  const desk = async () => (await get('/ops/reports', op)).html;
+
+  // --- A5: a report from the CV page, saying it's a child ------------------
+  const cvPage = (await get('/p/dev-nate', null)).html;
+  const reportHref = /href="(\/report\?kind=player_cv&(?:amp;)?page=[0-9a-f]{64})"/.exec(cvPage)?.[1]?.replace('&amp;', '&');
+  check('g32-1: the CV page\'s report link carries the link\'s fingerprint, never the link', Boolean(reportHref) && !/dev-nate/.test(reportHref), true);
+  const reportForm = forms((await get(reportHref, null)).html).find((f) => /Send the report/.test(f.submit));
+  check('g32-2: the report form offers "this account belongs to a child"', /I think this account belongs to a child/.test(txt((await get(reportHref, null)).html)), true);
+  await postAs(null, '/report', reportForm, { concern: 'child_account', reason: 'This looks like a 12-year-old.' });
+  let d = txt(await desk());
+  check('g32-3: the operator sees it, labelled, with the reason', /Says this account belongs to a child/.test(d) && /This looks like a 12-year-old/.test(d), true);
+
+  // --- A1/C1: hide the page without deleting it -----------------------------
+  check('g32-4: before: the page opens and Riverside lists Nate',
+    [title((await get('/p/dev-nate', null)).html) !== dead, /Nate/.test(txt((await get('/club/register', op)).html))], [true, true]);
+  const holdForm = forms(await desk()).find((f) => /Hide this page while I look/.test(f.submit));
+  check('g32-5: hiding says so', /done=held/.test(await postAs(op, '/ops/reports', holdForm, { reason: 'Checking the age' })), true);
+  check('g32-6: now the link answers as dead (D-77)', title((await get('/p/dev-nate', null)).html), dead);
+  check('g32-7: and the club register no longer lists Nate (A1: no club listing)', /Nate/.test(txt((await get('/club/register', op)).html)), false);
+  check('g32-8: the parent still has everything: nothing was deleted', /Nate/.test(txt((await get(`/g/controls/${nate.child_id}`, alex)).html)), true);
+  const release = forms(await desk()).find((f) => /Show it again/.test(f.submit));
+  await postAs(op, '/ops/reports', release);
+  check('g32-9: released, the page and the listing come back',
+    [title((await get('/p/dev-nate', null)).html) !== dead, /Nate/.test(txt((await get('/club/register', op)).html))], [true, true]);
+  const close = forms(await desk()).find((f) => /Close report/.test(f.submit));
+  check('g32-10: a report closes only with an outcome', /error=outcome/.test(await postAs(op, '/ops/reports', close)), true);
+  check('g32-11: and closes with one', /done=closed/.test(await postAs(op, '/ops/reports', close, { outcome: 'no_action' })), true);
+
+  // --- A2: one parent's access, suppressed then restored --------------------
+  const found = await get(`/ops/reports?parent=${encodeURIComponent('guardian@example.com')}`, op);
+  const supForm = forms(found.html).find((f) => /Suppress this parent/.test(f.submit) && f.fields.childId === nate.child_id);
+  check('g32-12: the operator finds the parent\'s link to Nate', Boolean(supForm), true);
+  check('g32-13: suppressing needs a reason', /error=reason/.test(await postAs(op, '/ops/reports', supForm)), true);
+  await postAs(op, '/ops/reports', supForm, { reason: 'Family safety report' });
+  const ctl = await get(`/g/controls/${nate.child_id}`, alex);
+  check('g32-14: the suppressed parent can no longer open Nate\'s controls (the same answer as a child that is not theirs)', ctl.status !== 200 && !/Nate/.test(txt(ctl.html)), true);
+  check('g32-15: and Nate still exists, with his page', title((await get('/p/dev-nate', null)).html) !== dead, true);
+  const again = await get(`/ops/reports?parent=${encodeURIComponent('guardian@example.com')}`, op);
+  check('g32-16: the link shows as suppressed, restorable, with the court-order removal beside it',
+    /Parent of Nate · suppressed/.test(txt(again.html)) && forms(again.html).some((f) => /Restore access/.test(f.submit)) && forms(again.html).some((f) => /Remove permanently/.test(f.submit)), true);
+  const removeForm = forms(again.html).find((f) => /Remove permanently/.test(f.submit) && f.fields.childId === nate.child_id);
+  check('g32-17: permanent removal needs a court order reference', /error=order/.test(await postAs(op, '/ops/reports', removeForm)), true);
+  const restore = forms(again.html).find((f) => /Restore access/.test(f.submit) && f.fields.childId === nate.child_id);
+  await postAs(op, '/ops/reports', restore);
+  check('g32-18: restored, the parent has Nate\'s controls again', (await get(`/g/controls/${nate.child_id}`, alex)).status, 200);
+
+  // --- A4: an adult names a U15 squad ------------------------------------------
+  const jRec = /\/build\/([0-9a-f-]{36})/.exec((await get('/home', jordan)).html)?.[1];
+  const riv = ids.clubs['riverside-fc'];
+  const regPage = (await get(`/register-interest/${jRec}?club=${riv}`, jordan)).html;
+  const u15 = [...regPage.matchAll(/<option value="([0-9a-f-]{36})"[^>]*>([^<]*U1[0-5][^<]*)<\/option>/g)].map((m) => m[1])[0];
+  const regForm = forms(regPage).find((f) => f.fields.clubId === riv || /Register/.test(f.submit));
+  check('g32-19: Jordan (an adult) can pick a junior squad at Riverside', Boolean(u15 && regForm), true);
+  const jLive = title((await get('/p/dev-jordan', null)).html);
+  const loc = await postAs(jordan, `/register-interest/${jRec}`, regForm, { clubId: riv, squadId: u15, positions: 'ST' });
+  check('g32-20: the registration answers as usual', /registered=1/.test(loc), true);
+  check('g32-21: but Jordan is held: the link answers as dead', title((await get('/p/dev-jordan', null)).html), dead);
+  check('g32-22: and the operator sees the age check', /Age checks[\s\S]*Jordan/.test(txt(await desk())), true);
+  const releaseAge = forms(await desk()).find((f) => /Checked — release/.test(f.submit));
+  await postAs(op, '/ops/reports', releaseAge);
+  check('g32-23: released after a person looked, the link works again', title((await get('/p/dev-jordan', null)).html), jLive);
+}
+
+// ---------------------------------------------------------------------------
 // "Take off this register" (D-108; doc 14 N7): a parent, or a 16-17 for
 // themselves. The club's list loses the row; the club is told nothing.
 // ---------------------------------------------------------------------------

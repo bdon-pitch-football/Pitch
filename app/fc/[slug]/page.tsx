@@ -404,7 +404,7 @@ export default async function ClubPage({ params, searchParams }: {
           </Link>
         )}
 
-        <a href={`/report?kind=club_page`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
+        <a href={`/report?kind=club_page&page=${encodeURIComponent(slug)}`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 // server-side; the client is never trusted for age or identity.
 import { redirect } from 'next/navigation';
 import { createPendingInvitation } from '@/lib/guardian-flow';
+import { legalStamp } from '@/lib/legal-stamp';
 
 const AU_MOBILE = /^04\d{2}\s?\d{3}\s?\d{3}$/;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -80,8 +81,8 @@ export async function createAccount(formData: FormData) {
       // The confirmation request goes out after the commit, below.
       await client.query(
         `insert into consent_event (event, actor_id, subject_id, policy_version, detail)
-         values ('tos_accepted',$1,$1,'22@v1.7','{}'), ('policy_accepted',$1,$1,'20@v2.4','{}')`,
-        [personId],
+         values ('tos_accepted',$1,$1,$2,'{}'), ('policy_accepted',$1,$1,$3,'{}')`,
+        [personId, legalStamp('22'), legalStamp('20')],
       );
       await client.query('commit');
     }

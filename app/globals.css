@@ -573,3 +573,16 @@ h1, h2, h3, h4, h5, h6 {
   line-height: inherit;
   margin: 0;
 }
+
+/* The site footer (doc 32 B4, B5): the legal person and a report route on
+   every page. Framed pages keep it clear of the phone tab bar. */
+.site-foot {
+  max-width: 1200px; margin: 0 auto; padding: 18px 18px 26px;
+  display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: space-between; align-items: center;
+  font-size: 11.5px; font-weight: 500; color: var(--muted); border-top: 1px solid var(--line);
+}
+.site-foot nav { display: flex; gap: 4px 14px; flex-wrap: wrap; }
+.site-foot a { color: var(--muted); font-weight: 700; min-height: 44px; display: inline-flex; align-items: center; }
+@media (max-width: 1023px) {
+  body:has(.seat-tabs) .site-foot { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+}

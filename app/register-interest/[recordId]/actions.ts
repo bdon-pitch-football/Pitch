@@ -16,6 +16,7 @@
 // can invite to that trial — and, on the free tier, so it can invite at all.
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { legalStamp } from '@/lib/legal-stamp';
 import { isUuid } from '@/lib/ids';
 import { requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
@@ -51,6 +52,23 @@ export async function composeInterest(formData: FormData) {
   const squadId = isUuid(squadRaw)
     && (await db.query('select 1 from squad where id = $1 and club_id = $2', [squadRaw, clubId])).rows.length > 0
     ? squadRaw : null;
+  // A4 / D-96, the age-contradiction hold. An adult naming a junior squad
+  // (U17 or younger) is held for a person to look at — never rejected, and
+  // told nothing different: the registration is made as usual, and while the
+  // hold stands the person is hidden from every club (fn_person_hidden, 0049)
+  // and their links answer as dead. U18 and up are not a contradiction for an
+  // eighteen-year-old.
+  if (squadId && state.band === '18plus') {
+    const ag = (await db.query('select age_group from squad where id = $1', [squadId])).rows[0]?.age_group as string | null;
+    const n = ag ? Number(/^U(\d+)$/.exec(ag)?.[1]) : NaN;
+    if (Number.isFinite(n) && n <= 17) {
+      await db.query(
+        `update person set signup_hold = true, signup_hold_at = coalesce(signup_hold_at, now()) where id = $1`,
+        [personId],
+      );
+    }
+  }
+
   const trial = isUuid(trialRaw)
     ? ((await db.query(
         `select id, trial_on from trial_notice
@@ -73,8 +91,8 @@ export async function composeInterest(formData: FormData) {
     } else {
       const { rows } = await db.query(
         `insert into registration (player_id, club_id, squad_target, positions, note, trial_notice_id, trial_on, disclosed_by, policy_version)
-         values ($1,$2,$3,$4,$5,$6,$7,$1,'20@v2.4') returning id`,
-        [personId, clubId, squadId, positions, note || null, trial?.id ?? null, trial?.trial_on ?? null],
+         values ($1,$2,$3,$4,$5,$6,$7,$1,$8) returning id`,
+        [personId, clubId, squadId, positions, note || null, trial?.id ?? null, trial?.trial_on ?? null, legalStamp('20')],
       );
       await db.query(
         `insert into consent_event (event, actor_id, subject_id, detail)

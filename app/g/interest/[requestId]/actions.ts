@@ -4,6 +4,7 @@
 // nothing lets the request disappear by itself (D-138).
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { legalStamp } from '@/lib/legal-stamp';
 import { getSessionPersonId } from '@/lib/session';
 
 //
@@ -45,8 +46,8 @@ export async function dispatchInterest(formData: FormData) {
       // The trial the child registered against travels onto the registration,
       // so the club can invite to it — and on the free tier, invite at all (D-153).
       `insert into registration (player_id, club_id, squad_target, positions, note, trial_notice_id, trial_on, disclosed_by, policy_version)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,'20@v2.4') returning id`,
-      [r.person_id, r.club_id, r.squad_target, r.positions, r.note, r.trial_notice_id, r.trial_on, guardianId],
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
+      [r.person_id, r.club_id, r.squad_target, r.positions, r.note, r.trial_notice_id, r.trial_on, guardianId, legalStamp('20')],
     );
     await client.query(
       `update registration_request set dispatched_by=$2, dispatched_at=now(), registration_id=$3 where id=$1`,

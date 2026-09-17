@@ -73,7 +73,9 @@ function PositionMap({ positions }: { positions: PositionCode[] }) {
   );
 }
 
-export default function PlayerCV({ p }: { p: PlayerFixture }) {
+// reportRef: what "Report this page" tells the operator this page was — the
+// hex of the share token's stored hash, never the token itself (0010).
+export default function PlayerCV({ p, reportRef }: { p: PlayerFixture; reportRef?: string }) {
   const initials = `${p.firstName[0]}${p.lastName[0] ?? ''}`;
   // Short codes on a player's page (BUZ, 16 Sep): "ST · LW", not "Striker · Left wing".
   const posLine = p.positions.join(' · ');
@@ -279,7 +281,7 @@ export default function PlayerCV({ p }: { p: PlayerFixture }) {
           </div>
         )}
 
-        <a href="/report?kind=player_cv" style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
+        <a href={`/report?kind=player_cv${reportRef ? `&page=${reportRef}` : ''}`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
     </div>
   );

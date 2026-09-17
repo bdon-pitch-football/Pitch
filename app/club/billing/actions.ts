@@ -4,6 +4,7 @@
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { db } from '@/lib/db';
+import { legalStamp } from '@/lib/legal-stamp';
 import { getSessionPersonId } from '@/lib/session';
 import { createCheckoutSession, createPortalSession, type PlanKey } from '@/lib/billing';
 
@@ -32,8 +33,8 @@ export async function startCheckout(formData: FormData) {
 
   await db.query(
     `insert into checkout_authority (club_id, person_name, role_at_club, authorised, plan, policy_version)
-     values ($1,$2,$3,true,$4,'22@v1.7')`,
-    [club.id, personName, roleAtClub, plan],
+     values ($1,$2,$3,true,$4,$5)`,
+    [club.id, personName, roleAtClub, plan, legalStamp('22')],
   );
 
   const h = await headers();

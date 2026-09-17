@@ -43,6 +43,25 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
         <form action={fileReport} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <input type="hidden" name="subjectRef" value={page ?? ''} />
           <input type="hidden" name="subjectKind" value={kind ?? 'other'} />
+          {/* doc 32 A5: a route for "this account belongs to a child" that
+              needs neither an account nor certainty. Nothing is required. */}
+          <fieldset style={{ ...card, border: `1px solid ${T.line}`, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <legend style={{ ...label, padding: 0, float: 'left', marginBottom: 4 }}>What&rsquo;s it about — optional</legend>
+            {([
+              ['child_account', 'I think this account belongs to a child'],
+              ['own_child', 'My child is in this and shouldn\u2019t be'],
+              ['family_safety', 'A family safety matter — another parent\u2019s access'],
+              ['other', 'Something else'],
+            ] as const).map(([v, t]) => (
+              <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, fontSize: 13.5, fontWeight: 700, color: T.secondary, cursor: 'pointer', clear: 'both' }}>
+                <input type="radio" name="concern" value={v} defaultChecked={v === 'other'} style={{ width: 18, height: 18, accentColor: T.accent }} />
+                {t}
+              </label>
+            ))}
+          </fieldset>
+          <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+            <b style={{ color: T.ink }}>If you or your child aren&rsquo;t safe at home,</b> you can talk to 1800RESPECT any time on <a href="tel:1800737732" style={{ color: T.accent, fontWeight: 700 }}>1800 737 732</a>. We can stop another parent seeing your child&rsquo;s page while we look, without deleting anything. In an emergency, call 000.
+          </div>
           <label style={card}>
             <div style={label}>What&rsquo;s wrong — optional</div>
             <textarea name="reason" rows={4} placeholder="Tell us as much or as little as you like." style={{ ...input, lineHeight: 1.5, resize: 'vertical' }} />

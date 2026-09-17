@@ -3,6 +3,7 @@ import { Archivo } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import { connection } from 'next/server';
 import './globals.css';
+import SiteFooter from '@/components/SiteFooter';
 
 const archivo = Archivo({
   subsets: ['latin', 'latin-ext'],
@@ -68,6 +69,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en-AU" data-scroll-behavior="smooth">
       <body className={archivo.className}>
         {children}
+        <SiteFooter />
         {/* Vercel Web Analytics — cookieless aggregate counts only (doc 29 §9
             allows privacy-respecting aggregates; no third-party tag, served
             same-origin). Inert until enabled on the Vercel dashboard. */}

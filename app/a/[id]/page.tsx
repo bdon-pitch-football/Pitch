@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation';
 import { resolveApprovalLink } from '@/lib/guardian-flow';
 import { approve, confirmIt } from './actions';
 import { card } from '@/lib/ui';
+import { LegalBody } from '@/app/legal/legal-page';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
 
@@ -78,6 +79,19 @@ export default async function Approval({ params, searchParams }: { params: Promi
             ))}
           </div>
         </div>
+
+        {/* doc 32 B3: the privacy policy written for the child is SHOWN here,
+            in the flow, not merely linked. Open by default for an under-16's
+            parent, whose approval accepts it on the child's behalf. */}
+        <details open={!teen} style={{ ...card, display: 'block' }}>
+          <summary style={{ minHeight: 44, display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: 13.5, fontWeight: 800 }}>
+            The privacy policy we wrote for {name}
+          </summary>
+          <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 8, paddingRight: 4 }}>
+            <LegalBody file="21-Privacy-Policy-Child.md" />
+          </div>
+          <a href="/privacy/family" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, fontSize: 12.5, fontWeight: 700, color: T.accent }}>Open it as a full page</a>
+        </details>
 
         {here === null ? (
           <div role="note" style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55, marginTop: 'auto' }}>

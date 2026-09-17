@@ -13,6 +13,8 @@ export async function fileReport(formData: FormData) {
   const subjectKind = kinds.includes(subjectKindRaw) ? subjectKindRaw : 'other';
   const reason = String(formData.get('reason') ?? '').trim().slice(0, 2000);
   const reporterEmail = String(formData.get('reporterEmail') ?? '').trim().slice(0, 200);
+  const concernRaw = String(formData.get('concern') ?? 'other');
+  const concern = ['child_account', 'own_child', 'family_safety', 'other'].includes(concernRaw) ? concernRaw : 'other';
 
   const h = await headers();
   const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
@@ -20,9 +22,9 @@ export async function fileReport(formData: FormData) {
 
   if (allowed) {
     await db.query(
-      `insert into report (subject_kind, subject_ref, reason, reporter_email)
-       values ($1,$2,$3,$4)`,
-      [subjectKind, subjectRef || 'unknown', reason || null, reporterEmail || null],
+      `insert into report (subject_kind, subject_ref, reason, reporter_email, concern)
+       values ($1,$2,$3,$4,$5)`,
+      [subjectKind, subjectRef || 'unknown', reason || null, reporterEmail || null, concern],
     );
     await db.query(`insert into consent_event (event, detail) values ('report_filed', jsonb_build_object('kind', $1::text))`, [subjectKind]);
   }

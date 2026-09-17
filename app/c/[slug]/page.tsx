@@ -316,7 +316,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
 
         <a href={`/c/${c.public_slug}/print`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Print or save as PDF</a>
 
-        <a href={`/report?kind=coach_cv`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
+        <a href={`/report?kind=coach_cv&page=${encodeURIComponent(slug)}`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: '#3a4a42', textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
     </div>
   );
