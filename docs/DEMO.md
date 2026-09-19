@@ -48,6 +48,10 @@ the list of seats at any time.
 4. **The club administrator.** Switch to *Pat Nguyen*. They run the page,
    teams and trials, but see no child's details. A treasurer made an admin
    never reads a child's record.
+   Open **Crest & club page**: they write their own philosophy, pathway and
+   year founded, post "Players wanted" notices, and build the alumni wall.
+   Change the philosophy, save, and open their page to show it's there. The
+   wall never names anyone under 18, and every entry needs a tick to say so.
 5. **The parent.** Switch to *Alex*. The trial invitation from step 2 is
    waiting for them. Nothing goes back to the club until the parent says so.
    Then open *What families receive* on /demo. It already holds the real
