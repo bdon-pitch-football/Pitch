@@ -31,7 +31,7 @@ const quiet = {
   WAITLIST_ENABLED: 'false',
 };
 
-const dbProc = spawn('node', ['scripts/dev-db.mts'], {
+const dbProc = spawn('node', ['--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', 'scripts/dev-db.mts'], {
   cwd: repo,
   env: { ...process.env, ...quiet, DEMO_CLUB: club, DEMO_SUBURB: flag('suburb') ?? '', DEMO_STATE: flag('state') ?? '', DEMO_CREST: flag('crest') ?? '', DEMO_GROUND: flag('ground') ?? '' },
   stdio: ['ignore', 'pipe', 'inherit'],
