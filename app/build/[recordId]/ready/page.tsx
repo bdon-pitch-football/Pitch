@@ -82,6 +82,7 @@ export default async function Ready({ params }: { params: Promise<{ recordId: st
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {!waiting && <Link href={`/send/${recordId}`} className="btn btn-primary">Send it to a club</Link>}
+          <Link href={`/build/${recordId}/preview`} className="btn btn-secondary">Preview my page</Link>
           <Link href="/trials" className="btn btn-secondary">Find a trial</Link>
           <Link href={`/build/${recordId}`} className="btn btn-ghost">Keep building</Link>
         </div>

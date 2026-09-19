@@ -134,9 +134,10 @@ export default async function Controls({ params, searchParams }: {
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 48, height: 48, borderRadius: 15, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 900, color: T.secondary }}>{name[0]}</div>
-          <div>
+          <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>{name}</h1>
           </div>
+          {c.record_id && <a href={`/build/${c.record_id}/preview`} style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 14px', borderRadius: 999, background: T.surface2, border: `1px solid ${T.line}`, color: T.ink, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.02em', textDecoration: 'none', flexShrink: 0 }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>Preview page</a>}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>

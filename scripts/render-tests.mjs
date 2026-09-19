@@ -1015,5 +1015,33 @@ const georgia = ids.children.georgia;
   check('g32-r5: nothing calls itself "Pitch Football Pty Ltd"', /Pitch Football Pty Ltd/i.test((await get('/signin')).html), false);
 }
 
+// "Preview my page" (BUZ, 19 Sep): the family sees the page exactly as a club
+// does — and only the family. An under-16 previews the APPROVED version, never
+// the pending edit no club can see (D-119).
+{
+  const jordanHome = (await get('/home', ids.people.jordan)).html;
+  const jordanPreview = /href="(\/build\/[0-9a-f-]{36}\/preview)"/.exec(jordanHome)?.[1];
+  check('pv1: the player home offers "Preview my page"', Boolean(jordanPreview) && has(jordanHome, 'Preview my page'), true);
+  const mine = await get(jordanPreview, ids.people.jordan);
+  check('pv2: the player sees their own page, marked as a preview',
+    [mine.status, has(mine.html, 'This is exactly what a club sees when you send your page.'), has(mine.html, 'Abebe')], [200, true, true]);
+  check('pv3: it is never indexed', /<meta name="robots" content="noindex, nofollow"/.test(mine.html), true);
+
+  const kid = await get(`/build/${deniz.record_id}/preview`, alex);
+  check('pv4: a parent previews their under-16\'s APPROVED page, not the pending edit',
+    [kid.status, has(kid.html, 'working on pressing triggers'), has(kid.html, 'weak-foot finishing every Thursday')], [200, true, false]);
+  check('pv5: and is told the edit is waiting for them, with the way to review it',
+    has(kid.html, 'latest changes are waiting for you') && kid.html.includes(`/g/pending/${deniz.record_id}`), true);
+  check('pv6: the parent\'s page for the child links the preview',
+    (await get(`/g/controls/${deniz.child_id}`, alex)).html.includes(`/build/${deniz.record_id}/preview`), true);
+
+  for (const [who, id] of [['a coach', ids.people.sam], ['the club TD', ids.people.marina], ['another adult', ids.people.jordan]]) {
+    const r = await get(`/build/${deniz.record_id}/preview`, id);
+    check(`pv7: ${who} opening a child's preview goes home, learning nothing`, [r.status, r.location], [307, '/home']);
+  }
+  const anon = await get(`/build/${deniz.record_id}/preview`);
+  check('pv8: signed out, the preview asks you to sign in', [anon.status, anon.location], [307, '/signin']);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 process.exit(failures.length ? 1 : 0);

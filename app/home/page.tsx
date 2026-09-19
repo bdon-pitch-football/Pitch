@@ -591,6 +591,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             ) : (
               <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>Every part of your page is filled in.</div>
             )}
+            <Link href={`/build/${rec}/preview`} className="btn btn-secondary">Preview my page</Link>
           </div>
 
           {next && (
