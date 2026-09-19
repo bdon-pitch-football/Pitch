@@ -6,6 +6,7 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
+import { isUuid } from '@/lib/ids';
 
 const HOSTS = /^(https:\/\/)(www\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
 
@@ -49,6 +50,90 @@ export async function removeClubVideo(formData: FormData) {
   if (!me) redirect('/signin');
   const clubId = await clubIManage(me);
   if (!clubId) redirect('/home');
-  await db.query(`delete from club_video where id = $1 and club_id = $2`, [videoId, clubId]);
+  if (isUuid(videoId)) await db.query(`delete from club_video where id = $1 and club_id = $2`, [videoId, clubId]);
   redirect('/club/page-edit?removed=video');
+}
+
+// ---------------------------------------------------------------------------
+// The rest of the page (0051, BUZ 19 Sep): the philosophy, pathway line and
+// year founded; players-wanted notices; the alumni wall. All club-authored
+// free text on a public page — hostile, escaped on output, capped here and
+// again in the database. Out-of-range input is refused, never trimmed to fit.
+// ---------------------------------------------------------------------------
+const text = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
+
+async function manager(): Promise<{ me: string; clubId: string }> {
+  const me = await getSessionPersonId();
+  if (!me) redirect('/signin');
+  const clubId = await clubIManage(me);
+  if (!clubId) redirect('/home');
+  return { me, clubId };
+}
+
+export async function saveClubStory(formData: FormData) {
+  const { clubId } = await manager();
+  const philosophy = text(formData, 'philosophy');
+  const pathway = text(formData, 'pathway');
+  const founded = text(formData, 'founded');
+  const year = new Date().getFullYear();
+  if (philosophy.length > 400 || pathway.length > 80
+      || (founded && (!/^(18|19|20)\d{2}$/.test(founded) || Number(founded) > year))) {
+    redirect('/club/page-edit?story=bad#story');
+  }
+  await db.query(
+    `update club set philosophy = $2, pathway_line = $3, established = $4 where id = $1`,
+    [clubId, philosophy || null, pathway || null, founded || null],
+  );
+  redirect('/club/page-edit?saved=story#story');
+}
+
+export async function addWanted(formData: FormData) {
+  const { me, clubId } = await manager();
+  const title = text(formData, 'title');
+  const detail = text(formData, 'detail');
+  if (!title || title.length > 60 || detail.length > 100) redirect('/club/page-edit?wanted=bad#wanted');
+  const { rows } = await db.query(`select count(*)::int as n from players_wanted_notice where club_id = $1`, [clubId]);
+  if (rows[0].n >= 6) redirect('/club/page-edit?wanted=full#wanted');
+  await db.query(
+    `insert into players_wanted_notice (club_id, title, detail, added_by) values ($1,$2,$3,$4)`,
+    [clubId, title, detail || null, me],
+  );
+  redirect('/club/page-edit?saved=wanted#wanted');
+}
+
+export async function removeWanted(formData: FormData) {
+  const { clubId } = await manager();
+  const id = text(formData, 'wantedId');
+  if (isUuid(id)) await db.query(`delete from players_wanted_notice where id = $1 and club_id = $2`, [id, clubId]);
+  redirect('/club/page-edit?removed=wanted#wanted');
+}
+
+// The alumni wall never names anyone under 18. We cannot check an age, so the
+// person adding the entry confirms it, and that confirmation is stored with
+// the entry (0051 refuses an entry without it).
+export async function addAlumni(formData: FormData) {
+  const { me, clubId } = await manager();
+  // Two fields, joined the way the public page splits them: "who → where".
+  const who = text(formData, 'who');
+  const to = text(formData, 'to');
+  const detail = text(formData, 'detail');
+  const line = to ? `${who} → ${to}` : who;
+  if (formData.get('adults') !== 'yes') redirect('/club/page-edit?alumni=tick#alumni');
+  if (!who || who.length > 40 || to.length > 40 || line.length > 80 || detail.length > 80) redirect('/club/page-edit?alumni=bad#alumni');
+  const { rows } = await db.query(
+    `select count(*)::int as n, coalesce(max(sort), -1) + 1 as next from alumni_entry where club_id = $1`, [clubId]);
+  if (rows[0].n >= 12) redirect('/club/page-edit?alumni=full#alumni');
+  await db.query(
+    `insert into alumni_entry (club_id, line, detail, sort, added_by, adults_confirmed_by, adults_confirmed_at)
+     values ($1,$2,$3,$4,$5,$5,now())`,
+    [clubId, line, detail || null, rows[0].next, me],
+  );
+  redirect('/club/page-edit?saved=alumni#alumni');
+}
+
+export async function removeAlumni(formData: FormData) {
+  const { clubId } = await manager();
+  const id = text(formData, 'alumniId');
+  if (isUuid(id)) await db.query(`delete from alumni_entry where id = $1 and club_id = $2`, [id, clubId]);
+  redirect('/club/page-edit?removed=alumni#alumni');
 }

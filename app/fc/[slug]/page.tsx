@@ -236,6 +236,16 @@ export default async function ClubPage({ params, searchParams }: {
           </div>
         )}
 
+        {/* The philosophy sits straight after the trials and before the way in
+            (BUZ, 19 Sep): lower down, families scrolled past the sign-up box
+            and never reached it. */}
+        {c.philosophy && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <h2 style={label}>Our philosophy</h2>
+            <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{c.philosophy}</div>
+          </div>
+        )}
+
         {/* The way onto the club's register. The club pays for this list and
             their own page had no door into it — the trials copy sent families
             around us to contact the club directly, which is the version of
@@ -295,13 +305,6 @@ export default async function ClubPage({ params, searchParams }: {
             <Link href="/join" style={{ background: T.surface2, color: T.ink, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none', border: `1px solid ${T.line}` }}>Build a CV first — it is what the club reads</Link>
           )}
         </div>
-
-        {c.philosophy && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h2 style={label}>Our philosophy</h2>
-            <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{c.philosophy}</div>
-          </div>
-        )}
 
         {/* The most-looked-at element on the page used to be eleven inert
             pills. A squad is the bucket the club's own register sorts into,

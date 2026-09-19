@@ -440,7 +440,9 @@ await db.query(`insert into coaching_role (club_id,title,age_group,detail,commit
 await db.query(`insert into club_video (club_id,url,title,sort) values
   ($1,'https://www.youtube.com/watch?v=dev-riverside-1','Our 2026 season',0),
   ($1,'https://www.youtube.com/watch?v=dev-riverside-2','A day at Riverside Park',1)`, [riverside]);
-await db.query(`insert into alumni_entry (club_id,line,detail,sort) values ($1,'Marco V. → NPL Victoria','Riverside juniors 2012–2018',0),($1,'Aylin D. → State representative squad','Riverside juniors 2011–2017',1),($1,'A 2019 U13 → our senior first team','Straight through the pathway, still playing',2)`, [riverside]);
+// Each entry carries the "Everyone named here is 18 or over" confirmation
+// (0051) — the TD confirmed it, as a real club would when adding them.
+await db.query(`insert into alumni_entry (club_id,line,detail,sort,added_by,adults_confirmed_by,adults_confirmed_at) values ($1,'Marco V. → NPL Victoria','Riverside juniors 2012–2018',0,$2,$2,now()),($1,'Aylin D. → State representative squad','Riverside juniors 2011–2017',1,$2,$2,now()),($1,'A 2019 U13 → our senior first team','Straight through the pathway, still playing',2,$2,$2,now())`, [riverside, td]);
 
 // coach fixture: Sam Kaya (doc 16 §3b) with a published public slug
 const sam = randomUUID();

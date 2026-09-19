@@ -8,7 +8,7 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { ClubConsole } from '@/components/console-shell';
-import { addClubVideo, removeClubVideo } from './actions';
+import { addClubVideo, removeClubVideo, saveClubStory, addWanted, removeWanted, addAlumni, removeAlumni } from './actions';
 import { T } from '@/lib/palette';
 import { card } from '@/lib/ui';
 
@@ -16,14 +16,14 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Edit your club page', robots: { index: false, follow: false } };
 
 export default async function ClubPageEdit({ searchParams }: {
-  searchParams: Promise<{ saved?: string; crest?: string; banner?: string; video?: string; removed?: string }>;
+  searchParams: Promise<{ saved?: string; crest?: string; banner?: string; video?: string; removed?: string; story?: string; wanted?: string; alumni?: string }>;
 }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
-  const { saved, crest, banner, video } = await searchParams;
+  const { saved, crest, banner, video, story, wanted, alumni } = await searchParams;
 
   const { rows } = await db.query(
-    `select c.id, c.name, c.crest_path, c.banner_path, c.public_slug from club c
+    `select c.id, c.name, c.crest_path, c.banner_path, c.public_slug, c.philosophy, c.pathway_line, c.established from club c
      join membership m on m.club_id = c.id and m.person_id = $1
        and m.role in ('technical_director','club_admin') and m.ended_at is null
      limit 1`,
@@ -34,6 +34,15 @@ export default async function ClubPageEdit({ searchParams }: {
   const videos = (await db.query(
     `select id, url, title from club_video where club_id = $1 order by sort, created_at`, [c.id],
   )).rows as { id: string; url: string; title: string }[];
+  const notices = (await db.query(
+    `select id, title, detail from players_wanted_notice where club_id = $1 order by created_at`, [c.id],
+  )).rows as { id: string; title: string; detail: string | null }[];
+  const wall = (await db.query(
+    `select id, line, detail from alumni_entry where club_id = $1 order by sort, created_at`, [c.id],
+  )).rows as { id: string; line: string; detail: string | null }[];
+  const warn = (msg: string) => <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>{msg}</div>;
+  const hint: React.CSSProperties = { fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 };
+  const removeBtn: React.CSSProperties = { height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 };
 
   return (
     <ClubConsole active="page-edit">
@@ -48,6 +57,22 @@ export default async function ClubPageEdit({ searchParams }: {
         {crest === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A PNG or JPEG under 8MB.</div>}
         {banner === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A JPEG or PNG under 12MB, landscape if you have one.</div>}
         {video === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give it a title, and a YouTube, Veo or Instagram link.</div>}
+
+        <form id="story" action={saveClubStory} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13, scrollMarginTop: 18 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>About your club</div>
+          {story === 'bad' && warn('The philosophy can be up to 400 characters, the pathway up to 80, and the year founded is four digits.')}
+          <label className="field"><span className="field-label">Our philosophy</span>
+            <textarea id="club-philosophy" name="philosophy" rows={4} maxLength={400} defaultValue={c.philosophy ?? ''} placeholder="Every junior plays, every junior develops." />
+          </label>
+          <label className="field"><span className="field-label">Pathway</span>
+            <input id="club-pathway" name="pathway" maxLength={80} defaultValue={c.pathway_line ?? ''} placeholder="MiniRoos → Juniors → Seniors" />
+          </label>
+          <label className="field"><span className="field-label">Year founded</span>
+            <input id="club-founded" name="founded" inputMode="numeric" pattern="(18|19|20)[0-9]{2}" maxLength={4} defaultValue={c.established ?? ''} placeholder="1974" />
+          </label>
+          <button type="submit" className="btn btn-primary">Save</button>
+          <div style={hint}>Your philosophy shows on your page straight after your trials. Up to 400 characters.</div>
+        </form>
 
         <form action="/club/page-edit/crest" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Club crest</div>
@@ -107,6 +132,66 @@ export default async function ClubPageEdit({ searchParams }: {
             It gets cropped to a wide strip and darkened towards the bottom, where your crest and your club name sit. Anything you want seen wants to be near the middle or the top.
           </div>
         </form>
+
+        <form id="wanted" action={addWanted} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13, scrollMarginTop: 18 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>Players wanted</div>
+          {wanted === 'bad' && warn('Give the notice a title of up to 60 characters. The detail line can be up to 100.')}
+          {wanted === 'full' && warn('Six notices is the most at once. Remove one first.')}
+          <label className="field"><span className="field-label">Title</span>
+            <input id="wanted-title" name="title" required maxLength={60} placeholder="U13 Boys — Goalkeeper" />
+          </label>
+          <label className="field"><span className="field-label">Detail</span>
+            <input id="wanted-detail" name="detail" maxLength={100} placeholder="Train Tue & Thu · immediate start" />
+          </label>
+          <button type="submit" className="btn btn-secondary">Add the notice</button>
+          <div style={hint}>Families see these on your page and register their interest from there. Up to six at a time.</div>
+        </form>
+        {notices.map((w) => (
+          <div key={w.id} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 800 }}>{w.title}</div>
+              {w.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{w.detail}</div>}
+            </div>
+            <form action={removeWanted}><input type="hidden" name="wantedId" value={w.id} />
+              <button type="submit" style={removeBtn}>Remove</button>
+            </form>
+          </div>
+        ))}
+
+        <form id="alumni" action={addAlumni} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13, scrollMarginTop: 18 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>Alumni wall</div>
+          {alumni === 'tick' && warn('Tick the box to confirm everyone named is 18 or over.')}
+          {alumni === 'bad' && warn('Who and where they went can be up to 40 characters each, and the detail up to 80.')}
+          {alumni === 'full' && warn('Twelve entries is the most at once. Remove one first.')}
+          <label className="field"><span className="field-label">Who</span>
+            <input id="alumni-who" name="who" required maxLength={40} placeholder="Marco V." />
+          </label>
+          <label className="field"><span className="field-label">Went on to</span>
+            <input id="alumni-to" name="to" maxLength={40} placeholder="NPL Victoria" />
+          </label>
+          <label className="field"><span className="field-label">Detail</span>
+            <input id="alumni-detail" name="detail" maxLength={80} placeholder="Juniors 2012–2018" />
+          </label>
+          <div style={{ fontSize: 12, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+            <b style={{ color: T.ink }}>Never name anyone under 18.</b> For a younger player, leave the name out: &ldquo;A 2019 U13, now in an NPL squad.&rdquo;
+          </div>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minHeight: 44, fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5, cursor: 'pointer' }}>
+            <input id="alumni-adults" type="checkbox" name="adults" value="yes" required style={{ marginTop: 3 }} />
+            Everyone named here is 18 or over.
+          </label>
+          <button type="submit" className="btn btn-secondary">Add to the wall</button>
+        </form>
+        {wall.map((a) => (
+          <div key={a.id} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 800 }}>{a.line}</div>
+              {a.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{a.detail}</div>}
+            </div>
+            <form action={removeAlumni}><input type="hidden" name="alumniId" value={a.id} />
+              <button type="submit" style={removeBtn}>Remove</button>
+            </form>
+          </div>
+        ))}
 
         <form action={addClubVideo} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Club video</div>

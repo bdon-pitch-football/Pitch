@@ -1210,6 +1210,67 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('ks-w13: someone signed out cannot reach the console', (await get('/ops/switches', null)).status, 307);
 }
 
+// ---- a club edits its own page (0051, BUZ 19 Sep) --------------------------
+{
+  const td = ids.people.marina, admin = ids.people.pat, coach = ids.people.sam, parent = ids.people.alex;
+  const send = async (who, form, extra) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ ...(form?.fields ?? {}), ...extra })) fd.append(k, v);
+    const r = await fetch(BASE + '/club/page-edit', { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '' };
+  };
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const pub = async () => words((await get('/fc/riverside-fc', null)).html);
+  const editHtml = (await get('/club/page-edit', td)).html;
+  const f = forms(editHtml);
+  const story = f.find((x) => x.visible.some((v) => v.name === 'philosophy'));
+  const wantedForm = f.find((x) => x.visible.some((v) => v.name === 'title') && !x.visible.some((v) => v.name === 'url'));
+  const alumniForm = f.find((x) => x.visible.some((v) => v.name === 'who'));
+  check('ce1: the club page editor has the story, players-wanted and alumni forms', [Boolean(story), Boolean(wantedForm), Boolean(alumniForm)], [true, true, true]);
+
+  await send(td, story, { philosophy: 'We keep kids in football. Every junior plays.', pathway: 'MiniRoos → Juniors → Seniors', founded: '1974' });
+  let page = await pub();
+  check('ce2: the TD saves the philosophy and it is on the public page', page.includes('We keep kids in football. Every junior plays.'), true);
+  const iTrials = page.indexOf('Trials'), iPhil = page.indexOf('Our philosophy'), iPlay = page.indexOf('Want to play here?');
+  check('ce3: the philosophy sits after the trials and before the way in', iTrials < iPhil && iPhil < iPlay, true);
+  const badYear = await send(td, story, { philosophy: 'x', pathway: '', founded: '3024' });
+  const tooLong = await send(td, story, { philosophy: 'x'.repeat(401), pathway: '', founded: '' });
+  check('ce4: a year that is not a year, or 401 characters, is refused, not trimmed',
+    [/story=bad/.test(badYear.location), /story=bad/.test(tooLong.location), (await pub()).includes('We keep kids in football.')], [true, true, true]);
+  await send(admin, story, { philosophy: 'Set by the club administrator.', pathway: '', founded: '' });
+  check('ce5: the club administrator can edit it too', (await pub()).includes('Set by the club administrator.'), true);
+  await send(coach, story, { philosophy: 'A coach wrote this.', pathway: '', founded: '' });
+  await send(parent, story, { philosophy: 'A parent wrote this.', pathway: '', founded: '' });
+  page = await pub();
+  check('ce6: a coach or a parent posting the same form changes nothing', [page.includes('A coach wrote this.'), page.includes('A parent wrote this.')], [false, false]);
+
+  await send(td, wantedForm, { title: 'U15 Girls — Centre back', detail: 'Wednesday nights · 2027 squad' });
+  check('ce7: a players-wanted notice goes up', (await pub()).includes('U15 Girls — Centre back'), true);
+  for (let i = 0; i < 6; i++) await send(td, wantedForm, { title: `Filler notice ${i}`, detail: '' });
+  const full = await send(td, wantedForm, { title: 'One too many', detail: '' });
+  check('ce8: six notices is the most at once', [/wanted=full/.test(full.location), (await pub()).includes('One too many')], [true, false]);
+  const newest = forms((await get('/club/page-edit', td)).html).filter((x) => 'wantedId' in x.fields);
+  const html2 = (await get('/club/page-edit', td)).html;
+  const centreId = /U15 Girls — Centre back[\s\S]*?name="wantedId" value="([0-9a-f-]{36})"/.exec(html2)?.[1];
+  await send(td, newest[0], { wantedId: centreId });
+  check('ce9: and one comes down', (await pub()).includes('U15 Girls — Centre back'), false);
+
+  const noTick = await send(td, alumniForm, { who: 'Nico P.', to: 'A-League Youth', detail: 'Juniors 2014–2020' });
+  check('ce10: an alumni entry without "Everyone named here is 18 or over" is refused, even without the form',
+    [/alumni=tick/.test(noTick.location), (await pub()).includes('Nico P.')], [true, false]);
+  await send(td, alumniForm, { who: 'Nico P.', to: 'A-League Youth', detail: 'Juniors 2014–2020', adults: 'yes' });
+  page = await pub();
+  check('ce11: with the tick it goes on the wall, as who → where', page.includes('Nico P.') && page.includes('A-League Youth'), true);
+  await send(coach, alumniForm, { who: 'Coach Entry', to: 'Nowhere', detail: '', adults: 'yes' });
+  check('ce12: a coach cannot add to the wall', (await pub()).includes('Coach Entry'), false);
+  const html3 = (await get('/club/page-edit', td)).html;
+  const nicoId = /Nico P\.[\s\S]*?name="alumniId" value="([0-9a-f-]{36})"/.exec(html3)?.[1];
+  const af = forms(html3).find((x) => 'alumniId' in x.fields);
+  await send(td, af, { alumniId: nicoId });
+  check('ce13: and the TD can take it down', (await pub()).includes('Nico P.'), false);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 console.log('NOTE: this mutated the dev database. Restart scripts/dev-db.mts for a clean one.');
 process.exit(failures.length ? 1 : 0);

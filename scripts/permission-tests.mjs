@@ -3385,5 +3385,20 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [/import\('\.\.\/lib\/messages\.ts'\)/.test(layer), (layer.match(/await put\(m\.[a-zA-Z]+\(/g) ?? []).length >= 4, /put\(\{/.test(layer)], [true, true, false]);
 }
 
+// ---- 0051: the alumni wall never names anyone under 18 -----------------------
+// The form asks "Everyone named here is 18 or over"; the database refuses an
+// entry that does not carry that confirmation, so skipping the form does not
+// skip the rule. Club-page text is capped in the database as well.
+{
+  const r = async (sql, args) => { try { await db.query(sql, args); return false; } catch { return true; } };
+  check('AL1: an alumni entry with no "18 or over" confirmation is refused by the database',
+    await r(`insert into alumni_entry (club_id, line) values ($1, 'Someone → Somewhere')`, [CLUB.riverside]), true);
+  check('AL2: with the confirmation recorded, it is accepted',
+    await r(`insert into alumni_entry (club_id, line, adults_confirmed_by, adults_confirmed_at) values ($1, 'Someone → Somewhere', $2, now())`, [CLUB.riverside, ID.td]), false);
+  check('AL3: a philosophy over 400 characters, or a year that is not one, is refused by the database',
+    [await r(`update club set philosophy = repeat('x', 401) where id = $1`, [CLUB.riverside]),
+     await r(`update club set established = 'long ago' where id = $1`, [CLUB.riverside])], [true, true]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);
