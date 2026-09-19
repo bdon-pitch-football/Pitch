@@ -3377,6 +3377,12 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [/if \(!isDemo\(\)\) notFound\(\)/.test(srcOf('app/demo/page.tsx')), /if \(!isDemo\(\)\) redirect/.test(srcOf('app/demo/actions.ts'))], [true, true]);
   check('DEMO6: the demo renames the club only — it loads no person',
     /insert into person/i.test(srcOf('scripts/demo-layer.mts')), false);
+  // "If a message is not in doc 15, it does not send" — and a club is shown
+  // these as what families receive, so they are built by lib/messages, never
+  // typed into the demo.
+  const layer = srcOf('scripts/demo-layer.mts');
+  check('DEMO7: the demo\'s sample messages are the catalogue\'s own words',
+    [/import\('\.\.\/lib\/messages\.ts'\)/.test(layer), (layer.match(/await put\(m\.[a-zA-Z]+\(/g) ?? []).length >= 4, /put\(\{/.test(layer)], [true, true, false]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

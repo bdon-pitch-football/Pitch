@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
+import { isDemo } from '@/lib/demo';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Outbox', robots: { index: false, follow: false } };
@@ -16,6 +17,9 @@ export default async function Outbox() {
        to_char(created_at at time zone 'Australia/Melbourne', 'DD Mon HH24:MI') as at
      from message_outbox order by created_at desc limit 50`,
   );
+  // In a club demo this page is shown to a club, so it speaks plainly and
+  // hides the catalogue keys (lib/demo).
+  const demo = isDemo();
   const msgs = rows as { message_key: string; channel: string; to_address: string; subject: string | null; body: string; at: string }[];
 
   return (
@@ -23,9 +27,11 @@ export default async function Outbox() {
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Outbox</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{demo ? 'What families receive' : 'Outbox'}</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>
-            Development only. Nothing has been sent — these are the messages the product would send, exactly as written in doc 15.
+            {demo
+              ? 'The texts and emails Pitch sends, word for word. In this demo nothing is actually sent.'
+              : 'Development only. Nothing has been sent — these are the messages the product would send, exactly as written in doc 15.'}
           </div>
         </div>
         {msgs.length === 0 && (
@@ -37,7 +43,7 @@ export default async function Outbox() {
           <div key={i} className="lift" style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ background: m.channel === 'sms' ? 'rgba(237,161,0,.14)' : 'rgba(61,220,132,.14)', color: m.channel === 'sms' ? T.amber : T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{m.channel}</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{m.message_key}</span>
+              {!demo && <span style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{m.message_key}</span>}
               <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>→ {m.to_address}</span>
               <span style={{ fontSize: 11, color: T.muted, fontWeight: 500, marginLeft: 'auto' }}>{m.at}</span>
             </div>

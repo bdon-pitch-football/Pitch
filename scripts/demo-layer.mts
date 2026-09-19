@@ -108,7 +108,156 @@ export async function applyDemo(db: PGlite, o: DemoOptions): Promise<{ slug: str
      where content ? 'clubCrestPath' and content->>'club' = $1`,
     [club, crestRel]);
 
+  await enrichRegistrants(db, clubId);
+  await sampleMessages(db, clubId);
+
   return { slug, clubId };
+}
+
+// ---------------------------------------------------------------------------
+// The register's 96 background players were seeded to test grouping at size:
+// a first name, positions and stats. Opened in front of a club they looked
+// empty. In a demo only, each gets what a real page carries — a surname, their
+// own line about how they play, a club before this one, a clip, and for some
+// an honour. All invented. Nothing about health, school or where they live
+// (D-114, D-25): the same rules a real page follows.
+// ---------------------------------------------------------------------------
+const SURNAMES = ['Okafor', 'Rossi', 'Tran', 'Kelly', 'Haddad', 'Singh', 'Walker', 'Novak', 'Mensah', 'Costa',
+  'Brennan', 'Demir', 'Fraser', 'Lindqvist', 'Ahmadi', 'Moreau', 'Clarke', 'Papadakis', 'Nakamura', 'Osei',
+  'Murphy', 'Ivanovic', 'Lopez', 'Chen', 'Barrett', 'Farah', 'Kowalski', 'Reyes', 'Sutherland', 'Aydin'];
+const ABOUT_OUTFIELD = [
+  'Two-footed and happiest on the ball. Looking for a club that plays through the thirds.',
+  'Quick over ten metres and not afraid to take a player on. Want more minutes next season.',
+  'Holds the ball up well and links play. Started up front, now just as happy out wide.',
+  'Reads the game early and wins it back. Captained my team for most of last season.',
+  'Left-sided, likes to overlap and deliver early crosses. Trains three times a week.',
+  'A ten who likes to receive between the lines. Working on finishing with my weaker foot.',
+  'Tall, good in the air at both ends. Comfortable stepping out with the ball.',
+  'Played every minute last season. After a club where the training is harder.',
+  'Box-to-box, covers a lot of ground. Took most of our set pieces this year.',
+  'Direct runner in behind. Scored in both cup games this season.',
+];
+const ABOUT_GK = [
+  'Keeper who likes to sweep and play out from the back. Good with both feet.',
+  'Commanding on crosses and loud with my back four. Looking for more game time.',
+  'Shot-stopper first. Working on distribution with the goalkeeping coach.',
+];
+// Where they play now: other made-up clubs already in the seed, so the page's
+// club line is a real club row, as it is for every player on Pitch. A player
+// registers interest in the demo club FROM somewhere.
+const CURRENT = ['Northern United SC', 'Coburg City FC', 'Westgate Rangers'];
+const PREVIOUS = ['Brunswick Juniors SC', 'Kingsway Rovers FC', 'Sunbury United']; // seed names only, never a real club
+const HONOURS = [
+  ['Club best and fairest', 'Voted by the coaches'],
+  ['League runners-up', 'Played every round'],
+  ['Players’ player', 'Voted by teammates'],
+  ['Cup winners', 'Started in the final'],
+  ['Most improved', 'End of season awards'],
+];
+
+async function enrichRegistrants(db: PGlite, clubId: string) {
+  const { rows } = await db.query<{ person_id: string; record_id: string; positions: string[]; minor: boolean; u16: boolean; squad: string | null }>(
+    `select p.id as person_id, dr.id as record_id, dr.positions,
+            fn_age_band(p.dob) <> '18plus' as minor, fn_age_band(p.dob) = 'u16' as u16, s.name as squad
+     from registration r
+     join person p on p.id = r.player_id
+     join development_record dr on dr.person_id = p.id
+     left join squad s on s.id = r.squad_target
+     where r.club_id = $1 and p.last_name is null
+     order by p.first_name, p.dob`, [clubId]);
+  const clubs = (await db.query<{ id: string; name: string; crest_path: string | null; suburb: string | null; state: string | null }>(
+    `select distinct on (name) id, name, crest_path, suburb, state from club where name = any($1) order by name, id`, [CURRENT])).rows;
+
+  for (const [i, r] of rows.entries()) {
+    const gk = r.positions.includes('GK');
+    const lastName = SURNAMES[(i * 7) % SURNAMES.length];
+    const about = gk ? ABOUT_GK[i % ABOUT_GK.length] : ABOUT_OUTFIELD[(i * 3) % ABOUT_OUTFIELD.length];
+    const prev = { orgName: PREVIOUS[i % PREVIOUS.length], period: `${2020 + (i % 3)}–${2023 + (i % 2)}` };
+    const now = clubs.length ? clubs[i % clubs.length] : null;
+    const clip = i % 4 === 3 ? null : {
+      title: gk ? 'Saves and distribution, 2026' : i % 2 ? 'Season highlights 2026' : 'Goals and assists, 2026',
+      url: `https://www.youtube.com/watch?v=demo-${i}`,
+    };
+    const honour = i % 4 === 0 ? HONOURS[(i / 4) % HONOURS.length] : null;
+    const achievement = honour ? { title: honour[0], detail: `${honour[1]} · 2025` } : null;
+
+    await db.query(`update person set last_name = $2 where id = $1`, [r.person_id, lastName]);
+    if (now) {
+      await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'player')`, [r.person_id, now.id]);
+    }
+    await db.query(`update development_record set about = $2 where id = $1`, [r.record_id, about]);
+    await db.query(`insert into experience_entry (record_id, kind, org_name, season_label) values ($1,'previous_club',$2,$3)`,
+      [r.record_id, prev.orgName, prev.period]);
+    if (clip) {
+      await db.query(`insert into highlight (record_id, url, title, added_as_minor) values ($1,$2,$3,$4)`,
+        [r.record_id, clip.url, clip.title, r.minor]);
+    }
+    if (achievement) {
+      await db.query(`insert into achievement (record_id, title, detail, sort) values ($1,$2,$3,0)`,
+        [r.record_id, achievement.title, achievement.detail]);
+    }
+    // An under-16's page IS the approved snapshot (D-119), so it gets the same.
+    if (r.u16) {
+      await db.query(
+        `update profile_version set content = content || $2::jsonb where record_id = $1 and status = 'approved'`,
+        [r.record_id, JSON.stringify({
+          lastName, about,
+          previousClubs: [prev],
+          ...(now ? {
+            club: now.name,
+            clubCrestPath: now.crest_path ?? undefined,
+            locality: [now.suburb, now.state].filter(Boolean).join(' ') || undefined,
+            squad: { name: r.squad ?? '', ageGroup: '', competitionGender: null },
+          } : {}),
+          highlights: clip ? [clip] : [],
+          highlightsUsed: clip ? 1 : 0,
+          achievements: achievement ? [achievement] : [],
+        })]);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "What families receive" opened empty, which is the one moment in the demo
+// where BUZ wants to show the message itself. Four real messages, built by the
+// same functions that send them (doc 15, lib/messages) so the words are the
+// approved words: a parent asked to approve, the bare wake a trial invitation
+// sends, and the CV email a club receives. Needs node --conditions=react-server
+// (the launcher passes it) because lib/messages is server-only.
+// ---------------------------------------------------------------------------
+async function sampleMessages(db: PGlite, clubId: string) {
+  let m: typeof import('../lib/messages.ts');
+  try {
+    m = await import('../lib/messages.ts');
+  } catch {
+    console.warn('demo: sample messages skipped (start the demo with npm run demo)');
+    return;
+  }
+  // Numbers from the range ACMA sets aside for fiction; never a real phone.
+  const parentPhone = '+61491570156';
+  const priyaPhone = '+61491570157';
+  const clubMail = (await db.query<{ cv_email: string | null }>(
+    `select cv_email from trial_notice where club_id = $1 and cv_email is not null limit 1`, [clubId])).rows[0]?.cv_email
+    ?? 'football@club.example.au';
+  const nate = (await db.query<{ positions: string[]; club: string }>(
+    `select dr.positions, c.name as club from person p
+     join development_record dr on dr.person_id = p.id
+     join membership m on m.person_id = p.id and m.role = 'player'
+     join club c on c.id = m.club_id where p.first_name = 'Nate' limit 1`)).rows[0];
+
+  const put = async (msg: { key: string; channel: 'sms' | 'email'; subject?: string; body: string }, to: string, minutesAgo: number) =>
+    db.query(
+      `insert into message_outbox (message_key, channel, to_address, subject, body, created_at)
+       values ($1,$2,$3,$4,$5, now() - ($6 || ' minutes')::interval)`,
+      [msg.key, msg.channel, to, msg.subject ?? null, msg.body, String(minutesAgo)]);
+
+  if (nate) {
+    await put(m.cvToClubEmail('Nate', 17, nate.positions.join(' · '), nate.club, 'demo-link', 'self', '16_17'), clubMail, 1440);
+  }
+  await put(m.bareWakeSms(), parentPhone, 180);
+  await put(m.bareWakeEmail(), 'guardian@example.com', 179);
+  await put(m.guardianApprovalSms('Mila', 13, 'demo-link'), priyaPhone, 25);
+  await put(m.guardianApprovalEmail('Mila', 13, 'demo-link'), 'priya@example.com', 24);
 }
 
 function shieldSvg(letters: string, year: string | null): string {

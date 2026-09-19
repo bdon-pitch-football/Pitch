@@ -22,7 +22,7 @@ export default async function Demo() {
     [`/fc/${club?.public_slug ?? ''}`, `${name}’s page`, 'What families see before they register interest.'],
     ['/trials', 'The trials board', 'Every trial, filtered by age group, gender and position.'],
     ['/p/dev-deniz', 'A player’s CV', 'What reaches the club when a family sends it.'],
-    ['/dev/outbox', 'What families receive', 'Every email and text the demo would have sent.'],
+    ['/dev/outbox', 'What families receive', 'The texts and emails Pitch sends, word for word.'],
   ];
 
   return (

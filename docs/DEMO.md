@@ -38,7 +38,10 @@ the list of seats at any time.
    - Home: 100 players on the register, with how many are new or
      shortlisted and how many have been invited.
    - **Register:** every player who has registered interest, sorted by
-     team. Open a CV. Shortlist someone and invite them to a trial.
+     team. Open any CV: every player has their own line, their clubs and most
+     have a clip. **Deniz, Georgia and Nate** have the fullest pages
+     (honours, other football, several clips), so open one of them first.
+     Shortlist someone and invite them to a trial.
    - Ask them: *where does your EOI list live now?*
 3. **A coach.** Switch to *Sam Kaya*. They see only the two teams the TD
    gave them, never the whole club.
@@ -47,7 +50,10 @@ the list of seats at any time.
    never reads a child's record.
 5. **The parent.** Switch to *Alex*. The trial invitation from step 2 is
    waiting for them. Nothing goes back to the club until the parent says so.
-   Then open *What families receive* on /demo to show the email itself.
+   Then open *What families receive* on /demo. It already holds the real
+   messages, word for word: the parent's approval text and email, the
+   "something is waiting" alert a trial invitation sends (no names, no club),
+   and the email a club receives when a CV is sent.
 6. **The price.** The Interest Register is $54 a month, cancel any time, or
    $329 a year. The club page, teams, trial notices, CVs by email and WWCC
    verification are free.
