@@ -2,7 +2,7 @@
   "name": "pitch-coming-soon",
   "private": true,
   "version": "0.1.0",
-  "description": "Pitch Football — pre-launch site at pitchfootball.com.au (doc 29)",
+  "description": "Pitch Football \u2014 pre-launch site at pitchfootball.com.au (doc 29)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,7 +11,8 @@
     "build:check": "NEXT_DIST_DIR=.next-check next build",
     "test:render": "node scripts/render-tests.mjs",
     "test:perms": "node scripts/permission-tests.mjs",
-    "test:write": "node scripts/write-tests.mjs"
+    "test:write": "node scripts/write-tests.mjs",
+    "demo": "node scripts/demo.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite-socket": "^0.2.11",

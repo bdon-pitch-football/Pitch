@@ -14,6 +14,8 @@ const nextConfig = {
   // a CSS bug and is not one. `npm run build:check` sets NEXT_DIST_DIR so the
   // two never collide.
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  // No developer badge in front of a club (npm run demo).
+  devIndicators: process.env.PITCH_DEMO === '1' ? false : undefined,
 
   // Development only. By default `next dev` throws a compiled page away after
   // a minute unused, and the test suites walk dozens of pages — so the server

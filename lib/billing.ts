@@ -10,6 +10,7 @@
 // Until the account exists these functions report themselves unconfigured and
 // the UI says so plainly rather than pretending to take money.
 import 'server-only';
+import { isDemo } from './demo';
 
 export const PRICES = {
   register_monthly: { label: '$54 a month', amount: 5400, cadence: 'month' as const },
@@ -17,8 +18,9 @@ export const PRICES = {
 };
 export type PlanKey = keyof typeof PRICES;
 
+// A demo never reaches Stripe (lib/demo).
 export const billingConfigured = () =>
-  Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_MONTHLY && process.env.STRIPE_PRICE_ANNUAL);
+  !isDemo() && Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_MONTHLY && process.env.STRIPE_PRICE_ANNUAL);
 
 // Creates a hosted Checkout session. The disclosure — price, frequency, that
 // it renews, and how to cancel — has already been shown on OUR page before

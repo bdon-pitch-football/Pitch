@@ -10,6 +10,7 @@
 // the transport apart is what stops a future adapter quietly acquiring the
 // power to send something doc 15 never approved.
 import 'server-only';
+import { isDemo } from './demo';
 
 export type Dispatch =
   | { ok: true; providerId: string }
@@ -19,7 +20,8 @@ export type Dispatch =
 export async function sendEmail(to: string, subject: string, body: string, replyTo?: string): Promise<Dispatch> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
-  if (!key || !from) return { ok: false, reason: 'not_configured', permanent: false };
+  // A demo never sends: the message waits in the outbox, exactly as in dev.
+  if (isDemo() || !key || !from) return { ok: false, reason: 'not_configured', permanent: false };
 
   let res: Response;
   try {
@@ -65,7 +67,7 @@ export async function sendSms(to: string, body: string): Promise<Dispatch> {
   const sid = process.env.SMS_ACCOUNT_SID;
   const key = process.env.SMS_API_KEY;
   const from = process.env.SMS_LONG_NUMBER;
-  if (!sid || !key || !from) return { ok: false, reason: 'not_configured', permanent: false };
+  if (isDemo() || !sid || !key || !from) return { ok: false, reason: 'not_configured', permanent: false };
 
   let res: Response;
   try {

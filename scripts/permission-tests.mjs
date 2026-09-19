@@ -3059,7 +3059,7 @@ check('ctl4: and it has a stable tiebreak within the same second',
     }
   })(compDir);
   const seeded = [...routeFiles, ...componentFiles].filter((f) => {
-    if (/cv-preview|\/design\//.test(f)) return false;   // dev-only surfaces
+    if (/cv-preview|\/design\/|app\/demo\//.test(f)) return false;   // dev-only surfaces (demo: lib/demo)
     const src = codeOnly(readFileSync(f, 'utf8')).toLowerCase();
     return slugs.some((sl) => src.includes(`'${sl}'`));
   }).map((f) => f.slice(Math.max(f.indexOf('app/'), f.indexOf('components/'))));
@@ -3360,6 +3360,23 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     (await db.query(`select links_affected, reason from ops_switch_event where action = 'links_all_revoked'`)).rows[0], { links_affected: liveBefore, reason: 'breach drill' });
   check('ks17: the timeline row carries no token and no free text',
     (await db.query(`select detail from consent_event where detail->>'kind' = 'pitch' limit 1`)).rows[0].detail, { kind: 'pitch' });
+}
+
+// ---- the club demo (npm run demo, 19 Sep): the locks that keep it harmless --
+{
+  const demo = srcOf('lib/demo.ts'), dbSrc = srcOf('lib/db.ts'), prov = srcOf('lib/providers.ts');
+  check('DEMO1: demo mode refuses to run in a production build',
+    /NODE_ENV === 'production'[\s\S]{0,40}throw/.test(demo), true);
+  check('DEMO2: a demo reads only its own local database, whatever SUPABASE_DB_URL says',
+    [/isDemo\(\) \? DEMO_DB_URL/.test(dbSrc), /127\.0\.0\.1:\$\{DEMO_DB_PORT\}/.test(demo), /DEMO_DB_PORT = 54323/.test(demo)], [true, true, true]);
+  check('DEMO3: a demo sends no email and no SMS',
+    (prov.match(/isDemo\(\) \|\|/g) ?? []).length, 2);
+  check('DEMO4: a demo never reaches Stripe or the waitlist',
+    [/!isDemo\(\) && Boolean/.test(srcOf('lib/billing.ts')), /!isDemo\(\) && Boolean/.test(srcOf('lib/waitlist-db.ts'))], [true, true]);
+  check('DEMO5: the seat picker and its sign-in exist only in a demo',
+    [/if \(!isDemo\(\)\) notFound\(\)/.test(srcOf('app/demo/page.tsx')), /if \(!isDemo\(\)\) redirect/.test(srcOf('app/demo/actions.ts'))], [true, true]);
+  check('DEMO6: the demo renames the club only — it loads no person',
+    /insert into person/i.test(srcOf('scripts/demo-layer.mts')), false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

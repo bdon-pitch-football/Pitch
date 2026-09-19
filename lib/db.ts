@@ -4,10 +4,12 @@
 // database (scripts/dev-db.mts); in production it is the Sydney project.
 import 'server-only';
 import { Pool } from 'pg';
+import { isDemo, DEMO_DB_URL } from './demo';
 
 const DEV_URL = 'postgres://postgres@127.0.0.1:54322/postgres';
 
-const url =
+// A demo reads its own local database and nothing else (lib/demo).
+const url = isDemo() ? DEMO_DB_URL :
   process.env.SUPABASE_DB_URL ||
   (process.env.NODE_ENV !== 'production' ? DEV_URL : undefined);
 

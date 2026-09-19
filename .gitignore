@@ -44,3 +44,6 @@ test-results/
 
 # Production build used to verify while `next dev` owns .next
 /.next-check/
+
+# The demo build (npm run demo)
+/.next-demo/

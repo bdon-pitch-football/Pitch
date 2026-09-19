@@ -4,6 +4,8 @@ import { Analytics } from '@vercel/analytics/next';
 import { connection } from 'next/server';
 import './globals.css';
 import SiteFooter from '@/components/SiteFooter';
+import DemoBar from '@/components/DemoBar';
+import { isDemo } from '@/lib/demo';
 
 const archivo = Archivo({
   subsets: ['latin', 'latin-ext'],
@@ -68,6 +70,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // asks it to, and moving between pages stays instant.
     <html lang="en-AU" data-scroll-behavior="smooth">
       <body className={archivo.className}>
+        {isDemo() && <DemoBar />}
         {children}
         <SiteFooter />
         {/* Vercel Web Analytics — cookieless aggregate counts only (doc 29 §9

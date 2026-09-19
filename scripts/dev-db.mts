@@ -604,9 +604,24 @@ await db.query(
   [await personOf('Georgia'), kingsway, guardian, kingswayTrial],
 );
 
-const server = new PGLiteSocketServer({ db, port: 54322, host: '127.0.0.1', inspect: false });
+// Demo mode (npm run demo): rename the club to the one BUZ is meeting, and
+// serve on the demo port so a demo and the dev database never meet.
+const DEMO = process.env.DEMO_CLUB?.trim();
+let demoSlug = '';
+if (DEMO) {
+  const { applyDemo } = await import('./demo-layer.mts');
+  demoSlug = (await applyDemo(db, {
+    club: DEMO,
+    suburb: process.env.DEMO_SUBURB || undefined,
+    state: process.env.DEMO_STATE || undefined,
+    crest: process.env.DEMO_CREST || undefined,
+    ground: process.env.DEMO_GROUND || undefined,
+  })).slug;
+}
+const PORT = DEMO ? 54323 : 54322;
+const server = new PGLiteSocketServer({ db, port: PORT, host: '127.0.0.1', inspect: false });
 await server.start();
-console.log('dev db ready on 127.0.0.1:54322');
+console.log(`${DEMO ? 'demo' : 'dev'} db ready on 127.0.0.1:${PORT}${DEMO ? ` · club page /fc/${demoSlug}` : ''}`);
 // Printed from the fixtures rather than typed out, so a new one appears here
 // the day it is added — the old line had gone stale within one fixture.
 // A BRAND-NEW SIGNUP: an account and nothing else — no record, no club, no
@@ -655,7 +670,8 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
      where g.guardian_id = (select id from person where email = 'guardian@example.com')
      order by c.first_name`,
   );
-  writeFileSync(
+  // A demo keeps its ids to itself: the tests read this file.
+  if (!DEMO) writeFileSync(
     fileURLToPath(new URL('../.dev-ids.json', import.meta.url)),
     JSON.stringify({
       people: Object.fromEntries(who.rows.map((r) => [String(r.first_name).toLowerCase(), r.id])),

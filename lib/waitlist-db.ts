@@ -1,4 +1,5 @@
 import 'server-only';
+import { isDemo } from './demo';
 
 // ============================================================================
 // THE ONLY FILE THAT MAY TOUCH THE WAITLIST TABLE (doc 29 §3, D-80 pattern).
@@ -12,7 +13,8 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function configured(): boolean {
-  return Boolean(SUPABASE_URL && SERVICE_KEY);
+  // A demo never writes to the real waitlist (lib/demo).
+  return !isDemo() && Boolean(SUPABASE_URL && SERVICE_KEY);
 }
 
 function headers(extra?: Record<string, string>): Record<string, string> {
