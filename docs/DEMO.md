@@ -20,7 +20,8 @@ required. About ten seconds later your browser opens at
   `--crest ~/Downloads/their-crest.png`. Without it the demo draws a plain
   shield with their initials.
 - **Starting clean:** every start is a fresh demo. Press **Ctrl+C** in
-  Terminal to stop it, then run the command again.
+  Terminal to stop it, then run the command again. Running the command while
+  a demo is already going replaces it — you don't have to find the old one.
 - **Open pages early.** Click through the seats once before the meeting.
   The first visit to each page takes a few seconds to build; after that
   it's instant.

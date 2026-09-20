@@ -4,7 +4,7 @@
 // a fresh demo database on its own port (54323), the app on port 3030 with
 // its own build folder, so a demo never touches the dev database, the dev
 // server, or anything real. Every restart is a clean demo. Ctrl+C stops both.
-import { spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
@@ -30,6 +30,35 @@ const quiet = {
   STRIPE_SECRET_KEY: '', STRIPE_PRICE_MONTHLY: '', STRIPE_PRICE_ANNUAL: '', STRIPE_WEBHOOK_SECRET: '',
   WAITLIST_ENABLED: 'false',
 };
+
+// A demo already running holds these ports. In a meeting the useful answer is
+// to take it over, not to print an address-in-use trace: it is our own
+// process, and the person running this wants a demo now.
+function takeOver() {
+  for (const port of [PORT, 54323]) {
+    let pids = [];
+    try {
+      pids = execSync(`lsof -ti :${port} -sTCP:LISTEN`, { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().trim().split('\n').filter(Boolean);
+    } catch { continue; }
+    for (const pid of pids) {
+      let cmd = '';
+      try { cmd = execSync(`ps -o command= -p ${pid}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString(); } catch { continue; }
+      // Only ever our own demo: the demo database, or next dev on the demo port.
+      if (/dev-db\.mts/.test(cmd) || new RegExp(`next.*dev.*-p ${PORT}`).test(cmd)) {
+        console.log('Replacing the demo that was already running…');
+        try { process.kill(Number(pid)); } catch { /* already gone */ }
+      }
+    }
+    // Wait for the port to come free, or the next listen fails the same way.
+    const until = Date.now() + 8000;
+    while (Date.now() < until) {
+      try { execSync(`lsof -ti :${port} -sTCP:LISTEN`, { stdio: ['ignore', 'pipe', 'ignore'] }); } catch { break; }
+      try { execSync('sleep 0.3'); } catch { /* ignore */ }
+    }
+  }
+}
+takeOver();
 
 const dbProc = spawn('node', ['--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--conditions=react-server', 'scripts/dev-db.mts'], {
   cwd: repo,
