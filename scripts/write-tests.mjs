@@ -1271,6 +1271,128 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('ce13: and the TD can take it down', (await pub()).includes('Nico P.'), false);
 }
 
+// ---- who is in each squad (0052, D-158) ------------------------------------
+// The family asks and the club confirms; the club asks and the family
+// accepts. Both doors end at one membership, and the membership is what puts
+// a club on a public CV.
+{
+  const td = ids.people.marina, admin = ids.people.pat, coach = ids.people.sam;
+  const jordan = ids.people.jordan, alex = ids.people.alex, nate = ids.children.nate;
+  const deniz = ids.children.deniz;
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;/g, "'").replace(/\s+/g, ' ');
+  const postTo = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '' };
+  };
+  const formOn = async (path, who, has) => forms((await get(path, who)).html).find((f) => f.visible.some((v) => v.name === has) || has in (f.fields ?? {}));
+  const squadsHtml = (await get('/club/squads', td)).html;
+  const u15 = /href="\/club\/squads\/([0-9a-f-]{36})"[^>]*>U15 Boys</.exec(squadsHtml)?.[1]
+    ?? [...squadsHtml.matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)][0]?.[1];
+  check('sq1: the squads list links into a squad', Boolean(u15), true);
+
+  // The family door. Jordan is an adult and acts alone (D-91 from 16).
+  const leaveForm = await formOn('/home', jordan, 'personId');
+  await postTo('/home', jordan, { ...(leaveForm?.fields ?? {}), personId: jordan, back: '/home' });
+  const ask = await postTo(`/squad/${jordan}`, jordan, {
+    ...((await formOn(`/squad/${jordan}?club=${ids.clubs['riverside-fc']}`, jordan, 'squadId'))?.fields ?? {}),
+    personId: jordan, squadId: u15, back: '/home',
+  });
+  check('sq2: an adult player asks a club to confirm where they play', /squad=asked/.test(ask.location), true);
+  const clubView = words((await get(`/club/squads/${u15}`, td)).html);
+  check('sq3: it lands on the club\'s squad page as something waiting on them', /says they play here/.test(clubView), true);
+  // Their own page, as a club sees it (the sweep has already replaced the
+  // dev share link by this point, so the preview is the honest surface).
+  const jordanRec = /href="\/build\/([0-9a-f-]{36})\/preview"/.exec((await get('/home', jordan)).html)?.[1];
+  check('sq4: and nothing is on their page until the club confirms it',
+    words((await get(`/build/${jordanRec}/preview`, jordan)).html).includes('Riverside FC'), false);
+
+  const claimForm = forms((await get(`/club/squads/${u15}`, td)).html).find((f) => 'claimId' in f.fields);
+  check('sq5: a coach cannot confirm it', (await postTo(`/club/squads/${u15}`, coach, { ...claimForm.fields, answer: 'yes' })).location, '/home');
+  await postTo(`/club/squads/${u15}`, td, { ...claimForm.fields, answer: 'yes' });
+  const roster = words((await get(`/club/squads/${u15}`, td)).html);
+  check('sq6: confirmed, the player is in the squad', /Jordan/.test(roster), true);
+  const jordanPage = words((await get(`/build/${jordanRec}/preview`, jordan)).html);
+  check('sq7: and now their page says the club and the squad',
+    [jordanPage.includes('Riverside FC'), jordanPage.includes('U15 Boys')], [true, true]);
+
+  // Who may read the squad, and how much of it.
+  const adminView = words((await get(`/club/squads/${u15}`, admin)).html);
+  check('sq8: an administrator sees who plays and no way into a record',
+    [/Jordan/.test(adminView), /Open the CV/.test(adminView)], [true, false]);
+  check('sq9: the TD can open a squad player\'s CV', /Open the CV/.test(roster), true);
+  const cvHref = /href="(\/club\/squads\/[0-9a-f-]{36}\/cv\/[0-9a-f-]{36})"/.exec((await get(`/club/squads/${u15}`, td)).html)?.[1];
+  check('sq10: and it opens for the TD, not for an administrator or a stranger',
+    [(await get(cvHref, td)).status, (await get(cvHref, admin)).status, (await get(cvHref, ids.people.robin)).status], [200, 404, 404]);
+
+  // The club door, and an under-16's answer is their parent's.
+  // A different squad: Deniz is already in U15 Boys from the seed, and the
+  // database refuses a second membership of the same squad.
+  const other = [...new Set([...squadsHtml.matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)].map((m) => m[1]))].find((id) => id !== u15);
+  // Whoever the register actually offers by this point in the sweep: earlier
+  // blocks pause and hide people, and a paused child is correctly invisible.
+  const askPage = (await get(`/club/squads/${other}`, td)).html;
+  // A child whose parent still holds them at this point in the sweep: earlier
+  // blocks pause, suppress and delete, and all three are correct reasons for
+  // a child to be missing from a register or from a parent's home.
+  const alexHome = words((await get('/home', alex)).html);
+  const held = [deniz, ids.children.georgia, nate]
+    .filter((c) => alexHome.includes(c.first_name))
+    .map((c) => c.child_id);
+  const askForm = forms(askPage).find((f) => f.fields.squadId === other && held.includes(f.fields.personId))
+    ?? forms(askPage).find((f) => f.fields.squadId === other && f.fields.personId);
+  check('sq11a: the TD is offered the players on their own register', Boolean(askForm), true);
+  const invitedId = askForm?.fields.personId;
+  const invitedIsAlexs = held.includes(invitedId);
+  const denizInvite = await postTo(`/club/squads/${other}`, td, { ...askForm.fields });
+  check('sq11: the club asks a player from its own register', /done=asked/.test(denizInvite.location), true);
+  // Read the club's page in sections: a player removed from a squad becomes
+  // askable again, so "their name appears" is not the same question twice.
+  // A section of the club's page: from its heading to whichever heading comes
+  // next. Without the "whichever", a removed player reads as still there —
+  // they reappear lower down as someone the club may ask again.
+  const section = (html, from, ...untils) => {
+    const t = words(html);
+    const a = t.indexOf(from); if (a < 0) return '';
+    const ends = untils.map((u) => t.indexOf(u, a + from.length)).filter((i) => i > 0);
+    return t.slice(a, ends.length ? Math.min(...ends) : undefined);
+  };
+  const otherPage = (await get(`/club/squads/${other}`, td)).html;
+  check('sq12: the club sees it as asked, waiting on them',
+    section(otherPage, 'Asked, waiting on them', 'Ask someone from your register').length > 0, true);
+  const parentHome = words((await get('/home', alex)).html);
+  check('sq12b: and a parent of that child is told which club and which squad',
+    !invitedIsAlexs || /would like \w+ in /.test(parentHome), true);
+
+  // The form the person who may answer actually sees.
+  const inviteForm = invitedIsAlexs
+    ? forms((await get(`/g/controls/${invitedId}`, alex)).html).find((f) => 'invitationId' in f.fields)
+    : null;
+  if (inviteForm) {
+    // A stranger's answer is a no-op that reveals nothing: same redirect as
+    // the real one (D-77), and the invitation is still waiting afterwards.
+    await postTo(`/g/controls/${invitedId}`, ids.people.robin, { ...inviteForm.fields, answer: 'yes' });
+    const stillOpen = forms((await get(`/g/controls/${invitedId}`, alex)).html).some((f) => 'invitationId' in f.fields);
+    check('sq13: a stranger answering changes nothing, and learns nothing', stillOpen, true);
+    await postTo(`/g/controls/${invitedId}`, alex, { ...inviteForm.fields, answer: 'yes', back: `/g/controls/${invitedId}` });
+    const after = (await get(`/club/squads/${other}`, td)).html;
+    check('sq14: the person who may answer says yes, and they are in the squad',
+      section(after, 'In this squad', 'Asked, waiting on them', 'Ask someone from your register').includes('Open the CV'), true);
+  }
+
+  const inSquad = (html) => section(html, 'In this squad', 'Asked, waiting on them', 'Ask someone from your register');
+  const u15Page = (await get(`/club/squads/${u15}`, td)).html;
+  check('sq15a: Jordan is in the squad before the club removes him', inSquad(u15Page).includes('Jordan'), true);
+  const out = forms(u15Page).find((f) => f.fields.personId === jordan && 'squadId' in f.fields);
+  await postTo(`/club/squads/${u15}`, td, { ...out.fields });
+  check('sq15: the club takes a player out, and nothing of theirs is deleted',
+    [inSquad((await get(`/club/squads/${u15}`, td)).html).includes('Jordan'), (await get(`/build/${jordanRec}/preview`, jordan)).status],
+    [false, 200]);
+  void nate;
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 console.log('NOTE: this mutated the dev database. Restart scripts/dev-db.mts for a clean one.');
 process.exit(failures.length ? 1 : 0);

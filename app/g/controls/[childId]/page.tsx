@@ -13,6 +13,7 @@ import { deleteEverything, renewLink, replaceLink, setPause, setSendSwitch, swit
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
 import RegisterReaders from '@/components/RegisterReaders';
+import SquadCard from '@/components/SquadCard';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Controls', robots: { index: false, follow: false } };
@@ -112,6 +113,9 @@ export default async function Controls({ params, searchParams }: {
     card_requested: `${name} asked for a share card`,
     card_approved: 'You approved a share card',
     outside_contact_logged: `Someone outside ${theirs} club asked to reach them`,
+    squad_joined: `${name} went into a club squad`,
+    squad_left: `${name} came out of a club squad`,
+    squad_record_opened: `${theirs} club opened their record`,
     age_transition: `${theirs} age band changed`,
     registration_created: `${name} went onto a club register`,
     registration_withdrawn: `${name} came off a club register`,
@@ -139,6 +143,8 @@ export default async function Controls({ params, searchParams }: {
           </div>
           {c.record_id && <a href={`/build/${c.record_id}/preview`} style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 14px', borderRadius: 999, background: T.surface2, border: `1px solid ${T.line}`, color: T.ink, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.02em', textDecoration: 'none', flexShrink: 0 }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>Preview page</a>}
         </div>
+
+        <SquadCard personId={childId} firstName={name} back={`/g/controls/${childId}`} mine={false} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <h2 style={label}>{theirs} link</h2>

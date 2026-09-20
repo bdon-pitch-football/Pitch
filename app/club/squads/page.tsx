@@ -133,8 +133,8 @@ export default async function Squads({ searchParams }: {
 
         {squads.map((s) => (
           <div key={s.id} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800 }}>{s.name}</div>
+            <div style={{ minWidth: 0 }}>
+              <a href={`/club/squads/${s.id}`} style={{ fontSize: 15, fontWeight: 800, color: T.ink, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>{s.name}</a>
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
                 {[s.age_group, s.competition_gender, s.season].filter(Boolean).join(' · ')}
                 {(s.registrations > 0 || s.players > 0) && (
@@ -142,6 +142,7 @@ export default async function Squads({ searchParams }: {
                 )}
               </div>
             </div>
+            <a href={`/club/squads/${s.id}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center', flexShrink: 0 }}>Who plays</a>
             {s.registrations === 0 && s.players === 0 ? (
               <form action={removeSquad}><input type="hidden" name="squadId" value={s.id} />
                 <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>

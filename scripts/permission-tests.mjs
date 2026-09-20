@@ -2067,7 +2067,7 @@ check('H2: the team manager the same', await level(ID.teamManager, ID.deniz), 'm
 check('H3: the technical director gets the record', await level(ID.td, ID.deniz), 'full');
 check('H4: an administrator at another club gets nothing', await level(ID.adminOther, ID.deniz), 'none');
 check('H5: an unattested coach at the right squad still gets nothing', await level(ID.coachU, ID.deniz), 'none');
-check('H6: a verified coach on the wrong squad gets nothing', await level(ID.coachUnassigned, ID.deniz), 'none');
+check('H4: a verified coach on a squad they do not hold gets nothing', await level(ID.coachUnassigned, ID.deniz), 'none');
 check('H7: a departed coach keeps only what they authored (D-48)', await level(ID.coachFormer, ID.deniz), 'authored_only');
 
 // H8: a departing technical director loses club-wide access immediately —
@@ -3398,6 +3398,48 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   check('AL3: a philosophy over 400 characters, or a year that is not one, is refused by the database',
     [await r(`update club set philosophy = repeat('x', 401) where id = $1`, [CLUB.riverside]),
      await r(`update club set established = 'long ago' where id = $1`, [CLUB.riverside])], [true, true]);
+}
+
+// ---- 0052: who is in a squad, and who may put them there (D-158) -----------
+// The UI is one way in; these are the rules underneath it, which hold however
+// the row is written.
+{
+  const r = async (sql, args) => { try { await db.query(sql, args); return false; } catch { return true; } };
+  // A squad nobody in the fixture is in yet, so "already in this squad" is not
+  // the reason a write is refused.
+  const sq = (await db.query(
+    `insert into squad (club_id, name, age_group, competition_gender, season)
+     values ($1, 'Squad Rules Test', null, 'boys', '2026') returning id`, [CLUB.riverside])).rows[0].id;
+  const other = (await db.query(`select id from squad where club_id = $1 limit 1`, [CLUB.other])).rows[0]?.id;
+
+  check('SQ1: a claim comes from the player or their guardian, never from anyone else',
+    [await r(`insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4)`,
+             [ID.deniz, CLUB.riverside, sq, ID.coachV]),
+     await r(`insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4)`,
+             [ID.deniz, CLUB.riverside, sq, ID.guardian])], [true, false]);
+  check('SQ2: an under-16 cannot claim a squad alone (D-91)',
+    await db.query(`select fn_can_act_on_squad($1,$1) as ok`, [ID.deniz]).then((x) => x.rows[0].ok), false);
+  check('SQ3: a 16-17 and an adult act for themselves',
+    [await db.query(`select fn_can_act_on_squad($1,$1) as ok`, [ID.nate]).then((x) => x.rows[0].ok),
+     await db.query(`select fn_can_act_on_squad($1,$1) as ok`, [ID.guardian]).then((x) => x.rows[0].ok)], [true, true]);
+  check('SQ4: only the club invites, and only into its own squad',
+    [await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
+             [ID.deniz, CLUB.riverside, sq, ID.guardian]),
+     other ? await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
+             [ID.deniz, CLUB.riverside, other, ID.td]) : true], [true, true]);
+  check('SQ5: the technical director and the administrator work squads; a coach does not',
+    [await db.query(`select fn_can_work_squads($1,$2) as ok`, [ID.td, CLUB.riverside]).then((x) => x.rows[0].ok),
+     await db.query(`select fn_can_work_squads($1,$2) as ok`, [ID.coachV, CLUB.riverside]).then((x) => x.rows[0].ok)], [true, false]);
+  check('SQ6: an administrator reads the squad list and gets no record id with it (D-93)',
+    (await db.query(`select record_id from fn_squad_roster($1, $2)`, [ID.clubAdmin, sq])).rows.every((x) => x.record_id === null), true);
+  check('SQ7: a stranger reads nothing from a squad',
+    (await db.query(`select * from fn_squad_roster($1, $2)`, [ID.coachOther, sq])).rows.length, 0);
+  check('H6: a squad invite to an under-16 is answerable only by their guardian, never the child',
+    [await db.query(`select fn_can_act_on_squad($1,$1) as ok`, [ID.deniz]).then((x) => x.rows[0].ok),
+     await db.query(`select fn_can_act_on_squad($1,$2) as ok`, [ID.guardian, ID.deniz]).then((x) => x.rows[0].ok)], [false, true]);
+  check('SQ8: joining a squad ends any other club: one club at a time, one club on the CV',
+    await db.query(`select fn_join_squad($1, $2, $3, 'test') as ok`, [ID.deniz, sq, ID.td]).then(async () =>
+      (await db.query(`select count(*)::int as n from membership where person_id = $1 and role = 'player' and ended_at is null`, [ID.deniz])).rows[0].n), 1);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

@@ -11,6 +11,7 @@ import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
 import { PlayerFrame, GuardianFrame } from '@/components/player-shell';
 import RegisterReaders from '@/components/RegisterReaders';
+import SquadCard from '@/components/SquadCard';
 import { ClubConsole, CoachConsole } from '@/components/console-shell';
 import CopyLink from '@/components/cv/CopyLink';
 import { T } from '@/lib/palette';
@@ -594,6 +595,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             <Link href={`/build/${rec}/preview`} className="btn btn-secondary">Preview my page</Link>
           </div>
 
+          {/* Where they play (0052). A club reaches a CV only as a confirmed
+              squad, so this is the door to the club line on their page. */}
+          <SquadCard personId={personId as string} firstName={me.first_name as string} back="/home" mine />
+
           {next && (
             <Link href="/trials" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none' }}>
               <div aria-hidden style={{ width: 46, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: T.surface2, borderRadius: 12, padding: '7px 0' }}>
@@ -743,6 +748,23 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       body: 'Until you approve it, every club holding the link still reads the old version.',
       cta: 'Review it',
     })),
+    ...((await db.query(
+      `select si.id, si.created_at as at, c.name as club, s.name as squad, ch.first_name, ch.id as child_id
+       from squad_invitation si
+       join club c on c.id = si.club_id join squad s on s.id = si.squad_id
+       join person ch on ch.id = si.person_id
+       join guardianship_link g on g.child_id = si.person_id and g.guardian_id = $1
+         and g.approved_at is not null and g.revoked_at is null
+       where si.answered_at is null`,
+      [personId],
+    )).rows as { id: string; at: string; club: string; squad: string; first_name: string; child_id: string }[])
+      .map((r) => ({
+        key: r.id, kind: 'invite' as const, at: r.at,
+        href: `/g/controls/${r.child_id}`, tone: T.accent,
+        title: `${r.club} would like ${r.first_name} in ${r.squad}`,
+        body: `Saying yes puts the team on ${r.first_name}\u2019s page and lets that team\u2019s coaches read their record. Doing nothing is a complete answer.`,
+        cta: 'Review it',
+      })),
   ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
   // The three figures a parent actually wants, and we hold all of them. This
