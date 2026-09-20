@@ -1322,6 +1322,11 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const adminView = words((await get(`/club/squads/${u15}`, admin)).html);
   check('sq8: an administrator sees who plays and no way into a record',
     [/Jordan/.test(adminView), /Open the CV/.test(adminView)], [true, false]);
+  check('sq8b: nor anything off the record — no positions, no number, no stats (0053)',
+    [/1st /.test(adminView), /self-reported/.test(adminView)], [false, false]);
+  const tdView = words((await get(`/club/squads/${u15}`, td)).html);
+  check('sq8c: the TD\'s list reads like a team sheet: the shape of the squad, then each player\'s own order of positions',
+    [/Goalkeepers/.test(tdView), /1st /.test(tdView), /In the squad since/.test(tdView)], [true, true, true]);
   check('sq9: the TD can open a squad player\'s CV', /Open the CV/.test(roster), true);
   const cvHref = /href="(\/club\/squads\/[0-9a-f-]{36}\/cv\/[0-9a-f-]{36})"/.exec((await get(`/club/squads/${u15}`, td)).html)?.[1];
   check('sq10: and it opens for the TD, not for an administrator or a stranger',

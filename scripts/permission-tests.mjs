@@ -3432,6 +3432,31 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
      await db.query(`select fn_can_work_squads($1,$2) as ok`, [ID.coachV, CLUB.riverside]).then((x) => x.rows[0].ok)], [true, false]);
   check('SQ6: an administrator reads the squad list and gets no record id with it (D-93)',
     (await db.query(`select record_id from fn_squad_roster($1, $2)`, [ID.clubAdmin, sq])).rows.every((x) => x.record_id === null), true);
+  // 0053: positions, squad number, foot, stats and clips all come OFF the
+  // development record, so an administrator gets none of them either.
+  {
+    const anySquad = (await db.query(
+      `select m.squad_id from membership m join squad s on s.id = m.squad_id
+       where s.club_id = $1 and m.role = 'player' and m.ended_at is null and m.squad_id is not null limit 1`,
+      [CLUB.riverside])).rows[0]?.squad_id;
+    if (anySquad) {
+      const asAdmin = (await db.query(`select * from fn_squad_roster($1, $2)`, [ID.clubAdmin, anySquad])).rows;
+      const asTd = (await db.query(`select * from fn_squad_roster($1, $2)`, [ID.td, anySquad])).rows;
+      check('SQ6b: an administrator sees a name and a join date, and nothing off the record',
+        [asAdmin.length > 0,
+         asAdmin.every((r) => r.positions === null && r.squad_number === null && r.foot === null
+           && r.clips === null && r.apps === null && r.goals === null && r.assists === null && r.clean_sheets === null)],
+        [true, true]);
+      check('SQ6c: the technical director gets the depth: positions in the player\'s own order, number, foot',
+        asTd.some((r) => Array.isArray(r.positions) && r.positions.length > 0), true);
+      check('SQ6d: and the list comes back as a team sheet reads — keepers first, no position last',
+        (() => {
+          const rank = { GK: 0, DEF: 1, MID: 2, FWD: 3, UNSET: 4 };
+          const got = asTd.map((r) => rank[r.position_group ?? 'UNSET']);
+          return got.every((v, i) => i === 0 || got[i - 1] <= v);
+        })(), true);
+    }
+  }
   check('SQ7: a stranger reads nothing from a squad',
     (await db.query(`select * from fn_squad_roster($1, $2)`, [ID.coachOther, sq])).rows.length, 0);
   check('H6: a squad invite to an under-16 is answerable only by their guardian, never the child',

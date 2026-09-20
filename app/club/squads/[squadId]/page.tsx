@@ -14,6 +14,7 @@ import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
 import { T } from '@/lib/palette';
 import { card, fieldLabel } from '@/lib/ui';
+import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerClaim, cancelInvitation, inviteToSquad, removeFromSquad } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -21,8 +22,21 @@ export const metadata = { title: 'Squad', robots: { index: false, follow: false 
 
 type Player = {
   player_id: string; first_name: string; last_name: string | null;
-  positions: string[] | null; squad_number: number | null; record_id: string | null; joined_at: string;
+  positions: string[] | null; position_group: string | null; squad_number: number | null;
+  foot: string | null; record_id: string | null; joined_at: string;
+  clips: number | null; apps: number | null; goals: number | null; assists: number | null;
+  clean_sheets: number | null; on_register: boolean;
 };
+
+// A team sheet reads keepers first. The player's OWN order inside their
+// positions is first choice, second, third (D-69) — the club is being shown
+// what the player said, not a guess.
+const GROUPS: [string, string, string][] = [
+  ['GK', 'Goalkeepers', 'Goalkeeper'], ['DEF', 'Defenders', 'Defender'], ['MID', 'Midfielders', 'Midfielder'],
+  ['FWD', 'Forwards', 'Forward'], ['UNSET', 'No position picked yet', 'No position picked yet'],
+];
+const CHOICE = ['1st', '2nd', '3rd'];
+const posLabel = (code: string) => (code in POSITIONS ? POSITIONS[code as PositionCode].label : code);
 
 export default async function SquadPage({ params, searchParams }: {
   params: Promise<{ squadId: string }>;
@@ -85,6 +99,14 @@ export default async function SquadPage({ params, searchParams }: {
 
   const label = fieldLabel;
   const name = (p: { first_name: string; last_name: string | null }) => `${p.first_name}${p.last_name ? ` ${p.last_name}` : ''}`;
+  // Whether this reader gets what is on the record: the database already
+  // decided by answering with a record id, or not (0053).
+  const reads = players.some((p) => p.record_id !== null) || (players.length === 0 && (squad.td || squad.works));
+  const byGroup = (g: string) => players.filter((p) => (p.position_group ?? 'UNSET') === g);
+  // 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
+  const since = (iso: string) => new Date(iso)
+    .toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'Australia/Melbourne' })
+    .replace('Sept', 'Sep');
   const ghost: React.CSSProperties = { height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 };
   const said: Record<string, string> = {
     confirmed: 'Confirmed. They’re in the squad, and their CV says so.',
@@ -138,26 +160,112 @@ export default async function SquadPage({ params, searchParams }: {
             <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
               Nobody yet. Families ask to join from their own page, and you can ask anyone on your register below.
             </div>
-          ) : players.map((p) => (
-            <div key={p.player_id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 800 }}>{name(p)}</div>
-                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
-                  {[(p.positions ?? []).join(' · ') || null, p.squad_number ? `#${p.squad_number}` : null].filter(Boolean).join(' · ') || 'No positions yet'}
+          ) : (
+            <>
+              {/* The shape of the squad, before the names: what a coach looks
+                  for first is whether they have a keeper. */}
+              {reads && (
+                <div style={{ ...card, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                  {GROUPS.filter(([g]) => g !== 'UNSET').map(([g, many, one]) => (
+                    <div key={g}>
+                      <div className="tnum" style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.04em', color: byGroup(g).length ? T.ink : T.muted }}>{byGroup(g).length}</div>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>{byGroup(g).length === 1 ? one : many}</div>
+                    </div>
+                  ))}
+                  {byGroup('UNSET').length > 0 && (
+                    <div>
+                      <div className="tnum" style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.04em', color: T.amber }}>{byGroup('UNSET').length}</div>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>No position yet</div>
+                    </div>
+                  )}
                 </div>
-              </div>
-              {p.record_id && (
-                <Link href={`/club/squads/${squadId}/cv/${p.player_id}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>Open the CV</Link>
               )}
-              {squad.works && (
-                <form action={removeFromSquad}>
-                  <input type="hidden" name="squadId" value={squadId} /><input type="hidden" name="personId" value={p.player_id} />
-                  <button type="submit" style={ghost}>Remove</button>
-                </form>
-              )}
+
+              {(reads ? GROUPS : [['UNSET', '', ''] as [string, string, string]]).map(([g, title]) => {
+                const inGroup = reads ? byGroup(g) : players;
+                if (inGroup.length === 0) return null;
+                return (
+                  <div key={g} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                    {reads && <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.secondary, marginTop: 4 }}>{title}</div>}
+                    {inGroup.map((p) => {
+                      // The never-zero rule, on the club's list as on the page
+                      // (D-70): a stat nobody has is left out, never shown as 0.
+                      const stats: { label: string; value: number }[] = [];
+                      const stat = (label: string, v: number | null) => { if ((v ?? 0) > 0) stats.push({ label, value: v as number }); };
+                      stat('apps', p.apps);
+                      if (p.position_group === 'GK') stat('clean sheets', p.clean_sheets);
+                      else { stat('goals', p.goals); stat('assists', p.assists); }
+                      return (
+                        <div key={p.player_id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            {reads && (
+                              <div aria-hidden style={{ width: 40, height: 40, borderRadius: 12, background: T.surface2, border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <span className="tnum" style={{ fontSize: 15, fontWeight: 900, color: p.squad_number ? T.ink : T.muted, letterSpacing: '-0.04em' }}>{p.squad_number ?? '—'}</span>
+                              </div>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 15, fontWeight: 800 }}>{name(p)}</div>
+                              <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
+                                {[reads && p.foot ? `${p.foot} footed` : null,
+                                  `In the squad since ${since(p.joined_at)}`,
+                                  p.on_register ? 'On your register' : null].filter(Boolean).join(' · ')}
+                              </div>
+                            </div>
+                            {p.record_id && (
+                              <Link href={`/club/squads/${squadId}/cv/${p.player_id}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>Open the CV</Link>
+                            )}
+                            {squad.works && (
+                              <form action={removeFromSquad}>
+                                <input type="hidden" name="squadId" value={squadId} /><input type="hidden" name="personId" value={p.player_id} />
+                                <button type="submit" style={ghost}>Remove</button>
+                              </form>
+                            )}
+                          </div>
+
+                          {reads && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                              {(p.positions ?? []).length === 0 ? (
+                                <span style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>No positions picked yet</span>
+                              ) : (p.positions ?? []).map((code, i) => (
+                                <span key={code} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999, padding: '4px 10px', background: i === 0 ? 'rgba(61,220,132,.14)' : T.surface2, border: `1px solid ${i === 0 ? T.accent : T.line}` }}>
+                                  <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: i === 0 ? T.accent : T.muted }}>{CHOICE[i]}</span>
+                                  <span style={{ fontSize: 12.5, fontWeight: 700, color: T.ink }}>{posLabel(code)}</span>
+                                </span>
+                              ))}
+                              {(p.clips ?? 0) > 0 && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: T.secondary }}>
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 7.5 L17 12 L9 16.5 Z" /><rect x="3" y="4" width="18" height="16" rx="3" /></svg>
+                                  {p.clips} {p.clips === 1 ? 'clip' : 'clips'}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {reads && stats.length > 0 && (
+                            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', borderTop: `1px solid ${T.line}`, paddingTop: 9 }}>
+                              {stats.map((x) => (
+                                <div key={x.label}>
+                                  <span className="tnum" style={{ fontSize: 15, fontWeight: 900, color: T.ink, letterSpacing: '-0.04em' }}>{x.value}</span>
+                                  <span style={{ fontSize: 10.5, fontWeight: 700, color: T.muted, marginLeft: 5 }}>{x.label}</span>
+                                </div>
+                              ))}
+                              <span style={{ fontSize: 10.5, fontWeight: 700, color: T.muted, marginLeft: 'auto' }}>2026 · self-reported</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </>
+          )}
+          {!reads && players.length > 0 && (
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+              You run the club page, the squads and the notices. What a player put in their record is for the technical director and that squad&rsquo;s own coaches.
             </div>
-          ))}
-          {!squad.works && players.length > 0 && (
+          )}
+          {reads && !squad.works && players.length > 0 && (
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
               Your club gave you this squad. Every CV you open here is recorded, and the family can see who read it.
             </div>
