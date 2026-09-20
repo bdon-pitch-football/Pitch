@@ -1,6 +1,6 @@
 # 32 · The legal launch gate — what must be true before a real child's record exists
 
-> **Doc 32 · v1.3 · 17 September 2026.** Entity: **EBSD Enterprises Pty Ltd** (ACN 701 879 718 · ABN 65 701 879 718), trading as Pitch Football.
+> **Doc 32 · v1.4 · 20 September 2026.** Entity: **EBSD Enterprises Pty Ltd** (ACN 701 879 718 · ABN 65 701 879 718), trading as Pitch Football.
 >
 > **Why this exists, and it is not tidiness.** D-47 makes **doc 14 green** the launch blocker. The PIA says **four other things are launch-blocking**. **Nobody has ever reconciled those two sentences, and they do not agree.**
 >
@@ -63,6 +63,7 @@
 | **C4a** | **No read of a child's registration is attributed to an organisation.** Every register read carries a **named person** who holds an explicit grant, and the read is logged against that name. **Doc 14 N6 says "club reads a live registration" and there is no such actor** — see doc 34. *A guardian asking who looked at their child must get a name, and "the club" is a way of not answering.* | ☐ |
 | **C4b** | **A guardian who asks who read their child's registration can be given an answer.** The `register_read_log` exists; **no screen answers the question for a guardian or for support.** *Doc 34 rule 6 is the rule that makes the other seven enforceable, and a log nobody can query is not a disclosure — it is a record of a promise we cannot keep.* **Blocking from the day the register opens, not before.** | ☐ |
 | **C4c** | **The parent's approval is confirmed on two channels**, as D-24 requires and D-96's published copy already claims. *As built on 17 September it was one tap on one link. **We were about to publish "a guardian confirms on two channels" while confirming on one.*** | ☐ |
+| **C4d** | **A 16–17 player's guardian is a verified adult before any guardian power attaches** — the same two links and the 18+ declaration as under 16. *As built on 17 September the teenager types a name and a mobile and that record becomes an approved guardian: no email, no date of birth, no declaration, approved by nobody but the teenager. **D-153 makes every 16–17 reply wait on that person's approval, D-22 gives them the discoverability switch, and doc 15 §22 sends them a notice about the child on every send.** All three are currently promises to whoever the teenager named.* | ☐ |
 | **C5** | **Nothing in any environment contains a real minor's data.** Seed and demonstration people are fictional, and the site says so where they appear as if they were users. | ☐ |
 
 ---
@@ -91,4 +92,4 @@
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · the legal launch gate · doc 32 · v1.3 · 17 September 2026 · every row traces to a locked decision or to the PIA · nothing here is new policy · v1.0 superseded the same day, second-responder acceptance recorded*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · the legal launch gate · doc 32 · v1.4 · 20 September 2026 · every row traces to a locked decision or to the PIA · nothing here is new policy · v1.0 superseded the same day, second-responder acceptance recorded*
