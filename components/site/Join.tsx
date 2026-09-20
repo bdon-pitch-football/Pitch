@@ -200,6 +200,11 @@ export default function Join({ initialRole }: { initialRole: Role }) {
           </div>
         ) : (
           <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 18, padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* The front page's own notice, kept word for word: this page takes the
+                same sign-up, so it carries the same child-safety line (BUZ, 20 Sep). */}
+            <div style={{ background: 'rgba(164,121,226,.12)', border: '1px solid rgba(164,121,226,.35)', borderRadius: 12, padding: '10px 12px', fontSize: 13, fontWeight: 600, color: C.ink, lineHeight: 1.5 }}>
+              Under 18? Ask a parent to add their email instead. We never take a child’s details before there is a parent to ask.
+            </div>
             <div id="join-who" style={{ fontSize: 12.5, color: C.muted, fontWeight: 700 }}>Who are you?</div>
             <div ref={tabsRef} role="radiogroup" aria-labelledby="join-who" onKeyDown={onRoleKey}
               style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7 }}>
