@@ -36,14 +36,16 @@ const GROUPS: [string, string, string][] = [
   ['FWD', 'Forwards', 'Forward'], ['UNSET', 'No position picked yet', 'No position picked yet'],
 ];
 const CHOICE = ['1st', '2nd', '3rd'];
+// The closed position list, in the order a team sheet runs (doc 16, D-92).
+const ORDER = ['GK', 'RB', 'CB', 'LB', 'DM', 'CM', 'AM', 'RW', 'LW', 'ST'];
 const posLabel = (code: string) => (code in POSITIONS ? POSITIONS[code as PositionCode].label : code);
 
 export default async function SquadPage({ params, searchParams }: {
   params: Promise<{ squadId: string }>;
-  searchParams: Promise<{ done?: string; error?: string }>;
+  searchParams: Promise<{ done?: string; error?: string; pos?: string }>;
 }) {
   const { squadId } = await params;
-  const { done, error } = await searchParams;
+  const { done, error, pos } = await searchParams;
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   if (!isUuid(squadId)) notFound();
@@ -85,17 +87,35 @@ export default async function SquadPage({ params, searchParams }: {
   // Who the club may ask: its own register, minus anyone already in this
   // squad or already asked. A club can never reach a child it has not been
   // shown (D-100), so the register is the only source.
+  // The positions here are the ones the FAMILY gave when they registered
+  // their interest — the same field the register itself shows a club, not
+  // anything extra out of the child's record.
+  const wanted = pos && pos in POSITIONS ? pos : '';
   const askable = squad.td ? (await db.query(
-    `select r.player_id as id, p.first_name, p.last_name
+    `select r.player_id as id, p.first_name, p.last_name, r.positions,
+            (r.squad_target = $2) as named_this
      from registration r join person p on p.id = r.player_id
      where r.club_id = $1 and r.withdrawn_at is null and not fn_person_hidden(p.id)
        and not exists (select 1 from membership m where m.person_id = r.player_id and m.squad_id = $2
                          and m.role = 'player' and m.ended_at is null)
        and not exists (select 1 from squad_invitation si where si.person_id = r.player_id and si.squad_id = $2 and si.answered_at is null)
+       and ($3 = '' or $3 = any(r.positions))
      -- whoever named this squad first, then the rest of the register: a club
      -- puts a player where it needs them, not where the form guessed.
-     order by (r.squad_target = $2) desc, p.first_name limit 60`, [squad.club_id, squadId],
-  )).rows as { id: string; first_name: string; last_name: string | null }[] : [];
+     order by (r.squad_target = $2) desc, p.first_name limit 60`, [squad.club_id, squadId, wanted],
+  )).rows as { id: string; first_name: string; last_name: string | null; positions: string[] | null; named_this: boolean }[] : [];
+
+  // Which positions the club can actually filter by here: the ones the people
+  // on this register play, never the whole list with nine dead chips on it.
+  const askablePositions = squad.td ? (await db.query(
+    `select distinct unnest(r.positions) as code
+     from registration r join person p on p.id = r.player_id
+     where r.club_id = $1 and r.withdrawn_at is null and not fn_person_hidden(p.id)
+       and not exists (select 1 from membership m where m.person_id = r.player_id and m.squad_id = $2
+                         and m.role = 'player' and m.ended_at is null)`,
+    [squad.club_id, squadId],
+  )).rows.map((r) => r.code as string).filter((c) => c in POSITIONS)
+    .sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)) : [];
 
   const label = fieldLabel;
   const name = (p: { first_name: string; last_name: string | null }) => `${p.first_name}${p.last_name ? ` ${p.last_name}` : ''}`;
@@ -104,6 +124,11 @@ export default async function SquadPage({ params, searchParams }: {
   const reads = players.some((p) => p.record_id !== null) || (players.length === 0 && (squad.td || squad.works));
   const byGroup = (g: string) => players.filter((p) => (p.position_group ?? 'UNSET') === g);
   // 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
+  const chip = (on: boolean): React.CSSProperties => ({
+    minHeight: 36, display: 'inline-flex', alignItems: 'center', padding: '0 12px', borderRadius: 999,
+    background: on ? T.accent : T.surface2, color: on ? T.onAccent : T.secondary,
+    border: `1px solid ${on ? T.accent : T.line}`, fontSize: 12.5, fontWeight: on ? 800 : 700, textDecoration: 'none',
+  });
   const since = (iso: string) => new Date(iso)
     .toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'Australia/Melbourne' })
     .replace('Sept', 'Sep');
@@ -291,16 +316,43 @@ export default async function SquadPage({ params, searchParams }: {
         )}
 
         {squad.td && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div id="ask" style={{ display: 'flex', flexDirection: 'column', gap: 9, scrollMarginTop: 18 }}>
             <h2 style={label}>Ask someone from your register</h2>
             <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
               For an under-16 it goes to their parent. From 16 the player answers, and their parent sees it too. Nothing reaches you unless they say yes.
             </div>
+            {askablePositions.length > 0 && (
+              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                <a href={`/club/squads/${squadId}#ask`} style={chip(!wanted)}>Any position</a>
+                {askablePositions.map((code) => (
+                  <a key={code} href={`/club/squads/${squadId}?pos=${code}#ask`} style={chip(wanted === code)}>
+                    {POSITIONS[code as PositionCode].label}
+                  </a>
+                ))}
+              </div>
+            )}
             {askable.length === 0 ? (
-              <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500 }}>Nobody on your register is waiting for this squad.</div>
+              <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500 }}>
+                {wanted
+                  ? `Nobody on your register plays ${POSITIONS[wanted as PositionCode].label.toLowerCase()} and is free for this squad.`
+                  : 'Nobody on your register is waiting for this squad.'}
+              </div>
             ) : askable.map((a) => (
-              <div key={a.id} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 800 }}>{name(a)}</div>
+              <div key={a.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 800 }}>{name(a)}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                    {(a.positions ?? []).length === 0 ? (
+                      <span style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>No positions given</span>
+                    ) : (a.positions ?? []).map((code, i) => (
+                      <span key={code} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, borderRadius: 999, padding: '3px 9px', background: i === 0 ? 'rgba(61,220,132,.14)' : T.surface2, border: `1px solid ${i === 0 ? T.accent : T.line}` }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: i === 0 ? T.accent : T.muted }}>{CHOICE[i]}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: T.ink }}>{posLabel(code)}</span>
+                      </span>
+                    ))}
+                    {a.named_this && <span style={{ fontSize: 11.5, fontWeight: 700, color: T.secondary }}>· asked for this team</span>}
+                  </div>
+                </div>
                 <form action={inviteToSquad}>
                   <input type="hidden" name="squadId" value={squadId} /><input type="hidden" name="personId" value={a.id} />
                   <button type="submit" style={{ ...ghost, color: T.accent, borderColor: T.accent }}>Ask them</button>

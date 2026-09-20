@@ -1288,6 +1288,15 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     return { status: r.status, location: r.headers.get('location') ?? '' };
   };
   const formOn = async (path, who, has) => forms((await get(path, who)).html).find((f) => f.visible.some((v) => v.name === has) || has in (f.fields ?? {}));
+  // A section of the club's page: from its heading to whichever heading comes
+  // next. Without the "whichever", a removed player reads as still there —
+  // they reappear lower down as someone the club may ask again.
+  const section = (html, from, ...untils) => {
+    const t = words(html);
+    const a = t.indexOf(from); if (a < 0) return '';
+    const ends = untils.map((u) => t.indexOf(u, a + from.length)).filter((i) => i > 0);
+    return t.slice(a, ends.length ? Math.min(...ends) : undefined);
+  };
   const squadsHtml = (await get('/club/squads', td)).html;
   const u15 = /href="\/club\/squads\/([0-9a-f-]{36})"[^>]*>U15 Boys</.exec(squadsHtml)?.[1]
     ?? [...squadsHtml.matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)][0]?.[1];
@@ -1349,21 +1358,25 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const askForm = forms(askPage).find((f) => f.fields.squadId === other && held.includes(f.fields.personId))
     ?? forms(askPage).find((f) => f.fields.squadId === other && f.fields.personId);
   check('sq11a: the TD is offered the players on their own register', Boolean(askForm), true);
+  // The register's own positions, on the list the club picks from, with a
+  // filter over them: a club filling a squad is looking for a keeper.
+  const askSection = section(askPage, 'Ask someone from your register');
+  check('sq11b: each of them is offered with the positions their family gave',
+    [/1st /.test(askSection), /Goalkeeper|Striker|midfielder|back|wing/.test(askSection)], [true, true]);
+  // Filtering means "plays there", first choice or not: a striker who also
+  // keeps is exactly who a club short of a keeper wants to see.
+  const rowsOf = (html) => section(html, 'Ask someone from your register')
+    .split('Ask them').slice(0, -1).map((r) => r.trim()).filter(Boolean);
+  const all = rowsOf(askPage);
+  const gk = rowsOf((await get(`/club/squads/${other}?pos=GK`, td)).html);
+  check('sq11c: filtering by a position narrows the list, and everyone left plays there',
+    [gk.length > 0, gk.length < all.length, gk.every((r) => r.includes('Goalkeeper'))], [true, true, true]);
   const invitedId = askForm?.fields.personId;
   const invitedIsAlexs = held.includes(invitedId);
   const denizInvite = await postTo(`/club/squads/${other}`, td, { ...askForm.fields });
   check('sq11: the club asks a player from its own register', /done=asked/.test(denizInvite.location), true);
   // Read the club's page in sections: a player removed from a squad becomes
   // askable again, so "their name appears" is not the same question twice.
-  // A section of the club's page: from its heading to whichever heading comes
-  // next. Without the "whichever", a removed player reads as still there —
-  // they reappear lower down as someone the club may ask again.
-  const section = (html, from, ...untils) => {
-    const t = words(html);
-    const a = t.indexOf(from); if (a < 0) return '';
-    const ends = untils.map((u) => t.indexOf(u, a + from.length)).filter((i) => i > 0);
-    return t.slice(a, ends.length ? Math.min(...ends) : undefined);
-  };
   const otherPage = (await get(`/club/squads/${other}`, td)).html;
   check('sq12: the club sees it as asked, waiting on them',
     section(otherPage, 'Asked, waiting on them', 'Ask someone from your register').length > 0, true);
