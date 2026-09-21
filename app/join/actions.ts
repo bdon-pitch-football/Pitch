@@ -107,3 +107,117 @@ export async function createAccount(formData: FormData) {
   }
   redirect('/signin?joined=1');
 }
+// A COACH signs themselves up (BUZ, 21 Sep — D-75's "one coach brings fifteen
+// families" is unreachable through an inbox). Eighteen or over, and the age
+// gate is the database's answer, not the form's: a coach account for a child
+// is a child's account made through a door with no guardian on it, and this
+// product never makes one of those.
+//
+// What a coach account IS, and why self-serve is safe: their own page, and
+// nothing else. It reads no register, sees no child, and goes public only
+// once they publish it. Reading a club's registrations needs that club to
+// name them AND attest their Working With Children Check (D-98, D-154), which
+// is a club's act and cannot be self-asserted.
+export async function createCoachAccount(formData: FormData) {
+  const { db } = await import('@/lib/db');
+  const firstName = String(formData.get('firstName') ?? '').trim();
+  const lastName = String(formData.get('lastName') ?? '').trim();
+  const dob = String(formData.get('dob') ?? '').trim();
+  const email = String(formData.get('email') ?? '').trim().toLowerCase();
+  const password = String(formData.get('password') ?? '');
+  if (!firstName || !dob || !EMAIL_RE.test(email) || password.length < 10) redirect('/join?error=1');
+
+  const client = await db.connect();
+  let personId = '';
+  let existing = false;
+  try {
+    await client.query('begin');
+    const band = (await client.query('select fn_age_band($1::date) as b', [dob])).rows[0].b as string;
+    if (band !== '18plus') { await client.query('rollback'); redirect('/join?coachAge=1'); }
+    // The same rule as the player door: an address that already has an
+    // account is never touched, and the answer never says which (D-94 §2).
+    const person = await client.query(
+      `insert into person (first_name, last_name, dob, dob_locked, email) values ($1,$2,$3,true,$4)
+       on conflict (email) do nothing returning id`,
+      [firstName, lastName || null, dob, email],
+    );
+    if (person.rows.length === 0) {
+      await client.query('rollback');
+      existing = true;
+    } else {
+      personId = person.rows[0].id;
+      // The page itself: empty until they fill it in, public only when they
+      // publish it (D-100).
+      await client.query(`insert into coach_profile (person_id) values ($1) on conflict (person_id) do nothing`, [personId]);
+      await client.query(
+        `insert into consent_event (event, actor_id, subject_id, policy_version, detail)
+         values ('tos_accepted',$1,$1,$2,'{}'), ('policy_accepted',$1,$1,$3,'{}')`,
+        [personId, legalStamp('22'), legalStamp('20')],
+      );
+      await client.query('commit');
+    }
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
+  const { setPassword, hashPasswordForTiming } = await import('@/lib/auth');
+  if (existing) await hashPasswordForTiming(password);
+  else await setPassword(personId, password);
+  redirect('/signin?joined=1');
+}
+
+// A CLUB PERSON signs themselves up (BUZ, 21 Sep). This makes an ACCOUNT and
+// nothing else: no player record, no coach page, no club. What it is for is
+// the next step — claiming the club's page with the code we email to the
+// club's own published address (doc 15 §34) — and that claim is what ties a
+// person to a club.
+//
+// It does NOT verify anybody. Verified is a human act with a name, a time and
+// the authority question answered on a phone call (D-126), and no form can
+// set it. Adults only: a club's page is run by adults.
+export async function createClubAccount(formData: FormData) {
+  const { db } = await import('@/lib/db');
+  const firstName = String(formData.get('firstName') ?? '').trim();
+  const lastName = String(formData.get('lastName') ?? '').trim();
+  const dob = String(formData.get('dob') ?? '').trim();
+  const email = String(formData.get('email') ?? '').trim().toLowerCase();
+  const password = String(formData.get('password') ?? '');
+  if (!firstName || !dob || !EMAIL_RE.test(email) || password.length < 10) redirect('/join?error=1');
+
+  const client = await db.connect();
+  let personId = '';
+  let existing = false;
+  try {
+    await client.query('begin');
+    const band = (await client.query('select fn_age_band($1::date) as b', [dob])).rows[0].b as string;
+    if (band !== '18plus') { await client.query('rollback'); redirect('/join?clubAge=1'); }
+    const person = await client.query(
+      `insert into person (first_name, last_name, dob, dob_locked, email) values ($1,$2,$3,true,$4)
+       on conflict (email) do nothing returning id`,
+      [firstName, lastName || null, dob, email],
+    );
+    if (person.rows.length === 0) {
+      await client.query('rollback');
+      existing = true;
+    } else {
+      personId = person.rows[0].id;
+      await client.query(
+        `insert into consent_event (event, actor_id, subject_id, policy_version, detail)
+         values ('tos_accepted',$1,$1,$2,'{}'), ('policy_accepted',$1,$1,$3,'{}')`,
+        [personId, legalStamp('22'), legalStamp('20')],
+      );
+      await client.query('commit');
+    }
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
+  const { setPassword, hashPasswordForTiming } = await import('@/lib/auth');
+  if (existing) await hashPasswordForTiming(password);
+  else await setPassword(personId, password);
+  redirect('/signin?joined=1');
+}

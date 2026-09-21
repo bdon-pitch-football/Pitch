@@ -3484,5 +3484,32 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     (srcOf('app/build/[recordId]/page.tsx').match(/<PlayerFrame active="cv">\s*\{\/\*[\s\S]*?<div style=\{\{ width: '100%', display: 'flex', flexDirection: 'column' \}\}>/) ?? []).length, 1);
 }
 
+// ---- the coach and club doors (BUZ, 21 Sep) ---------------------------------
+// A coach builds their own page; a club person makes an account and then
+// claims the club's page with the code sent to the club's own address. What
+// neither door can do is give anybody anything about a child.
+{
+  const join = srcOf('app/join/actions.ts');
+  const page = srcOf('app/join/page.tsx');
+  check('door1: a coach account is adults only, decided from the date of birth, not the form',
+    /createCoachAccount[\s\S]*?fn_age_band[\s\S]*?band !== '18plus'[\s\S]*?coachAge/.test(join), true);
+  check('door2: a club account is adults only in the same way',
+    /createClubAccount[\s\S]*?fn_age_band[\s\S]*?band !== '18plus'[\s\S]*?clubAge/.test(join), true);
+  check('door3: neither door writes a development record',
+    [/createCoachAccount[\s\S]*?insert into development_record/.test(join.split('createClubAccount')[0].split('createCoachAccount')[1] ?? ''),
+     /insert into development_record/.test(join.split('createClubAccount')[1] ?? '')], [false, false]);
+  check('door4: a coach door makes a coach page and a club door makes no club at all',
+    [/createCoachAccount[\s\S]*?insert into coach_profile/.test(join),
+     /insert into club\b/.test(join.split('createClubAccount')[1] ?? '')], [true, false]);
+  check('door5: neither door can set a club verified — that is a person on a phone (D-126)',
+    /club_state\s*=\s*'verified'/.test(join), false);
+  check('door6: both accept the terms and the privacy policy, version-stamped',
+    (join.match(/'tos_accepted'/g) ?? []).length >= 3, true);
+  check('door7: an existing address is never taken over, and the answer never says which (D-94 §2)',
+    (join.match(/on conflict \(email\) do nothing/g) ?? []).length >= 3, true);
+  check('door8: the join screen tells a coach and a club person what happens next',
+    [/Create my coaching account/.test(page), /Claim your club/.test(page)], [true, true]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

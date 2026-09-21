@@ -2,8 +2,8 @@
 // The sign-up door — SignUp.dc.html + ParentDetails.dc.html, copy verbatim.
 // This block ships the u16 player path (the pending invitation, D-17); the
 // other role doors arrive with their flows.
-import { useState } from 'react';
-import { createAccount, startPendingInvitation } from './actions';
+import { useEffect, useState } from 'react';
+import { createAccount, createClubAccount, createCoachAccount, startPendingInvitation } from './actions';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
 
@@ -24,9 +24,26 @@ export default function Join() {
   const [firstName, setFirstName] = useState('');
   const [dob, setDob] = useState('');
   const [agreed, setAgreed] = useState(false);
+  // A refusal used to redirect here and say nothing at all: the form came back
+  // blank and the person had no idea why. Read after mount, so the server and
+  // the first client render agree.
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('clubAge')) setNotice('A club page is run by adults, so we could not set that one up. Ask someone on your committee to do it.');
+    else if (q.get('coachAge')) setNotice('A coaching page is for adults, so we could not set that one up. Your club can bring you in in the meantime — email help@pitchfootball.com.au.');
+    else if (q.get('error')) setNotice('That did not go through. Check the email address and that your password is at least ten characters.');
+  }, []);
 
   const age = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000)) : null;
-  const canContinue = role === 'player' && firstName.trim() && dob && agreed;
+  // The coach door opens on 21 Sep (BUZ): a coach builds their own page.
+  // Eighteen or over — a coach account for a child is a child's account with
+  // no guardian on it, and the server refuses one whatever this form says.
+  const coachOk = role === 'coach' && age !== null && age >= 18;
+  // A club person makes an ACCOUNT here; the club itself is claimed with the
+  // code we email to the club's own address, and verified on a call (D-126).
+  const clubOk = role === 'club' && age !== null && age >= 18;
+  const canContinue = Boolean(firstName.trim() && dob && agreed && (role === 'player' || coachOk || clubOk));
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -34,6 +51,9 @@ export default function Join() {
         {step === 'signup' ? (
           <>
             <HeaderMark />
+            {notice && (
+              <div role="alert" style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{notice}</div>
+            )}
             <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>What&rsquo;s your position?</h1>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {ROLES.map(([key, title, sub]) => (
@@ -66,7 +86,13 @@ export default function Join() {
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Date of birth</div>
                 <input style={input} type="date" value={dob} onChange={(e) => setDob(e.target.value)} placeholder="DD / MM / YYYY" />
               </label>
-              <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>Under 16? A parent will need to approve your profile before it goes live.</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>
+                {role === 'coach'
+                  ? 'Your coaching page is yours. It stays private until you publish it, and it shows no club until a club confirms you.'
+                  : role === 'club'
+                    ? 'You make your own account here. Next you claim your club’s page with a code we email to the club’s own address — and a person from Pitch rings the club to verify it.'
+                    : 'Under 16? A parent will need to approve your profile before it goes live.'}
+              </div>
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
               <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 17, height: 17, accentColor: T.accent }} />
@@ -80,12 +106,19 @@ export default function Join() {
                 dead 45%-opacity button and no explanation. A door that is
                 closed has to say so; a door that looks open and does nothing
                 is the worst version. */}
-            {role !== 'player' && (
+            {role === 'coach' && age !== null && age < 18 && (
               <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                <b style={{ color: T.ink }}>This door is not open yet.</b> Player accounts are the only ones you can create here today.
-                {role === 'parent' && ' A parent joins when their child does — the child starts, and the approval comes to you by text and email.'}
-                {role === 'coach' && ' Coaches are being let in one at a time while we get it right — email help@pitchfootball.com.au and we will set you up.'}
-                {role === 'club' && ' Clubs are set up by a phone call with us, not a form — that call is what verifies you. Email help@pitchfootball.com.au.'}
+                <b style={{ color: T.ink }}>A coaching page is for adults.</b> You can still coach — plenty of good coaches are your age — but the page and its link wait until you turn 18. Your club can set you up in the meantime: email help@pitchfootball.com.au.
+              </div>
+            )}
+            {role === 'club' && age !== null && age < 18 && (
+              <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                <b style={{ color: T.ink }}>A club page is run by adults.</b> Ask someone on your committee to set it up.
+              </div>
+            )}
+            {role === 'parent' && (
+              <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                <b style={{ color: T.ink }}>This door is not open yet.</b> A parent joins when their child does — the child starts, and the approval comes to you by text and email.
               </div>
             )}
             <button disabled={!canContinue} onClick={() => setStep(age !== null && age < 16 ? 'parent' : 'account')} style={{
@@ -105,13 +138,16 @@ export default function Join() {
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Last step</div>
               <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your account</h1>
             </div>
-            <form action={createAccount} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <form action={role === 'coach' ? createCoachAccount : role === 'club' ? createClubAccount : createAccount} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <input type="hidden" name="firstName" value={firstName} />
               <input type="hidden" name="dob" value={dob} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                {(role === 'coach' || role === 'club') && (
+                  <label className="field"><div className="field-label">Last name</div><input style={input} name="lastName" placeholder="Your surname" /></label>
+                )}
                 <label className="field"><div className="field-label">Email</div><input style={input} name="email" type="email" placeholder="you@example.com" required /></label>
                 <label className="field"><div className="field-label">Password — at least ten characters</div><input style={input} name="password" type="password" minLength={10} required /></label>
-                {age !== null && age < 18 && (
+                {role === 'player' && age !== null && age < 18 && (
                   <>
                     <label className="field"><div className="field-label">A parent or guardian&rsquo;s name</div><input style={input} name="guardianName" required /></label>
                     <label className="field"><div className="field-label">Their mobile</div><input style={input} name="guardianPhone" type="tel" placeholder="0412 345 678" required /></label>
@@ -120,7 +156,17 @@ export default function Join() {
                   </>
                 )}
               </div>
-              <button type="submit" className="btn btn-primary">Create my account</button>
+              <button type="submit" className="btn btn-primary">{role === 'coach' ? 'Create my coaching account' : 'Create my account'}</button>
+              {role === 'coach' && (
+                <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.55 }}>
+                  Next: your coaching page — how you coach, your teams, your licences. Reading a club&rsquo;s registrations is separate: the club names you and confirms your Working with Children Check.
+                </div>
+              )}
+              {role === 'club' && (
+                <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.55 }}>
+                  Next: open your club&rsquo;s page on Pitch and press <b style={{ color: T.secondary }}>Claim your club</b>. We email a code to the club&rsquo;s own public address, so the person who claims it is someone the club can already be reached at. If your club isn&rsquo;t on Pitch yet, email help@pitchfootball.com.au and we&rsquo;ll add it.
+                </div>
+              )}
             </form>
           </>
         ) : (
