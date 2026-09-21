@@ -178,7 +178,11 @@ button:active, a[href]:active { transform: scale(.975); }
 .console { width: 100%; max-width: 560px; }
 .d-only { display: none; }
 .console-frame { width: 100%; display: flex; justify-content: center; }
-.console-main { width: 100%; min-width: 0; display: flex; justify-content: center; }
+/* Column below the console breakpoint: a page that hands the shell two
+   blocks (Build your CV does — the form and the club card) would otherwise
+   put them side by side on a phone and push the first one off the left edge
+   (21 Sep). Above 1024px the console has room and keeps its row. */
+.console-main { width: 100%; min-width: 0; display: flex; flex-direction: column; align-items: center; }
 .console-nav { display: none; }
 .console-nav-link {
   display: flex; align-items: center; gap: 11px; min-height: 44px; padding: 0 12px;
@@ -198,7 +202,7 @@ button:active, a[href]:active { transform: scale(.975); }
   }
   /* Reading-width screens (billing, post a trial, club page) sit beside the
      sidebar, not floating in the middle of what is left. */
-  .console-main { justify-content: flex-start; }
+  .console-main { flex-direction: row; justify-content: flex-start; align-items: stretch; }
   .console { max-width: 1200px; }
   .m-only { display: none !important; }
   .d-only { display: grid; }

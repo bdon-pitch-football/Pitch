@@ -3467,5 +3467,22 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
       (await db.query(`select count(*)::int as n from membership where person_id = $1 and role = 'player' and ended_at is null`, [ID.deniz])).rows[0].n), 1);
 }
 
+// ---- the shell stacks on a phone (GTM's report, 21 Sep) ---------------------
+// Build your CV hands the shell two blocks — the form and the club card — and
+// the shell laid them side by side at every width, so the first screen a new
+// player ever sees started 54px off the left edge of a 390px phone. The page
+// now hands over one block, AND the shell stacks below the console breakpoint,
+// because the next page to hand over two would have done the same thing.
+{
+  const css = srcOf('app/globals.css');
+  const base = /\.console-main \{[^}]*\}/.exec(css)?.[0] ?? '';
+  check('shell1: the shell stacks its blocks below the console width',
+    /flex-direction:\s*column/.test(base), true);
+  check('shell2: and goes back to a row only where there is room for one (>=1024px)',
+    /@media \(min-width: 1024px\)[\s\S]*?\.console-main \{[^}]*flex-direction:\s*row/.test(css), true);
+  check('shell3: Build your CV hands the shell a single block',
+    (srcOf('app/build/[recordId]/page.tsx').match(/<PlayerFrame active="cv">\s*\{\/\*[\s\S]*?<div style=\{\{ width: '100%', display: 'flex', flexDirection: 'column' \}\}>/) ?? []).length, 1);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

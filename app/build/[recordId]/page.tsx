@@ -28,12 +28,21 @@ export default async function Build({ params, searchParams }: { params: Promise<
   if (rows.length === 0) notFound();
   return (
     <PlayerFrame active="cv">
-      <BuildForm record={JSON.parse(JSON.stringify(rows[0]))} saved={saved === '1'} />
-      {/* Where they play (0052): a club on a CV is a confirmed membership,
-          and this is the only place a family can start one. */}
-      <div className="reading" style={{ width: '100%', padding: '0 18px 30px 18px', boxSizing: 'border-box' }}>
-        <SquadCard personId={rows[0].person_id as string} firstName={rows[0].first_name as string}
-          back={`/build/${recordId}`} mine={actor === rows[0].person_id} />
+      {/* ONE child for the shell. Two made it lay them side by side, and on a
+          390px phone the first screen a new player ever sees started 54px off
+          the left edge (GTM's report, 21 Sep). The shell now stacks below the
+          console width as well — belt and braces, because the next page to
+          add a second block would have done the same thing. */}
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <BuildForm record={JSON.parse(JSON.stringify(rows[0]))} saved={saved === '1'} />
+        {/* Where they play (0052): a club on a CV is a confirmed membership,
+            and this is the only place a family can start one. */}
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <div className="reading" style={{ width: '100%', padding: '0 18px 30px 18px', boxSizing: 'border-box' }}>
+            <SquadCard personId={rows[0].person_id as string} firstName={rows[0].first_name as string}
+              back={`/build/${recordId}`} mine={actor === rows[0].person_id} />
+          </div>
+        </div>
       </div>
     </PlayerFrame>
   );
