@@ -161,6 +161,34 @@ await db.query(`insert into squad (id, club_id, name, age_group, competition_gen
 
 const mem = (p, c, sq, role) =>
   db.query(`insert into membership (person_id, club_id, squad_id, role) values ($1,$2,$3,$4)`, [p, c, sq, role]);
+
+// 0058 / D-93: a technical_director membership has exactly one source — a
+// verified call that recorded that person's address, and the person having
+// proved it. The suite cannot write the row and does not try; it does what
+// the operator does. Nothing here bypasses the rule, which is why the four
+// checks at the bottom of table H mean anything.
+//
+// A club that must NOT be verified for the case under test (the held view,
+// the unverified club) is put back where it was afterwards, verified_call_id
+// included — a club that was verified, named its TD, and later lost
+// verification is a real shape, and it is the one H5/M10 are about.
+let tdCallSeq = 0;
+const recordTd = async (person, club, email) => {
+  await db.query(`update person set email = $2 where id = $1`, [person, email]);
+  await proveAddress(person);
+  const before = (await db.query(`select club_state, verified_call_id from club where id = $1`, [club])).rows[0];
+  const call = crypto.randomUUID();
+  await db.query(
+    `insert into verification_call (id, club_id, called_at, operator, number_called, number_source,
+       outcome, td_name, td_email, policy_version)
+     values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified',$3,$4,'27@v1.0')`,
+    [call, club, `Fixture TD ${++tdCallSeq}`, email]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [call, club]);
+  if (before.club_state !== 'verified') {
+    await db.query(`update club set club_state=$2, verified_call_id=$3 where id=$1`,
+      [club, before.club_state, before.verified_call_id]);
+  }
+};
 await mem(ID.deniz, CLUB.riverside, SQUAD.u15, 'player');
 await mem(ID.georgia, CLUB.riverside, SQUAD.u16g, 'player');
 await mem(ID.nate, CLUB.riverside, SQUAD.u18, 'player');
@@ -168,7 +196,7 @@ await mem(ID.marcus, CLUB.riverside, SQUAD.u15, 'player');
 await mem(ID.coachV, CLUB.riverside, SQUAD.u15, 'coach');
 await mem(ID.coachU, CLUB.riverside, SQUAD.u15, 'coach');          // NOT attested
 await mem(ID.coachUnassigned, CLUB.riverside, SQUAD.u16g, 'coach'); // attested, other squad
-await mem(ID.td, CLUB.riverside, null, 'technical_director');
+await recordTd(ID.td, CLUB.riverside, 'td@fixture.example');
 await mem(ID.clubAdmin, CLUB.riverside, null, 'club_admin');
 await mem(ID.teamManager, CLUB.riverside, SQUAD.u15, 'team_manager');
 await mem(ID.coachOther, CLUB.other, SQUAD.otherSq, 'coach');
@@ -1469,7 +1497,7 @@ await db.query(`update guardianship_link set revoked_at = null where guardian_id
 const mClub = crypto.randomUUID(), mReg = crypto.randomUUID(), mAdmin = crypto.randomUUID();
 await db.query(`insert into club (id, name, club_state, subscription_status) values ($1,'Held FC','claimed','active')`, [mClub]);
 await db.query(`insert into person (id, first_name, dob) values ($1,'Held Admin','${yearsAgo(40)}')`, [mAdmin]);
-await mem(mAdmin, mClub, null, 'technical_director');   // D-154: the register's reader is a named TD
+await recordTd(mAdmin, mClub, 'heldtd@fixture.example'); // D-154: the register's reader is a named TD
 await db.query(`insert into registration (id, player_id, club_id, note, policy_version) values ($1,$2,$3,'Keen','20@v2.4')`,
   [mReg, ID.georgia, mClub]);
 
@@ -1625,7 +1653,7 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
   // here needs its technical director.
   const tdOther = crypto.randomUUID();
   await db.query(`insert into person (id, first_name, dob) values ($1,'Other TD',$2)`, [tdOther, yearsAgo(41)]);
-  await mem(tdOther, CLUB.other, null, 'technical_director');
+  await recordTd(tdOther, CLUB.other, 'othertd@fixture.example');
   const bayviewTrial = await trialAt(CLUB.other);
   await db.query(`update club set subscription_status = null where id = $1`, [CLUB.other]);
 
@@ -2110,7 +2138,107 @@ await db.query(`update membership set ended_at = now() where person_id = $1 and 
 check('H8: a departed technical director loses club-wide access at once', await level(ID.td, ID.deniz), 'none');
 check('H9: and cannot write to the record either', await prov(ID.td, REC.deniz), null);
 await db.query(`update membership set ended_at = null where person_id = $1 and role = 'technical_director'`, [ID.td]);
-check('H10: reinstating the role restores it, still without a stored flag', await level(ID.td, ID.deniz), 'full');
+// Not H10 — doc 14 H10 is "a person self-declares technical_director", and a
+// label starting with a row id is a claim to test that row (L4). Reinstating
+// a TD belongs with H9, and since 0058 the revival is re-checked against the
+// call, the proof and the club's state like any other write of the live role.
+check('H9c: reinstating the role restores it, still without a stored flag', await level(ID.td, ID.deniz), 'full');
+
+// ---------------------------------------------------------------------------
+// 0058 — a club gets its technical director on the verification call, and
+// nowhere else (BUZ, 23 Sep; D-93's granting rule; the gap 0054 opened, L29).
+// Four questions: can the role be written by any other route, can an unproved
+// address hold it, does it switch on when that address is proved, and what a
+// club with no recorded TD can read.
+// ---------------------------------------------------------------------------
+{
+  const club = crypto.randomUUID(), admin = crypto.randomUUID();
+  const recorded = crypto.randomUUID(), outsider = crypto.randomUUID(), minor = crypto.randomUUID();
+  const firstCall = crypto.randomUUID(), tdCall = crypto.randomUUID();
+  const reg = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state, subscription_status) values ($1,'Callsheet FC','claimed','active')`, [club]);
+  await db.query(`insert into person (id, first_name, dob, email) values
+    ($1,'Recorded',$2,'recorded@fixture.example'), ($3,'Outsider',$2,'outsider@fixture.example'),
+    ($4,'Minor',$5,'minortd@fixture.example'), ($6,'Callsheet Admin',$2,null)`,
+    [recorded, yearsAgo(44), outsider, minor, yearsAgo(16), admin]);
+  await mem(admin, club, null, 'club_admin');
+  await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`,
+    [reg, ID.marcus, club]);
+
+  // The club is verified by a call that named nobody — which is allowed, and
+  // leaves the club with no route into its own register.
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [firstCall, club]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [firstCall, club]);
+  check('td1: a verified club whose call recorded no technical director has nobody in the role',
+    (await db.query(`select count(*)::int as n from membership where club_id = $1 and role = 'technical_director' and ended_at is null`, [club])).rows[0].n, 0);
+  check('td2: so it has no register reader — its administrator included (D-154)',
+    [(await db.query('select fn_can_work_register($1,$2) as c', [admin, club])).rows[0].c,
+     (await db.query('select * from fn_register_rows($1,$2)', [admin, club])).rows.length,
+     (await db.query('select fn_register_count($1,$2) as n', [admin, club])).rows[0].n],
+    [false, 0, 1]);
+
+  // H10 — the row doc 14 enumerates: the role asserted rather than granted.
+  await expectFail('H10: a person self-declaring technical_director is refused at the write (D-93)',
+    `insert into membership (person_id, club_id, role) values ('${outsider}','${club}','technical_director')`);
+  await expectFail('td3: and no existing membership can be promoted into the role either',
+    `update membership set role = 'technical_director' where person_id = '${admin}' and club_id = '${club}'`);
+  await expectFail('td4: a call that did not verify the club records no technical director',
+    `insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, td_name, td_email, policy_version)
+     values ('${club}', now(), 'BUZ', '03 9000 0000', 'FV club directory', 'not_verified', 'Nobody Atall', 'nobody@fixture.example', '27@v1.0')`);
+
+  // The call that does record one. The address is not proved yet.
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, td_name, td_email, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','Robin Recorded','Recorded@Fixture.Example','27@v1.0')`, [tdCall, club]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [tdCall, club]);
+  check('td5: recorded on the call is not the same as holding the role — the address is unproved',
+    [(await db.query('select fn_td_on_call($1,$2) as c', [recorded, club])).rows[0].c,
+     (await db.query('select fn_email_proved($1) as p', [recorded])).rows[0].p,
+     (await db.query('select fn_can_work_register($1,$2) as c', [recorded, club])).rows[0].c],
+    [true, false, false]);
+  check('td6: and the operator console says so — recorded, by whom, not active',
+    (await db.query('select td_name, recorded_by, active from fn_club_td($1)', [club])).rows,
+    [{ td_name: 'Robin Recorded', recorded_by: 'BUZ', active: false }]);
+  await expectFail('td7: an unproved address cannot be handed the role by hand either (L21)',
+    `insert into membership (person_id, club_id, role) values ('${recorded}','${club}','technical_director')`);
+
+  // The proof — written the way the product writes it, because the database
+  // asks for the evidence (0056).
+  await proveAddress(recorded);
+  check('td8: proving the address is what switches the role on, and nothing else had to happen',
+    [(await db.query(`select count(*)::int as n from membership where person_id = $1 and club_id = $2 and role = 'technical_director' and ended_at is null`, [recorded, club])).rows[0].n,
+     (await db.query('select fn_can_work_register($1,$2) as c', [recorded, club])).rows[0].c,
+     (await db.query('select * from fn_register_rows($1,$2)', [recorded, club])).rows.length,
+     (await db.query('select active from fn_club_td($1)', [club])).rows[0].active],
+    [1, true, 1, true]);
+  check('td8b: and the club\'s administrator still reads none of it (D-93, N17)',
+    (await db.query('select * from fn_register_rows($1,$2)', [admin, club])).rows.length, 0);
+
+  // Everything the one path is not.
+  await proveAddress(outsider);
+  await expectFail('td9: somebody else at the same club, proved and all, is still refused',
+    `insert into membership (person_id, club_id, role) values ('${outsider}','${club}','technical_director')`);
+  await proveAddress(minor);
+  await db.query(`update verification_call set td_email = 'minortd@fixture.example' where id = $1`, [tdCall]);
+  await expectFail('td10: a person under 18 never holds club-wide access to children\'s records (D-82)',
+    `insert into membership (person_id, club_id, role) values ('${minor}','${club}','technical_director')`);
+  check('td10b: and the attach that runs on a call refuses them in silence rather than picking them up',
+    (await db.query(`select count(*)::int as n from membership where person_id = $1 and role = 'technical_director'`, [minor])).rows[0].n, 0);
+  await db.query(`update verification_call set td_email = 'recorded@fixture.example' where id = $1`, [tdCall]);
+
+  // An unverified club: the call recorded a TD, the club is not verified, so
+  // there is no role to hold (D-126 — the club-state wall comes first).
+  const unv = crypto.randomUUID(), unvPerson = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Uncalled FC','claimed')`, [unv]);
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Waiting',$2,'waiting@fixture.example')`, [unvPerson, yearsAgo(38)]);
+  await proveAddress(unvPerson);
+  await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, td_name, td_email, policy_version)
+    values ($1,now(),'BUZ','03 9000 0000','FV club directory','verified','Wendy Waiting','waiting@fixture.example','27@v1.0')`, [unv]);
+  check('td11: a call on a club nobody switched to verified attaches nobody',
+    (await db.query(`select count(*)::int as n from membership where club_id = $1 and role = 'technical_director'`, [unv])).rows[0].n, 0);
+  await expectFail('td12: and the role cannot be written there by hand (D-126)',
+    `insert into membership (person_id, club_id, role) values ('${unvPerson}','${unv}','technical_director')`);
+}
 
 // J: the union rule (A12c) — a person wearing two hats gets the higher of
 // the two, computed at read time.
@@ -3582,7 +3710,7 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, kid]);
   await db.query(`insert into development_record (person_id) values ($1)`, [kid]);
   await db.query(`insert into person (id, first_name, dob) values ($1,'UnvTd',$2)`, [unvTd, yearsAgo(40)]);
-  await mem(unvTd, CLUB.unverified, null, 'technical_director');
+  await recordTd(unvTd, CLUB.unverified, 'unvtd@fixture.example');
   const askSq = (await db.query(
     `insert into squad (club_id, name, age_group, competition_gender, season)
      values ($1, 'Askable Test', 'U14', 'boys', '2026') returning id`, [CLUB.riverside])).rows[0].id;
