@@ -172,3 +172,11 @@ at HEAD; three of Leo's squad checks never ran in a full sweep, one passing on
 nothing. The rules in TRAINING §5 are for everyone who commits, starting with
 whoever wrote them.
 *Rule:* no exceptions for the reviewer. Leo's commits go through the same run.
+
+**L28 · Check an instruction against the spec before you carry it out (23 Sep, copy seat).**
+Leo said "hold §13 — stop sending it". Doc 14 §B11 defines the sixteen-year-old
+transition as that message having delivered, so removing the words would have
+removed the gate. The seat proposed keeping the text with a dated hold note and
+holding the matching public claim with it.
+*Rule:* an instruction from Leo is not above the spec. If they disagree, say so
+in the report and propose the better version — that is the job, not insubordination.
