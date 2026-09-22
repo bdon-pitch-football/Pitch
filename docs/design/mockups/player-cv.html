@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: the public player CV</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--hero:linear-gradient(160deg,#123326 0%,#0c1d14 60%,#0a1510 100%);--r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h3{font-size:14px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:20px 0 6px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.doc ol{font-size:14.5px;line-height:1.7;color:var(--secondary);padding-left:20px;margin:0 0 10px}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink)}
+.board{padding:0 22px 60px;overflow-x:auto}
+.bh{max-width:900px;margin:28px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.bh .t{font-size:18px;font-weight:900;letter-spacing:var(--ls-title)}
+.bh .s{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
+.stage{border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin:0 auto;background:var(--bg)}
+.w1280{width:1280px}.w390{width:390px}
+.flood{background:radial-gradient(ellipse 130% 85% at 50% -25%,#17422e 0%,#10281c 42%,#0b120e 78%)}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);font-family:inherit;border:none;text-decoration:none}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.numeral{font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums}
+.hero{position:relative;overflow:hidden;border-radius:var(--r-hero);background:var(--hero);padding:24px 20px 22px;display:flex;flex-direction:column;gap:14px}
+.k2{font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.tile{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:var(--r-well);padding:11px 12px}
+.strip{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:14px;height:56px;padding:0 18px;background:var(--surface);border-bottom:1px solid var(--line)}
+.fac{position:relative;overflow:hidden;border-radius:var(--r-card);border:1px solid var(--line);background:var(--hero);height:132px;display:flex;align-items:flex-end;padding:14px 15px}
+.fac .pm{position:absolute;right:-18px;top:-26px;opacity:.09}
+.play{width:40px;height:40px;border-radius:999px;background:rgba(61,220,132,.92);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.side{position:absolute;top:0;bottom:0;width:320px;pointer-events:none;display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 23 Sep 2026 · mockup 7 of 7</div>
+<h1>The public player CV — a better single column</h1>
+<p class="lead">This is the acquisition engine, the first thing a club ever sees, and the page the
+brief says must be the most beautiful thing we build. It measures 61% empty at 1280 — and the
+benchmark seat, the audit seat and I all reach the same answer independently: <b>the void is at the
+sides of a well-made 604px column, and that is what a document is supposed to look like. Do not put
+a rail on it.</b> LinkedIn's own logged-out profile — the page BUZ is actually picturing — is one
+column. And the rail LinkedIn does have on its members' view holds "People Also Viewed", which under
+a fourteen-year-old's CV is a recommender over children and a pillar-zero breach.</p>
+<p>So this mockup makes the column better and the sides deliberate. Four moves, and none of them adds
+information outside the column, which means there is nothing to reflow at 1023px and nothing to lose
+in print.</p>
+
+<h3>What is wrong now</h3>
+<ol>
+<li><b>No frame.</b> Once the hero scrolls away there is no identity, no action, nothing to orient
+against — on a 1,660px page.</li>
+<li><b>The highlight façades are 604×96 rectangles with a play button in the middle of nothing.</b>
+That is where most of the "empty" reading on this page comes from. D-97 forbids fetching a YouTube
+thumbnail before the viewer presses play — but it does not forbid the façade being <i>ours</i>.</li>
+<li><b>The sides are bare background,</b> so the page reads as unfinished rather than framed.</li>
+<li><b>The squad-number watermark is clipped mid-glyph by the card's right edge</b> and collides with
+the position map. Two decorative elements in one corner.</li>
+<li><b>The stat tiles arrive on a staggered entrance</b> (0.28s + 0.09s each) and <b>count up from
+zero</b> — so every tile reads "0" for the first frames, on a CV built around never showing one. At
+820 the three tiles form a descending staircase. On 4G at a ground, the staircase is what a club sees
+first.</li>
+</ol>
+
+<h3>What the change does for the club opening this link</h3>
+<p><b>The sticky identity strip</b> means the technical director always knows whose page he is on and
+always has the one thing he can do with it, however far down he has read. It is 56px,
+<code>--surface</code> over <code>--bg</code>, one hairline, no shadow — and it prints away cleanly,
+which is the reason it is a strip and not a rail.</p>
+<p><b>The façades fill their cards:</b> our hero gradient, the pitch mark at low opacity, the clip
+title at 15px/800 and its line at 12.5px/500 sitting in the card rather than in a strip along the
+bottom, and the honest label — <i>"YouTube · nothing loads until you press play"</i> — which turns a
+privacy control into something the reader can see us doing. Same height class, no emptiness.</p>
+<p><b>The sides become the page:</b> the floodlight gradient continued and one very low-contrast
+pitch mark in each margin. No information goes there, ever.</p>
+<p>And two fixes that cost minutes: the watermark is clipped to whole glyphs and moved off the map's
+corner, and the stat tiles arrive together at their real values rather than counting up from a zero
+the never-zero rule exists to abolish.</p>
+
+<h3>What it costs to build</h3>
+<p><b>Low.</b> Move 1 is a small component that must also exist on the phone — it does, as the same
+strip. Move 2 is pure CSS on <code>ClipCard</code>. Move 3 is a background on the page wrapper.
+The animation fix is deleting an <code>animationDelay</code> and a counter.</p>
+
+<h3>What it does NOT change</h3>
+<p>Not one fact on the page, not one word, not the order of the sections. Not the 640px column.
+No rail, no "similar players", no view count, no follower count, no completeness score — none of
+which may ever appear on a page about a child. The never-zero rule is untouched and strengthened:
+Georgia's CV still renders three tiles and Nate's still renders two, and neither ever shows a
+nought.</p>
+<p>The print work is <b>not</b> in this mockup. The benchmark's finding stands and is worth telling
+BUZ separately: LinkedIn could not make a two-column profile print and shipped a separate résumé
+renderer instead. Our print fast-follow should <b>render a one-column document</b>, not print the
+page.</p>
+</div>
+
+<div class="board">
+
+<div class="bh"><span class="tag tag-now">now · 1280</span><div><div class="t">The column is right. What is in it is thin, and the sides are nothing.</div><div class="s">Deniz Yılmaz, 14, Riverside FC — the house fixture. Scrolled to the highlights.</div></div></div>
+
+<div class="stage w1280 flood">
+<div style="display:flex;justify-content:center;padding:22px 0 28px">
+  <div style="width:640px;padding:0 18px;display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;justify-content:flex-end"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+    <div class="hero">
+      <div style="position:absolute;right:-14px;top:-30px;font-size:170px;font-weight:900;letter-spacing:var(--ls-numeral);color:rgba(61,220,132,.08);line-height:1">10</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+        <div style="width:66px;height:66px;border-radius:20px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px">DY</div>
+        <svg viewBox="0 0 100 62" width="86" height="53" style="opacity:.9"><rect x="1" y="1" width="98" height="60" rx="6" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><line x1="50" y1="1" x2="50" y2="61" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="68" cy="31" r="5" fill="#3ddc84"/><circle cx="74" cy="10" r="3.6" fill="rgba(61,220,132,.45)"/></svg>
+      </div>
+      <div style="position:relative">
+        <div style="font-size:28px;font-weight:900;line-height:1.05;letter-spacing:var(--ls-title)">Deniz Yılmaz</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.78);margin-top:4px">AM · LW · #10 · Right footed</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.62);margin-top:4px">Riverside FC — U15 Boys · Brunswick VIC</div>
+      </div>
+      <div style="display:flex;position:relative"><div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);border-radius:999px;padding:4px 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z"/><path d="M9 12 L11 14 L15 9.5"/></svg>Parent-approved</div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;position:relative"><div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.55)">Season 2026</div><div style="display:flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:3px 9px"><div style="width:5px;height:5px;border-radius:999px;background:rgba(255,255,255,.5)"></div><div style="font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.65)">Self-reported</div></div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;position:relative">
+        <div class="tile"><div class="numeral" style="font-size:30px">18</div><div class="k2" style="margin-top:6px">Apps</div></div>
+        <div class="tile"><div class="numeral" style="font-size:30px;color:var(--accent)">11</div><div class="k2" style="margin-top:6px">Goals</div></div>
+        <div class="tile"><div class="numeral" style="font-size:30px">7</div><div class="k2" style="margin-top:6px">Assists</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="k2">Highlights</div>
+      <div style="height:96px;border-radius:var(--r-card);border:1px solid var(--line);background:linear-gradient(135deg,#1a2820,#101a14);display:flex;align-items:center;justify-content:center;margin-top:10px"><span class="play"><svg width="14" height="14" viewBox="0 0 24 24" fill="#06130c"><path d="M8 5 L19 12 L8 19 Z"/></svg></span></div>
+      <div style="background:var(--surface);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--r-card) var(--r-card);padding:11px 14px;margin-top:-1px"><div style="font-size:14px;font-weight:800">Season highlights 2026</div><div style="font-size:12px;color:var(--muted)">Goals, assists &amp; link play</div></div>
+      <div style="height:96px;border-radius:var(--r-card) var(--r-card) 0 0;border:1px solid var(--line);background:linear-gradient(135deg,#182018,#101a14);display:flex;align-items:center;justify-content:center;margin-top:10px"><span class="play"><svg width="14" height="14" viewBox="0 0 24 24" fill="#06130c"><path d="M8 5 L19 12 L8 19 Z"/></svg></span></div>
+      <div style="background:var(--surface);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--r-card) var(--r-card);padding:11px 14px"><div style="font-size:14px;font-weight:800">vs Northern Utd — full performance</div></div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75);margin-top:12px">604 × 96 of nothing, twice · watermark clipped mid-glyph above · bare sides</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280</span><div><div class="t">Sticky identity, façades that fill their card, and the sides treated as margin</div><div class="s">Scrolled past the hero, so the strip is showing. Same 640px column, same sections, same order.</div></div></div>
+
+<div class="stage w1280 flood" style="position:relative">
+  <!-- the sides: the page, never information -->
+  <div class="side" style="left:0"><svg viewBox="0 0 74 97" width="150" height="200" style="opacity:.035"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg></div>
+  <div class="side" style="right:0"><svg viewBox="0 0 74 97" width="150" height="200" style="opacity:.035"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg></div>
+
+  <div class="strip">
+    <div style="display:flex;align-items:center;gap:11px">
+      <div style="width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px">DY</div>
+      <div style="font-size:13.5px;font-weight:800">Deniz Yılmaz<span style="color:var(--muted);font-weight:700"> · AM · Riverside FC U15</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <a href="#" class="btn btn-secondary" style="padding:0 16px">Share this page</a>
+      <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:center;padding:22px 0 30px;position:relative">
+    <div style="width:640px;padding:0 18px;display:flex;flex-direction:column;gap:22px">
+
+      <div class="hero" style="padding:26px 22px 24px">
+        <!-- whole glyphs only, and off the map's corner -->
+        <div style="position:absolute;right:20px;bottom:-24px;font-size:150px;font-weight:900;letter-spacing:var(--ls-numeral);color:rgba(61,220,132,.07);line-height:1">10</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+          <div style="width:66px;height:66px;border-radius:20px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px">DY</div>
+          <svg viewBox="0 0 100 62" width="86" height="53" style="opacity:.9"><rect x="1" y="1" width="98" height="60" rx="6" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><line x1="50" y1="1" x2="50" y2="61" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="68" cy="31" r="5" fill="#3ddc84"/><circle cx="74" cy="10" r="3.6" fill="rgba(61,220,132,.45)"/></svg>
+        </div>
+        <div style="position:relative">
+          <div style="font-size:28px;font-weight:900;line-height:1.05;letter-spacing:var(--ls-title)">Deniz Yılmaz</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.78);margin-top:4px">AM · LW · #10 · Right footed</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.62);margin-top:4px">Riverside FC — U15 Boys · Brunswick VIC</div>
+        </div>
+        <div style="display:flex;position:relative"><div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);border-radius:999px;padding:4px 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z"/><path d="M9 12 L11 14 L15 9.5"/></svg>Parent-approved</div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;position:relative"><div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.55)">Season 2026</div><div style="display:flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:3px 9px"><div style="width:5px;height:5px;border-radius:999px;background:rgba(255,255,255,.5)"></div><div style="font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.65)">Self-reported</div></div></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;position:relative">
+          <div class="tile"><div class="numeral" style="font-size:30px">18</div><div class="k2" style="margin-top:6px">Apps</div></div>
+          <div class="tile"><div class="numeral" style="font-size:30px;color:var(--accent)">11</div><div class="k2" style="margin-top:6px">Goals</div></div>
+          <div class="tile"><div class="numeral" style="font-size:30px">7</div><div class="k2" style="margin-top:6px">Assists</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="k2">About</div>
+        <div style="font-size:14px;line-height:1.55;color:var(--secondary)">Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery.</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="k2">Highlights</div>
+        <div class="fac">
+          <svg class="pm" viewBox="0 0 74 97" width="120" height="160"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>
+          <div style="display:flex;align-items:flex-end;gap:14px;width:100%;position:relative">
+            <span class="play"><svg width="14" height="14" viewBox="0 0 24 24" fill="#06130c"><path d="M8 5 L19 12 L8 19 Z"/></svg></span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-weight:800">Season highlights 2026</div>
+              <div style="font-size:12.5px;color:var(--secondary);margin-top:2px">Goals, assists &amp; link play</div>
+            </div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.45);white-space:nowrap">YouTube · nothing loads until you press play</div>
+          </div>
+        </div>
+        <div class="fac" style="background:linear-gradient(160deg,#152b22 0%,#0c1d14 60%,#0a1510 100%)">
+          <svg class="pm" viewBox="0 0 74 97" width="120" height="160"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>
+          <div style="display:flex;align-items:flex-end;gap:14px;width:100%;position:relative">
+            <span class="play"><svg width="14" height="14" viewBox="0 0 24 24" fill="#06130c"><path d="M8 5 L19 12 L8 19 Z"/></svg></span>
+            <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800">vs Northern Utd — full performance</div></div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.45);white-space:nowrap">YouTube · nothing loads until you press play</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="k2">Achievements</div>
+        <div class="card" style="display:flex;align-items:center;gap:11px">
+          <div style="width:36px;height:36px;border-radius:11px;background:rgba(61,220,132,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9"/></svg></div>
+          <div><div style="font-size:14px;font-weight:800">U15 League — Runners up</div><div style="font-size:12px;color:var(--muted)">2026 season</div></div>
+        </div>
+        <div class="card" style="display:flex;align-items:center;gap:11px">
+          <div style="width:36px;height:36px;border-radius:11px;background:rgba(61,220,132,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L14.6 8.6 L20.5 9.3 L16.2 13.4 L17.4 19.3 L12 16.3 L6.6 19.3 L7.8 13.4 L3.5 9.3 L9.4 8.6 Z"/></svg></div>
+          <div><div style="font-size:14px;font-weight:800">Players' Player of the Year</div><div style="font-size:12px;color:var(--muted)">Riverside FC, 2025</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="k2">Football history</div>
+        <div class="card" style="padding:4px 15px">
+          <div style="display:flex;align-items:center;gap:11px;padding:13px 0"><div style="width:8px;height:8px;border-radius:999px;background:var(--accent);flex-shrink:0"></div><div><div style="font-size:14px;font-weight:800">Riverside FC</div><div style="font-size:12px;color:var(--muted)">U15 Boys · now</div></div></div>
+          <div style="display:flex;align-items:center;gap:11px;padding:13px 0;border-top:1px solid var(--line)"><div style="width:8px;height:8px;border-radius:999px;border:1.5px solid var(--muted);flex-shrink:0"></div><div><div style="font-size:14px;font-weight:800;color:var(--secondary)">Brunswick Juniors SC</div><div style="font-size:12px;color:var(--muted)">2019–2023</div></div></div>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);line-height:1.5">Earlier clubs are Deniz's own account of where they played. Only the club at the top is one we hold on Pitch.</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="k2">Other football</div>
+        <div class="card" style="display:flex;align-items:center;gap:11px"><div style="background:rgba(61,220,132,.12);color:var(--accent);border-radius:7px;padding:3px 8px;font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase">school</div><div><div style="font-size:13.5px;font-weight:800">Northcote High 1st XI</div><div style="font-size:12px;color:var(--muted)">2026</div></div></div>
+        <div class="card" style="display:flex;align-items:center;gap:11px"><div style="background:rgba(61,220,132,.12);color:var(--accent);border-radius:7px;padding:3px 8px;font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase">futsal</div><div><div style="font-size:13.5px;font-weight:800">Melbourne Futsal U15</div><div style="font-size:12px;color:var(--muted)">Summer 2025–26</div></div></div>
+      </div>
+
+      <div class="card" style="padding:14px 15px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12.5px;font-weight:800;color:var(--secondary)">There is no way to reply to a family through Pitch.</div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.55">At any tier, for anybody — it is the same rule for every under-18 on here. If you want Deniz at a trial, post it on Pitch: families register their interest from your trial, and that is where you can invite them. It goes to Deniz and their parent together, and a record is kept.</div>
+      </div>
+
+      <div style="font-size:11px;color:var(--muted);text-align:center;font-weight:700;padding:16px 0">Report this page</div>
+    </div>
+  </div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 390</span><div><div class="t">The same strip, the same façades, one column</div><div class="s">The strip exists on the phone too — that is what makes it a container change and not a desktop-only capability (D-147).</div></div></div>
+
+<div class="stage w390 flood">
+  <div class="strip" style="padding:0 14px">
+    <div style="display:flex;align-items:center;gap:9px;min-width:0">
+      <div style="width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;flex-shrink:0">DY</div>
+      <div style="font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Deniz Yılmaz<span style="color:var(--muted);font-weight:700"> · AM</span></div>
+    </div>
+    <span class="wm" style="font-size:17px">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+  </div>
+  <div style="padding:18px;display:flex;flex-direction:column;gap:20px">
+    <div class="hero" style="padding:22px 18px 20px">
+      <div style="position:absolute;right:16px;bottom:-20px;font-size:128px;font-weight:900;letter-spacing:var(--ls-numeral);color:rgba(61,220,132,.07);line-height:1">10</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+        <div style="width:62px;height:62px;border-radius:19px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px">DY</div>
+        <svg viewBox="0 0 100 62" width="78" height="48" style="opacity:.9"><rect x="1" y="1" width="98" height="60" rx="6" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><line x1="50" y1="1" x2="50" y2="61" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="68" cy="31" r="5" fill="#3ddc84"/><circle cx="74" cy="10" r="3.6" fill="rgba(61,220,132,.45)"/></svg>
+      </div>
+      <div style="position:relative">
+        <div style="font-size:28px;font-weight:900;line-height:1.05;letter-spacing:var(--ls-title)">Deniz Yılmaz</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.78);margin-top:4px">AM · LW · #10 · Right footed</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.62);margin-top:4px">Riverside FC — U15 Boys · Brunswick VIC</div>
+      </div>
+      <div style="display:flex;position:relative"><div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);border-radius:999px;padding:4px 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z"/><path d="M9 12 L11 14 L15 9.5"/></svg>Parent-approved</div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;position:relative">
+        <div class="tile"><div class="numeral" style="font-size:28px">18</div><div class="k2" style="margin-top:6px">Apps</div></div>
+        <div class="tile"><div class="numeral" style="font-size:28px;color:var(--accent)">11</div><div class="k2" style="margin-top:6px">Goals</div></div>
+        <div class="tile"><div class="numeral" style="font-size:28px">7</div><div class="k2" style="margin-top:6px">Assists</div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="k2">About</div>
+      <div style="font-size:14px;line-height:1.55;color:var(--secondary)">Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="k2">Highlights</div>
+      <div class="fac" style="height:124px">
+        <svg class="pm" viewBox="0 0 74 97" width="100" height="134"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>
+        <div style="display:flex;align-items:flex-end;gap:12px;width:100%;position:relative">
+          <span class="play"><svg width="14" height="14" viewBox="0 0 24 24" fill="#06130c"><path d="M8 5 L19 12 L8 19 Z"/></svg></span>
+          <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800">Season highlights 2026</div><div style="font-size:12.5px;color:var(--secondary);margin-top:2px">Goals, assists &amp; link play</div><div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:5px">Nothing loads until you press play</div></div>
+        </div>
+      </div>
+      <div class="fac" style="height:124px;background:linear-gradient(160deg,#152b22 0%,#0c1d14 60%,#0a1510 100%)">
+        <svg class="pm" viewBox="0 0 74 97" width="100" height="134"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>
+        <div style="display:flex;align-items:flex-end;gap:12px;width:100%;position:relative">
+          <span class="play"><svg width="14" height="14" viewBox="0 0 24 24" fill="#06130c"><path d="M8 5 L19 12 L8 19 Z"/></svg></span>
+          <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800">vs Northern Utd — full performance</div><div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:5px">Nothing loads until you press play</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:9px">
+      <div class="k2">Achievements</div>
+      <div class="card" style="display:flex;align-items:center;gap:11px"><div style="width:36px;height:36px;border-radius:11px;background:rgba(61,220,132,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9"/></svg></div><div><div style="font-size:14px;font-weight:800">U15 League — Runners up</div><div style="font-size:12px;color:var(--muted)">2026 season</div></div></div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

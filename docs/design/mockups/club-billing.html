@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: /club/billing</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--hero:linear-gradient(160deg,#123326 0%,#0c1d14 60%,#0a1510 100%);--r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--r-pill:999px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h3{font-size:14px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:22px 0 6px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink)}
+.board{padding:0 22px 60px;overflow-x:auto}
+.bh{max-width:900px;margin:28px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.bh .t{font-size:18px;font-weight:900;letter-spacing:var(--ls-title)}
+.bh .s{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin:0 auto}
+.w1280{width:1280px}
+.w390{width:390px}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);font-family:inherit;border:none;text-decoration:none}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.btn-ghost{height:44px;font-size:13.5px;font-weight:700;background:transparent;color:var(--muted)}
+.numeral{font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums}
+.n-l{font-size:56px}.n-m{font-size:34px}.n-s{font-size:22px}
+.railhead{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.hd{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 18px;border-bottom:1px solid var(--line)}
+.nav{border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:2px}
+.nl{min-height:44px;display:flex;align-items:center;gap:11px;padding:0 12px;border-radius:var(--r-well);font-size:14px;font-weight:700;color:var(--secondary);text-decoration:none}
+.nl.on{background:var(--surface-2);color:var(--ink);box-shadow:inset 3px 0 0 var(--accent)}
+.empty-mark{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,transparent,transparent 11px,rgba(227,73,72,.055) 11px,rgba(227,73,72,.055) 22px)}
+.dl{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:11px 0}
+.dl + .dl{border-top:1px solid var(--line)}
+.dt{font-size:12.5px;font-weight:700;color:var(--muted)}
+.dd{font-size:13.5px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 23 Sep 2026 · mockup 2 of 7</div>
+<h1>/club/billing</h1>
+<p class="lead">The emptiest screen in the product — 80% at 1280, 74% at 820 — and it is the page
+attached to $54 a month. A treasurer opens it to check what the club is on and finds four elements
+finished by y=330 with 470px of background under them and 386px beside them.</p>
+
+<h3>What is wrong now</h3>
+<p>It is a <b>named console surface in D-147</b> (<code>ClubBilling</code>) rendering as a 604px reading
+column. It shows the price and nothing else: no next charge, no card, no receipt, no record of what
+has been paid, and no answer to the only question a treasurer asks a subscription page — <b>what is
+this buying us?</b> It also carries a "&lt; Back" link above a page whose sidebar item is already
+highlighted, which is two navigation systems on one screen.</p>
+
+<h3>What the change does for the person on this screen</h3>
+<p>It moves to the width D-147 already gives it and fills the space with <b>facts about this club's
+money and this club's register</b> — the next charge, the statement descriptor, the receipt address,
+and what the register has done since the last one. A treasurer can answer "what is PITCH FOOTBALL
+on our statement" without ringing the bank, which is the thing D-136 was written to prevent.
+And the cancel route stays exactly where D-136 requires it: here, in the club's own settings.</p>
+
+<h3>What it costs to build</h3>
+<p><b>Low for the left column and the rail</b> — the plan, the renewal date, the descriptor and the
+cancel route are already on the page or already in the record; the layout is the console grid that
+<code>/club/register</code> already uses. <b>Moderate for "What you have paid"</b>: charges are not
+stored today, only subscription state is, so that block needs an <code>invoice.paid</code> webhook
+writing a row. I would ship the page without it and add it when a club asks for a receipt.</p>
+
+<h3>What it does NOT change</h3>
+<p>Not the price, not the plans, not one word of the D-136 disclosure or the D-137 authority tick.
+Not the checkout flow. Not the unpaid state's content or order — that form is already good and only
+gains the second column. Not the phone: at 390 this is the same screen, in the same order, with the
+rail's blocks stacked under the main column exactly as the 390px artboard has them.</p>
+</div>
+
+<div class="board">
+
+<div class="bh"><span class="tag tag-now">now · 1280</span><div><div class="t">80% of the first screenful has nothing on it</div><div class="s">Riverside FC, paying monthly. Hatching marks what is drawn on nothing.</div></div></div>
+
+<div class="stage w1280" style="position:relative">
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr);min-height:560px;position:relative">
+  <div class="nav">
+    <div style="padding:4px 10px 18px">
+      <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px">R</div>
+      <div style="font-size:14.5px;font-weight:900;margin-top:10px">Riverside FC</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">Technical Director</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:10px"><div style="width:6px;height:6px;border-radius:999px;background:var(--accent)"></div><div style="font-size:11px;font-weight:800;color:var(--accent)">Verified club</div></div>
+    </div>
+    <div class="nl">Home</div><div class="nl">Register</div><div class="nl">Squads</div><div class="nl">Crest &amp; club page</div><div class="nl">Coaching roles</div><div class="nl">Post a trial</div><div class="nl on">Plan &amp; billing</div>
+  </div>
+  <div style="position:relative">
+    <div class="empty-mark"></div>
+    <div style="width:640px;padding:22px 18px;display:flex;flex-direction:column;gap:18px;position:relative">
+      <div style="display:flex;align-items:center;justify-content:space-between;min-height:24px">
+        <a href="#" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:700;text-decoration:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"/></svg>Back</a>
+        <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+      </div>
+      <div>
+        <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">The Interest Register</div>
+        <div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:6px">Riverside FC. Your club page, your trial notices and CVs arriving by email are free and stay free.</div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:16px;font-weight:500">Your plan</div>
+        <div style="font-size:18px;font-weight:900">$54 a month</div>
+        <div style="font-size:12.5px;color:var(--muted)">Renews 14 October 2026 unless you cancel before then.</div>
+      </div>
+      <button class="btn" style="width:100%;height:46px;border:1px solid var(--line);background:transparent;color:var(--secondary);font-size:14px;font-weight:700">Manage or cancel this subscription</button>
+      <div style="font-size:12px;color:var(--muted);line-height:1.55">Cancelling lives here in your club settings and takes about as long as signing up did. This charge shows on your statement as <b style="color:var(--secondary)">PITCH FOOTBALL</b>.</div>
+    </div>
+    <div style="position:absolute;left:660px;top:22px;font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75)">386px of dead column</div>
+    <div style="position:absolute;left:20px;top:360px;font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75)">page finished at y=330 · 470px of background below</div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280</span><div><div class="t">The console width it was already given, filled with the club's money and its register</div><div class="s">Same price, same plan, same D-136 disclosure. The rail holds state, never navigation.</div></div></div>
+
+<div class="stage w1280">
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px">R</div><div style="font-size:13px;font-weight:800">Riverside FC</div><div style="width:5px;height:5px;border-radius:999px;background:var(--accent)"></div><div style="font-size:11px;font-weight:800;color:var(--accent)">Verified</div></div>
+  <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+</div>
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:660px">
+    <div class="nl">Home</div><div class="nl">Register</div><div class="nl">Squads</div><div class="nl">Crest &amp; club page</div><div class="nl">Coaching roles</div><div class="nl">Post a trial</div><div class="nl on">Plan &amp; billing</div>
+  </div>
+  <div style="padding:22px 18px 30px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start">
+
+    <!-- main column -->
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div>
+        <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">The Interest Register</div>
+        <div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:6px">Riverside FC. Your club page, your trial notices and CVs arriving by email are free and stay free.</div>
+      </div>
+
+      <div class="card" style="padding:18px 16px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <div>
+            <div class="kicker">Your plan</div>
+            <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title);margin-top:7px">$54 a month</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:4px">Including GST. The same price for a club of four hundred and a club of forty.</div>
+          </div>
+          <div style="text-align:right">
+            <div class="kicker">Next charge</div>
+            <div class="numeral n-m" style="margin-top:7px">14 Oct</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:4px">unless you cancel before then</div>
+          </div>
+        </div>
+        <hr class="rule">
+        <div>
+          <div class="dl"><span class="dt">On your statement</span><span class="dd">PITCH FOOTBALL</span></div>
+          <div class="dl"><span class="dt">Receipts go to</span><span class="dd">office@riversidefc.org.au</span></div>
+          <div class="dl"><span class="dt">Addressed to</span><span class="dd">Riverside FC — not to a person</span></div>
+          <div class="dl"><span class="dt">Agreed by</span><span class="dd">Marina Petrovic · Technical Director · 4 Sep 2026</span></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a href="#" class="btn btn-secondary" style="width:300px">Manage or cancel this subscription</a>
+        <a href="#" class="btn btn-ghost" style="padding:0 14px">Change where receipts go</a>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.6;max-width:560px">Cancelling lives here in your club settings and takes about as long as signing up did. Cancelling stops the next charge; nothing is deleted, and the families who registered stay registered.</div>
+
+      <div style="margin-top:6px">
+        <div class="kicker" style="margin-bottom:10px">What you have paid</div>
+        <div class="card" style="padding:4px 16px">
+          <div class="dl"><span class="dd" style="font-weight:700">14 Sep 2026</span><span style="display:flex;gap:18px;align-items:baseline"><span class="dd">$54.00</span><a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Receipt</a></span></div>
+          <div class="dl"><span class="dd" style="font-weight:700">14 Aug 2026</span><span style="display:flex;gap:18px;align-items:baseline"><span class="dd">$54.00</span><a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Receipt</a></span></div>
+          <div class="dl"><span class="dd" style="font-weight:700">14 Jul 2026</span><span style="display:flex;gap:18px;align-items:baseline"><span class="dd">$54.00</span><a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Receipt</a></span></div>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:8px">This block needs an <code style="color:var(--accent);font-family:ui-monospace,Menlo,monospace">invoice.paid</code> webhook writing a row — it is the only part of this page that is not already in the record. Ship the page without it if that is a day we do not have.</div>
+      </div>
+
+      <div class="card-sunken" style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:4px">
+        Paying does not verify your club and cannot. Nothing about a player under 18 reaches you until we have spoken to someone at the club by phone.
+      </div>
+    </div>
+
+    <!-- rail: state, not navigation -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">What it is doing</div>
+        <div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap">
+          <div><div class="numeral n-l">100</div><div class="kicker" style="margin-top:6px">On your register</div></div>
+          <div><div class="numeral n-s">12</div><div class="kicker" style="margin-top:6px">Since 14 Sep</div></div>
+        </div>
+        <div style="font-size:12.5px;color:var(--secondary);line-height:1.6;margin-top:14px">Twelve families put their child on your register in the month you last paid for.</div>
+      </div>
+
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">Who reads it</div>
+        <div style="display:flex;flex-direction:column;gap:11px">
+          <div>
+            <div style="font-size:13.5px;font-weight:800">Marina Petrovic</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">Technical Director · the whole register</div>
+          </div>
+          <hr class="rule">
+          <div>
+            <div style="font-size:13.5px;font-weight:800">Sam Kaya</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">U15 Boys · U16 Boys · since 4 Sep</div>
+          </div>
+          <hr class="rule">
+          <div>
+            <div style="font-size:13.5px;font-weight:800;color:var(--secondary)">Robyn Callister</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">Club administrator — reads no registration</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:13px">Every time one of them opens a CV, it is recorded.</div>
+      </div>
+
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">If a payment fails</div>
+        <div style="font-size:12.5px;color:var(--secondary);line-height:1.6">We keep trying for a fortnight. After that the register is paused and your coaches stop seeing the list. <b style="color:var(--ink)">Nothing is deleted.</b> The families who registered stay registered, and everything comes back the moment a payment goes through.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280 · club administrator</span><div><div class="t">The same page for Robyn, minus the numbers she may not have</div><div class="s">D-93 and D-154: an administrator manages the page, squads, notices and billing and reads no registration. Today that is silent; here it is said.</div></div></div>
+
+<div class="stage w1280">
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:280px"><div class="nl">Home</div><div class="nl">Squads</div><div class="nl">Crest &amp; club page</div><div class="nl">Coaching roles</div><div class="nl on">Plan &amp; billing</div></div>
+  <div style="padding:22px 18px 26px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">The Interest Register</div>
+      <div class="card" style="padding:18px 16px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
+        <div><div class="kicker">Your plan</div><div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title);margin-top:7px">$54 a month</div></div>
+        <div style="text-align:right"><div class="kicker">Next charge</div><div class="numeral n-m" style="margin-top:7px">14 Oct</div></div>
+      </div>
+      <a href="#" class="btn btn-secondary" style="width:300px">Manage or cancel this subscription</a>
+    </div>
+    <div class="card-sunken" style="padding:16px 15px">
+      <div class="railhead">What it is doing</div>
+      <div style="font-size:12.5px;color:var(--secondary);line-height:1.6">The register is the technical director's. You keep the club's page, its squads, its trial notices and this page — <b style="color:var(--ink)">and you can pay for the register without being able to read it.</b></div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:11px">Marina Petrovic reads it for Riverside FC.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 390</span><div><div class="t">Same content, same order, one column</div><div class="s">The rail's three blocks stack under the main column. Nothing is added for the laptop and nothing is taken off the phone.</div></div></div>
+
+<div class="stage w390">
+<div style="padding:0 18px 24px">
+  <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--line)">
+    <div style="display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px">R</div><div style="font-size:12.5px;font-weight:800">Riverside FC</div></div>
+    <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+  </div>
+  <div style="padding-top:18px;display:flex;flex-direction:column;gap:14px">
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">The Interest Register</div>
+      <div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:6px">Riverside FC. Your club page, your trial notices and CVs arriving by email are free and stay free.</div>
+    </div>
+    <div class="card" style="padding:16px 14px;display:flex;flex-direction:column;gap:12px">
+      <div><div class="kicker">Your plan</div><div style="font-size:24px;font-weight:900;letter-spacing:var(--ls-title);margin-top:6px">$54 a month</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px">Including GST.</div></div>
+      <hr class="rule">
+      <div class="dl" style="padding-top:0"><span class="dt">Next charge</span><span class="dd">14 Oct 2026</span></div>
+      <div class="dl"><span class="dt">On your statement</span><span class="dd">PITCH FOOTBALL</span></div>
+      <div class="dl"><span class="dt">Receipts go to</span><span class="dd" style="font-size:12.5px">office@riversidefc.org.au</span></div>
+    </div>
+    <a href="#" class="btn btn-secondary" style="width:100%">Manage or cancel this subscription</a>
+    <div style="font-size:12.5px;color:var(--muted);line-height:1.6">Cancelling lives here in your club settings and takes about as long as signing up did.</div>
+
+    <div class="card-sunken" style="padding:15px 14px">
+      <div class="railhead">What it is doing</div>
+      <div style="display:flex;align-items:flex-end;gap:20px"><div><div class="numeral n-l">100</div><div class="kicker" style="margin-top:6px">On your register</div></div><div><div class="numeral n-s">12</div><div class="kicker" style="margin-top:6px">Since 14 Sep</div></div></div>
+      <div style="font-size:12.5px;color:var(--secondary);line-height:1.6;margin-top:13px">Twelve families put their child on your register in the month you last paid for.</div>
+    </div>
+
+    <div class="card-sunken" style="padding:15px 14px">
+      <div class="railhead">Who reads it</div>
+      <div style="font-size:13.5px;font-weight:800">Marina Petrovic</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Technical Director · the whole register</div>
+      <hr class="rule" style="margin:11px 0">
+      <div style="font-size:13.5px;font-weight:800">Sam Kaya</div><div style="font-size:12px;color:var(--muted);margin-top:2px">U15 Boys · U16 Boys · since 4 Sep</div>
+      <hr class="rule" style="margin:11px 0">
+      <div style="font-size:13.5px;font-weight:800;color:var(--secondary)">Robyn Callister</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Club administrator — reads no registration</div>
+    </div>
+
+    <div class="card-sunken" style="padding:15px 14px">
+      <div class="railhead">If a payment fails</div>
+      <div style="font-size:12.5px;color:var(--secondary);line-height:1.6">We keep trying for a fortnight. After that the register is paused and your coaches stop seeing the list. <b style="color:var(--ink)">Nothing is deleted.</b></div>
+    </div>
+
+    <div class="card-sunken" style="padding:15px 14px;font-size:12.5px;color:var(--muted);line-height:1.6">
+      Paying does not verify your club and cannot. Nothing about a player under 18 reaches you until we have spoken to someone at the club by phone.
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

@@ -9,6 +9,10 @@ import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
 
 // Only two places show this control, so only two places are ever returned to.
+// This is an ALLOWLIST of the two, which is stricter than lib/safe-path's
+// internalPath — that one admits any internal path, this one admits two. No
+// control character, absolute URL or dot segment passes it. Do not "unify"
+// it with the helper: that would widen it to the whole product.
 function backTo(raw: string): string {
   if (raw === '/home') return '/home';
   const m = /^\/g\/controls\/([0-9a-f-]{36})$/.exec(raw);

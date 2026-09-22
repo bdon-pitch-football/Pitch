@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: the chrome, made consistent</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--hero:linear-gradient(160deg,#123326 0%,#0c1d14 60%,#0a1510 100%);--r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--r-pill:999px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h2{font-size:20px;font-weight:900;letter-spacing:var(--ls-title);margin:34px 0 8px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink);font-weight:500}
+.note{border-left:2px solid var(--line);padding-left:14px;color:var(--muted);font-size:13.5px;line-height:1.6}
+.board{padding:0 22px 60px;overflow-x:auto}
+.bh{max-width:900px;margin:26px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.tag-dec{background:rgba(237,161,0,.14);color:var(--amber)}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin:0 auto}
+.w1280{width:1280px}
+.w390{width:390px}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);font-family:inherit;border:none}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.btn-ghost{height:44px;font-size:13.5px;font-weight:700;background:transparent;color:var(--muted)}
+.console-btn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 14px;border-radius:var(--r-well);font-size:13px;font-weight:700;letter-spacing:var(--ls-button);background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.console-btn-primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:800}
+.field{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-well);padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.field-label{font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.field-val{font-size:14.5px;font-weight:700;color:var(--ink)}
+.field-ph{font-size:14.5px;font-weight:500;color:var(--placeholder)}
+/* the ruler used to show where the mark lands */
+.ruler{position:relative;height:186px;background:var(--bg)}
+.ruler .tick{position:absolute;top:0;bottom:0;width:1px;background:rgba(227,73,72,.45)}
+.ruler .tickg{background:rgba(61,220,132,.5)}
+.ruler .lab{position:absolute;top:6px;transform:translateX(-50%);font-size:10px;font-weight:800;letter-spacing:var(--ls-label);color:var(--red);white-space:nowrap}
+.ruler .labg{color:var(--accent)}
+.ruler .row{position:absolute;left:0;right:0;height:30px;display:flex;align-items:center}
+.ruler .rowlab{position:absolute;left:14px;font-size:11.5px;font-weight:700;color:var(--muted)}
+.ruler .mk{position:absolute;transform:translateX(-100%)}
+.legend{display:flex;gap:18px;flex-wrap:wrap;padding:12px 14px;font-size:12px;color:var(--muted);font-weight:500}
+/* the frame diagrams */
+.fr{display:flex;height:150px;border-top:1px solid var(--line)}
+.fr .side{width:232px;border-right:1px solid var(--line);background:var(--surface-sunken)}
+.fr .mid{flex:1;min-width:0;display:flex;justify-content:center;padding:12px}
+.fr .col{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card)}
+.fr .rail{width:320px;background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);margin:12px 12px 12px 0}
+.frlab{padding:9px 14px;font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.spec{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;padding:18px}
+.spec .item{display:flex;flex-direction:column;gap:7px;align-items:flex-start}
+.spec .cap{font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.spec .bad{color:var(--red)}
+.ph{background:var(--surface-2);border-radius:6px}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 23 Sep 2026 · mockup 1 of 7</div>
+<h1>The chrome, made consistent</h1>
+<p class="lead">Four things in the product's chrome are inconsistent in ways a technical director
+notices in the first ten seconds, and none of them is a redesign. This sheet shows them next to
+each other, because the argument is visual and a list of them reads like nitpicking.</p>
+<p class="note">Nothing here changes what is on a screen, in what order, or in what words. Every fix
+below is the container (D-147). At 390 every one of them is invisible today and stays invisible
+after — all four defects only exist because a laptop has room for containers of different widths.</p>
+</div>
+
+<div class="board">
+
+<!-- ================= A. the mark ================= -->
+<div class="bh"><span class="tag tag-now">now</span><div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-title)">A · The Pitch mark lands in four places at one window width</div><div style="font-size:13px;color:var(--muted);font-weight:500;margin-top:3px">Right edge of the wordmark, measured across all 1280 captures. BUZ, 24 Aug: "top right corner on every screen, no exceptions."</div></div></div>
+
+<div class="stage w1280">
+<div class="ruler">
+  <div class="tick" style="left:892px"></div><div class="lab" style="left:892px">892 · 22 screens</div>
+  <div class="tick" style="left:940px"></div><div class="lab" style="left:940px;top:22px">940 · 28 screens</div>
+  <div class="tick" style="left:1056px"></div><div class="lab" style="left:1056px;top:38px">1056 · 2</div>
+  <div class="tick" style="left:1220px"></div><div class="lab" style="left:1220px;top:54px">1220 · 15</div>
+
+  <div class="row" style="top:72px"><div class="rowlab">/club/billing · /club/post-trial · /club/page-edit</div><div class="mk" style="left:892px"><span class="wm"><svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg></span></div></div>
+  <div class="row" style="top:100px"><div class="rowlab">public pages · auth · /report · /trials · /g/*</div><div class="mk" style="left:940px"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div></div>
+  <div class="row" style="top:128px"><div class="rowlab">/build/&lt;id&gt;</div><div class="mk" style="left:1056px"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div></div>
+  <div class="row" style="top:156px"><div class="rowlab">/club/register · /club/squads · /ops/* · club /home</div><div class="mk" style="left:1220px"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div></div>
+</div>
+<div class="legend"><span>And on <b style="color:var(--red)">/privacy and /terms — 18 screens — it moves to the top LEFT</b>, which is the rule reversed, not relaxed.</span></div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed</span><div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-title)">One header rail. One x. Every screen.</div><div style="font-size:13px;color:var(--muted);font-weight:500;margin-top:3px">The mark is hoisted out of each page's own column into the page frame — max 1200px, centred, 18px padding. Its right edge is 1222px on a 1280 window, on all 86 screens.</div></div></div>
+
+<div class="stage w1280">
+<div class="ruler" style="height:196px">
+  <div class="tick tickg" style="left:1222px"></div><div class="lab labg" style="left:1222px;transform:translateX(-100%)">1222 · every screen</div>
+
+  <div class="row" style="top:44px"><div class="rowlab">/club/billing</div><div class="mk" style="left:1222px"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div></div>
+  <div class="row" style="top:74px"><div class="rowlab">/p/&lt;token&gt; — the public CV</div><div class="mk" style="left:1222px"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div></div>
+  <div class="row" style="top:104px"><div class="rowlab">/club/register</div><div class="mk" style="left:1222px"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div></div>
+  <div class="row" style="top:134px"><div class="rowlab">/ops/reports</div><div class="mk" style="left:1222px"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div></div>
+  <div class="row" style="top:164px"><div class="rowlab">/privacy · /terms</div><div class="mk" style="left:1222px"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div></div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed</span><div style="font-size:14px;font-weight:700;color:var(--secondary)">What the rail actually looks like, in place, on a reading surface and a console surface</div></div>
+
+<div class="stage w1280">
+  <!-- reading surface with the rail -->
+  <div style="padding:0 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 18px;border-bottom:1px solid var(--line)">
+      <a href="#" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:700;text-decoration:none;min-height:44px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"/></svg>Home</a>
+      <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+    </div>
+    <div style="display:flex;justify-content:center;padding:22px 0 26px">
+      <div style="width:640px;display:flex;flex-direction:column;gap:14px;padding:0 18px">
+        <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">A reading surface</div>
+        <div style="font-size:14px;color:var(--secondary);line-height:1.55">640px, centred, exactly as D-147 says. The mark no longer sits at the column's edge — it sits at the page's edge, which is the only reading of "top right corner" that survives a page whose column is 640px wide and a page whose column is 932px wide.</div>
+        <div class="card" style="height:70px"></div>
+      </div>
+    </div>
+  </div>
+  <hr class="rule">
+  <!-- console surface with the rail -->
+  <div style="padding:0 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 18px;border-bottom:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px">R</div><div style="font-size:13px;font-weight:800">Riverside FC</div><div style="width:5px;height:5px;border-radius:999px;background:var(--accent)"></div><div style="font-size:11px;font-weight:800;color:var(--accent)">Verified</div></div>
+      <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+    </div>
+    <div style="display:grid;grid-template-columns:232px minmax(0,1fr);align-items:start">
+      <div style="border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:2px;min-height:150px">
+        <div style="min-height:44px;display:flex;align-items:center;padding:0 12px;border-radius:var(--r-well);background:var(--surface-2);color:var(--ink);font-size:14px;font-weight:700;box-shadow:inset 3px 0 0 var(--accent)">Register</div>
+        <div style="min-height:44px;display:flex;align-items:center;padding:0 12px;font-size:14px;font-weight:700;color:var(--secondary)">Squads</div>
+        <div style="min-height:44px;display:flex;align-items:center;padding:0 12px;font-size:14px;font-weight:700;color:var(--secondary)">Plan &amp; billing</div>
+      </div>
+      <div style="padding:22px 18px 26px">
+        <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">A console surface</div>
+        <div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:8px;max-width:640px">Same rail, same x. The club's identity moves out of the sidebar head and into the rail, where it is on screen whichever console page you are on — and the sidebar gets 60px of its height back.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 390</span><div style="font-size:14px;font-weight:700;color:var(--secondary)">Unchanged. This is what the phone already draws.</div></div>
+<div class="stage w390">
+  <div style="padding:0 18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--line)">
+      <a href="#" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:700;text-decoration:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"/></svg>Home</a>
+      <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+    </div>
+    <div style="padding:18px 0 24px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Any screen</div>
+      <div style="font-size:14px;color:var(--secondary);line-height:1.55">Mark right edge at 372px, as it is today. Nothing moves on a phone.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= B. buttons ================= -->
+<div class="bh"><span class="tag tag-now">now</span><div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-title)">B · Five button treatments where the charter allows two</div><div style="font-size:13px;color:var(--muted);font-weight:500;margin-top:3px">Measured at 1280. Charter: primary 50px accent, secondary 46px surface-2, "there is no third button."</div></div></div>
+
+<div class="stage w1280">
+<div class="spec">
+  <div class="item"><span class="cap">50px accent — correct</span><button class="btn btn-primary" style="width:210px">Send my CV to a club</button></div>
+  <div class="item"><span class="cap">46px surface-2 — correct</span><button class="btn btn-secondary" style="width:190px">Email me a link</button></div>
+  <div class="item"><span class="cap bad">56px surface-2 · /club/register</span><button class="btn" style="width:170px;height:56px;background:var(--surface-2);color:var(--ink);font-size:14px;font-weight:700">Open the CV</button></div>
+  <div class="item"><span class="cap bad">44px accent · /trials</span><button class="btn" style="width:150px;height:44px;background:var(--accent);color:var(--on-accent);font-size:14px;font-weight:800">I'm interested</button></div>
+  <div class="item"><span class="cap bad">~42px accent OUTLINE · /club/squads/&lt;id&gt;</span><button class="btn" style="width:120px;height:42px;background:transparent;color:var(--accent);border:1px solid var(--accent);font-size:12.5px;font-weight:700">Ask them</button></div>
+  <div class="item"><span class="cap bad">~36px pill</span><button class="btn" style="width:80px;height:36px;border-radius:999px;background:var(--surface-2);color:var(--secondary);border:1px solid var(--line);font-size:12.5px;font-weight:700">Copy</button></div>
+  <div class="item"><span class="cap bad">bare text link, no hit area</span><a href="#" style="font-size:13.5px;font-weight:700;color:var(--muted);text-decoration:none">Sign out</a></div>
+</div>
+<div class="legend"><span>The accent <b style="color:var(--red)">outline</b> is the one that reads wrong: it is a fourth visual language for "this is an action", and it appears on exactly one screen.</span></div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed</span><div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-title)">Four, declared — and no accent outline anywhere</div><div style="font-size:13px;color:var(--muted);font-weight:500;margin-top:3px">Two of these already exist in <code>globals.css</code> and are already flagged there as stretches on the charter. This asks BUZ to ratify them rather than leave them undeclared. See decision D-c1 in the report.</div></div></div>
+
+<div class="stage w1280">
+<div class="spec">
+  <div class="item"><span class="cap">PRIMARY · 50px · one per screen</span><button class="btn btn-primary" style="width:210px">Send my CV to a club</button></div>
+  <div class="item"><span class="cap">SECONDARY · 46px</span><button class="btn btn-secondary" style="width:190px">Email me a link</button></div>
+  <div class="item"><span class="cap">CONSOLE · 44px · a data row only</span><span class="console-btn">Open the CV</span></div>
+  <div class="item"><span class="cap">CONSOLE PRIMARY · 44px</span><span class="console-btn console-btn-primary">Invite to trial</span></div>
+  <div class="item"><span class="cap">GHOST · 44px · a way out, not an action</span><button class="btn btn-ghost" style="width:110px">Sign out</button></div>
+</div>
+<div class="legend"><span>Plus one width rule the charter is silent on, and silence is how a token set forks: <b>a primary button is at most 360px wide above 1024px</b>, full width below. Today <code>/club/squads</code> renders a 900px-wide accent "Add it".</span></div>
+</div>
+
+<!-- ================= C. form labels ================= -->
+<div class="bh"><span class="tag tag-now">now</span><div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-title)">C · Two form languages, one sidebar click apart — and it is a CSS scope bug</div><div style="font-size:13px;color:var(--muted);font-weight:500;margin-top:3px">A technical director posting a trial hits the outlier on their second click.</div></div></div>
+
+<div class="stage w1280">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+  <div style="padding:20px 22px;border-right:1px solid var(--line)">
+    <div class="kicker" style="margin-bottom:12px">/club/roles · /club/squads · /club/page-edit</div>
+    <div style="display:flex;flex-direction:column;gap:9px;max-width:420px">
+      <div class="field"><div class="field-label">Role</div><div class="field-val">Assistant coach, U14 Boys</div></div>
+      <div class="field"><div class="field-label">Age group</div><div class="field-val">U14</div></div>
+      <div class="field"><div class="field-label">Commitment</div><div class="field-val">Two trainings + match day</div></div>
+    </div>
+    <div style="font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.55">11px uppercase, tracked, muted. <b style="color:var(--accent)">This is the charter.</b></div>
+  </div>
+  <div style="padding:20px 22px">
+    <div class="kicker" style="margin-bottom:12px">/club/post-trial · /club/billing</div>
+    <div style="display:flex;flex-direction:column;gap:9px;max-width:420px">
+      <div class="card"><div style="font-size:16px;font-weight:500;color:var(--ink)">Notice title</div><div class="field-ph" style="font-size:15px;margin-top:4px">U14 &amp; U15 Boys trials</div></div>
+      <div class="card"><div style="font-size:16px;font-weight:500;color:var(--ink)">Date</div><div class="field-ph" style="font-size:15px;margin-top:4px">dd/mm/yyyy</div></div>
+      <div class="card"><div style="font-size:16px;font-weight:500;color:var(--ink)">Ground</div><div class="field-ph" style="font-size:15px;margin-top:4px">Riverside Park, Pitch 2</div></div>
+    </div>
+    <div style="font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.55">16px sentence case in ink, value in placeholder grey below. <b style="color:var(--red)">This is nothing — it is unstyled body text.</b></div>
+  </div>
+</div>
+<div class="legend"><span><b>Why:</b> <code>globals.css:307</code> scopes the label to <code>.field &gt; .field-label</code>. These two screens put <code>className="field-label"</code> inside a <code>card</code>, not a <code>.field</code>, so the rule never matches and the label inherits 16px body ink. It is not a second design — it is thirteen fields with no styling at all.</span></div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed</span><div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-title)">One selector. Thirteen fields.</div><div style="font-size:13px;color:var(--muted);font-weight:500;margin-top:3px">Unscope the class — <code>.field-label { … }</code> — and wrap the two outlier forms in <code>.field</code>. No copy changes, no layout changes, no new token.</div></div></div>
+
+<div class="stage w1280">
+<div style="padding:20px 22px">
+  <div class="kicker" style="margin-bottom:12px">/club/post-trial — after</div>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;max-width:900px">
+    <div class="field"><div class="field-label">Notice title</div><div class="field-ph">U14 &amp; U15 Boys trials</div></div>
+    <div class="field"><div class="field-label">Date</div><div class="field-ph">dd/mm/yyyy</div></div>
+    <div class="field"><div class="field-label">Ground</div><div class="field-ph">Riverside Park, Pitch 2</div></div>
+  </div>
+  <div style="font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.55;max-width:640px">Three fields across, because this is a console surface in D-147's own list and it is currently a nine-field form squeezed into 604px with a third of the window empty beside it. Same fields, same order, same copy — the container widened.</div>
+</div>
+</div>
+
+<!-- ================= D. layouts ================= -->
+<div class="bh"><span class="tag tag-now">now</span><div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-title)">D · Three desktop layouts where D-147 declares two</div><div style="font-size:13px;color:var(--muted);font-weight:500;margin-top:3px">"Two desktop layouts, no more… that is what makes this two desktop designs rather than seventy-five."</div></div></div>
+
+<div class="stage w1280">
+  <div class="frlab">1 · Reading — 640px centred · public pages, auth, /report, /trials, /g/* · <b style="color:var(--accent)">declared</b></div>
+  <div class="fr"><div class="mid"><div class="col" style="width:640px"></div></div></div>
+  <div class="frlab">2 · Console wide — 232px sidebar + 932px · /club/register, /club/squads, /club/roles, /ops/verification · <b style="color:var(--accent)">declared</b></div>
+  <div class="fr"><div class="side"></div><div class="mid" style="justify-content:stretch"><div class="col" style="flex:1"></div></div></div>
+  <div class="frlab">3 · Console + rail — 232px sidebar + ~594px + 320px rail · player, coach and club /home, /ops/reports · <b style="color:var(--red)">undeclared</b></div>
+  <div class="fr"><div class="side"></div><div class="mid" style="justify-content:stretch;padding-right:0"><div class="col" style="flex:1"></div></div><div class="rail"></div></div>
+  <div class="legend"><span>The third one is the reason the dashboards feel like a different product from the console. <b>It is also genuinely the best screen we have</b> — player <code>/home</code> is layout 3 and it is one of the three screens the audit calls finished work. So the answer is not to delete it.</span></div>
+</div>
+
+<div class="bh"><span class="tag tag-dec">decision for BUZ</span><div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-title)">Name the third layout, and give it a rule that stops it spreading</div><div style="font-size:13px;color:var(--muted);font-weight:500;margin-top:3px">See decision D-c3 in the report. The rule I would write:</div></div></div>
+
+<div class="stage w1280">
+  <div style="padding:22px 26px;max-width:900px">
+    <div class="card-sunken" style="font-size:15px;line-height:1.7;color:var(--secondary);font-weight:500">
+      <b style="color:var(--ink)">Layout 3 — console with an accountability rail.</b> A console surface may carry a 320px right rail,
+      and the rail may hold <b style="color:var(--ink)">only</b> a block that states what has happened to this person's or this
+      club's data — who read it, what is live, what expires, what is waiting. It may never hold
+      navigation that the sidebar already holds, and it may never hold a suggestion.
+      <br><br>
+      <b style="color:var(--ink)">The test:</b> if the block would be a lie tomorrow because nobody did anything, it belongs in
+      the rail. If it would say the same thing forever, it is furniture and it goes in the sidebar or nowhere.
+      <br><br>
+      <b style="color:var(--ink)">The parity rule:</b> a rail may only hold a block that also exists on the 390px artboard. If it
+      is not on the phone, it is not allowed on the laptop (D-147 constraint 3).
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-top:16px;line-height:1.6">
+      Under that rule, player <code>/home</code>'s "Who has read your registrations" stays exactly as it is;
+      club <code>/home</code>'s six duplicated nav buttons fail it and are replaced (mockup 4); and
+      <code>/ops/reports</code>, which today puts the whole page's weight in the 320px rail, fails it
+      backwards and is inverted (mockup 3).
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

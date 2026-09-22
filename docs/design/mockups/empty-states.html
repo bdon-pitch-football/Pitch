@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: the two empty screens (/jobs and a brand-new /home)</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--hero:linear-gradient(160deg,#123326 0%,#0c1d14 60%,#0a1510 100%);--r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h2{font-size:21px;font-weight:900;letter-spacing:var(--ls-title);margin:30px 0 8px}
+.doc h3{font-size:14px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:20px 0 6px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink)}
+.board{padding:0 22px 60px;overflow-x:auto}
+.bh{max-width:900px;margin:28px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.bh .t{font-size:18px;font-weight:900;letter-spacing:var(--ls-title)}
+.bh .s{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin:0 auto}
+.w1280{width:1280px}.w390{width:390px}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);font-family:inherit;border:none;text-decoration:none}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.btn-ghost{height:44px;font-size:13.5px;font-weight:700;background:transparent;color:var(--muted)}
+.numeral{font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums}
+.n-l{font-size:56px}.n-m{font-size:34px}.n-s{font-size:22px}
+.hd{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 18px;border-bottom:1px solid var(--line)}
+.nav{border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:2px}
+.nl{min-height:44px;display:flex;align-items:center;gap:11px;padding:0 12px;border-radius:var(--r-well);font-size:14px;font-weight:700;color:var(--secondary);text-decoration:none}
+.nl.on{background:var(--surface-2);color:var(--ink);box-shadow:inset 3px 0 0 var(--accent)}
+.empty-mark{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,transparent,transparent 11px,rgba(227,73,72,.055) 11px,rgba(227,73,72,.055) 22px)}
+.tg{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.rd{display:flex;align-items:flex-start;gap:14px;padding:14px 0}
+.rd + .rd{border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 23 Sep 2026 · mockup 5 of 7</div>
+<h1>The two empty screens</h1>
+<p class="lead">Both are 70% empty at 1280 and 73–74% at 820, and they are empty for opposite reasons.
+<code>/jobs</code> is <b>short</b> — a real list with two things in it. A brand-new
+<code>/home</code> is <b>first-use</b> — a real account with nothing in it yet. Every product looks
+broken at these two moments, which is why they are worth the same care as the screens that carry
+data.</p>
+<p>One rule runs through both, and it is Carbon's taxonomy in our words: <b>an empty screen must say
+what will appear here, when, and the one thing worth doing now.</b> Never an illustration — we have a
+pitch mark and a gradient — and never an apology.</p>
+
+<h2>1 · <code>/jobs</code> — the coaching board</h2>
+<h3>What is wrong now</h3>
+<p>The screen is finished by y=540: a title, a three-numeral stat row, two role cards each carrying
+three short lines, and a note. The stat row is naked on the background (the same component appears
+in a gradient hero on the club dashboards and in a plain card on the parent's home — three clothes,
+one component). The role cards are the thinnest thing on the page and they are the page's whole
+point.</p>
+<h3>What the change does for the coach</h3>
+<p>The board is grouped by <b>when the role closes</b>, which is the only ordering a coach hiring
+season has, and each row carries what a coach decides on: the club and whether it is verified, the
+age group, the commitment, whether it is paid, when it was posted and when it closes. Two roles under
+two dated headers read as a board with two things on it. Two cards under a bare title read as a stub.
+This is the same move that makes <code>/club/register</code> the best screen in the product — it
+groups by squad, and a short register still looks organised.</p>
+<p>Underneath, one honest sentence about the slice we can actually fill (D-74's rule, applied to the
+jobs board) and the note about what applying sends, kept verbatim.</p>
+<h3>Cost</h3>
+<p><b>Low.</b> A sort and a header, plus three fields already on the <code>coaching_role</code> row.
+No new query.</p>
+<h3>What it does NOT change</h3>
+<p>Not the order of the board — still chronological, still nothing ranked or recommended (D-74's rule
+for the trials index applies here for the same reason). Not the reading column: this stays a reading
+surface and does not get a rail. Not the copy of the applying note.</p>
+
+<h2>2 · A brand-new <code>/home</code></h2>
+<h3>What is wrong now</h3>
+<p>This is the first screen a real user sees, and the code's own comment says it used to be a dead
+end. It is better than that now — three doors that work — but it is still three 60px cards and a
+grey paragraph that ends: <i>"Adding a child, claiming a club page and building a player CV are not
+on this screen yet — tell us which you came for and we will point you at it."</i>
+<b>It asks the person to tell us and then gives them nothing to tell us with.</b> That is the single
+most fixable line in the product.</p>
+<h3>What the change does for the person</h3>
+<p>Three things. The doors become rows with a sentence each, so a person who has just signed up can
+tell which one is theirs. The dead sentence gets a real route — the support address, which exists.
+And the fold is filled with <b>what is true about their account right now</b>, in the product's own
+voice: Australia only at launch, nothing about a child exists until a parent has approved it, and
+one tap deletes everything. A new account has no data, but it is not without facts.</p>
+<h3>Cost</h3>
+<p><b>Very low.</b> No new query at all — this branch runs when <code>children.length === 0</code>.
+It is markup and copy.</p>
+<h3>What it does NOT change</h3>
+<p>No new capability, no onboarding wizard, no role-picking step that would fork signup. The three
+doors are the same three pages. The "not on this screen yet" admission stays — it is honest and it is
+the reason this screen exists at all.</p>
+<p><b>All new copy on both screens goes past the copy check before it ships</b>, including the D-85
+banned-words pass.</p>
+</div>
+
+<div class="board">
+
+<!-- ============ JOBS ============ -->
+<div class="bh"><span class="tag tag-now">now · 1280 · /jobs</span><div><div class="t">Two roles, finished by y=540</div><div class="s">Sam Kaya's seat, coach console. Hatching marks what is drawn on nothing.</div></div></div>
+
+<div class="stage w1280">
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr);min-height:520px">
+  <div class="nav">
+    <div style="padding:4px 10px 18px"><div style="font-size:14.5px;font-weight:900">Sam</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Riverside FC</div></div>
+    <div class="nl">Home</div><div class="nl">My CV</div><div class="nl">Registrations</div><div class="nl on">Roles</div>
+  </div>
+  <div style="position:relative">
+    <div class="empty-mark"></div>
+    <div style="position:relative;width:640px;padding:22px 18px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;justify-content:flex-end"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+      <div>
+        <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Coaching roles</div>
+        <div style="font-size:13.5px;color:var(--secondary);margin-top:4px">Clubs looking for coaches. Newest first — nothing here is ranked or recommended.</div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:26px">
+        <div><div class="numeral n-l">2</div><div class="kicker" style="margin-top:6px">Open roles</div></div>
+        <div><div class="numeral n-m" style="color:var(--accent)">1</div><div class="kicker" style="margin-top:6px">Paid</div></div>
+        <div><div class="numeral n-m" style="color:var(--secondary)">2</div><div class="kicker" style="margin-top:6px">Clubs</div></div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;justify-content:space-between;gap:10px"><div style="font-size:16px;font-weight:900;letter-spacing:var(--ls-title)">Assistant coach, U14 Boys</div><span class="tg" style="background:var(--surface-2);color:var(--muted)">Volunteer</span></div>
+        <div style="font-size:13px;font-weight:700;color:var(--secondary)">Riverside FC<span style="color:var(--accent)"> · Verified</span></div>
+        <div style="font-size:12.5px;color:var(--muted)">U14 · Two trainings + match day</div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;justify-content:space-between;gap:10px"><div style="font-size:16px;font-weight:900;letter-spacing:var(--ls-title)">Senior Women's head coach</div><span class="tg" style="background:rgba(61,220,132,.14);color:var(--accent)">Paid</span></div>
+        <div style="font-size:13px;font-weight:700;color:var(--secondary)">Kingsway Rovers FC<span style="color:var(--accent)"> · Verified</span></div>
+        <div style="font-size:12.5px;color:var(--muted)">Seniors · Three nights + match day</div>
+      </div>
+      <div class="card-sunken" style="font-size:12.5px;color:var(--muted);line-height:1.55">Applying sends the club your coaching CV and whatever you write. It does not send them your phone number or your email — if you want to be reached that way, say so in your message.</div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75)">done at y=540 · nothing below, 386px beside</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280 · /jobs</span><div><div class="t">A short list under dated headers is a board; a short list under a bare title is a stub</div><div class="s">Same column width. Same order of business. More on every row.</div></div></div>
+
+<div class="stage w1280">
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:9px"><div style="font-size:13px;font-weight:800">Sam</div><div style="font-size:12px;color:var(--muted)">· Riverside FC</div></div>
+  <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+</div>
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:640px"><div class="nl">Home</div><div class="nl">My CV</div><div class="nl">Registrations</div><div class="nl on">Roles</div></div>
+  <div style="display:flex;justify-content:center;padding:22px 0 30px">
+    <div style="width:640px;padding:0 18px;display:flex;flex-direction:column;gap:18px">
+      <div>
+        <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Coaching roles</div>
+        <div style="font-size:13.5px;color:var(--secondary);margin-top:4px">Clubs looking for coaches. Nothing here is ranked or recommended.</div>
+      </div>
+
+      <div style="display:flex;align-items:flex-end;gap:26px;padding:16px 15px;border-radius:var(--r-card);background:var(--surface-sunken);border:1px solid var(--line)">
+        <div><div class="numeral n-l">2</div><div class="kicker" style="margin-top:6px">Open roles</div></div>
+        <div><div class="numeral n-m" style="color:var(--accent)">1</div><div class="kicker" style="margin-top:6px">Paid</div></div>
+        <div><div class="numeral n-m" style="color:var(--secondary)">2</div><div class="kicker" style="margin-top:6px">Clubs</div></div>
+        <div style="flex:1;font-size:12.5px;color:var(--secondary);line-height:1.55;text-align:right">Both posted by a verified club. We do not compile these from anywhere else.</div>
+      </div>
+
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px">
+          <div class="kicker">Closing this month</div><div style="font-size:12px;font-weight:800;color:var(--muted)">1</div>
+        </div>
+        <div class="card" style="padding:2px 16px">
+          <div class="rd">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:16px;font-weight:900;letter-spacing:var(--ls-title)">Senior Women's head coach</div>
+              <div style="font-size:13px;font-weight:700;color:var(--secondary);margin-top:4px">Kingsway Rovers FC<span style="color:var(--accent)"> · Verified</span> · Altona VIC</div>
+              <div style="font-size:12.5px;color:var(--muted);margin-top:4px">Seniors Women · three nights + match day · posted 8 Sep</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+              <span class="tg" style="background:rgba(61,220,132,.14);color:var(--accent)">Paid</span>
+              <div style="font-size:12.5px;font-weight:800;color:var(--amber)">Closes 30 Sep</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px">
+          <div class="kicker">No closing date</div><div style="font-size:12px;font-weight:800;color:var(--muted)">1</div>
+        </div>
+        <div class="card" style="padding:2px 16px">
+          <div class="rd">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:16px;font-weight:900;letter-spacing:var(--ls-title)">Assistant coach, U14 Boys</div>
+              <div style="font-size:13px;font-weight:700;color:var(--secondary);margin-top:4px">Riverside FC<span style="color:var(--accent)"> · Verified</span> · Brunswick VIC</div>
+              <div style="font-size:12.5px;color:var(--muted);margin-top:4px">U14 Boys · two trainings + match day · posted 2 Sep</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+              <span class="tg" style="background:var(--surface-2);color:var(--muted)">Volunteer</span>
+              <div style="font-size:12.5px;font-weight:700;color:var(--muted)">Open until filled</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-sunken" style="font-size:12.5px;color:var(--muted);line-height:1.6">
+        Applying sends the club your coaching CV and whatever you write. It does not send them your phone number or your email — if you want to be reached that way, say so in your message.
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.6">
+        Most of the hiring in Australian community football happens between September and December. A role comes off this board by itself the day after it closes.
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280 · /jobs · the true empty case</span><div><div class="t">No roles at all — first use, not no-results</div><div class="s">This is the state the board is in today on a fresh database, and the state it will be in in January.</div></div></div>
+
+<div class="stage w1280">
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:300px"><div class="nl">Home</div><div class="nl">My CV</div><div class="nl on">Roles</div></div>
+  <div style="display:flex;justify-content:center;padding:22px 0 30px">
+    <div style="width:640px;padding:0 18px;display:flex;flex-direction:column;gap:18px">
+      <div>
+        <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Coaching roles</div>
+        <div style="font-size:13.5px;color:var(--secondary);margin-top:4px">Clubs looking for coaches. Nothing here is ranked or recommended.</div>
+      </div>
+      <div class="card-sunken" style="padding:26px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:17px;font-weight:900;letter-spacing:var(--ls-title)">No roles on the board today.</div>
+        <div style="font-size:13.5px;color:var(--secondary);line-height:1.6">Clubs post here through the season, and most of it happens between September and December. When one goes up it appears here the same minute — there is no queue and nobody approves it.</div>
+      </div>
+      <div class="card" style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1"><div style="font-size:14.5px;font-weight:900">Your coach page is what you would apply with</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px">One link, yours, and you decide where it goes.</div></div>
+        <a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none;flex-shrink:0">Open it</a>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 390 · /jobs</span><div><div class="t">Identical, one column</div></div></div>
+<div class="stage w390">
+<div style="padding:0 18px 24px">
+  <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--line)"><div style="font-size:12.5px;font-weight:800">Sam</div><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+  <div style="padding-top:18px;display:flex;flex-direction:column;gap:16px">
+    <div><div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Coaching roles</div><div style="font-size:13.5px;color:var(--secondary);margin-top:4px">Clubs looking for coaches. Nothing here is ranked or recommended.</div></div>
+    <div class="card-sunken" style="display:flex;align-items:flex-end;gap:22px">
+      <div><div class="numeral n-l">2</div><div class="kicker" style="margin-top:6px">Open roles</div></div>
+      <div><div class="numeral n-m" style="color:var(--accent)">1</div><div class="kicker" style="margin-top:6px">Paid</div></div>
+      <div><div class="numeral n-m" style="color:var(--secondary)">2</div><div class="kicker" style="margin-top:6px">Clubs</div></div>
+    </div>
+    <div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px"><div class="kicker">Closing this month</div><div style="font-size:12px;font-weight:800;color:var(--muted)">1</div></div>
+      <div class="card" style="padding:2px 14px">
+        <div class="rd" style="flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;gap:10px;width:100%"><div style="font-size:16px;font-weight:900;letter-spacing:var(--ls-title)">Senior Women's head coach</div><span class="tg" style="background:rgba(61,220,132,.14);color:var(--accent)">Paid</span></div>
+          <div style="font-size:13px;font-weight:700;color:var(--secondary)">Kingsway Rovers FC<span style="color:var(--accent)"> · Verified</span> · Altona VIC</div>
+          <div style="font-size:12.5px;color:var(--muted)">Seniors Women · three nights + match day</div>
+          <div style="font-size:12.5px;font-weight:800;color:var(--amber)">Closes 30 Sep · posted 8 Sep</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px"><div class="kicker">No closing date</div><div style="font-size:12px;font-weight:800;color:var(--muted)">1</div></div>
+      <div class="card" style="padding:2px 14px">
+        <div class="rd" style="flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;gap:10px;width:100%"><div style="font-size:16px;font-weight:900;letter-spacing:var(--ls-title)">Assistant coach, U14 Boys</div><span class="tg" style="background:var(--surface-2);color:var(--muted)">Volunteer</span></div>
+          <div style="font-size:13px;font-weight:700;color:var(--secondary)">Riverside FC<span style="color:var(--accent)"> · Verified</span> · Brunswick VIC</div>
+          <div style="font-size:12.5px;color:var(--muted)">U14 Boys · two trainings + match day</div>
+          <div style="font-size:12.5px;font-weight:700;color:var(--muted)">Open until filled · posted 2 Sep</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-sunken" style="font-size:12.5px;color:var(--muted);line-height:1.6">Applying sends the club your coaching CV and whatever you write. It does not send them your phone number or your email — if you want to be reached that way, say so in your message.</div>
+  </div>
+</div>
+</div>
+
+<!-- ============ BRAND NEW HOME ============ -->
+<div class="bh"><span class="tag tag-now">now · 1280 · a brand-new /home</span><div><div class="t">Three 60px cards and a sentence that asks a question with no way to answer it</div></div></div>
+
+<div class="stage w1280">
+<div style="position:relative;min-height:470px">
+  <div class="empty-mark"></div>
+  <div style="position:relative;display:flex;justify-content:center;padding:22px 0">
+    <div style="width:640px;padding:0 18px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;justify-content:flex-end"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+      <div><div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Welcome, Alex</div><div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:6px">Your account is set up. Here is what you can do with it.</div></div>
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:14.5px;font-weight:900">Build a coach CV</div><div style="font-size:12.5px;color:var(--muted)">Your roles, your licences, one link to send</div></div><div style="font-size:12.5px;font-weight:800;color:var(--accent)">Start</div></div>
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:14.5px;font-weight:900">Trials near you</div><div style="font-size:12.5px;color:var(--muted)">Every notice we hold, by date</div></div><div style="font-size:12.5px;font-weight:800;color:var(--accent)">Open</div></div>
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:14.5px;font-weight:900">Coaching roles at clubs</div><div style="font-size:12.5px;color:var(--muted)">Nothing here is ranked or recommended</div></div><div style="font-size:12.5px;font-weight:800;color:var(--accent)">Open</div></div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.55">Adding a child, claiming a club page and building a player CV are not on this screen yet — <span style="color:var(--red)">tell us which you came for and we will point you at it.</span></div>
+      <div style="font-size:13.5px;font-weight:700;color:var(--muted)">Sign out</div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75)">done at y=480 · no way to "tell us"</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280 · a brand-new /home</span><div><div class="t">The same three doors, told properly — and the sentence gets a route</div><div class="s">No new capability. No query. Markup and copy.</div></div></div>
+
+<div class="stage w1280">
+<div class="hd"><span></span><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+<div style="display:flex;justify-content:center;padding:26px 0 32px">
+  <div style="width:640px;padding:0 18px;display:flex;flex-direction:column;gap:18px">
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Welcome, Alex</div>
+      <div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:6px">Your account is set up and there is nothing on it yet. Here is what it can do today.</div>
+    </div>
+
+    <div class="card" style="padding:2px 16px">
+      <div class="rd">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:900">Build a coach CV</div>
+          <div style="font-size:12.5px;color:var(--secondary);line-height:1.55;margin-top:3px">Your roles, your licences and how you coach, on one page with one link. Free, and it stays free. The link is yours to paste wherever you already talk to people — we never send it for you.</div>
+        </div>
+        <a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none;flex-shrink:0;align-self:center">Start</a>
+      </div>
+      <div class="rd">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:900">Trials near you</div>
+          <div style="font-size:12.5px;color:var(--secondary);line-height:1.55;margin-top:3px">Every notice we hold, by date, filtered by age group, region and who plays. A club posts its own, or we compile one from the club's own public notice and say so. It is a slice, not every trial in Victoria.</div>
+        </div>
+        <a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none;flex-shrink:0;align-self:center">Open</a>
+      </div>
+      <div class="rd">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18"/></svg>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:900">Coaching roles at clubs</div>
+          <div style="font-size:12.5px;color:var(--secondary);line-height:1.55;margin-top:3px">What clubs are hiring for, newest first. Nothing here is ranked or recommended, and no club sees you looking.</div>
+        </div>
+        <a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none;flex-shrink:0;align-self:center">Open</a>
+      </div>
+    </div>
+
+    <div class="card-sunken" style="padding:18px 16px;display:flex;flex-direction:column;gap:12px">
+      <div class="kicker">True of your account right now</div>
+      <div style="display:flex;gap:11px;align-items:flex-start">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><path d="M4 12.5 9 17.5 20 6.5"/></svg>
+        <div style="font-size:13px;color:var(--secondary);line-height:1.6">Nothing about a person under 16 exists on Pitch until a parent has approved it — including a page you might start for them.</div>
+      </div>
+      <div style="display:flex;gap:11px;align-items:flex-start">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><path d="M4 12.5 9 17.5 20 6.5"/></svg>
+        <div style="font-size:13px;color:var(--secondary);line-height:1.6">Your details are held in Australia, and we ask for as little as the thing you are doing needs.</div>
+      </div>
+      <div style="display:flex;gap:11px;align-items:flex-start">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><path d="M4 12.5 9 17.5 20 6.5"/></svg>
+        <div style="font-size:13px;color:var(--secondary);line-height:1.6">You can delete this account, and everything on it, in one tap.</div>
+      </div>
+    </div>
+
+    <div class="card" style="display:flex;align-items:center;gap:12px">
+      <div style="flex:1">
+        <div style="font-size:13.5px;font-weight:800">Came for something else?</div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:3px">Adding a child, claiming a club page and building a player CV are not on this screen yet. Tell us which you came for and we will point you at it — one working day, a person, not a form.</div>
+      </div>
+      <a href="mailto:help@pitchfootball.com.au" class="btn btn-secondary" style="padding:0 16px;flex-shrink:0">Email us</a>
+    </div>
+
+    <a href="#" class="btn btn-ghost" style="align-self:flex-start;padding:0 4px">Sign out</a>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 390 · a brand-new /home</span></div>
+<div class="stage w390">
+<div style="padding:0 18px 26px">
+  <div style="display:flex;align-items:center;justify-content:flex-end;height:56px;border-bottom:1px solid var(--line)"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+  <div style="padding-top:18px;display:flex;flex-direction:column;gap:16px">
+    <div><div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Welcome, Alex</div><div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:6px">Your account is set up and there is nothing on it yet. Here is what it can do today.</div></div>
+    <div class="card" style="padding:2px 14px">
+      <div class="rd" style="align-items:center"><div style="flex:1"><div style="font-size:15px;font-weight:900">Build a coach CV</div><div style="font-size:12.5px;color:var(--secondary);line-height:1.55;margin-top:3px">Your roles, licences and how you coach, on one page with one link. Free, and it stays free.</div></div><a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Start</a></div>
+      <div class="rd" style="align-items:center"><div style="flex:1"><div style="font-size:15px;font-weight:900">Trials near you</div><div style="font-size:12.5px;color:var(--secondary);line-height:1.55;margin-top:3px">Every notice we hold, by date. It is a slice, not every trial in Victoria.</div></div><a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Open</a></div>
+      <div class="rd" style="align-items:center"><div style="flex:1"><div style="font-size:15px;font-weight:900">Coaching roles at clubs</div><div style="font-size:12.5px;color:var(--secondary);line-height:1.55;margin-top:3px">Newest first. Nothing ranked, and no club sees you looking.</div></div><a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Open</a></div>
+    </div>
+    <div class="card-sunken" style="display:flex;flex-direction:column;gap:12px">
+      <div class="kicker">True of your account right now</div>
+      <div style="font-size:13px;color:var(--secondary);line-height:1.6">Nothing about a person under 16 exists on Pitch until a parent has approved it.</div>
+      <div style="font-size:13px;color:var(--secondary);line-height:1.6">Your details are held in Australia, and we ask for as little as the thing you are doing needs.</div>
+      <div style="font-size:13px;color:var(--secondary);line-height:1.6">You can delete this account, and everything on it, in one tap.</div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:11px">
+      <div><div style="font-size:13.5px;font-weight:800">Came for something else?</div><div style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:3px">Adding a child, claiming a club page and building a player CV are not on this screen yet. Tell us which you came for and we will point you at it.</div></div>
+      <a href="mailto:help@pitchfootball.com.au" class="btn btn-secondary" style="width:100%">Email us</a>
+    </div>
+    <a href="#" class="btn btn-ghost" style="align-self:flex-start;padding:0 4px">Sign out</a>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

@@ -9,18 +9,20 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
+import { internalPath } from '@/lib/safe-path';
 import { getSessionPersonId } from '@/lib/session';
 
 const field = (f: FormData, k: string) => String(f.get(k) ?? '');
 
 /**
  * Where to go back to. It comes off the form, so it is a place inside Pitch
- * or it is /home — one leading slash, no second one and no backslash, which
- * is what a bare "//evil.example" and "/\evil.example" need to become an
- * absolute URL (safety N2: a same-origin post measured a 303 to an external
- * site).
+ * or it is /home (safety N2: a same-origin post measured a 303 to an external
+ * site). The rule used to live here as one regular expression, which a tab
+ * walked straight through — a browser strips tabs before it parses a
+ * Location, so "/<TAB>/evil.example" arrived as "//evil.example". lib/
+ * safe-path holds the whole test now, and a suite pins it.
  */
-const backTo = (raw: string): string => (/^\/(?![/\\])/.test(raw) ? raw : '/home');
+const backTo = (raw: string): string => internalPath(raw);
 
 /**
  * The player this session may ASK for: a claim, or a yes to a club's

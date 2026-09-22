@@ -17,7 +17,7 @@
 // It MUTATES the dev database. That is the point. The dev database is
 // in-memory (scripts/dev-db.mts), so a restart is a clean reset — run this
 // last, then reseed.
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -1187,6 +1187,46 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   await postTo(`/g/controls/${g.child_id}`, robin, { ...inviteForm.fields });
   check('sqf4: a stranger answering changes nothing (the invitation is still open)',
     forms(await controls()).some((f) => f.fields.invitationId === inviteForm.fields.invitationId), true);
+
+  // sqf4b-e · SAFETY N2. `back` comes off the form, so it is a place inside
+  // Pitch or it is /home. On 22 Sep this measured
+  // `303 Location: https://evil.example/phish?squad=asked` — a Pitch link
+  // that lands a parent on somebody else's page.
+  //
+  // The invitation id is deliberately not a uuid, so the action returns at
+  // its first check and writes nothing: this measures the redirect and only
+  // the redirect, and leaves the invitation open for sqf5.
+  //
+  // The invitation id is a well-formed uuid that matches no row, so the
+  // action runs its whole length — through the `for update` select that
+  // finds nothing, to `redirect(`${back}?squad=…`)`, which is the sink that
+  // actually carries `back`. Nothing is written and sqf5's invitation is
+  // untouched; sqf4h says so rather than assuming it.
+  //
+  // The assertion is the exact header, not the origin it resolves to. An
+  // origin assertion scores a 500 with no Location as a pass — the answer
+  // would be `new URL('', site)`, which is the site — so it would go green
+  // whether the guard worked or the action fell over (L19).
+  const missing = () => ({ ...inviteForm.fields, invitationId: randomUUID(), answer: 'no' });
+  const back = async (value) =>
+    (await postTo(`/g/controls/${g.child_id}`, alex, { ...missing(), back: value })).location;
+  check('sqf4b: N2 — an absolute `back` is not followed off Pitch',
+    await back('https://evil.example/phish'), '/home?squad=declined');
+  check('sqf4c: nor a protocol-relative one', await back('//evil.example/phish'), '/home?squad=declined');
+  check('sqf4d: nor a backslash one', await back('/\\evil.example/phish'), '/home?squad=declined');
+  // A browser strips tabs and newlines before it parses a Location, so this
+  // one reached the parser as `//evil.example` under the 23 Sep guard.
+  check('sqf4e: nor one behind a tab a browser strips before it parses',
+    await back('/\t/evil.example/phish'), '/home?squad=declined');
+  // Same origin after one parse, off Pitch after the two Next performs when
+  // JavaScript is on — which is every real parent.
+  check('sqf4f: nor one that only escapes on the second parse',
+    await back('/..//evil.example'), '/home?squad=declined');
+  check('sqf4g: and an honest `back` still takes the parent back',
+    await back(`/g/controls/${g.child_id}`), `/g/controls/${g.child_id}?squad=declined`);
+  check('sqf4h: none of that touched the open invitation',
+    forms(await controls()).some((f) => f.fields.invitationId === inviteForm.fields.invitationId), true);
+
   const yes = await postTo(`/g/controls/${g.child_id}`, alex, { ...inviteForm.fields });
   check('sqf5: her parent says yes from her controls, and she is in the squad',
     [/squad=joined/.test(yes.location), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Riverside FC/.test(await card())],

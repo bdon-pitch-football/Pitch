@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: /ops/reports</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--r-card:16px;--r-well:12px;--r-btn:14px;--r-pill:999px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h3{font-size:14px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:22px 0 6px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink)}
+.board{padding:0 22px 60px;overflow-x:auto}
+.bh{max-width:900px;margin:28px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.bh .t{font-size:18px;font-weight:900;letter-spacing:var(--ls-title)}
+.bh .s{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin:0 auto}
+.w1280{width:1280px}.w390{width:390px}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);font-family:inherit;border:none;text-decoration:none}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.console-btn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 14px;border-radius:var(--r-well);font-size:13px;font-weight:700;letter-spacing:var(--ls-button);background:var(--surface-2);color:var(--ink);border:1px solid var(--line);white-space:nowrap;text-decoration:none}
+.console-btn-primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:800}
+.field{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-well);padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.field-label{font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.field-ph{font-size:14.5px;font-weight:500;color:var(--placeholder)}
+.numeral{font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums}
+.n-l{font-size:56px}.n-m{font-size:34px}.n-s{font-size:22px}
+.railhead{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.hd{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 18px;border-bottom:1px solid var(--line)}
+.nav{border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:2px}
+.nl{min-height:44px;display:flex;align-items:center;gap:11px;padding:0 12px;border-radius:var(--r-well);font-size:14px;font-weight:700;color:var(--secondary);text-decoration:none}
+.nl.on{background:var(--surface-2);color:var(--ink);box-shadow:inset 3px 0 0 var(--accent)}
+.empty-mark{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,transparent,transparent 11px,rgba(227,73,72,.055) 11px,rgba(227,73,72,.055) 22px)}
+.tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.qrow{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(220px,1.6fr) 150px 220px;gap:14px;align-items:center;padding:14px 10px}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 23 Sep 2026 · mockup 3 of 7</div>
+<h1>/ops/reports</h1>
+<p class="lead">72% empty at 1280, and the page's entire weight is in its margin. The 594px main
+column holds one card reading "No open reports." and then 600px of nothing; the 320px rail carries
+three sections of dense copy, a held-accounts panel, a search field and the 1800RESPECT guidance.
+A stranger would assume the page had half-loaded.</p>
+
+<h3>What is wrong now</h3>
+<p>The columns are the wrong way round. This is the <b>report and takedown desk</b> — the screen that
+proves to a regulator, a journalist or a parent that a person reads every report — and it is drawn
+as though the queue were an afterthought. It also breaks the rail rule the rest of this proposal
+asks for: a rail holds <b>state you read</b>, and this rail holds three <b>tools you work</b>, one of
+which ends in a court-order field.</p>
+
+<h3>What the change does for the person on this screen</h3>
+<p>The queue becomes the page. Each report is a row in the desk's own table — concern, what it points
+at, when it arrived, and the one action that moves it — at the density <code>/ops/verification</code>
+already uses, which the audit calls the tightest table we have. The invariant goes above the data,
+as it does on verification. "One parent's access" moves out of the rail and into the main column as
+what it is: a deliberate, slow, separate piece of work. And the rail holds the two things that are
+genuinely standing state — what is hidden right now, and who is held at signup.</p>
+<p>The empty state is the half that matters most, because the desk is empty most days. Today it says
+"No open reports." and looks broken. <b>An empty queue should be evidence, not absence:</b> nothing
+open, what was closed recently, and how long the oldest one waited.</p>
+
+<h3>What it costs to build</h3>
+<p><b>Low.</b> Every query on this page already exists; two of them move between columns. The queue
+row is the <code>.console-row</code> grid that <code>/club/register</code> and
+<code>/ops/verification</code> already ship. The only new query is the closed-report count for the
+empty state — one <code>count(*)</code> over <code>report</code> where <code>actioned_at</code> is
+not null.</p>
+
+<h3>What it does NOT change</h3>
+<p>Nothing about what an operator can do, or to whom. D-79 holds untouched: nothing here opens a
+child's record, a player page is still identified by its link's fingerprint and a family by a first
+name. No copy is softened — the 1800RESPECT line, the "suppress first" instruction and the
+court-order requirement are quoted verbatim from the page as built. No new action, no new
+permission, no bulk anything.</p>
+</div>
+
+<div class="board">
+
+<div class="bh"><span class="tag tag-now">now · 1280</span><div><div class="t">The heavy column is the narrow one</div><div class="s">Hatching marks what is drawn on nothing.</div></div></div>
+
+<div class="stage w1280">
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr);min-height:600px">
+  <div class="nav">
+    <div style="padding:4px 10px 18px"><div class="kicker">Operator</div></div>
+    <div class="nl">Home</div><div class="nl on">Reports</div><div class="nl">Verification</div><div class="nl">Support</div><div class="nl">Emergency switches</div>
+  </div>
+  <div style="position:relative;padding:22px 18px">
+    <div class="empty-mark"></div>
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;min-height:24px;max-width:932px">
+      <a href="#" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:700;text-decoration:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"/></svg>Back</a>
+      <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+    </div>
+    <div style="position:relative;margin-top:16px">
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Reports</div>
+      <div style="font-size:13.5px;color:var(--secondary);margin-top:4px">A person reads every report. Nothing here opens a child's record, and nothing here deletes one.</div>
+    </div>
+    <div style="position:relative;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;margin-top:16px;align-items:start">
+      <div>
+        <div class="kicker" style="letter-spacing:var(--ls-caps)">Open reports</div>
+        <div class="card" style="margin-top:8px;font-size:13px;color:var(--muted)">No open reports.</div>
+        <div style="margin-top:18px;font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75)">594px wide · 600px of nothing below</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="kicker" style="letter-spacing:var(--ls-caps)">Hidden pages</div>
+        <div class="card" style="font-size:13px;color:var(--muted)">Nothing is hidden.</div>
+        <div class="kicker" style="letter-spacing:var(--ls-caps);margin-top:8px">Age checks</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5">An adult account that named a junior squad. Hidden from clubs until you look. A person always decides.</div>
+        <div class="card" style="font-size:13px;color:var(--muted)">Nobody is held.</div>
+        <div class="kicker" style="letter-spacing:var(--ls-caps);margin-top:8px">One parent's access</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5">For a family safety matter. Suppress first: it stops that parent seeing or doing anything, and deletes nothing. Point the family to 1800RESPECT (1800 737 732). Remove permanently only on a court order.</div>
+        <div class="card" style="display:flex;gap:10px"><div class="field-ph" style="flex:1">The parent's email</div><span class="console-btn">Find</span></div>
+        <div style="margin-top:6px;font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75)">320px wide · carries the whole page</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280 · the ordinary day</span><div><div class="t">An empty queue is evidence, not absence</div><div class="s">This is what the desk looks like most days, and it is the version that has to read as a working desk.</div></div></div>
+
+<div class="stage w1280">
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:10px"><div class="kicker">Operator console</div><div style="font-size:12px;color:var(--muted)">· every action here is recorded against your name</div></div>
+  <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+</div>
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:430px"><div class="nl">Home</div><div class="nl on">Reports</div><div class="nl">Verification</div><div class="nl">Support</div><div class="nl">Emergency switches</div></div>
+  <div style="padding:22px 18px 28px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div>
+        <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Reports</div>
+        <div style="font-size:13.5px;color:var(--secondary);margin-top:4px">A person reads every report. Nothing here opens a child's record, and nothing here deletes one.</div>
+      </div>
+      <div class="card" style="border-color:var(--red);padding:14px 15px;font-size:13px;color:var(--secondary);line-height:1.55">
+        A report about a person under 18 is read before anything else on this desk, and a page can be hidden while you read it. <b style="color:var(--ink)">Hiding is not deleting</b> — the family's record is untouched and comes back when you release it.
+      </div>
+      <div class="card-sunken" style="padding:26px 20px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:flex-end;gap:30px;flex-wrap:wrap">
+          <div><div class="numeral n-l">0</div><div class="kicker" style="margin-top:7px">Open right now</div></div>
+          <div><div class="numeral n-m" style="color:var(--secondary)">7</div><div class="kicker" style="margin-top:7px">Closed in 30 days</div></div>
+          <div><div class="numeral n-m" style="color:var(--secondary)">4h</div><div class="kicker" style="margin-top:7px">Longest wait</div></div>
+        </div>
+        <div style="font-size:13.5px;color:var(--secondary);line-height:1.6;max-width:560px">Nothing is waiting on you. The last report was closed on <b style="color:var(--ink)">19 Sep at 8:21pm</b> — no action needed. Reports arrive from the "Report this page" link on every public page.</div>
+      </div>
+
+      <div style="margin-top:6px">
+        <div class="kicker" style="margin-bottom:8px">One parent's access</div>
+        <div class="card" style="display:flex;flex-direction:column;gap:11px;padding:16px 15px">
+          <div style="font-size:12.5px;color:var(--secondary);line-height:1.6;max-width:600px">For a family safety matter. <b style="color:var(--ink)">Suppress first:</b> it stops that parent seeing or doing anything, and deletes nothing. Point the family to 1800RESPECT (1800 737 732). Remove permanently only on a court order.</div>
+          <div style="display:flex;gap:10px;align-items:center;max-width:520px">
+            <div class="field" style="flex:1"><div class="field-label">The parent's email</div><div class="field-ph">name@example.com</div></div>
+            <span class="console-btn">Find</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">Hidden right now</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6">Nothing is hidden. When you hide a page it appears here until you release it.</div>
+      </div>
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">Held at signup</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6">Nobody is held. An adult account that names a junior squad waits here, hidden from clubs, until a person looks.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280 · the day it matters</span><div><div class="t">Two open reports, in the desk's own table</div><div class="s">The row grid is <code>/ops/verification</code>'s, which the audit calls the tightest table in the product. Safety concerns sort above everything, as they already do.</div></div></div>
+
+<div class="stage w1280">
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:10px"><div class="kicker">Operator console</div><div style="font-size:12px;color:var(--muted)">· every action here is recorded against your name</div></div>
+  <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+</div>
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:720px"><div class="nl">Home</div><div class="nl on">Reports</div><div class="nl">Verification</div><div class="nl">Support</div><div class="nl">Emergency switches</div></div>
+  <div style="padding:22px 18px 28px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div>
+        <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Reports</div>
+        <div style="font-size:13.5px;color:var(--secondary);margin-top:4px">A person reads every report. Nothing here opens a child's record, and nothing here deletes one.</div>
+      </div>
+      <div class="card" style="border-color:var(--red);padding:14px 15px;font-size:13px;color:var(--secondary);line-height:1.55">
+        A report about a person under 18 is read before anything else on this desk, and a page can be hidden while you read it. <b style="color:var(--ink)">Hiding is not deleting</b> — the family's record is untouched and comes back when you release it.
+      </div>
+
+      <div style="display:flex;align-items:baseline;justify-content:space-between">
+        <div class="kicker">Open reports</div>
+        <div style="font-size:12px;font-weight:800;color:var(--muted)">2</div>
+      </div>
+
+      <div class="card" style="padding:6px 16px">
+        <div class="qrow" style="border-bottom:1px solid var(--line);padding:9px 0">
+          <div class="field-label">Concern</div><div class="field-label">What they wrote</div><div class="field-label">Points at</div><div class="field-label" style="text-align:right">Action</div>
+        </div>
+        <div class="qrow" style="border-top:1px solid var(--surface-2);align-items:start">
+          <div>
+            <div style="font-size:14.5px;font-weight:800;color:var(--amber)">A parent says their child is in this</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">22 Sep, 7:40pm · reply to kfarrell@…</div>
+          </div>
+          <div style="font-size:12.5px;color:var(--secondary);font-style:italic;line-height:1.45">"My son is in the background of the second clip on this page and I did not agree to that."</div>
+          <div>
+            <span class="tag" style="background:rgba(255,255,255,.07);color:var(--secondary)">A player's page</span>
+            <div style="font-size:12px;color:var(--accent);font-weight:700;margin-top:6px">Hidden while you look</div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <span class="console-btn">Outcome…</span><span class="console-btn console-btn-primary">Close</span>
+          </div>
+        </div>
+        <div class="qrow" style="border-top:1px solid var(--surface-2);align-items:start">
+          <div>
+            <div style="font-size:14.5px;font-weight:800;color:var(--amber)">Says this account belongs to a child</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">21 Sep, 9:12am · no reply address</div>
+          </div>
+          <div style="font-size:12.5px;color:var(--secondary);font-style:italic;line-height:1.45">"This coach page is run by a 15 year old at our club."</div>
+          <div>
+            <span class="tag" style="background:rgba(255,255,255,.07);color:var(--secondary)">A coach page</span>
+            <div style="font-size:12px;color:var(--muted);margin-top:6px">c/sam-kaya</div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+            <span class="console-btn">Take it down</span><span class="console-btn">Outcome…</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6">Hiding a page asks you why, and what you write goes on the record. A page that is already hidden says so in its row instead of offering the button again.</div>
+
+      <div style="margin-top:6px">
+        <div class="kicker" style="margin-bottom:8px">One parent's access</div>
+        <div class="card" style="display:flex;flex-direction:column;gap:11px;padding:16px 15px">
+          <div style="font-size:12.5px;color:var(--secondary);line-height:1.6;max-width:600px">For a family safety matter. <b style="color:var(--ink)">Suppress first:</b> it stops that parent seeing or doing anything, and deletes nothing. Point the family to 1800RESPECT (1800 737 732). Remove permanently only on a court order.</div>
+          <div style="display:flex;gap:10px;align-items:center;max-width:520px">
+            <div class="field" style="flex:1"><div class="field-label">The parent's email</div><div class="field-ph">name@example.com</div></div>
+            <span class="console-btn">Find</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">Hidden right now</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <div style="font-size:13px;font-weight:700">Report under review</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">Since 22 Sep, 7:52pm</div>
+          </div>
+          <span class="console-btn" style="align-self:flex-start">Show it again</span>
+        </div>
+      </div>
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">Held at signup</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:11px">An adult account that named a junior squad. Hidden from clubs until you look. A person always decides.</div>
+        <div style="font-size:13.5px;font-weight:800">Taylor</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">t.brennan@example.com · held 20 Sep, 6:03pm</div>
+        <span class="console-btn" style="margin-top:11px">Checked — release</span>
+      </div>
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">This week</div>
+        <div style="font-size:12.5px;color:var(--secondary);line-height:1.6">7 closed · 1 page hidden · 0 permanent removals. Longest a report waited: 4 hours.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 390</span><div><div class="t">One column, same order: the rule, the queue, the parent tool, then what is standing</div><div class="s">The operator console has no phone bar today (five doors do not fit four tabs) — this does not change that.</div></div></div>
+
+<div class="stage w390">
+<div style="padding:0 18px 24px">
+  <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--line)">
+    <div class="kicker">Operator</div>
+    <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+  </div>
+  <div style="padding-top:18px;display:flex;flex-direction:column;gap:13px">
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Reports</div>
+      <div style="font-size:13.5px;color:var(--secondary);margin-top:4px">A person reads every report. Nothing here opens a child's record, and nothing here deletes one.</div>
+    </div>
+    <div class="card" style="border-color:var(--red);font-size:12.5px;color:var(--secondary);line-height:1.55">A report about a person under 18 is read before anything else on this desk. <b style="color:var(--ink)">Hiding is not deleting.</b></div>
+    <div class="card-sunken" style="padding:18px 15px">
+      <div style="display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap">
+        <div><div class="numeral n-l">0</div><div class="kicker" style="margin-top:6px">Open now</div></div>
+        <div><div class="numeral n-m" style="color:var(--secondary)">7</div><div class="kicker" style="margin-top:6px">Closed in 30 days</div></div>
+      </div>
+      <div style="font-size:13px;color:var(--secondary);line-height:1.6;margin-top:13px">Nothing is waiting on you. The last report was closed on <b style="color:var(--ink)">19 Sep at 8:21pm</b>.</div>
+    </div>
+    <div class="kicker" style="margin-top:4px">One parent's access</div>
+    <div class="card" style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-size:12.5px;color:var(--secondary);line-height:1.6"><b style="color:var(--ink)">Suppress first:</b> it stops that parent seeing or doing anything, and deletes nothing. Point the family to 1800RESPECT (1800 737 732). Remove permanently only on a court order.</div>
+      <div class="field"><div class="field-label">The parent's email</div><div class="field-ph">name@example.com</div></div>
+      <span class="console-btn" style="align-self:flex-start">Find</span>
+    </div>
+    <div class="card-sunken">
+      <div class="railhead">Hidden right now</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.6">Nothing is hidden.</div>
+    </div>
+    <div class="card-sunken">
+      <div class="railhead">Held at signup</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.6">Nobody is held. An adult account that names a junior squad waits here, hidden from clubs, until a person looks.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

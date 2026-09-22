@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: /club/squads and /club/squads/&lt;id&gt;</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--r-card:16px;--r-well:12px;--r-btn:14px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h3{font-size:14px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:20px 0 6px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink)}
+.board{padding:0 22px 60px;overflow-x:auto}
+.bh{max-width:900px;margin:28px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.bh .t{font-size:18px;font-weight:900;letter-spacing:var(--ls-title)}
+.bh .s{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin:0 auto}
+.w1280{width:1280px}.w390{width:390px}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);font-family:inherit;border:none;text-decoration:none}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.console-btn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 14px;border-radius:var(--r-well);font-size:13px;font-weight:700;letter-spacing:var(--ls-button);background:var(--surface-2);color:var(--ink);border:1px solid var(--line);white-space:nowrap;text-decoration:none}
+.console-btn-primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:800}
+.field{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-well);padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.field-label{font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.field-ph{font-size:14.5px;font-weight:500;color:var(--placeholder)}
+.numeral{font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums}
+.n-l{font-size:56px}.n-m{font-size:34px}.n-s{font-size:22px}
+.hd{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 18px;border-bottom:1px solid var(--line)}
+.nav{border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:2px}
+.nl{min-height:44px;display:flex;align-items:center;gap:11px;padding:0 12px;border-radius:var(--r-well);font-size:14px;font-weight:700;color:var(--secondary);text-decoration:none}
+.nl.on{background:var(--surface-2);color:var(--ink);box-shadow:inset 3px 0 0 var(--accent)}
+.empty-mark{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,transparent,transparent 11px,rgba(227,73,72,.055) 11px,rgba(227,73,72,.055) 22px)}
+.srow{display:grid;grid-template-columns:minmax(150px,1.2fr) 120px 92px 120px 120px 130px;gap:12px;align-items:center;padding:0 0;min-height:52px}
+.srow + .srow{border-top:1px solid var(--surface-2)}
+.hrow{border-bottom:1px solid var(--line);min-height:34px}
+.prow{display:grid;grid-template-columns:minmax(140px,1fr) minmax(200px,1.4fr) 190px 140px;gap:12px;align-items:center;min-height:56px}
+.prow + .prow{border-top:1px solid var(--surface-2)}
+.pos{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;background:var(--surface-2);border:1px solid var(--line)}
+.pos.first{background:rgba(61,220,132,.14);border-color:var(--accent)}
+.pos .c{font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.pos.first .c{color:var(--accent)}
+.pos .l{font-size:12.5px;font-weight:700;color:var(--ink)}
+.chipsum{display:inline-flex;align-items:center;gap:8px;height:44px;border-radius:999px;padding:0 16px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--secondary)}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 23 Sep 2026 · mockup 6 of 7</div>
+<h1>/club/squads and /club/squads/&lt;id&gt;</h1>
+<p class="lead">These two screens use the width and not the density. D-147 says console surfaces get
+"tables not stacked cards". <code>/club/register</code> and <code>/ops/verification</code> are real
+tables and they are the two best screens we have. Squads is eleven bordered cards at about 105px
+each — 1,150px of scroll for eleven rows that carry a name, a meta line, a link and a grey label —
+and the detail page is the same again, with roughly 700px of each 932px row empty.</p>
+
+<h3>What is wrong now, in order of how much it costs the TD</h3>
+<p><b>1. The creation form sits above the list.</b> A technical director running eleven squads scrolls
+past an "Add a squad" form every single time he comes to look at them. He adds a squad about twice a
+season.<br>
+<b>2. Eleven cards where a table belongs.</b> Nothing lines up down the page, so comparing two squads
+means reading two paragraphs.<br>
+<b>3. The right edge is ragged.</b> "In use — can't be removed" wraps to two lines and sits on a
+different baseline from "Who plays", so no two rows end in the same place.<br>
+<b>4. A 900px-wide accent "Add it" button</b> — a phone control scaled up, because the charter fixes
+button height and says nothing about width.<br>
+<b>5. On the detail page, "Ask them" is an accent-outlined button</b> — the fourth visual language
+for an action, on the only screen in the product that has it.</p>
+
+<h3>What the change does for the technical director</h3>
+<p>The register's own treatment, applied to squads: group headers by stage with counts, a sticky
+column head, hairline rows, one strong left-aligned first column, and the counts the page already
+queries — <b>registered</b> and <b>playing</b> — as their own numeric columns instead of buried in a
+grey sentence. Eleven squads become one card you can read down in about two seconds. The creation
+form stays exactly where it is in the order (D-147: the artboard decides order) but collapses behind
+a 44px "Add a squad" chip, the same <code>&lt;details&gt;</code> disclosure the trials board already
+ships — 44px instead of about 330px, at both widths.</p>
+<p>On the detail page the same treatment turns a stack of 85px cards into a squad sheet a coach can
+scan: player, positions in pick order, clips, this season's surfaced stats, and one action in the
+same place on every row.</p>
+
+<h3>What it costs to build</h3>
+<p><b>Low, and it has a precedent.</b> The <code>.console-row</code> grid, the
+<code>.console-head</code> sticky head, the <code>.console-row-hover</code> and the
+<code>.d-only</code> / <code>.m-only</code> pair all exist and are used by
+<code>/club/register</code> today. Below 1024px the squads stay as cards, exactly as the register's
+rows already do. The columns are all fields the page already selects.</p>
+
+<h3>What it does NOT change</h3>
+<p>No squad data changes, no new field, no new query. The order of the page is unchanged — the form
+is still first, just closed. Row height stays at 52px with a 44px touch target inside it; we do not
+shrink a row to fit more on a screen (D-147 constraint 4). And the never-zero instinct holds: a squad
+with nobody registered shows a dash, not a nought — the same rule as D-70's stat tiles, applied to a
+table column.</p>
+</div>
+
+<div class="board">
+
+<div class="bh"><span class="tag tag-now">now · 1280</span><div><div class="t">A creation form, then eleven identical rectangles</div><div class="s">Riverside FC, Marina Petrovic. Three of eleven squads shown; the page is 2,400px tall.</div></div></div>
+
+<div class="stage w1280">
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr);min-height:640px">
+  <div class="nav">
+    <div style="padding:4px 10px 18px"><div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px">R</div><div style="font-size:14.5px;font-weight:900;margin-top:10px">Riverside FC</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Technical Director</div></div>
+    <div class="nl">Home</div><div class="nl">Register</div><div class="nl on">Squads</div><div class="nl">Crest &amp; club page</div><div class="nl">Coaching roles</div><div class="nl">Post a trial</div><div class="nl">Plan &amp; billing</div>
+  </div>
+  <div style="position:relative;padding:22px 18px">
+    <div class="empty-mark"></div>
+    <div style="position:relative;max-width:932px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;justify-content:flex-end"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+      <div><div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Squads</div><div style="font-size:13.5px;color:var(--secondary);margin-top:4px">Riverside FC · <b style="color:var(--ink)">11 squads</b></div></div>
+      <div class="card-sunken" style="font-size:12.5px;color:var(--secondary);line-height:1.55">These are the squads families choose from when they register interest, and the groups your register is sorted into. Add the ones you actually run — anything from MiniRoos to under 23s.</div>
+      <div class="card" style="display:flex;flex-direction:column;gap:11px">
+        <div style="font-size:14px;font-weight:900">Add a squad</div>
+        <div class="field"><div class="field-label">What you call it</div><div class="field-ph">U14 Boys</div></div>
+        <div style="display:flex;gap:9px">
+          <div class="field" style="flex:1"><div class="field-label">Age group</div><div class="field-ph">U14</div></div>
+          <div class="field" style="flex:1"><div class="field-label">Who plays in it</div><div class="field-ph">Boys</div></div>
+          <div class="field" style="flex:1"><div class="field-label">Season</div><div class="field-ph">2026</div></div>
+        </div>
+        <button class="btn btn-primary" style="width:100%">Add it</button>
+        <div style="font-size:12px;color:var(--muted);line-height:1.55">Your age groups are yours. Boys and girls competitions rarely run the same ones, and they change between seasons and between states — so we don't decide them for you.</div>
+      </div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75)">900px accent button · ~330px of form above every visit</div>
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:15px;font-weight:800">U9 Boys</div><div style="font-size:12.5px;color:var(--muted)">U9 · boys · 2026</div></div><div style="font-size:12.5px;font-weight:800;color:var(--accent);flex-shrink:0">Who plays</div><div style="height:44px;border-radius:11px;border:1px solid var(--line);color:var(--muted);font-size:12.5px;font-weight:700;padding:0 14px;display:flex;align-items:center">Remove</div></div>
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:15px;font-weight:800">U15 Boys</div><div style="font-size:12.5px;color:var(--muted)">U15 · boys · 2026 · <span style="color:var(--secondary)">12 registered · 16 playing</span></div></div><div style="font-size:12.5px;font-weight:800;color:var(--accent);flex-shrink:0">Who plays</div><div style="font-size:11.5px;font-weight:700;color:var(--muted);text-align:right;max-width:130px">In use — can't be removed</div></div>
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:15px;font-weight:800">U16 Girls</div><div style="font-size:12.5px;color:var(--muted)">U16 · girls · 2026 · <span style="color:var(--secondary)">7 registered · 14 playing</span></div></div><div style="font-size:12.5px;font-weight:800;color:var(--accent);flex-shrink:0">Who plays</div><div style="font-size:11.5px;font-weight:700;color:var(--muted);text-align:right;max-width:130px">In use — can't be removed</div></div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75)">eight more rows below · ragged right edge · ~700px of each row empty</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280</span><div><div class="t">The register's table, applied to squads</div><div class="s">Eleven squads, one card, grouped by stage. Same page order — the form is first, and closed.</div></div></div>
+
+<div class="stage w1280">
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px">R</div><div style="font-size:13px;font-weight:800">Riverside FC</div><div style="width:5px;height:5px;border-radius:999px;background:var(--accent)"></div><div style="font-size:11px;font-weight:800;color:var(--accent)">Verified</div></div>
+  <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+</div>
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:860px"><div class="nl">Home</div><div class="nl">Register</div><div class="nl on">Squads</div><div class="nl">Crest &amp; club page</div><div class="nl">Coaching roles</div><div class="nl">Post a trial</div><div class="nl">Plan &amp; billing</div></div>
+  <div style="padding:22px 18px 30px;max-width:932px;display:flex;flex-direction:column;gap:16px">
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Squads</div>
+      <div style="font-size:13.5px;color:var(--secondary);margin-top:4px">Riverside FC · <b style="color:var(--ink)">11 squads</b> · 41 families registered across them</div>
+    </div>
+    <div class="card-sunken" style="font-size:12.5px;color:var(--secondary);line-height:1.55">These are the squads families choose from when they register interest, and the groups your register is sorted into. Add the ones you actually run — anything from MiniRoos to under 23s.</div>
+
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="chipsum">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        Add a squad
+      </span>
+      <span style="font-size:12px;color:var(--muted)">closed by default — you add a squad about twice a season</span>
+    </div>
+
+    <div class="card" style="padding:4px 16px">
+      <div class="srow hrow">
+        <div class="field-label">Squad</div><div class="field-label">Who plays</div><div class="field-label">Season</div><div class="field-label" style="text-align:right">Registered</div><div class="field-label" style="text-align:right">Playing</div><div class="field-label" style="text-align:right">&nbsp;</div>
+      </div>
+
+      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:14px 0 6px"><div class="kicker">MiniRoos</div><div style="font-size:12px;font-weight:800;color:var(--muted)">2</div></div>
+      <div class="srow"><div style="font-size:14.5px;font-weight:800">U9 Boys</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Boys</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums">—</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">12</div><div style="display:flex;justify-content:flex-end"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">In use</span></div></div>
+      <div class="srow"><div style="font-size:14.5px;font-weight:800">U9 Girls</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Girls</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums">—</div><div style="text-align:right;font-size:14px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums">—</div><div style="display:flex;justify-content:flex-end"><span class="console-btn">Remove</span></div></div>
+
+      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:14px 0 6px"><div class="kicker">Juniors</div><div style="font-size:12px;font-weight:800;color:var(--muted)">3</div></div>
+      <div class="srow"><div style="font-size:14.5px;font-weight:800">U11 Boys</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Boys</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">3</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">14</div><div style="display:flex;justify-content:flex-end"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">In use</span></div></div>
+      <div class="srow"><div style="font-size:14.5px;font-weight:800">U12 Girls</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Girls</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">2</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">11</div><div style="display:flex;justify-content:flex-end"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">In use</span></div></div>
+      <div class="srow"><div style="font-size:14.5px;font-weight:800">U13 Boys</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Boys</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">5</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">15</div><div style="display:flex;justify-content:flex-end"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">In use</span></div></div>
+
+      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:14px 0 6px"><div class="kicker">Youth</div><div style="font-size:12px;font-weight:800;color:var(--muted)">5</div></div>
+      <div class="srow"><div style="font-size:14.5px;font-weight:800">U14 Boys</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Boys</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">9</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">16</div><div style="display:flex;justify-content:flex-end"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">In use</span></div></div>
+      <div class="srow" style="background:var(--surface-2);border-radius:var(--r-well)"><div style="font-size:14.5px;font-weight:800;padding-left:8px">U15 Boys</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Boys</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">12</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">16</div><div style="display:flex;justify-content:flex-end;padding-right:8px"><span class="console-btn">Who plays</span></div></div>
+      <div class="srow"><div style="font-size:14.5px;font-weight:800">U16 Boys</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Boys</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">4</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">15</div><div style="display:flex;justify-content:flex-end"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">In use</span></div></div>
+      <div class="srow"><div style="font-size:14.5px;font-weight:800">U16 Girls</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Girls</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">7</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">14</div><div style="display:flex;justify-content:flex-end"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">In use</span></div></div>
+      <div class="srow"><div style="font-size:14.5px;font-weight:800">U18 Boys</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Boys</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">6</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">18</div><div style="display:flex;justify-content:flex-end"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">In use</span></div></div>
+
+      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:14px 0 6px"><div class="kicker">Seniors</div><div style="font-size:12px;font-weight:800;color:var(--muted)">1</div></div>
+      <div class="srow" style="border-bottom:none"><div style="font-size:14.5px;font-weight:800">Seniors Men</div><div style="font-size:13px;color:var(--secondary);font-weight:700">Men</div><div style="font-size:13px;color:var(--muted);font-weight:700">2026</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">3</div><div style="text-align:right;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">21</div><div style="display:flex;justify-content:flex-end"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">In use</span></div></div>
+      <div style="height:10px"></div>
+    </div>
+
+    <div style="font-size:12px;color:var(--muted);line-height:1.6;max-width:640px">A squad with players or registrations in it stays — nobody gets removed from a list because a squad was tidied up. A dash means nobody has registered for it yet, not nought.</div>
+
+    <div style="margin-top:8px">
+      <div class="kicker" style="margin-bottom:10px">Coaches who read your register</div>
+      <div class="card-sunken" style="font-size:12.5px;color:var(--secondary);line-height:1.55;margin-bottom:10px">Bring in the coach who runs an age group and they can read the registrations for their teams — up to three teams each, and up to ten coaches. They can't invite a family or change anything, and every time they open one it's recorded.</div>
+      <div class="card" style="padding:4px 16px">
+        <div style="display:grid;grid-template-columns:minmax(150px,1fr) minmax(200px,1.5fr) 120px 130px;gap:12px;align-items:center;min-height:34px;border-bottom:1px solid var(--line)">
+          <div class="field-label">Coach</div><div class="field-label">Their teams</div><div class="field-label">Since</div><div class="field-label" style="text-align:right">&nbsp;</div>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(150px,1fr) minmax(200px,1.5fr) 120px 130px;gap:12px;align-items:center;min-height:52px">
+          <div style="font-size:14.5px;font-weight:800">Sam Kaya</div>
+          <div style="font-size:13px;color:var(--secondary);font-weight:700">U15 Boys · U16 Boys</div>
+          <div style="font-size:13px;color:var(--muted);font-weight:700">4 Sep</div>
+          <div style="display:flex;justify-content:flex-end"><span class="console-btn">Remove</span></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px"><span class="chipsum"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Bring in a coach</span><span style="font-size:12px;color:var(--muted)">1 of 10 · you have room for nine more</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280 · /club/squads/&lt;id&gt;</span><div><div class="t">A squad sheet, not a stack</div><div class="s">U15 Boys. Positions in pick order, clips, this season's surfaced stats, one action column. "Ask them" is the console primary — the accent-outlined button is gone.</div></div></div>
+
+<div class="stage w1280">
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px">R</div><div style="font-size:13px;font-weight:800">Riverside FC</div></div>
+  <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+</div>
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:620px"><div class="nl">Home</div><div class="nl">Register</div><div class="nl on">Squads</div><div class="nl">Crest &amp; club page</div><div class="nl">Coaching roles</div><div class="nl">Post a trial</div><div class="nl">Plan &amp; billing</div></div>
+  <div style="padding:22px 18px 30px;max-width:932px;display:flex;flex-direction:column;gap:16px">
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">U15 Boys</div>
+      <div style="font-size:13.5px;color:var(--secondary);margin-top:4px">U15 · boys · 2026 · <b style="color:var(--ink)">16 playing</b> · 12 on the register for this squad</div>
+    </div>
+
+    <div class="card" style="padding:4px 16px">
+      <div class="prow" style="border-bottom:1px solid var(--line);min-height:34px">
+        <div class="field-label">Player</div><div class="field-label">Positions</div><div class="field-label">2026 · self-reported</div><div class="field-label" style="text-align:right">&nbsp;</div>
+      </div>
+      <div class="prow">
+        <div style="font-size:14.5px;font-weight:800">Deniz</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap"><span class="pos first"><span class="c">1st</span><span class="l">AM</span></span><span class="pos"><span class="c">2nd</span><span class="l">LW</span></span><span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--secondary)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.5 L17 12 L9 16.5 Z"/><rect x="3" y="4" width="18" height="16" rx="3"/></svg>2 clips</span></div>
+        <div style="display:flex;gap:14px;font-variant-numeric:tabular-nums"><span><b style="font-size:15px;font-weight:900">18</b> <span style="font-size:10.5px;font-weight:700;color:var(--muted)">APPS</span></span><span><b style="font-size:15px;font-weight:900">11</b> <span style="font-size:10.5px;font-weight:700;color:var(--muted)">GOALS</span></span><span><b style="font-size:15px;font-weight:900">7</b> <span style="font-size:10.5px;font-weight:700;color:var(--muted)">ASSISTS</span></span></div>
+        <div style="display:flex;justify-content:flex-end"><span class="console-btn">Open the CV</span></div>
+      </div>
+      <div class="prow">
+        <div style="font-size:14.5px;font-weight:800">Arda</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap"><span class="pos first"><span class="c">1st</span><span class="l">CB</span></span></div>
+        <div style="display:flex;gap:14px;font-variant-numeric:tabular-nums"><span><b style="font-size:15px;font-weight:900">17</b> <span style="font-size:10.5px;font-weight:700;color:var(--muted)">APPS</span></span><span><b style="font-size:15px;font-weight:900">6</b> <span style="font-size:10.5px;font-weight:700;color:var(--muted)">CLEAN SHEETS</span></span></div>
+        <div style="display:flex;justify-content:flex-end"><span class="console-btn">Open the CV</span></div>
+      </div>
+      <div class="prow" style="border-bottom:none">
+        <div style="font-size:14.5px;font-weight:800">Liam</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--muted)">No positions picked yet</span></div>
+        <div style="font-size:12.5px;color:var(--muted);font-weight:500">Nothing on the record yet</div>
+        <div style="display:flex;justify-content:flex-end"><span class="console-btn">Open the CV</span></div>
+      </div>
+      <div style="height:8px"></div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6;max-width:640px">Every CV you open here is recorded, and the family can see who read it.</div>
+
+    <div style="margin-top:6px">
+      <div class="kicker" style="margin-bottom:10px">Ask someone from your register</div>
+      <div class="card-sunken" style="font-size:12.5px;color:var(--secondary);line-height:1.55;margin-bottom:10px">For an under-16 it goes to their parent. From 16 the player answers, and their parent sees it too. Nothing reaches you unless they say yes.</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">
+        <span style="height:44px;border-radius:999px;padding:0 14px;display:inline-flex;align-items:center;font-size:12.5px;font-weight:800;background:var(--accent);color:var(--on-accent)">Any position</span>
+        <span style="height:44px;border-radius:999px;padding:0 14px;display:inline-flex;align-items:center;font-size:12.5px;font-weight:700;background:var(--surface-2);border:1px solid var(--line);color:var(--secondary)">Goalkeeper</span>
+        <span style="height:44px;border-radius:999px;padding:0 14px;display:inline-flex;align-items:center;font-size:12.5px;font-weight:700;background:var(--surface-2);border:1px solid var(--line);color:var(--secondary)">Centre back</span>
+        <span style="height:44px;border-radius:999px;padding:0 14px;display:inline-flex;align-items:center;font-size:12.5px;font-weight:700;background:var(--surface-2);border:1px solid var(--line);color:var(--secondary)">Central midfield</span>
+      </div>
+      <div class="card" style="padding:4px 16px">
+        <div class="prow" style="grid-template-columns:minmax(140px,1fr) minmax(220px,1.6fr) 170px 150px;border-bottom:1px solid var(--line);min-height:34px">
+          <div class="field-label">Player</div><div class="field-label">Positions</div><div class="field-label">On your register</div><div class="field-label" style="text-align:right">&nbsp;</div>
+        </div>
+        <div class="prow" style="grid-template-columns:minmax(140px,1fr) minmax(220px,1.6fr) 170px 150px">
+          <div style="font-size:14.5px;font-weight:800">Georgia</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap"><span class="pos first"><span class="c">1st</span><span class="l">CM</span></span><span class="pos"><span class="c">2nd</span><span class="l">DM</span></span></div>
+          <div style="font-size:12.5px;color:var(--secondary);font-weight:700">asked for this team</div>
+          <div style="display:flex;justify-content:flex-end"><span class="console-btn console-btn-primary">Ask them</span></div>
+        </div>
+        <div class="prow" style="grid-template-columns:minmax(140px,1fr) minmax(220px,1.6fr) 170px 150px;border-bottom:none">
+          <div style="font-size:14.5px;font-weight:800">Nate</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap"><span class="pos first"><span class="c">1st</span><span class="l">GK</span></span></div>
+          <div style="font-size:12.5px;color:var(--muted);font-weight:500">since 11 Sep</div>
+          <div style="display:flex;justify-content:flex-end"><span class="console-btn console-btn-primary">Ask them</span></div>
+        </div>
+        <div style="height:8px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 390</span><div><div class="t">Below 1024 the squads stay as cards — with the counts the table gained</div><div class="s">Exactly what <code>/club/register</code> already does with <code>.d-only</code> and <code>.m-only</code>.</div></div></div>
+
+<div class="stage w390">
+<div style="padding:0 18px 90px;position:relative">
+  <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--line)"><div style="font-size:12.5px;font-weight:800">Riverside FC</div><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+  <div style="padding-top:18px;display:flex;flex-direction:column;gap:14px">
+    <div><div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Squads</div><div style="font-size:13.5px;color:var(--secondary);margin-top:4px">Riverside FC · <b style="color:var(--ink)">11 squads</b></div></div>
+    <div class="card-sunken" style="font-size:12.5px;color:var(--secondary);line-height:1.55">These are the squads families choose from when they register interest, and the groups your register is sorted into.</div>
+    <span class="chipsum" style="align-self:flex-start"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add a squad</span>
+
+    <div style="display:flex;align-items:baseline;justify-content:space-between"><div class="kicker">MiniRoos</div><div style="font-size:12px;font-weight:800;color:var(--muted)">2</div></div>
+    <div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-size:15px;font-weight:800">U9 Boys</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px">Boys · 2026 · <span style="color:var(--secondary)">— registered · 12 playing</span></div></div><span class="console-btn">Who plays</span></div>
+    <div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-size:15px;font-weight:800">U9 Girls</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px">Girls · 2026 · <span style="color:var(--secondary)">— registered · — playing</span></div></div><span class="console-btn">Remove</span></div>
+
+    <div style="display:flex;align-items:baseline;justify-content:space-between"><div class="kicker">Youth</div><div style="font-size:12px;font-weight:800;color:var(--muted)">5</div></div>
+    <div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-size:15px;font-weight:800">U15 Boys</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px">Boys · 2026 · <span style="color:var(--secondary)">12 registered · 16 playing</span></div></div><span class="console-btn">Who plays</span></div>
+    <div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-size:15px;font-weight:800">U16 Girls</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px">Girls · 2026 · <span style="color:var(--secondary)">7 registered · 14 playing</span></div></div><span class="console-btn">Who plays</span></div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6">A squad with players or registrations in it stays. A dash means nobody has registered for it yet, not nought.</div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-top:1px solid var(--line);background:rgba(11,18,14,.94)">
+    <div style="min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:700;color:var(--muted)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>Home</div>
+    <div style="min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:700;color:var(--muted)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>Register</div>
+    <div style="min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:800;color:var(--accent)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3 19c.9-3 3.2-4.6 6-4.6S14.1 16 15 19M16 14.2c2 .3 3.6 1.7 4.2 3.8"/></svg>Squads</div>
+    <div style="min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:700;color:var(--muted)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/></svg>More</div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

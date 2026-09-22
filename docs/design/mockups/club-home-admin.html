@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: a club administrator's /home</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--hero:linear-gradient(160deg,#123326 0%,#0c1d14 60%,#0a1510 100%);--r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h3{font-size:14px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:22px 0 6px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink)}
+.board{padding:0 22px 60px;overflow-x:auto}
+.bh{max-width:900px;margin:28px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.bh .t{font-size:18px;font-weight:900;letter-spacing:var(--ls-title)}
+.bh .s{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin:0 auto}
+.w1280{width:1280px}.w390{width:390px}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);font-family:inherit;border:none;text-decoration:none}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.numeral{font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums}
+.n-l{font-size:56px}.n-m{font-size:34px}.n-s{font-size:22px}
+.railhead{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.hd{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 18px;border-bottom:1px solid var(--line)}
+.nav{border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:2px}
+.nl{min-height:44px;display:flex;align-items:center;gap:11px;padding:0 12px;border-radius:var(--r-well);font-size:14px;font-weight:700;color:var(--secondary);text-decoration:none}
+.nl.on{background:var(--surface-2);color:var(--ink);box-shadow:inset 3px 0 0 var(--accent)}
+.empty-mark{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,transparent,transparent 11px,rgba(227,73,72,.055) 11px,rgba(227,73,72,.055) 22px)}
+.hero{border-radius:var(--r-hero);background:var(--hero);padding:20px 18px;display:flex;flex-direction:column;gap:16px}
+.datetile{width:46px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--surface-2);border-radius:var(--r-well);padding:7px 0}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 23 Sep 2026 · mockup 4 of 7</div>
+<h1>A club administrator's <code>/home</code></h1>
+<p class="lead">63% empty at 1280, and it is the worst first-run impression of any signed-in seat —
+a club administrator is very often the first person at a club to open Pitch.</p>
+
+<h3>What is wrong now</h3>
+<p>Two separate failures, both caused by designing one screen and rendering it for two people.
+<b>The hero card was built for the technical director</b> and carries her 100 / 80 / 10 / 10 register
+row. An administrator has no register access, which is correct (D-93, D-154) — so for Robyn the same
+card renders three lines of text and about 50px of blank, and reads as a card that failed to load.
+<b>And the right rail is six identical secondary buttons with no primary</b>: Post a trial, Squads,
+Crest &amp; club page, Coaching roles, Your club page, Plan &amp; billing — which is the sidebar
+immediately to their left, word for word. There is no accent anywhere on the screen, so the eye has
+nowhere to land.</p>
+
+<h3>What the change does for the person on this screen</h3>
+<p>It answers the administrator's actual question, which is not "where can I go" (the sidebar already
+answers that) but <b>"is our club set up properly, and what is a family seeing right now?"</b>
+The hero carries the three numbers she <i>is</i> entitled to — squads, live trial notices, open
+coaching roles — none of which touches a registration. The rail stops repeating the sidebar and
+holds the club's public state: the page's own URL, when it was last changed, what a family cannot
+see yet, and who at this club can do what. And the screen gets exactly one primary.</p>
+<p>The last block is the one I would fight for. <b>"Who can do what here"</b> is the only place in the
+product where the D-93 role split is said out loud to the person it constrains. Robyn finding out she
+cannot read the register by clicking something and getting nothing is the version we ship today.</p>
+
+<h3>What it costs to build</h3>
+<p><b>Low.</b> Squad count, trial notices and open roles are already queried on this page for the
+technical director's variant. The club page's "last changed" is a timestamp on the club row. The
+"who can do what" list is the same <code>register_grant</code> query <code>/club/squads</code>
+already runs for the TD, plus the membership rows. No new permission, no new table.</p>
+
+<h3>What it does NOT change</h3>
+<p>Not what an administrator may see. No registration count, no child's name, no held-registration
+detail reaches this screen — the numbers on it are squads, notices and roles, which are the club's
+own furniture. Not the technical director's version of this page, which keeps its register row and
+is not in this proposal. Not the sidebar. Not the phone: at 390 the rail's blocks stack under the
+main column in the artboard's order.</p>
+<p>The unverified first-run variant (the club has claimed its page but nobody has rung them yet) is
+not drawn here. It keeps the amber "Awaiting verification — registrations are held" line exactly as
+built, and the same three blocks below it; the register numerals are simply absent, which is what
+D-126 requires.</p>
+</div>
+
+<div class="board">
+
+<div class="bh"><span class="tag tag-now">now · 1280</span><div><div class="t">An empty hero and six identical buttons</div><div class="s">Robyn Callister, club administrator, Riverside FC — verified club. Hatching marks what is drawn on nothing.</div></div></div>
+
+<div class="stage w1280">
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr);min-height:560px">
+  <div class="nav">
+    <div style="padding:4px 10px 18px">
+      <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px">R</div>
+      <div style="font-size:14.5px;font-weight:900;margin-top:10px">Riverside FC</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">Club administrator</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:10px"><div style="width:6px;height:6px;border-radius:999px;background:var(--accent)"></div><div style="font-size:11px;font-weight:800;color:var(--accent)">Verified club</div></div>
+    </div>
+    <div class="nl on">Home</div><div class="nl">Squads</div><div class="nl">Crest &amp; club page</div><div class="nl">Coaching roles</div><div class="nl">Post a trial</div><div class="nl">Your club page</div><div class="nl">Plan &amp; billing</div>
+  </div>
+  <div style="position:relative;padding:22px 18px">
+    <div class="empty-mark"></div>
+    <div style="position:relative;display:flex;align-items:center;justify-content:flex-end;min-height:24px;max-width:932px">
+      <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+    </div>
+    <div style="position:relative;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;margin-top:16px;align-items:start">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="hero" style="gap:16px">
+          <div style="display:flex;align-items:center;gap:13px">
+            <div style="width:52px;height:52px;border-radius:16px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px">R</div>
+            <div><div style="font-size:21px;font-weight:900;letter-spacing:var(--ls-title)">Riverside FC</div><div style="font-size:12.5px;color:rgba(255,255,255,.7);margin-top:3px">Robyn · Club administrator</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:999px;background:var(--accent)"></div><div style="font-size:11.5px;font-weight:800;color:var(--accent)">Verified club</div></div>
+          <div style="height:50px"></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px">
+          <div class="kicker">Coming up</div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="datetile"><div style="font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--accent)">Oct</div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-numeral);line-height:1">4</div></div>
+            <div><div style="font-size:14px;font-weight:800">U14 &amp; U15 Boys trials</div><div style="font-size:12px;color:var(--muted)">6:00pm · Riverside Park, Pitch 2</div></div>
+          </div>
+        </div>
+        <div class="card" style="display:flex;align-items:center;gap:10px">
+          <div style="flex:1"><div style="font-size:13px;font-weight:800;color:var(--accent)">pitchfootball.com.au/fc/riverside-fc</div><div style="font-size:11.5px;color:var(--muted)">Your club page · public</div></div>
+          <span class="btn" style="height:36px;padding:0 14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--secondary);font-size:12.5px;font-weight:700">Copy</span>
+        </div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75);margin-top:6px">page finished here · the rest is background</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="card" style="text-align:center;font-size:14px;font-weight:700;color:var(--secondary)">Post a trial</div>
+        <div class="card" style="text-align:center;font-size:14px;font-weight:700;color:var(--secondary)">Squads</div>
+        <div class="card" style="text-align:center;font-size:14px;font-weight:700;color:var(--secondary)">Crest &amp; club page</div>
+        <div class="card" style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:var(--secondary)"><span>Coaching roles</span><span style="color:var(--accent);font-size:12px;font-weight:800">1 open</span></div>
+        <div class="card" style="text-align:center;font-size:14px;font-weight:700;color:var(--secondary)">Your club page</div>
+        <div class="card" style="text-align:center;font-size:14px;font-weight:700;color:var(--secondary)">Plan &amp; billing</div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.75);margin-top:6px">six secondaries · no primary · the sidebar, again</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280</span><div><div class="t">A hero with the numbers she is allowed, a rail with the club's public state, one primary</div><div class="s">Not one registration, not one child's name, reaches this screen.</div></div></div>
+
+<div class="stage w1280">
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px">R</div><div style="font-size:13px;font-weight:800">Riverside FC</div><div style="width:5px;height:5px;border-radius:999px;background:var(--accent)"></div><div style="font-size:11px;font-weight:800;color:var(--accent)">Verified</div></div>
+  <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+</div>
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:680px"><div class="nl on">Home</div><div class="nl">Squads</div><div class="nl">Crest &amp; club page</div><div class="nl">Coaching roles</div><div class="nl">Post a trial</div><div class="nl">Your club page</div><div class="nl">Plan &amp; billing</div></div>
+  <div style="padding:22px 18px 30px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start">
+
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div class="hero" style="padding:22px 20px;gap:20px">
+        <div style="display:flex;align-items:center;gap:13px">
+          <div style="width:52px;height:52px;border-radius:16px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px">R</div>
+          <div style="flex:1">
+            <div style="font-size:21px;font-weight:900;letter-spacing:var(--ls-title)">Riverside FC</div>
+            <div style="font-size:12.5px;color:rgba(255,255,255,.7);margin-top:3px">Robyn · Club administrator</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:999px;background:var(--accent)"></div><div style="font-size:11.5px;font-weight:800;color:var(--accent)">Verified club</div></div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:30px;flex-wrap:wrap">
+          <div><div class="numeral n-l">11</div><div class="kicker" style="margin-top:6px;color:rgba(255,255,255,.55)">Squads you run</div></div>
+          <div><div class="numeral n-m" style="color:var(--accent)">2</div><div class="kicker" style="margin-top:6px;color:rgba(255,255,255,.55)">Trials live</div></div>
+          <div><div class="numeral n-m" style="color:var(--secondary)">1</div><div class="kicker" style="margin-top:6px;color:rgba(255,255,255,.55)">Coaching role open</div></div>
+        </div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,.62);line-height:1.6">The register is Marina's. You keep the club's page, its squads, its notices and its plan.</div>
+      </div>
+
+      <a href="#" class="btn btn-primary" style="width:320px">Post a trial notice</a>
+
+      <div class="card" style="display:flex;flex-direction:column;gap:12px;padding:16px 15px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between"><div class="kicker">Coming up</div><div style="font-size:12px;font-weight:800;color:var(--muted)">2</div></div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="datetile"><div style="font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--accent)">Oct</div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-numeral);line-height:1">4</div></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:800">U14 &amp; U15 Boys trials</div><div style="font-size:12px;color:var(--muted)">6:00pm · Riverside Park, Pitch 2</div></div>
+          <div style="font-size:12px;color:var(--muted);font-weight:700">on the board since 2 Sep</div>
+        </div>
+        <hr class="rule">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="datetile"><div style="font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--accent)">Oct</div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-numeral);line-height:1">11</div></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:800">U16 Girls trials</div><div style="font-size:12px;color:var(--muted)">10:00am · Riverside Park, Pitch 1</div></div>
+          <div style="font-size:12px;color:var(--muted);font-weight:700">on the board since 9 Sep</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">A notice comes off the board by itself the day after its date. Nobody has to remember.</div>
+      </div>
+
+      <div class="card" style="display:flex;flex-direction:column;gap:12px;padding:16px 15px">
+        <div class="kicker">What a family cannot see yet</div>
+        <div style="display:flex;align-items:center;gap:11px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <div style="flex:1"><div style="font-size:13.5px;font-weight:800">Your crest</div><div style="font-size:12px;color:var(--muted)">The page shows an initial where the crest goes.</div></div>
+          <a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Add it</a>
+        </div>
+        <hr class="rule">
+        <div style="display:flex;align-items:center;gap:11px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <div style="flex:1"><div style="font-size:13.5px;font-weight:800">How the club plays</div><div style="font-size:12px;color:var(--muted)">The section is left out rather than shown empty.</div></div>
+          <a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Write it</a>
+        </div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">Two things, not a score. A club page with nothing missing is not a better club.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">Your club page</div>
+        <div style="font-size:13px;font-weight:800;color:var(--accent);overflow-wrap:anywhere">pitchfootball.com.au/fc/riverside-fc</div>
+        <div style="display:flex;gap:9px;margin-top:11px">
+          <span class="btn" style="height:44px;padding:0 16px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);font-size:13px;font-weight:700">Copy the link</span>
+          <span class="btn" style="height:44px;padding:0 16px;border-radius:999px;background:transparent;border:1px solid var(--line);color:var(--secondary);font-size:13px;font-weight:700">Open it</span>
+        </div>
+        <hr class="rule" style="margin:14px 0">
+        <div style="font-size:12.5px;color:var(--secondary);line-height:1.6">Public and live. Last changed <b style="color:var(--ink)">9 Sep</b>, by you. Your two trial notices are on it and on the trials board.</div>
+      </div>
+
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">Who can do what here</div>
+        <div style="display:flex;flex-direction:column;gap:11px">
+          <div>
+            <div style="font-size:13.5px;font-weight:800">Marina Petrovic</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">Technical Director — the register, and the club's development record</div>
+          </div>
+          <hr class="rule">
+          <div>
+            <div style="font-size:13.5px;font-weight:800">Sam Kaya</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">Coach — the registrations for U15 Boys and U16 Boys, since 4 Sep</div>
+          </div>
+          <hr class="rule">
+          <div>
+            <div style="font-size:13.5px;font-weight:800;color:var(--accent)">You</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">Club administrator — the page, squads, notices, coaching roles and the plan. No registrations.</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:13px">A treasurer who sends the invoices should not be able to read a child's development notes. That is on purpose.</div>
+      </div>
+
+      <div class="card-sunken" style="padding:16px 15px">
+        <div class="railhead">Plan</div>
+        <div style="font-size:13.5px;font-weight:800">$54 a month · next charge 14 Oct</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px">Receipts go to office@riversidefc.org.au, addressed to the club.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 390</span><div><div class="t">One column, the artboard's order</div><div class="s">Hero, primary, coming up, what is missing, then the rail's blocks. Four tabs along the bottom as today.</div></div></div>
+
+<div class="stage w390">
+<div style="padding:0 18px 90px;position:relative">
+  <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--line)">
+    <div style="display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px">R</div><div style="font-size:12.5px;font-weight:800">Riverside FC</div></div>
+    <span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>
+  </div>
+  <div style="padding-top:18px;display:flex;flex-direction:column;gap:14px">
+    <div class="hero" style="padding:18px 16px;gap:16px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:48px;height:48px;border-radius:15px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px">R</div>
+        <div><div style="font-size:20px;font-weight:900;letter-spacing:var(--ls-title)">Riverside FC</div><div style="font-size:12.5px;color:rgba(255,255,255,.7);margin-top:3px">Robyn · Club administrator</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:999px;background:var(--accent)"></div><div style="font-size:11.5px;font-weight:800;color:var(--accent)">Verified club</div></div>
+      <div style="display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap">
+        <div><div class="numeral n-l">11</div><div class="kicker" style="margin-top:6px;color:rgba(255,255,255,.55)">Squads</div></div>
+        <div><div class="numeral n-m" style="color:var(--accent)">2</div><div class="kicker" style="margin-top:6px;color:rgba(255,255,255,.55)">Trials live</div></div>
+        <div><div class="numeral n-m" style="color:var(--secondary)">1</div><div class="kicker" style="margin-top:6px;color:rgba(255,255,255,.55)">Role open</div></div>
+      </div>
+      <div style="font-size:12.5px;color:rgba(255,255,255,.62);line-height:1.6">The register is Marina's. You keep the club's page, its squads, its notices and its plan.</div>
+    </div>
+
+    <a href="#" class="btn btn-primary" style="width:100%">Post a trial notice</a>
+
+    <div class="card" style="display:flex;flex-direction:column;gap:12px">
+      <div class="kicker">Coming up</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="datetile"><div style="font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--accent)">Oct</div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-numeral);line-height:1">4</div></div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:800">U14 &amp; U15 Boys trials</div><div style="font-size:12px;color:var(--muted)">6:00pm · Riverside Park, Pitch 2</div></div>
+      </div>
+      <hr class="rule">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="datetile"><div style="font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--accent)">Oct</div><div style="font-size:18px;font-weight:900;letter-spacing:var(--ls-numeral);line-height:1">11</div></div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:800">U16 Girls trials</div><div style="font-size:12px;color:var(--muted)">10:00am · Riverside Park, Pitch 1</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column;gap:12px">
+      <div class="kicker">What a family cannot see yet</div>
+      <div style="display:flex;align-items:center;gap:11px"><div style="flex:1"><div style="font-size:13.5px;font-weight:800">Your crest</div><div style="font-size:12px;color:var(--muted)">The page shows an initial where the crest goes.</div></div><a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Add it</a></div>
+      <hr class="rule">
+      <div style="display:flex;align-items:center;gap:11px"><div style="flex:1"><div style="font-size:13.5px;font-weight:800">How the club plays</div><div style="font-size:12px;color:var(--muted)">The section is left out rather than shown empty.</div></div><a href="#" style="font-size:12.5px;font-weight:800;color:var(--accent);text-decoration:none">Write it</a></div>
+    </div>
+
+    <div class="card-sunken">
+      <div class="railhead">Your club page</div>
+      <div style="font-size:13px;font-weight:800;color:var(--accent);overflow-wrap:anywhere">pitchfootball.com.au/fc/riverside-fc</div>
+      <div style="display:flex;gap:9px;margin-top:11px"><span class="btn" style="height:44px;padding:0 16px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);font-size:13px;font-weight:700">Copy the link</span><span class="btn" style="height:44px;padding:0 16px;border-radius:999px;background:transparent;border:1px solid var(--line);color:var(--secondary);font-size:13px;font-weight:700">Open it</span></div>
+      <hr class="rule" style="margin:14px 0">
+      <div style="font-size:12.5px;color:var(--secondary);line-height:1.6">Public and live. Last changed <b style="color:var(--ink)">9 Sep</b>, by you.</div>
+    </div>
+
+    <div class="card-sunken">
+      <div class="railhead">Who can do what here</div>
+      <div style="font-size:13.5px;font-weight:800">Marina Petrovic</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Technical Director — the register</div>
+      <hr class="rule" style="margin:11px 0">
+      <div style="font-size:13.5px;font-weight:800">Sam Kaya</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Coach — U15 Boys and U16 Boys, since 4 Sep</div>
+      <hr class="rule" style="margin:11px 0">
+      <div style="font-size:13.5px;font-weight:800;color:var(--accent)">You</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Club administrator — the page, squads, notices, roles and the plan. No registrations.</div>
+    </div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-top:1px solid var(--line);background:rgba(11,18,14,.94)">
+    <div style="min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:800;color:var(--accent)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>Home</div>
+    <div style="min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:700;color:var(--muted)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3 19c.9-3 3.2-4.6 6-4.6S14.1 16 15 19M16 14.2c2 .3 3.6 1.7 4.2 3.8"/></svg>Squads</div>
+    <div style="min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:700;color:var(--muted)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 19 6v5c0 4.6-2.9 8.1-7 10-4.1-1.9-7-5.4-7-10V6Z"/></svg>Club page</div>
+    <div style="min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:700;color:var(--muted)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/></svg>More</div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

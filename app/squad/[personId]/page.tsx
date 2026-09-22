@@ -35,6 +35,11 @@ export default async function ChooseSquad({ params, searchParams }: {
   if (!who?.may) redirect('/home');
 
   const backTo = back === 'controls' ? `/g/controls/${personId}` : who.record_id ? `/build/${who.record_id}` : '/home';
+  // `back` is a query string, so it is hostile (D-94 §3). It never becomes a
+  // redirect — the line above compares it to one literal and the form below
+  // carries backTo, which this page built. But it was also echoed raw into
+  // every club link, uncapped and un-encoded. Carry the flag, not the value.
+  const carry = back === 'controls' ? '&back=controls' : '';
   const mine = me === personId;
   const search = (q ?? '').trim().slice(0, 60);
 
@@ -68,7 +73,7 @@ export default async function ChooseSquad({ params, searchParams }: {
         {!picked ? (
           <>
             <form method="get" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
-              {back && <input type="hidden" name="back" value={back} />}
+              {carry && <input type="hidden" name="back" value="controls" />}
               <label className="field"><span className="field-label">Find your club</span>
                 <input id="club-search" name="q" defaultValue={search} placeholder="Type a club’s name" maxLength={60} />
               </label>
@@ -81,7 +86,7 @@ export default async function ChooseSquad({ params, searchParams }: {
                   No club by that name yet. Clubs appear here once they’ve joined Pitch and we’ve verified them by phone.
                 </div>
               ) : clubs.map((c) => (
-                <a key={c.id} href={`/squad/${personId}?club=${c.id}${back ? `&back=${back}` : ''}`} className="lift"
+                <a key={c.id} href={`/squad/${personId}?club=${c.id}${carry}`} className="lift"
                   style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none', color: T.ink, minHeight: 44 }}>
                   <span>
                     <span style={{ display: 'block', fontSize: 15, fontWeight: 800 }}>{c.name}</span>
@@ -115,7 +120,7 @@ export default async function ChooseSquad({ params, searchParams }: {
                 </form>
               ))}
             </div>
-            <a href={`/squad/${personId}${back ? `?back=${back}` : ''}`} className="btn btn-ghost">A different club</a>
+            <a href={`/squad/${personId}${carry ? '?back=controls' : ''}`} className="btn btn-ghost">A different club</a>
           </>
         )}
 
