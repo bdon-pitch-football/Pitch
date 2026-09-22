@@ -180,3 +180,11 @@ removed the gate. The seat proposed keeping the text with a dated hold note and
 holding the matching public claim with it.
 *Rule:* an instruction from Leo is not above the spec. If they disagree, say so
 in the report and propose the better version — that is the job, not insubordination.
+
+**L29 · Removing a bad route can remove the only route (23 Sep, builder A).**
+Taking away the self-declared Technical Director at club claim closed a real
+hole — and left no way for any club to have a TD, which is the only role that
+reads the register. The build was right; the gap would have been found on live
+data, by a club that could not see its own register.
+*Rule:* when you close a door, name every thing that came through it and say
+what replaces them. A migration that removes a capability is a product decision.
