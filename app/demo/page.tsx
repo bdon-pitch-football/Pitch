@@ -14,16 +14,27 @@ export const metadata = { title: 'Demo', robots: { index: false, follow: false }
 export default async function Demo() {
   if (!isDemo()) notFound();
   const club = (await db.query(
-    `select name, public_slug from club where crest_path like '/dev-uploads/demo-crest-%' limit 1`,
-  )).rows[0] as { name: string; public_slug: string } | undefined;
+    `select name, public_slug, club_state from club where crest_path like '/dev-uploads/demo-crest-%' limit 1`,
+  )).rows[0] as { name: string; public_slug: string; club_state: string } | undefined;
   const name = club?.name ?? 'Your club';
+  // npm run demo -- … --unclaimed: nobody has claimed the page yet, so there
+  // are no club seats to sit in. The story is the claim itself.
+  const unclaimed = club?.club_state === 'unclaimed';
+  const seats = unclaimed ? SEATS.filter((s) => s.key === 'parent' || s.key === 'teen' || s.key === 'adult') : SEATS;
 
-  const open: [string, string, string][] = [
-    [`/fc/${club?.public_slug ?? ''}`, `${name}’s page`, 'What families see before they register interest.'],
-    ['/trials', 'The trials board', 'Every trial, filtered by age group, gender and position.'],
-    ['/p/dev-deniz', 'A player’s CV', 'What reaches the club when a family sends it.'],
-    ['/dev/outbox', 'What families receive', 'The texts and emails Pitch sends, word for word.'],
-  ];
+  const open: [string, string, string][] = unclaimed
+    ? [
+      [`/fc/${club?.public_slug ?? ''}`, `${name}’s page`, 'The listing we built from their public notices. Nobody at the club has claimed it.'],
+      [`/claim/${club?.public_slug ?? ''}`, `Claim ${name}`, 'Prove it is your club with a code to the club’s own address, then the page is yours.'],
+      ['/trials', 'The trials board', 'Every trial, filtered by age group, gender and position.'],
+      ['/dev/outbox', 'The club’s inbox', 'Every email and text Pitch sends, word for word — including the claim code.'],
+    ]
+    : [
+      [`/fc/${club?.public_slug ?? ''}`, `${name}’s page`, 'What families see before they register interest.'],
+      ['/trials', 'The trials board', 'Every trial, filtered by age group, gender and position.'],
+      ['/p/dev-deniz', 'A player’s CV', 'What reaches the club when a family sends it.'],
+      ['/dev/outbox', 'What families receive', 'The texts and emails Pitch sends, word for word.'],
+    ];
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -31,12 +42,28 @@ export default async function Demo() {
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em', textWrap: 'balance' }}>Pitch for {name}</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Choose a seat. You can switch at any time from the bar at the top.</div>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>
+            {unclaimed
+              ? `Nobody at ${name} has claimed the page yet. Start at the top — the club seats appear once it is claimed.`
+              : 'Choose a seat. You can switch at any time from the bar at the top.'}
+          </div>
         </div>
+
+        {unclaimed && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <div style={sectionLabel}>Start here</div>
+            {open.slice(0, 2).map(([href, title, what]) => (
+              <a key={href} href={href} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 3, textDecoration: 'none', color: T.ink, minHeight: 44 }}>
+                <span style={{ fontSize: 15, fontWeight: 800 }}>{title}</span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: T.secondary, lineHeight: 1.45 }}>{what}</span>
+              </a>
+            ))}
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={sectionLabel}>Sign in as</div>
-          {SEATS.map((s) => (
+          {seats.map((s) => (
             <form key={s.key} action={takeSeat}>
               <input type="hidden" name="seat" value={s.key} />
               <button type="submit" style={{ ...card, width: '100%', textAlign: 'left', cursor: 'pointer', color: T.ink, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12, minHeight: 64 }}>
@@ -53,7 +80,7 @@ export default async function Demo() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={sectionLabel}>Open without signing in</div>
-          {open.map(([href, title, what]) => (
+          {(unclaimed ? open.slice(2) : open).map(([href, title, what]) => (
             <a key={href} href={href} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 3, textDecoration: 'none', color: T.ink, minHeight: 44 }}>
               <span style={{ fontSize: 15, fontWeight: 800 }}>{title}</span>
               <span style={{ fontSize: 13, fontWeight: 500, color: T.secondary }}>{what}</span>

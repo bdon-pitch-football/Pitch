@@ -3410,8 +3410,27 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [/!isDemo\(\) && Boolean/.test(srcOf('lib/billing.ts')), /!isDemo\(\) && Boolean/.test(srcOf('lib/waitlist-db.ts'))], [true, true]);
   check('DEMO5: the seat picker and its sign-in exist only in a demo',
     [/if \(!isDemo\(\)\) notFound\(\)/.test(srcOf('app/demo/page.tsx')), /if \(!isDemo\(\)\) redirect/.test(srcOf('app/demo/actions.ts'))], [true, true]);
-  check('DEMO6: the demo renames the club only — it loads no person',
-    /insert into person/i.test(srcOf('scripts/demo-layer.mts')), false);
+  // DEMO6 read "the demo renames the club only — it loads no person", and it
+  // checked that by asserting the layer contains no `insert into person`.
+  // That was true while the demo did nothing but rename a club, and BUZ asked
+  // on 23 Sep for squads with players in them, so the layer now invents
+  // people. The RULE has not moved an inch — nothing about a real person ever
+  // enters a demo (TRAINING §3.1) — so these check the rule itself instead of
+  // a proxy for it that has stopped meaning it. Written this way round
+  // deliberately: the weaker check would have been to delete DEMO6.
+  const layerSrc = srcOf('scripts/demo-layer.mts');
+  check('DEMO6a: the demo layer invents its people — it reads none from anywhere',
+    [/\bfetch\s*\(/.test(layerSrc), /readFileSync\((?!o\.crest\))/.test(layerSrc)], [false, false]);
+  // Every address and number it writes is one that cannot reach a human:
+  // example.com and example.au are reserved for documentation, and
+  // +61 491 570 xxx is the range ACMA sets aside for fiction.
+  const demoAddresses = layerSrc.match(/[\w.+-]+@[\w.${}-]+\.[a-z]{2,}/g) ?? [];
+  const demoNumbers = layerSrc.match(/\+61\d{9}/g) ?? [];
+  check('DEMO6b: every address and phone number a demo writes is a reserved fiction',
+    [demoAddresses.length > 0,
+     demoAddresses.every((a) => a.endsWith('example.com') || a.endsWith('example.au')),
+     demoNumbers.every((n) => n.startsWith('+61491570'))],
+    [true, true, true]);
   // "If a message is not in doc 15, it does not send" — and a club is shown
   // these as what families receive, so they are built by lib/messages, never
   // typed into the demo.
