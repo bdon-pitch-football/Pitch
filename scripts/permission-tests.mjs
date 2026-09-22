@@ -116,6 +116,18 @@ const yearsAgo = (n, plusDays = 0) => {
   return iso(d);
 };
 
+// 0056 / L21: an address nobody has proved holds no child and signs in
+// nowhere, and the database asks for the evidence before it will record the
+// proof. A fixture parent who is given an address proves it the way a real
+// one does — a link we sent, opened.
+const proveAddress = async (personId) => {
+  await db.query(
+    `insert into email_proof (person_id, token_hash, expires_at, used_at)
+     values ($1,$2, now() + interval '7 days', now()) on conflict (token_hash) do nothing`,
+    [personId, sha(`proof-${personId}`)]);
+  await db.query(`update person set email_proved_at = coalesce(email_proved_at, now()) where id = $1`, [personId]);
+};
+
 const ID = {};
 for (const k of ['deniz','georgia','nate','marcus','guardian','guardian2','exGuardian','coachV','coachU','coachUnassigned','coachFormer','coachOther','td','clubAdmin','teamManager','adminOther','coachAtUnverified']) {
   ID[k] = crypto.randomUUID();
@@ -313,6 +325,7 @@ const soon16Dob = (() => { const d = new Date(melbourneToday); d.setFullYear(d.g
 await db.query(`insert into person (id, first_name, dob) values ($1,'Turning',$2)`, [soon16, soon16Dob]);
 await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, soon16]);
 await db.query(`update person set email='parent-of-turning@example.com' where id=$1`, [ID.guardian]);
+await proveAddress(ID.guardian);
 const turning = (await db.query('select * from fn_children_turning_16()')).rows;
 check('D-49/§13: the 30-day query finds the child turning 16',
   turning.some((r) => r.child_id === soon16), true);
@@ -444,9 +457,24 @@ const smsBlocks = msgSrc.split(/export const /).filter((b) => /channel: 'sms'/.t
 // with nothing to notice it. The keys are compile-time literals, so this is a
 // property of the source and reading the source is the honest way to check.
 {
-  const declared = new Set([...(/CATALOGUE_KEYS = \[([\s\S]*?)\]/.exec(msgSrc)?.[1] ?? '')
+  const catalogue = new Set([...(/CATALOGUE_KEYS = \[([\s\S]*?)\]/.exec(msgSrc)?.[1] ?? '')
     .matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  // A DRAFT is written and wired and has not been approved: doc 15 does not
+  // carry it, so it queues in development and lib/messaging refuses it in
+  // production (0056's confirm-your-address message). It is declared, so the
+  // "no key is dropped silently" check still covers it — and it is NOT in the
+  // catalogue, which is what stops it reaching a person.
+  const drafts = new Set([...(/DRAFT_KEYS = \[([\s\S]*?)\]/.exec(msgSrc)?.[1] ?? '')
+    .matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  const declared = new Set([...catalogue, ...drafts]);
   const used = [...msgSrc.matchAll(/key:\s*'([^']+)'/g)].map((m) => m[1]);
+  check('doc15: a draft is not in the catalogue — approved copy and proposed copy are different sets',
+    [...drafts].some((k) => catalogue.has(k)), false);
+  check('doc15: every draft key says so in its name, so an outbox row is never mistaken for approved copy',
+    [...drafts].every((k) => k.endsWith('.draft')), true);
+  check('doc15: and lib/messaging refuses a draft in production — unapproved words reach nobody',
+    /DRAFTS\.has\(msg\.key\) && process\.env\.NODE_ENV === 'production'[\s\S]{0,80}queued: false/.test(
+      readFileSync(fileURLToPath(new URL('../lib/messaging.ts', import.meta.url)), 'utf8')), true);
   check(`doc15: every message's key is in the catalogue, so none is dropped silently (${used.filter((k) => !declared.has(k)).join(', ') || 'all are'})`,
     used.filter((k) => !declared.has(k)).length, 0);
   check(`doc15: and every catalogue key has a message (${[...declared].filter((k) => !used.includes(k)).join(', ') || 'all do'})`,
@@ -3218,6 +3246,7 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   await db.query(`insert into development_record (id, person_id) values ($1, $2), ($3, $4)`, [kidRec, kid, adultRec, adult]);
   await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1, $2, now())`, [ID.guardian, kid]);
   await db.query(`update person set email = coalesce(email, 'remind-guardian@example.com') where id = $1`, [ID.guardian]);
+  await proveAddress(ID.guardian);
   const tok = async (rec, days, who) => (await db.query(
     `insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1, $2, $3, now() + ($4 || ' hours')::interval) returning id`,
     [rec, sha('remind-' + crypto.randomUUID()), who, String(days * 24)])).rows[0].id;
@@ -3723,10 +3752,121 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     /club_state\s*=\s*'verified'/.test(join), false);
   check('door6: both accept the terms and the privacy policy, version-stamped',
     (join.match(/'tos_accepted'/g) ?? []).length >= 3, true);
+  // door7 used to rest entirely on a regex counting "on conflict (email) do
+  // nothing" — a string that cannot fail while the harm it claims to prevent
+  // is real (L19, N5). The claim is now backed by what the database does: a
+  // second account on a taken address is refused, and an account nobody has
+  // proved gets nothing from holding one — it signs in nowhere (0056, B1).
+  const refusedHere = async (sql, args = []) => { try { await db.query(sql, args); return false; } catch { return true; } };
+  const taken = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Door',$2,'door-taken@example.test')`, [taken, yearsAgo(31)]);
   check('door7: an existing address is never taken over, and the answer never says which (D-94 §2)',
-    (join.match(/on conflict \(email\) do nothing/g) ?? []).length >= 3, true);
+    [(join.match(/on conflict \(email\) do nothing/g) ?? []).length >= 3,
+     await refusedHere(`insert into person (first_name, dob, email) values ('Twin',$1,'door-taken@example.test')`, [yearsAgo(31)]),
+     (await db.query(`select fn_email_proved($1) as ok`, [taken])).rows[0].ok],
+    [true, true, false]);
   check('door8: the join screen tells a coach and a club person what happens next',
     [/Create my coaching account/.test(page), /Claim your club/.test(page)], [true, true]);
+}
+
+// ---- an address is not a person until they open a link we sent to it -------
+// Safety-week blockers B1 and B2, LESSONS L21, migration 0056. Three doors
+// made a password-bearing account for any address with nothing sent to it,
+// and a guardian approval then handed a child to whoever held it. Every
+// check below is the database's own behaviour; the app is only a caller.
+{
+  const refused = async (sql, args = []) => { try { await db.query(sql, args); return false; } catch { return true; } };
+  const authSrc2 = srcOf('lib/auth.ts');
+  const signinSrc2 = srcOf('app/signin/actions.ts');
+  const joinSrc2 = srcOf('app/join/actions.ts');
+
+  const doorAcct = crypto.randomUUID(), openedIt = crypto.randomUUID(), doorKid = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Typed',$3,'typed@example.test'), ($2,'Opened',$3,'opened@example.test')`,
+    [doorAcct, openedIt, yearsAgo(37)]);
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Doorkid',$2)`, [doorKid, yearsAgo(12)]);
+  await db.query(`insert into auth_credential (person_id, password_hash) values ($1,'salt:hash'), ($2,'salt:hash')`, [doorAcct, openedIt]);
+
+  check('proof1: an account made at a door is unproved — an address somebody typed is not a person',
+    (await db.query(`select fn_email_proved($1) as ok`, [doorAcct])).rows[0].ok, false);
+
+  await db.query(`insert into email_proof (person_id, token_hash, expires_at) values ($1,$2, now() + interval '7 days')`,
+    [openedIt, sha('door-link')]);
+  check('proof2: opening the link we sent to that address proves it',
+    [(await db.query(`select fn_use_email_proof($1) as p`, [sha('door-link')])).rows[0].p,
+     (await db.query(`select fn_email_proved($1) as ok`, [openedIt])).rows[0].ok],
+    [openedIt, true]);
+  check('proof3: and the link works once, like every other token we send',
+    (await db.query(`select fn_use_email_proof($1) as p`, [sha('door-link')])).rows[0].p, null);
+  await db.query(`insert into email_proof (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`,
+    [doorAcct, sha('lapsed-link')]);
+  check('proof4: a lapsed link proves nothing',
+    [(await db.query(`select fn_use_email_proof($1) as p`, [sha('lapsed-link')])).rows[0].p,
+     (await db.query(`select fn_email_proved($1) as ok`, [doorAcct])).rows[0].ok],
+    [null, false]);
+
+  // Sign-in: the answer comes from the database on every path, and for an
+  // unproved account the database says no. The suite cannot hold a session,
+  // so the behaviour through the product is in the write suite (w-proof1/2).
+  check('proof5: an unproved account signs in nowhere, and the sign-in path asks the database',
+    [/fn_email_proved\(p\.id\) as proved/.test(authSrc2),
+     /rows\[0\]\.proved === true/.test(authSrc2),
+     /fn_email_proved\(p\.id\)/.test(signinSrc2),
+     (await db.query(`select fn_email_proved($1) as ok`, [doorAcct])).rows[0].ok],
+    [true, true, true, false]);
+
+  // B2: the blocker itself. An account nobody proved cannot be handed a child
+  // — refused by the database, whatever any page does.
+  check('proof6 (B2): a child is never linked to an account whose address nobody proved',
+    await refused(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [doorAcct, doorKid]), true);
+  check('proof7 (B2): and the same link to a proved account is written',
+    await refused(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [openedIt, doorKid]), false);
+  check('proof8 (B2): nor can the guardian be swapped to an unproved account afterwards',
+    await refused(`update guardianship_link set guardian_id = $1 where guardian_id = $2 and child_id = $3`, [doorAcct, openedIt, doorKid]), true);
+
+  // "Set only when they have opened a link we sent" is a property of the
+  // data: without the evidence the write is refused, from anywhere.
+  check('proof9: proof cannot be written by hand — no operator, no seed, no route that forgets',
+    await refused(`update person set email_proved_at = now() where id = $1`, [doorAcct]), true);
+  const gKid = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Resetkid',$2)`, [gKid, yearsAgo(13)]);
+  await db.query(`insert into auth_reset (person_id, token_hash, expires_at, used_at) values ($1,$2, now() + interval '1 hour', now())`,
+    [doorAcct, sha('reset-to-the-parent')]);
+  check('proof10: a reset link that went to a parent proves nothing about the child\u2019s address (§10 amendment)',
+    await refused(`update person set email_proved_at = now() where id = $1`, [doorAcct]), true);
+  await db.query(`update auth_reset set proves_person_id = $1 where token_hash = $2`, [doorAcct, sha('reset-to-the-parent')]);
+  check('proof11: a reset link emailed to the account\u2019s own address does prove it (doc 15 §10 / §10a)',
+    await refused(`update person set email_proved_at = now() where id = $1`, [doorAcct]), false);
+
+  // Asked AFTER the statement, not in its RETURNING: a function called there
+  // reads the row as it was before the update and would have answered "still
+  // proved" however the trigger behaved.
+  await db.query(`update person set email = 'moved@example.test' where id = $1`, [doorAcct]);
+  check('proof12: proof follows the address — changing it unproves the account',
+    (await db.query(`select fn_email_proved($1) as ok`, [doorAcct])).rows[0].ok, false);
+
+  // N1 (safety review): the doors are unauthenticated endpoints (D-94 §2).
+  check('proof13 (N1): every sign-up door is rate-limited, per address and per IP',
+    [(joinSrc2.match(/const limited = !\(await doorIsOpen\(email\)\)/g) ?? []).length,
+     /checkRate\(`join:ip:/.test(joinSrc2), /checkRate\(`join:id:/.test(joinSrc2)],
+    [3, true, true]);
+  check('proof14: and a door over the limit writes nothing and answers as a taken address does',
+    [(joinSrc2.match(/limited \? \{ rows: \[\] as \{ id: string \}\[\] \}/g) ?? []).length,
+     (joinSrc2.match(/redirect\('\/signin\?joined=1'\)/g) ?? []).length],
+    [3, 3]);
+  check('proof15: every door that makes an account asks that address to confirm itself',
+    (joinSrc2.match(/await askThemToConfirm\(personId, email\)/g) ?? []).length, 3);
+
+  // B2's resolution, in the code that performs it: the credential of an
+  // unproved account is cleared at approval and the address becomes proved,
+  // so the person who controls the inbox owns it. Walked end to end in the
+  // write suite (w-proof3/4/5).
+  const flowSrc = srcOf('lib/guardian-flow.ts');
+  check('proof16 (B2): approval clears an unproved account\u2019s credential and proves the address',
+    [/delete from auth_credential where person_id = \$1/.test(flowSrc),
+     /delete from auth_reset where person_id = \$1 and used_at is null/.test(flowSrc),
+     /update person set email_proved_at = coalesce\(email_proved_at, now\(\)\) where id = \$1/.test(flowSrc),
+     /credential_cleared: true/.test(flowSrc)],
+    [true, true, true, true]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

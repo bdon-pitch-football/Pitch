@@ -10,6 +10,10 @@
 //    must not yield a working link.
 //  · An under-16's reset goes to the guardian, never to the child (§10
 //    amendment, D-19).
+//  · An address nobody has proved signs in nowhere (0056, L21). The answer
+//    comes from fn_email_proved, and the same scrypt work runs either way —
+//    an unproved account must be indistinguishable from a wrong password and
+//    from no account at all (D-94 §2).
 import 'server-only';
 import { createHash, randomBytes, randomUUID, scrypt as _scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -37,7 +41,7 @@ export async function setPassword(personId: string, password: string): Promise<v
 // so timing cannot be used to enumerate accounts.
 export async function verifyPassword(email: string, password: string): Promise<string | null> {
   const { rows } = await db.query(
-    `select p.id, ac.password_hash from person p
+    `select p.id, ac.password_hash, fn_email_proved(p.id) as proved from person p
      left join auth_credential ac on ac.person_id = p.id
      where lower(p.email) = lower($1)`,
     [email],
@@ -49,7 +53,42 @@ export async function verifyPassword(email: string, password: string): Promise<s
   const expected = Buffer.from(derived, 'hex');
   const match =
     candidate.length === expected.length && timingSafeEqual(candidate, expected);
-  return stored && match ? (rows[0].id as string) : null;
+  // The proof check comes AFTER the same work, and says nothing of its own:
+  // a right password on an unproved account is the same answer as a wrong
+  // one (L21, B1/B2 — whoever typed that address may not own it).
+  return stored && match && rows[0].proved === true ? (rows[0].id as string) : null;
+}
+
+// The link a sign-up door sends (0056). The token is returned to the CALLER
+// to put in a message; only its hash is stored, as for a reset. Seven days:
+// nothing about it is urgent, and a lapsed one is recoverable through the
+// doc 15 §10 reset link, which sets a password and proves the address at once.
+export async function createAddressProof(personId: string): Promise<string> {
+  const token = randomBytes(24).toString('base64url');
+  await db.query(
+    `insert into email_proof (person_id, token_hash, expires_at)
+     values ($1, $2, now() + interval '7 days')`,
+    [personId, createHash('sha256').update(token).digest()],
+  );
+  return token;
+}
+
+/** "Yes, it's me" on the door's link. Single-use; the database marks the proof. */
+export async function useAddressProof(token: string): Promise<string | null> {
+  if (!token || token.length > 200) return null;
+  const { rows } = await db.query('select fn_use_email_proof($1) as person_id',
+    [createHash('sha256').update(token).digest()]);
+  return (rows[0]?.person_id as string | null) ?? null;
+}
+
+/** Is there a live, unopened link for this token? Used to render the page. */
+export async function addressProofIsLive(token: string): Promise<boolean> {
+  if (!token || token.length > 200) return false;
+  const { rows } = await db.query(
+    `select 1 from email_proof where token_hash = $1 and used_at is null and expires_at > now()`,
+    [createHash('sha256').update(token).digest()],
+  );
+  return rows.length > 0;
 }
 
 // Reset: the token is returned to the CALLER to put in a message; only its
@@ -85,18 +124,26 @@ export async function createReset(email: string): Promise<{ token: string; sendT
   if (!recipient) return null;
 
   const token = randomBytes(24).toString('base64url');
-  await db.query(
-    `insert into auth_reset (person_id, token_hash, expires_at)
-     values ($1, $2, now() + interval '1 hour')`,
-    [p.id, createHash('sha256').update(token).digest()],
-  );
-  // §10a only when the email is going to the account holder themselves.
+  // §10a only when the email is going to the account holder themselves — and
+  // that is also the only case in which using the link proves the ADDRESS on
+  // the account (0056). An under-16's reset goes to their parent, which
+  // proves the parent's inbox and says nothing about the child's.
   const ownMail = recipient === p.email;
+  await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at, proves_person_id)
+     values ($1, $2, now() + interval '1 hour', $3)`,
+    [p.id, createHash('sha256').update(token).digest(), ownMail ? p.id : null],
+  );
   return { token, sendTo: recipient, firstPasswordChild: ownMail ? (p.first_password_child ?? null) : null };
 }
 
 // Single use: the row is marked used in the same statement that reads it, so
 // two simultaneous uses cannot both succeed.
+//
+// Using a link we emailed to the account's own address is proof of that
+// address (0056): whoever set this password holds that inbox. The proof is
+// written after the row is marked used, because the database asks for the
+// evidence before it will accept it.
 export async function consumeReset(token: string): Promise<string | null> {
   const { rows } = await db.query(
     `update auth_reset set used_at = now()
@@ -104,10 +151,17 @@ export async function consumeReset(token: string): Promise<string | null> {
        select id from auth_reset
        where token_hash = $1 and used_at is null and expires_at > now()
        limit 1)
-     returning person_id`,
+     returning person_id, proves_person_id`,
     [createHash('sha256').update(token).digest()],
   );
-  return rows[0]?.person_id ?? null;
+  if (!rows[0]) return null;
+  if (rows[0].proves_person_id) {
+    await db.query(
+      `update person set email_proved_at = coalesce(email_proved_at, now()) where id = $1`,
+      [rows[0].proves_person_id],
+    );
+  }
+  return rows[0].person_id;
 }
 
 // A device we have not seen before (doc 15 §33). Never an IP, never a city.

@@ -10,8 +10,8 @@ import { fieldLabel } from '@/lib/ui';
 
 export const metadata = { title: 'Sign in', robots: { index: false, follow: false } };
 
-export default async function SignIn({ searchParams }: { searchParams: Promise<{ out?: string; reset?: string; joined?: string }> }) {
-  const { out, reset, joined } = await searchParams;
+export default async function SignIn({ searchParams }: { searchParams: Promise<{ out?: string; reset?: string; joined?: string; confirmed?: string }> }) {
+  const { out, reset, joined, confirmed } = await searchParams;
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 };
   const label = fieldLabel;
   const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
@@ -29,7 +29,16 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>
-            {out ? 'Signed out on this device.' : reset ? 'Password saved. Sign in with it.' : joined ? 'You\u2019re set up. Sign in with your email and the password you chose.' : 'One account, whichever seat you hold.'}
+            {/* "You're set up" was true before 0056 and is not now: the
+                account exists and signs in nowhere until the link we emailed
+                is opened (L21, L25 \u2014 copy that describes behaviour goes stale
+                silently). The line is the same whether the address was free
+                or already had an account, because the answer must be (D-94
+                \u00a72). */}
+            {out ? 'Signed out on this device.' : reset ? 'Password saved. Sign in with it.'
+              : confirmed ? 'Address confirmed. Sign in with the password you chose.'
+              : joined ? 'Check your email. There\u2019s a link in it that confirms the address is yours \u2014 open it and you can sign in.'
+              : 'One account, whichever seat you hold.'}
           </div>
         </div>
         <form action={signIn} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

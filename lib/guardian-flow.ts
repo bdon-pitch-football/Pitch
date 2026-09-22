@@ -184,7 +184,9 @@ export async function approveInvitation(input: {
     const p = inv.rows[0];
 
     const existing = (await client.query(
-      `select id, dob is not null and fn_age_band(dob) <> '18plus' as minor from person where lower(email) = lower($1)`,
+      `select id, dob is not null and fn_age_band(dob) <> '18plus' as minor,
+         email_proved_at is null as unproved
+       from person where lower(email) = lower($1)`,
       [p.guardian_email],
     )).rows[0];
     if (existing?.minor) {
@@ -199,6 +201,33 @@ export async function approveInvitation(input: {
       `insert into person (first_name, last_name, email) values ($1,$2,$3) returning id`,
       [gName.split(' ')[0] || 'Guardian', gName.split(' ').slice(1).join(' ') || null, p.guardian_email],
     )).rows[0].id;
+
+    // B2 (safety review, 22 Sep; L21). Before 0056, a person row already
+    // holding this address was linked to the child whatever it was: someone
+    // who knew a parent's address could sign up with it, wait, and be handed
+    // that parent's child — the record, the link, the sends, pause and
+    // deletion — while the parent, who never set a password, saw nothing.
+    //
+    // The person standing here has just proved this address on BOTH channels
+    // (D-156): they were texted and emailed, and pressed on each. So the
+    // approval is what settles who owns the account. Any password set on it
+    // before now was set by somebody who could not open this inbox, and it
+    // goes — along with any reset link outstanding from before this moment.
+    // Whoever holds the inbox keeps the account; whoever typed the address
+    // keeps nothing. They are told nothing, exactly as D-155's hold tells
+    // nobody: the person on this page is the one we know is real.
+    const cleared = existing?.unproved
+      ? (await client.query(`delete from auth_credential where person_id = $1 returning person_id`, [guardianId])).rowCount ?? 0
+      : 0;
+    if (existing?.unproved) {
+      await client.query(`delete from auth_reset where person_id = $1 and used_at is null`, [guardianId]);
+    }
+    // The email channel of this invitation was confirmed by a press, so the
+    // address is proved — for a fresh account and for one that was sitting
+    // here unproved. The database refuses the guardianship link otherwise
+    // (0056), which is what makes this a property rather than a habit.
+    await client.query(
+      `update person set email_proved_at = coalesce(email_proved_at, now()) where id = $1`, [guardianId]);
     await client.query(`update person set adult_declared_at = coalesce(adult_declared_at, now()) where id = $1`, [guardianId]);
     // An under-16's page is created now. A 16–17 already exists (0048): the
     // parent is linked to them, and nothing else about them changes.
@@ -223,7 +252,15 @@ export async function approveInvitation(input: {
          values ($1,$2,$3, jsonb_build_object('invitation_id', $4::uuid) || $6::jsonb, $5)`,
         [event, guardianId, childId, p.id, policy, JSON.stringify(extra)],
       );
-    await ev('approved', null, { adult_declared: true, channels: ['sms', 'email'], ...(p.child_id ? { kind: 'parent_confirmed' } : {}) });
+    // The approval row carries what the approval did to the account, because
+    // the approval is the only thing that can do it: the address was proved
+    // here, and a password set on it by somebody else was cleared here (B2).
+    // "What happened, by whom, when" is answerable from this one row.
+    await ev('approved', null, {
+      adult_declared: true, channels: ['sms', 'email'], email_proved: true,
+      ...(cleared ? { credential_cleared: true } : {}),
+      ...(p.child_id ? { kind: 'parent_confirmed' } : {}),
+    });
     // A 16–17 accepted the terms themselves at sign-up; only an under-16's
     // parent accepts them on the child's behalf.
     if (!p.child_id) {

@@ -2,11 +2,44 @@
 // Server actions for the child sign-up door (D-17). Validation is
 // server-side; the client is never trusted for age or identity.
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createPendingInvitation } from '@/lib/guardian-flow';
 import { legalStamp } from '@/lib/legal-stamp';
+import { checkRate } from '@/lib/ratelimit-db';
+import { createAddressProof } from '@/lib/auth';
+import { confirmAddressEmail } from '@/lib/messages';
+import { send } from '@/lib/messaging';
 
 const AU_MOBILE = /^04\d{2}\s?\d{3}\s?\d{3}$/;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// N1 (safety review, 22 Sep) / D-94 §2: every unauthenticated endpoint is
+// rate-limited, and a sign-up door is one. Per address AND per IP, on the
+// same terms as sign-in: one address cannot be hammered from everywhere, and
+// one machine cannot work through a list of addresses.
+//
+// An attempt over the limit writes nothing, does the same password work and
+// ends at the same screen. A door that answers differently when the limit
+// bites is an oracle for whichever identifier bit (doc 14 J18, J40).
+async function doorIsOpen(email: string): Promise<boolean> {
+  const h = await headers();
+  const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
+  const okIp = await checkRate(`join:ip:${ip}`, 20, 15 * 60);
+  const okId = email ? await checkRate(`join:id:${email}`, 10, 15 * 60) : true;
+  return okIp && okId;
+}
+
+// The account is made UNPROVED (0056, L21): whoever typed that address may
+// not own it, so nothing about it works until a link we sent there is opened.
+// Until then it signs in nowhere and no child can be linked to it.
+//
+// The words are a DRAFT — doc 15 does not carry them, BUZ has not approved
+// them — so lib/messaging queues this in development and refuses it in
+// production. That is deliberate: this door cannot ship before the copy does.
+async function askThemToConfirm(personId: string, email: string): Promise<void> {
+  const token = await createAddressProof(personId);
+  await send(confirmAddressEmail(token), { address: email, personId });
+}
 
 export async function startPendingInvitation(formData: FormData) {
   const firstName = String(formData.get('firstName') ?? '').trim();
@@ -45,6 +78,7 @@ export async function createAccount(formData: FormData) {
   const guardianPhone = String(formData.get('guardianPhone') ?? '').trim();
   const guardianEmail = String(formData.get('guardianEmail') ?? '').trim();
   if (!firstName || !dob || !EMAIL_RE.test(email) || password.length < 10) redirect('/join?error=1');
+  const limited = !(await doorIsOpen(email));
 
   const client = await db.connect();
   let personId: string;
@@ -64,7 +98,9 @@ export async function createAccount(formData: FormData) {
     // password and signed you in as them — a parent's account, a club
     // director's. Now the existing account is left exactly as it is, and
     // the response below is the same either way (D-94 §2: no enumeration).
-    const person = await client.query(
+    // N1: over the limit, nothing is written and the answer below is the one
+    // a taken address gets.
+    const person = limited ? { rows: [] as { id: string }[] } : await client.query(
       `insert into person (first_name, dob, dob_locked, email) values ($1,$2,true,$3)
        on conflict (email) do nothing returning id`,
       [firstName, dob, email],
@@ -95,11 +131,13 @@ export async function createAccount(formData: FormData) {
   // Nobody is signed in by signing up: the same destination whether the
   // account is new or the address was already taken, and the same work
   // (a password hash either way), so neither the page nor its timing says
-  // which. A new member signs in with the password they just chose.
+  // which. The password is set now and works from the moment the address is
+  // proved — not before (0056).
   const { setPassword, hashPasswordForTiming } = await import('@/lib/auth');
   if (existing) await hashPasswordForTiming(password);
   else {
     await setPassword(personId, password);
+    await askThemToConfirm(personId, email);
     const band = (await db.query('select fn_age_band($1::date) as b', [dob])).rows[0].b as string;
     if (band === '16_17') {
       await createPendingInvitation({ firstName, dob, guardianName, guardianPhone, guardianEmail, childId: personId });
@@ -126,6 +164,7 @@ export async function createCoachAccount(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
   const password = String(formData.get('password') ?? '');
   if (!firstName || !dob || !EMAIL_RE.test(email) || password.length < 10) redirect('/join?error=1');
+  const limited = !(await doorIsOpen(email));
 
   const client = await db.connect();
   let personId = '';
@@ -136,7 +175,7 @@ export async function createCoachAccount(formData: FormData) {
     if (band !== '18plus') { await client.query('rollback'); redirect('/join?coachAge=1'); }
     // The same rule as the player door: an address that already has an
     // account is never touched, and the answer never says which (D-94 §2).
-    const person = await client.query(
+    const person = limited ? { rows: [] as { id: string }[] } : await client.query(
       `insert into person (first_name, last_name, dob, dob_locked, email) values ($1,$2,$3,true,$4)
        on conflict (email) do nothing returning id`,
       [firstName, lastName || null, dob, email],
@@ -164,7 +203,10 @@ export async function createCoachAccount(formData: FormData) {
   }
   const { setPassword, hashPasswordForTiming } = await import('@/lib/auth');
   if (existing) await hashPasswordForTiming(password);
-  else await setPassword(personId, password);
+  else {
+    await setPassword(personId, password);
+    await askThemToConfirm(personId, email);
+  }
   redirect('/signin?joined=1');
 }
 
@@ -185,6 +227,7 @@ export async function createClubAccount(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
   const password = String(formData.get('password') ?? '');
   if (!firstName || !dob || !EMAIL_RE.test(email) || password.length < 10) redirect('/join?error=1');
+  const limited = !(await doorIsOpen(email));
 
   const client = await db.connect();
   let personId = '';
@@ -193,7 +236,7 @@ export async function createClubAccount(formData: FormData) {
     await client.query('begin');
     const band = (await client.query('select fn_age_band($1::date) as b', [dob])).rows[0].b as string;
     if (band !== '18plus') { await client.query('rollback'); redirect('/join?clubAge=1'); }
-    const person = await client.query(
+    const person = limited ? { rows: [] as { id: string }[] } : await client.query(
       `insert into person (first_name, last_name, dob, dob_locked, email) values ($1,$2,$3,true,$4)
        on conflict (email) do nothing returning id`,
       [firstName, lastName || null, dob, email],
@@ -218,6 +261,9 @@ export async function createClubAccount(formData: FormData) {
   }
   const { setPassword, hashPasswordForTiming } = await import('@/lib/auth');
   if (existing) await hashPasswordForTiming(password);
-  else await setPassword(personId, password);
+  else {
+    await setPassword(personId, password);
+    await askThemToConfirm(personId, email);
+  }
   redirect('/signin?joined=1');
 }

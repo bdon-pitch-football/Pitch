@@ -16,17 +16,22 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { db } from './db';
-import { CATALOGUE_KEYS, type Composed } from './messages';
+import { CATALOGUE_KEYS, DRAFT_KEYS, type Composed } from './messages';
 import { sendEmail, sendSms } from './providers';
 import { replyToFor } from './reply-policy';
 
 const KEYS = new Set<string>(CATALOGUE_KEYS);
+// Drafts (lib/messages DRAFT_KEYS): written and wired, not yet approved. They
+// queue in development, where the outbox is the inbox and nothing leaves the
+// machine, and they are refused in production — so a flow that depends on one
+// cannot ship until BUZ has approved the words and doc 15 carries them.
+const DRAFTS = new Set<string>(DRAFT_KEYS);
 const SMS_PER_NUMBER_24H = 3;
 const DEFAULT_SMS_COST_CENTS = 8;
 
 export type SendResult =
   | { queued: true; id: string }
-  | { queued: false; reason: 'not_in_catalogue' | 'sms_killed' | 'sms_rate_limited' | 'sms_cap_reached' | 'no_address' | 'sms_opted_out' };
+  | { queued: false; reason: 'not_in_catalogue' | 'not_approved' | 'sms_killed' | 'sms_rate_limited' | 'sms_cap_reached' | 'no_address' | 'sms_opted_out' };
 
 /**
  * How a phone number is recognised without being stored.
@@ -40,7 +45,12 @@ export const numberHash = (n: string) => createHash('sha256').update(n.replace(/
 
 export async function send(msg: Composed, to: { address: string; personId?: string }): Promise<SendResult> {
   // The catalogue is the gate: if a message is not in doc 15, it does not send.
-  if (!KEYS.has(msg.key)) return { queued: false, reason: 'not_in_catalogue' };
+  if (!KEYS.has(msg.key) && !DRAFTS.has(msg.key)) return { queued: false, reason: 'not_in_catalogue' };
+  // A draft never reaches a person. In production that is a refusal, not a
+  // queued row nobody will ever receive.
+  if (DRAFTS.has(msg.key) && process.env.NODE_ENV === 'production') {
+    return { queued: false, reason: 'not_approved' };
+  }
   if (!to.address) return { queued: false, reason: 'no_address' };
 
   if (msg.channel === 'sms') {

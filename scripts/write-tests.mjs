@@ -699,6 +699,17 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const plain = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
   const formWith = (html, re) => forms(html).find((f) => re.test(f.submit));
 
+  // --- B2: somebody else got here first ---------------------------------------
+  // The seed has an account already sitting on Mila's parent's address, with a
+  // real password on it, set by whoever typed the address in (safety review
+  // B2, L21). Before the approval it opens nothing; after it, it opens nothing
+  // ever again, and the parent's own password (ia11/ia12) is the only one.
+  const signinFormNow = async () => formWith((await ig('/signin')).html, /^Sign in$/);
+  const parkedBefore = await post('/signin', await signinFormNow(),
+    { email: 'priya@example.com', password: 'parked-password-1234' });
+  check('b2a: a password somebody else set on this address signs nobody in — the address was never proved',
+    /pitch_session=[^;]+\./.test(parkedBefore.cookie), false);
+
   // --- D-156: opening confirms nothing; a press confirms one channel ----------
   const text1 = await ig(`/a/${TEXT}`);
   check('ia1: the texted link opens inside Instagram, signed out', text1.status, 200);
@@ -731,6 +742,11 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const done = await post(`/a/${EMAIL}`, approveForm, { adult: 'on' });
   check('ia3: with it, approving works, with no JavaScript and no cookie', /\/a\/[0-9a-f-]+\/done/.test(done.location), true);
   check('ia3b: and both links are finished', [(await ig(`/a/${TEXT}`)).status, (await ig(`/a/${EMAIL}`)).status], [404, 404]);
+
+  const parkedAfter = await post('/signin', await signinFormNow(),
+    { email: 'priya@example.com', password: 'parked-password-1234' });
+  check('b2b: and the approval takes the account off them — that password now opens nothing at all',
+    /pitch_session=[^;]+\./.test(parkedAfter.cookie), false);
 
   const landing = await ig(`/a/${inv}/done`);
   check('ia4: the landing names the app the parent is inside', /data-in-app="Instagram"/.test(landing.html), true);
@@ -822,8 +838,31 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('join3: the owner\'s password still does', /pitch_session=[^;]+\./.test(ownerIn.cookie), true);
   const fresh = await joinPost('createAccount', { firstName: 'Newt', dob: '1995-05-05', email: 'newt@example.com', password: 'newt-password-123' });
   check('join4: a genuinely new account gets the identical answer', [/\/signin\?joined=1/.test(fresh.location), /pitch_session=/.test(fresh.cookie)], [true, false]);
+  // 0056 / L21. The password is set at the door and works from the moment the
+  // address is proved — not before. This is the whole flow, walked: sign up,
+  // try to sign in, open the link we emailed, press it, sign in.
   const newtIn = await post('/signin', signinForm, { email: 'newt@example.com', password: 'newt-password-123' });
-  check('join5: and signs in with the password they chose', /pitch_session=[^;]+\./.test(newtIn.cookie), true);
+  check('join5: a new account signs in nowhere until the address is proved (L21)',
+    /pitch_session=[^;]+\./.test(newtIn.cookie), false);
+  const newtBox = plain((await get('/dev/outbox', ids.people.alex)).html);
+  const newtToken = /\/confirm\/([A-Za-z0-9_-]{20,})/.exec(newtBox)?.[1];
+  check('join5b: the door emails that address a link to confirm it, and nothing else went anywhere',
+    [Boolean(newtToken), /newt@example\.com/.test(newtBox), /Confirm your email address/.test(newtBox)], [true, true, true]);
+  const confirmPage = await ig(`/confirm/${newtToken}`);
+  check('join5c: opening the link confirms nothing — it asks for a press, as the D-156 links do',
+    [confirmPage.status, Boolean(formWith(confirmPage.html, /Yes, it/)),
+     /pitch_session=/.test((await post('/signin', signinForm, { email: 'newt@example.com', password: 'newt-password-123' })).cookie)],
+    [200, true, false]);
+  const confirmed = await post(`/confirm/${newtToken}`, formWith(confirmPage.html, /Yes, it/));
+  check('join5d: pressing it lands on sign-in, said plainly', /\/signin\?confirmed=1/.test(confirmed.location), true);
+  const newtIn2 = await post('/signin', signinForm, { email: 'newt@example.com', password: 'newt-password-123' });
+  check('join5e: and now the password they chose at the door works',
+    /pitch_session=[^;]+\./.test(newtIn2.cookie), true);
+  const usedAgain = await ig(`/confirm/${newtToken}`);
+  check('join5f: the link works once, and a finished one says nothing about any account',
+    [/This link isn.t live/.test(plain(usedAgain.html)), Boolean(formWith(usedAgain.html, /Yes, it/)),
+     /This link isn.t live/.test(plain((await ig('/confirm/never-existed-at-all')).html))],
+    [true, false, true]);
 
   // --- D-155 as amended (0048): a 16-17 names a parent, who confirms ------
   const teenDob = new Date(Date.now() - 17 * 365.25 * 24 * 3600 * 1000).toISOString().slice(0, 10);
@@ -839,6 +878,13 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const tessOut = (await get('/dev/outbox', ids.people.alex)).html.replace(/&#x27;|&rsquo;|’/g, "'");
   check('t16d: the parent gets §1b and §2b, not the under-16 approval',
     /Tess \(17\) has named you as their parent/.test(tessOut) && /Tess has named you as their parent on Pitch/.test(tessOut), true);
+  const tessToken = /\/confirm\/([A-Za-z0-9_-]{20,})/.exec(tessOut)?.[1];
+  check('t16d2: and Tess is asked to confirm her own address before she can sign in (L21)',
+    [Boolean(tessToken),
+     /pitch_session=/.test((await post('/signin', signinForm, { email: 'tess@example.com', password: 'tess-password-123' })).cookie)],
+    [true, false]);
+  const tessConfirm = await ig(`/confirm/${tessToken}`);
+  await post(`/confirm/${tessToken}`, formWith(tessConfirm.html, /Yes, it/));
   const tessIn = await post('/signin', signinForm, { email: 'tess@example.com', password: 'tess-password-123' });
   const tessCookie = tessIn.cookie.split(';')[0];
   const tessHome = await (await fetch(BASE + '/home', { headers: { cookie: tessCookie } })).text();

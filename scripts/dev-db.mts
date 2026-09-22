@@ -13,7 +13,7 @@
 // All fixture people are fictional (doc 16 §4).
 import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, scryptSync } from 'node:crypto';
 import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,8 +31,21 @@ for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
 
+// Prove a fixture's address the way the product proves one (0056, L21): the
+// evidence — a link we sent, opened — has to be in the database or the write
+// is refused. A seat nobody proved is a seat nobody can sit in, and a parent
+// nobody proved cannot hold a child at all.
+const proveAddress = async (personId: string) => {
+  await db.query(
+    `insert into email_proof (person_id, token_hash, expires_at, used_at)
+     values ($1, $2, now() + interval '7 days', now())
+     on conflict (token_hash) do nothing`, [personId, sha(`seed-proof-${personId}`)]);
+  await db.query(`update person set email_proved_at = coalesce(email_proved_at, now()) where id = $1`, [personId]);
+};
+
 const guardian = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Alex','Fixture','1985-05-05','guardian@example.com')`, [guardian]);
+await proveAddress(guardian);
 
 for (const p of PLAYER_FIXTURES) {
   const personId = randomUUID();
@@ -653,6 +666,49 @@ let pendingInvitationId = '';
   pendingInvitationId = inv.rows[0].id as string;
 }
 
+// EVERY FIXTURE ADDRESS IS ONE SOMEBODY PROVED (0056, L21). An account whose
+// address nobody has opened a link to signs in nowhere and can hold no child,
+// so a seat with no proof behind it is a seat nobody can sit in. The evidence
+// is written the way the product writes it — a used email_proof row — because
+// the database refuses email_proved_at without one.
+for (const r of (await db.query(`select id from person where email is not null and email_proved_at is null`)).rows) {
+  await proveAddress((r as { id: string }).id);
+}
+
+// AND ONE THAT NOBODY PROVED: an account made at a door by someone who typed
+// an address, with the link still sitting unopened. It signs in nowhere until
+// /confirm/dev-unproved is pressed — the state B1 and B2 turn on, and the one
+// the suites had no fixture for.
+{
+  const unproved = randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Casey','Duarte','1991-06-12','unproved@example.com')`, [unproved]);
+  await db.query(
+    `insert into email_proof (person_id, token_hash, expires_at) values ($1,$2, now() + interval '7 days')`,
+    [unproved, sha('dev-unproved')],
+  );
+  console.log('  confirm: /confirm/dev-unproved (unproved@example.com signs in nowhere until it is pressed)');
+}
+
+// AND THE B2 SHAPE ITSELF: somebody else has typed Mila's parent's address
+// into a door and chosen a password on it. Nothing was sent to them and it
+// gets them nothing — the account signs in nowhere, and the moment the real
+// parent approves Mila on both channels the credential goes and the address
+// becomes hers (lib/guardian-flow). The hash is deliberately not a real one:
+// no password opens this account, at any point.
+{
+  const parked = randomUUID();
+  await db.query(
+    `insert into person (id, first_name, last_name, dob, email) values ($1,'Priya','Raman','1986-02-02','priya@example.com')`,
+    [parked]);
+  // A REAL scrypt hash, the shape lib/auth writes, so the suites can prove
+  // the interesting thing: the RIGHT password on an unproved account still
+  // signs nobody in, and after the approval it opens nothing at all.
+  const salt = randomBytes(16).toString('hex');
+  const derived = scryptSync('parked-password-1234', salt, 64).toString('hex');
+  await db.query(
+    `insert into auth_credential (person_id, password_hash) values ($1,$2)`, [parked, `${salt}:${derived}`]);
+}
+
 console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')} dev-expired dev-revoked`);
 // Person ids, because the signed-in surfaces are the ones you cannot reach
 // with a plain URL and every reseed mints fresh uuids.
@@ -686,4 +742,4 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     }, null, 2) + '\n',
   );
 }
-console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · admin@example.com (club administrator) · sunbury@example.com (unverified club) · kingsway@example.com (free verified club, TD) · new@example.com (brand-new, nothing yet)');
+console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · admin@example.com (club administrator) · sunbury@example.com (unverified club) · kingsway@example.com (free verified club, TD) · new@example.com (brand-new, nothing yet) · unproved@example.com (signs in nowhere until /confirm/dev-unproved)');

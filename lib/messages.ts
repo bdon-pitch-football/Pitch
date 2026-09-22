@@ -542,6 +542,34 @@ This link works once and expires in an hour. If you didn't ask for this, ignore 
 ${SITE} · ${HELP}`,
 });
 
+// §10b · DRAFT — confirm the address on a new account (B1/B2, L21). BUZ has
+// NOT approved these words and doc 15 does not carry them, so this key is not
+// in CATALOGUE_KEYS: it queues in development, where the outbox is the inbox,
+// and lib/messaging refuses it in production. The three sign-up doors need
+// this message and neither approved one can honestly do the job — §10 opens
+// "Someone asked to reset the password for this account", which is untrue of
+// an account made a second ago and reads as phishing (the reason §10a
+// exists), and §10a names a child the person may not have.
+//
+// Rules it is written to: no urgency, no child's name, no clue about who else
+// holds an account, and the plain reason the link exists.
+export const confirmAddressEmail = (token: string): Composed => ({
+  key: 'doc15.§10b.draft',
+  channel: 'email',
+  subject: 'Confirm your email address',
+  body:
+`Someone put this address into a new account on Pitch. If that was you, this link finishes it:
+
+Confirm your address: ${SITE}/confirm/${token}
+
+Nobody can sign in to that account until the link is opened. If it wasn't you, ignore this email — the account stays shut, and whoever typed your address gets nothing from it.
+
+The link works once and lasts seven days. After that, use "Reset it" on the sign-in page and choose a password from the link we email you.
+
+— Pitch
+${SITE} · ${HELP}`,
+});
+
 // §13 · Thirty days before a sixteenth birthday. Doc 14 §B11 gates the
 // discoverability transition on this having DELIVERED: no receipt, no
 // discovery. Without this message D-22 is unbuildable.
@@ -750,4 +778,13 @@ export const CATALOGUE_KEYS = [
   'doc15.§6', 'doc15.§21', 'doc15.§22', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
   'doc15.§33', 'doc15.§34', 'doc15.§27', 'doc15.§28', 'doc15.§38',
   'doc15.§5', 'doc15.§23', 'doc15.§7', 'doc15.§8', 'doc15.§18', 'doc15.§17', 'doc15.§12',
+] as const;
+
+// Words BUZ has not approved. A draft is wired like any other message so the
+// flow it belongs to can be built and tested, and it cannot reach a person:
+// lib/messaging queues it in development — where nothing leaves the machine —
+// and refuses it outright in production. The door that needs one cannot ship
+// until doc 15 carries the words and the key moves into CATALOGUE_KEYS above.
+export const DRAFT_KEYS = [
+  'doc15.§10b.draft',   // confirm your address, for the three sign-up doors
 ] as const;

@@ -7,7 +7,9 @@
 //
 // Dev convenience: an account with no password set signs in on email alone,
 // so the fixture logins in the walkthrough keep working. Production requires
-// a credential (and swaps this layer for Supabase Auth).
+// a credential (and swaps this layer for Supabase Auth). Either way the
+// address must have been proved (0056): an account nobody has proved signs
+// in nowhere, on any path.
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { db } from '@/lib/db';
@@ -31,9 +33,11 @@ export async function signIn(formData: FormData) {
     if (password) {
       personId = await verifyPassword(email, password);
     } else if (process.env.NODE_ENV !== 'production') {
+      // The proof rule holds on this path too (0056, L21): a fixture signs in
+      // because its address was proved, not because the suite needs it to.
       const { rows } = await db.query(
         `select p.id from person p left join auth_credential ac on ac.person_id = p.id
-         where lower(p.email) = $1 and ac.person_id is null`,
+         where lower(p.email) = $1 and ac.person_id is null and fn_email_proved(p.id)`,
         [email],
       );
       personId = rows[0]?.id ?? null;

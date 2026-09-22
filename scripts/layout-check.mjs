@@ -41,6 +41,10 @@ const START = { 'signed out': ['/signin', '/join', '/trials', '/p/dev-deniz', '/
 // '@squad' is replaced by the first squad the TD's squads list links to.
 const g = ids.children.georgia, riverside = ids.clubs['riverside-fc'];
 const DEEP = {
+  // The confirm-your-address page (0056) is reached only from an email, so
+  // the walk above never lands on it. /confirm/dev-unproved is the seed's
+  // known link, the same idea as the dev share tokens.
+  'signed out': ['/confirm/dev-unproved'],
   parent: [`/squad/${g.child_id}?back=controls`, `/squad/${g.child_id}?club=${riverside}&back=controls`,
     `/build/${ids.children.deniz.record_id}/preview`, `/g/pending/${ids.children.deniz.record_id}`],
   player: [`/squad/${ids.people.jordan}`, `/squad/${ids.people.jordan}?club=${riverside}`],
