@@ -47,3 +47,4 @@ test-results/
 
 # The demo build (npm run demo)
 /.next-demo/
+docs/design/screens/
