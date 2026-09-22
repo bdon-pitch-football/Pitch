@@ -52,8 +52,8 @@ const StatusRow = ({ color, path, children }: { color: string; path: string; chi
   </div>
 );
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ taken?: string }> }) {
-  const { taken } = await searchParams;
+export default async function Home({ searchParams }: { searchParams: Promise<{ taken?: string; squad?: string }> }) {
+  const { taken, squad } = await searchParams;
   const personId = await getSessionPersonId();
   if (!personId) {
     return (
@@ -597,7 +597,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
 
           {/* Where they play (0052). A club reaches a CV only as a confirmed
               squad, so this is the door to the club line on their page. */}
-          <SquadCard personId={personId as string} firstName={me.first_name as string} back="/home" mine />
+          <SquadCard personId={personId as string} firstName={me.first_name as string} back="/home" mine said={squad} />
 
           {next && (
             <Link href="/trials" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none' }}>
@@ -755,7 +755,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
        join person ch on ch.id = si.person_id
        join guardianship_link g on g.child_id = si.person_id and g.guardian_id = $1
          and g.approved_at is not null and g.revoked_at is null
-       where si.answered_at is null`,
+       -- M3: at 18 a guardianship is visibility, never control (D-49, P15) —
+       -- so an adult child's invitation is not a parent's to answer, and it
+       -- is not on their list. A re-grant does not bring it back.
+       where si.answered_at is null and si.withdrawn_at is null and si.lapsed_at is null
+         and fn_age_band(ch.dob) <> '18plus'`,
       [personId],
     )).rows as { id: string; at: string; club: string; squad: string; first_name: string; child_id: string }[])
       .map((r) => ({

@@ -23,10 +23,10 @@ const ghost: React.CSSProperties = { flex: 1, height: 44, borderRadius: 12, bord
 
 export default async function Controls({ params, searchParams }: {
   params: Promise<{ childId: string }>;
-  searchParams: Promise<{ link?: string; off?: string; taken?: string }>;
+  searchParams: Promise<{ link?: string; off?: string; taken?: string; squad?: string }>;
 }) {
   const { childId } = await params;
-  const { link, off, taken } = await searchParams;
+  const { link, off, taken, squad } = await searchParams;
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
@@ -144,7 +144,7 @@ export default async function Controls({ params, searchParams }: {
           {c.record_id && <a href={`/build/${c.record_id}/preview`} style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 14px', borderRadius: 999, background: T.surface2, border: `1px solid ${T.line}`, color: T.ink, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.02em', textDecoration: 'none', flexShrink: 0 }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>Preview page</a>}
         </div>
 
-        <SquadCard personId={childId} firstName={name} back={`/g/controls/${childId}`} mine={false} />
+        <SquadCard personId={childId} firstName={name} back={`/g/controls/${childId}`} mine={false} said={squad} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <h2 style={label}>{theirs} link</h2>

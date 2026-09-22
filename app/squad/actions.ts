@@ -13,7 +13,21 @@ import { getSessionPersonId } from '@/lib/session';
 
 const field = (f: FormData, k: string) => String(f.get(k) ?? '');
 
-/** The player this session may act for, or home. */
+/**
+ * Where to go back to. It comes off the form, so it is a place inside Pitch
+ * or it is /home — one leading slash, no second one and no backslash, which
+ * is what a bare "//evil.example" and "/\evil.example" need to become an
+ * absolute URL (safety N2: a same-origin post measured a 303 to an external
+ * site).
+ */
+const backTo = (raw: string): string => (/^\/(?![/\\])/.test(raw) ? raw : '/home');
+
+/**
+ * The player this session may ASK for: a claim, or a yes to a club's
+ * invitation. From 16 the player, and only with a parent confirmed and their
+ * send switch on; for an under-16 the guardian, and never for an adult child
+ * (0054 — B4 and M3).
+ */
 async function actFor(personId: string): Promise<string> {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
@@ -23,11 +37,26 @@ async function actFor(personId: string): Promise<string> {
   return me;
 }
 
+/**
+ * The player this session may RETRACT for: leaving, or taking back a claim
+ * nobody has answered. The same people, minus the conditions that only make
+ * sense for putting a club on a page — a way out is never conditional
+ * (D-10, D-26's shape).
+ */
+async function retractFor(personId: string): Promise<string> {
+  const me = await getSessionPersonId();
+  if (!me) redirect('/signin');
+  if (!isUuid(personId)) redirect('/home');
+  const { rows } = await db.query(`select fn_can_leave_squad($1, $2) as ok`, [me, personId]);
+  if (!rows[0]?.ok) redirect('/home');
+  return me;
+}
+
 /** "I play here" — it changes nothing until the club confirms it. */
 export async function askToJoinSquad(formData: FormData) {
   const personId = field(formData, 'personId');
   const squadId = field(formData, 'squadId');
-  const back = field(formData, 'back') || '/home';
+  const back = backTo(field(formData, 'back'));
   const me = await actFor(personId);
   if (!isUuid(squadId)) redirect(`/squad/${personId}?error=1`);
   try {
@@ -46,48 +75,64 @@ export async function askToJoinSquad(formData: FormData) {
 export async function answerSquadInvitation(formData: FormData) {
   const invitationId = field(formData, 'invitationId');
   const yes = field(formData, 'answer') === 'yes';
-  const back = field(formData, 'back') || '/home';
+  const back = backTo(field(formData, 'back'));
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   if (!isUuid(invitationId)) redirect(back);
 
+  // A stranger's answer is a no-op that redirects exactly as a real one does
+  // (D-77, L12). This flag is for the person who DID act: it is false only
+  // when their own yes could not be carried out — a club suspended since the
+  // ask, a child since paused (M10) — and then nothing says it worked (N3).
+  let ok = true;
   const client = await db.connect();
   try {
     await client.query('begin');
     const inv = await client.query(
       `select si.id, si.person_id, si.squad_id from squad_invitation si
-       where si.id = $1 and si.answered_at is null and fn_can_act_on_squad($2, si.person_id) for update`,
+       where si.id = $1 and si.answered_at is null and si.withdrawn_at is null and si.lapsed_at is null
+         and fn_can_act_on_squad($2, si.person_id) for update`,
       [invitationId, me],
     );
     if (inv.rows.length > 0) {
       const i = inv.rows[0] as { id: string; person_id: string; squad_id: string };
       await client.query(`update squad_invitation set answered_at = now(), answered_by = $2, accepted = $3 where id = $1`,
         [i.id, me, yes]);
-      if (yes) await client.query(`select fn_join_squad($1, $2, $3, 'invitation')`, [i.person_id, i.squad_id, me]);
+      if (yes) {
+        ok = (await client.query(`select fn_join_squad($1, $2, $3, 'invitation') as ok`,
+          [i.person_id, i.squad_id, me])).rows[0].ok as boolean;
+      }
     }
-    await client.query('commit');
+    if (ok) await client.query('commit'); else await client.query('rollback');
   } catch {
+    ok = false;
     await client.query('rollback');
   } finally {
     client.release();
   }
+  if (!ok) redirect(`${back}?squad=error`);
   redirect(`${back}?squad=${yes ? 'joined' : 'declined'}`);
 }
 
 /** Leaving is one tap and needs nobody's permission (D-10, D-26's shape). */
 export async function leaveSquad(formData: FormData) {
   const personId = field(formData, 'personId');
-  const back = field(formData, 'back') || '/home';
-  const me = await actFor(personId);
-  await db.query(
-    `update membership set ended_at = now() where person_id = $1 and role = 'player' and ended_at is null`,
-    [personId],
+  const back = backTo(field(formData, 'back'));
+  const me = await retractFor(personId);
+  // One statement, one squad_left per membership that actually ended (M6):
+  // the log used to say a child came out of a squad whether or not any row
+  // changed, and a guardian's timeline is not a place for that.
+  const out = await db.query(
+    `with gone as (
+       update membership set ended_at = now()
+       where person_id = $1 and role = 'player' and ended_at is null
+       returning squad_id, club_id)
+     insert into consent_event (event, actor_id, subject_id, detail)
+     select 'squad_left', $2, $1, jsonb_build_object('squad_id', g.squad_id, 'club_id', g.club_id, 'source','family')
+     from gone g`,
+    [personId, me],
   );
-  await db.query(
-    `insert into consent_event (event, actor_id, subject_id, detail)
-     values ('squad_left', $1, $2, jsonb_build_object('source','family'))`,
-    [me, personId],
-  );
+  if (!out.rowCount) redirect(`${back}?squad=error`);
   redirect(`${back}?squad=left`);
 }
 
@@ -95,8 +140,8 @@ export async function leaveSquad(formData: FormData) {
 export async function withdrawClaim(formData: FormData) {
   const personId = field(formData, 'personId');
   const claimId = field(formData, 'claimId');
-  const back = field(formData, 'back') || '/home';
-  const me = await actFor(personId);
+  const back = backTo(field(formData, 'back'));
+  const me = await retractFor(personId);
   if (isUuid(claimId)) {
     await db.query(
       `update squad_claim set answered_at = now(), answered_by = $2, confirmed = false

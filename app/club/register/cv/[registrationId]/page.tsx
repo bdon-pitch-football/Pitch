@@ -50,10 +50,10 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
   // live assembly above it. One assembly, two authorisations.
   let cv: CvData | null;
   if (a.band === 'u16') {
-    const v = await db.query(
-      `select content from profile_version where record_id = $1 and status = 'approved'`,
-      [a.record_id],
-    );
+    // The approved snapshot, with the club line following the membership
+    // (BUZ's decision 2, 23 Sep): a club that has confirmed a player shows on
+    // their page at once, and comes off it when they are removed (D-158).
+    const v = await db.query(`select fn_approved_cv($1) as content`, [a.record_id]);
     cv = (v.rows[0]?.content as CvData | null) ?? null;
     if (cv) cv = { ...cv, band: 'u16' };
   } else {

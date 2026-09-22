@@ -11,10 +11,10 @@ import SquadCard from '@/components/SquadCard';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Build your CV', robots: { index: false, follow: false } };
 
-export default async function Build({ params, searchParams }: { params: Promise<{ recordId: string }>; searchParams: Promise<{ saved?: string }> }) {
+export default async function Build({ params, searchParams }: { params: Promise<{ recordId: string }>; searchParams: Promise<{ saved?: string; squad?: string }> }) {
   const { recordId } = await params;
   const { personId: actor } = await requireRecordActor(recordId);
-  const { saved } = await searchParams;
+  const { saved, squad } = await searchParams;
   const { rows } = await db.query(
     `select dr.id, dr.person_id, p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, dr.positions, dr.squad_number, dr.foot,
             coalesce(dr.about,'') as about, dr.surfaced_stats,
@@ -40,7 +40,7 @@ export default async function Build({ params, searchParams }: { params: Promise<
         <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
           <div className="reading" style={{ width: '100%', padding: '0 18px 30px 18px', boxSizing: 'border-box' }}>
             <SquadCard personId={rows[0].person_id as string} firstName={rows[0].first_name as string}
-              back={`/build/${recordId}`} mine={actor === rows[0].person_id} />
+              back={`/build/${recordId}`} mine={actor === rows[0].person_id} said={squad} />
           </div>
         </div>
       </div>

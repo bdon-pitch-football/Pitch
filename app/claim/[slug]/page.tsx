@@ -12,12 +12,6 @@ import { card, sectionLabel as label } from '@/lib/ui';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Claim your club', robots: { index: false, follow: false } };
 
-const ROLES: [string, string, React.ReactNode][] = [
-  ['technical_director', 'Technical Director', 'Runs the football side. From December, the only role that reads a player’s development record.'],
-  ['club_admin', 'Club administrator', <>Runs the page, the teams and the trial notices. <b style={{ color: T.secondary }}>Never reads a player&rsquo;s development record, by any route.</b></>],
-  ['committee', 'Committee or president', 'Same as an administrator. You can hand the football side to your TD once you’re in.'],
-];
-
 export default async function ClaimClub({ params, searchParams }: {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ claimed?: string; taken?: string; sent?: string; bad?: string; noaddress?: string }>;
@@ -87,17 +81,20 @@ export default async function ClaimClub({ params, searchParams }: {
             </div>
           )}
           <form action={verify} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="slug" value={slug} />
+            {/* The role is NOT a choice on this form. Claiming makes you the
+                club's administrator; Technical Director — the one role that
+                reads a player's development record — is granted by the club
+                and confirmed on the verification call (D-93, doc 14 H10,
+                BUZ's decision 9). It was self-declared here, which is how an
+                unverified club's claimant gave themselves that read. */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={label}>Who are you at the club</div>
-              {ROLES.map(([value, title, desc], i) => (
-                <label key={value} style={{ ...card, display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer' }}>
-                  <input type="radio" name="role" value={value} defaultChecked={i === 0} style={{ width: 20, height: 20, accentColor: T.accent, marginTop: 1 }} />
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 800 }}>{title}</div>
-                    <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.5 }}>{desc}</div>
-                  </div>
-                </label>
-              ))}
+              <div style={label}>What claiming makes you</div>
+              <div style={card}>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>Club administrator</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.5 }}>
+                  You run the page, the teams, the trial notices and the billing. <b style={{ color: T.secondary }}>An administrator never reads a player&rsquo;s development record, by any route.</b> Technical Director is confirmed on the verification call, never chosen on a form.
+                </div>
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={label}>Your code</div>

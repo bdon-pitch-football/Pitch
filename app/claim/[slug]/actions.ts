@@ -76,8 +76,12 @@ export async function claimClub(formData: FormData) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   const code = String(formData.get('code') ?? '').replace(/\D/g, '');
-  const role = String(formData.get('role') ?? '');
-  const mapped = role === 'technical_director' ? 'technical_director' : 'club_admin';
+  // Whoever claims the page is the club's ADMINISTRATOR, and that is the
+  // whole of it (BUZ's decision 9, 23 Sep; doc 14 H10, D-93). Technical
+  // Director is granted by the club and confirmed on the verification call —
+  // never self-declared on a form, which is what let a claimant give
+  // themselves the one role that reads a child's development record.
+  const mapped = 'club_admin';
 
   const club = await unclaimedClub(slug);
   if (!club || club.club_state !== 'unclaimed') redirect(`/claim/${slug}?taken=1`);

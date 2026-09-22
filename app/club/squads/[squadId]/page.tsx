@@ -77,55 +77,55 @@ export default async function SquadPage({ params, searchParams }: {
      order by sc.created_at`, [squadId],
   )).rows as { id: string; first_name: string; last_name: string | null; asked: string }[] : [];
 
-  const asked = squad.works ? (await db.query(
-    `select si.id, p.first_name, p.last_name, to_char(si.created_at at time zone 'Australia/Melbourne', 'FMDD Mon') as sent
-     from squad_invitation si join person p on p.id = si.person_id
-     where si.squad_id = $1 and si.answered_at is null and not fn_person_hidden(p.id)
-     order by si.created_at`, [squadId],
-  )).rows as { id: string; first_name: string; last_name: string | null; sent: string }[] : [];
+  // The people the club has asked. A family that answered no sits here
+  // exactly as one that has not answered at all, until the club takes it back
+  // or the thirty days run out — the club must never be able to tell silence
+  // from a no (D-138, 0054).
+  const asked = (await db.query(
+    `select invitation_id as id, first_name,
+            to_char(created_at at time zone 'Australia/Melbourne', 'FMDD Mon') as sent
+     from fn_squad_asked($1, $2)`, [me, squadId],
+  )).rows as { id: string; first_name: string; sent: string }[];
 
-  // Who the club may ask: its own register, minus anyone already in this
-  // squad or already asked. A club can never reach a child it has not been
-  // shown (D-100), so the register is the only source.
-  // The positions here are the ones the FAMILY gave when they registered
-  // their interest — the same field the register itself shows a club, not
-  // anything extra out of the child's record.
+  // Who the club may ask: the register's OWN answer, per row (0054). The page
+  // does not decide this — fn_squad_askable applies verification (D-126), the
+  // subscription and dunning state (D-135) and P19's refusals, and gives a
+  // first name only, exactly as the register itself does.
+  // The positions are the ones the FAMILY gave when they registered their
+  // interest — the same field the register shows a club, not anything extra
+  // out of the child's record.
   const wanted = pos && pos in POSITIONS ? pos : '';
-  const askable = squad.td ? (await db.query(
-    `select r.player_id as id, p.first_name, p.last_name, r.positions,
-            (r.squad_target = $2) as named_this
-     from registration r join person p on p.id = r.player_id
-     where r.club_id = $1 and r.withdrawn_at is null and not fn_person_hidden(p.id)
-       and not exists (select 1 from membership m where m.person_id = r.player_id and m.squad_id = $2
-                         and m.role = 'player' and m.ended_at is null)
-       and not exists (select 1 from squad_invitation si where si.person_id = r.player_id and si.squad_id = $2 and si.answered_at is null)
-       and ($3 = '' or $3 = any(r.positions))
-     -- whoever named this squad first, then the rest of the register: a club
-     -- puts a player where it needs them, not where the form guessed.
-     order by (r.squad_target = $2) desc, p.first_name limit 60`, [squad.club_id, squadId, wanted],
-  )).rows as { id: string; first_name: string; last_name: string | null; positions: string[] | null; named_this: boolean }[] : [];
+  const everyAskable = squad.td ? (await db.query(
+    `select player_id as id, first_name, positions, named_this from fn_squad_askable($1, $2)`,
+    [me, squadId],
+  )).rows as { id: string; first_name: string; positions: string[] | null; named_this: boolean }[] : [];
+  const matching = wanted ? everyAskable.filter((a) => (a.positions ?? []).includes(wanted)) : everyAskable;
+  // A long register is paged by the position chips, and the page says so
+  // rather than stopping at sixty in silence (QA F7, 22 Sep).
+  const CAP = 60;
+  const askable = matching.slice(0, CAP);
+  const overCap = matching.length - askable.length;
 
   // Which positions the club can actually filter by here: the ones the people
-  // on this register play, never the whole list with nine dead chips on it.
-  const askablePositions = squad.td ? (await db.query(
-    `select distinct unnest(r.positions) as code
-     from registration r join person p on p.id = r.player_id
-     where r.club_id = $1 and r.withdrawn_at is null and not fn_person_hidden(p.id)
-       and not exists (select 1 from membership m where m.person_id = r.player_id and m.squad_id = $2
-                         and m.role = 'player' and m.ended_at is null)`,
-    [squad.club_id, squadId],
-  )).rows.map((r) => r.code as string).filter((c) => c in POSITIONS)
-    .sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)) : [];
+  // it may ask play, never the whole list with nine dead chips on it.
+  const askablePositions = [...new Set(everyAskable.flatMap((a) => a.positions ?? []))]
+    .filter((c) => c in POSITIONS)
+    .sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
 
   const label = fieldLabel;
   const name = (p: { first_name: string; last_name: string | null }) => `${p.first_name}${p.last_name ? ` ${p.last_name}` : ''}`;
   // Whether this reader gets what is on the record: the database already
   // decided by answering with a record id, or not (0053).
-  const reads = players.some((p) => p.record_id !== null) || (players.length === 0 && (squad.td || squad.works));
+  // The technical director reads records by definition (D-93), so the layout
+  // does not depend on there being a readable row: a squad whose only player
+  // is an under-16 with no approved guardian answers with no record id for
+  // anybody (0054), and that is a gap in the data, not a different reader.
+  const reads = squad.td || players.some((p) => p.record_id !== null) || (players.length === 0 && squad.works);
   const byGroup = (g: string) => players.filter((p) => (p.position_group ?? 'UNSET') === g);
   // 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
+  // 44px, like every other tap target at every width (CLAUDE.md, QA F4).
   const chip = (on: boolean): React.CSSProperties => ({
-    minHeight: 36, display: 'inline-flex', alignItems: 'center', padding: '0 12px', borderRadius: 999,
+    minHeight: 44, display: 'inline-flex', alignItems: 'center', padding: '0 14px', borderRadius: 999,
     background: on ? T.accent : T.surface2, color: on ? T.onAccent : T.secondary,
     border: `1px solid ${on ? T.accent : T.line}`, fontSize: 12.5, fontWeight: on ? 800 : 700, textDecoration: 'none',
   });
@@ -303,7 +303,7 @@ export default async function SquadPage({ params, searchParams }: {
             {asked.map((a) => (
               <div key={a.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 800 }}>{name(a)}</div>
+                  <div style={{ fontSize: 14.5, fontWeight: 800 }}>{a.first_name}</div>
                   <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Asked {a.sent} · nothing happens unless they say yes</div>
                 </div>
                 <form action={cancelInvitation}>
@@ -340,7 +340,7 @@ export default async function SquadPage({ params, searchParams }: {
             ) : askable.map((a) => (
               <div key={a.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 800 }}>{name(a)}</div>
+                  <div style={{ fontSize: 14.5, fontWeight: 800 }}>{a.first_name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                     {(a.positions ?? []).length === 0 ? (
                       <span style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>No positions given</span>
@@ -359,6 +359,11 @@ export default async function SquadPage({ params, searchParams }: {
                 </form>
               </div>
             ))}
+            {overCap > 0 && (
+              <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
+                Showing the first {CAP} of {matching.length}. Filter by a position to see the rest.
+              </div>
+            )}
           </div>
         )}
       </div>

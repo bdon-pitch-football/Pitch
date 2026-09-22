@@ -36,7 +36,9 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
 
   let cv: CvData | null;
   if (r.band === 'u16') {
-    const v = await db.query(`select content from profile_version where record_id = $1 and status = 'approved'`, [recordId]);
+    // The approved snapshot as a club actually reads it, club line and all
+    // (0054): this page's whole claim is that it is what a club sees.
+    const v = await db.query(`select fn_approved_cv($1) as content`, [recordId]);
     cv = (v.rows[0]?.content as CvData | null) ?? null;
     if (cv) cv = { ...cv, band: 'u16' };
   } else {

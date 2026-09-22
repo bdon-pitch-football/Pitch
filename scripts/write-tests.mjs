@@ -1172,6 +1172,38 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('sqf11: her parent takes her out with one tap, and the club no longer has her',
     [/squad=left/.test(left.location), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Add their club/.test(await card())],
     [true, false, true]);
+
+  // ---- 0054: a no looks like a silence, and a register is a first name ----
+  // The club asks her again and her parent says NO. D-138: the club must not
+  // be able to tell that from an unanswered ask, and she must not come back
+  // onto the askable list — reappearing there says it for her.
+  const askSection = (html) => section(words(html), 'Ask someone from your register');
+  const waiting = (html) => section(words(html), 'Asked, waiting on them', 'Ask someone from your register');
+  const askAgain = forms((await get(`/club/squads/${squadId}`, td)).html)
+    .find((x) => x.fields.squadId === squadId && x.fields.personId === g.child_id);
+  check('sqf12: with her out of the squad, the club is offered her again — by first name only (B3)',
+    [Boolean(askAgain), askSection((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name),
+     askSection((await get(`/club/squads/${squadId}`, td)).html).includes(g.last_name ?? 'Whitcombe')],
+    [true, true, false]);
+  await postTo(`/club/squads/${squadId}`, td, askAgain.fields);
+  const openView = waiting((await get(`/club/squads/${squadId}`, td)).html);
+  const no = forms(await controls()).find((f) => 'invitationId' in f.fields && f.fields.answer === 'no');
+  // N2: the redirect target comes off the form, so it is a path inside Pitch
+  // or it is /home. QA measured a 303 to an external site.
+  const declined = await postTo(`/g/controls/${g.child_id}`, alex, { ...no.fields, back: 'https://evil.example/phish' });
+  check('sqf13: an answer cannot be redirected off Pitch (N2)',
+    declined.location.startsWith('/home'), true);
+  check('sqf14: her parent says no, and the club\'s page reads exactly as it did while nobody had answered (M4, D-138)',
+    waiting((await get(`/club/squads/${squadId}`, td)).html), openView);
+  check('sqf15: and she is not back on the list of people it can ask, which would say it for her',
+    askSection((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), false);
+  check('sqf16: while the family sees nothing left to answer',
+    forms(await controls()).some((f) => 'invitationId' in f.fields), false);
+  const takeBack = forms((await get(`/club/squads/${squadId}`, td)).html).find((f) => 'invitationId' in f.fields);
+  await postTo(`/club/squads/${squadId}`, td, takeBack.fields);
+  check('sqf17: the club takes it back, and she is askable again — the only way it clears before thirty days',
+    [waiting((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name),
+     askSection((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name)], [false, true]);
 }
 
 // ---------------------------------------------------------------------------

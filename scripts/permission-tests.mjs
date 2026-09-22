@@ -1028,10 +1028,14 @@ check('R8: a pending version is created only for an under-16',
 check('R7: nothing in the codebase publishes a pending version on a timer',
   /setTimeout|cron|schedule/i.test(codeOnly(pvSrc)), false);
 const rTokenRead = (await db.query(`select prosrc from pg_proc where proname='fn_token_read'`)).rows[0].prosrc;
+// 0054 moved the snapshot read itself into fn_approved_cv, so that the token
+// path, the club's two CV routes and the family's preview cannot drift apart.
+// The property is unchanged and is now asked of both halves.
+const rApprovedCv = (await db.query(`select prosrc from pg_proc where proname='fn_approved_cv'`)).rows[0].prosrc;
 check('R3: the token path reads the APPROVED version, so the page never blanks',
-  /status = 'approved'/.test(rTokenRead), true);
+  /fn_approved_cv/.test(rTokenRead) && /status = 'approved'/.test(rApprovedCv), true);
 check('R10: and a pending version is unreachable from the token path',
-  /'pending'/.test(codeOnly(rTokenRead)), false);
+  /'pending'/.test(codeOnly(rTokenRead)) || /'pending'/.test(rApprovedCv), false);
 
 // R9 — deleting the record purges both versions together; no orphan survives.
 const r9Rec = crypto.randomUUID(), r9Child = crypto.randomUUID();
@@ -1250,9 +1254,11 @@ check('J56: no route appends a second club message to an invitation', invRoutes.
 // J57 — a club holding a valid token gets the APPROVED version, and the
 // pending text appears nowhere. Deniz has a pending edit in the fixture.
 const tokenReadSrc = (await db.query(`select prosrc from pg_proc where proname='fn_token_read'`)).rows[0].prosrc;
+const approvedCvSrc = (await db.query(`select prosrc from pg_proc where proname='fn_approved_cv'`)).rows[0].prosrc;
 check('J57: the token path selects the approved version explicitly',
-  /status = 'approved'/.test(tokenReadSrc), true);
-check('J57b: and never reads a pending one', /'pending'/.test(codeOnly(tokenReadSrc)), false);
+  /fn_approved_cv/.test(tokenReadSrc) && /status = 'approved'/.test(approvedCvSrc), true);
+check('J57b: and never reads a pending one',
+  /'pending'/.test(codeOnly(tokenReadSrc)) || /'pending'/.test(approvedCvSrc), false);
 
 // J58 — silence never approves. Assert by scheduler enumeration.
 const dailyJob = codeOnly(readFileSync(fileURLToPath(new URL('../app/api/jobs/daily/route.ts', import.meta.url)), 'utf8'));
@@ -3419,9 +3425,34 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
              [ID.deniz, CLUB.riverside, sq, ID.guardian])], [true, false]);
   check('SQ2: an under-16 cannot claim a squad alone (D-91)',
     await db.query(`select fn_can_act_on_squad($1,$1) as ok`, [ID.deniz]).then((x) => x.rows[0].ok), false);
-  check('SQ3: a 16-17 and an adult act for themselves',
-    [await db.query(`select fn_can_act_on_squad($1,$1) as ok`, [ID.nate]).then((x) => x.rows[0].ok),
-     await db.query(`select fn_can_act_on_squad($1,$1) as ok`, [ID.guardian]).then((x) => x.rows[0].ok)], [true, true]);
+  // SQ3 asserted "a 16-17 acts alone", which was the defect (safety B4, L22).
+  // A claim hands a club the LIVE record — more than a send gives — so it
+  // asks exactly what fn_can_dispatch asks of a send (0048, D-22, D-91): a
+  // parent confirmed, and their send switch on.
+  const act = async (a, p) => (await db.query(`select fn_can_act_on_squad($1,$2) as ok`, [a, p])).rows[0].ok;
+  const teenAlone = crypto.randomUUID(), teenParented = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Alone',$3), ($2,'Parented',$3)`,
+    [teenAlone, teenParented, yearsAgo(17)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, teenParented]);
+  check('SQ3: a 16-17 with no confirmed parent cannot claim a squad alone (B4, D-22)', await act(teenAlone, teenAlone), false);
+  check('SQ3b: with a parent confirmed, they act for themselves', await act(teenParented, teenParented), true);
+  await db.query(`insert into guardian_setting (child_id, send_disabled, updated_by) values ($1,true,$2)
+    on conflict (child_id) do update set send_disabled = true`, [teenParented, ID.guardian]);
+  check('SQ3c: and the parent\'s send switch stops them, exactly as it stops a send (0048)',
+    await act(teenParented, teenParented), false);
+  check('SQ3d: the parent themselves still acts while the switch is off', await act(ID.guardian, teenParented), true);
+  await db.query(`update guardian_setting set send_disabled = false where child_id = $1`, [teenParented]);
+  check('SQ3e: an adult acts for themselves', await act(ID.guardian, ID.guardian), true);
+  // M3: at 18 a guardianship is visibility, never control (D-49, doc 14 P15).
+  check('SQ3f: a parent does not act on their adult child\'s squad, re-granted or not',
+    [await act(ID.guardian, ID.marcus),
+     await db.query(`update guardianship_link set regranted_at = now() where guardian_id = $1 and child_id = $2`, [ID.guardian, ID.marcus])
+       .then(() => act(ID.guardian, ID.marcus))], [false, false]);
+  check('SQ3g: and they cannot take their adult child out of a squad either (M3)',
+    (await db.query(`select fn_can_leave_squad($1,$2) as ok`, [ID.guardian, ID.marcus])).rows[0].ok, false);
+  check('SQ3h: but a 16-17 whose parent switched sending off can still leave (D-10)',
+    [(await db.query(`select fn_can_leave_squad($1,$1) as ok`, [teenParented])).rows[0].ok,
+     (await db.query(`select fn_can_leave_squad($1,$1) as ok`, [ID.deniz])).rows[0].ok], [true, false]);
   check('SQ4: only the club invites, and only into its own squad',
     [await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
              [ID.deniz, CLUB.riverside, sq, ID.guardian]),
@@ -3462,9 +3493,196 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   check('H6: a squad invite to an under-16 is answerable only by their guardian, never the child',
     [await db.query(`select fn_can_act_on_squad($1,$1) as ok`, [ID.deniz]).then((x) => x.rows[0].ok),
      await db.query(`select fn_can_act_on_squad($1,$2) as ok`, [ID.guardian, ID.deniz]).then((x) => x.rows[0].ok)], [false, true]);
-  check('SQ8: joining a squad ends any other club: one club at a time, one club on the CV',
+  // SQ8 asserted "joining ends every other club", which ended a second squad
+  // at the SAME club too — a player who was asked to play up lost the team
+  // they were already in (safety M2, L22). BUZ, 23 Sep: playing up is allowed.
+  const playerMemberships = async (who) => (await db.query(
+    `select club_id, squad_id from membership where person_id = $1 and role = 'player' and ended_at is null order by started_at`,
+    [who])).rows;
+  const leftEvents = async (who) => (await db.query(
+    `select count(*)::int as n from consent_event where event = 'squad_left' and subject_id = $1`, [who])).rows[0].n;
+  const leftBefore = await leftEvents(ID.deniz);
+  check('SQ8: a second squad at the same club keeps the first — playing up is one club, two teams (BUZ, 23 Sep)',
     await db.query(`select fn_join_squad($1, $2, $3, 'test') as ok`, [ID.deniz, sq, ID.td]).then(async () =>
-      (await db.query(`select count(*)::int as n from membership where person_id = $1 and role = 'player' and ended_at is null`, [ID.deniz])).rows[0].n), 1);
+      (await playerMemberships(ID.deniz)).length), 2);
+  check('SQ8b: and nothing was written as a departure, because nobody departed (M6)',
+    await leftEvents(ID.deniz) - leftBefore, 0);
+
+  // Another club is a move, and a move is written down — one row per
+  // membership that actually ended (L5, M6).
+  const bayviewSq = (await db.query(
+    `insert into squad (club_id, name, age_group, competition_gender, season)
+     values ($1, 'Bayview U15', 'U15', 'boys', '2026') returning id`, [CLUB.other])).rows[0].id;
+  check('SQ8c: joining another club ends the memberships at the first, and only those',
+    await db.query(`select fn_join_squad($1, $2, $3, 'test') as ok`, [ID.deniz, bayviewSq, ID.guardian]).then(async () =>
+      (await playerMemberships(ID.deniz)).map((m) => m.club_id === CLUB.other)), [true]);
+  check('SQ8d: with one squad_left for each of the two squads they left',
+    await leftEvents(ID.deniz) - leftBefore, 2);
+
+  // M2: a club could confirm a months-old claim and move a child who had
+  // since joined somewhere else, with nobody told — and the family could not
+  // see the claim to cancel it, because the card shows a membership first.
+  const stale = (await db.query(
+    `insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4) returning id`,
+    [ID.georgia, CLUB.riverside, sq, ID.guardian])).rows[0].id;
+  await db.query(`select fn_join_squad($1, $2, $3, 'test')`, [ID.georgia, bayviewSq, ID.guardian]);
+  check('SQ8e: joining closes that player\'s other open claims, so no club can move them later (M2)',
+    (await db.query(`select answered_at is not null as closed, confirmed from squad_claim where id = $1`, [stale])).rows[0],
+    { closed: true, confirmed: false });
+
+  // M10: weeks pass between the ask and the answer, and the world moves.
+  await db.query(`update club set club_state = 'suspended' where id = $1`, [CLUB.other]);
+  check('SQ8f: a join at a club suspended since the ask is refused (M10, D-126)',
+    (await db.query(`select fn_join_squad($1, $2, $3, 'test') as ok`, [ID.nate, bayviewSq, ID.nate])).rows[0].ok, false);
+  await db.query(`update club set club_state = 'verified' where id = $1`, [CLUB.other]);
+  check('SQ8g: a claim whose asker may no longer act is refused at the join (M10)',
+    (await db.query(`select fn_join_squad($1, $2, $3, 'claim', $4) as ok`, [ID.deniz, sq, ID.td, ID.exGuardian])).rows[0].ok, false);
+  await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1,true,$2)
+    on conflict (child_id) do update set profile_paused = true`, [ID.nate, ID.guardian]);
+  check('SQ8h: nor is a player hidden since the ask (M10, 0049 A1)',
+    (await db.query(`select fn_join_squad($1, $2, $3, 'test') as ok`, [ID.nate, sq, ID.td])).rows[0].ok, false);
+  await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [ID.nate]);
+
+  // --- B3: who a club may ask, probed as the safety seat probed it --------
+  // An unverified club, a suspended club, a free-tier club and a verified
+  // paid one, each against the same register row.
+  const askable = async (who, squad) => (await db.query(`select * from fn_squad_askable($1,$2)`, [who, squad])).rows;
+  const kid = crypto.randomUUID(), kidNoParent = crypto.randomUUID(), unvTd = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Askable','Surname',$3), ($2,'Unapproved','Surname',$3)`,
+    [kid, kidNoParent, yearsAgo(14)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, kid]);
+  await db.query(`insert into development_record (person_id) values ($1)`, [kid]);
+  await db.query(`insert into person (id, first_name, dob) values ($1,'UnvTd',$2)`, [unvTd, yearsAgo(40)]);
+  await mem(unvTd, CLUB.unverified, null, 'technical_director');
+  const askSq = (await db.query(
+    `insert into squad (club_id, name, age_group, competition_gender, season)
+     values ($1, 'Askable Test', 'U14', 'boys', '2026') returning id`, [CLUB.riverside])).rows[0].id;
+  for (const p of [kid, kidNoParent]) {
+    await db.query(`insert into registration (player_id, club_id, positions, policy_version) values ($1,$2,array['ST'],'20@v2.4')`,
+      [p, CLUB.riverside]);
+  }
+  await db.query(`insert into registration (player_id, club_id, positions, policy_version) values ($1,$2,array['ST'],'20@v2.4')`,
+    [kid, CLUB.unverified]);
+
+  check('SQ16: an unverified club is offered nobody to ask, and the database refuses the ask (D-126)',
+    [(await askable(unvTd, SQUAD.unvSq)).length,
+     await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
+             [kid, CLUB.unverified, SQUAD.unvSq, unvTd])], [0, true]);
+  await db.query(`update club set club_state = 'suspended' where id = $1`, [CLUB.riverside]);
+  check('SQ17: a suspended club is offered nobody, and is refused the ask',
+    [(await askable(ID.td, askSq)).length,
+     await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
+             [kid, CLUB.riverside, askSq, ID.td])], [0, true]);
+  await db.query(`update club set club_state = 'verified' where id = $1`, [CLUB.riverside]);
+  // The free tier reads only the registrations against its OWN trials (D-153,
+  // P13/P18) — which is the register's answer, and the askable list is now
+  // that answer rather than a second one: Nate came through Riverside's trial
+  // and is offered; a plain register row is not, and cannot be asked.
+  const free = await askable(ID.td, askSq);
+  check('SQ18: a verified club on the free tier is offered its own trial\'s registrants and nobody else (P13/P18, D-135)',
+    [free.some((x) => x.player_id === ID.nate), free.some((x) => x.player_id === kid),
+     await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
+             [kid, CLUB.riverside, askSq, ID.td])], [true, false, true]);
+  await db.query(`update club set subscription_status = 'active' where id = $1`, [CLUB.riverside]);
+  const paid = await askable(ID.td, askSq);
+  check('SQ19: a verified club that pays is offered its register — first name only, as the register gives it (B3)',
+    [paid.some((x) => x.player_id === kid), paid.every((x) => Object.keys(x).join(',') === 'player_id,first_name,positions,named_this')],
+    [true, true]);
+  check('SQ19b: and an under-16 with no approved guardian is not on it, nor can be asked (P19)',
+    [paid.some((x) => x.player_id === kidNoParent),
+     await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
+             [kidNoParent, CLUB.riverside, askSq, ID.td])], [false, true]);
+  check('SQ19c: an administrator is offered nobody and cannot ask (D-154, N17)',
+    [(await askable(ID.clubAdmin, askSq)).length,
+     await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
+             [kid, CLUB.riverside, askSq, ID.clubAdmin])], [0, true]);
+  const notOnIt = (await db.query(`insert into person (first_name, dob) values ('NotOnTheRegister', $1) returning id`, [yearsAgo(20)])).rows[0].id;
+  check('SQ19d: nobody off this club\'s own register can be asked, whoever asks (D-100)',
+    await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
+            [notOnIt, CLUB.riverside, askSq, ID.td]), true);
+
+  // --- M4: a no and a silence look the same to the club --------------------
+  const inv = (await db.query(
+    `insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4) returning id`,
+    [kid, CLUB.riverside, askSq, ID.td])).rows[0].id;
+  const asked = async () => (await db.query(`select * from fn_squad_asked($1,$2)`, [ID.td, askSq])).rows;
+  const openShape = JSON.stringify(await asked());
+  await db.query(`update squad_invitation set answered_at = now(), answered_by = $2, accepted = false where id = $1`, [inv, ID.guardian]);
+  check('SQ20: an invitation answered no reads to the club exactly as one nobody answered (M4, D-138)',
+    JSON.stringify(await asked()), openShape);
+  check('SQ20b: and the person who said no does not come back onto the askable list, which would say it for them',
+    (await askable(ID.td, askSq)).some((x) => x.player_id === kid), false);
+  await db.query(`update squad_invitation set created_at = now() - interval '31 days' where id = $1`, [inv]);
+  check('SQ20c: both lapse at thirty days, on the same clock (BUZ, 23 Sep)',
+    [(await db.query(`select fn_lapse_squad_invitations() as n`)).rows[0].n >= 1, (await asked()).length], [true, 0]);
+  check('SQ20d: and the club may ask again once it has lapsed',
+    (await askable(ID.td, askSq)).some((x) => x.player_id === kid), true);
+
+  // --- M1: every field off the record is gated per row ---------------------
+  await db.query(`select fn_join_squad($1, $2, $3, 'test')`, [kid, askSq, ID.guardian]);
+  const gated = async (who) => (await db.query(`select * from fn_squad_roster($1,$2)`, [who, askSq])).rows;
+  check('SQ21: the technical director reads the squad, record and register fact included (A12)',
+    (await gated(ID.td)).some((x) => x.player_id === kid && x.record_id !== null && x.on_register === true), true);
+  await db.query(`update guardianship_link set revoked_at = now() where child_id = $1`, [kid]);
+  const revoked = (await gated(ID.td)).find((x) => x.player_id === kid);
+  check('SQ21b: an under-16 whose only guardianship is revoked answers with no record and no fields (M1, A17/A18)',
+    [revoked?.record_id, revoked?.positions, revoked?.squad_number, revoked?.foot, revoked?.clips, revoked?.on_register],
+    [null, null, null, null, null, null]);
+  check('SQ21c: and their CV inside the club is not found for anybody (M1)',
+    [(await db.query(`select fn_can_read_squad_player($1,$2,$3) as ok`, [ID.td, askSq, kid])).rows[0].ok,
+     (await db.query(`select fn_can_read_squad_player($1,$2,$3) as ok`, [ID.clubAdmin, askSq, kid])).rows[0].ok],
+    [false, false]);
+  await db.query(`update guardianship_link set revoked_at = null where child_id = $1`, [kid]);
+  check('SQ21d: an administrator gets a name and a join date, and "on your register" is not a fact they hold (M5, N17)',
+    (await gated(ID.clubAdmin)).every((x) => x.record_id === null && x.on_register === null && x.first_name !== null), true);
+  check('SQ21e: the CV route asks the same question the list does, and refuses a player in another squad',
+    [(await db.query(`select fn_can_read_squad_player($1,$2,$3) as ok`, [ID.td, askSq, kid])).rows[0].ok,
+     (await db.query(`select fn_can_read_squad_player($1,$2,$3) as ok`, [ID.td, askSq, ID.marcus])).rows[0].ok,
+     (await db.query(`select fn_can_read_squad_player($1,$2,$3) as ok`, [ID.coachOther, askSq, kid])).rows[0].ok],
+    [true, false, false]);
+
+  // --- BUZ's decision 2: the club on an under-16's approved page ----------
+  {
+    const snapRec = (await db.query(`select id from development_record where person_id = $1`, [kid])).rows[0].id;
+    await db.query(`insert into profile_version (record_id, content, status) values ($1, $2, 'approved')`,
+      [snapRec, JSON.stringify({ firstName: 'Askable', club: 'Somewhere Else FC', squad: { name: 'Old', ageGroup: 'U13', competitionGender: 'boys' } })]);
+    const withClub = (await db.query(`select fn_approved_cv($1) as cv`, [snapRec])).rows[0].cv;
+    check('SQ22: the club a club confirmed shows on the approved page at once (BUZ\'s decision 2, D-158)',
+      [withClub.club, withClub.squad.name, withClub.firstName], ['Riverside FC', 'Askable Test', 'Askable']);
+    await db.query(`update membership set ended_at = now() where person_id = $1 and role = 'player' and ended_at is null`, [kid]);
+    const without = (await db.query(`select fn_approved_cv($1) as cv`, [snapRec])).rows[0].cv;
+    check('SQ22b: and the club line goes when they are taken out',
+      [without.club, without.squad.name, without.firstName], ['', '', 'Askable']);
+    check('SQ22c: nothing else about the snapshot moves — the guardian still approves every word of it (D-119)',
+      (await db.query(`select content->>'club' as c from profile_version where record_id = $1 and status = 'approved'`, [snapRec])).rows[0].c,
+      'Somewhere Else FC');
+  }
+  await db.query(`update club set subscription_status = null where id = $1`, [CLUB.riverside]);
+}
+
+// ---- tap targets: >=44px at every width (CLAUDE.md; QA F4, 22 Sep) --------
+// The squad page's position chips rendered at 38px, which is under the
+// minimum the brief sets for every width. The layout check measures how wide
+// a page is, not how big its targets are, so this pins the one that was wrong.
+{
+  const squadPage = srcOf('app/club/squads/[squadId]/page.tsx');
+  check('tap1: the squad page\'s position chips are at least 44px tall',
+    /const chip = \(on: boolean\): React\.CSSProperties => \(\{\s*\n?\s*minHeight: (\d+)/.exec(squadPage)?.[1] >= 44, true);
+}
+
+// ---- R1 (release seat, L26): a table is exposed until you say otherwise ----
+// On Supabase the automatic API serves every table in the public schema to
+// anyone with the anon key unless row-level security says no. Four tables had
+// been created without it for weeks (0055). This fails on the next one.
+{
+  const open = (await db.query(
+    `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity order by 1`)).rows.map((x) => x.relname);
+  const total = (await db.query(
+    `select count(*)::int as n from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind = 'r'`)).rows[0].n;
+  check(`RLS1: every public table has row-level security on (${open.join(', ') || `all ${total} do`})`, open.length, 0);
+  check('RLS2: and the check is not vacuous — there are tables to fail on', total > 60, true);
 }
 
 // ---- the shell stacks on a phone (GTM's report, 21 Sep) ---------------------

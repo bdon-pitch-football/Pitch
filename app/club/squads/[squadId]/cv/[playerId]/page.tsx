@@ -30,20 +30,26 @@ export default async function SquadCv({ params }: { params: Promise<{ squadId: s
   if (!me) redirect('/signin');
   if (!isUuid(squadId) || !isUuid(playerId)) notFound();
 
-  // The roster answers with a record id only for someone who may read it;
-  // an administrator gets null there, and this page is not-found for them.
+  // The same shape as the register's own CV route: one question, asked of
+  // the database, and a no is the same not-found as a squad that is not
+  // there. fn_can_read_squad_player is fn_read_level (doc 14 table A) plus
+  // where the reader is standing — the product's answer to "who may read
+  // this child", never a second one computed here (0054, L23).
   const row = (await db.query(
-    `select r.record_id, fn_age_band(p.dob) as band
-     from fn_squad_roster($1, $2) r join person p on p.id = r.player_id
-     where r.player_id = $3 and r.record_id is not null`,
-    [me, squadId, playerId],
+    `select dr.id as record_id, fn_age_band(p.dob) as band
+     from person p join development_record dr on dr.person_id = p.id
+     where p.id = $1 and fn_can_read_squad_player($2, $3, p.id)`,
+    [playerId, me, squadId],
   )).rows[0] as { record_id: string; band: string } | undefined;
   if (!row) notFound();
   const recordId = row.record_id;
 
   let cv: CvData | null;
   if (row.band === 'u16') {
-    const v = await db.query(`select content from profile_version where record_id = $1 and status = 'approved'`, [recordId]);
+    // The approved snapshot, with the club line following the membership
+    // (BUZ, 23 Sep) — one function, so the club's view, the family's preview
+    // and the share link cannot drift apart.
+    const v = await db.query(`select fn_approved_cv($1) as content`, [recordId]);
     cv = (v.rows[0]?.content as CvData | null) ?? null;
     if (cv) cv = { ...cv, band: 'u16' };
   } else {

@@ -26,6 +26,10 @@ export async function GET(request: Request) {
   // "indefinite is not a retention period; it is the absence of one".
   const { rows: lapsedSends } = await db.query('select fn_lapse_send_requests() as n');
   const { rows: lapsedInterest } = await db.query('select fn_lapse_interest_requests() as n');
+  // BUZ, 23 Sep: a squad invitation nobody answered and one answered no both
+  // lapse thirty days after the ask, so a club's screen can never be read as
+  // an answer (D-138). Nothing is deleted; the row stops being live.
+  const { rows: lapsedSquad } = await db.query('select fn_lapse_squad_invitations() as n');
   // U-4 (John): the operational abuse counter is ninety days, and it lives
   // nowhere near a child's record.
   const { rows: abuse } = await db.query('select fn_purge_abuse_signals() as n');
@@ -81,6 +85,7 @@ export async function GET(request: Request) {
     pastTrialRegistrations: pastTrials[0].n,
     lapsedSendRequests: lapsedSends[0].n,
     lapsedInterestRequests: lapsedInterest[0].n,
+    lapsedSquadInvitations: lapsedSquad[0].n,
     abuseSignalsPurged: abuse[0].n,
     birthdayNotices: noticed,
     approvalNudges: nudged,

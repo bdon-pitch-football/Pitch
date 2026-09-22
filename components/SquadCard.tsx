@@ -11,8 +11,8 @@ import { answerSquadInvitation, leaveSquad, withdrawClaim } from '@/app/squad/ac
 
 type Row = { club: string; squad: string; age_group: string | null; season: string | null };
 
-export default async function SquadCard({ personId, firstName, back, mine }: {
-  personId: string; firstName: string; back: string; mine: boolean;
+export default async function SquadCard({ personId, firstName, back, mine, said }: {
+  personId: string; firstName: string; back: string; mine: boolean; said?: string;
 }) {
   const now = (await db.query(
     `select c.name as club, s.name as squad, s.age_group, s.season
@@ -28,10 +28,14 @@ export default async function SquadCard({ personId, firstName, back, mine }: {
     [personId],
   )).rows[0] as { id: string; club: string; squad: string } | undefined;
 
+  // An invitation the club has taken back, or one that has lapsed at thirty
+  // days, is not something to answer (0054).
   const invites = (await db.query(
     `select si.id, c.name as club, s.name as squad
      from squad_invitation si join club c on c.id = si.club_id join squad s on s.id = si.squad_id
-     where si.person_id = $1 and si.answered_at is null order by si.created_at`,
+     where si.person_id = $1 and si.answered_at is null
+       and si.withdrawn_at is null and si.lapsed_at is null
+     order by si.created_at`,
     [personId],
   )).rows as { id: string; club: string; squad: string }[];
 
@@ -41,6 +45,15 @@ export default async function SquadCard({ personId, firstName, back, mine }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
       <div style={sectionLabel}>{mine ? 'Where you play' : `Where ${firstName} plays`}</div>
+
+      {/* Nothing is reported as done unless it was done (N3). A club can be
+          suspended between the ask and the answer, and the answer then does
+          not go through. */}
+      {said === 'error' && (
+        <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary, lineHeight: 1.5 }}>
+          That didn&rsquo;t go through. Nothing changed &mdash; try again, and if it keeps happening the club may no longer be on Pitch.
+        </div>
+      )}
 
       {invites.map((i) => (
         <div key={i.id} style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
