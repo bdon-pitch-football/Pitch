@@ -205,3 +205,29 @@ it from the two facts that actually change — the club became verified, the
 address became proved — wherever they happen.
 *Rule:* attach a capability to the event that grants it, not to the next time
 someone appears.
+
+**L32 · A test that reads a screen is coupled to that screen (23 Sep, Leo).**
+The demo seat made `/dev/outbox` render every `pitchfootball.com.au` address in
+a message body as a followable link *and* leave the address in the text — a
+good change, dev-only, nothing to do with the write suite. But two write tests
+scrape that page for approval codes, ask for "the two newest messages" by
+taking the first two matches, and from that moment got one message twice. They
+confirmed one channel, left the other unconfirmed, never reached the D-155 hold
+they exist to test, and reported that an operator could not see a held sign-up.
+On the page they were reading, that was true.
+*Rule:* a suite that reads a rendered page is reading a test fixture. Changing
+that page is changing the fixture — say so in the handoff, and run the suites
+that read it. When a check goes red on a merge, find out which side moved
+before you touch either.
+
+**L33 · Replace a proxy assertion with the rule, never delete it (23 Sep, builder demo).**
+`DEMO6` asserted the demo layer contained no `insert into person` — a proxy for
+"nothing about a real person ever enters a demo". BUZ asked for squads with
+players in them, which made the proxy false and left the rule untouched. The
+seat could have deleted the check and been green. It wrote two that test the
+rule itself — the layer reads no person from anywhere, and every address and
+number it writes is a reserved fiction — and proved both against deliberately
+broken code.
+*Rule:* when a check fails because the product legitimately changed, ask what
+the check was standing in for. Delete a proxy only by replacing it with
+something closer to the thing you actually care about, and say so out loud.

@@ -25,6 +25,8 @@ this team exists to bring to zero.
 
 | Date | Seat | Defect | Before / after | Lesson |
 |---|---|---|---|---|
+| 23 Sep | builder demo | Demo for the Balmoral TD: the claim story end to end, 0 adults in any junior squad, a register that reads like 100 children, invitations that actually send. Strengthened DEMO6 rather than deleting it; handed back 8 product findings including a real-club name in `lib/fixtures.ts` and an acquisition funnel with no front door | **before** | L33 |
+| 23 Sep | Leo | Write suite red on the merge — a dev page the suite scrapes had changed shape. Found and fixed before BUZ; the failure was honest and pointed at the wrong thing | **before** | L32 |
 | 23 Sep | builder D | TD on the verification call, enforced in Postgres; ended pre-existing TD rows so the rule has no exceptions; fixed seeds/fixtures that bypassed it; found another mislabelled doc 14 check (H10) | **before** | L31 |
 | 23 Sep | QA | Demo not safe to walk: adults in junior squads, a register that reads as generated, no age on any CV, a trial dated Sun on a Thursday, invitations to background players sending nothing | **before** | — |
 | 23 Sep | builder B | Email proof enforced in Postgres (B1/B2); refused to ship its own unapproved message; left the parked-address question to BUZ. Leo's process fault: two builders in one tree (L30) | **before** | L30 |
