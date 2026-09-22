@@ -188,3 +188,12 @@ reads the register. The build was right; the gap would have been found on live
 data, by a club that could not see its own register.
 *Rule:* when you close a door, name every thing that came through it and say
 what replaces them. A migration that removes a capability is a product decision.
+
+**L30 · One builder per tree (23 Sep, Leo's fault).**
+Two builders worked the same checkout, dev database and app port. They reseeded
+each other's runs, a second dev app could not start (the dev database serves one
+connection), and one seat's commit swept the other's staged files in under the
+wrong message.
+*Rule:* builders run in their own worktree, or one at a time. Read-only seats
+(safety, copy) can share. Whoever runs a suite says which tree and which commit
+it was measured on.

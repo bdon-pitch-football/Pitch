@@ -25,6 +25,7 @@ this team exists to bring to zero.
 
 | Date | Seat | Defect | Before / after | Lesson |
 |---|---|---|---|---|
+| 23 Sep | builder B | Email proof enforced in Postgres (B1/B2); refused to ship its own unapproved message; left the parked-address question to BUZ. Leo's process fault: two builders in one tree (L30) | **before** | L30 |
 | 23 Sep | builder A | Fixed B3, B4, M1-M6, M10, R1, N2, N3, N8 and BUZ's calls 2/6/7; found that closing the self-declared TD leaves no route to a TD at all, and escalated instead of inventing one | **before** | L29 |
 | 23 Sep | copy check | Corrected its own 22 Sep miscount (17 → 42 live-site items); caught that Leo's "stop sending §13" would have removed doc 14 B11's gate; kept an unapproved draft email out of the approval batches | **before** | L28 |
 | 22 Sep | QA | An under-16's page never changes club (sqf6); 3 of Leo's squad checks never ran; corpus failing at HEAD on Leo's own commit; 18th-birthday refusal on /join; 38px chips; silent 60-row cap; open redirect confirmed | **before** | L27 |
