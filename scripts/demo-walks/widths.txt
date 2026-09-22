@@ -1,0 +1,86 @@
+width 1280
+note 1280 · club page
+go /fc/balmoral-fc
+wide
+note 1280 · trials board
+go /trials
+wide
+note 1280 · the demo door
+go /demo
+wide
+go /demo
+click Marina Petrovic
+note 1280 · /home
+go /home
+wide
+note 1280 · /club/register
+go /club/register
+wide
+note 1280 · /club/register?age=U15
+go /club/register?age=U15
+wide
+note 1280 · /club/squads
+go /club/squads
+wide
+note 1280 · /club/billing
+go /club/billing
+wide
+note 1280 · /club/page-edit
+go /club/page-edit
+wide
+note 1280 · /club/post-trial
+go /club/post-trial
+wide
+go /demo
+click M. Harris
+note 1280 · held register
+go /club/register
+wide
+go /demo
+click Sam Kaya
+note 1280 · coach register
+go /coach/register
+wide
+width 375
+note 375 · club page
+go /fc/balmoral-fc
+wide
+note 375 · trials board
+go /trials
+wide
+note 375 · the demo door
+go /demo
+wide
+go /demo
+click Marina Petrovic
+note 375 · /home
+go /home
+wide
+note 375 · /club/register
+go /club/register
+wide
+note 375 · /club/register?age=U15
+go /club/register?age=U15
+wide
+note 375 · /club/squads
+go /club/squads
+wide
+note 375 · /club/billing
+go /club/billing
+wide
+note 375 · /club/page-edit
+go /club/page-edit
+wide
+note 375 · /club/post-trial
+go /club/post-trial
+wide
+go /demo
+click M. Harris
+note 375 · held register
+go /club/register
+wide
+go /demo
+click Sam Kaya
+note 375 · coach register
+go /coach/register
+wide

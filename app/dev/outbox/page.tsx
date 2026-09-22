@@ -10,6 +10,35 @@ import { isDemo } from '@/lib/demo';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Outbox', robots: { index: false, follow: false } };
 
+// A message written for a real inbox names the real domain, so on this laptop
+// every link in one is unreachable — and the club claim story runs THROUGH a
+// link in this page: the address-confirmation link, then the six-digit code.
+// BUZ was left copying a 32-character token off a screen in a meeting.
+//
+// So each pitchfootball.com.au address in the body is also rendered as a link
+// to the same path on whatever host this page is being served from. The text
+// still reads exactly as the message was written — the words are doc 15's and
+// are not changed — the link is simply followable here.
+//
+// Built by splitting the string into React children, never by writing HTML:
+// a message body is user-adjacent text and nothing in this codebase renders
+// text as markup (D-94 §6).
+const LINK = /pitchfootball\.com\.au(\/[^\s)]*)?/g;
+function openable(body: string): React.ReactNode {
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of body.matchAll(LINK)) {
+    const at = m.index ?? 0;
+    if (at > last) out.push(body.slice(last, at));
+    out.push(
+      <a key={at} href={m[1] ?? '/'} style={{ color: 'var(--accent)', fontWeight: 700 }}>{m[0]}</a>,
+    );
+    last = at + m[0].length;
+  }
+  out.push(body.slice(last));
+  return out;
+}
+
 export default async function Outbox() {
   if (process.env.NODE_ENV === 'production') notFound();
   const { rows } = await db.query(
@@ -48,7 +77,7 @@ export default async function Outbox() {
               <span style={{ fontSize: 11, color: T.muted, fontWeight: 500, marginLeft: 'auto' }}>{m.at}</span>
             </div>
             {m.subject && <div style={{ fontSize: 14, fontWeight: 800 }}>{m.subject}</div>}
-            <pre style={{ background: T.surface2, borderRadius: 12, padding: '12px 13px', margin: 0, fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{m.body}</pre>
+            <pre style={{ background: T.surface2, borderRadius: 12, padding: '12px 13px', margin: 0, fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{openable(m.body)}</pre>
           </div>
         ))}
       </div>

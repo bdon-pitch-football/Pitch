@@ -4,6 +4,10 @@ Pitch on your laptop, renamed to the club you're meeting. Every player,
 parent and coach in it is made up, and it never sends an email or a text or
 takes a payment.
 
+> **Meeting a Technical Director?** `DEMO-TD.md` is the one-page run sheet —
+> the order to click in and the sentence to say at each step. This file is the
+> reference; that one is what you hold in the room.
+
 ## Before the meeting
 
 In Terminal:
@@ -13,12 +17,21 @@ cd "/Users/bdonmez22/Desktop/Life/Work/Pitch 3.0/repo" && npm run demo -- "Albio
 ```
 
 Change the club, suburb and ground each time. Only the club name is
-required. About ten seconds later your browser opens at
-**http://localhost:3030/demo**.
+required — but pass `--ground`, because without it every trial notice reads
+"Albion Rovers home ground" instead of the name of their actual pitch. About
+half a minute later your browser opens at **http://localhost:3030/demo**.
 
 - **Their crest:** save it from their website as a PNG or JPG and add
   `--crest ~/Downloads/their-crest.png`. Without it the demo draws a plain
   shield with their initials.
+- **`--unclaimed`:** a second mode, for showing a club *making* its own page.
+  It starts them as the listing Pitch compiled from their public notices —
+  their trials and nothing they wrote — and you claim it live: find the page,
+  *Claim your club*, the code we email to the club's own address (it lands in
+  the demo's own inbox), create the account, claim, then write the philosophy,
+  the pathway, the year founded, add a team and post a trial. **It is a
+  separate run** — the claimed club with its register and its teams is the
+  other one, so pick the story before you start, and see `DEMO-TD.md`.
 - **Starting clean:** every start is a fresh demo. Press **Ctrl+C** in
   Terminal to stop it, then run the command again. Running the command while
   a demo is already going replaces it — you don't have to find the old one.
@@ -44,8 +57,14 @@ the list of seats at any time.
      (honours, other football, several clips), so open one of them first.
      Shortlist someone and invite them to a trial.
    - Ask them: *where does your EOI list live now?*
+   - **Squads:** every team has players in it, keepers first, and three
+     families are waiting to be confirmed into one.
 3. **A coach.** Switch to *Sam Kaya*. They see only the two teams the TD
    gave them, never the whole club.
+3b. **A club we haven't rung yet.** Switch to *M. Harris*. Their register
+   shows a number and not one name, because nobody at Pitch has verified
+   them. It is the answer to "what stops you giving my players' details to
+   anyone", and paying does not change it.
 4. **The club administrator.** Switch to *Pat Nguyen*. They run the page,
    teams and trials, but see no child's details. A treasurer made an admin
    never reads a child's record.

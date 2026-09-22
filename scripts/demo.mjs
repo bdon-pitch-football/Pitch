@@ -1,20 +1,30 @@
-// npm run demo -- "Albion Rovers FC" --suburb Cairnlea --state VIC [--crest path/to/crest.png] [--ground "Kevin Flint Reserve"]
+// npm run demo -- "Albion Rovers FC" --suburb Cairnlea --state VIC [--crest path/to/crest.png] [--ground "Kevin Flint Reserve"] [--unclaimed]
 //
 // Starts Pitch on this laptop as the club BUZ is meeting (BUZ, 19 Sep):
 // a fresh demo database on its own port (54323), the app on port 3030 with
 // its own build folder, so a demo never touches the dev database, the dev
 // server, or anything real. Every restart is a clean demo. Ctrl+C stops both.
+//
+// --unclaimed starts the club as the compiled listing it would really be on
+// the day before it joined: their page, their trials, nothing they wrote.
+// That is the run for showing a club making its own page (BUZ, 23 Sep).
 import { execSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
+// Flags that take no value. Without this list the club name is lost whenever
+// a bare flag comes before it — "--unclaimed Balmoral FC" would read the club
+// as the flag's value and start a demo with no club at all.
+const BARE = new Set(['--unclaimed']);
 const flag = (name) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const club = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
+const has = (name) => args.includes(`--${name}`);
+const club = args.find((a, i) =>
+  !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--') && !BARE.has(args[i - 1])));
 if (!club) {
-  console.log('Usage: npm run demo -- "Club Name FC" --suburb Suburb --state VIC [--crest crest.png] [--ground "Ground name"]');
+  console.log('Usage: npm run demo -- "Club Name FC" --suburb Suburb --state VIC [--crest crest.png] [--ground "Ground name"] [--unclaimed]');
   process.exit(1);
 }
 
@@ -62,12 +72,17 @@ takeOver();
 
 const dbProc = spawn('node', ['--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--conditions=react-server', 'scripts/dev-db.mts'], {
   cwd: repo,
-  env: { ...process.env, ...quiet, DEMO_CLUB: club, DEMO_SUBURB: flag('suburb') ?? '', DEMO_STATE: flag('state') ?? '', DEMO_CREST: flag('crest') ?? '', DEMO_GROUND: flag('ground') ?? '' },
+  env: {
+    ...process.env, ...quiet, DEMO_CLUB: club,
+    DEMO_SUBURB: flag('suburb') ?? '', DEMO_STATE: flag('state') ?? '',
+    DEMO_CREST: flag('crest') ?? '', DEMO_GROUND: flag('ground') ?? '',
+    DEMO_UNCLAIMED: has('unclaimed') ? '1' : '',
+  },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 
 let app;
-console.log(`Setting up the demo for ${club}…`);
+console.log(`Setting up the demo for ${club}${has('unclaimed') ? ' — unclaimed, nobody has claimed the page yet' : ''}…`);
 dbProc.stdout.on('data', (b) => {
   const text = String(b);
   if (!app && text.includes('demo db ready')) {

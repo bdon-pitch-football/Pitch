@@ -1,0 +1,68 @@
+note 1 · the compiled listing
+go /demo
+expect Nobody at Balmoral FC has claimed the page yet
+click Balmoral FC’s page
+at /fc/balmoral-fc
+expect Compiled from public information
+absent Our philosophy
+absent Teams & age groups
+note 2 · press claim, land on sign in, create the account
+go /demo
+click Claim Balmoral FC
+at /signin
+click Create an account
+at /join
+click Club
+fill input[placeholder="Your first name"]=Chris
+fill input[type=date]=1979-04-02
+fill input[type=checkbox]=1
+click Continue
+expect Your account
+fill input[name=email]=chris@balmoralfc.example.au
+fill input[name=password]=balmoral-demo-2026
+click Create my account
+at /signin
+note 3 · prove the address from the club's inbox
+go /dev/outbox
+expect Confirm your email address
+click pitchfootball.com.au/confirm/
+at /confirm/
+click Yes, it’s me
+at /signin
+fill input[name=email]=chris@balmoralfc.example.au
+fill input[name=password]=balmoral-demo-2026
+click Sign in
+at /home
+note 4 · the claim code, to the club's own address
+go /claim/balmoral-fc
+expect Claim Balmoral FC
+expect Unclaimed
+expect football@balmoralfc.example.au
+click Send me the code
+expect Check the club’s inbox
+go /dev/outbox
+expect Your code to claim Balmoral FC on Pitch
+grab code=your code is:\s+(\d{6})
+note 5 · claim it
+go /claim/balmoral-fc?sent=1
+type code=$code
+click Claim Balmoral FC
+expect Balmoral FC is yours to run
+note 6 · write the club's own page
+go /club/page-edit
+expect Your club page
+fill textarea[name=philosophy]=We want every junior at Balmoral to be a better footballer in June than they were in March, and to still be here at eighteen.
+fill input[name=pathway]=MiniRoos to seniors, at one club
+fill input[name=founded]=1958
+click Save
+expect Saved. It’s on your page now
+note 7 · a team and a trial
+go /club/squads
+fill input[name=name]=U14 Boys
+click Add it
+expect U14 Boys
+note 8 · the page they just wrote
+go /fc/balmoral-fc
+expect Our philosophy
+expect Teams & age groups
+expect Est. 1958

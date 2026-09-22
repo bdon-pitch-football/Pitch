@@ -631,6 +631,7 @@ if (DEMO) {
     state: process.env.DEMO_STATE || undefined,
     crest: process.env.DEMO_CREST || undefined,
     ground: process.env.DEMO_GROUND || undefined,
+    unclaimed: process.env.DEMO_UNCLAIMED === '1',
   })).slug;
 }
 const PORT = DEMO ? 54323 : 54322;

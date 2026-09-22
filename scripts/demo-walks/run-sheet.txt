@@ -1,0 +1,58 @@
+note 1 · their page
+go /demo
+click Balmoral FC’s page
+at /fc/balmoral-fc
+expect Verified club
+expect Trials
+expect Teams & age groups
+expect The pathway is real
+note 2 · the register
+go /demo
+click Marina Petrovic
+at /home
+click Register
+at /club/register
+expect Interest register
+expect Every under-16 here was put on this register by a parent
+go /club/register?age=U15&pos=GK&status=shortlisted
+expect shown
+note 3 · one CV
+go /club/register?age=U13
+click Open the CV
+expect Self-reported
+expect About
+expect Parent-approved
+expect There is no way to reply to a family through Pitch
+note 4 · a team, with a family waiting on it
+go /club/squads
+click U14 Boys
+expect In this squad
+expect Goalkeepers
+expect says they play here
+note 5 · the invitation
+go /club/register?status=shortlisted
+expect Shortlisted
+note 6 · the held register
+go /demo
+click M. Harris
+at /home
+expect Awaiting verification
+click Register
+expect waiting
+expect Paying doesn’t change it and can’t
+note 7 · coach and administrator
+go /demo
+click Sam Kaya
+click Registrations
+at /coach/register
+expect For the teams your club brought you in for
+absent Invite to trial
+go /demo
+click Pat Nguyen
+at /home
+absent On your register
+note 8 · billing
+go /demo
+click Marina Petrovic
+go /club/billing
+expect The Interest Register
