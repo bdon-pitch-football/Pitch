@@ -3250,12 +3250,60 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   const tok = async (rec, days, who) => (await db.query(
     `insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1, $2, $3, now() + ($4 || ' hours')::interval) returning id`,
     [rec, sha('remind-' + crypto.randomUUID()), who, String(days * 24)])).rows[0].id;
-  const t1 = await tok(kidRec, 6.5, ID.guardian), t2 = await tok(kidRec, 6.6, ID.guardian), tFar = await tok(kidRec, 30, ID.guardian);
+  // rm5/rm6 are about GROUPING: two links that expire on the same Melbourne
+  // date arrive as one reminder. So the fixture has to guarantee "the same
+  // Melbourne date", and until 23 Sep it did not — it asked for now + 156h and
+  // now + 158.4h and assumed 2h24m could not cross a midnight. It crosses one
+  // for 2h24m out of every 24, so this suite went red between roughly 09:36 and
+  // 12:00 Melbourne, every day, and was green on either side of that. It was
+  // measured green at 01:14 and red at 09:42 on the same commit. A gate that
+  // answers differently depending on when you ask it is not a gate.
+  //
+  // fn_links_to_remind reminds on links expiring in (now + 6d, now + 7d] — a
+  // window exactly 24 hours long, so it contains exactly one Melbourne
+  // midnight, wherever the clock happens to be. Anchor to that midnight and
+  // put both links on whichever side of it has room: at least an hour of the
+  // window lies on one side or the other, always.
+  const anchored = async (offset) => (await db.query(
+    `with w as (
+       select now() + interval '7 days' as w1,
+              date_trunc('day', (now() + interval '7 days') at time zone 'Australia/Melbourne')
+                at time zone 'Australia/Melbourne' as midnight)
+     insert into share_token (record_id, token_hash, issued_by, expires_at)
+     select $1, $2, $3,
+            case when w1 - midnight >= interval '1 hour'
+                 then midnight + ($4 || ' minutes')::interval
+                 else midnight - ($4 || ' minutes')::interval end
+     from w returning id`,
+    [kidRec, sha('remind-' + crypto.randomUUID()), ID.guardian, String(offset)],
+  )).rows[0].id;
+  const t1 = await anchored(10), t2 = await anchored(20), tFar = await tok(kidRec, 30, ID.guardian);
   await tok(adultRec, 6.5, adult);
   await db.query(`insert into consent_event (event, actor_id, subject_id, detail)
     values ('share_dispatched', $1, $2, jsonb_build_object('token_id', $3::uuid, 'club_name', 'Reminder FC'))`, [ID.guardian, kid, t1]);
   const rows = (await db.query('select * from fn_links_to_remind()')).rows;
   const remy = rows.filter((r) => r.child_id === kid);
+  // And the anchor itself is checked, at every minute of the day, because the
+  // bug it replaces was invisible for twenty-one hours out of twenty-four and
+  // the fix would be too (L19: a check that cannot fail is a hope). 1440
+  // synthetic clocks: both links inside the window, both on one Melbourne date.
+  const anchor = (await db.query(
+    `with nows as (select generate_series(now(), now() + interval '23 hours 59 minutes', interval '1 minute') as n),
+     w as (select n, n + interval '6 days' as w0, n + interval '7 days' as w1,
+             date_trunc('day', (n + interval '7 days') at time zone 'Australia/Melbourne')
+               at time zone 'Australia/Melbourne' as midnight from nows),
+     t as (select w0, w1,
+            case when w1 - midnight >= interval '1 hour' then midnight + interval '10 minutes'
+                 else midnight - interval '10 minutes' end as t1,
+            case when w1 - midnight >= interval '1 hour' then midnight + interval '20 minutes'
+                 else midnight - interval '20 minutes' end as t2
+           from w)
+     select count(*) filter (where not (t1 > w0 and t1 <= w1 and t2 > w0 and t2 <= w1))::int as outside,
+            count(*) filter (where (t1 at time zone 'Australia/Melbourne')::date
+                                <> (t2 at time zone 'Australia/Melbourne')::date)::int as split,
+            count(*)::int as minutes from t`)).rows[0];
+  check('rm4b: the reminder fixture holds at every minute of the day, not just this one',
+    [anchor.outside, anchor.split, anchor.minutes >= 1440], [0, 0, true]);
   check('rm5: a child\'s links expiring in a week come as ONE reminder', remy.length, 1);
   check('rm6: covering both links, not the one a month out', remy[0] && [remy[0].token_ids.includes(t1), remy[0].token_ids.includes(t2), remy[0].token_ids.includes(tFar)], [true, true, false]);
   check('rm7: naming the club that holds one (§23)', remy[0]?.clubs, ['Reminder FC']);

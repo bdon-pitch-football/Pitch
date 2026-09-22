@@ -231,3 +231,19 @@ broken code.
 *Rule:* when a check fails because the product legitimately changed, ask what
 the check was standing in for. Delete a proxy only by replacing it with
 something closer to the thing you actually care about, and say so out loud.
+
+**L34 · A gate that answers differently depending on when you ask it is not a gate (23 Sep, Leo's fixture).**
+The permission suite was green at 01:14 and red at 09:42 on the same commit.
+`fn_links_to_remind` groups links by Melbourne *date*; the fixture asked for
+two links 2h24m apart and assumed that could not cross a midnight. It crosses
+one for 2h24m out of every 24 — exactly 144 minutes in 1440, which is what the
+proof measured — so doc 14's gate had a red window every morning and nobody
+had run it in that window before. The function was right; the test was wrong,
+which is the more dangerous way round, because the answer was "the product is
+broken".
+*Rule:* a fixture built on `now() + interval` inherits the clock. Anchor to the
+boundary the code under test actually groups by, and then **check the fixture
+itself across the whole cycle** — the check that proves this one runs 1,440
+synthetic clocks and reports 144 failures against the old spacing. Same for
+month ends, daylight saving and financial years. If a suite can only be
+believed at the hour you happen to run it, believe nothing it says.
