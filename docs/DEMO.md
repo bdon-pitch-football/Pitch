@@ -77,5 +77,8 @@ the list of seats at any time.
   `npm run demo`. A live build refuses to start in demo mode.
 - It uses its own throwaway database on its own port, whatever else is set
   up on the laptop, including real keys.
-- It can't send email or texts, can't reach Stripe, and can't write to the
-  waitlist. Messages wait in *What families receive* instead.
+- It can't send email or texts, can't reach Stripe, can't write to the
+  waitlist, and can't put an uploaded crest anywhere but this laptop.
+  Messages wait in *What families receive* instead.
+- It is served to this laptop only. Nobody else on the meeting's Wi-Fi can
+  open it, even if they know the address.

@@ -67,8 +67,16 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
               <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>
                 {mine
                   ? 'Your latest changes are waiting for your parent. Clubs see this version until they approve them.'
-                  : <>{r.first_name}&rsquo;s latest changes are waiting for you. Clubs see this version until you approve them. <Link href={`/g/pending/${recordId}`} style={{ color: T.accent, fontWeight: 800 }}>Review the changes</Link></>}
+                  : `${r.first_name}’s latest changes are waiting for you. Clubs see this version until you approve them.`}
               </div>
+            )}
+            {/* QA F4: this was a 14px link inside the sentence above, and on a
+                phone it wrapped over two lines — a tap between them hit
+                nothing. Its own row, 44px tall, as every other tappable thing
+                on this page is (CLAUDE.md: ≥44px at every width). Same words,
+                same destination. */}
+            {waiting && !mine && (
+              <Link href={`/g/pending/${recordId}`} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, alignSelf: 'flex-start', color: T.accent, fontSize: 13, fontWeight: 800, textDecoration: 'none' }}>Review the changes</Link>
             )}
           </div>
         </div>

@@ -9,6 +9,7 @@
 // id, without an account. The send layer's caps limited the blast radius;
 // they were never the authorisation.
 import { redirect } from 'next/navigation';
+import { ageOn } from '@/lib/age';
 import { db } from '@/lib/db';
 import { requireOperator } from '@/lib/ops-guard';
 import { guardianApprovalEmail, guardianApprovalSms, guardianConfirmEmail16, guardianConfirmSms16 } from '@/lib/messages';
@@ -30,7 +31,7 @@ export async function resendApproval(formData: FormData) {
   );
   const inv = rows[0];
   if (inv) {
-    const age = Math.floor((Date.now() - new Date(inv.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
+    const age = ageOn(inv.dob) ?? 0;
     // Each channel gets a fresh link (D-156): tokens are stored hashed, so
     // the old one cannot be re-sent, and it stops working. A channel the
     // parent already confirmed stays confirmed.

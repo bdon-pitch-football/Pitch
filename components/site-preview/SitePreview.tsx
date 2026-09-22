@@ -139,7 +139,13 @@ const VISION: { zone: string; chip: string; color: string; items: [string, strin
   {
     zone: 'Next', chip: 'Coming soon', color: C.amber, items: [
       ['Coach-verified development', 'Coaches record what they see in plain language, and it’s marked as verified.'],
-      ['Clubs find players', 'Verified clubs and coaches can search for players 16 and over. Under 18 only with a parent’s okay, and never under 16.'],
+      // "Clubs find players — Verified clubs and coaches can search for
+      // players 16 and over…" was here. HELD 23 Sep 2026 with doc 15 §13
+      // (BUZ decision 3): while the parent's switch at sixteen does not
+      // exist, the message that offers it is held, discovery stays off, and
+      // nothing anywhere may describe a search for sixteen- and
+      // seventeen-year-olds — there is no such search, and the sentence also
+      // stated the opposite default to D-22. It comes back with §13.
       ['Match Day', 'Track minutes, subs and goals from the sideline.'],
     ],
   },

@@ -114,9 +114,21 @@ export async function inviteCoach(formData: FormData) {
     redirect('/club/squads?coachError=1');
   }
 
+  // B1, the second half (LESSONS L21, migration 0056): an email address is
+  // not a person until they have opened a link we sent to it. Matching on the
+  // address alone let anyone who knew a real coach's address take that
+  // coach's place — sign up with it, be invited here, and read a squad's
+  // children. `fn_email_proved` is the database's own answer to "is this
+  // address proved"; the column is never read directly.
+  //
+  // N24 still holds, and it is why this is the only change: an unproved
+  // address, an address with no account and an address that is somebody's
+  // coach account all end at the same redirect, so a club typing a real
+  // coach's address learns nothing either way.
   const coach = await db.query(
     `select p.id from person p join coach_profile cp on cp.person_id = p.id
-     where lower(p.email) = $1 and fn_age_band(p.dob) = '18plus' and p.id <> $2`,
+     where lower(p.email) = $1 and fn_email_proved(p.id)
+       and fn_age_band(p.dob) = '18plus' and p.id <> $2`,
     [email, me],
   );
   if (coach.rows.length > 0) {

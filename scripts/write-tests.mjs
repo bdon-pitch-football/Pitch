@@ -592,6 +592,14 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const real = await postForm('/club/squads', td, bringForm, { email: 'coach@example.com', squadIds: [u13g.id], wwcc: 'on' });
   check('c1: an email with no account and a real coach get the identical answer (N24)', [ghost.status, ghost.location], [real.status, real.location]);
   check('c1b: and it is the "if that is a coach" answer', /coachAsked=1/.test(real.location), true);
+  // B1's second half (0056, L21): an account carrying a coach's address that
+  // nobody has proved is not that coach. The club is told the same thing it
+  // is told for an address with no account, so a real coach's address cannot
+  // be used to find out whether they are on Pitch. That no row is written is
+  // asserted against the action's own SQL in the permission suite (coach2).
+  const parked = await postForm('/club/squads', td, bringForm, { email: 'unproved.coach@example.com', squadIds: [u13g.id], wwcc: 'on' });
+  check('c1c (B1): an address with a coach account nobody has proved gets that identical answer too',
+    [parked.status, parked.location], [ghost.status, ghost.location]);
   const noCheck = await postForm('/club/squads', td, bringForm, { email: 'coach@example.com', squadIds: [u13g.id] });
   check('c2: without the WWCC confirmation nothing is asked', /coachError=1/.test(noCheck.location), true);
   const tooMany = await postForm('/club/squads', td, bringForm, { email: 'coach@example.com', squadIds: teamIds.slice(0, 4).map((t) => t.id), wwcc: 'on' });

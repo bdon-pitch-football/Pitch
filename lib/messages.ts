@@ -573,6 +573,19 @@ ${SITE} · ${HELP}`,
 // §13 · Thirty days before a sixteenth birthday. Doc 14 §B11 gates the
 // discoverability transition on this having DELIVERED: no receipt, no
 // discovery. Without this message D-22 is unbuildable.
+//
+// HELD 23 Sep 2026 (BUZ decision 3) — THIS MESSAGE DOES NOT SEND. The switch
+// it offers does not exist: no screen in the product reads or writes
+// `guardian_setting.discovery_disabled`. The words stay here, unedited,
+// because doc 14 §B11 defines the sixteen-year-old transition by this message
+// having been delivered — deleting them deletes the gate. They are the
+// approved copy for the day the switch is built, and they are not to be
+// edited to fit its absence. The key is in HELD_KEYS at the foot of this
+// file; lib/messaging refuses it, and the daily job does not even look for
+// children to send it to (app/api/jobs/daily). While it is held nobody is
+// told about the change at sixteen, so discovery stays OFF at sixteen — the
+// more restrictive answer — and no screen anywhere may say clubs can search
+// for players who are sixteen or seventeen.
 export const sixteenthBirthdayEmail = (childFirstName: string): Composed => ({
   key: 'doc15.§13',
   channel: 'email',
@@ -788,3 +801,29 @@ export const CATALOGUE_KEYS = [
 export const DRAFT_KEYS = [
   'doc15.§10b.draft',   // confirm your address, for the three sign-up doors
 ] as const;
+
+// Approved words BUZ has STOPPED sending. A held message keeps its text, its
+// section number and its place in the catalogue — doc 14 can define a gate by
+// one of these having delivered, and deleting the words would delete the gate
+// — and lib/messaging refuses it everywhere, development included, so no new
+// caller can start it again by accident.
+//
+// Before a key comes off this list, ALL of the following have to be true and
+// the report has to say so:
+//
+//   doc15.§13 (held 23 Sep 2026, BUZ decision 3 — the sixteenth birthday):
+//     · the switch it hands the parent EXISTS — a screen that reads and
+//       writes guardian_setting.discovery_disabled (nothing does today);
+//     · the search it describes exists (D-53: there is no club search yet),
+//       and the sentence about it has been re-read against whatever that
+//       search actually is;
+//     · "Leave it on, or turn it off: pitchfootball.com.au" names the real
+//       page that switch lives on;
+//     · BUZ has ruled on the default at sixteen and re-approved these words,
+//       and doc 15 §13 carries them with the hold note removed.
+export const HELD_KEYS = [
+  'doc15.§13',
+] as const;
+
+/** Is this message held? (lib/messaging asks; so does the daily job.) */
+export const isHeld = (key: string): boolean => (HELD_KEYS as readonly string[]).includes(key);

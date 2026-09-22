@@ -633,7 +633,19 @@ if (DEMO) {
     ground: process.env.DEMO_GROUND || undefined,
   })).slug;
 }
-const PORT = DEMO ? 54323 : 54322;
+// 54322 is the shared dev database. DEV_DB_PORT gives a seat its own, so two
+// builders in two worktrees stop reseeding each other's runs and stop fighting
+// over the one connection PGlite serves (LESSONS L30). Set it on the app too:
+//   DEV_DB_PORT=54332 node scripts/dev-db.mts
+//   DEV_DB_PORT=54332 npx next dev -p 3010
+// The demo keeps its own port and ignores it — a demo must never land on the
+// port a seat is running suites against (L8).
+const DEV_PORT = Number(process.env.DEV_DB_PORT || 54322);
+if (!Number.isInteger(DEV_PORT) || DEV_PORT < 1024 || DEV_PORT > 65535 || DEV_PORT === 54323) {
+  console.error(`DEV_DB_PORT=${process.env.DEV_DB_PORT} is not a port a dev database may use (54323 is the demo's).`);
+  process.exit(1);
+}
+const PORT = DEMO ? 54323 : DEV_PORT;
 const server = new PGLiteSocketServer({ db, port: PORT, host: '127.0.0.1', inspect: false });
 await server.start();
 console.log(`${DEMO ? 'demo' : 'dev'} db ready on 127.0.0.1:${PORT}${DEMO ? ` · club page /fc/${demoSlug}` : ''}`);
@@ -687,6 +699,23 @@ for (const r of (await db.query(`select id from person where email is not null a
     [unproved, sha('dev-unproved')],
   );
   console.log('  confirm: /confirm/dev-unproved (unproved@example.com signs in nowhere until it is pressed)');
+}
+
+// AND THE COACH-INVITE SHAPE OF THE SAME THING (B1): an account that carries
+// a coach's address and a coach page, with nobody having opened the link we
+// sent to it. A club typing that address must get exactly the answer it gets
+// for an address with no account at all — proved in the write suite (c1c).
+{
+  const parkedCoach = randomUUID();
+  await db.query(
+    `insert into person (id, first_name, last_name, dob, email) values ($1,'Marnie','Ashworth','1988-02-09','unproved.coach@example.com')`,
+    [parkedCoach],
+  );
+  await db.query(`insert into coach_profile (person_id) values ($1)`, [parkedCoach]);
+  await db.query(
+    `insert into email_proof (person_id, token_hash, expires_at) values ($1,$2, now() + interval '7 days')`,
+    [parkedCoach, sha('dev-unproved-coach')],
+  );
 }
 
 // AND THE B2 SHAPE ITSELF: somebody else has typed Mila's parent's address

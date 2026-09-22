@@ -9,16 +9,19 @@
 // sends (D-81), because SMS pumping against an unrated endpoint is one of the
 // most common ways a small launch loses real money in week one:
 //   · max 3 messages per number per 24 hours
-//   · a global monthly spend cap
+//   · a global monthly spend cap, and it is MANDATORY: no cap configured
+//     refuses every SMS, exactly as the kill switch does (BUZ decision 5,
+//     23 Sep; release seat R4). An empty variable is not "no limit".
 //   · a kill switch a tired founder can hit at 11pm
 // Credit is prepaid, never a card on file — that is an account setting, not
 // code, and it is on the launch checklist.
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { db } from './db';
-import { CATALOGUE_KEYS, DRAFT_KEYS, type Composed } from './messages';
+import { CATALOGUE_KEYS, DRAFT_KEYS, HELD_KEYS, type Composed } from './messages';
 import { sendEmail, sendSms } from './providers';
 import { replyToFor } from './reply-policy';
+import { smsCapCents } from './sms-policy';
 
 const KEYS = new Set<string>(CATALOGUE_KEYS);
 // Drafts (lib/messages DRAFT_KEYS): written and wired, not yet approved. They
@@ -26,12 +29,18 @@ const KEYS = new Set<string>(CATALOGUE_KEYS);
 // machine, and they are refused in production — so a flow that depends on one
 // cannot ship until BUZ has approved the words and doc 15 carries them.
 const DRAFTS = new Set<string>(DRAFT_KEYS);
+// Held (lib/messages HELD_KEYS): approved words that BUZ has stopped sending.
+// The text stays where it is — doc 14 §B11 defines a transition by one of
+// these having delivered, so deleting the words deletes the gate — and the
+// send is refused everywhere, in development too, so nothing can quietly
+// re-wire it.
+const HELD = new Set<string>(HELD_KEYS);
 const SMS_PER_NUMBER_24H = 3;
 const DEFAULT_SMS_COST_CENTS = 8;
 
 export type SendResult =
   | { queued: true; id: string }
-  | { queued: false; reason: 'not_in_catalogue' | 'not_approved' | 'sms_killed' | 'sms_rate_limited' | 'sms_cap_reached' | 'no_address' | 'sms_opted_out' };
+  | { queued: false; reason: 'not_in_catalogue' | 'not_approved' | 'held' | 'sms_killed' | 'sms_no_cap' | 'sms_rate_limited' | 'sms_cap_reached' | 'no_address' | 'sms_opted_out' };
 
 /**
  * How a phone number is recognised without being stored.
@@ -51,10 +60,24 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
   if (DRAFTS.has(msg.key) && process.env.NODE_ENV === 'production') {
     return { queued: false, reason: 'not_approved' };
   }
+  // A held message does not send anywhere, and its words stay in the
+  // catalogue (lib/messages HELD_KEYS says which and why).
+  if (HELD.has(msg.key)) return { queued: false, reason: 'held' };
   if (!to.address) return { queued: false, reason: 'no_address' };
 
   if (msg.channel === 'sms') {
     if (process.env.SMS_KILL_SWITCH === 'true') return { queued: false, reason: 'sms_killed' };
+    // The spend cap is mandatory (D-81, BUZ decision 5). No cap configured
+    // refuses every SMS the same way the kill switch does — the refusal is
+    // the recorded reason, so the outbox stays empty and the caller can say
+    // what happened. Checked where money is actually spent: in development
+    // the outbox IS the inbox and dispatch() is never called, so there is no
+    // spend to cap; a message that CAN reach a provider cannot get past here
+    // without one.
+    const cap = smsCapCents(process.env.SMS_MONTHLY_CAP_CENTS);
+    if (cap === null && process.env.NODE_ENV === 'production') {
+      return { queued: false, reason: 'sms_no_cap' };
+    }
 
     const h = numberHash(to.address);
     // STOP means stop. Doc 15 §15 promises "we won't text this number again"
@@ -70,8 +93,7 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
     const { rows: cnt } = await db.query('select fn_sms_count_24h($1) as n', [h]);
     if (cnt[0].n >= SMS_PER_NUMBER_24H) return { queued: false, reason: 'sms_rate_limited' };
 
-    const cap = Number(process.env.SMS_MONTHLY_CAP_CENTS ?? 0);
-    if (cap > 0) {
+    if (cap !== null) {
       const { rows: spend } = await db.query('select fn_sms_spend_month() as c');
       if (spend[0].c + DEFAULT_SMS_COST_CENTS > cap) return { queued: false, reason: 'sms_cap_reached' };
     }
