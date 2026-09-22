@@ -33,6 +33,20 @@ const SEATS = {
   coach: ids.people.sam, 'club TD': ids.people.marina, 'club admin': ids.people.pat, 'brand new': ids.people.robin,
 };
 const START = { 'signed out': ['/signin', '/join', '/trials', '/p/dev-deniz', '/fc/riverside-fc', '/c/sam-kaya', '/report'] };
+// Pages more than one step from home, where the walk above never lands. QA
+// found (22 Sep) that the squad flows — the family's club picker, one squad's
+// page, a parent's preview of an under-16 — were measured by nothing. Each is
+// checked to have actually RENDERED for that seat: a redirect home or a 404 is
+// a failure here, because a page that was never shown was never measured.
+// '@squad' is replaced by the first squad the TD's squads list links to.
+const g = ids.children.georgia, riverside = ids.clubs['riverside-fc'];
+const DEEP = {
+  parent: [`/squad/${g.child_id}?back=controls`, `/squad/${g.child_id}?club=${riverside}&back=controls`,
+    `/build/${ids.children.deniz.record_id}/preview`, `/g/pending/${ids.children.deniz.record_id}`],
+  player: [`/squad/${ids.people.jordan}`, `/squad/${ids.people.jordan}?club=${riverside}`],
+  'club TD': ['@squad', '@squad?pos=GK'],
+  'club admin': ['@squad'],
+};
 
 // ---- a minimal DevTools client ---------------------------------------------
 const chrome = spawn(CHROME, [
@@ -131,6 +145,18 @@ for (const width of widths) {
       checked++;
       if (m.doc > m.vw + 1) failures.push({ width, seat, path, ...m });
     }
+    if (DEEP[seat]) {
+      if (seat.startsWith('club')) await visit('/club/squads');
+      const squad = seat.startsWith('club') ? await eval_(`JSON.stringify(document.querySelector('a[href^="/club/squads/"]')?.getAttribute('href') ?? '')`) : '';
+      for (const path of DEEP[seat].map((p) => p.replace('@squad', squad))) {
+        await visit(path);
+        const where = await eval_(`JSON.stringify({ at: location.pathname + location.search, missing: document.body.innerText.includes('This page could not be found') })`);
+        checked++;
+        if (where.at !== path || where.missing) { failures.push({ width, seat, path, unrendered: where.missing ? '404' : `landed on ${where.at}` }); continue; }
+        const m = await eval_(MEASURE(width));
+        if (m.doc > m.vw + 1) failures.push({ width, seat, path, ...m });
+      }
+    }
   }
 }
 
@@ -141,7 +167,8 @@ if (failures.length === 0) {
   process.exit(0);
 }
 for (const f of failures) {
+  if (f.unrendered) { console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — never rendered for this seat (${f.unrendered}), so never measured`); continue; }
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
-console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} overflow`);
+console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`);
 process.exit(1);

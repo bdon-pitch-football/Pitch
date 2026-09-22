@@ -1082,6 +1082,99 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// 0d · AN UNDER-16'S SQUAD, BOTH DOORS, ANSWERED BY HER PARENT (QA, 22 Sep).
+//
+// sq13 and sq14 in the squad block at the end only run if one of Alex's
+// children is still his by then, and in a full sweep none is — so the
+// parent's answer from a child's controls had never run, and sq12b passed on
+// nothing. This walks the same doors here, on Georgia (15), while she is
+// still her parent's: the club asks from its register, her parent answers
+// from her controls, the club takes her out, and her parent puts her back
+// where she started through the family's own door, confirmed by that club.
+//
+// sqf6/sqf8 are D-158 on an under-16: a CV shows a club only where a club has
+// confirmed the player. Her page is the approved snapshot (D-119), and the
+// snapshot froze the club she was at when it was approved — so a club she has
+// left stayed on the page every club holds (QA, 22 Sep; open with Leo). The
+// preview is what a club sees, by its own definition, so it is the surface.
+// ---------------------------------------------------------------------------
+{
+  const td = ids.people.marina, kingsTd = ids.people.dana, alex = ids.people.alex, robin = ids.people.robin;
+  const g = ids.children.georgia;
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/&mdash;|&#8212;/g, '—').replace(/\s+/g, ' ');
+  const postTo = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '' };
+  };
+  const section = (text, from, ...untils) => {
+    const a = text.indexOf(from); if (a < 0) return '';
+    const ends = untils.map((u) => text.indexOf(u, a + from.length)).filter((i) => i > 0);
+    return text.slice(a, ends.length ? Math.min(...ends) : undefined);
+  };
+  const inSquad = (html) => section(words(html), 'In this squad', 'Asked, waiting on them', 'Ask someone from your register');
+  const controls = async () => (await get(`/g/controls/${g.child_id}`, alex)).html;
+  const card = async () => words(await controls()).split(`Where ${g.first_name} plays`)[1]?.slice(0, 400) ?? '';
+  // The club line on the CV reads "<club> — <squad>". Other mentions of a club
+  // (history, previous clubs) are not the line D-158 is about.
+  const clubLine = async (club) => new RegExp(`${club}\\s*—`).test(words((await get(`/build/${g.record_id}/preview`, alex)).html));
+  const squadLinks = async (who) => [...new Set([...(await get('/club/squads', who)).html
+    .matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)].map((m) => m[1]))];
+
+  check('sqf0: Georgia is her parent\'s here, and her page shows the club she plays for',
+    [words((await get('/home', alex)).html).includes(g.first_name), await clubLine('Kingsway Rovers FC')], [true, true]);
+
+  // The club door.
+  let squadId = null, askForm = null;
+  for (const id of await squadLinks(td)) {
+    const f = forms((await get(`/club/squads/${id}`, td)).html).find((x) => x.fields.squadId === id && x.fields.personId === g.child_id);
+    if (f) { squadId = id; askForm = f; break; }
+  }
+  check('sqf1: the club is offered Georgia from its own register', Boolean(askForm), true);
+  check('sqf2: the club asks her', /done=asked/.test((await postTo(`/club/squads/${squadId}`, td, askForm.fields)).location), true);
+  check('sqf3: her parent is told which club and which squad, on his home',
+    new RegExp(`Riverside FC would like ${g.first_name} in `).test(words((await get('/home', alex)).html)), true);
+  const inviteForm = forms(await controls()).find((f) => 'invitationId' in f.fields && f.fields.answer === 'yes');
+  await postTo(`/g/controls/${g.child_id}`, robin, { ...inviteForm.fields });
+  check('sqf4: a stranger answering changes nothing (the invitation is still open)',
+    forms(await controls()).some((f) => f.fields.invitationId === inviteForm.fields.invitationId), true);
+  const yes = await postTo(`/g/controls/${g.child_id}`, alex, { ...inviteForm.fields });
+  check('sqf5: her parent says yes from her controls, and she is in the squad',
+    [/squad=joined/.test(yes.location), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Riverside FC/.test(await card())],
+    [true, true, true]);
+  check('sqf6: D-158 — her page no longer shows the club she has left', await clubLine('Kingsway Rovers FC'), false);
+
+  // The club takes her out.
+  const out = forms((await get(`/club/squads/${squadId}`, td)).html).find((f) => f.fields.personId === g.child_id && f.fields.squadId === squadId && !('invitationId' in f.fields));
+  await postTo(`/club/squads/${squadId}`, td, out.fields);
+  check('sqf7: the club takes her out, and her parent is offered "Add their club" again',
+    [inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Add their club/.test(await card())], [false, true]);
+  check('sqf8: D-158 — and her page shows no club that took her out', await clubLine('Riverside FC'), false);
+
+  // The family door. Her own club in the seed has nobody who can confirm a
+  // claim, so the parent asks the club that has — and then she leaves, which
+  // needs nobody's permission (D-10).
+  const riverside = ids.clubs['riverside-fc'];
+  const pick = forms((await get(`/squad/${g.child_id}?club=${riverside}&back=controls`, alex)).html)
+    .find((f) => f.fields.personId === g.child_id && f.fields.squadId === squadId);
+  const asked = await postTo(`/squad/${g.child_id}`, alex, { ...pick.fields });
+  check('sqf9: her parent asks a club to confirm where she plays, from her controls',
+    [/squad=asked/.test(asked.location), /Waiting on Riverside FC/.test(await card())], [true, true]);
+  const claim = forms((await get(`/club/squads/${squadId}`, td)).html).find((x) => 'claimId' in x.fields && x.fields.answer === 'yes');
+  if (claim) await postTo(`/club/squads/${squadId}`, td, claim.fields);
+  check('sqf10: the club confirms it, and her parent sees the club on her card',
+    [Boolean(claim), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Riverside FC/.test(await card())], [true, true, true]);
+  const leave = forms(await controls()).find((f) => f.fields.personId === g.child_id && !('claimId' in f.fields) && !('squadId' in f.fields) && f.submit === 'Leave');
+  const left = await postTo(`/g/controls/${g.child_id}`, alex, { ...leave.fields });
+  check('sqf11: her parent takes her out with one tap, and the club no longer has her',
+    [/squad=left/.test(left.location), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Add their club/.test(await card())],
+    [true, false, true]);
+}
+
+// ---------------------------------------------------------------------------
 // 1 · EVERY FORM SUBMITS WITHOUT JAVASCRIPT.
 // ---------------------------------------------------------------------------
 const broke = []; const skipped = [];
@@ -1398,6 +1491,10 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     const after = (await get(`/club/squads/${other}`, td)).html;
     check('sq14: the person who may answer says yes, and they are in the squad',
       section(after, 'In this squad', 'Asked, waiting on them', 'Ask someone from your register').includes('Open the CV'), true);
+  } else {
+    // Say so rather than pass in silence (QA, 22 Sep): in a full sweep no
+    // child of Alex's is left by here. sqf3-sqf5 walk the same doors earlier.
+    console.log('SKIP sq12b/sq13/sq14: the club asked someone who is not Alex\'s child — covered by sqf3, sqf4, sqf5');
   }
 
   const inSquad = (html) => section(html, 'In this squad', 'Asked, waiting on them', 'Ask someone from your register');

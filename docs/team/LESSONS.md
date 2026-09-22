@@ -120,3 +120,55 @@ too wide. It reported all green. Its own self-test caught it.
 **L20 · Prove a regression check on the old code (standing).**
 *Rule:* put the bug back, watch the check fail, restore. The layout check was
 proven this way on 22 Sep against the 21 Sep overflow.
+
+**L21 · An email address is not a person until they click a link sent to it (22 Sep, safety seat).**
+Three sign-up doors created password accounts for any address, and two lookups
+matched people by email alone — a coach invite and a guardian approval. Anyone
+who knew an address could become that coach or that child's guardian.
+*Rule:* nothing that grants access to a child is ever matched on an email that
+has not been proved.
+
+**L22 · A test can assert the bug (22 Sep, safety seat).**
+SQ3 asserted "a 16–17 acts alone" and SQ8 asserted "joining ends every other
+club" — both were the defects, written down as intent and kept green.
+*Rule:* before you write a test, check the behaviour against doc 14 and the
+register, not against what the code does.
+
+**L23 · A new list is built from the database's existing answer (22 Sep, safety seat).**
+The squad page's "ask someone from your register" list wrote its own query and
+skipped verification, subscription and guardian checks that `fn_register_rows`
+already applies; the squad CV route computed its own read level instead of
+`fn_read_level`.
+*Rule:* if the product already answers "who may see this child", call that
+answer. A second answer is a second place to be wrong.
+
+**L24 · The banned-word rule was never checked where the words appear (22 Sep, copy seat).**
+The corpus check scans the design screens and doc 15; the permission suite
+checks one word in one file. "Apply", "applied" and "Applying" sat on the jobs
+board untouched.
+*Rule:* a rule is only as good as the place it is checked. Becoming a suite
+check over `app/` and `components/` visible text.
+
+**L25 · When behaviour changes, re-read every sentence that describes it (22 Sep, copy seat).**
+The squad work changed where a CV's club comes from, and "Build your CV → More"
+still explained the old way; "we told them nothing by email" went live on a
+screen whose action sends an email. Copy that describes behaviour goes stale
+silently.
+*Rule:* for any behaviour change, grep the product for every sentence about
+that behaviour and re-read it against the new code.
+
+**L26 · A table is exposed until you say otherwise (22 Sep, release seat).**
+Four tables were created without row-level security. Locally nothing reads them
+from outside; on Supabase the automatic API serves every public table to anyone
+with the project's anon key. We had written that "the anon role gets nothing"
+and it was false for these four for weeks.
+*Rule:* every `create table` in a migration is followed by `enable row level
+security` in the same file. Becoming a suite check that fails on any public
+table without it.
+
+**L27 · The head of the team runs the definition of done too (22 Sep, QA seat).**
+Leo committed the lessons file without running the corpus check, and it failed
+at HEAD; three of Leo's squad checks never ran in a full sweep, one passing on
+nothing. The rules in TRAINING §5 are for everyone who commits, starting with
+whoever wrote them.
+*Rule:* no exceptions for the reviewer. Leo's commits go through the same run.
