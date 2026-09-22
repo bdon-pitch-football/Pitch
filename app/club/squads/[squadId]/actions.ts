@@ -14,7 +14,13 @@ import { send } from '@/lib/messaging';
 
 const field = (f: FormData, k: string) => String(f.get(k) ?? '');
 
-/** The squad, if this session may work it. Anything else: /home. */
+/**
+ * The squad, if this session may work it. Anything else: /home. Every action
+ * in this file goes through here, so this one answer is what says no — and
+ * since 0057 it says no at a club that is not verified, which is what stops a
+ * suspended club answering a claim, taking an ask back, or putting a child out
+ * of a squad (doc 14 M10, D-126).
+ */
 async function mySquad(squadId: string): Promise<{ me: string; clubId: string }> {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');

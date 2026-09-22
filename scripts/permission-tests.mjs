@@ -3708,6 +3708,171 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   await db.query(`update club set subscription_status = null where id = $1`, [CLUB.riverside]);
 }
 
+// ---- M10 on the squad page: suspension ends the squad surface too (0057) ---
+// X1, safety round 2. fn_can_work_squads asked only whether somebody held a
+// technical_director or club_admin membership that had not ended, and never
+// looked at club_state — so a SUSPENDED club still read children's names off
+// its own squad page and could still act on them. Everything else on that page
+// asked about club_state; this one function did not, and that asymmetry was
+// the whole defect.
+//
+// Every check below was proved on the broken code first: 0057 reverted to
+// 0052's body, watched fail, restored, watched pass (L20).
+//
+// The club here is verified while the family claims and the club asks, and is
+// suspended afterwards — which is M10 as doc 14 words it, `verified` moving to
+// `suspended`, not a club that was never verified. SQ23 is the other case.
+{
+  const club = crypto.randomUUID(), call = crypto.randomUUID(), sq = crypto.randomUUID();
+  const susTd = crypto.randomUUID(), susAdmin = crypto.randomUUID(), susGuardian = crypto.randomUUID();
+  const claimer = crypto.randomUUID(), askedKid = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Westgate Rangers','claimed')`, [club]);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [call, club]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1, subscription_status='active' where id=$2`, [call, club]);
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season)
+    values ($1,$2,'U14 Boys','U14','boys','2026')`, [sq, club]);
+  await db.query(`insert into person (id, first_name, last_name, dob) values
+    ($1,'Tessa','Okonkwo',$4), ($2,'Alby','Fenwick',$4), ($3,'Gina','Prosser',$4)`,
+    [susTd, susAdmin, susGuardian, yearsAgo(41)]);
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Wren','Kavanagh',$3), ($2,'Kit','Marlowe',$3)`,
+    [claimer, askedKid, yearsAgo(13)]);
+  await mem(susTd, club, null, 'technical_director');
+  await mem(susAdmin, club, null, 'club_admin');
+  await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$1)`, [susTd, club]);
+  for (const ch of [claimer, askedKid]) {
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [susGuardian, ch]);
+    await db.query(`insert into development_record (person_id, positions) values ($1, array['ST'])`, [ch]);
+    await db.query(`insert into registration (player_id, club_id, positions, policy_version) values ($1,$2,array['ST'],'20@v2.4')`, [ch, club]);
+  }
+  // While the club is still verified: a family claims a squad, the club asks
+  // somebody else, and a third child is in the squad already.
+  const openClaim = (await db.query(
+    `insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4) returning id`,
+    [claimer, club, sq, susGuardian])).rows[0].id;
+  const openInvite = (await db.query(
+    `insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4) returning id`,
+    [askedKid, club, sq, susTd])).rows[0].id;
+  await db.query(`select fn_join_squad($1,$2,$3,'test')`, [claimer, sq, susGuardian]);
+
+  // The page's own "Waiting on you" query (app/club/squads/[squadId]/page.tsx),
+  // behind the page's own gate — which is where the leak was. It selects first
+  // AND last name; the register itself gives a club a first name only.
+  const waitingOnYou = async (who) => (await db.query(
+    `select p.first_name, p.last_name from squad_claim sc join person p on p.id = sc.person_id
+     where sc.squad_id = $1 and sc.answered_at is null and not fn_person_hidden(p.id)
+       and fn_can_work_squads($2, (select club_id from squad where id = $1))`, [sq, who])).rows;
+  const asked = async (who) => (await db.query(`select first_name from fn_squad_asked($1,$2)`, [who, sq])).rows;
+  const works = async (who) => (await db.query(`select fn_can_work_squads($1,$2) as ok`, [who, club])).rows[0].ok;
+
+  check('M10d: while the club is verified it does see the family waiting on it, and who it asked',
+    [(await waitingOnYou(susTd)).length, (await asked(susTd)).length, await works(susAdmin)], [1, 1, true]);
+
+  // M10 asks for the same transaction. Suspend and read inside one, so a
+  // passing answer cannot be a later re-read that happened to be refreshed.
+  await db.exec(`begin; update club set club_state = 'suspended' where id = '${club}';`);
+  check('M10e: suspension ends the squad gate in the same transaction, for the TD and for the administrator',
+    [await works(susTd), await works(susAdmin)], [false, false]);
+  check('M10f: and no child\'s name is waiting on a suspended club — not a first name, not a surname (D-126)',
+    [(await waitingOnYou(susTd)).length, (await waitingOnYou(susAdmin)).length], [0, 0]);
+  check('M10g: nor the first names of the children it had asked (fn_squad_asked)',
+    [(await asked(susTd)).length, (await asked(susAdmin)).length], [0, 0]);
+  await db.exec('commit;');
+
+  // The writes. Answering a claim, taking an invitation back and removing a
+  // child from a squad are guarded by mySquad() in that page's actions.ts,
+  // which is this one question and nothing else. mySquad's own query is
+  // copied here word for word from actions.ts:23 — if it answers, the action
+  // runs its statement; if it does not, the action redirects and writes
+  // nothing. So this measures the three writes as the product performs them,
+  // and M10h below pins that the product really does perform them that way.
+  const mySquad = async (who) => (await db.query(
+    `select s.club_id from squad s where s.id = $1 and fn_can_work_squads($2, s.club_id)`,
+    [sq, who])).rows[0]?.club_id ?? null;
+  const acts = async (who, sql, args) => { if (!await mySquad(who)) return false; await db.query(sql, args); return true; };
+  const stillOpen = async () => [
+    (await db.query(`select answered_at is null as open from squad_claim where id = $1`, [openClaim])).rows[0].open,
+    (await db.query(`select withdrawn_at is null as live from squad_invitation where id = $1`, [openInvite])).rows[0].live,
+    (await db.query(`select count(*)::int as n from membership
+      where person_id = $1 and squad_id = $2 and role = 'player' and ended_at is null`, [claimer, sq])).rows[0].n,
+  ];
+  const ran = [
+    // answerClaim, answer = 'no' — the one branch that never reaches
+    // fn_join_squad, so nothing else was ever going to stop it.
+    await acts(susTd, `update squad_claim set answered_at = now(), answered_by = $2, confirmed = false where id = $1`,
+      [openClaim, susTd]),
+    // cancelInvitation
+    await acts(susTd, `update squad_invitation set withdrawn_at = now() where id = $1 and withdrawn_at is null`, [openInvite]),
+    // removeFromSquad — which takes the club line off that child's approved
+    // page as well, because fn_cv_club follows the membership (0054).
+    await acts(susAdmin, `update membership set ended_at = now()
+      where person_id = $1 and squad_id = $2 and role = 'player' and ended_at is null`, [claimer, sq]),
+  ];
+  check('M10n: a suspended club cannot answer a family\'s claim, take an ask back, or put a child out of a squad',
+    [ran, await stillOpen()], [[false, false, false], [true, true, 1]]);
+
+  check('M10h: every write on that page goes through that one answer, and nothing else',
+    (() => {
+      const a = srcOf('app/club/squads/[squadId]/actions.ts');
+      const gate = /async function mySquad\([\s\S]*?\n\}/.exec(a)?.[0] ?? '';
+      const exported = [...a.matchAll(/export async function (\w+)\(formData: FormData\) \{([\s\S]*?)\n\}/g)];
+      return [/fn_can_work_squads/.test(gate),
+        exported.length,
+        exported.every(([, , body]) => /mySquad\(squadId\)/.test(body))];
+    })(), [true, 4, true]);
+  check('M10i: and the page\'s claims list hangs off it too, never off a role on its own',
+    (() => {
+      const p = srcOf('app/club/squads/[squadId]/page.tsx');
+      return [/fn_can_work_squads\(\$2, s\.club_id\) as works/.test(p),
+        /const claims = squad\.works \?/.test(p)];
+    })(), [true, true]);
+  // What was already refused before X1, asked again here so M10 covers the
+  // whole page rather than the half of it that was broken.
+  check('M10j: confirming a child into a squad, and asking one, were already refused (0054)',
+    [(await db.query(`select fn_join_squad($1,$2,$3,'claim',$4) as ok`, [claimer, sq, susTd, susGuardian])).rows[0].ok,
+     await (async () => { try {
+       await db.query(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
+         [claimer, club, sq, susTd]); return false;
+     } catch { return true; } })()], [false, true]);
+  check('M10k: and the roster is empty for everybody, as it already was',
+    [(await db.query(`select * from fn_squad_roster($1,$2)`, [susTd, sq])).rows.length,
+     (await db.query(`select * from fn_squad_roster($1,$2)`, [susAdmin, sq])).rows.length], [0, 0]);
+  // The family's own way out never asked about the club and still does not
+  // (D-10): a suspended club must not be able to strand a child in a squad.
+  check('M10l: the family can still take their child out of a suspended club\'s squad (D-10)',
+    (await db.query(`select fn_can_leave_squad($1,$2) as ok`, [susGuardian, claimer])).rows[0].ok, true);
+
+  // M10 asks that held semantics RESUME — so the check has to be able to go
+  // the other way as well, or it is pinning nothing (L19).
+  await db.query(`update club set club_state = 'verified' where id = $1`, [club]);
+  check('M10m: verifying the club again gives it back exactly what it had',
+    [await works(susTd), await works(susAdmin),
+     (await waitingOnYou(susTd)).length, (await asked(susTd)).length], [true, true, 1, 1]);
+
+  // SQ23 — the other side of the same gate: a club that has never been
+  // verified. Not M10 (nothing moved from `verified`), so it does not carry
+  // that row's id (L4). It had nothing to lose here and loses nothing: a
+  // claim, an invitation and a membership can only exist at a verified club.
+  const newClub = crypto.randomUUID(), newSq = crypto.randomUUID();
+  const newTd = crypto.randomUUID(), newAdmin = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Sunbury United','claimed')`, [newClub]);
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season)
+    values ($1,$2,'U16 Girls','U16','girls','2026')`, [newSq, newClub]);
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Ruth','Calder',$3), ($2,'Owen','Prendergast',$3)`,
+    [newTd, newAdmin, yearsAgo(38)]);
+  await mem(newTd, newClub, null, 'technical_director');
+  await mem(newAdmin, newClub, null, 'club_admin');
+  check('SQ23: a club that has never been verified works no squads either, whichever seat asks',
+    [(await db.query(`select fn_can_work_squads($1,$2) as ok`, [newTd, newClub])).rows[0].ok,
+     (await db.query(`select fn_can_work_squads($1,$2) as ok`, [newAdmin, newClub])).rows[0].ok], [false, false]);
+  check('SQ23b: and it had nothing to lose — no claim, no invitation and no membership can exist there',
+    [await (async () => { try {
+       await db.query(`insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4)`,
+         [claimer, newClub, newSq, susGuardian]); return false;
+     } catch { return true; } })(),
+     (await db.query(`select fn_join_squad($1,$2,$3,'test') as ok`, [claimer, newSq, newTd])).rows[0].ok], [true, false]);
+}
+
 // ---- tap targets: >=44px at every width (CLAUDE.md; QA F4, 22 Sep) --------
 // The squad page's position chips rendered at 38px, which is under the
 // minimum the brief sets for every width. The layout check measures how wide

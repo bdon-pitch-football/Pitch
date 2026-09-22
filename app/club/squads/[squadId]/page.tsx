@@ -70,6 +70,9 @@ export default async function SquadPage({ params, searchParams }: {
     if (granted.rows.length === 0) notFound();
   }
 
+  // `works` is fn_can_work_squads, which since 0057 answers no at a club that
+  // is not verified — so a suspended club reads no child's name here (M10,
+  // D-126). It was the one question on this page that did not ask that.
   const claims = squad.works ? (await db.query(
     `select sc.id, p.first_name, p.last_name, to_char(sc.created_at at time zone 'Australia/Melbourne', 'FMDD Mon') as asked
      from squad_claim sc join person p on p.id = sc.person_id
