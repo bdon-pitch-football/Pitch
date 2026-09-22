@@ -33,6 +33,12 @@ does not fix it.
 
 1. **No real child's data anywhere** — not in seeds, tests, demos, screenshots.
    Fictional people only, and no real club's name used for fictional data.
+   **The one exception, BUZ's call (23 Sep):** the club demo is renamed to the
+   club he is meeting — the club's own name, suburb, ground and crest, and
+   nothing else about them. Every person in it stays invented. A demo is shown
+   in the room and nothing captured from one is published, because a club's
+   name beside fictional children is fine across a table and is not fine on a
+   screen anyone else can see.
 2. **No push, no deploy, no production account, no key in chat.** The `app`
    branch has never been pushed; only BUZ says when it is.
 3. **Permissions are computed in Postgres, never stored**, and every new read
