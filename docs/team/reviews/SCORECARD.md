@@ -25,6 +25,8 @@ this team exists to bring to zero.
 
 | Date | Seat | Defect | Before / after | Lesson |
 |---|---|---|---|---|
+| 23 Sep | builder D | TD on the verification call, enforced in Postgres; ended pre-existing TD rows so the rule has no exceptions; fixed seeds/fixtures that bypassed it; found another mislabelled doc 14 check (H10) | **before** | L31 |
+| 23 Sep | QA | Demo not safe to walk: adults in junior squads, a register that reads as generated, no age on any CV, a trial dated Sun on a Thursday, invitations to background players sending nothing | **before** | — |
 | 23 Sep | builder B | Email proof enforced in Postgres (B1/B2); refused to ship its own unapproved message; left the parked-address question to BUZ. Leo's process fault: two builders in one tree (L30) | **before** | L30 |
 | 23 Sep | builder A | Fixed B3, B4, M1-M6, M10, R1, N2, N3, N8 and BUZ's calls 2/6/7; found that closing the self-declared TD leaves no route to a TD at all, and escalated instead of inventing one | **before** | L29 |
 | 23 Sep | copy check | Corrected its own 22 Sep miscount (17 → 42 live-site items); caught that Leo's "stop sending §13" would have removed doc 14 B11's gate; kept an unapproved draft email out of the approval batches | **before** | L28 |

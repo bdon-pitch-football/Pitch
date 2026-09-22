@@ -197,3 +197,11 @@ wrong message.
 *Rule:* builders run in their own worktree, or one at a time. Read-only seats
 (safety, copy) can share. Whoever runs a suite says which tree and which commit
 it was measured on.
+
+**L31 · A capability that switches on "at sign-in" switches on at the wrong time (23 Sep, builder D).**
+Making a Technical Director's access depend on a sign-in check would have meant
+a club's register waking up when somebody last opened a browser. The seat drove
+it from the two facts that actually change — the club became verified, the
+address became proved — wherever they happen.
+*Rule:* attach a capability to the event that grants it, not to the next time
+someone appears.
