@@ -12,7 +12,8 @@
     "test:render": "node scripts/render-tests.mjs",
     "test:perms": "node scripts/permission-tests.mjs",
     "test:write": "node scripts/write-tests.mjs",
-    "demo": "node scripts/demo.mjs"
+    "demo": "node scripts/demo.mjs",
+    "test:layout": "node scripts/layout-check.mjs 375 1280"
   },
   "dependencies": {
     "@electric-sql/pglite-socket": "^0.2.11",
