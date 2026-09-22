@@ -698,6 +698,18 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   };
   const plain = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
   const formWith = (html, re) => forms(html).find((f) => re.test(f.submit));
+  // The approval codes on /dev/outbox, newest first, each one ONCE.
+  //
+  // The dedupe is the whole point. Since 23 Sep that page renders every
+  // pitchfootball.com.au address in a body as a link to the same path on this
+  // host as well as leaving the address in the text, so one message now yields
+  // the same code twice. The two tests below want "the two newest MESSAGES",
+  // took the first two matches, and silently got one message twice — which
+  // confirms one channel, leaves the other unconfirmed, and makes a suite
+  // about held sign-ups fail on a page that renders links. A test that reads a
+  // screen is coupled to that screen: when the screen changes, the reader is
+  // what has to move. (L32.)
+  const approvalCodes = (html) => [...new Set([...html.matchAll(/\/a\/([A-Za-z0-9_-]{20,})/g)].map((m) => m[1]))];
 
   // --- B2: somebody else got here first ---------------------------------------
   // The seed has an account already sitting on Mila's parent's address, with a
@@ -803,8 +815,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const heldId = /\/join\/waiting\/([0-9a-f-]{36})/.exec(heldJoin.location)?.[1];
   check('D-155: the sign-up itself looks ordinary', Boolean(heldId), true);
   const outbox = (await get('/dev/outbox', ids.people.alex)).html;
-  const linkTo = (re) => { const m = [...outbox.matchAll(/\/a\/([A-Za-z0-9_-]{20,})/g)].map((x) => x[1]); return m; };
-  const zedLinks = linkTo().slice(0, 2); // the two newest messages are Zed's
+  const zedLinks = approvalCodes(outbox).slice(0, 2); // the two newest messages are Zed's
   for (const code of zedLinks) {
     const pg = await ig(`/a/${code}`);
     const yes = formWith(pg.html, /Yes, it/);
@@ -894,7 +905,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const tessSend = await fetch(BASE + `/send/${tessRec}`, { redirect: 'manual', headers: { cookie: tessCookie } });
   check('t16f: and the send screen sends Tess home', tessSend.status >= 300 && tessSend.status < 400, true);
 
-  const tessLinks = [...tessOut.matchAll(/\/a\/([A-Za-z0-9_-]{20,})/g)].map((x) => x[1]).slice(0, 2);
+  const tessLinks = approvalCodes(tessOut).slice(0, 2);
   for (const code of tessLinks) {
     const yes = formWith((await ig(`/a/${code}`)).html, /Yes, it/);
     if (yes) await post(`/a/${code}`, yes);

@@ -37,8 +37,15 @@ ROOT = sys.argv[1] if len(sys.argv) > 1 else '.'
 # docs/team is the tech team's log (lessons, reports, reviews): every date in it
 # is when something happened, never a promise — the same reason the Board Room
 # is skipped. Added 22 Sep after the lessons file tripped S2 on its own dates.
-SKIP = ('_superseded', '_archive', '13-Board-Room', '_to_delete', 'repo', 'content', 'team')
-FALSE_POSITIVES_FIXED = 11  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
+SKIP = ('_superseded', '_archive', '13-Board-Room', '_to_delete', 'repo', 'content', 'team', 'mockups')
+# 'mockups' is skipped for the same reason 'team' is (L27): a mockup is a
+# PICTURE OF A SCREEN, not a document that makes a claim. The dates inside one
+# are fixture content — a next-charge date, a trial date, the day a report came
+# in — and S2 read four of them as citations of the dead runway. A screenshot
+# of the billing page would carry the identical string and nobody would call it
+# a claim about the launch date. The design *reports* are still checked, and
+# should be: they argue.
+FALSE_POSITIVES_FIXED = 12  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
                             # +1 S13 scaffolding, +1 S2 flagging a document's own dateline,
                             # 1 in v3 (S2 exempting by filename, so the register stopped being exempt when renamed)
 FALSE_NEGATIVES_FIXED = 1   # v3: S4 joined ROOT to a guessed 'legal/' and skipped the whole pack in the repo.
