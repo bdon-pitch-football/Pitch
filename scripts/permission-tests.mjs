@@ -3820,12 +3820,13 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
         exported.length,
         exported.every(([, , body]) => /mySquad\(squadId\)/.test(body))];
     })(), [true, 4, true]);
-  check('M10i: and the page\'s claims list hangs off it too, never off a role on its own',
-    (() => {
-      const p = srcOf('app/club/squads/[squadId]/page.tsx');
-      return [/fn_can_work_squads\(\$2, s\.club_id\) as works/.test(p),
-        /const claims = squad\.works \?/.test(p)];
-    })(), [true, true]);
+  // The claims list hangs off the same answer. It used to do it with a page
+  // boolean; since 0059 it is fn_squad_claims that asks, which is better —
+  // but it has to keep asking, so this reads the function's own body.
+  check('M10i: and the claims list hangs off it too, never off a role on its own',
+    [/fn_can_work_squads\(\$2, s\.club_id\) as works/.test(srcOf('app/club/squads/[squadId]/page.tsx')),
+     (await procSrc('fn_squad_claims')).includes('fn_can_work_squads'),
+     (await procSrc('fn_can_answer_claim')).includes('fn_can_work_squads')], [true, true, true]);
   // What was already refused before X1, asked again here so M10 covers the
   // whole page rather than the half of it that was broken.
   check('M10j: confirming a child into a squad, and asking one, were already refused (0054)',
@@ -3871,6 +3872,130 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
          [claimer, newClub, newSq, susGuardian]); return false;
      } catch { return true; } })(),
      (await db.query(`select fn_join_squad($1,$2,$3,'test') as ok`, [claimer, newSq, newTd])).rows[0].ok], [true, false]);
+}
+
+// ---- the claims list is the database's answer now (0059) -------------------
+// "Waiting on you" was the one read on the squad page that was an inline
+// query behind a page boolean. It had the club gate and fn_person_hidden and
+// nothing else — so a VERIFIED club kept a child's first AND last name on
+// screen after the consent behind the ask had gone, for an act fn_join_squad
+// would have refused.
+//
+// Proved by putting the old set of questions back into 0059's predicate
+// (club gate + fn_person_hidden only), watching the four below fail,
+// restoring, watching them pass. SQ24h, SQ24i and SQ24j are green either way
+// and say so.
+{
+  const club = crypto.randomUUID(), call = crypto.randomUUID(), sq = crypto.randomUUID();
+  const clTd = crypto.randomUUID(), clAdmin = crypto.randomUUID(), clCoach = crypto.randomUUID();
+  const parent = crypto.randomUUID();
+  const kid = crypto.randomUUID(), teen = crypto.randomUUID(), turning = crypto.randomUUID();
+  const inSquad = crypto.randomUUID(), paused = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Northern United SC','claimed')`, [club]);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [call, club]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [call, club]);
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season)
+    values ($1,$2,'U15 Boys','U15','boys','2026')`, [sq, club]);
+  await db.query(`insert into person (id, first_name, last_name, dob) values
+    ($1,'Marta','Ferreira',$5), ($2,'Colin','Braithwaite',$5), ($3,'Piet','Van Rensburg',$5), ($4,'Nadia','Sokolov',$5)`,
+    [clTd, clAdmin, clCoach, parent, yearsAgo(42)]);
+  await mem(clTd, club, null, 'technical_director');
+  await mem(clAdmin, club, null, 'club_admin');
+  await mem(clCoach, club, sq, 'coach');
+  await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$1), ($3,$2,$1)`, [clTd, club, clCoach]);
+  await db.query(`insert into person (id, first_name, last_name, dob) values
+    ($1,'Wren','Kavanagh',$5), ($2,'Bo','Ainsworth',$6), ($3,'Rafferty','Quill',$6), ($4,'Sunny','Delacroix',$5)`,
+    [kid, teen, turning, inSquad, yearsAgo(13), yearsAgo(17)]);
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Elke','Nordstrom',$2)`, [paused, yearsAgo(13)]);
+  for (const ch of [kid, teen, turning, inSquad, paused]) {
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [parent, ch]);
+    await db.query(`insert into development_record (person_id, positions) values ($1, array['CM'])`, [ch]);
+  }
+  const claimFor = async (who, by) => (await db.query(
+    `insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4) returning id`,
+    [who, club, sq, by])).rows[0].id;
+  const kidClaim = await claimFor(kid, parent);
+  const teenClaim = await claimFor(teen, teen);
+  const turningClaim = await claimFor(turning, parent);
+  const inSquadClaim = await claimFor(inSquad, parent);
+  const pausedClaim = await claimFor(paused, parent);
+
+  const waiting = async (who) => (await db.query(`select * from fn_squad_claims($1,$2)`, [who, sq])).rows;
+  const names = async (who) => (await waiting(who)).map((r) => r.first_name).sort();
+  // The answer path, word for word from app/club/squads/[squadId]/actions.ts:
+  // if this finds no row the action rolls back and redirects exactly as it
+  // does for a claim that was never there.
+  const answerable = async (who, claimId) => (await db.query(
+    `select id from squad_claim where id = $1 and squad_id = $2 and answered_at is null
+       and fn_can_answer_claim($3, id)`, [claimId, sq, who])).rows.length === 1;
+
+  check('SQ24: a verified club is shown who is waiting on it — a FIRST NAME, and not the surname (0059, D-115)',
+    [await names(clTd), (await waiting(clTd)).every((r) => Object.keys(r).join(',') === 'claim_id,first_name,created_at')],
+    [['Bo', 'Elke', 'Rafferty', 'Sunny', 'Wren'], true]);
+  check('SQ24b: the administrator is shown the same first names and no more (D-93, N17)',
+    await names(clAdmin), ['Bo', 'Elke', 'Rafferty', 'Sunny', 'Wren']);
+
+  // A18: the consent behind the ask is revoked. The claim exists only
+  // because an approved guardian made it; with the guardianship gone there
+  // is nobody standing behind it, and fn_join_squad already refused to
+  // confirm it (SQ8g) — so the club was reading a child's name for an act
+  // that could not complete.
+  await db.query(`update guardianship_link set revoked_at = now() where child_id = $1`, [kid]);
+  check('SQ24c: revoke the only guardianship and the child leaves the list entirely, for both seats (A18, D-126)',
+    [(await names(clTd)).includes('Wren'), (await names(clAdmin)).includes('Wren')], [false, false]);
+  check('SQ24d: and the club cannot answer it either, so nothing reports that anything happened to it',
+    await answerable(clTd, kidClaim), false);
+
+  // B4: a 16-17 acts only while a parent is confirmed and their send switch
+  // is on (0054). Turn it off and the ask is no longer the family's.
+  await db.query(`insert into guardian_setting (child_id, send_disabled, updated_by) values ($1,true,$2)
+    on conflict (child_id) do update set send_disabled = true`, [teen, parent]);
+  check('SQ24e: a 16-17 whose parent has since switched sending off comes off the list, and cannot be answered (B4, D-22)',
+    [(await names(clTd)).includes('Bo'), await answerable(clTd, teenClaim)], [false, false]);
+
+  // M3/D-49: at eighteen a guardianship is visibility, never control. A
+  // parent's claim left open across the birthday is not the adult's ask.
+  await db.query(`update person set dob = $2 where id = $1`, [turning, yearsAgo(19)]);
+  check('SQ24f: a child who has turned 18 with a parent\'s claim still open comes off it too (M3, D-49)',
+    [(await names(clTd)).includes('Rafferty'), await answerable(clTd, turningClaim)], [false, false]);
+
+  // fn_squad_asked drops anyone already in the squad; this did not, so a
+  // club could press a button that only ever reported a failure about a
+  // child (fn_join_squad refuses it).
+  await db.query(`select fn_join_squad($1,$2,$3,'test')`, [inSquad, sq, parent]);
+  check('SQ24g: a claim for somebody who is in the squad already is not offered, and cannot be answered',
+    [(await names(clTd)).includes('Sunny'), await answerable(clTd, inSquadClaim)], [false, false]);
+
+  // Green either way — the old query had fn_person_hidden, and 0057 put the
+  // club gate in fn_can_work_squads. Both are asked again here because the
+  // list has to keep them, not because they were missing.
+  await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1,true,$2)
+    on conflict (child_id) do update set profile_paused = true`, [paused, parent]);
+  check('SQ24h: a child paused by their guardian is on nobody\'s list (0049, A16)',
+    [(await names(clTd)).includes('Elke'), await answerable(clTd, pausedClaim)], [false, false]);
+  await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [paused]);
+  await db.query(`update club set club_state = 'suspended' where id = $1`, [club]);
+  check('SQ24i: a suspended club is shown no claim at all and can answer none (M10, 0057)',
+    [(await waiting(clTd)).length, (await waiting(clAdmin)).length, await answerable(clTd, pausedClaim)], [0, 0, false]);
+  await db.query(`update club set club_state = 'verified' where id = $1`, [club]);
+  check('SQ24j: a coach of this squad is not shown the claims — working squads is the TD\'s and the administrator\'s (D-93)',
+    [(await waiting(clCoach)).length, await answerable(clCoach, pausedClaim)], [0, false]);
+  check('SQ24k: and with the club verified again the one claim still standing is back',
+    await names(clTd), ['Elke']);
+
+  // The surname decision lives on the page as well as in the function: the
+  // page must not go back to reading squad_claim itself, which is how the
+  // surname was there in the first place (L23).
+  check('SQ24l: the page reads the function and no longer queries squad_claim or renders a surname on a claim',
+    (() => {
+      const p = srcOf('app/club/squads/[squadId]/page.tsx');
+      const a = srcOf('app/club/squads/[squadId]/actions.ts');
+      return [/from fn_squad_claims\(\$1, \$2\)/.test(p),
+        /from squad_claim/.test(p),
+        /\{name\(cl\)\}/.test(p),
+        /fn_can_answer_claim\(\$3, id\)/.test(a)];
+    })(), [true, false, false, true]);
 }
 
 // ---- tap targets: >=44px at every width (CLAUDE.md; QA F4, 22 Sep) --------

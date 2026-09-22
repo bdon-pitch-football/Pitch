@@ -70,15 +70,17 @@ export default async function SquadPage({ params, searchParams }: {
     if (granted.rows.length === 0) notFound();
   }
 
-  // `works` is fn_can_work_squads, which since 0057 answers no at a club that
-  // is not verified — so a suspended club reads no child's name here (M10,
-  // D-126). It was the one question on this page that did not ask that.
-  const claims = squad.works ? (await db.query(
-    `select sc.id, p.first_name, p.last_name, to_char(sc.created_at at time zone 'Australia/Melbourne', 'FMDD Mon') as asked
-     from squad_claim sc join person p on p.id = sc.person_id
-     where sc.squad_id = $1 and sc.answered_at is null and not fn_person_hidden(p.id)
-     order by sc.created_at`, [squadId],
-  )).rows as { id: string; first_name: string; last_name: string | null; asked: string }[] : [];
+  // Who is waiting on the club. This was the one read on this page that was
+  // not the database's answer — an inline query behind a page-level boolean,
+  // which is a second answer to "who may see this child" (0059, L23). It now
+  // asks fn_squad_claims, which applies verification (D-126), the consent
+  // behind the ask (A17/A18) and the same refusals the confirm will apply,
+  // per row — and gives a first name only, exactly as the register does.
+  const claims = (await db.query(
+    `select claim_id as id, first_name,
+            to_char(created_at at time zone 'Australia/Melbourne', 'FMDD Mon') as asked
+     from fn_squad_claims($1, $2)`, [me, squadId],
+  )).rows as { id: string; first_name: string; asked: string }[];
 
   // The people the club has asked. A family that answered no sits here
   // exactly as one that has not answered at all, until the club takes it back
@@ -164,7 +166,7 @@ export default async function SquadPage({ params, searchParams }: {
             {claims.map((cl) => (
               <div key={cl.id} style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{name(cl)} says they play here</div>
+                  <div style={{ fontSize: 15, fontWeight: 800 }}>{cl.first_name} says they play here</div>
                   <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Asked {cl.asked} · their family sent this</div>
                 </div>
                 <div style={{ display: 'flex', gap: 9 }}>
