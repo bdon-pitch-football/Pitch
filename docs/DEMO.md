@@ -8,6 +8,25 @@ takes a payment.
 > the order to click in and the sentence to say at each step. This file is the
 > reference; that one is what you hold in the room.
 
+## The copy on /demo is approved
+
+BUZ approved these on **23 September 2026**. They are the only strings that
+exist on the demo's own front door and nowhere else in the product; every
+other word a club sees is approved product copy. Do not edit them without
+taking the change back to him:
+
+- "A club we haven't rung yet" — M. Harris — *Claimed their page, hasn't been
+  verified. Families are registering and the club sees a count and no names.*
+- *Nobody at Balmoral FC has claimed the page yet. Start at the top — the club
+  seats appear once it is claimed.*
+- **START HERE** · **Balmoral FC's page** — *The listing we built from their
+  public notices. Nobody at the club has claimed it.*
+- **Claim Balmoral FC** — *Prove it is your club with a code to the club's own
+  address, then the page is yours.*
+
+(The club's name in the last three comes from whatever `npm run demo` was
+given; the words around it are what was approved.)
+
 ## Before the meeting
 
 In Terminal:

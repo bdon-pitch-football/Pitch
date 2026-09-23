@@ -137,6 +137,7 @@ export async function applyDemo(db: PGlite, o: DemoOptions): Promise<{ slug: str
     await enrichRegistrants(db, clubId);
     await fillSquads(db, clubId);
     await waitingOnTheClub(db, clubId);
+    await theFiltersLand(db, clubId);
   }
   await sampleMessages(db, clubId);
 
@@ -238,7 +239,23 @@ const SURNAMES = ['Okafor', 'Rossi', 'Tran', 'Kelly', 'Haddad', 'Singh', 'Walker
 // One dispenser, so a hundred and fifty people are a hundred and fifty
 // families rather than thirty surnames used five times each.
 let surnameCursor = 0;
-const nextSurname = () => SURNAMES[surnameCursor++ % SURNAMES.length];
+// A CV with no photo shows the player's initials in the block where the photo
+// goes — and "Goran Kelly, DM" rendered a card reading **GK** beside the line
+// "DM · #16", which is a contradiction on the most important page we have.
+// Nobody's initials are a bug; a demo that deals them out is. So a surname
+// that would spell a position code the player does not play is skipped.
+// (The closed list is doc 16's, held in lib/football.ts; it cannot be imported
+// here without pulling Next's module graph into a seeding script.)
+const POSITION_CODES = ['GK', 'CB', 'LB', 'RB', 'DM', 'CM', 'AM', 'RW', 'LW', 'ST'];
+const nextSurname = (firstName?: string, positions: string[] = []) => {
+  for (let tries = 0; tries < SURNAMES.length; tries++) {
+    const surname = SURNAMES[surnameCursor++ % SURNAMES.length];
+    if (!firstName) return surname;
+    const initials = `${firstName[0]}${surname[0]}`.toUpperCase();
+    if (!POSITION_CODES.includes(initials) || positions.includes(initials)) return surname;
+  }
+  return SURNAMES[surnameCursor++ % SURNAMES.length];
+};
 
 // ---------------------------------------------------------------------------
 // FIRST NAMES, and there have to be enough of them. The seed draws 96
@@ -517,7 +534,7 @@ async function enrichRegistrants(db: PGlite, clubId: string) {
   for (const [i, r] of rows.entries()) {
     const gk = r.positions.includes('GK');
     const firstName = nextFirstName(r.squad_gender);
-    const lastName = nextSurname();
+    const lastName = nextSurname(firstName, r.positions);
     const used = bucket(r.squad ?? 'unfiled');
     const about = aboutFor(r.positions, used);
     const prev = { orgName: PREVIOUS[rnd(PREVIOUS.length)], period: `${2019 + rnd(4)}–${2023 + rnd(3)}` };
@@ -723,7 +740,7 @@ async function fillSquads(db: PGlite, clubId: string) {
     const used = new Set<string>();
     for (const [n, positions] of TEAM_SHAPE.slice(0, size).entries()) {
       const firstName = nextFirstName(s.competition_gender);
-      const lastName = nextSurname();
+      const lastName = nextSurname(firstName, positions);
       // The same calendar-year banding the register uses, so a squad's own
       // list can never hold somebody the age group does not fit.
       const dob = dobForAgeGroup(s.age_group);
@@ -793,6 +810,41 @@ async function fillSquads(db: PGlite, clubId: string) {
 // The invitation waiting on a parent is already in the seed (Georgia's), and
 // the shortlisted rows on the register are already there to invite from.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// THE FILTERS HAVE TO LAND ON SOMEBODY.
+//
+// docs/DEMO-TD.md step 2 is the moment the product is sold: age group, then
+// position, then "shortlisted", and the line is "that's your keeper shortage,
+// in two clicks". Walked on real data it ended on **0 of 100 shown**, because
+// the register's twelve shortlisted rows are dealt out by the seed and no
+// keeper in the age group BUZ opens happened to be among them.
+//
+// The empty state is well written and it is still the wrong thing to be
+// looking at while saying that sentence. So: in every age group the run sheet
+// names, if the club has a keeper on its register and has shortlisted none of
+// them, shortlist one. It is a club action, done by the club, in a demo that
+// belongs to the club — not a number invented to look good.
+// ---------------------------------------------------------------------------
+async function theFiltersLand(db: PGlite, clubId: string) {
+  for (const age of ['U14', 'U15', 'U16', 'U18']) {
+    await db.query(
+      `update registration set club_status = 'shortlisted'
+       where id = (
+         select r.id from registration r
+         join squad s on s.id = r.squad_target
+         where r.club_id = $1 and r.withdrawn_at is null
+           and s.age_group = $2 and 'GK' = any(r.positions)
+           and r.club_status = 'new'
+           and not exists (
+             select 1 from registration x join squad xs on xs.id = x.squad_target
+             where x.club_id = $1 and x.withdrawn_at is null
+               and xs.age_group = $2 and 'GK' = any(x.positions)
+               and x.club_status <> 'new')
+         limit 1)`,
+      [clubId, age]);
+  }
+}
+
 async function waitingOnTheClub(db: PGlite, clubId: string) {
   // 1. Families saying "we already play here — confirm us" (0052, squad_claim).
   const squads = (await db.query<{ id: string; name: string; age_group: string | null; competition_gender: string | null }>(
@@ -800,8 +852,8 @@ async function waitingOnTheClub(db: PGlite, clubId: string) {
      where club_id = $1 and name in ('U14 Boys','U15 Girls','U18 Boys') order by name`, [clubId])).rows;
   for (const [i, s] of squads.entries()) {
     const firstName = nextFirstName(s.competition_gender);
-    const lastName = nextSurname();
     const positions = [['CM'], ['LB', 'CB'], ['ST', 'RW']][i % 3];
+    const lastName = nextSurname(firstName, positions);
     const dob = dobForAgeGroup(s.age_group);
     const pid = (await db.query<{ id: string }>(
       `insert into person (first_name, last_name, dob) values ($1,$2,$3) returning id`,
