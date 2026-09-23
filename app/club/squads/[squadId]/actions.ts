@@ -14,7 +14,13 @@ import { send } from '@/lib/messaging';
 
 const field = (f: FormData, k: string) => String(f.get(k) ?? '');
 
-/** The squad, if this session may work it. Anything else: /home. */
+/**
+ * The squad, if this session may work it. Anything else: /home. Every action
+ * in this file goes through here, so this one answer is what says no — and
+ * since 0057 it says no at a club that is not verified, which is what stops a
+ * suspended club answering a claim, taking an ask back, or putting a child out
+ * of a squad (doc 14 M10, D-126).
+ */
 async function mySquad(squadId: string): Promise<{ me: string; clubId: string }> {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
@@ -62,10 +68,16 @@ export async function answerClaim(formData: FormData) {
   const client = await db.connect();
   try {
     await client.query('begin');
+    // fn_can_answer_claim is the same question the list asks (0059), so a
+    // claim the club cannot see is a claim the club cannot answer, and it
+    // falls into the same branch as a claim that was never there — the club
+    // is never told that something happened to a child it may no longer see
+    // (D-77's shape, applied here).
     const claim = await client.query(
       `select id, person_id, asked_by from squad_claim
-       where id = $1 and squad_id = $2 and answered_at is null for update`,
-      [claimId, squadId],
+       where id = $1 and squad_id = $2 and answered_at is null
+         and fn_can_answer_claim($3, id) for update`,
+      [claimId, squadId, me],
     );
     if (claim.rows.length > 0) {
       await client.query(`update squad_claim set answered_at = now(), answered_by = $2, confirmed = $3 where id = $1`,

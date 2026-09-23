@@ -634,7 +634,12 @@ if (DEMO) {
     unclaimed: process.env.DEMO_UNCLAIMED === '1',
   })).slug;
 }
-const PORT = DEMO ? 54323 : 54322;
+// 54322 for the dev database, 54323 for a demo. PITCH_DEV_DB_PORT moves the
+// dev one so two builders can run the suites at the same time without
+// reseeding each other's database (L30) — set SUPABASE_DB_URL to match. It
+// deliberately cannot move the demo's port: the demo's isolation is that it
+// is somewhere else (lib/demo).
+const PORT = DEMO ? 54323 : Number(process.env.PITCH_DEV_DB_PORT) || 54322;
 const server = new PGLiteSocketServer({ db, port: PORT, host: '127.0.0.1', inspect: false });
 await server.start();
 console.log(`${DEMO ? 'demo' : 'dev'} db ready on 127.0.0.1:${PORT}${DEMO ? ` · club page /fc/${demoSlug}` : ''}`);
