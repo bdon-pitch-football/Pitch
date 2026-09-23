@@ -1637,6 +1637,65 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   void nate;
 }
 
+// ---------------------------------------------------------------------------
+// THE CALL SHEET RECORDS THE TECHNICAL DIRECTOR (0058; BUZ, 23 Sep).
+// Walked through the real console: the queue, the sheet, the press, and the
+// person's own confirm link. LAST, because it verifies Sunbury — the seat
+// every "unverified club" check above depends on being unverified.
+// ---------------------------------------------------------------------------
+{
+  const op = ids.people.marina;
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
+  const send = async (path, extra) => {
+    const form = forms((await get(path, op)).html).find((f) => f.visible.some((v) => v.name === 'outcome'));
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ ...form.fields, ...extra })) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(op) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+  // Find Sunbury's call sheet the way the operator does — from the queue.
+  const queue = (await get('/ops/verification', op)).html;
+  let sheet = null;
+  for (const m of new Set([...queue.matchAll(/href="(\/ops\/call\/[0-9a-f-]{36})"/g)].map((x) => x[1]))) {
+    if (/Sunbury United/.test((await get(m, op)).html)) { sheet = m; break; }
+  }
+  check('td-w1: the queue links to a call sheet for the club awaiting a call', Boolean(sheet), true);
+  check('td-w2: a club nobody has called has no technical director, and the console says so',
+    /No Technical Director recorded/.test(words(queue)), true);
+
+  const call = { operator: 'BUZ', number_called: '03 9000 0500', number_source: 'FV club directory',
+    answered_by: 'Committee', club_confirmed: 'yes', person_confirmed: 'yes',
+    incorporated: 'yes', authority_confirmed: 'yes', notes: 'write-test drill' };
+  await send(sheet, { ...call, outcome: 'not_verified', td_name: 'Nobody Atall', td_email: 'nobody@example.com' });
+  check('td-w3: a call that did not verify the club records no technical director either',
+    /None recorded/.test(words((await get(sheet, op)).html)), true);
+
+  // The real thing: verified, and the person the club named. Casey Duarte's
+  // address is the one nobody has proved yet (dev seed), so this is the
+  // recorded-but-not-yet-active state.
+  await send(sheet, { ...call, outcome: 'verified', td_name: 'Casey Duarte', td_email: 'unproved@example.com' });
+  const recorded = words((await get(sheet, op)).html);
+  check('td-w4: the call records the person, by name, against the operator who took it',
+    [/Casey Duarte/.test(recorded), /unproved@example\.com/.test(recorded), /Recorded by BUZ/.test(recorded)], [true, true, true]);
+  check('td-w5: and the role is waiting on that person\'s account, not live (L21)',
+    [/Waiting on their account/.test(recorded), /Active\./.test(recorded)], [true, false]);
+  check('td-w5b: the queue says the same in one line',
+    /Technical Director Casey Duarte · waiting on their account · recorded by BUZ/.test(words((await get('/ops/verification', op)).html)), true);
+
+  // The person confirms their own address — the link the seed left unopened.
+  const confirmPage = await get('/confirm/dev-unproved', null);
+  const confirmForm = forms(confirmPage.html).find((f) => /Yes, it/.test(f.submit));
+  const cfd = new FormData();
+  for (const [k, v] of Object.entries(confirmForm.fields)) cfd.append(k, v);
+  await (await fetch(BASE + '/confirm/dev-unproved', { method: 'POST', body: cfd, redirect: 'manual' })).text();
+  const live = words((await get(sheet, op)).html);
+  check('td-w6: pressing their own confirm link is what switches the role on',
+    [/Active\./.test(live), /Waiting on their account/.test(live)], [true, false]);
+  check('td-w6b: and the queue agrees',
+    /Technical Director Casey Duarte · active · recorded by BUZ/.test(words((await get('/ops/verification', op)).html)), true);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 console.log('NOTE: this mutated the dev database. Restart scripts/dev-db.mts for a clean one.');
 process.exit(failures.length ? 1 : 0);

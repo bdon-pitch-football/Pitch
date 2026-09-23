@@ -48,7 +48,12 @@ const DEEP = {
   parent: [`/squad/${g.child_id}?back=controls`, `/squad/${g.child_id}?club=${riverside}&back=controls`,
     `/build/${ids.children.deniz.record_id}/preview`, `/g/pending/${ids.children.deniz.record_id}`],
   player: [`/squad/${ids.people.jordan}`, `/squad/${ids.people.jordan}?club=${riverside}`],
-  'club TD': ['@squad', '@squad?pos=GK'],
+  // The operator console: nothing in the product links to it (render suite
+  // s4), so the walk never lands on it and neither the queue nor the call
+  // sheet — the most field-dense form we have — had ever been measured. In
+  // development any signed-in person with an address is an operator
+  // (lib/ops-policy), and Marina is the seat the render suite drives it with.
+  'club TD': ['@squad', '@squad?pos=GK', '/ops/verification', `/ops/call/${riverside}`],
   'club admin': ['@squad'],
 };
 

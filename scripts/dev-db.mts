@@ -43,6 +43,15 @@ const proveAddress = async (personId: string) => {
   await db.query(`update person set email_proved_at = coalesce(email_proved_at, now()) where id = $1`, [personId]);
 };
 
+// A seat that did not attach is a seat nobody can sit in, and a silent one is
+// worse than a loud one: every club-side page in this seed hangs off the TD.
+const tdOrThrow = async (personId: string, clubId: string, club: string) => {
+  const { rows } = await db.query(
+    `select 1 from membership where person_id=$1 and club_id=$2 and role='technical_director' and ended_at is null`,
+    [personId, clubId]);
+  if (rows.length === 0) throw new Error(`${club}: the verification call recorded no technical director (0058)`);
+};
+
 const guardian = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Alex','Fixture','1985-05-05','guardian@example.com')`, [guardian]);
 await proveAddress(guardian);
@@ -185,7 +194,13 @@ const riverside = (await db.query(`select id from club where name='Riverside FC'
 await db.query(`update club set subscription_status='active' where id=$1`, [riverside]);
 const td = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Marina','Petrovic','1980-04-12','td@example.com')`, [td]);
-await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'technical_director')`, [td, riverside]);
+// 0058: a club's technical director comes off its verification call and from
+// nowhere else — the seed cannot write the membership, and does not try. The
+// call records her; proving her address is what makes the role live, exactly
+// as it will for a real club.
+await db.query(`update verification_call set td_name='Marina Petrovic', td_email='td@example.com' where club_id=$1`, [riverside]);
+await proveAddress(td);
+await tdOrThrow(td, riverside, 'Riverside FC');
 // A club ADMINISTRATOR at a verified, paying club (D-154): keeps the page,
 // squads, trials and billing, and reads no registration. No seat walked
 // that wall before D-154 made it the rule.
@@ -607,7 +622,10 @@ const kingswayAdmin = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Dana','Kovac','1984-07-09','kingsway@example.com')`, [kingswayAdmin]);
 // Kingsway's one seat is its technical director: under D-154 an administrator
 // reads no registration, and a free club still works its own trials (D-153).
-await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'technical_director')`, [kingswayAdmin, kingsway]);
+// Recorded on Kingsway's own call and switched on by the proof (0058).
+await db.query(`update verification_call set td_name='Dana Kovac', td_email='kingsway@example.com' where club_id=$1`, [kingsway]);
+await proveAddress(kingswayAdmin);
+await tdOrThrow(kingswayAdmin, kingsway, 'Kingsway Rovers FC');
 const kingswayTrial = (await db.query(
   `insert into trial_notice (club_id,title,trial_on,time_venue,position_needs,competition_gender,cv_email)
    values ($1,'U16–U18 and Seniors trials','2026-10-25','Sun 10:00 AM · Brunswick West Oval',array['GK','ST']::text[],null,'football@kingswayrovers.example.au')
@@ -634,11 +652,20 @@ if (DEMO) {
     unclaimed: process.env.DEMO_UNCLAIMED === '1',
   })).slug;
 }
-// 54322 for the dev database, 54323 for a demo. PITCH_DEV_DB_PORT moves the
-// dev one so two builders can run the suites at the same time without
-// reseeding each other's database (L30) — set SUPABASE_DB_URL to match. It
-// deliberately cannot move the demo's port: the demo's isolation is that it
-// is somewhere else (lib/demo).
+// 54322 for the dev database, 54323 for a demo — unchanged for anyone who
+// sets nothing. PITCH_DEV_DB_PORT moves the dev one so a second seat in a
+// second worktree can run the suites while the first is up: PGlite serves one
+// connection, and two builders asked for this hook on 23 Sep without having
+// it (L30). Set SUPABASE_DB_URL to match. Test harness, never a product path.
+//
+// Two seats built this knob independently and named it two things —
+// PITCH_DEV_DB_PORT and DEV_DB_PORT — and the merge is where that showed up.
+// One name, and it is the namespaced one, because PITCH_DEMO already sets
+// that pattern and a bare DEV_DB_PORT in someone's shell is a surprise.
+//
+// It deliberately cannot move the DEMO's port: the demo's isolation is that
+// it is somewhere else, and a knob that could point it at the dev database
+// would be a way for a demo to open real data (lib/demo).
 const PORT = DEMO ? 54323 : Number(process.env.PITCH_DEV_DB_PORT) || 54322;
 const server = new PGLiteSocketServer({ db, port: PORT, host: '127.0.0.1', inspect: false });
 await server.start();

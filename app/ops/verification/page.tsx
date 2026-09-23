@@ -12,6 +12,9 @@ import { T } from '@/lib/palette';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Club verification', robots: { index: false, follow: false } };
 
+// 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
+const day = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');
+
 export default async function OpsVerification() {
   await requireOperator();
   const { rows } = await db.query(
@@ -20,8 +23,13 @@ export default async function OpsVerification() {
        (select p.first_name || ' ' || coalesce(p.last_name,'') || ', ' || m.role
         from membership m join person p on p.id = m.person_id
         where m.club_id = c.id and m.role in ('technical_director','club_admin') and m.ended_at is null
-        limit 1) as claimant
-     from club c where c.club_state in ('claimed','verified','suspended')
+        limit 1) as claimant,
+       td.td_name, td.recorded_at, td.recorded_by, td.active
+     from club c
+     -- Who the club's Technical Director is, and whether the role is live:
+     -- the database's own answer (fn_club_td, 0058), one row per club or none.
+     left join lateral (select * from fn_club_td(c.id)) td on true
+     where c.club_state in ('claimed','verified','suspended')
      order by case c.club_state when 'claimed' then 0 else 1 end, c.created_at desc`,
   );
   const awaiting = rows.filter((r) => r.club_state === 'claimed').length;
@@ -51,6 +59,11 @@ export default async function OpsVerification() {
                   [r.suburb, r.state].filter(Boolean).join(' '),
                   r.claimant ? `claimed by ${r.claimant.replace('_', ' ')}` : null,
                 ].filter(Boolean).join(' · ')}</div>
+                <div style={{ fontSize: 11.5, fontWeight: 500, color: r.td_name ? (r.active ? T.accent : T.amber) : T.muted }}>
+                  {r.td_name
+                    ? `Technical Director ${r.td_name} · ${r.active ? 'active' : 'waiting on their account'} · recorded by ${r.recorded_by} on ${day(r.recorded_at)}`
+                    : 'No Technical Director recorded'}
+                </div>
               </div>
               <div style={{ width: 40, textAlign: 'center', fontSize: 13, fontWeight: 900, color: r.club_state === 'claimed' ? T.amber : T.muted }}>{r.club_state === 'claimed' ? r.held : '—'}</div>
               <div style={{ background: T.surface2, borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: r.club_state === 'verified' ? T.accent : r.club_state === 'suspended' ? T.red : T.amber }}>
