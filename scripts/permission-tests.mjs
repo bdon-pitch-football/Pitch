@@ -3922,6 +3922,12 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [susTd, susAdmin, susGuardian, yearsAgo(41)]);
   await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Wren','Kavanagh',$3), ($2,'Kit','Marlowe',$3)`,
     [claimer, askedKid, yearsAgo(13)]);
+  // 0058 landed between this fixture being written and being merged: a
+  // technical_director membership is now only writable for the person the
+  // verification call recorded, with a proved address. The fixture wrote the
+  // membership straight in, which is exactly the door 0058 closed — so it is
+  // the fixture that moves, not the rule. Both branches were green alone.
+  await recordTd(susTd, club, 'westgate-td@fixture.example');
   await mem(susTd, club, null, 'technical_director');
   await mem(susAdmin, club, null, 'club_admin');
   await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$1)`, [susTd, club]);
@@ -4046,11 +4052,21 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     values ($1,$2,'U16 Girls','U16','girls','2026')`, [newSq, newClub]);
   await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Ruth','Calder',$3), ($2,'Owen','Prendergast',$3)`,
     [newTd, newAdmin, yearsAgo(38)]);
-  await mem(newTd, newClub, null, 'technical_director');
+  // 0058 moved this case one level down while this fixture was on a branch:
+  // a technical_director membership cannot be WRITTEN at an unverified club
+  // at all, so the seat this check wanted to interrogate can no longer be
+  // brought into existence. That is a stronger answer than the one the check
+  // was written to get, so it is the answer the check now asserts — with the
+  // administrator, who CAN exist at a claimed club, still asked the original
+  // question. Two gates, one club, and the suite says which is which.
+  const tdRefused = await (async () => {
+    try { await mem(newTd, newClub, null, 'technical_director'); return false; } catch { return true; }
+  })();
   await mem(newAdmin, newClub, null, 'club_admin');
   check('SQ23: a club that has never been verified works no squads either, whichever seat asks',
-    [(await db.query(`select fn_can_work_squads($1,$2) as ok`, [newTd, newClub])).rows[0].ok,
-     (await db.query(`select fn_can_work_squads($1,$2) as ok`, [newAdmin, newClub])).rows[0].ok], [false, false]);
+    [tdRefused,
+     (await db.query(`select fn_can_work_squads($1,$2) as ok`, [newTd, newClub])).rows[0].ok,
+     (await db.query(`select fn_can_work_squads($1,$2) as ok`, [newAdmin, newClub])).rows[0].ok], [true, false, false]);
   check('SQ23b: and it had nothing to lose — no claim, no invitation and no membership can exist there',
     [await (async () => { try {
        await db.query(`insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4)`,
@@ -4085,6 +4101,9 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   await db.query(`insert into person (id, first_name, last_name, dob) values
     ($1,'Marta','Ferreira',$5), ($2,'Colin','Braithwaite',$5), ($3,'Piet','Van Rensburg',$5), ($4,'Nadia','Sokolov',$5)`,
     [clTd, clAdmin, clCoach, parent, yearsAgo(42)]);
+  // 0058's rule, same as the M10 fixture above: the role attaches to the
+  // person the call recorded, at a proved address, or the database refuses it.
+  await recordTd(clTd, club, 'northern-td@fixture.example');
   await mem(clTd, club, null, 'technical_director');
   await mem(clAdmin, club, null, 'club_admin');
   await mem(clCoach, club, sq, 'coach');
@@ -4641,6 +4660,87 @@ const componentFilesAll = [];
     }
   }
   check(`url1 (F8): no redirect puts a banned word in the address bar (${bad.join(', ') || 'none does'})`, bad.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// url1's sibling, and the one that should have existed first: D-108's words
+// banned in the WORDS ON THE SCREEN, not only in the address bar.
+//
+// The user seat found "Apply for this role" and "Applying sends the club your
+// coaching CV" live on /jobs on 24 Sep, with every suite green. url1 reads
+// redirect() arguments; the corpus check reads docs/; the copy seat reads
+// strings with its eyes and had already corrected 106 of them — and these two
+// walked through all three. The vocabulary is not a style preference: D-108
+// extends D-85 because "applied / declined / rejected" is what makes a
+// register look like something a child can be turned down from, which is the
+// analysis we are deliberately staying outside of. A rule nobody enforces is
+// a hope (TRAINING §7).
+//
+// Scanned: the text between JSX tags, and quoted strings long enough to be
+// prose rather than a class name or a key. Comments are stripped first —
+// a comment is not copy — and "application/…" is skipped, because a media
+// type is not a sentence.
+// ---------------------------------------------------------------------------
+{
+  const BANNED = /\b(applied|applying|apply|application|applicant|declined|rejected|unsuccessful|potential|insights?|struggling)\b/i;
+  const screenFiles = [...routeFiles];
+  (function walkComponents(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      const full = join(d, e.name);
+      if (e.isDirectory()) walkComponents(full);
+      else if (/\.tsx?$/.test(e.name)) screenFiles.push(full);
+    }
+  })(fileURLToPath(new URL('../components', import.meta.url)));
+  // A page that does not exist in production is not a surface. /design,
+  // /dev/outbox and /demo all 404 in a production build, and the words in
+  // them are engineering language ("the tablet rule applied to desktop"), not
+  // copy anybody reads.
+  const devOnly = (src) => /NODE_ENV === 'production'[\s\S]{0,80}notFound\(\)/.test(src) || /isDemo\(\)/.test(src);
+  // Live on 24 Sep, every suite green, found by the user seat walking the
+  // product as a volunteer coach. They are the coach jobs flow, where an
+  // adult really is applying for a real job and being turned down is a real
+  // outcome — which is exactly the argument D-108 already answered: the words
+  // go "for any actor, on any surface", because the register must not read as
+  // something a child can be turned down from and one vocabulary is how you
+  // guarantee that. Replacements are with BUZ; nothing here ships until he
+  // approves the words. Listed so the debt is visible and CANNOT GROW: a
+  // tenth one fails this check the day it is written.
+  const AWAITING_BUZ = new Set([
+    'Closed. Coaches who applied are still listed below.',
+    'You need a coaching profile and an adult account to apply for a role.',
+    'You&rsquo;ve applied for this one. The club has your CV.',
+    'Sign in to apply',
+    'You need a coaching profile to apply.',
+    'Apply for this role',
+    'Applying sends the club your coaching CV and whatever you write. It does not send them your phone number or your email \u2014 if you want to be reached that way, say so in your message.',
+    'Browse coaching roles at clubs and apply with your page.',
+  ]);
+  const found = [];
+  for (const f of screenFiles) {
+    const src = codeOnly(readFileSync(f, 'utf8'));
+    if (devOnly(src)) continue;
+    const seen = new Set();
+    const consider = (text, where) => {
+      const t = text.replace(/\s+/g, ' ').trim();
+      if (!t || t.length < 4 || seen.has(t)) return;
+      if (!/[a-z]{3}/i.test(t)) return;
+      const m = BANNED.exec(t);
+      if (!m) return;
+      // "application/json" and the like: a media type, not a sentence.
+      if (/^application$/i.test(m[0]) && t.slice(m.index + m[0].length).startsWith('/')) return;
+      seen.add(t);
+      if (AWAITING_BUZ.has(t)) return;
+      found.push(`${f.slice(f.lastIndexOf('/app/') + 1 || f.lastIndexOf('/components/') + 1)}: "${t.slice(0, 70)}"`);
+    };
+    // Text between tags — the words a person actually reads.
+    for (const m of src.matchAll(/>([^<>{}]{4,300})</g)) consider(m[1]);
+    // And prose in quotes: a title, an aria-label, a placeholder, a message.
+    for (const m of src.matchAll(/(['"`])([^'"`\n]{8,300}?)\1/g)) {
+      if (/\s/.test(m[2])) consider(m[2]);
+    }
+  }
+  check(`ban1: D-108's words are not on any screen (${found.slice(0, 4).join(' · ') || 'none are'})`, found.length, 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
