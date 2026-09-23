@@ -240,5 +240,7 @@ export async function applyForRole(formData: FormData) {
      on conflict (role_id, coach_id) do nothing`,
     [roleId, me, message || null],
   );
-  redirect(`/jobs/${roleId}?applied=1`);
+  // 'sent=1', never 'applied': D-108 bans the word on every surface, and
+  // the address bar is one. The page's own wording is copy batch 1, item 39.
+  redirect(`/jobs/${roleId}?sent=1`);
 }

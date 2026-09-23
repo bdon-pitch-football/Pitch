@@ -104,7 +104,10 @@ export async function answerClaim(formData: FormData) {
   }
   if (joined) await wake(joined);
   if (!ok) redirect(`/club/squads/${squadId}?error=1`);
-  redirect(`/club/squads/${squadId}?done=${yes ? 'confirmed' : 'declined'}`);
+  // 'no', never 'declined': D-108's banned words are banned on every
+  // surface, and the address bar is one (QA F8). The banner this keys is
+  // unchanged.
+  redirect(`/club/squads/${squadId}?done=${yes ? 'confirmed' : 'no'}`);
 }
 
 export async function inviteToSquad(formData: FormData) {

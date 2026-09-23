@@ -27,14 +27,24 @@
 import 'server-only';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { isDemo } from './demo';
 
 const URL_BASE = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET ?? 'public-images';
 
-/** True when uploads will persist. False means the local dev filesystem. */
+/**
+ * True when uploads will persist. False means the local dev filesystem.
+ *
+ * A DEMO NEVER WRITES TO A REAL BUCKET (safety review N4a). `npm run demo`
+ * blanks the keys before it starts anything, but that is the launcher's care,
+ * not a property of this module: `PITCH_DEMO=1 npm run dev` with real keys in
+ * .env.local would have put a crest a club typed across a table into the
+ * Sydney bucket. Every other outbound module already asks isDemo() the same
+ * way (lib/billing, lib/waitlist-db, lib/providers); this was the gap.
+ */
 export function storageConfigured(): boolean {
-  return Boolean(URL_BASE && KEY);
+  return !isDemo() && Boolean(URL_BASE && KEY);
 }
 
 /**

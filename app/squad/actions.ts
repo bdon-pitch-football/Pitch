@@ -113,7 +113,9 @@ export async function answerSquadInvitation(formData: FormData) {
     client.release();
   }
   if (!ok) redirect(`${back}?squad=error`);
-  redirect(`${back}?squad=${yes ? 'joined' : 'declined'}`);
+  // 'no', never 'declined' — the word is banned on every surface and the
+  // address bar is one (D-108, QA F8).
+  redirect(`${back}?squad=${yes ? 'joined' : 'no'}`);
 }
 
 /** Leaving is one tap and needs nobody's permission (D-10, D-26's shape). */

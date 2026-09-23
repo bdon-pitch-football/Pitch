@@ -16,11 +16,13 @@ export const metadata = { title: 'Coaching role' };
 
 export default async function Role({ params, searchParams }: {
   params: Promise<{ roleId: string }>;
-  searchParams: Promise<{ applied?: string; cannot?: string; closed?: string }>;
+  // `sent`, not `applied`: D-108's words are banned on every surface, and
+  // the address bar is one.
+  searchParams: Promise<{ sent?: string; cannot?: string; closed?: string }>;
 }) {
   const { roleId } = await params;
   if (!isUuid(roleId)) notFound();
-  const { applied, cannot, closed } = await searchParams;
+  const { sent, cannot, closed } = await searchParams;
   const me = await getSessionPersonId();
 
   const { rows } = await db.query(
@@ -55,7 +57,7 @@ export default async function Role({ params, searchParams }: {
           </div>
         </div>
 
-        {applied && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13.5, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>Sent. {r.club} has your coaching CV and your message. What happens next is up to them — we don&rsquo;t chase clubs on your behalf.</div>}
+        {sent && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13.5, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>Sent. {r.club} has your coaching CV and your message. What happens next is up to them — we don&rsquo;t chase clubs on your behalf.</div>}
         {cannot && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>You need a coaching profile and an adult account to apply for a role.</div>}
         {closed && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>This role has closed.</div>}
 

@@ -8,6 +8,7 @@
 // wiring, using doc 15's copy verbatim. If a message is not in doc 15 it
 // does not send — and nothing sends at all until then.
 import 'server-only';
+import { ageOn } from './age';
 import { db } from './db';
 import { isUuid } from './ids';
 import { createHash, randomBytes } from 'node:crypto';
@@ -65,7 +66,7 @@ export async function createPendingInvitation(input: {
   // needs its own connection while still holding this one deadlocks against
   // a single-connection pool — the request waits for a connection only it
   // can free.
-  const age = Math.floor((Date.now() - new Date(input.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
+  const age = ageOn(input.dob) ?? 0;
   // An under-16's parent approves a page (§1, §2); a 16–17's parent confirms
   // they are the parent (§1b, §2b).
   const sms = input.childId ? guardianConfirmSms16 : guardianApprovalSms;

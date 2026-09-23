@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 import { cronAllowed } from '@/lib/cron-policy';
 import { db } from '@/lib/db';
-import { linkExpiringToClubsEmail, linkRenewalEmail, pendingNudgeSms, sixteenthBirthdayEmail } from '@/lib/messages';
+import { isHeld, linkExpiringToClubsEmail, linkRenewalEmail, pendingNudgeSms, sixteenthBirthdayEmail } from '@/lib/messages';
 import { reissueChannelToken } from '@/lib/guardian-flow';
 import { send } from '@/lib/messaging';
 
@@ -37,16 +37,29 @@ export async function GET(request: Request) {
   // doc 15 §13, thirty days before a sixteenth birthday. The transition to
   // discoverable is gated on this having DELIVERED (doc 14 §B11), so the
   // notice row is created here and the provider receipt fills delivered_at.
-  const { rows: turning } = await db.query('select * from fn_children_turning_16()');
+  //
+  // HELD (BUZ decision 3, 23 Sep). The gate stays here, visible and whole:
+  // while §13 is held no notice row is written, nothing delivers, and
+  // fn_searchable (0013) therefore keeps every 16–17 out of every search —
+  // which is the restrictive half of B11 and the right answer while the
+  // parent's switch does not exist. Writing a row with no send would be the
+  // dangerous shortcut: fn_children_turning_16() skips a child who already
+  // has one, so the day this sends again those children would be skipped
+  // forever. lib/messages HELD_KEYS lists what has to exist before it sends,
+  // and lib/messaging refuses the send even if this block is reached.
+  const held = isHeld('doc15.§13');
   let noticed = 0;
-  for (const t of turning as { child_id: string; first_name: string; guardian_email: string }[]) {
-    const result = await send(sixteenthBirthdayEmail(t.first_name), { address: t.guardian_email });
-    await db.query(
-      `insert into age_transition_notice (child_id, outbox_id) values ($1, $2)
-       on conflict (child_id) do nothing`,
-      [t.child_id, result.queued ? result.id : null],
-    );
-    noticed++;
+  if (!held) {
+    const { rows: turning } = await db.query('select * from fn_children_turning_16()');
+    for (const t of turning as { child_id: string; first_name: string; guardian_email: string }[]) {
+      const result = await send(sixteenthBirthdayEmail(t.first_name), { address: t.guardian_email });
+      await db.query(
+        `insert into age_transition_notice (child_id, outbox_id) values ($1, $2)
+         on conflict (child_id) do nothing`,
+        [t.child_id, result.queued ? result.id : null],
+      );
+      noticed++;
+    }
   }
 
   // doc 15 §3, day 10: once. The texted link is re-minted for the reminder
@@ -88,6 +101,9 @@ export async function GET(request: Request) {
     lapsedSquadInvitations: lapsedSquad[0].n,
     abuseSignalsPurged: abuse[0].n,
     birthdayNotices: noticed,
+    // Says so out loud, so a run that sends nothing is not read as a run that
+    // found nobody (doc 14 §B11 depends on the difference).
+    birthdayNoticesHeld: held,
     approvalNudges: nudged,
     linkReminders: reminded,
   });

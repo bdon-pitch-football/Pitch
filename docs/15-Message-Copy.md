@@ -271,6 +271,10 @@ Routes to the guardian, never the child alone (D-19).
 
 ## 13 · Thirty days before a sixteenth birthday — to the guardian
 
+**HELD 23 Sep 2026 (BUZ) — this message does not send.** The switch it offers does not exist: no screen in the product reads or writes `guardian_setting.discovery_disabled`. The words below stay here because doc 14 §B11 defines the sixteen-year-old transition by this message having been delivered — deleting them deletes the gate. They are the approved copy for the day the switch is built, and they are not to be edited to fit its absence.
+
+While it is held, no parent is told about the change at sixteen — so **discovery stays off at sixteen** (the more restrictive answer), and no screen anywhere may say clubs can search for players who are sixteen or seventeen. Three edits the words need before they can ever send: "Leave it on, or turn it off: pitchfootball.com.au" must name the real page it links to; "him/his" becomes "them/their", because the product holds no gender for a child (D-25) and cannot write the version below; and "Verified clubs and coaches will be able to find him in a search" has to be re-read against whatever search actually exists then (D-53). In the code: `HELD_KEYS` in `lib/messages.ts`, which `lib/messaging.ts` refuses and `app/api/jobs/daily` checks before it looks for anyone to send to.
+
 **This message is load-bearing in a way none of the others are.** Doc 14 §B11 gates the 16-year-old discoverability transition on this notice having *delivered* — no delivery receipt, no discovery. Without it in this file, and under the rule that a message not in doc 15 does not send, **D-22 is unbuildable and the 16–17 band can never switch on.** It is not optional copy.
 
 **Subject:** `Deniz turns 16 next month — one thing changes, and you choose`

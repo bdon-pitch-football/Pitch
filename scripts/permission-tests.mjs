@@ -3584,6 +3584,15 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     (prov.match(/isDemo\(\) \|\|/g) ?? []).length, 2);
   check('DEMO4: a demo never reaches Stripe or the waitlist',
     [/!isDemo\(\) && Boolean/.test(srcOf('lib/billing.ts')), /!isDemo\(\) && Boolean/.test(srcOf('lib/waitlist-db.ts'))], [true, true]);
+  // N4a (safety review): the launcher blanks the keys, but that is the
+  // launcher's care and not a property of the module. A crest a club typed
+  // across a table must not be able to reach the Sydney bucket.
+  check('DEMO4b (N4a): a demo never writes an upload to a real bucket — it asks isDemo() like every other outbound module',
+    /!isDemo\(\) && Boolean/.test(srcOf('lib/storage.ts')), true);
+  // N4c: next dev otherwise binds every interface, so the meeting's Wi-Fi
+  // could open the demo and take any seat in it, with no password.
+  check('DEMO4c (N4c): the demo app listens on this laptop only',
+    /'next', 'dev', '-H', '127\.0\.0\.1', '-p'/.test(srcOf('scripts/demo.mjs')), true);
   check('DEMO5: the seat picker and its sign-in exist only in a demo',
     [/if \(!isDemo\(\)\) notFound\(\)/.test(srcOf('app/demo/page.tsx')), /if \(!isDemo\(\)\) redirect/.test(srcOf('app/demo/actions.ts'))], [true, true]);
   // DEMO6 read "the demo renames the club only — it loads no person", and it
@@ -4352,6 +4361,286 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
      /update person set email_proved_at = coalesce\(email_proved_at, now\(\)\) where id = \$1/.test(flowSrc),
      /credential_cleared: true/.test(flowSrc)],
     [true, true, true, true]);
+}
+
+// ---------------------------------------------------------------------------
+// The connection to the database itself (release seat R3, 22 Sep).
+//
+// Every other check in this file asks what the database answers. These ask
+// how we reach it: a permission function enforced in Postgres protects
+// nobody if the wire to Postgres is plaintext or the certificate at the far
+// end is never checked, and a pool of one is LESSONS L1 in production
+// instead of in development.
+// ---------------------------------------------------------------------------
+const componentFilesAll = [];
+(function walk(d) {
+  for (const e of readdirSync(d, { withFileTypes: true })) {
+    const full = join(d, e.name);
+    if (e.isDirectory()) walk(full);
+    else if (/\.tsx?$/.test(e.name)) componentFilesAll.push(full);
+  }
+})(fileURLToPath(new URL('../components', import.meta.url)));
+
+{
+  const { poolConfig, isLocalSocket, stripSslParams } = await import('../lib/db-policy.ts');
+  const dev = poolConfig('postgres://postgres@127.0.0.1:54322/postgres');
+  check('db1: the dev socket keeps exactly the shape PGlite needs — one warm connection, no TLS',
+    [dev.max, dev.idleTimeoutMillis, dev.ssl], [1, 0, false]);
+  const real = poolConfig('postgres://u:pw@db.abcdefg.supabase.co:6543/postgres', { ca: 'PEM' });
+  check('db2 (R3): a real database is NOT a pool of one — a request never queues behind itself',
+    real.max > 1, true);
+  check('db3 (R3): and it connects with TLS, the certificate verified against the pinned CA',
+    real.ssl, { ca: 'PEM', rejectUnauthorized: true });
+  check('db4: no path can ask for TLS without verification',
+    /rejectUnauthorized:\s*(false|0)/.test(codeOnly(srcOf('lib/db-policy.ts')) + codeOnly(srcOf('lib/db.ts'))), false);
+  check('db5: the connection string does not get a vote — every ssl parameter is stripped out of it',
+    [stripSslParams('postgres://u:p@h:5432/db?sslmode=no-verify&application_name=pitch'),
+      poolConfig('postgres://u:p@h:5432/db?sslmode=disable', { ca: 'PEM' }).ssl],
+    ['postgres://u:p@h:5432/db?application_name=pitch', { ca: 'PEM', rejectUnauthorized: true }]);
+  // And a string with nothing to take out comes back byte for byte: the
+  // password is in there, and re-serialising a URL rewrites its escaping.
+  check('db5b: a connection string we do not have to rewrite is not rewritten',
+    stripSslParams('postgres://u:p%2Fw@h:6543/postgres?pgbouncer=true'),
+    'postgres://u:p%2Fw@h:6543/postgres?pgbouncer=true');
+  check('db6: the dev and demo sockets are the only local shape; anything else is a real database',
+    [isLocalSocket('postgres://postgres@127.0.0.1:54323/postgres'),
+      isLocalSocket('postgres://u:p@db.abcdefg.supabase.co:6543/postgres')],
+    [true, false]);
+  // lib/db must not set pool options of its own: two places deciding `max`
+  // is how `max: 1` reached production under a comment saying it would not.
+  const dbSrc2 = codeOnly(srcOf('lib/db.ts'));
+  check('db7: lib/db takes its whole shape from the policy and invents nothing',
+    [/new Pool\(poolConfig\(/.test(dbSrc2), /max:\s*\d/.test(dbSrc2), /idleTimeoutMillis/.test(dbSrc2)],
+    [true, false, false]);
+  // L30: a seat can run its own dev database. Unset is the shared 54322, so
+  // nobody who does not set it notices anything.
+  check('db8: DEV_DB_PORT moves the dev database and the app together, and defaults to the shared one',
+    // Read raw: the dev URL is a postgres:// literal, and codeOnly would
+    // take the rest of that line for a comment.
+    [/DEV_DB_PORT \|\| '54322'/.test(srcOf('lib/db.ts')), /DEV_DB_PORT \|\| 54322/.test(srcOf('scripts/dev-db.mts'))],
+    [true, true]);
+}
+
+// The same decision, proved on a real TLS handshake against a fake Postgres
+// — no Supabase project and no network. The server speaks the SSLRequest
+// negotiation, presents a certificate signed by a CA generated here, and
+// counts what it is given: a completed handshake, or plaintext.
+{
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const net = await import('node:net');
+  const tls = await import('node:tls');
+  const { poolConfig } = await import('../lib/db-policy.ts');
+  let dir = null;
+  try {
+    dir = mkdtempSync(join(tmpdir(), 'pitch-tls-'));
+    const ossl = (...a) => execFileSync('openssl', a, { cwd: dir, stdio: ['ignore', 'ignore', 'pipe'] });
+    ossl('req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'ca.key', '-out', 'ca.crt',
+      '-days', '1', '-subj', '/CN=Pitch test CA', '-addext', 'basicConstraints=critical,CA:TRUE');
+    ossl('req', '-new', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'srv.key', '-out', 'srv.csr',
+      '-subj', '/CN=pitch-test-db');
+    writeFileSync(join(dir, 'ext.cnf'), 'subjectAltName=DNS:pitch-test-db\n');
+    ossl('x509', '-req', '-in', 'srv.csr', '-CA', 'ca.crt', '-CAkey', 'ca.key', '-CAcreateserial',
+      '-out', 'srv.crt', '-days', '1', '-extfile', 'ext.cnf');
+  } catch {
+    dir = null;
+    console.log('SKIP db9-db12 — no openssl to generate a test certificate; the TLS path was NOT measured');
+  }
+  if (dir) {
+    const pg = (await import('pg')).default;
+    const read = (f) => readFileSync(join(dir, f), 'utf8');
+    const ca = read('ca.crt');
+    let handshakes = 0, plaintext = 0;
+    const tlsServer = tls.createServer({ cert: read('srv.crt'), key: read('srv.key') });
+    tlsServer.on('secureConnection', (s) => { handshakes++; s.destroy(); });
+    tlsServer.on('tlsClientError', () => {});
+    const server = net.createServer((sock) => {
+      const onReadable = () => {
+        const first = sock.read(8);
+        if (first === null) return;
+        sock.removeListener('readable', onReadable);
+        // length 8, code 80877103 = SSLRequest. Anything else is a client
+        // that never asked for TLS at all.
+        if (first.readInt32BE(0) === 8 && first.readInt32BE(4) === 80877103) {
+          sock.write(Buffer.from('S'));
+          tlsServer.emit('connection', sock);
+        } else { plaintext++; sock.destroy(); }
+      };
+      sock.on('readable', onReadable);
+      sock.on('error', () => {});
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    // The ssl the policy hands pg for a REAL database, pointed at the fake
+    // server. `servername` is what pg sets from a real host name, and it is
+    // what the certificate is checked against.
+    const attempt = async (opts, servername, extra = {}) => {
+      const h = handshakes, p = plaintext;
+      const cfg = poolConfig('postgres://u:p@db.abcdefg.supabase.co:5432/postgres?sslmode=no-verify', opts);
+      const c = new pg.Client({
+        host: '127.0.0.1', port, user: 'u', password: 'p', database: 'postgres',
+        ssl: { ...cfg.ssl, servername }, connectionTimeoutMillis: 5000, ...extra,
+      });
+      let err = 'connected';
+      try { await c.connect(); } catch (e) { err = e.code || e.message; }
+      try { await c.end(); } catch { /* the fake server never authenticates */ }
+      return { tls: handshakes > h, plaintext: plaintext > p, err };
+    };
+    const ok = await attempt({ ca }, 'pitch-test-db');
+    check('db9 (R3): the pinned CA gives a real, completed TLS handshake, and nothing goes in plaintext',
+      [ok.tls, ok.plaintext], [true, false]);
+    const unknown = await attempt({}, 'pitch-test-db');
+    check('db10: a certificate we do not trust is refused, not shrugged at',
+      [unknown.tls, unknown.err], [false, 'UNABLE_TO_VERIFY_LEAF_SIGNATURE']);
+    const wrongHost = await attempt({ ca }, 'someone-elses-db');
+    check('db11: a valid certificate for the WRONG host is refused too — verify-full, not verify-ca',
+      [wrongHost.tls, wrongHost.err], [false, 'ERR_TLS_CERT_ALTNAME_INVALID']);
+    // And the reason db5 exists, demonstrated rather than asserted: pg merges
+    // the parsed connection string OVER the config object, so an sslmode in
+    // a URL beats an explicit ssl config and the wire goes plaintext.
+    const urlWins = await attempt({ ca }, 'pitch-test-db',
+      { connectionString: `postgres://u:p@127.0.0.1:${port}/postgres?sslmode=disable` });
+    check('db12: which is why the string is stripped — sslmode in a URL beats an explicit ssl config',
+      urlWins.plaintext, true);
+    server.close(); tlsServer.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The SMS spend cap is mandatory (D-81, release seat R4, BUZ decision 5).
+// ---------------------------------------------------------------------------
+{
+  const { smsCapCents } = await import('../lib/sms-policy.ts');
+  check('cap1 (R4): an absent, empty, zero or nonsense cap is NOT "no limit" — it is no cap',
+    [smsCapCents(undefined), smsCapCents(''), smsCapCents('  '), smsCapCents('0'), smsCapCents('-500'), smsCapCents('lots')],
+    [null, null, null, null, null, null]);
+  check('cap2: a real cap is read in cents', [smsCapCents('2000'), smsCapCents(' 2000 ')], [2000, 2000]);
+  const sendSrc2 = codeOnly(srcOf('lib/messaging.ts'));
+  check('cap3 (R4): with no cap configured, production refuses every SMS, with the reason recorded',
+    /cap === null && process\.env\.NODE_ENV === 'production'[\s\S]{0,80}reason: 'sms_no_cap'/.test(sendSrc2), true);
+  // The refusal has to BE THERE and be first: an indexOf of -1 is also
+  // "before", and a check that passes when the line is gone is not a check.
+  // The RETURN, not the reason's name in the type union above it.
+  const refusalAt = sendSrc2.indexOf("reason: 'sms_no_cap'");
+  check('cap4: and the refusal comes before the meter is charged and before an outbox row exists',
+    refusalAt > 0 && refusalAt < sendSrc2.indexOf('insert into sms_meter')
+      && refusalAt < sendSrc2.indexOf('insert into message_outbox'), true);
+  check('cap5: nothing outside the send layer reads the cap for itself',
+    /SMS_MONTHLY_CAP_CENTS/.test(codeOnly(srcOf('lib/providers.ts'))), false);
+  const envEx = readFileSync(fileURLToPath(new URL('../.env.example', import.meta.url)), 'utf8');
+  check('cap6: and .env.example says so in words, where the person setting it will read it',
+    /MANDATORY, and empty never means "no limit"/.test(envEx), true);
+}
+
+// ---------------------------------------------------------------------------
+// Doc 15 §13 is HELD (BUZ decision 3, 23 Sep): the words stay, the send stops.
+// Doc 14 §B11 makes that message the gate for the sixteenth-birthday
+// transition, so the gate has to survive the hold — and it does, by staying
+// shut: no notice, no delivery, no discovery (asserted in table B).
+// ---------------------------------------------------------------------------
+{
+  const msgs = srcOf('lib/messages.ts');
+  check('held1: §13 is on the held list, its approved words are still here, and it is still in the catalogue',
+    [/HELD_KEYS = \[\s*\n\s*'doc15\.§13',/.test(msgs),
+      msgs.includes('turns sixteen, and one thing on Pitch changes.'),
+      /CATALOGUE_KEYS = \[[\s\S]*?'doc15\.§13'/.test(msgs)],
+    [true, true, true]);
+  check('held2: the send layer refuses a held message EVERYWHERE, not only in production',
+    /if \(HELD\.has\(msg\.key\)\) return \{ queued: false, reason: 'held' \};/.test(srcOf('lib/messaging.ts')), true);
+  const daily = codeOnly(srcOf('app/api/jobs/daily/route.ts'));
+  check('held3: and the daily job does not even look for a child to send it to while it is held',
+    /const held = isHeld\('doc15\.§13'\);[\s\S]{0,120}if \(!held\) \{[\s\S]{0,200}fn_children_turning_16/.test(daily), true);
+  check('held4: nothing writes an age_transition_notice outside that block — a row with no send skips that child forever',
+    (daily.match(/insert into age_transition_notice/g) ?? []).length, 1);
+  const doc15 = readFileSync(fileURLToPath(new URL('../docs/15-Message-Copy.md', import.meta.url)), 'utf8');
+  check('held5: doc 15 §13 carries the dated hold note above the words it holds',
+    /## 13 · Thirty days[\s\S]{0,200}\*\*HELD 23 Sep 2026 \(BUZ\) — this message does not send\.\*\*/.test(doc15), true);
+  // While no parent is being told, nothing may describe the change to them.
+  const claims = [...routeFiles, ...componentFilesAll].filter((f) =>
+    /(search|find)[^.\n]{0,70}(16|sixteen)[\s‑-]?(and over|or over|and 17|–17|-17)/i.test(codeOnly(readFileSync(f, 'utf8'))));
+  check(`held6: no screen claims a club can search for a player of sixteen or seventeen (${claims.map((f) => f.slice(f.indexOf('/app/') + 1 || f.indexOf('/components/') + 1)).join(', ') || 'none does'})`,
+    claims.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// The coach lookup, on proved addresses only (B1's second half, L21, 0056).
+// The SQL is READ OUT OF THE ACTION and run here, so this cannot pass on a
+// copy of the query that the product no longer uses.
+// ---------------------------------------------------------------------------
+{
+  const inviteSrc = srcOf('app/club/squads/actions.ts');
+  const sql = /const coach = await db\.query\(\s*`([\s\S]*?)`/.exec(inviteSrc)?.[1] ?? '';
+  check('coach1 (B1): the coach lookup asks the database whether the address is proved',
+    /fn_email_proved\(p\.id\)/.test(sql), true);
+  const provedCoach = crypto.randomUUID(), unprovedCoach = crypto.randomUUID();
+  for (const [id, email] of [[provedCoach, 'proved.coach@example.test'], [unprovedCoach, 'unproved.coach@example.test']]) {
+    await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Test','Coach','1985-04-04',$2)`, [id, email]);
+    await db.query(`insert into coach_profile (person_id) values ($1)`, [id]);
+  }
+  // Proved the way the product proves it: a link we sent, opened (0056).
+  await db.query(`insert into email_proof (person_id, token_hash, expires_at) values ($1,$2, now() + interval '7 days')`,
+    [provedCoach, sha('coach-proof')]);
+  await db.query(`select fn_use_email_proof($1)`, [sha('coach-proof')]);
+  const lookup = async (email) => (await db.query(sql, [email, ID.td])).rows.map((r) => r.id);
+  check('coach2 (B1): a coach whose address nobody has proved is not found — the address alone is not a person',
+    await lookup('unproved.coach@example.test'), []);
+  check('coach3: and a coach who has opened the link we sent is found, so the invite still works',
+    await lookup('proved.coach@example.test'), [provedCoach]);
+  check('coach4 (N24): an address with no account at all answers exactly as an unproved one does',
+    await lookup('nobody.at.all@example.test'), []);
+  check('coach5: and the club is told the same thing either way — one redirect, no branch on the result',
+    (inviteSrc.match(/redirect\('\/club\/squads\?coachAsked=1'\)/g) ?? []).length, 1);
+}
+
+// ---------------------------------------------------------------------------
+// An age is a calendar fact, and the database owns it (QA F5).
+// ---------------------------------------------------------------------------
+{
+  const { ageOn, ageBand } = await import('../lib/age.ts');
+  const mel = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date()).split('-').map(Number);
+  const dobFor = (years, offsetDays = 0) => {
+    const d = new Date(Date.UTC(mel[0] - years, mel[1] - 1, mel[2] + offsetDays));
+    return d.toISOString().slice(0, 10);
+  };
+  const cases = [dobFor(18), dobFor(18, 1), dobFor(18, -1), dobFor(16), dobFor(16, 1), dobFor(15), dobFor(30)];
+  const mine = cases.map((d) => ageBand(d));
+  const theirs = [];
+  for (const d of cases) theirs.push((await db.query(`select fn_age_band($1::date) as b`, [d])).rows[0].b);
+  check(`age1 (F5): the app agrees with fn_age_band on every boundary, birthdays included (${cases.join(' ')})`,
+    mine, theirs);
+  check('age2: and on an eighteenth birthday that answer is eighteen, not seventeen',
+    ageOn(dobFor(18)), 18);
+  // L20, in place: the formula that was there says seventeen on the day.
+  const old = Math.floor((Date.now() - new Date(dobFor(18)).getTime()) / (365.25 * 24 * 3600 * 1000));
+  check('age3: the formula it replaced is shown to get that day wrong', old, 17);
+  const withFormula = [...routeFiles, ...componentFilesAll, ...readdirSync(fileURLToPath(new URL('../lib', import.meta.url)))
+    .filter((f) => /\.tsx?$/.test(f) && f !== 'age.ts').map((f) => fileURLToPath(new URL('../lib/' + f, import.meta.url)))]
+    .filter((f) => /365\.25/.test(readFileSync(f, 'utf8')));
+  check(`age4: and no screen or library works an age out for itself (${withFormula.join(', ') || 'none does'})`,
+    withFormula.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// D-108's words are banned on EVERY surface, and the address bar is one
+// (QA F8: ?done=declined, ?squad=declined, ?applied=1).
+// ---------------------------------------------------------------------------
+{
+  const bad = [];
+  for (const f of routeFiles) {
+    // The whole argument, quotes and template expressions included: the
+    // words are usually in a ternary inside the template
+    // (`?squad=${yes ? 'joined' : 'declined'}`), so a check that reads only
+    // as far as the first quote can never see one.
+    for (const m of codeOnly(readFileSync(f, 'utf8')).matchAll(/redirect\(([\s\S]{0,240}?)\);/g)) {
+      if (/[?&]/.test(m[1]) && /\b(applied|application|declined|rejected|unsuccessful)\b/i.test(m[1])) {
+        bad.push(`${f.slice(f.indexOf('/app/') + 1)} ${m[1].replace(/\s+/g, ' ').slice(0, 60)}`);
+      }
+    }
+  }
+  check(`url1 (F8): no redirect puts a banned word in the address bar (${bad.join(', ') || 'none does'})`, bad.length, 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

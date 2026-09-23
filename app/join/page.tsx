@@ -4,6 +4,7 @@
 // other role doors arrive with their flows.
 import { useEffect, useState } from 'react';
 import { createAccount, createClubAccount, createCoachAccount, startPendingInvitation } from './actions';
+import { ageOn } from '@/lib/age';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
 
@@ -35,7 +36,9 @@ export default function Join() {
     else if (q.get('error')) setNotice('That did not go through. Check the email address and that your password is at least ten characters.');
   }, []);
 
-  const age = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000)) : null;
+  // The same calendar answer the database gives (lib/age, fn_age_band): on
+  // the eighteenth birthday itself this screen and the database agree.
+  const age = ageOn(dob);
   // The coach door opens on 21 Sep (BUZ): a coach builds their own page.
   // Eighteen or over — a coach account for a child is a child's account with
   // no guardian on it, and the server refuses one whatever this form says.

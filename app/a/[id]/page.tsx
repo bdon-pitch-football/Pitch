@@ -11,6 +11,7 @@
 // Reached by the invitation id (the child's "Show them my page"), it carries
 // no channel and says where the two links are.
 import { notFound } from 'next/navigation';
+import { ageOn } from '@/lib/age';
 import { resolveApprovalLink } from '@/lib/guardian-flow';
 import { approve, confirmIt } from './actions';
 import { card } from '@/lib/ui';
@@ -51,7 +52,8 @@ export default async function Approval({ params, searchParams }: { params: Promi
   const teen = inv.existing_child;
 
   const name: string = inv.first_name;
-  const age = Math.floor((Date.now() - new Date(inv.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
+  // pending_invitation.dob is NOT NULL (0002), so this always resolves.
+  const age = ageOn(inv.dob) ?? 0;
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>

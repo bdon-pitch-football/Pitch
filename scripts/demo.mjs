@@ -86,7 +86,12 @@ console.log(`Setting up the demo for ${club}${has('unclaimed') ? ' — unclaimed
 dbProc.stdout.on('data', (b) => {
   const text = String(b);
   if (!app && text.includes('demo db ready')) {
-    app = spawn('npx', ['next', 'dev', '-p', String(PORT)], {
+    // -H 127.0.0.1: the demo listens on THIS LAPTOP ONLY. next dev otherwise
+    // binds every interface, so a club's meeting-room Wi-Fi could open
+    // :3030/demo and take any seat in it with no password (safety review
+    // N4c). The people in it are fictional and it is still not ours to serve
+    // to a room.
+    app = spawn('npx', ['next', 'dev', '-H', '127.0.0.1', '-p', String(PORT)], {
       cwd: repo,
       env: { ...process.env, ...quiet, PITCH_DEMO: '1', NEXT_DIST_DIR: '.next-demo' },
       stdio: ['ignore', 'pipe', 'inherit'],

@@ -140,7 +140,7 @@ export default async function SquadPage({ params, searchParams }: {
   const ghost: React.CSSProperties = { height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 };
   const said: Record<string, string> = {
     confirmed: 'Confirmed. They’re in the squad, and their CV says so.',
-    declined: 'Left as it was. Nobody is told they were turned down.',
+    no: 'Left as it was. Nobody is told they were turned down.',
     asked: 'Asked. It’s waiting in their account — we told them nothing by email.',
     cancelled: 'Taken back.',
     removed: 'Out of this squad. Their record is theirs and nothing was deleted.',
