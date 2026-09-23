@@ -118,7 +118,12 @@ export async function applyDemo(db: PGlite, o: DemoOptions): Promise<{ slug: str
   const sharp = (await import('sharp')).default;
   const png = o.crest
     ? await sharp(readFileSync(o.crest)).resize(512, 512, { fit: 'inside', withoutEnlargement: true }).png().toBuffer()
-    : await sharp(Buffer.from(shieldSvg(initials(club), found.rows[0].established))).png().toBuffer();
+    // No year on an unclaimed listing's stand-in crest. The seed's Riverside
+    // was founded in 1974 and --unclaimed deletes the year along with
+    // everything else a club writes for itself — but the shield had already
+    // been drawn with it, so the club typed "1958" in the room and the page
+    // ended with a crest reading 1974 beside the line "Est. 1958".
+    : await sharp(Buffer.from(shieldSvg(initials(club), o.unclaimed ? null : found.rows[0].established))).png().toBuffer();
   const pub = fileURLToPath(new URL('../public/', import.meta.url));
   mkdirSync(join(pub, 'dev-uploads'), { recursive: true });
   const crestRel = `/dev-uploads/demo-crest-${clubId}.png`;

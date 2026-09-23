@@ -203,9 +203,17 @@ export default async function ClubPage({ params, searchParams }: {
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
                 <span>Verified club</span>
               </div>
-            ) : (
+            ) : c.club_state === 'unclaimed' ? (
+              /* D-64's disclaimer belongs to a listing WE compiled. There are
+                 three states and there were two branches, so a club that had
+                 just claimed its page — written its own philosophy, added its
+                 own team — was still told underneath its own crest that it was
+                 "not affiliated until claimed". It is affiliated; it claimed
+                 it. A claimed club that has not had the phone call yet shows
+                 neither: not the verified chip, which it has not earned, and
+                 not a sentence that is no longer true. */
               <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.6)' }}>Compiled from public information — not affiliated until claimed</div>
-            )}
+            ) : null}
           </div>
           </div>
         </div>
@@ -229,9 +237,18 @@ export default async function ClubPage({ params, searchParams }: {
                   </div>
                 </Link>
               ))}
-              <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 11, fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
-                <b style={{ color: T.secondary }}>How to register:</b> go on {c.name}&rsquo;s register below and your CV goes with you. The club works one list all year — you do not have to catch a particular week.
-              </div>
+              {/* Only where there is a register to go on. An unclaimed listing
+                  carries trials compiled from the club's own public notices
+                  and no register at all, so this line sent a family to a
+                  thing that does not exist — and the block immediately under
+                  it said so, in the opposite words, on the same screen
+                  (QA F13). The "Want to play here?" panel below already tells
+                  an unclaimed club's visitor what to do instead. */}
+              {onPitch && (
+                <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 11, fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
+                  <b style={{ color: T.secondary }}>How to register:</b> go on {c.name}&rsquo;s register below and your CV goes with you. The club works one list all year — you do not have to catch a particular week.
+                </div>
+              )}
             </div>
           </div>
         )}
