@@ -15,7 +15,7 @@
 // the widest element, which is almost always the one to fix.
 import { spawn } from 'node:child_process';
 import { createHmac } from 'node:crypto';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -58,11 +58,21 @@ const DEEP = {
 };
 
 // ---- a minimal DevTools client ---------------------------------------------
+// The profile directory is REMOVED on the way out. Chrome writes 60–160MB of
+// cache into it per run, and this script used to leak one every time it was
+// called: the device audit found 45 orphans totalling 4.1GB, which is what
+// took this machine to zero free disk twice in one week and killed a running
+// demo and an agent's shell. The screenshots themselves cost 42MB. The tool
+// was the problem, not the pictures (L36).
+const PROFILE = mkdtempSync(join(tmpdir(), 'pitch-layout-'));
 const chrome = spawn(CHROME, [
   '--headless=new', `--remote-debugging-port=${PORT}`, '--no-first-run', '--no-default-browser-check',
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'pitch-layout-'))}`, 'about:blank',
+  `--user-data-dir=${PROFILE}`, 'about:blank',
 ], { stdio: 'ignore' });
-const stop = () => { try { chrome.kill(); } catch { /* gone */ } };
+const stop = () => {
+  try { chrome.kill(); } catch { /* gone */ }
+  try { rmSync(PROFILE, { recursive: true, force: true }); } catch { /* already gone */ }
+};
 process.on('exit', stop);
 
 let target;
