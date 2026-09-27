@@ -347,6 +347,115 @@ const permSqlCode = readFileSync(join(dir, '0003_permissions.sql'), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '');
 check('D-72 permission engine source never references experience_entry', permSqlCode.includes('experience_entry') ? 'referenced' : 'clean', 'clean');
 
+// ---------------------------------------------------------------------------
+// A19 / D-161 — no school reaches a public page for anybody under 18. The
+// rule is the database's (0061): the write is refused against the date of
+// birth at write time, and the read paths ask the same function at read time,
+// so an eighteenth birthday is nobody's special case.
+//
+// D-72 is untouched and is asserted three lines above: the entry still grants
+// nothing to anybody. This runs the other way round — the record's age band
+// decides what the entry may say.
+// ---------------------------------------------------------------------------
+const schoolRow = (rec) =>
+  `insert into experience_entry (record_id, kind, org_name) values ('${rec}','school','Riverside University 1st XI')`;
+await expectFail('A19: a school entry is refused on an under-16 record', schoolRow(REC.deniz));
+await expectFail('A19: and refused on a 16-17 record', schoolRow(REC.nate));
+await db.exec(schoolRow(REC.marcus));
+const schoolRows = async (rec) =>
+  (await db.query(`select count(*)::int as n from experience_entry where record_id=$1 and kind='school'`, [rec])).rows[0].n;
+check('A19: the same insert succeeds on an adult record', await schoolRows(REC.marcus), 1);
+check('A19: and the child has none', await schoolRows(REC.deniz), 0);
+
+// The read side, asked of the database rather than of a page (D-80): the one
+// function every assembly path calls.
+const kindPublic = async (rec, kind) =>
+  (await db.query(`select fn_experience_public($1,$2) as ok`, [rec, kind])).rows[0].ok;
+const schoolPublic = (rec) => kindPublic(rec, 'school');
+check('A19: the adult\'s school entry may reach a public page', await schoolPublic(REC.marcus), true);
+check('A19: the under-16\'s may not', await schoolPublic(REC.deniz), false);
+check('A19: nor the 16-17\'s', await schoolPublic(REC.nate), false);
+check('A19: and a record that does not exist may not either — restrictive by default',
+  await schoolPublic('00000000-0000-0000-0000-000000000000'), false);
+check('A19: every other kind is unaffected, for every band',
+  [await kindPublic(REC.deniz, 'futsal'), await kindPublic(REC.deniz, 'previous_club'),
+   await kindPublic(REC.deniz, 'representative'), await kindPublic(REC.nate, 'ntc_academy')],
+  [true, true, true, true]);
+
+// Age is DERIVED, never stored (D-49). The same row, the same person, one
+// date of birth apart: nothing anywhere has to remember a birthday.
+await db.query(`update person set dob = $2 where id = $1`, [ID.nate, yearsAgo(19)]);
+check('A19: the refusal follows the date of birth — an 18th birthday needs no job',
+  await schoolPublic(REC.nate), true);
+await db.exec(schoolRow(REC.nate));
+check('A19: and the write the database refused yesterday is accepted today',
+  await schoolRows(REC.nate), 1);
+await db.query(`delete from experience_entry where record_id=$1 and kind='school'`, [REC.nate]);
+await db.query(`update person set dob = $2 where id = $1`, [ID.nate, yearsAgo(17)]);
+check('A19: and the 16-17 fixture is back where it was', await schoolPublic(REC.nate), false);
+
+// The two other ways a school entry could arrive on a child's record.
+const probeEntry = crypto.randomUUID();
+await db.query(`insert into experience_entry (id, record_id, kind, org_name) values ($1,$2,'futsal','Fixture futsal')`,
+  [probeEntry, REC.deniz]);
+await expectFail('A19: an existing entry cannot be edited into a school entry',
+  `update experience_entry set kind='school' where id='${probeEntry}'`);
+await expectFail('A19: nor can an adult\'s school entry be moved onto a child\'s record',
+  `update experience_entry set record_id='${REC.deniz}' where record_id='${REC.marcus}' and kind='school'`);
+
+// An entry that already exists is NOT deleted — it is the family's own words,
+// and what they are told is BUZ's call (D-161). The seed holds one for the
+// same reason; this writes one the only way one can now be written.
+await db.exec(`alter table experience_entry disable trigger no_school_under_18`);
+await db.exec(schoolRow(REC.deniz));
+await db.exec(`alter table experience_entry enable trigger no_school_under_18`);
+check('A19: a row written before the rule is still there', await schoolRows(REC.deniz), 1);
+check('A19: and still reaches no public page', await schoolPublic(REC.deniz), false);
+check('A19: and still grants its reader nothing (D-72 unchanged)',
+  [await level(ID.coachOther, ID.deniz), await level(ID.adminOther, ID.deniz)], ['none', 'none']);
+await db.query(`update experience_entry set org_name='School 1st XI' where record_id=$1 and kind='school'`, [REC.deniz]);
+check('D-161: and can still be corrected in place, which is what the demo layer does to every text column',
+  (await db.query(`select org_name from experience_entry where record_id=$1 and kind='school'`, [REC.deniz])).rows[0].org_name,
+  'School 1st XI');
+
+// The approved snapshot is the one a guardian already approved, so it is
+// filtered where it is SERVED (fn_approved_cv, the single function 0054 made
+// of the four surfaces that read one). The row stays; the page does not get it.
+{
+  // A snapshot as one looked before today: a guardian approved it, a school
+  // entry is in it, and nothing may rewrite it. Restored afterwards, because
+  // the fixture's approved content is what table R reads.
+  const before = (await db.query(
+    `select content from profile_version where record_id=$1 and status='approved'`, [REC.deniz])).rows[0].content;
+  await db.query(
+    `update profile_version set content = $2 where record_id=$1 and status='approved'`,
+    [REC.deniz, JSON.stringify({ ...before, otherFootball: [
+      { kind: 'school', orgName: 'Marlowe High 1st XI' }, { kind: 'futsal', orgName: 'Melbourne Futsal U15' }] })]);
+  const served = (await db.query(`select fn_approved_cv($1) as cv`, [REC.deniz])).rows[0].cv;
+  const stored = (await db.query(
+    `select content from profile_version where record_id=$1 and status='approved'`, [REC.deniz])).rows[0].content;
+  check('A19: the snapshot a guardian approved still holds the school entry',
+    stored.otherFootball.map((e) => e.kind), ['school', 'futsal']);
+  check('A19: and fn_approved_cv — the one function all four snapshot surfaces read — serves it to nobody',
+    served.otherFootball.map((e) => e.kind), ['futsal']);
+  check('A19: and the rest of the snapshot is served unchanged', served.name, before.name);
+  await db.query(`update profile_version set content = $2 where record_id=$1 and status='approved'`,
+    [REC.deniz, JSON.stringify(before)]);
+}
+
+// Both assembly paths ask the database. The render suite proves what the page
+// serves; this is what stops a third assembly appearing without the question.
+for (const [what, rel] of [['the live assembly', 'lib/record-read.ts'], ['the snapshot builder', 'lib/cv-build.ts']]) {
+  check(`A19: ${what} asks fn_experience_public for every entry it returns`,
+    /fn_experience_public\(\$1, kind\)/.test(codeOnly(srcOf(rel))), true);
+}
+// A delete is not a read: stripped first, or the family editor's Remove
+// button makes this pass for the wrong reason.
+const experienceSrc = (f) => codeOnly(readFileSync(f, 'utf8')).replace(/delete from experience_entry/g, '');
+const readsExperience = routeFiles.filter((f) => /from experience_entry/.test(experienceSrc(f)));
+check(`A19: and no page under app/ reads one without the band in the same query (${readsExperience.length} reads them)`,
+  readsExperience.filter((f) => !/fn_experience_public|fn_age_band/.test(experienceSrc(f))).length, 0);
+
 // The 30-day notice query finds a child at the boundary and nobody else.
 const soon16 = crypto.randomUUID();
 const soon16Dob = (() => { const d = new Date(melbourneToday); d.setFullYear(d.getFullYear() - 16); d.setDate(d.getDate() + 30); return iso(d); })();
