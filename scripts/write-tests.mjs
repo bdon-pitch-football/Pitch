@@ -1229,8 +1229,13 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const squadLinks = async (who) => [...new Set([...(await get('/club/squads', who)).html
     .matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)].map((m) => m[1]))];
 
+  // The club NAME is the assertion here, not decoration. Georgia's club was
+  // renamed on 28 Sep because the seed held two clubs called Kingsway Rovers
+  // FC — hers in Altona and the verified one in Brunswick West — adjacent on a
+  // parent's club picker. If this ever passes against a name that also exists
+  // elsewhere in the seed, it has stopped testing what it says it tests.
   check('sqf0: Georgia is her parent\'s here, and her page shows the club she plays for',
-    [words((await get('/home', alex)).html).includes(g.first_name), await clubLine('Kingsway Rovers FC')], [true, true]);
+    [words((await get('/home', alex)).html).includes(g.first_name), await clubLine('Saltmarsh Rovers FC')], [true, true]);
 
   // The club door.
   let squadId = null, askForm = null;
@@ -1297,7 +1302,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('sqf5: her parent says yes from her controls, and she is in the squad',
     [/squad=joined/.test(yes.location), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Riverside FC/.test(await card())],
     [true, true, true]);
-  check('sqf6: D-158 — her page no longer shows the club she has left', await clubLine('Kingsway Rovers FC'), false);
+  check('sqf6: D-158 — her page no longer shows the club she has left', await clubLine('Saltmarsh Rovers FC'), false);
 
   // The club takes her out.
   const out = forms((await get(`/club/squads/${squadId}`, td)).html).find((f) => f.fields.personId === g.child_id && f.fields.squadId === squadId && !('invitationId' in f.fields));
