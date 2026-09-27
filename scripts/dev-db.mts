@@ -779,7 +779,7 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
   console.log(`  ids    : ${who.rows.map((r) => `${r.first_name}=${r.id}`).join(' ')}`);
 
   // A LIVE SESSION FOR EVERY FIXTURE PERSON, and its token written out with
-  // the ids (0061). A session is now a row, so a suite cannot become a seat by
+  // the ids (0062). A session is now a row, so a suite cannot become a seat by
   // signing a person id any more — it needs a session the database issued, and
   // it cannot ask for one itself: PGlite serves one connection and next-server
   // holds it, so no script can reach this database while the app is up. The

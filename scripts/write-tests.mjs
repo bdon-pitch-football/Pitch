@@ -30,7 +30,7 @@ const PNG = Buffer.from(
 
 const BASE = process.env.RENDER_BASE ?? 'http://localhost:3000';
 const ids = JSON.parse(readFileSync(new URL('../.dev-ids.json', import.meta.url), 'utf8'));
-// A session is a row now (0061), so a cookie is not something a script can
+// A session is a row now (0062), so a cookie is not something a script can
 // compute: it has to name a session the database issued. The seed issues one
 // per fixture person and writes the token beside the ids — this file cannot
 // ask the database itself, because PGlite serves one connection and the app
@@ -120,7 +120,7 @@ async function reach(who, extra = []) {
       if (h.startsWith('/_next') || h.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)) continue;
       // Never /signout. This walk follows every link it finds, and signing out
       // now REVOKES the session rather than deleting the browser's copy of a
-      // cookie (0061) — so following it once ended the seat and every check
+      // cookie (0062) — so following it once ended the seat and every check
       // after it saw a signed-out product. It cost an hour to find as
       // "cp1: an adult with no page is offered Publish my page" going red,
       // because the only Sign out link in the product is on the home screen
@@ -1734,7 +1734,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 }
 
 // ---------------------------------------------------------------------------
-// A parent gets the other person out (0061; QA's F1 and F2, 28 Sept).
+// A parent gets the other person out (0062; QA's F1 and F2, 28 Sept).
 //
 // The four properties the bug hunt measured false, pressed through the product
 // rather than asked of the database: a cookie captured beforehand still opened

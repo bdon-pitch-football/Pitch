@@ -7,7 +7,7 @@
 // Cookie rules (D-94 §2): httpOnly, sameSite=lax, secure in production,
 // never localStorage.
 //
-// THE COOKIE IS NOT THE SESSION — the row is (0061). It used to be: the value
+// THE COOKIE IS NOT THE SESSION — the row is (0062). It used to be: the value
 // was the person id plus an HMAC of the person id, which made it a permanent
 // bearer token for that account. Nothing could be revoked, because there was
 // nothing to revoke: signing out deleted the browser's copy and a cookie

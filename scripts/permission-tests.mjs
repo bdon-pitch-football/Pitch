@@ -2535,7 +2535,7 @@ const rawTok = 'test-reset-token';
 const tokHash = sha(rawTok);
 await db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() + interval '1 hour')`, [resetPerson, tokHash]);
 // Through the database's own answer, not a copy of its query (L23). These
-// three carried their own hand-written UPDATE, which from 0061 was no longer
+// three carried their own hand-written UPDATE, which from 0062 was no longer
 // the statement the product runs — it never looked at revoked_at, so it would
 // have stayed green with supersession completely broken.
 const consume = async (h) => (await db.query('select fn_use_auth_reset($1) as p', [h])).rows[0].p;
@@ -3136,7 +3136,7 @@ check('store5: the bucket is configurable, not hardcoded to one project',
   /SUPABASE_STORAGE_BUCKET/.test(storeSrc), true);
 
 // ---------------------------------------------------------------------------
-// Sessions can be revoked (0061). The QA bug hunt of 28 Sept measured a
+// Sessions can be revoked (0062). The QA bug hunt of 28 Sept measured a
 // captured cookie still opening /home after Sign out, after the password was
 // changed, and after signing back in: the cookie was the person's id plus an
 // HMAC of the person's id, so there was no session to end.
@@ -3234,7 +3234,7 @@ check('sess15: setting a password revokes every live session for that person',
 }
 
 // ---------------------------------------------------------------------------
-// Reset links: one live at a time, and using one burns it (0061). QA got 24
+// Reset links: one live at a time, and using one burns it (0062). QA got 24
 // live links to one address and the OLDEST still opened the set-a-password
 // form; a second still worked after the first had been used.
 // ---------------------------------------------------------------------------
@@ -3271,7 +3271,7 @@ check('sess15: setting a password revokes every live session for that person',
     [rp, sha('reset-lapsed')]);
   check('reset6: a lapsed link is refused', await use('reset-lapsed'), null);
 
-  // The trap in 0061, asserted so nobody removes the seam later: 0056 reads a
+  // The trap in 0062, asserted so nobody removes the seam later: 0056 reads a
   // USED auth_reset row as proof that somebody opened a link we sent to that
   // address. Superseding with used_at would have manufactured that proof out
   // of links nobody ever opened — L21, the hole 0056 exists to close.

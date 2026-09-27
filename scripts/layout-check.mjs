@@ -37,7 +37,7 @@ const widths = process.argv.slice(2).map(Number).filter(Boolean);
 if (widths.length === 0) widths.push(375);
 
 const ids = JSON.parse(readFileSync(new URL('../.dev-ids.json', import.meta.url), 'utf8'));
-// A session is a row now (0061), so a cookie is not something a script can
+// A session is a row now (0062), so a cookie is not something a script can
 // compute: it has to name a session the database issued. The seed issues one
 // per fixture person and writes the token beside the ids — this file cannot
 // ask the database itself, because PGlite serves one connection and the app

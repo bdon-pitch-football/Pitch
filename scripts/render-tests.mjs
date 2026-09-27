@@ -35,7 +35,7 @@ function check(name, actual, expected) {
 // The dev session cookie is a signed session token (lib/session.ts). Minting
 // one here is how a test BECOMES a seat; there is no other way in without
 // driving a browser.
-// A session is a row now (0061), so a cookie is not something a script can
+// A session is a row now (0062), so a cookie is not something a script can
 // compute: it has to name a session the database issued. The seed issues one
 // per fixture person and writes the token beside the ids — this file cannot
 // ask the database itself, because PGlite serves one connection and the app
@@ -384,7 +384,7 @@ const georgia = ids.children.georgia;
 
       // /signout is followed by nobody here. It used to be harmless — it
       // deleted a cookie this walk does not keep — but signing out now
-      // REVOKES the session (0061), so following it once would end the seat
+      // REVOKES the session (0062), so following it once would end the seat
       // and report every page after it as signed out. The layout check and
       // the capture tool have always excluded it for the same reason in
       // spirit. Pressing it is the write suite's job (sess-w1..w3).
@@ -694,7 +694,7 @@ const georgia = ids.children.georgia;
   check(`r42: a new account is offered somewhere to go (${links.join(' ') || 'nowhere'})`,
     links.length >= 3, true);
   // Every door except Sign out, which is now a state change rather than a
-  // read: following it revokes the session (0061), and this account is the
+  // read: following it revokes the session (0062), and this account is the
   // ONLY one in the product whose home screen offers it — so opening it here
   // signed this seat out and w16 went red four hundred lines later, which is
   // the dangerous direction (L34: the answer was "the product is broken").

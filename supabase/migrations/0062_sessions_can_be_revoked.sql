@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0061 — a session is a row, and ending it ends it everywhere (D-94 §2 and
+-- 0062 — a session is a row, and ending it ends it everywhere (D-94 §2 and
 -- §4; QA bug hunt 28 Sept, findings F1 and F2).
 --
 -- What was wrong. The session cookie was the person's id plus an HMAC of that

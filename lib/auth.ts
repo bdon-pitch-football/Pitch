@@ -28,7 +28,7 @@ export async function hashPasswordForTiming(password: string): Promise<void> {
   await scrypt(password, randomBytes(16).toString('hex'), KEYLEN);
 }
 
-// Setting a password ends every live session for this person (0061) —
+// Setting a password ends every live session for this person (0062) —
 // INCLUDING the one doing the setting, and that is the decision rather than an
 // oversight. A parent changing their password believes it locks the other
 // person out; if we exempted "the session doing the resetting" then whoever
@@ -136,7 +136,7 @@ export async function createReset(email: string): Promise<{ token: string; sendT
 
   const token = randomBytes(24).toString('base64url');
   // Inserting this one kills every link outstanding for this person — the
-  // auth_reset_one_live trigger (0061), not a line here, so no future route
+  // auth_reset_one_live trigger (0062), not a line here, so no future route
   // that sends a reset can forget it.
   // §10a only when the email is going to the account holder themselves — and
   // that is also the only case in which using the link proves the ADDRESS on
@@ -152,7 +152,7 @@ export async function createReset(email: string): Promise<{ token: string; sendT
 }
 
 // Single use, and using one kills every other live link for that person
-// (0061). All three rules — marked used in the same statement that reads it so
+// (0062). All three rules — marked used in the same statement that reads it so
 // two simultaneous uses cannot both succeed, the siblings revoked with it, and
 // the 0056 address proof written once the row is used — live in
 // fn_use_auth_reset, because a reset link is a key to an account and the
