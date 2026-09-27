@@ -2240,6 +2240,128 @@ check('H9c: reinstating the role restores it, still without a stored flag', awai
     `insert into membership (person_id, club_id, role) values ('${unvPerson}','${unv}','technical_director')`);
 }
 
+// ---------------------------------------------------------------------------
+// 0060 — the recorded address is a person's, never the club's own mailbox
+// (safety review 28 Sep, X1; D-93, doc 14 H11/A12b/J13).
+//
+// The scenario, built the way it happens rather than described. A community
+// club's published contact address is a role mailbox — `coach@...` — and it is
+// the address the claim code is sent to (app/claim/[slug]/actions.ts), so
+// whoever claimed the page proved it to read the code. Here that is the club's
+// treasurer, a club_admin. On the verification call the secretary gives that
+// same address as the Technical Director's; the operator types a person's
+// name. Before 0060 the trigger attached the role to the treasurer and
+// fn_read_level returned 'full' for her on every child at the club.
+// ---------------------------------------------------------------------------
+{
+  const club = crypto.randomUUID(), sq = crypto.randomUUID();
+  const treasurer = crypto.randomUUID(), kid = crypto.randomUUID(), gdn = crypto.randomUUID();
+  const rec = crypto.randomUUID(), call = crypto.randomUUID();
+  const MAILBOX = 'coach@mailboxfc.example';
+
+  await db.query(`insert into club (id, name, suburb, state, contact_email, club_state, subscription_status)
+    values ($1,'Mailbox FC','Somewhere','VIC',$2,'claimed','active')`, [club, MAILBOX]);
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season)
+    values ($1,$2,'U14 Boys','U14','boys','2026')`, [sq, club]);
+  // The treasurer holds the club's mailbox on her own account, and has proved
+  // it — she had to, to read the claim code (L21 is satisfied and is not the
+  // thing standing in the way here).
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Tessa','Treasurer',$2,$3)`,
+    [treasurer, yearsAgo(47), MAILBOX]);
+  await proveAddress(treasurer);
+  await mem(treasurer, club, null, 'club_admin');
+  // A child at that club, with an approved guardian and a record.
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Ari','Fixture',$2)`, [kid, yearsAgo(14)]);
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Mailbox Guardian',$2)`, [gdn, yearsAgo(41)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [gdn, kid]);
+  await mem(kid, club, sq, 'player');
+  await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['AM'])`, [rec, kid]);
+
+  check('td13: before the call the club is not verified, so she reads nothing at all (A14)',
+    await level(treasurer, kid), 'none');
+
+  // The call. Verified, a person's name typed, the club's own address given.
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source,
+      outcome, td_name, td_email, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','club website /contact','verified','Robin Recorded',$3,'27@v1.0')`,
+    [call, club, MAILBOX]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [call, club]);
+
+  // Doc 14 H11 as worded — "by any path". Verifying the club IS a path, and
+  // before 0060 it was the one that got through.
+  check('H11: a club administrator reads no development record, and a call recording the club\'s own address is not a path to one (D-93)',
+    await level(treasurer, kid), 'membership_only');
+  check('td14: the attach refuses the club\'s own mailbox in silence rather than picking up whoever holds it',
+    (await db.query(`select count(*)::int as n from membership
+       where club_id = $1 and role = 'technical_director' and ended_at is null`, [club])).rows[0].n, 0);
+  await expectFail('td15: and the role cannot be written to the mailbox holder by hand either (the trigger, not the caller)',
+    `insert into membership (person_id, club_id, role) values ('${treasurer}','${club}','technical_director')`);
+  // J13 — no club role other than the TD and squad-assigned verified coaches
+  // reaches a development record, and club_admin cannot by any path.
+  check('J13: so the club has no register reader and no record reader in the person holding its inbox (D-154, N17)',
+    [(await db.query('select fn_can_work_register($1,$2) as c', [treasurer, club])).rows[0].c,
+     (await db.query('select fn_td_on_call($1,$2) as c', [treasurer, club])).rows[0].c],
+    [false, false]);
+
+  // What the operator sees. This is the other half of X1: the console read
+  // "Technical Director Robin Recorded · active" while the membership belonged
+  // to Tessa Treasurer, and no screen in the product named her.
+  check('td16: fn_club_td names the account the recorded address actually belongs to, and says it is the club\'s own',
+    (await db.query(`select td_name, account_name, account_email, name_matches, club_mailbox, active from fn_club_td($1)`, [club])).rows,
+    [{ td_name: 'Robin Recorded', account_name: 'Tessa Treasurer', account_email: MAILBOX,
+       name_matches: false, club_mailbox: true, active: false }]);
+
+  // The other direction: the club is rung back and gives the Technical
+  // Director's own address. The same rule that refused the mailbox attaches
+  // her, and A12's full read follows.
+  const robin = crypto.randomUUID(), call2 = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Robin','Recorded',$2,'robin@mailboxfc-staff.example')`,
+    [robin, yearsAgo(43)]);
+  await proveAddress(robin);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source,
+      outcome, td_name, td_email, policy_version)
+    values ($1,$2,now() + interval '1 hour','BUZ','03 9000 0000','club website /contact','verified','Robin Recorded','robin@mailboxfc-staff.example','27@v1.0')`,
+    [call2, club]);
+  check('td17: a person\'s own address still attaches, on the same call field, and reads the record (A12)',
+    [(await db.query(`select count(*)::int as n from membership where person_id = $1 and club_id = $2
+        and role = 'technical_director' and ended_at is null`, [robin, club])).rows[0].n,
+     await level(robin, kid),
+     await level(treasurer, kid)],
+    [1, 'full', 'membership_only']);
+  // fn_club_td reads the LATEST verified call, which is the one that named a
+  // person — so club_mailbox goes back to false with it.
+  check('td18: and the console now names the same human twice rather than once',
+    (await db.query(`select account_name, name_matches, club_mailbox, active from fn_club_td($1)`, [club])).rows,
+    [{ account_name: 'Robin Recorded', name_matches: true, club_mailbox: false, active: true }]);
+
+  // The coalesce sentinel, which is where this predicate would break: a club
+  // that recorded no contact address at all must not match every TD address.
+  const noAddr = crypto.randomUUID(), noAddrTd = crypto.randomUUID(), noAddrCall = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'No Inbox FC','claimed')`, [noAddr]);
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Sam','Silent',$2,'sam@noinbox-staff.example')`,
+    [noAddrTd, yearsAgo(39)]);
+  await proveAddress(noAddrTd);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source,
+      outcome, td_name, td_email, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0002','FV club directory','verified','Sam Silent','sam@noinbox-staff.example','27@v1.0')`,
+    [noAddrCall, noAddr]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [noAddrCall, noAddr]);
+  check('td19: a club that recorded no contact address at all still gets its Technical Director',
+    [(await db.query(`select count(*)::int as n from membership where person_id = $1 and club_id = $2
+        and role = 'technical_director' and ended_at is null`, [noAddrTd, noAddr])).rows[0].n,
+     (await db.query('select club_mailbox from fn_club_td($1)', [noAddr])).rows[0].club_mailbox],
+    [1, false]);
+
+  // Structural, and it is the N1 shape: the wall and the attach must both ask
+  // this, and the attach must ask it by calling the one answer rather than
+  // carrying its own copy of the predicate.
+  check('td20: the predicate lives in the one answer, and the attach asks that answer rather than repeating it',
+    [/contact_email/.test(await procSrc('fn_td_on_call')),
+     /fn_td_on_call/.test(await procSrc('fn_attach_recorded_td')),
+     /fn_td_on_call/.test(await procSrc('fn_td_membership_write_rule'))],
+    [true, true, true]);
+}
+
 // J: the union rule (A12c) — a person wearing two hats gets the higher of
 // the two, computed at read time.
 await mem(ID.clubAdmin, CLUB.riverside, SQUAD.u15, 'coach');

@@ -40,8 +40,14 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
   const act = logCall;
   // Who this club's Technical Director is, and whether the role is live —
   // the database's own answer (fn_club_td, 0058), never assembled here (L23).
+  // Since 0060 it also answers who that address actually belongs to: the
+  // account's own name, whether that is the name the operator typed, and
+  // whether the club's own published address was recorded as a person's. The
+  // screen renders the answer; it does not work any of it out (L23).
   const td = (await db.query(`select * from fn_club_td($1)`, [clubId])).rows[0] as
-    { td_name: string; td_email: string; recorded_at: string; recorded_by: string; active: boolean } | undefined;
+    { td_name: string; td_email: string; recorded_at: string; recorded_by: string; active: boolean;
+      account_name: string | null; account_email: string | null;
+      name_matches: boolean | null; club_mailbox: boolean } | undefined;
 
   return (
     <OpsConsole active="verification">
@@ -57,10 +63,28 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
             <>
               <div style={{ fontSize: 14, fontWeight: 800 }}>{td.td_name}</div>
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{td.td_email}</div>
-              <div style={{ fontSize: 12.5, color: td.active ? T.accent : T.amber, fontWeight: 700, lineHeight: 1.5 }}>
-                {td.active
-                  ? `Active. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}.`
-                  : `Waiting on their account. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}. The role switches on the moment that address is confirmed on Pitch.`}
+              {/* The account the address belongs to, beside the name that was
+                  typed. Before 0060 this card read "Jane Doe · active" while
+                  the role sat on somebody else's account, and no screen in the
+                  product named the person who held it. */}
+              {td.account_name ? (
+                <>
+                  <div style={{ ...label, marginTop: 6 }}>The account holding that address</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{td.account_name}</div>
+                  <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{td.account_email}</div>
+                  {td.name_matches === false ? (
+                    <div style={{ fontSize: 12.5, color: T.amber, fontWeight: 700, lineHeight: 1.5 }}>
+                      This is not the name recorded on the call. The role goes to this account, not to the name above.
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              <div style={{ fontSize: 12.5, color: td.club_mailbox ? T.red : td.active ? T.accent : T.amber, fontWeight: 700, lineHeight: 1.5, marginTop: 6 }}>
+                {td.club_mailbox
+                  ? `This is the club's own contact address, not a person's, so nobody holds the role. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}. Ring the club back and record the Technical Director's own address.`
+                  : td.active
+                    ? `Active. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}.`
+                    : `Waiting on their account. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}. The role switches on the moment that address is confirmed on Pitch.`}
               </div>
             </>
           ) : (
@@ -93,7 +117,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
           <label style={card}><div style={label}>Technical Director — the name they gave you on the call. Recorded only when the outcome is verified.</div><input style={input} name="td_name" placeholder="Full name" /></label>
           <label style={card}><div style={label}>Technical Director — their email address, as the club gave it</div><input style={input} type="email" name="td_email" placeholder="name@club.example.au" /></label>
           <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-            This is the only way a club gets a Technical Director — never a form, never a claim, never someone saying so. The role switches on when that person confirms the address on their own Pitch account, and not before.
+            This is the only way a club gets a Technical Director — never a form, never a claim, never someone saying so. The role switches on when that person confirms the address on their own Pitch account, and not before. Ask for that person&rsquo;s own address: a club inbox belongs to whoever reads it, and the role cannot attach to one.
           </div>
           <label style={card}><div style={label}>Notes — anything that felt off belongs here even if you verified anyway</div><textarea style={{ ...input, resize: 'vertical' }} rows={3} name="notes" /></label>
           <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>

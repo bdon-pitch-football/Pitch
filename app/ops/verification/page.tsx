@@ -15,6 +15,17 @@ export const metadata = { title: 'Club verification', robots: { index: false, fo
 // 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
 const day = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');
 
+// The middle of the queue's Technical Director line. Every value in it comes
+// from fn_club_td; nothing here decides anything (L23). Four states, because
+// since 0060 there are four: the club's own address was recorded and nobody
+// can hold the role, the role is live on an account under another name, the
+// role is live, or it is waiting on that address being confirmed.
+const tdState = (r: { active: boolean; club_mailbox: boolean; name_matches: boolean | null; account_name: string | null }) =>
+  r.club_mailbox ? 'the club\u2019s own address, so nobody holds the role'
+    : r.active && r.name_matches === false ? `active on ${r.account_name}\u2019s account`
+    : r.active ? 'active'
+    : 'waiting on their account';
+
 export default async function OpsVerification() {
   await requireOperator();
   const { rows } = await db.query(
@@ -24,10 +35,12 @@ export default async function OpsVerification() {
         from membership m join person p on p.id = m.person_id
         where m.club_id = c.id and m.role in ('technical_director','club_admin') and m.ended_at is null
         limit 1) as claimant,
-       td.td_name, td.recorded_at, td.recorded_by, td.active
+       td.td_name, td.recorded_at, td.recorded_by, td.active,
+       td.account_name, td.name_matches, td.club_mailbox
      from club c
-     -- Who the club's Technical Director is, and whether the role is live:
-     -- the database's own answer (fn_club_td, 0058), one row per club or none.
+     -- Who the club's Technical Director is, whether the role is live, and
+     -- since 0060 whose account the recorded address actually is: the
+     -- database's own answer (fn_club_td), one row per club or none.
      left join lateral (select * from fn_club_td(c.id)) td on true
      where c.club_state in ('claimed','verified','suspended')
      order by case c.club_state when 'claimed' then 0 else 1 end, c.created_at desc`,
@@ -59,9 +72,12 @@ export default async function OpsVerification() {
                   [r.suburb, r.state].filter(Boolean).join(' '),
                   r.claimant ? `claimed by ${r.claimant.replace('_', ' ')}` : null,
                 ].filter(Boolean).join(' · ')}</div>
-                <div style={{ fontSize: 11.5, fontWeight: 500, color: r.td_name ? (r.active ? T.accent : T.amber) : T.muted }}>
+                {/* One line, and since 0060 it says where the role landed as
+                    well as what was recorded: a club's own address can never
+                    hold it, and an account under another name is named. */}
+                <div style={{ fontSize: 11.5, fontWeight: 500, color: r.td_name ? (r.club_mailbox ? T.red : r.active ? T.accent : T.amber) : T.muted }}>
                   {r.td_name
-                    ? `Technical Director ${r.td_name} · ${r.active ? 'active' : 'waiting on their account'} · recorded by ${r.recorded_by} on ${day(r.recorded_at)}`
+                    ? `Technical Director ${r.td_name} · ${tdState(r)} · recorded by ${r.recorded_by} on ${day(r.recorded_at)}`
                     : 'No Technical Director recorded'}
                 </div>
               </div>
