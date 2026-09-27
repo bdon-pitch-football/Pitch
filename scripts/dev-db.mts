@@ -778,6 +778,27 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
   );
   console.log(`  ids    : ${who.rows.map((r) => `${r.first_name}=${r.id}`).join(' ')}`);
 
+  // A LIVE SESSION FOR EVERY FIXTURE PERSON, and its token written out with
+  // the ids (0061). A session is now a row, so a suite cannot become a seat by
+  // signing a person id any more — it needs a session the database issued, and
+  // it cannot ask for one itself: PGlite serves one connection and next-server
+  // holds it, so no script can reach this database while the app is up. The
+  // seed is the only place that can mint these, which is also the honest
+  // place: a session token in a gitignored file beside a throwaway database is
+  // the same kind of handle the dev share tokens already are.
+  //
+  // Issued through fn_session_issue rather than an insert, so the fixtures
+  // carry exactly the lifetime the product issues.
+  // A demo signs its seats in by pressing a button (app/demo), so it needs
+  // none of these and gets none.
+  const sessions: Record<string, string> = {};
+  for (const r of (DEMO ? [] : (await db.query(`select id from person`)).rows)) {
+    const personId = (r as { id: string }).id;
+    const token = randomBytes(24).toString('base64url');
+    await db.query(`select fn_session_issue($1,$2)`, [personId, sha(token)]);
+    sessions[personId] = token;
+  }
+
   // Written to disk as well, because the render tests need to BE these people
   // and every reseed mints fresh uuids. Gitignored: it is a handle on a local
   // throwaway database, not a secret and not a fixture.
@@ -793,6 +814,7 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     fileURLToPath(new URL('../.dev-ids.json', import.meta.url)),
     JSON.stringify({
       people: Object.fromEntries(who.rows.map((r) => [String(r.first_name).toLowerCase(), r.id])),
+      sessions,
       children: Object.fromEntries(kids.rows.map((r) => [String(r.first_name).toLowerCase(), r])),
       pendingInvitation: pendingInvitationId,
       clubs: Object.fromEntries(

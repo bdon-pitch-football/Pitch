@@ -30,7 +30,20 @@ const PNG = Buffer.from(
 
 const BASE = process.env.RENDER_BASE ?? 'http://localhost:3000';
 const ids = JSON.parse(readFileSync(new URL('../.dev-ids.json', import.meta.url), 'utf8'));
-const cookieFor = (p) => `pitch_session=${p}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(p).digest('base64url')}`;
+// A session is a row now (0061), so a cookie is not something a script can
+// compute: it has to name a session the database issued. The seed issues one
+// per fixture person and writes the token beside the ids — this file cannot
+// ask the database itself, because PGlite serves one connection and the app
+// holds it. A missing one is a stale .dev-ids.json against a running database,
+// which is worth saying out loud rather than failing as "signed out" fifty
+// times (F5's failure shape).
+const sessionToken = (p) => {
+  const t = ids.sessions?.[p];
+  if (!t) throw new Error(`no seeded session for ${p} — reseed (node scripts/dev-db.mts) so .dev-ids.json matches the running database`);
+  return t;
+};
+const signed = (t) => `${t}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(t).digest('base64url')}`;
+const cookieFor = (p) => `pitch_session=${signed(sessionToken(p))}`;
 
 const get = async (path, who) => {
   const r = await fetch(BASE + path, { redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
@@ -105,6 +118,15 @@ async function reach(who, extra = []) {
     for (const m of r.html.matchAll(/href="(\/[^"#][^"]*)"/g)) {
       const h = m[1];
       if (h.startsWith('/_next') || h.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)) continue;
+      // Never /signout. This walk follows every link it finds, and signing out
+      // now REVOKES the session rather than deleting the browser's copy of a
+      // cookie (0061) — so following it once ended the seat and every check
+      // after it saw a signed-out product. It cost an hour to find as
+      // "cp1: an adult with no page is offered Publish my page" going red,
+      // because the only Sign out link in the product is on the home screen
+      // of an account with no children, and Robin is the only seat that has
+      // one. Pressing it is sess-w1..w3's job, on a session opened for it.
+      if (h === '/signout') continue;
       if (!seen.has(h)) queue.push(h);
     }
   }
@@ -1709,6 +1731,150 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     [/Active\./.test(live), /Waiting on their account/.test(live)], [true, false]);
   check('td-w6b: and the queue agrees',
     /Technical Director Casey Duarte · active · recorded by BUZ/.test(words((await get('/ops/verification', op)).html)), true);
+}
+
+// ---------------------------------------------------------------------------
+// A parent gets the other person out (0061; QA's F1 and F2, 28 Sept).
+//
+// The four properties the bug hunt measured false, pressed through the product
+// rather than asked of the database: a cookie captured beforehand still opened
+// /home after Sign out, after the password was changed, and after signing back
+// in; and 28 presses of /reset put 24 live links to one named person's address
+// in one inbox, the oldest of which still opened the set-a-password form.
+//
+// LAST in this file on purpose. It signs people out, changes two passwords,
+// fills a rate-limit bucket and reads /dev/outbox — which earlier checks
+// scrape for "the newest messages" (L32). Nothing above it may depend on it.
+// ---------------------------------------------------------------------------
+{
+  const raw = async (path, cookie, init = {}) => {
+    const r = await fetch(BASE + path, { redirect: 'manual', ...init,
+      headers: { ...(cookie ? { cookie } : {}), ...(init.headers ?? {}) } });
+    return { status: r.status, location: r.headers.get('location') ?? '',
+             setCookie: r.headers.get('set-cookie') ?? '', html: await r.text() };
+  };
+  // Every press here declares its own address unless the test says otherwise.
+  // Sign-in and /reset are both capped per declared IP, and those buckets are
+  // shared with every press earlier in this file — a block that fills one
+  // would fail the checks after it for a reason that is not a defect.
+  let presses = 0;
+  const send = async (path, form, extra = {}, init = {}) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ ...form.fields, ...extra })) fd.append(k, v);
+    return raw(path, init.cookie, { method: 'POST', body: fd,
+      headers: { 'x-forwarded-for': `198.51.100.${(presses++ % 200) + 1}`, ...(init.headers ?? {}) } });
+  };
+  const flat = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
+  const submit = (html, re) => forms(html).find((f) => re.test(f.submit));
+  const signInAs = async (email) => {
+    const f = submit((await raw('/signin', null)).html, /^Sign in$/);
+    const r = await send('/signin', f, { email });
+    return r.setCookie.split(';')[0];
+  };
+  // One message per box on /dev/outbox, newest first, with its address — so a
+  // link can be tied to the inbox it went to rather than to whatever the page
+  // happens to render first (L32).
+  const messages = async () => (await raw('/dev/outbox', cookieFor(ids.people.marina))).html
+    .split('class="lift"').slice(1)
+    .map((chunk) => ({
+      to: (/→ ([^<\s]+@[^<\s]+)/.exec(flat(chunk)) ?? [])[1] ?? '',
+      subject: (/<div style="font-size:14px;font-weight:800">([^<]*)</.exec(chunk) ?? [])[1] ?? '',
+      resetToken: (/\/reset\/([A-Za-z0-9_-]{20,})/.exec(chunk) ?? [])[1] ?? '',
+    }));
+  const resetsTo = async (addr) => (await messages()).filter((m) => m.to === addr && m.resetToken);
+
+  // A child's own controls screen, not /home: by the time this block runs the
+  // sweep above has published a coach page for this parent, so their home is
+  // the coach surface and no longer names any child — and Deniz has been
+  // deleted by the deletion test, which is what that test is for. Georgia
+  // survives the suite. The property is "is this cookie still a way into a
+  // child's record", and this is the screen that answers it: signed out it
+  // redirects to /signin, signed in it names her (L32 — a check that reads a
+  // screen is coupled to that screen, and L13 — ask what the state is by the
+  // time you read it).
+  const childPage = '/g/controls/' + ids.children.georgia.child_id;
+  const opensTheChild = async (cookie) => {
+    const r = await raw(childPage, cookie);
+    return r.status === 200 && /Georgia/.test(r.html);
+  };
+
+  // --- Sign out, then replay the cookie -------------------------------------
+  const cookieA = await signInAs('guardian@example.com');
+  check('sess-w1: signing in through the front door opens their child\'s controls, naming her',
+    [/pitch_session=[^;]+\./.test(cookieA), await opensTheChild(cookieA)], [true, true]);
+  const out = await raw('/signout', cookieA);
+  check('sess-w2: press Sign out, replay the same cookie, and it opens nothing of hers',
+    [/\/signin\?out=1/.test(out.location), await opensTheChild(cookieA)], [true, false]);
+  check('sess-w3: the replayed cookie is served the signed-out product, not a session',
+    /whichever seat you hold/.test(flat((await raw('/home', cookieA)).html)), true);
+
+  // --- A new password ends every session that was already open ---------------
+  // Two of them: one this script just opened, and the one the seed issued —
+  // "everywhere else" has to mean every device, not the browser that asked.
+  const cookieB = await signInAs('guardian@example.com');
+  const seeded = cookieFor(ids.people.alex);
+  check('sess-w4: two sessions are open for that parent, on two devices',
+    [await opensTheChild(cookieB), await opensTheChild(seeded)], [true, true]);
+  await send('/reset', submit((await raw('/reset', null)).html, /reset link/), { email: 'guardian@example.com' });
+  const parentLink = (await resetsTo('guardian@example.com'))[0]?.resetToken ?? '';
+  const pwForm = submit((await raw(`/reset/${parentLink}`, null)).html, /Save it/);
+  const saved = await send(`/reset/${parentLink}`, pwForm, { password: 'parent-new-password-13579' });
+  check('sess-w5: the new password is set, and the screen sends them to sign in',
+    /\/signin\?reset=1/.test(saved.location), true);
+  check('sess-w6: and BOTH sessions are over — the sentence on that screen is now true',
+    [await opensTheChild(cookieB), await opensTheChild(seeded)], [false, false]);
+  const backIn = await send('/signin', submit((await raw('/signin', null)).html, /^Sign in$/),
+    { email: 'guardian@example.com', password: 'parent-new-password-13579' });
+  check('sess-w7: the password they just chose is the way back in',
+    await opensTheChild(backIn.setCookie.split(';')[0]), true);
+
+  // --- The reset flood, and the link it leaves live --------------------------
+  // Six presses for one address, each declaring a DIFFERENT x-forwarded-for,
+  // which is what defeated the only limit this route had.
+  const resetForm = submit((await raw('/reset', null)).html, /reset link/);
+  const before = (await resetsTo('coach@example.com')).length;
+  const answers = [];
+  for (let i = 0; i < 6; i++) {
+    answers.push(await send('/reset', resetForm, { email: 'coach@example.com' },
+      { headers: { 'x-forwarded-for': `203.0.113.${10 + i}` } }));
+  }
+  const delivered = (await resetsTo('coach@example.com')).length - before;
+  check('sess-w8: six presses from six declared addresses deliver three emails, not six', delivered, 3);
+  check('sess-w9: and the press that was capped answers exactly as the first one did',
+    [answers[5].status, answers[5].location, answers[5].html.length],
+    [answers[0].status, answers[0].location, answers[0].html.length]);
+  const noAccount = await send('/reset', resetForm, { email: 'nobody-has-this-address@example.com' });
+  check('sess-w10: an address with no account gets that same answer, so the cap tells a stranger nothing',
+    [noAccount.status, noAccount.location], [answers[0].status, answers[0].location]);
+  check('sess-w11: and nothing was queued to it',
+    (await resetsTo('nobody-has-this-address@example.com')).length, 0);
+
+  // --- The oldest link in an inbox full of them -----------------------------
+  const linksBefore = (await resetsTo('admin@example.com')).length;
+  await send('/reset', resetForm, { email: 'admin@example.com' });
+  await send('/reset', resetForm, { email: 'admin@example.com' });
+  const two = await resetsTo('admin@example.com');
+  check('sess-w12: two presses put two links in the inbox', two.length - linksBefore, 2);
+  const older = two[1].resetToken, newer = two[0].resetToken;
+  const oldTry = await send(`/reset/${older}`, submit((await raw(`/reset/${older}`, null)).html, /Save it/),
+    { password: 'attacker-chosen-password-1' });
+  check('sess-w13: the OLDER of them sets no password — issuing the second one killed it',
+    /\/reset\?expired=1/.test(oldTry.location), true);
+  const newTry = await send(`/reset/${newer}`, submit((await raw(`/reset/${newer}`, null)).html, /Save it/),
+    { password: 'admin-new-password-24680' });
+  check('sess-w14: the newest one works', /\/signin\?reset=1/.test(newTry.location), true);
+  const reuse = await send(`/reset/${newer}`, submit((await raw(`/reset/${newer}`, null)).html, /Save it/),
+    { password: 'attacker-chosen-password-2' });
+  check('sess-w15: and once used it is spent, so a second press sets nothing',
+    /\/reset\?expired=1/.test(reuse.location), true);
+  check('sess-w16: the password the real person set is the one that works',
+    /pitch_session=[^;]+\./.test((await send('/signin', submit((await raw('/signin', null)).html, /^Sign in$/),
+      { email: 'admin@example.com', password: 'admin-new-password-24680' })).setCookie), true);
+  check('sess-w17: and neither password an old link tried to set opens anything',
+    [/pitch_session=[^;]+\./.test((await send('/signin', submit((await raw('/signin', null)).html, /^Sign in$/),
+      { email: 'admin@example.com', password: 'attacker-chosen-password-1' })).setCookie),
+     /pitch_session=[^;]+\./.test((await send('/signin', submit((await raw('/signin', null)).html, /^Sign in$/),
+      { email: 'admin@example.com', password: 'attacker-chosen-password-2' })).setCookie)], [false, false]);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
