@@ -6,9 +6,18 @@ repair the register's horizontal overflow in the 1024–1031 band; measure it, d
 either side's arithmetic.
 
 Did: four files plus the register, in my own worktree `.claude/worktrees/builder-ipad-register`
-on branch **`builder-ipad-register`**, cut from `app` at **`6f56f70`**. Commits
-**`58c52ae`** (the change) and **`<REPORT_SHA>`** (this report). Not pushed. No migration —
-this decides nothing about who may read what, so there is nothing for Postgres to answer.
+on branch **`builder-ipad-register`**, cut from `app` at **`6f56f70`** as instructed. Commits
+**`58c52ae`** (the change), **`7d8ea3a`** (this report) and one correction to it. **Not
+pushed; `app` and `main` are untouched** — `main` is still `bf94009`, which is `origin/main`.
+No migration: this decides nothing about who may read what, so there is nothing for Postgres
+to answer.
+
+**`app` moved under me while I worked**, from `6f56f70` to `ce19393` — four commits: D-160
+twice, the jobs wording, and Leo's own fix of two things I had independently found from the
+other end (Found 1 and 3). `git merge-tree --write-tree app builder-ipad-register` reports
+**no conflicts**, so this merges clean on top of `ce19393` even though both sides touched
+`docs/06-Register.html` and `scripts/permission-tests.mjs`. **Every count below was measured
+on `58c52ae` in my own worktree, not on the merge** (L30: say which tree and which commit).
 
 **`docs/06-Register.html` — D-147, amended 28 Sep 2026.** The register moved first and the
 CSS cites it. The amendment records BUZ's call, the reason (*"is there room for a table"*
@@ -133,7 +142,8 @@ directories left in temp are 0B.
 Found:
 
 1. **The write suite's six reds are the suite asserting a banned word, not a safety defect,
-   and they were red at `6f56f70`.** `app/squad/actions.ts:118` redirects to
+   they were red at `6f56f70`, and Leo has already fixed them on `app` at `ce19393` while I
+   was working — so this is confirmation, not a request.** `app/squad/actions.ts:118` redirects to
    `?squad=${yes ? 'joined' : 'no'}`; `scripts/write-tests.mjs` `sqf4b`–`sqf4g` expect
    `?squad=declined`. **`declined` is banned by D-108**, and the permission suite's own
    `url1 (F8)` forbids a banned word in a redirect query string — so the product was
@@ -141,22 +151,26 @@ Found:
    intact:** all five hostile `back` values (absolute, protocol-relative, backslash,
    tab-escaped, double-parse) land on `/home?squad=no`, and the honest one lands on
    `/g/controls/<child>?squad=no`. Doc 14 N2 is enforced; only the literal is stale. Six
-   string literals to fix, and it is not my task to choose them (L22, L33). Proof it is
-   pre-existing: `git grep -n "squad=declined" 6f56f70 -- scripts`.
+   string literals to fix, and it was not my task to choose them (L22, L33). Proof it was
+   pre-existing on my base: `git grep -n "squad=declined" 6f56f70 -- scripts`, against
+   `git grep -c "squad=declined" app -- scripts`, which now finds it only in the permission
+   suite's comment naming it as an example. **My run therefore measured 305/311 against a
+   defect that no longer exists downstream: on `app` this suite should be whole again, and
+   the next seat to run it should confirm the count rather than take mine.**
 2. **`docs/design/reports/2026-09-24-audit-every-device.md` does not exist.** My brief cited
    it. `docs/design/reports/` has five 2026-09-24 files and none is the audit. All the data
    it describes *is* committed (`index.json`, `columns.json`, `touch-targets.json`,
    `cliff/cliff.json`) and I worked from that, so nothing was lost — but the write-up
    either was never committed or is named something else, and it is the only file in the
    evidence chain a reviewer would reach for first.
-3. **`db8` cannot fail on the thing it claims to pin.** `lib/db.ts:16` reads `DEV_DB_PORT`;
-   `scripts/dev-db.mts:674` reads `PITCH_DEV_DB_PORT`, and its own comment says the team
-   settled on the namespaced name. `db8` asserts *"DEV_DB_PORT moves the dev database and
-   the app together"* with `/DEV_DB_PORT \|\| '54322'/` and `/DEV_DB_PORT \|\| 54322/` —
-   and `PITCH_DEV_DB_PORT` **contains** `DEV_DB_PORT`, so the check passes while the two
-   halves read two different variables. I had to set both to start a stack. One knob, one
-   name, and the check anchored (`(?<!PITCH_)` or read the app's name out of the script's
-   own comment). L19.
+3. **`db8` could not fail on the thing it claimed to pin — also already fixed on `app` at
+   `ce19393`.** At `6f56f70`, `lib/db.ts:16` read `DEV_DB_PORT` while `scripts/dev-db.mts:674`
+   read `PITCH_DEV_DB_PORT`, and `db8` asserted *"DEV_DB_PORT moves the dev database and the
+   app together"* with `/DEV_DB_PORT \|\| '54322'/` — which `PITCH_DEV_DB_PORT` **contains**,
+   so the check passed while the two halves read two different variables (L19). **I had to set
+   both to start a stack, which is how I noticed.** `app` now reads `PITCH_DEV_DB_PORT` in both
+   places and `db8` is anchored to the whole name, so it can fail. Recorded because two seats
+   found the same defect from opposite ends on the same day, which is worth a scorecard line.
 4. **`layout-check.mjs` leaks its Chrome profile when it is interrupted.** Cleanup hangs off
    `process.on('exit')` only, so SIGTERM and SIGINT skip it; one killed run left 167MB in
    `/var/folders/.../T/pitch-layout-*`. L36 fixed the clean path and not the interrupted
@@ -236,8 +250,10 @@ Risks:
    demo restart is needed (L14) and no read of a child's data changed path. The page serves
    byte-identical HTML at every width — CSS chooses the variant — which is why render stayed
    at 369/369 and why there is no new permission surface to test.
-7. **The write suite is not green** (305/311) and I left it that way. Anything gated on
-   "every suite green" is blocked on Found 1, which is somebody's decision and not mine.
+7. **The write suite was not green on my base** (305/311) and I left it that way, because the
+   fix was not mine to choose. It is fixed on `app` at `ce19393` (Found 1), so the merged
+   result should be whole — but **I have not run the write suite on the merge**, and nobody
+   should record it green on my numbers. That run is the one thing still owed here.
 
 Lesson: **Do not edit the tree while a browser suite is reading it.** I started the
 nine-width layout run, then swapped `globals.css` twice to prove the regression check — and
