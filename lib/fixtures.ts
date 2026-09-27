@@ -77,7 +77,7 @@ export const DENIZ: PlayerFixture = {
     { title: "Players' Player of the Year", detail: 'Riverside FC, 2025' },
   ],
   otherFootball: [
-    { kind: 'school', orgName: 'Northcote High 1st XI', period: '2026' },
+    { kind: 'school', orgName: 'Marlowe High 1st XI', period: '2026' },
     { kind: 'futsal', orgName: 'Melbourne Futsal U15', period: 'Summer 2025–26' },
   ],
   highlightsUsed: 2,
@@ -100,8 +100,8 @@ export const NATE: PlayerFixture = {
   locality: 'Preston VIC',
   squad: { name: 'U18 Boys', ageGroup: 'U18', competitionGender: 'boys' },
   previousClubs: [
-    { orgName: 'Preston Lions FC', period: '2022–2024' },
-    { orgName: 'Reservoir Juniors', period: '2018–2021' },
+    { orgName: 'Ashvale Lions FC', period: '2022–2024' },
+    { orgName: 'Barrowfield Juniors', period: '2018–2021' },
   ],
   about:
     'Reserve keeper pushing for the starting spot. Comfortable playing out under pressure, strong on crosses. Working on my distribution range and commanding the six-yard box.',
@@ -137,7 +137,7 @@ export const GEORGIA: PlayerFixture = {
   positions: ['CM', 'DM'],
   squadNumber: 6,
   foot: 'Left',
-  club: 'Kingsway Rovers FC',
+  club: 'Saltmarsh Rovers FC',
   locality: 'Altona VIC',
   // No previous clubs on purpose: Georgia is the sparse CV, and the section
   // must vanish rather than render an empty heading (D-70's rule, applied).
@@ -151,9 +151,9 @@ export const GEORGIA: PlayerFixture = {
     { season: '2026', key: 'goals', value: 3, provenance: 'self_reported' },
     { season: '2026', key: 'assists', value: 5, provenance: 'self_reported' },
   ],
-  achievements: [{ title: 'Club Player of the Year — U15 Girls', detail: 'Kingsway Rovers FC, 2025' }],
+  achievements: [{ title: 'Club Player of the Year — U15 Girls', detail: 'Saltmarsh Rovers FC, 2025' }],
   otherFootball: [
-    { kind: 'school', orgName: 'Point Cook Senior College', period: '2026' },
+    { kind: 'school', orgName: 'Westhaven Senior College', period: '2026' },
     { kind: 'futsal', orgName: 'Werribee summer league', period: '2025–26' },
   ],
   highlightsUsed: 1, // deliberately thin — does a modest CV still look worth sending?
@@ -181,8 +181,8 @@ export const JORDAN: PlayerFixture = {
   locality: 'Coburg VIC',
   squad: { name: 'Seniors Men', ageGroup: 'SEN', competitionGender: 'men' },
   previousClubs: [
-    { orgName: 'Pascoe Vale SC', period: '2023–2025' },
-    { orgName: 'Moreland Zebras FC', period: '2021–2023' },
+    { orgName: 'Crestmoor SC', period: '2023–2025' },
+    { orgName: 'Halvard City FC', period: '2021–2023' },
   ],
   about:
     'Left-footed nine who runs the channel and finishes early. Four seasons of senior football, looking for a step up in level for 2027.',

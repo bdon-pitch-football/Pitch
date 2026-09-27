@@ -55,12 +55,13 @@ export async function applyDemo(db: PGlite, o: DemoOptions): Promise<{ slug: str
     ['riversidefc', mailSlug],
     ['Riverside Park', o.ground?.trim() || `${short} home ground`],
     ['Riverside', short],
-    // Four clubs and a school in lib/fixtures are, or could be, REAL
-    // Melbourne organisations (L15, TRAINING §3.1) — and they sit on the
-    // football history of made-up children, on the pages BUZ opens in front
-    // of a technical director who knows every club in the northern suburbs.
-    // They are swapped for seed names here, in the demo only; the fixture
-    // file itself is not this task's to change and is in the report.
+    // FIXED AT SOURCE on 28 Sep: lib/fixtures.ts no longer names a real
+    // organisation, so these six swaps are now no-ops. They stay as
+    // belt-and-braces — the rule is that no real club or school appears on an
+    // invented child's page (L15, TRAINING §3.1), and a demo run in front of a
+    // technical director who knows every club in the northern suburbs is the
+    // worst possible place to discover a new one has crept in. If they are
+    // ever removed, the check that replaces them has to be at the seed.
     ['Preston Lions FC', 'Northern United SC'],
     ['Moreland Zebras FC', 'Coburg City FC'],
     ['Pascoe Vale SC', 'Brunswick Juniors SC'],
