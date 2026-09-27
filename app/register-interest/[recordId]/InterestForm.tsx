@@ -98,7 +98,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
               <div style={{ fontSize: 11, fontWeight: 700, color: T.muted }}>{note.length} / 140</div>
             </div>
             <div style={card}>
-              <textarea name="note" aria-label="One line, if you want" value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="Right-footed 10. Happy anywhere across the front three." style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical', minHeight: 40 }} />
+              <textarea name="note" aria-label="One line, if you want" value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="Right-footed 10. Happy anywhere across the front three." style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical', minHeight: 40 }} />
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{self ? `Football only. ${club.name} read it on their register.` : 'Football only. Your parent reads this before it goes anywhere.'}</div>
           </div>

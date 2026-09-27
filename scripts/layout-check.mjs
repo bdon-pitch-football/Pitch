@@ -20,6 +20,17 @@
 //
 // A page FAILS when the document is wider than the viewport. The report names
 // the widest element, which is almost always the one to fix.
+//
+// IT ALSO RUNS THE CHROME PASS (28 Sep) — three things that are only true in a
+// real browser, and were all false when it was first pointed at them:
+//   · THE FOCUS RING. Dispatched Tab keypresses, not el.focus(), because
+//     :focus-visible answers differently to the two. Every form control the
+//     keyboard reaches must show a 2px ring, at 390 and 1280.
+//   · .field-label. Every caption carrying the class must compute to 10px.
+//     Written as `.field > .field-label`, the rule missed 19 captions that
+//     are not children of a .field and they rendered as body text.
+//   · body. The page must paint --bg and not the unnamed sixth level
+//     (#070b09) that sat under everything.
 import { spawn } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -143,6 +154,95 @@ const MEASURE = (device) => `(() => {
 const eval_ = async (expr) => JSON.parse((await cdp('Runtime.evaluate', { expression: expr, returnByValue: true })).result.result.value);
 const visit = async (path) => { await cdp('Page.navigate', { url: BASE + path }); await loaded(); await new Promise((r) => setTimeout(r, 250)); };
 
+// ---- the chrome pass -------------------------------------------------------
+// A real Tab keypress, sent to the renderer. el.focus() is not the same event:
+// :focus-visible is about HOW focus arrived, so a script that calls focus()
+// can report a ring the keyboard never gets, and — as here — the reverse.
+const TAB = { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 };
+const pressTab = async () => {
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', ...TAB });
+  await cdp('Input.dispatchKeyEvent', { type: 'keyUp', ...TAB });
+};
+// What has focus now, and what the ring on it actually computes to.
+// The ELEMENT is marked, not its name, because "wrapped around to the start"
+// has to be about identity. Four role chips on /join are four buttons with no
+// name and no aria-label, so a name-based wrap test called the second one a
+// repeat and stopped four tabs in — before the first field. It reported "the
+// keyboard reached no form control", which was the instrument's answer and not
+// the page's.
+const FOCUSED = `(() => {
+  const el = document.activeElement;
+  if (!el || el === document.body || el === document.documentElement) return 'null';
+  const cs = getComputedStyle(el);
+  const again = el.hasAttribute('data-tabbed');
+  el.setAttribute('data-tabbed', '1');
+  const name = el.tagName.toLowerCase() + (el.type ? '[' + el.type + ']' : '')
+    + (el.name ? ' ' + el.name : (el.getAttribute('aria-label') ? ' "' + el.getAttribute('aria-label') + '"' : ''));
+  return JSON.stringify({ name, again, control: /^(input|select|textarea)$/.test(el.tagName.toLowerCase()),
+    style: cs.outlineStyle, width: parseFloat(cs.outlineWidth) || 0, colour: cs.outlineColor });
+})()`;
+// Tab through a page and hand back every control the keyboard landed on.
+const tabThrough = async (limit = 90) => {
+  const seen = [];
+  for (let i = 0; i < limit; i++) {
+    await pressTab();
+    const f = await eval_(FOCUSED);
+    if (f === null) continue;
+    if (f.again) break; // back to something already visited: the tab ring closed
+    seen.push(f);
+  }
+  return seen;
+};
+const ringless = (controls) => controls.filter((c) => c.control && (c.style === 'none' || c.width < 2));
+// Every caption carrying the class, and what size it came out.
+const LABELS = `JSON.stringify([...document.querySelectorAll('.field-label')]
+  .map((el) => ({ size: getComputedStyle(el).fontSize, weight: getComputedStyle(el).fontWeight, text: (el.innerText || '').trim().slice(0, 28) }))
+  .filter((l) => l.size !== '10px'))`;
+const BODYBG = `JSON.stringify(getComputedStyle(document.body).backgroundColor)`;
+// TOUCH TARGETS (D-147 constraint 4: >=44px at every width, and the charter's
+// two button heights already satisfy it — so anything failing here is a
+// component nobody measured). THE EFFECTIVE BOX, not the element: .field is
+// usually a <label> wrapping its input, so a 16px input inside a 50px well is
+// a 50px target, and an earlier count that measured the element was wrong in
+// that direction. A <label> anywhere in the ancestry activates the control it
+// labels, so its box is the target.
+const TARGETS = `JSON.stringify((() => {
+  const box = (el) => {
+    const lab = el.closest('label');
+    const r = (lab ?? el).getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  };
+  const out = [];
+  for (const el of document.querySelectorAll('a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button]')) {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    const { w, h } = box(el);
+    if (w >= 44 && h >= 44) continue;
+    const tag = el.tagName.toLowerCase();
+    const href = el.getAttribute('href') ?? '';
+    // A link inside running prose is a per-screen layout decision, not a
+    // component fault — whether a 16px address in a paragraph becomes a 44px
+    // block is a question about that paragraph. Those are reported, not failed.
+    // A tel: link is NOT one of them: it is a number a frightened parent taps
+    // on a phone, so it is a control whatever it sits inside. (mailto: is
+    // treated as prose: every one in the product is a citation in the legal
+    // documents, inside a sentence.)
+    const prose = tag === 'a' && !/^tel:/.test(href)
+      && !!el.parentElement && el.parentElement.textContent.trim().length >= (el.textContent ?? '').trim().length;
+    out.push({ what: tag + (el.type ? '[' + el.type + ']' : '') + (href ? ' ' + href.slice(0, 28) : '')
+      + ' "' + ((el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)) + '"', w, h, prose });
+  }
+  return out;
+})())`;
+const tokenRgb = (() => {
+  const css = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+  const hex = /--bg:\s*(#[0-9a-f]{6})/i.exec(css)[1];
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return `rgb(${r}, ${g}, ${b})`;
+})();
+
 // A check that cannot fail is not a check. Before any page is trusted, prove
 // the measurement catches a page that IS too wide.
 await cdp('Emulation.setDeviceMetricsOverride', { width: 375, height: 844, deviceScaleFactor: 1, mobile: true });
@@ -154,8 +254,42 @@ if (!(control.doc > control.vw + 1)) {
   stop(); process.exit(2);
 }
 
+// The chrome pass's own self-test, in both directions. A data URL that rebuilds
+// the exact cascade that broke: `:focus-visible` at (0,1,0) and
+// `input:focus { outline: none }` at (0,1,1) above it. The first field must
+// come back with NO ring and the second, carrying !important, must come back
+// with one — otherwise the instrument cannot see either answer and nothing it
+// says below means anything (L19).
+await cdp('Emulation.setFocusEmulationEnabled', { enabled: true });
+await cdp('Page.navigate', { url: 'data:text/html,<meta name=viewport content="width=device-width">'
+  + '<style>:focus-visible{outline:2px solid rgb(61,220,132);outline-offset:2px}'
+  + 'input:focus{outline:none}'
+  + 'input[name=ok]:focus-visible{outline:2px solid rgb(61,220,132)!important}</style>'
+  + '<input name=bad><input name=ok>' });
+await loaded();
+const selfRing = await tabThrough(4);
+const selfBad = selfRing.find((c) => c.name.includes('bad'));
+const selfOk = selfRing.find((c) => c.name.includes('ok'));
+if (!selfBad || !selfOk || selfBad.style !== 'none' || selfOk.width < 2) {
+  console.error('SELF-TEST FAILED: the focus pass read '
+    + JSON.stringify({ suppressed: selfBad ?? null, important: selfOk ?? null })
+    + ' — it cannot tell a ring from no ring, so nothing it reports below is worth anything.');
+  stop(); process.exit(2);
+}
+
 const failures = [];
+const ringFails = [], labelFails = [], bodyFails = [], tapFails = [], proseSmall = [];
 let checked = 0;
+// Two measurements cheap enough to take on every page view the walk already
+// makes, so they cover every seat and every width this is called with.
+const chromePass = async (width, seat, path) => {
+  const labels = await eval_(LABELS);
+  if (labels.length) labelFails.push({ width, seat, path, labels });
+  const bg = await eval_(BODYBG);
+  if (bg !== tokenRgb) bodyFails.push({ width, seat, path, bg });
+  const small = await eval_(TARGETS);
+  for (const t of small) (t.prose ? proseSmall : tapFails).push({ width, seat, path, ...t });
+};
 for (const width of widths) {
   await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
   for (const [seat, who] of Object.entries(SEATS)) {
@@ -174,6 +308,7 @@ for (const width of widths) {
       const m = await eval_(MEASURE(width));
       checked++;
       if (m.doc > m.vw + 1) failures.push({ width, seat, path, ...m });
+      await chromePass(width, seat, path);
     }
     if (DEEP[seat]) {
       if (seat.startsWith('club')) await visit('/club/squads');
@@ -185,20 +320,64 @@ for (const width of widths) {
         if (where.at !== path || where.missing) { failures.push({ width, seat, path, unrendered: where.missing ? '404' : `landed on ${where.at}` }); continue; }
         const m = await eval_(MEASURE(width));
         if (m.doc > m.vw + 1) failures.push({ width, seat, path, ...m });
+        await chromePass(width, seat, path);
       }
     }
   }
 }
 
+// ---- the focus ring, at 390 and 1280 ---------------------------------------
+// Fixed widths, not the ones this was called with: the ring is a phone-and-
+// laptop question and these are the two the defect was measured at. Signed
+// out, because these are the five forms a stranger meets — the sign-in
+// password, the sign-up consent, the child-safety report, a new password, and
+// the D-77 request-access form on a link that is no longer live.
+const RING_PAGES = ['/signin', '/join', '/report', '/reset', '/reset/dev-none', '/p/dev-expired'];
+let ringChecked = 0;
+await cdp('Network.clearBrowserCookies');
+for (const width of [390, 1280]) {
+  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
+  for (const path of RING_PAGES) {
+    await visit(path);
+    const controls = await tabThrough();
+    const bare = ringless(controls);
+    const n = controls.filter((c) => c.control).length;
+    ringChecked += n;
+    if (n === 0) ringFails.push({ width, path, none: true });
+    else if (bare.length) ringFails.push({ width, path, bare, of: n });
+  }
+}
+
 stop();
 console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px`);
-if (failures.length === 0) {
-  console.log('ALL GREEN — nothing is wider than the screen');
+console.log(`chrome pass  · ${ringChecked} controls tabbed to at 390 and 1280 · ${checked} views read for .field-label and the page colour`);
+for (const f of ringFails) {
+  if (f.none) console.log(`FAIL ${f.width}px · ${f.path} — the keyboard reached no form control at all, so the ring was never measured here`);
+  else console.log(`FAIL ${f.width}px · ${f.path} — ${f.bare.length} of ${f.of} controls show no focus ring: ${f.bare.map((c) => `${c.name} (outline ${c.style} ${c.width}px)`).join(', ')}`);
+}
+for (const f of labelFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — ${f.labels.length} .field-label not at 10px: ${f.labels.map((l) => `"${l.text}" ${l.size}/${l.weight}`).join(', ')}`);
+for (const f of bodyFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — the page paints ${f.bg}, not --bg ${tokenRgb}`);
+// One line per distinct control, not one per view: the same component fails on
+// every screen it is on, at every width, and a hundred lines saying so is a
+// wall nobody reads.
+const byWhat = (list) => [...list.reduce((m, f) => m.set(`${f.what} ${f.w}x${f.h}`,
+  (m.get(`${f.what} ${f.w}x${f.h}`) ?? []).concat(`${f.width}px ${f.path}`)), new Map())];
+for (const [what, where] of byWhat(tapFails)) {
+  console.log(`FAIL touch target under 44px: ${what} — ${where.length} view${where.length === 1 ? '' : 's'}, e.g. ${where[0]}`);
+}
+if (proseSmall.length) {
+  console.log(`info ${byWhat(proseSmall).length} small link${byWhat(proseSmall).length === 1 ? '' : 's'} inside running prose (a per-screen layout decision, not a component fault):`);
+  for (const [what, where] of byWhat(proseSmall).slice(0, 12)) console.log(`     ${what} — e.g. ${where[0]}`);
+}
+const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length;
+if (failures.length === 0 && chromeBad === 0) {
+  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target');
   process.exit(0);
 }
 for (const f of failures) {
   if (f.unrendered) { console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — never rendered for this seat (${f.unrendered}), so never measured`); continue; }
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
-console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`);
+console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length})`);
 process.exit(1);

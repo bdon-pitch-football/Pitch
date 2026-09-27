@@ -144,7 +144,7 @@ export default async function InviteCompose({ params, searchParams }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="field-label">A line from you, if you want</div>
             <div style={{ ...card, minHeight: 74 }}>
-              <textarea name="body" aria-label="A line from you, if you want" rows={3} placeholder={`Saw ${name} at the trials. We're short in the 16s and we'd like a proper look.`} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
+              <textarea name="body" aria-label="A line from you, if you want" rows={3} placeholder={`Saw ${name} at the trials. We're short in the 16s and we'd like a proper look.`} style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{minor ? `Football only. ${name} and their parent both read this.` : 'Football only.'}</div>
           </div>

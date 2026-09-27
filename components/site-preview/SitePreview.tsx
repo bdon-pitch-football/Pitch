@@ -488,7 +488,7 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
               <label className="field">
                 <span className="field-label">Email · 18 and over</span>
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-label="Email address"
-                  style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 16, fontWeight: 700, fontFamily: 'inherit', padding: 0 }} />
+                  style={{ background: 'transparent', border: 'none', color: C.ink, fontSize: 16, fontWeight: 700, fontFamily: 'inherit', padding: 0 }} />
               </label>
               <button type="button" onClick={submit} disabled={state === 'sending'} className="btn btn-primary">{state === 'sending' ? 'Adding you…' : 'Join the waitlist'}</button>
               <div style={{ fontSize: 12, color: tried && !emailOk ? C.amber : C.muted, fontWeight: 500, lineHeight: 1.5, textAlign: 'center' }}>
