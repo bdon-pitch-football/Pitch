@@ -215,6 +215,46 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 // Runs FIRST, on the fresh database: the generic sweep below pauses profiles
 // and flips switches, and x3 deletes a child.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// A19 / D-161 - the chip that is not there, pressed anyway.
+//
+// A server action stays callable whether or not its page renders the control,
+// so a crafted post is the only way left to ask for a school entry on a
+// child's record. It must write nothing and look exactly like every other kind
+// that is not on the list - and the SAME post with a kind that IS on the list
+// must write, or this check passes on a post that never worked.
+// ---------------------------------------------------------------------------
+{
+  const parent = SEATS.parent;
+  const more = `/build/${ids.children.deniz.record_id}/more`;
+  const add = async (kind, orgName) => {
+    // The page carries TWO addExperience forms. The previous-club one has a
+    // HIDDEN kind, and a duplicate key sends the first value (L10) - so
+    // picking it would have posted previous_club and passed on nothing.
+    const form = forms((await get(more, parent)).html)
+      .find((f) => f.visible.some((v) => v.name === 'kind' && v.type === 'radio'));
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    fd.append('kind', kind); fd.append('orgName', orgName); fd.append('period', '2026');
+    const r = await fetch(BASE + more, { method: 'POST', body: fd, redirect: 'manual',
+      headers: { cookie: cookieFor(parent) } });
+    await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '' };
+  };
+  const listed = async (org) => (await get(more, parent)).html.includes(org);
+  check('A19: the u16 editor offers a kind chip at all, so the post below is real',
+    (await get(more, parent)).html.includes('name="kind"'), true);
+
+  const refused = await add('school', 'Sweep School 1st XI');
+  check('A19: a crafted school entry writes nothing on an under-16 record',
+    await listed('Sweep School 1st XI'), false);
+  const written = await add('futsal', 'Sweep futsal summer');
+  check('A19: while the same post with a kind on the list does write',
+    await listed('Sweep futsal summer'), true);
+  check('A19: and the refused one answered exactly as the written one did',
+    [refused.status, refused.location], [written.status, written.location]);
+}
+
 {
   const parent = SEATS.parent;
   const nate = ids.children.nate;
@@ -1211,8 +1251,13 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const squadLinks = async (who) => [...new Set([...(await get('/club/squads', who)).html
     .matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)].map((m) => m[1]))];
 
+  // The club NAME is the assertion here, not decoration. Georgia's club was
+  // renamed on 28 Sep because the seed held two clubs called Kingsway Rovers
+  // FC — hers in Altona and the verified one in Brunswick West — adjacent on a
+  // parent's club picker. If this ever passes against a name that also exists
+  // elsewhere in the seed, it has stopped testing what it says it tests.
   check('sqf0: Georgia is her parent\'s here, and her page shows the club she plays for',
-    [words((await get('/home', alex)).html).includes(g.first_name), await clubLine('Kingsway Rovers FC')], [true, true]);
+    [words((await get('/home', alex)).html).includes(g.first_name), await clubLine('Saltmarsh Rovers FC')], [true, true]);
 
   // The club door.
   let squadId = null, askForm = null;
@@ -1279,7 +1324,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('sqf5: her parent says yes from her controls, and she is in the squad',
     [/squad=joined/.test(yes.location), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Riverside FC/.test(await card())],
     [true, true, true]);
-  check('sqf6: D-158 — her page no longer shows the club she has left', await clubLine('Kingsway Rovers FC'), false);
+  check('sqf6: D-158 — her page no longer shows the club she has left', await clubLine('Saltmarsh Rovers FC'), false);
 
   // The club takes her out.
   const out = forms((await get(`/club/squads/${squadId}`, td)).html).find((f) => f.fields.personId === g.child_id && f.fields.squadId === squadId && !('invitationId' in f.fields));

@@ -103,8 +103,33 @@ for (const p of PLAYER_FIXTURES) {
     await db.query(`insert into achievement (record_id, title, detail, sort) values ($1,$2,$3,$4)`, [recordId, a.title, a.detail, i]);
   }
   for (const e of p.otherFootball) {
+    // A school entry on a child's record is the one row the product can no
+    // longer write (D-161, 0061). It exists in a real database only because it
+    // was written before the rule, and D-161 leaves it there: nothing deletes
+    // it, nothing renders it, and whether the family is told is BUZ's call.
+    // The seed needs one so every check about it has a subject, so it writes
+    // it the only way it can be written — with the trigger off for that
+    // insert, and back on immediately. If this ever stops being necessary,
+    // the database stopped refusing and that is the bug.
+    const legacy = e.kind === 'school' && !isAdult;
+    if (legacy) await db.query(`alter table experience_entry disable trigger no_school_under_18`);
     await db.query(`insert into experience_entry (record_id, kind, org_name, season_label, notes) values ($1,$2,$3,$4,$5)`,
       [recordId, e.kind, e.orgName, e.period, e.note ?? null]);
+    if (legacy) await db.query(`alter table experience_entry enable trigger no_school_under_18`);
+  }
+  // A 16-17 is the ONLY under-18 band whose public page is assembled live:
+  // a u16's is the guardian-approved snapshot (D-119), so Deniz's and
+  // Georgia's school entries exercise fn_approved_cv and nothing else. Nate
+  // gets one so the live assembly's own filter is exercised by a real rendered
+  // page rather than by reading the query (D-161, 0061). It names no
+  // organisation: 'School 1st XI' is the wording the demo layer already uses
+  // in place of a real school (L15), and it is seeded here rather than added
+  // to lib/fixtures because doc 16 is where his CV data is specified.
+  if (p.slug === 'nate') {
+    await db.query(`alter table experience_entry disable trigger no_school_under_18`);
+    await db.query(`insert into experience_entry (record_id, kind, org_name, season_label) values ($1,'school','School 1st XI','2026')`,
+      [recordId]);
+    await db.query(`alter table experience_entry enable trigger no_school_under_18`);
   }
   // Clubs before this one (0028). Same table, same free text, grants nothing.
   for (const e of p.previousClubs ?? []) {

@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { PlayerFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
-import { EXPERIENCE_KIND_LABELS, OTHER_FOOTBALL_KINDS, PREVIOUS_CLUB } from '@/lib/football';
+import { EXPERIENCE_KIND_LABELS, experienceKindsOffered, PREVIOUS_CLUB } from '@/lib/football';
 import { requireRecordActor } from '@/lib/record-guard';
 import { addAchievement, addExperience, removeAchievement, removeExperience } from './actions';
 import { T } from '@/lib/palette';
@@ -20,8 +20,17 @@ export default async function More({ params }: { params: Promise<{ recordId: str
   // permission check. It is the record's own actor or their guardian, and
   // nobody else, in every environment.
   await requireRecordActor(recordId);
+  // The band comes from the database (fn_age_band, derived from the date of
+  // birth at read time, never stored — D-49) because it decides which kinds
+  // this record may be offered: no school for an under-18 (D-161).
+  //
+  // The list itself is NOT filtered, deliberately. This is the family's own
+  // editor, behind requireRecordActor, and an entry written before the rule
+  // is their own words: it renders nowhere public any more, and they keep the
+  // one control over it that matters — Remove. Nothing here deletes a row.
   const { rows } = await db.query(
     `select
+       (select fn_age_band(p.dob) from person p where p.id = development_record.person_id) as band,
        (select coalesce(json_agg(json_build_object('id', id, 'title', title, 'detail', detail) order by sort), '[]'::json)
         from achievement where record_id=$1) as achievements,
        (select coalesce(json_agg(json_build_object('id', id, 'kind', kind, 'orgName', org_name, 'period', season_label) order by created_at), '[]'::json)
@@ -35,6 +44,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
   const achievements: { id: string; title: string; detail: string | null }[] = rows[0].achievements;
   const other: { id: string; kind: string; orgName: string; period: string | null }[] = rows[0].other;
   const clubs: { id: string; orgName: string; period: string | null }[] = rows[0].clubs;
+  const kinds = experienceKindsOffered(rows[0].band);
 
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16 };
   const label = fieldLabel;
@@ -67,7 +77,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
             <input type="hidden" name="kind" value={PREVIOUS_CLUB} />
             <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Club</div>
-              <input style={input} name="orgName" aria-label="Where" placeholder="e.g. Northcote City FC" required maxLength={80} />
+              <input style={input} name="orgName" aria-label="Where" placeholder="e.g. Ashvale Lions FC" required maxLength={80} />
             </label>
             <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Years — optional</div>
@@ -124,7 +134,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={label}>Kind</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {OTHER_FOOTBALL_KINDS.map((k, i) => (
+                {kinds.map((k, i) => (
                   <label key={k} style={{ cursor: 'pointer' }}>
                     <input type="radio" name="kind" value={k} defaultChecked={i === 0} style={{ position: 'absolute', opacity: 0 }} />
                     <span style={{ display: 'inline-block', borderRadius: 999, padding: '6px 11px', fontSize: 12, fontWeight: 800, background: T.surface2, color: T.secondary, border: `1px solid ${T.line}` }}>{EXPERIENCE_KIND_LABELS[k]}</span>
