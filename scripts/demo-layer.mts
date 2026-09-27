@@ -62,12 +62,13 @@ export async function applyDemo(db: PGlite, o: DemoOptions): Promise<{ slug: str
     // technical director who knows every club in the northern suburbs is the
     // worst possible place to discover a new one has crept in. If they are
     // ever removed, the check that replaces them has to be at the seed.
-    ['Preston Lions FC', 'Northern United SC'],
-    ['Moreland Zebras FC', 'Coburg City FC'],
-    ['Pascoe Vale SC', 'Brunswick Juniors SC'],
-    ['Reservoir Juniors', 'Kingsway Rovers FC'],
-    ['Northcote High 1st XI', 'School 1st XI'],
-    ['Point Cook Senior College', 'School football'],
+    // Nothing to translate any more: every organisation in the fixtures is
+    // invented, so these pairs are gone rather than left as no-ops that read
+    // like they are doing something. What replaced them is a rule written
+    // where the names live (lib/fixtures.ts) and enforced by nobody — which
+    // is the honest state, and is why the next one will be found by a person
+    // reading the file rather than by a check. A seed-side assertion belongs
+    // here and does not exist yet.
   ];
   const cols = await db.query<{ table_name: string; column_name: string; data_type: string }>(
     `select c.table_name, c.column_name, c.data_type
@@ -489,8 +490,8 @@ const ABOUT_OUTFIELD = [...ABOUT_DEF, ...ABOUT_MID, ...ABOUT_FWD];
 // Where they play now, and where before. Seed names only, never a real club
 // (L15) — a player registers interest in the demo club FROM somewhere, and
 // "somewhere" was three clubs for ninety-six children.
-const CURRENT = ['Northern United SC', 'Coburg City FC', 'Westgate Rangers', 'Kingsway Rovers FC', 'Sunbury United'];
-const PREVIOUS = ['Brunswick Juniors SC', 'Kingsway Rovers FC', 'Sunbury United', 'Northern United SC', 'Coburg City FC', 'Westgate Rangers'];
+const CURRENT = ['Northern United SC', 'Marchfield City FC', 'Westgate Rangers', 'Kingsway Rovers FC', 'Sunbury United'];
+const PREVIOUS = ['Elderslie Juniors SC', 'Kingsway Rovers FC', 'Sunbury United', 'Northern United SC', 'Marchfield City FC', 'Westgate Rangers'];
 const HONOURS = [
   ['Club best and fairest', 'Voted by the coaches'],
   ['League runners-up', 'Played every round'],

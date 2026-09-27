@@ -430,7 +430,7 @@ check('D-161: and can still be corrected in place, which is what the demo layer 
   await db.query(
     `update profile_version set content = $2 where record_id=$1 and status='approved'`,
     [REC.deniz, JSON.stringify({ ...before, otherFootball: [
-      { kind: 'school', orgName: 'Northcote High 1st XI' }, { kind: 'futsal', orgName: 'Melbourne Futsal U15' }] })]);
+      { kind: 'school', orgName: 'Marlowe High 1st XI' }, { kind: 'futsal', orgName: 'Melbourne Futsal U15' }] })]);
   const served = (await db.query(`select fn_approved_cv($1) as cv`, [REC.deniz])).rows[0].cv;
   const stored = (await db.query(
     `select content from profile_version where record_id=$1 and status='approved'`, [REC.deniz])).rows[0].content;

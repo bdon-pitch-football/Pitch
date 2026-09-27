@@ -101,7 +101,7 @@ const georgia = ids.children.georgia;
   check('r9: the club crest line carries the locality from the CLUB record',
     has(html, 'Brunswick VIC'), true);
   check('r10: football history names the current club and the one before it',
-    order(html, 'Riverside FC', 'Brunswick Juniors SC'), true);
+    order(html, 'Riverside FC', 'Elderslie Juniors SC'), true);
   check('r11: and says which of the two Pitch stands behind',
     has(html, 'Only the club at the top is one we hold on Pitch.'), true);
   check('r12: one clip subtitle, not one per card',
@@ -126,7 +126,7 @@ const georgia = ids.children.georgia;
 // in SQL after the fact.
 // ---------------------------------------------------------------------------
 {
-  const SCHOOLS = ['Northcote High 1st XI', 'Point Cook Senior College', 'School 1st XI'];
+  const SCHOOLS = ['Marlowe High 1st XI', 'Westhaven Senior College', 'School 1st XI'];
   const minorPages = [
     ['A19: the u16 public CV (approved snapshot)', '/p/dev-deniz', null],
     ['A19: the u16 print view', '/p/dev-deniz/print', null],
@@ -176,7 +176,7 @@ const georgia = ids.children.georgia;
   check('A19: the u16 football-history editor offers no School chip',
     offersSchool(html), false);
   check('A19: and still lists what the family already wrote, with Remove beside it',
-    has(html, 'Northcote High 1st XI') && has(html, 'Remove'), true);
+    has(html, 'Marlowe High 1st XI') && has(html, 'Remove'), true);
 
   // The adult's own editor, reached the way he reaches it. Jordan's record id
   // is not in .dev-ids.json, so it comes off his own home page.

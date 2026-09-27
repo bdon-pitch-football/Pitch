@@ -66,9 +66,9 @@ async function seed(db, dirty) {
     ['Sunbury United', null, null, null],
   ];
   if (dirty) clubs.push(
-    ['Coburg City FC', 'Est. 1974', 'x'.repeat(90), 'y'.repeat(450)],   // prose year, long lines
+    ['Marchfield City FC', 'Est. 1974', 'x'.repeat(90), 'y'.repeat(450)],   // prose year, long lines
     ['Westgate Rangers', '1974 ', null, null],                          // trailing space
-    ['Brunswick Juniors SC', '1790', null, null],                       // out of range
+    ['Elderslie Juniors SC', '1790', null, null],                       // out of range
   );
   const clubIds = [];
   for (const [name, est, path, phil] of clubs) {

@@ -2,6 +2,15 @@
 // ALL PEOPLE AND CLUBS HERE ARE FICTIONAL, deliberately and checkably so —
 // no real minor's data appears in any environment, ever (doc 16 §4).
 // Riverside FC, Northern United SC and Kingsway Rovers FC do not exist;
+// nor do Saltmarsh Rovers, Marchfield City, Elderslie Juniors, Ashvale
+// Lions, Barrowfield Juniors, Crestmoor SC, Halvard City, Marlowe High or
+// Westhaven Senior College. THE RULE IS STRONGER THAN 'PICK A NAME NOBODY
+// USES': an invented club is never named after a real suburb, because that
+// is exactly how real community clubs are named and nobody can verify the
+// non-existence of one. Six real organisations reached a child's page this
+// way and a seventh was only caught because a builder read the file for a
+// different reason (L15, TRAINING §3.1). The localities stay real — a
+// fictional club in a real suburb is intended and is what the demo needs.
 // check before inventing a fourth club.
 //
 // These are built before any screen because they are the test data every
@@ -64,7 +73,7 @@ export const DENIZ: PlayerFixture = {
   club: 'Riverside FC',
   locality: 'Brunswick VIC',
   squad: { name: 'U15 Boys', ageGroup: 'U15', competitionGender: 'boys' },
-  previousClubs: [{ orgName: 'Brunswick Juniors SC', period: '2019–2023' }],
+  previousClubs: [{ orgName: 'Elderslie Juniors SC', period: '2019–2023' }],
   about:
     'Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery.',
   stats: [
@@ -177,7 +186,7 @@ export const JORDAN: PlayerFixture = {
   positions: ['ST', 'LW'],
   squadNumber: 9,
   foot: 'Left',
-  club: 'Coburg City FC',
+  club: 'Marchfield City FC',
   locality: 'Coburg VIC',
   squad: { name: 'Seniors Men', ageGroup: 'SEN', competitionGender: 'men' },
   previousClubs: [
@@ -192,7 +201,7 @@ export const JORDAN: PlayerFixture = {
     { season: '2026', key: 'assists', value: 6, provenance: 'self_reported' },
   ],
   achievements: [
-    { title: 'Golden Boot — State League 2', detail: 'Coburg City FC, 2026' },
+    { title: 'Golden Boot — State League 2', detail: 'Marchfield City FC, 2026' },
     { title: 'Promotion winners', detail: '2025 season' },
   ],
   otherFootball: [
