@@ -856,8 +856,12 @@ const georgia = ids.children.georgia;
   const undone = await fetch(BASE + '/club/register', { method: 'POST', body: back, redirect: 'manual', headers: { cookie: cookieFor(marina) } });
   check('w12a: a shortlisted registration can be moved back to new', undone.status, 303);
   const restored = (await get('/club/register', marina)).html;
+  // The tile count is asserted too. Without it this reads a rendered page for
+  // three numbers and compares [] to [] the day that markup moves — green,
+  // and blind, which is the failure L19 is named after. It has already moved
+  // once (58c52ae put the register in a table at 768px).
   check('w12b: and this suite leaves the register exactly as it found it',
-    tiles(restored), tiles(before));
+    [tiles(before).length, tiles(restored)], [3, tiles(before)]);
 }
 
 // Every page in the converted set must render an UNBOUND action carrying its
