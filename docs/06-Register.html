@@ -73,10 +73,10 @@
   </div>
 
   <div class="tally">
-    <span class="tl"><b>152</b> locked</span>
+    <span class="tl"><b>153</b> locked</span>
     <span class="tl"><b>3</b> proposed</span>
     <span class="tl"><b>4</b> open</span>
-    <span class="tl">v4.18 · 21 Sep 2026</span>
+    <span class="tl">v4.19 · 28 Sep 2026</span>
   </div>
 
   <h2>A · Mission &amp; positioning</h2>
@@ -851,12 +851,17 @@
     <div class="w"><b>BUZ&rsquo;s call, 21 Sep</b> &mdash; &ldquo;coaches should be able to build their own profile. This was a big miss.&rdquo; Until today <code>/join</code> made player accounts only: a coach&rsquo;s way in was an email to the support address, which makes <b>D-75&rsquo;s reason for protecting the coach CV above the club page &mdash; one coach brings fifteen to twenty families at no acquisition cost &mdash; unreachable through an inbox</b>, in the one season (Sep&ndash;Dec) when coaches are hired. <b>What a coach account is:</b> their own page and nothing else. It reads no register and sees no child; reading a club&rsquo;s registrations needs that club to name them <i>and</i> attest their WWCC (D-98, D-154), which is the club&rsquo;s act and cannot be self-asserted. <b>What a club account is:</b> an account, not a club. The club is claimed with the code emailed to the club&rsquo;s <i>own published address</i> (doc 15 &sect;34), and <b>no form can set <code>club_state='verified'</code></b>. <b>Adults only, decided from the date of birth in the database rather than the form:</b> a coach or club account for a child is a child&rsquo;s account made through a door with no guardian on it, and this product does not make one. <b>The under-18 coach stays invited, not self-serve (BUZ, 21 Sep):</b> their page can never carry a public link or a public contact (0042), so a door whose whole purpose is a public page has nothing to give them &mdash; the club sets them up, and the cost is recorded rather than argued away, because a 16&ndash;17 coaching MiniRoos is real (D-82).</div>
     <div class="src">Source: BUZ, 21 Sep &middot; serves D-75 and D-100 &middot; leaves D-126 and D-93 untouched &middot; parent accounts still arrive by approval only (D-17)</div></div></div>
 
+  <div class="dec"><div class="id">D-160</div><div class="st lk">Locked</div><div class="bd">
+    <div class="t"><b>A stat opens to show where it came from &mdash; and a coach-verified one names the CLUB, never the coach.</b> D-62 already puts <code>provenance</code> on every stat and every record entry and already requires the UI to show it; today that is one chip at the top of the block. The tile becomes openable, in place, two levels deep: <i>Self-reported &middot; entered 14 Mar 2026</i>, or <i>Verified by Riverside FC &middot; 2 Sep 2026</i>.</div>
+    <div class="w"><b>BUZ&rsquo;s call, 28 Sep</b> &mdash; &ldquo;just the club, not the coach&rsquo;s name.&rdquo; <b>The question was a permission question wearing a design question&rsquo;s clothes.</b> The page is reachable by <i>an unauthenticated stranger holding a share link</i> (D-80), so anything drawn at level two is disclosed to that stranger. Naming the verifying coach would put <b>a named adult, their role, and the squad of children they coach</b> on a page we hand out by link &mdash; a fact about an adult&rsquo;s relationship to a specific child, published to whoever the link reaches, for a gain that is only ever presentational. The club is the accountable party, the club is already on the page, and it is the club that carries the WWCC attestation the verification actually rests on (D-98, D-154). <b>Named coaches remain visible inside the club</b>, where D-93&rsquo;s roles decide it. <b>Why the drill is worth building at all:</b> a number with its provenance under it is a record; a number without one is a claim, and every social profile has nothing underneath the figure. <b>Two levels, and it pushes rather than overlays</b> &mdash; a modal over a child&rsquo;s CV is a second render of the most dangerous surface in the product, and every extra render is another way it leaks.</div>
+    <div class="src">Source: BUZ, 28 Sep &middot; serves D-62 &middot; constrained by D-80 and D-77 &middot; leaves D-93 untouched inside the club &middot; drawn in <code>docs/design/mockups/provenance-drill.html</code> &middot; doc 14 gains a row: a link-holder reading a coach-verified stat learns the club and the date, and no person</div></div></div>
+
   <h2>The open queue</h2>
   <div class="card">
     <p style="margin:0;font-size:.87rem;color:var(--ink2)">Two decisions remain open, both club pricing, both deliberately held: <b style="color:var(--ink)">D-36</b> club pricing model and <b style="color:var(--ink)">D-39</b> club free-tier boundary &mdash; <b>narrowed on 20 Sep by D-158</b>, which puts squad lists and player confirmation on the free side for good — <b>held until the TD coffees</b>, and <b>D-87</b> gives us until 31 Jan 2027 to close them, so deciding early would be spending the answer before we have earned it. Every coffee asks the same four questions: what was the last software this club paid for, how much, who signed it off, in what month.<br><br><b>D-34 is now closed</b> ($79/yr or $9.99/mo — see D-82). Everything else is called: Stage 0 design-complete (D-22, D-29, D-48–D-52), the launch locked and re-scoped (D-45–D-47, D-74–D-79), post-launch sequence set (D-54–D-58, D-86), the development framework settled (D-60, D-61, D-71), and the 25 Aug board review recorded in full (D-67–D-87), with the design review that followed it (D-88–D-91) and the football vocabulary closed (D-92), with the club role model corrected (D-93) and security set as a standing build posture (D-94), with the legal pack reconciled (D-95–D-98). <b>The handover set is complete:</b> doc 14 (permission tests, the launch gate), doc 15 (every message that sends), doc 16 (positions, stats, fixtures).</p>
   </div>
 
-  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.18 · 21 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
+  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.19 · 28 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
 </div>
 </body>
 </html>
