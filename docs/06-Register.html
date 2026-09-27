@@ -73,10 +73,10 @@
   </div>
 
   <div class="tally">
-    <span class="tl"><b>153</b> locked</span>
+    <span class="tl"><b>154</b> locked</span>
     <span class="tl"><b>3</b> proposed</span>
     <span class="tl"><b>4</b> open</span>
-    <span class="tl">v4.19 · 28 Sep 2026</span>
+    <span class="tl">v4.20 · 28 Sep 2026</span>
   </div>
 
   <h2>A · Mission &amp; positioning</h2>
@@ -856,12 +856,17 @@
     <div class="w"><b>BUZ&rsquo;s call, 28 Sep</b> &mdash; &ldquo;just the club, not the coach&rsquo;s name.&rdquo; <b>The question was a permission question wearing a design question&rsquo;s clothes.</b> The page is reachable by <i>an unauthenticated stranger holding a share link</i> (D-80), so anything drawn at level two is disclosed to that stranger. Naming the verifying coach would put <b>a named adult, their role, and the squad of children they coach</b> on a page we hand out by link &mdash; a fact about an adult&rsquo;s relationship to a specific child, published to whoever the link reaches, for a gain that is only ever presentational. The club is the accountable party, the club is already on the page, and it is the club that carries the WWCC attestation the verification actually rests on (D-98, D-154). <b>Named coaches remain visible inside the club</b>, where D-93&rsquo;s roles decide it. <b>Why the drill is worth building at all:</b> a number with its provenance under it is a record; a number without one is a claim, and every social profile has nothing underneath the figure. <b>Two levels, and it pushes rather than overlays</b> &mdash; a modal over a child&rsquo;s CV is a second render of the most dangerous surface in the product, and every extra render is another way it leaks.</div>
     <div class="src">Source: BUZ, 28 Sep &mdash; and the inside-the-club carve-out confirmed by him the same day, so it is his and not an inference &middot; serves D-62 &middot; constrained by D-80 and D-77 &middot; leaves D-93 untouched inside the club &middot; drawn in <code>docs/design/mockups/provenance-drill.html</code> &middot; doc 14 gains a row: a link-holder reading a coach-verified stat learns the club and the date, and no person</div></div></div>
 
+  <div class="dec"><div class="id">D-161</div><div class="st lk">Locked</div><div class="bd">
+    <div class="t"><b>No school reaches a public page for anybody under 18 &mdash; not as a field, and not as an &ldquo;other football&rdquo; entry.</b> <code>school</code> leaves <code>EXPERIENCE_KINDS</code> for an under-18: the chip is not offered, the database refuses the write, and no read path renders one. It stays available to adults, who may name a university or a school side on their own page.</div>
+    <div class="w"><b>BUZ&rsquo;s call, 28 Sep</b>, on a contradiction the user seat found between two of our own screens. <b>The child privacy policy says, in the words a fourteen-year-old reads: &ldquo;We do not know your school. There used to be a box for it and we took it away. Your school plus your age group would tell a stranger where you are on a Tuesday morning.&rdquo;</b> The public CV, signed out, was rendering <i>Riverside FC &mdash; U15 Boys &middot; Brunswick VIC</i> and, below it, <i>school &middot; Northcote High 1st XI</i>. <b>Both halves were defensible and together they were the exact disclosure the policy refuses:</b> D-114 removed the school FIELD, and school football legitimately lives in <code>experience_entry</code> as free text (D-72) &mdash; the schema comment says so. A reader cannot see that distinction, and a stranger holding a share link does not care about it. <b>Where the rule lives:</b> in Postgres, not in the form. A chip nobody is shown is a UI decision; a write the database refuses is the rule, and it is the rule that survives the next screen somebody builds (D-80, the brief &sect;3). <b>What happens to entries that already exist</b> is not decided here: they stop rendering on every surface at once, and whether a family is told, and in what words, goes to BUZ before anything is written to a child&rsquo;s record. <b>Not in scope:</b> the fixtures still name two real Melbourne schools on invented children (L15) &mdash; a separate fault, separately queued.</div>
+    <div class="src">Source: BUZ, 28 Sep &middot; serves D-114 and pillar zero 2 &middot; narrows D-72 for under-18s only &middot; found by the user seat, 2026-09-28-user-value.md &middot; doc 14 gains a row: an under-18&rsquo;s public CV renders no school, whoever is reading</div></div></div>
+
   <h2>The open queue</h2>
   <div class="card">
     <p style="margin:0;font-size:.87rem;color:var(--ink2)">Two decisions remain open, both club pricing, both deliberately held: <b style="color:var(--ink)">D-36</b> club pricing model and <b style="color:var(--ink)">D-39</b> club free-tier boundary &mdash; <b>narrowed on 20 Sep by D-158</b>, which puts squad lists and player confirmation on the free side for good — <b>held until the TD coffees</b>, and <b>D-87</b> gives us until 31 Jan 2027 to close them, so deciding early would be spending the answer before we have earned it. Every coffee asks the same four questions: what was the last software this club paid for, how much, who signed it off, in what month.<br><br><b>D-34 is now closed</b> ($79/yr or $9.99/mo — see D-82). Everything else is called: Stage 0 design-complete (D-22, D-29, D-48–D-52), the launch locked and re-scoped (D-45–D-47, D-74–D-79), post-launch sequence set (D-54–D-58, D-86), the development framework settled (D-60, D-61, D-71), and the 25 Aug board review recorded in full (D-67–D-87), with the design review that followed it (D-88–D-91) and the football vocabulary closed (D-92), with the club role model corrected (D-93) and security set as a standing build posture (D-94), with the legal pack reconciled (D-95–D-98). <b>The handover set is complete:</b> doc 14 (permission tests, the launch gate), doc 15 (every message that sends), doc 16 (positions, stats, fixtures).</p>
   </div>
 
-  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.19 · 28 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
+  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.20 · 28 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
 </div>
 </body>
 </html>

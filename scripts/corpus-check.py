@@ -45,7 +45,7 @@ SKIP = ('_superseded', '_archive', '13-Board-Room', '_to_delete', 'repo', 'conte
 # of the billing page would carry the identical string and nobody would call it
 # a claim about the launch date. The design *reports* are still checked, and
 # should be: they argue.
-FALSE_POSITIVES_FIXED = 12  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
+FALSE_POSITIVES_FIXED = 13  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
                             # +1 S13 scaffolding, +1 S2 flagging a document's own dateline,
                             # 1 in v3 (S2 exempting by filename, so the register stopped being exempt when renamed)
 FALSE_NEGATIVES_FIXED = 1   # v3: S4 joined ROOT to a guessed 'legal/' and skipped the whole pack in the repo.
@@ -220,15 +220,41 @@ DATE_EXEMPT_DOCS = {'06', '07', '12', '15', '27'}
 docnum = lambda p: (base(p).split('-', 1) + [''])[0]
 
 
+# False positive #13: a dated work record citing its own date. A report filed
+# as 2026-09-28-user-value.md and saying "found on 28 Sep" is stating when the
+# work happened, not citing a runway that no longer exists. Recognised
+# STRUCTURALLY -- the date in the prose is the date in the filename -- rather
+# than by skipping another directory, because the design reports ARGUE and a
+# report that said "we ship on 13 Sep" must still fail. Five seats filed on one
+# day and produced eleven of these; the alternative on offer was to stop
+# checking the reports at all.
+FILED_ON = re.compile(r'^(\d{4})-(\d{2})-(\d{2})-')
+MONTHS = ('January', 'February', 'March', 'April', 'May', 'June', 'July',
+          'August', 'September', 'October', 'November', 'December')
+
+
+def own_filing_date(path):
+    """The date in the filename, as the strings a writer would type."""
+    m = FILED_ON.match(base(path))
+    if not m:
+        return ()
+    day, month = str(int(m.group(3))), MONTHS[int(m.group(2)) - 1]
+    return (f'{day} {month}', f'{day} {month[:3]}')
+
+
 def s2():
     for p in live_files():
         r = rel(p)
         if docnum(p) in DATE_EXEMPT_DOCS or 'design-screens' in r.split(os.sep):
             continue
+        filed = own_filing_date(p)
         body = text(p)
         for rx, label in ((DEAD_DATES, 'a date from the dead runway'),
                           (COMMITMENT, 'a launch commitment')):
             for m in rx.finditer(body):
+                # The report's own filing date, however the writer spelled it.
+                if filed and re.sub(r'\s+', ' ', m.group(0)).strip() in filed:
+                    continue
                 ctx = body[max(0, m.start() - 260):m.start() + 260]
                 if re.search(r'no longer|supersed|removed|dead|gone|not a date|undated|'
                              r'D-131|D-47|used to|previously', ctx, re.I):
