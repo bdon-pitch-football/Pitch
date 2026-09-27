@@ -2170,6 +2170,17 @@ const deadPage = readFileSync(fileURLToPath(new URL('../app/p/[token]/page.tsx',
 const deadHalf = deadPage.split('LinkState').slice(1).join('');
 check('E4: the link-state page renders no name, club, age or photo',
   /first_name|last_name|club|age_group|photo/i.test(deadHalf), false);
+// E11, as doc 14 words it: the body carries no name, no club, no photo, no
+// age, NO INITIALS and NO SQUAD NUMBER. This row was counted as covered by a
+// label on a sign-out assertion (L4, a fourth time) — gate-coverage said
+// 261/261 and nothing in the file tested it. The page cannot leak a person
+// because it is handed none: LinkState takes a token and a boolean, and names
+// no field of a record anywhere.
+const linkStateSrc = readFileSync(fileURLToPath(new URL('../components/cv/LinkState.tsx', import.meta.url)), 'utf8');
+check('E11: the link-state page is handed nothing about a person',
+  /export default function LinkState\(\{ token, asked \}: \{ token\?: string; asked\?: boolean \}\)/.test(linkStateSrc), true);
+check('E11b: and names no field of a record — no initials, no squad number',
+  /first_name|last_name|initials|squad_number|shirt|photo_path|age_group|\bdob\b|positions/i.test(codeOnly(linkStateSrc)), false);
 check('E5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
 check('E6: and sends no referrer to an embed host (D-94 §5)',
   /no-referrer/.test(readFileSync(fileURLToPath(new URL('../next.config.mjs', import.meta.url)), 'utf8')), true);
@@ -2632,18 +2643,15 @@ await db.query(`insert into person (id, first_name, dob, email) values ($1,'Rese
 const rawTok = 'test-reset-token';
 const tokHash = sha(rawTok);
 await db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() + interval '1 hour')`, [resetPerson, tokHash]);
-const consume = async () => (await db.query(
-  `update auth_reset set used_at = now()
-   where id = (select id from auth_reset where token_hash = $1 and used_at is null and expires_at > now() limit 1)
-   returning person_id`, [tokHash])).rows[0]?.person_id ?? null;
-check('reset token works once', await consume(), resetPerson);
-check('reset token cannot be reused', await consume(), null);
+// Through the database's own answer, not a copy of its query (L23). These
+// three carried their own hand-written UPDATE, which from 0062 was no longer
+// the statement the product runs — it never looked at revoked_at, so it would
+// have stayed green with supersession completely broken.
+const consume = async (h) => (await db.query('select fn_use_auth_reset($1) as p', [h])).rows[0].p;
+check('reset token works once', await consume(tokHash), resetPerson);
+check('reset token cannot be reused', await consume(tokHash), null);
 await db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`, [resetPerson, sha('expired-token')]);
-const expiredUse = (await db.query(
-  `update auth_reset set used_at = now()
-   where id = (select id from auth_reset where token_hash = $1 and used_at is null and expires_at > now() limit 1)
-   returning person_id`, [sha('expired-token')])).rows[0]?.person_id ?? null;
-check('an expired reset token is refused', expiredUse, null);
+check('an expired reset token is refused', await consume(sha('expired-token')), null);
 
 // ---------------------------------------------------------------------------
 // Route enumeration — absence as a property (doc 14 §N12, §P11, §C1, D-122).
@@ -2668,8 +2676,6 @@ const pageCode = codeOnly(deadPage);
 check('E10: the page branches on one boolean, never on WHY the link is dead',
   /expired|revoked|paused|disabled/i.test(pageCode), false);
 
-check('E11: signing out destroys the session and nothing else',
-  /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
 
 // Club video (0018) is a LINK, never a file — the parked hosting question
 // must not creep in through this door.
@@ -3238,14 +3244,176 @@ check('store4: storage is server-only', /^import 'server-only';/m.test(storeSrc)
 check('store5: the bucket is configurable, not hardcoded to one project',
   /SUPABASE_STORAGE_BUCKET/.test(storeSrc), true);
 
-// A signature proves the cookie was minted here, not that its person still
-// exists. Deletion removes person rows; sessions issued before it stayed
-// valid and every write then hit a foreign key instead of a sign-in screen.
+// ---------------------------------------------------------------------------
+// Sessions can be revoked (0062). The QA bug hunt of 28 Sept measured a
+// captured cookie still opening /home after Sign out, after the password was
+// changed, and after signing back in: the cookie was the person's id plus an
+// HMAC of the person's id, so there was no session to end.
+//
+// These two used to read lib/session.ts for the strings `from person where
+// id = $1` and `isUuid(id)` — proxies for two real rules, and both proxies
+// went false when the implementation changed while the rules got stronger
+// (L33). They are now asked of the database, which is where doc 14 §0 says a
+// permission question is answered.
+// ---------------------------------------------------------------------------
 const sessionSrc = readFileSync(fileURLToPath(new URL('../lib/session.ts', import.meta.url)), 'utf8');
-check('sess1: a session is only a session while its person exists',
-  /from person where id = \$1/.test(sessionSrc), true);
-check('sess2: and a malformed id in a cookie never reaches Postgres',
-  /isUuid\(id\)/.test(sessionSrc), true);
+const authTs = authSrc; // read above, beside the other credential checks
+{
+  const whose = async (token) =>
+    (await db.query('select fn_session_person($1) as p', [sha(token)])).rows[0].p;
+  const issue = async (person, token) =>
+    (await db.query('select fn_session_issue($1,$2) as e', [person, sha(token)])).rows[0].e;
+
+  const pa = crypto.randomUUID(), pb = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Session A',$2), ($3,'Session B',$2)`,
+    [pa, yearsAgo(38), pb]);
+
+  await issue(pa, 'sess-laptop');
+  await issue(pa, 'sess-phone');
+  await issue(pb, 'sess-other-person');
+
+  check('sess1: a live session resolves to the person it was issued to', await whose('sess-laptop'), pa);
+  check('sess2: a token nobody was ever issued resolves to nobody', await whose('sess-never-issued'), null);
+
+  // Sign out. The row, not the browser's copy of the cookie: this is the
+  // property the bug hunt measured false — a cookie captured before Sign out
+  // still opened /home afterwards, for as long as whoever held it liked.
+  await db.query('select fn_session_revoke($1)', [sha('sess-laptop')]);
+  check('sess3: a revoked session resolves to nobody, so a replayed cookie is dead',
+    await whose('sess-laptop'), null);
+  check('sess4: and signing out of one device leaves the other one signed in',
+    await whose('sess-phone'), pa);
+
+  // A new password ends every live session for that person — what makes the
+  // sentence already on the reset screen true rather than something to delete.
+  await issue(pa, 'sess-laptop-2');
+  const killed = (await db.query('select fn_sessions_revoke_all($1) as n', [pa])).rows[0].n;
+  check('sess5: a new password revokes every live session for that person',
+    [Number(killed), await whose('sess-phone'), await whose('sess-laptop-2')], [2, null, null]);
+  check('sess6: and nobody else\u2019s', await whose('sess-other-person'), pb);
+
+  // Expiry is enforced in SQL on every read, never in the cookie alone. Set
+  // directly because fn_session_issue only ever issues a live one.
+  await db.query(
+    `insert into auth_session (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`,
+    [pb, sha('sess-lapsed')]);
+  check('sess7: a lapsed session resolves to nobody, whatever the cookie says',
+    await whose('sess-lapsed'), null);
+  const life = await db.query(
+    `with s as (select fn_session_issue($1,$2) as e)
+     select (e - now()) > interval '29 days 23 hours' and (e - now()) <= interval '30 days' as ok from s`,
+    [pb, sha('sess-lifetime')]);
+  check('sess8: the lifetime is the database\u2019s answer, 30 days from issue', life.rows[0].ok, true);
+
+  // Not new, and it must not be lost in the change: a session outliving a
+  // guardian's deletion used to mean every action wrote a person id into a
+  // foreign key and got a database error instead of a sign-in screen.
+  await issue(pb, 'sess-deleted-person');
+  await db.query('delete from person where id = $1', [pb]);
+  check('sess9: a session is only a session while its person exists',
+    await whose('sess-deleted-person'), null);
+}
+
+// The cookie: an opaque token, ≥128 bits, stored only as a hash — the D-94 §4
+// standard the share token already holds. Nothing in it names the person, so
+// knowing a person id (they are in URLs all over the product) forges nothing.
+check('sess10: the cookie carries a random token, never the person id',
+  /jar\.set\(COOKIE, `\$\{token\}\.\$\{sign\(token\)\}`/.test(sessionSrc), true);
+check('sess11: 192 bits of CSPRNG, and only its hash is stored',
+  /randomBytes\(24\)\.toString\('base64url'\)/.test(sessionSrc)
+  && /createHash\('sha256'\)\.update\(token\)/.test(sessionSrc), true);
+check('sess12: there is no column that could hold a session token in the clear',
+  (await db.query(`select column_name from information_schema.columns
+                   where table_name = 'auth_session' order by column_name`)).rows.map((r) => r.column_name),
+  ['expires_at', 'id', 'issued_at', 'person_id', 'revoked_at', 'token_hash']);
+check('sess13: a cookie that does not verify is refused before Postgres is touched',
+  codeOnly(sessionSrc).indexOf('timingSafeEqual') < codeOnly(sessionSrc).indexOf('fn_session_person'), true);
+check('sess14: signing out revokes the session, not just the browser\u2019s copy of it',
+  /fn_session_revoke/.test(sessionSrc)
+  && /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
+check('sess15: setting a password revokes every live session for that person',
+  /revokeEverySession\(personId\)/.test(authTs.split('export async function setPassword')[1]?.split('export ')[0] ?? ''), true);
+// One question, one answer (L23): no page works out for itself whether a
+// session is live. lib/session.ts is the only file that reads the cookie and
+// the only one that names the table.
+{
+  const readers = files.filter((f) => /\.tsx?$/.test(f) && /pitch_session|auth_session/.test(readFileSync(f, 'utf8')));
+  check(`sess16: no page decides for itself whether a session is live (${readers.map(rel).join(' ') || 'none do'})`,
+    readers.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Reset links: one live at a time, and using one burns it (0062). QA got 24
+// live links to one address and the OLDEST still opened the set-a-password
+// form; a second still worked after the first had been used.
+// ---------------------------------------------------------------------------
+{
+  const rp = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Flood','${yearsAgo(41)}','flood@example.com')`, [rp]);
+  const issueReset = async (token, proves = null) => db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at, proves_person_id)
+     values ($1,$2, now() + interval '1 hour', $3)`, [rp, sha(token), proves]);
+  const use = async (token) =>
+    (await db.query('select fn_use_auth_reset($1) as p', [sha(token)])).rows[0].p;
+
+  for (let i = 0; i < 24; i++) await issueReset(`flood-${i}`);
+  const live = await db.query(
+    `select count(*)::int as n from auth_reset
+     where person_id = $1 and used_at is null and revoked_at is null and expires_at > now()`, [rp]);
+  check('reset1: twenty-four presses leave exactly one live link', live.rows[0].n, 1);
+  check('reset2: and the oldest of them opens nothing', await use('flood-0'), null);
+  check('reset3: the newest one works', await use('flood-23'), rp);
+  check('reset4: and it does not work twice', await use('flood-23'), null);
+
+  // Using one kills the rest, not only the ones issuing killed. Two rows are
+  // forced live here — the state a race, or any future route that writes this
+  // table without the trigger, could leave behind.
+  await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() + interval '1 hour'), ($1,$3, now() + interval '1 hour')`,
+    [rp, sha('pair-a'), sha('pair-b')]);
+  await db.query(`update auth_reset set revoked_at = null where token_hash in ($1,$2)`, [sha('pair-a'), sha('pair-b')]);
+  check('reset5: using one link kills every other live link for that person',
+    [await use('pair-a'), await use('pair-b')], [rp, null]);
+
+  await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`,
+    [rp, sha('reset-lapsed')]);
+  check('reset6: a lapsed link is refused', await use('reset-lapsed'), null);
+
+  // The trap in 0062, asserted so nobody removes the seam later: 0056 reads a
+  // USED auth_reset row as proof that somebody opened a link we sent to that
+  // address. Superseding with used_at would have manufactured that proof out
+  // of links nobody ever opened — L21, the hole 0056 exists to close.
+  const sp = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Superseded','${yearsAgo(35)}','superseded@example.com')`, [sp]);
+  for (const t of ['sup-1', 'sup-2']) await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at, proves_person_id)
+     values ($1,$2, now() + interval '1 hour', $1)`, [sp, sha(t)]);
+  // Asked the way 0056 asks it: with only SUPERSEDED links on this account,
+  // the database must refuse to record that anybody proved that address. A
+  // check that only read fn_email_proved passed with the bug put back,
+  // because nothing had tried to write the column — the rule is about what
+  // the evidence lets you write, so the check has to try the write (L19).
+  await expectFail('reset7: a superseded link nobody opened is not evidence of a proved address (L21, 0056)',
+    `update person set email_proved_at = now() where id = '${sp}'`);
+  check('reset7b: so the account is still unproved',
+    (await db.query(`select fn_email_proved($1) as p`, [sp])).rows[0].p, false);
+  await use('sup-2');
+  check('reset8: and the one that WAS opened proves it',
+    (await db.query(`select fn_email_proved($1) as p`, [sp])).rows[0].p, true);
+}
+check('reset9: consumeReset asks the database, it does not carry its own SQL',
+  /fn_use_auth_reset/.test(authTs) && !/update auth_reset set used_at/.test(authTs), true);
+// The cap QA measured missing: the IP comes off a header the caller sets, so
+// the only limit that binds is the one on the address. It must be consulted
+// for every address, before anything looks the address up, or it is an
+// enumeration oracle (D-94 §2).
+check('reset10: the reset route caps per address as well as per declared IP',
+  /checkRate\(`reset:addr:\$\{email\}`/.test(resetSrc) && /checkRate\(`reset:ip:\$\{ip\}`/.test(resetSrc), true);
+check('reset11: and the cap is read before anything looks the address up',
+  resetSrc.indexOf('reset:addr:') < resetSrc.indexOf('createReset('), true);
+check('reset12: whatever happened, the answer is the one redirect',
+  (codeOnly(resetSrc).match(/redirect\('\/reset\?sent=1'\)/g) ?? []).length, 1);
 
 // ---------------------------------------------------------------------------
 // The send layer actually sends (0031, D-81, D-78, doc 15 §15). Every message

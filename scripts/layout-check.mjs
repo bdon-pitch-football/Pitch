@@ -37,7 +37,19 @@ const widths = process.argv.slice(2).map(Number).filter(Boolean);
 if (widths.length === 0) widths.push(375);
 
 const ids = JSON.parse(readFileSync(new URL('../.dev-ids.json', import.meta.url), 'utf8'));
-const cookieFor = (p) => `${p}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(p).digest('base64url')}`;
+// A session is a row now (0062), so a cookie is not something a script can
+// compute: it has to name a session the database issued. The seed issues one
+// per fixture person and writes the token beside the ids — this file cannot
+// ask the database itself, because PGlite serves one connection and the app
+// holds it. A missing one is a stale .dev-ids.json against a running database,
+// which is worth saying out loud rather than failing as "signed out" fifty
+// times (F5's failure shape).
+const sessionToken = (p) => {
+  const t = ids.sessions?.[p];
+  if (!t) throw new Error(`no seeded session for ${p} — reseed (node scripts/dev-db.mts) so .dev-ids.json matches the running database`);
+  return t;
+};
+const cookieFor = (p) => { const t = sessionToken(p); return `${t}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(t).digest('base64url')}`; };
 const SEATS = {
   'signed out': null,
   player: ids.people.jordan, 'player 16-17': ids.children.nate.child_id, parent: ids.people.alex,

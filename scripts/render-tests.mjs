@@ -32,11 +32,25 @@ function check(name, actual, expected) {
   else { failures.push(name); console.log(`FAIL ${name} - expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`); }
 }
 
-// The dev session cookie is a signed person id (lib/session.ts). Minting one
-// here is how a test BECOMES a seat; there is no other way in without
+// The dev session cookie is a signed session token (lib/session.ts). Minting
+// one here is how a test BECOMES a seat; there is no other way in without
 // driving a browser.
-const cookieFor = (personId) =>
-  `pitch_session=${personId}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(personId).digest('base64url')}`;
+// A session is a row now (0062), so a cookie is not something a script can
+// compute: it has to name a session the database issued. The seed issues one
+// per fixture person and writes the token beside the ids — this file cannot
+// ask the database itself, because PGlite serves one connection and the app
+// holds it. A missing one is a stale .dev-ids.json against a running database,
+// which is worth saying out loud rather than failing as "signed out" fifty
+// times (F5's failure shape).
+const sessionToken = (p) => {
+  const t = ids.sessions?.[p];
+  if (!t) throw new Error(`no seeded session for ${p} — reseed (node scripts/dev-db.mts) so .dev-ids.json matches the running database`);
+  return t;
+};
+const cookieFor = (personId) => {
+  const t = sessionToken(personId);
+  return `pitch_session=${t}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(t).digest('base64url')}`;
+};
 
 async function get(path, personId) {
   const res = await fetch(BASE + path, {
@@ -440,8 +454,15 @@ const georgia = ids.children.georgia;
         unnamed.add(`${P} ${/name="([^"]*)"/.exec(f[0])?.[1] ?? '?'}`);
       }
 
+      // /signout is followed by nobody here. It used to be harmless — it
+      // deleted a cookie this walk does not keep — but signing out now
+      // REVOKES the session (0062), so following it once would end the seat
+      // and report every page after it as signed out. The layout check and
+      // the capture tool have always excluded it for the same reason in
+      // spirit. Pressing it is the write suite's job (sess-w1..w3).
       const links = [...new Set([...r.html.matchAll(/href="(\/[^"#][^"]*)"/g)].map((m) => m[1])
-        .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)))];
+        .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)
+          && h !== '/signout'))];
       if (who && links.length === 0 && !TERMINAL.some((t) => P.includes(t))) stuck.add(P);
       for (const h of links) if (!seen.has(h)) queue.push(h);
     }
@@ -744,9 +765,19 @@ const georgia = ids.children.georgia;
     .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets')))];
   check(`r42: a new account is offered somewhere to go (${links.join(' ') || 'nowhere'})`,
     links.length >= 3, true);
+  // Every door except Sign out, which is now a state change rather than a
+  // read: following it revokes the session (0062), and this account is the
+  // ONLY one in the product whose home screen offers it — so opening it here
+  // signed this seat out and w16 went red four hundred lines later, which is
+  // the dangerous direction (L34: the answer was "the product is broken").
+  // That door is pressed, and its answer checked, in the write suite
+  // (sess-w1..w3), which is where pressing buttons belongs.
+  const doors = links.filter((h) => h !== '/signout');
   check('r43: and every door it offers is one that exists',
-    (await Promise.all(links.map(async (h) => (await get(h, ids.people.robin)).status)))
+    (await Promise.all(doors.map(async (h) => (await get(h, ids.people.robin)).status)))
       .every((st) => st === 200 || st === 307), true);
+  check('r43b: Sign out is one of them, and it is only on this screen',
+    links.includes('/signout'), true);
 }
 
 // ---------------------------------------------------------------------------
