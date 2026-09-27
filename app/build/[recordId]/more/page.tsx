@@ -77,7 +77,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
             <input type="hidden" name="kind" value={PREVIOUS_CLUB} />
             <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Club</div>
-              <input style={input} name="orgName" aria-label="Where" placeholder="e.g. Northcote City FC" required maxLength={80} />
+              <input style={input} name="orgName" aria-label="Where" placeholder="e.g. Ashvale Lions FC" required maxLength={80} />
             </label>
             <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={label}>Years — optional</div>
