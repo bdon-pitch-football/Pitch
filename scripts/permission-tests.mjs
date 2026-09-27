@@ -3280,7 +3280,14 @@ check('sess15: setting a password revokes every live session for that person',
   for (const t of ['sup-1', 'sup-2']) await db.query(
     `insert into auth_reset (person_id, token_hash, expires_at, proves_person_id)
      values ($1,$2, now() + interval '1 hour', $1)`, [sp, sha(t)]);
-  check('reset7: a superseded link nobody opened proves no address (L21, 0056)',
+  // Asked the way 0056 asks it: with only SUPERSEDED links on this account,
+  // the database must refuse to record that anybody proved that address. A
+  // check that only read fn_email_proved passed with the bug put back,
+  // because nothing had tried to write the column — the rule is about what
+  // the evidence lets you write, so the check has to try the write (L19).
+  await expectFail('reset7: a superseded link nobody opened is not evidence of a proved address (L21, 0056)',
+    `update person set email_proved_at = now() where id = '${sp}'`);
+  check('reset7b: so the account is still unproved',
     (await db.query(`select fn_email_proved($1) as p`, [sp])).rows[0].p, false);
   await use('sup-2');
   check('reset8: and the one that WAS opened proves it',
