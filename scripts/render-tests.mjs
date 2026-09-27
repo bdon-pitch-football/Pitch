@@ -830,6 +830,34 @@ const georgia = ids.children.georgia;
   const after = (await get('/club/register', marina)).html;
   check('w11: the register actually changed',
     (after.match(/Shortlisted/g) ?? []).length >= (before.match(/Shortlisted/g) ?? []).length, true);
+
+  // w12 · AND THE REGISTER IS PUT BACK.
+  //
+  // QA, 28 Sep: this suite is documented as read-only (TRAINING §4 names only
+  // the write suite as mutating, and write-tests.mjs says "the render suite
+  // walks by following links, so it only ever GETs"). w10 shortlists a real
+  // registrant and left it that way, so every count, capture and screenshot
+  // taken after a render run was measured on a moved register. Reproduced on
+  // this tree: the New/Shortlisted totals went 82/12 before the suite to
+  // 81/13 after it, which is exactly why the register's NEW count was read as
+  // 78, 79 and 81 in captures hours apart and read as a product bug.
+  //
+  // The counts on the summary tiles are the thing people quote, so they are
+  // the thing this asserts. Nothing here weakens w10 — the move still happens
+  // and is still checked; it is undone afterwards through the product's own
+  // action, which is also the first thing that proves a status can go back.
+  const tiles = (html) =>
+    [...html.matchAll(/numeral numeral-m" style="color:var\(--(accent|amber|purple)\)">(\d+)/g)]
+      .map((m) => Number(m[2]));
+  const back = new FormData();
+  back.append('registrationId', f.registrationId);
+  back.append('status', 'new');
+  for (const [k, v] of Object.entries(f)) if (!['registrationId', 'status'].includes(k)) back.append(k, v);
+  const undone = await fetch(BASE + '/club/register', { method: 'POST', body: back, redirect: 'manual', headers: { cookie: cookieFor(marina) } });
+  check('w12a: a shortlisted registration can be moved back to new', undone.status, 303);
+  const restored = (await get('/club/register', marina)).html;
+  check('w12b: and this suite leaves the register exactly as it found it',
+    tiles(restored), tiles(before));
 }
 
 // Every page in the converted set must render an UNBOUND action carrying its
@@ -1113,6 +1141,38 @@ const georgia = ids.children.georgia;
   }
   const anon = await get(`/build/${deniz.record_id}/preview`);
   check('pv8: signed out, the preview asks you to sign in', [anon.status, anon.location], [307, '/signin']);
+}
+
+// ---------------------------------------------------------------------------
+// QA, 28 Sept · NO TWO CLUBS SHARE A NAME ON THE PARENT'S CLUB PICKER.
+//
+// /squad/[personId] is where a parent hands their child's name to a club. It
+// lists every verified club, name over suburb. On 28 Sept the seed made TWO
+// different clubs called "Kingsway Rovers FC" — they sat one above the other
+// with nothing but a suburb between them, and Georgia's CV named a club that
+// was not the one /fc/kingsway-rovers served.
+//
+// FIXED AT THE SOURCE on app (96419d4): every organisation in lib/fixtures.ts
+// is invented now, Georgia plays for Saltmarsh Rovers FC, and that file
+// carries a stricter rule than this check — an invented club is never named
+// after a real suburb, because that is how real clubs are named and nobody
+// can verify a community club does not exist.
+//
+// This check names no club. It asserts the property the picker has to keep:
+// two rows a parent cannot tell apart are a row they can pick wrong.
+{
+  const alex = ids.people.alex, g = ids.children.georgia;
+  const page = await get(`/squad/${g.child_id}?back=controls`, alex);
+  // Each club row is an anchor to ?club=<id>; the name is the first bold line
+  // inside it. Read the rows, not the styling: this is a rendered page and a
+  // rendered page is a test fixture (L32).
+  const rows = [...page.html.matchAll(/<a[^>]*href="\/squad\/[^"]*\?club=[^"]*"[\s\S]*?<\/a>/g)].map((m) => m[0]);
+  const listed = rows.map((r) => (/>([^<>]{2,60})</.exec(r.replace(/<span[^>]*>\s*</g, '<')) ?? [])[1])
+    .filter(Boolean).map((n) => n.trim());
+  const dupes = [...new Set(listed.filter((n, i) => listed.indexOf(n) !== i))];
+  check('clubs1: the club picker rendered for the parent, with clubs on it',
+    [page.status, listed.length > 1], [200, true]);
+  check(`clubs2: no two clubs on it share a name (${dupes.join(' · ') || 'none do'})`, dupes.length, 0);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);

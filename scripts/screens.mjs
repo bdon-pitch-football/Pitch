@@ -42,6 +42,25 @@ const SEATS = {
   'brand-new': ids.people.robin,
 };
 const PUBLIC_PATHS = ['/signin', '/join', '/trials', '/p/dev-deniz', '/fc/riverside-fc', '/c/sam-kaya', '/jobs', '/report', '/privacy', '/terms'];
+// Pages more than one step from home. This tool walks /home and follows what
+// it finds, so anything two clicks deep was photographed by nothing — which is
+// the whole reason /squad/[personId]?back=controls has no screenshot at any
+// width, reported twice and never explained (QA, 28 Sep). The layout check has
+// carried this list since 22 Sep; the capture tool never did.
+//
+// A cold route is the other half of that report: the first request to /squad
+// in a dev server measured 28.07s on this machine against loaded()'s 30s cap,
+// so a capture of an uncompiled page looks exactly like a hang. Each of these
+// is fetched once before Chrome is pointed at it, which takes the compile off
+// the clock.
+const g = ids.children.georgia, riverside = ids.clubs['riverside-fc'];
+const DEEP = {
+  parent: [`/squad/${g.child_id}?back=controls`, `/squad/${g.child_id}?club=${riverside}&back=controls`,
+    `/g/controls/${g.child_id}`, `/build/${ids.children.deniz.record_id}/preview`,
+    `/g/pending/${ids.children.deniz.record_id}`],
+  player: [`/squad/${ids.people.jordan}`],
+  'club-td': ['/ops/verification', `/ops/call/${riverside}`],
+};
 
 // The profile directory is REMOVED on the way out. Chrome writes 60–160MB of
 // cache into it per run, and this script used to leak one every time it was
@@ -138,6 +157,12 @@ for (const width of WIDTHS) {
       await cdp('Page.navigate', { url: `${BASE}/home` }); await loaded();
       const links = await evaluate(`JSON.stringify([...new Set([...document.querySelectorAll('a[href^="/"]')].map(a => a.getAttribute('href').split('#')[0]))])`);
       paths = ['/home', ...links.filter((p) => !/^\/(signout|api\/)/.test(p))].slice(0, 25);
+    }
+    for (const p of DEEP[seat] ?? []) if (!paths.includes(p)) paths.push(p);
+    // Warm every route first: a cold compile is not a hang, but it reads as
+    // one (see DEEP above).
+    for (const p of paths) {
+      try { await fetch(BASE + p, { headers: who ? { cookie: `pitch_session=${cookieFor(who)}` } : {} }); } catch { /* the capture below reports it */ }
     }
     for (const path of paths) {
       await cdp('Page.navigate', { url: BASE + path }); await loaded();
