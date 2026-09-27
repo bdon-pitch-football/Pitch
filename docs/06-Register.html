@@ -73,10 +73,10 @@
   </div>
 
   <div class="tally">
-    <span class="tl"><b>154</b> locked</span>
+    <span class="tl"><b>155</b> locked</span>
     <span class="tl"><b>3</b> proposed</span>
     <span class="tl"><b>4</b> open</span>
-    <span class="tl">v4.20 · 28 Sep 2026</span>
+    <span class="tl">v4.21 · 28 Sep 2026</span>
   </div>
 
   <h2>A · Mission &amp; positioning</h2>
@@ -861,12 +861,19 @@
     <div class="w"><b>BUZ&rsquo;s call, 28 Sep</b>, on a contradiction the user seat found between two of our own screens. <b>The child privacy policy says, in the words a fourteen-year-old reads: &ldquo;We do not know your school. There used to be a box for it and we took it away. Your school plus your age group would tell a stranger where you are on a Tuesday morning.&rdquo;</b> The public CV, signed out, was rendering <i>Riverside FC &mdash; U15 Boys &middot; Brunswick VIC</i> and, below it, <i>school &middot; Northcote High 1st XI</i>. <b>Both halves were defensible and together they were the exact disclosure the policy refuses:</b> D-114 removed the school FIELD, and school football legitimately lives in <code>experience_entry</code> as free text (D-72) &mdash; the schema comment says so. A reader cannot see that distinction, and a stranger holding a share link does not care about it. <b>Where the rule lives:</b> in Postgres, not in the form. A chip nobody is shown is a UI decision; a write the database refuses is the rule, and it is the rule that survives the next screen somebody builds (D-80, the brief &sect;3). <b>What happens to entries that already exist</b> is not decided here: they stop rendering on every surface at once, and whether a family is told, and in what words, goes to BUZ before anything is written to a child&rsquo;s record. <b>Not in scope:</b> the fixtures still name two real Melbourne schools on invented children (L15) &mdash; a separate fault, separately queued.</div>
     <div class="src">Source: BUZ, 28 Sep &middot; serves D-114 and pillar zero 2 &middot; narrows D-72 for under-18s only &middot; found by the user seat, 2026-09-28-user-value.md &middot; doc 14 gains a row: an under-18&rsquo;s public CV renders no school, whoever is reading</div></div></div>
 
+  <div class="dec"><div class="id">D-162</div><div class="st lk">Locked</div><div class="bd">
+    <div class="t"><b>The never-zero rule is a product rule, not a stats rule.</b> A zero is never rendered as a value, a count, or a control that leads nowhere &mdash; on any surface, for any actor. <b>It is omitted, not printed.</b> D-70 wrote this for stat tiles and it was built properly there and applied nowhere else.</div>
+    <div class="w"><b>BUZ&rsquo;s call, 28 Sep</b>, after three screens were found rendering zeros in one afternoon: <code>/club/squads</code> said &ldquo;0 playing&rdquo; on <b>ten of eleven squads</b>, and <code>/trials</code> offered <b>&ldquo;Men 0&rdquo; and &ldquo;Women 0&rdquo; as tappable chips</b> that lead to an empty board. Both were truthful and both read as a broken page. D-70&rsquo;s reasoning was never about arithmetic &mdash; it was about what a zero <i>communicates</i>: it makes &ldquo;nothing happened yet&rdquo;, &ldquo;nobody has done this&rdquo; and &ldquo;this went badly&rdquo; byte-identical. That is as true of a squad with no confirmed players in October as it is of a striker in a drought.
+    <b>The distinction that keeps this from destroying good work:</b> the rule bars the DIGIT as a value, not the FACT of absence. An empty state that says its absence in words is the opposite of this fault and several of ours are the best writing in the product &mdash; &ldquo;No open reports.&rdquo;, &ldquo;Nobody has registered interest in your trials yet. Post a trial and families register from it.&rdquo; Those stay and should spread. What goes is <code>0</code> printed beside a label, and a control carrying a zero that a person can press to reach nothing.
+    <b>Where it lands:</b> stat tiles (already done), squad counts, filter chips and their counts, any &ldquo;n waiting / n invited / n registered&rdquo; on any console, and every future surface that counts something. <b>A filter chip whose count is zero is not shown at all</b> &mdash; an option that cannot change what you see is not an option.</div>
+    <div class="src">Source: BUZ, 28 Sep &middot; generalises D-70 &middot; found by Leo verifying a merged breakpoint change at tablet width &middot; doc 14 gains no row (this is not a permission); the suite gains a check that no rendered count is the digit zero</div></div></div>
+
   <h2>The open queue</h2>
   <div class="card">
     <p style="margin:0;font-size:.87rem;color:var(--ink2)">Two decisions remain open, both club pricing, both deliberately held: <b style="color:var(--ink)">D-36</b> club pricing model and <b style="color:var(--ink)">D-39</b> club free-tier boundary &mdash; <b>narrowed on 20 Sep by D-158</b>, which puts squad lists and player confirmation on the free side for good — <b>held until the TD coffees</b>, and <b>D-87</b> gives us until 31 Jan 2027 to close them, so deciding early would be spending the answer before we have earned it. Every coffee asks the same four questions: what was the last software this club paid for, how much, who signed it off, in what month.<br><br><b>D-34 is now closed</b> ($79/yr or $9.99/mo — see D-82). Everything else is called: Stage 0 design-complete (D-22, D-29, D-48–D-52), the launch locked and re-scoped (D-45–D-47, D-74–D-79), post-launch sequence set (D-54–D-58, D-86), the development framework settled (D-60, D-61, D-71), and the 25 Aug board review recorded in full (D-67–D-87), with the design review that followed it (D-88–D-91) and the football vocabulary closed (D-92), with the club role model corrected (D-93) and security set as a standing build posture (D-94), with the legal pack reconciled (D-95–D-98). <b>The handover set is complete:</b> doc 14 (permission tests, the launch gate), doc 15 (every message that sends), doc 16 (positions, stats, fixtures).</p>
   </div>
 
-  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.20 · 28 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
+  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.21 · 28 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
 </div>
 </body>
 </html>
