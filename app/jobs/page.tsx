@@ -84,7 +84,7 @@ export default async function Jobs() {
         ))}
 
         <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.55 }}>
-          Applying sends the club your coaching CV and whatever you write. It does not send them your phone number or your email — if you want to be reached that way, say so in your message.
+          This sends the club your coaching CV and whatever you write. It does not send them your phone number or your email — if you want to be reached that way, say so in your message.
         </div>
         <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>

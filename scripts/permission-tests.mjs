@@ -4697,25 +4697,15 @@ const componentFilesAll = [];
   // them are engineering language ("the tablet rule applied to desktop"), not
   // copy anybody reads.
   const devOnly = (src) => /NODE_ENV === 'production'[\s\S]{0,80}notFound\(\)/.test(src) || /isDemo\(\)/.test(src);
-  // Live on 24 Sep, every suite green, found by the user seat walking the
-  // product as a volunteer coach. They are the coach jobs flow, where an
-  // adult really is applying for a real job and being turned down is a real
-  // outcome — which is exactly the argument D-108 already answered: the words
-  // go "for any actor, on any surface", because the register must not read as
-  // something a child can be turned down from and one vocabulary is how you
-  // guarantee that. Replacements are with BUZ; nothing here ships until he
-  // approves the words. Listed so the debt is visible and CANNOT GROW: a
-  // tenth one fails this check the day it is written.
-  const AWAITING_BUZ = new Set([
-    'Closed. Coaches who applied are still listed below.',
-    'You need a coaching profile and an adult account to apply for a role.',
-    'You&rsquo;ve applied for this one. The club has your CV.',
-    'Sign in to apply',
-    'You need a coaching profile to apply.',
-    'Apply for this role',
-    'Applying sends the club your coaching CV and whatever you write. It does not send them your phone number or your email \u2014 if you want to be reached that way, say so in your message.',
-    'Browse coaching roles at clubs and apply with your page.',
-  ]);
+  // WAS: eight strings in the coach jobs flow, live on 24 Sep with every suite
+  // green, found by the user seat walking the product as a volunteer coach.
+  // BUZ approved the replacements on 28 Sep — "put your name forward" — and
+  // they are in. The set is empty and stays empty: it exists so that if this
+  // ever happens again the debt is visible and pinned by exact text rather
+  // than quietly tolerated, and so that nobody can add a ninth by widening a
+  // regex. D-108's words go for any actor on any surface, because a second
+  // vocabulary for adults is how the first one erodes.
+  const AWAITING_BUZ = new Set([]);
   const found = [];
   for (const f of screenFiles) {
     const src = codeOnly(readFileSync(f, 'utf8'));

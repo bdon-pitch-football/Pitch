@@ -109,7 +109,7 @@ const WHO: Record<Role, { label: string; title: string; points: string[]; shot: 
     title: 'Your coaching CV.',
     points: [
       'Your roles, licences, coaching philosophy and clips on one page, with a link you can share.',
-      'Browse coaching roles at clubs and apply with your page.',
+      'Browse coaching roles at clubs and put your name forward with your page.',
       'If your club brings you in for a team, you can see who has registered for it and filter by position.',
       'Free for every coach, whether you volunteer or get paid.',
     ],

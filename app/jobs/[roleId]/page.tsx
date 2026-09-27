@@ -58,7 +58,7 @@ export default async function Role({ params, searchParams }: {
         </div>
 
         {sent && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13.5, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>Sent. {r.club} has your coaching CV and your message. What happens next is up to them — we don&rsquo;t chase clubs on your behalf.</div>}
-        {cannot && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>You need a coaching profile and an adult account to apply for a role.</div>}
+        {cannot && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>You need a coaching profile and an adult account to put your name forward.</div>}
         {closed && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>This role has closed.</div>}
 
         {r.detail && (
@@ -71,16 +71,16 @@ export default async function Role({ params, searchParams }: {
         {r.closed_at ? (
           <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 700 }}>This role has closed.</div>
         ) : already ? (
-          <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 700 }}>You&rsquo;ve applied for this one. The club has your CV.</div>
+          <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 700 }}>Your name is in for this one. The club has your CV.</div>
         ) : !me ? (
-          <Link href="/signin" className="btn btn-primary">Sign in to apply</Link>
+          <Link href="/signin" className="btn btn-primary">Sign in to put your name forward</Link>
         ) : !canApply ? (
           <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-            You need a coaching profile to apply. <Link href="/coach/edit" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Build one</Link> — it takes a few minutes and it is what the club reads.
+            You need a coaching profile to put your name forward. <Link href="/coach/edit" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Build one</Link> — it takes a few minutes and it is what the club reads.
           </div>
         ) : (
           <form action={applyForRole} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12 }}><input type="hidden" name="roleId" value={roleId} />
-            <div style={{ fontSize: 14, fontWeight: 900 }}>Apply for this role</div>
+            <div style={{ fontSize: 14, fontWeight: 900 }}>Put your name forward</div>
             <textarea name="message" aria-label="Why this club" rows={5} maxLength={1200} placeholder="Why this club, and what you'd bring. If you want them to phone or email you, put it here — we don't pass it on otherwise."
               style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '11px 12px', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }} />
             <button type="submit" className="btn btn-primary">Send it to {r.club}</button>

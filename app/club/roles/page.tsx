@@ -66,7 +66,7 @@ export default async function ClubRoles({ searchParams }: {
         </div>
 
         {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Posted. It&rsquo;s on the board now.</div>}
-        {closed && <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary }}>Closed. Coaches who applied are still listed below.</div>}
+        {closed && <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary }}>Closed. Coaches who put their name forward are still listed below.</div>}
         {error && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give the role a title.</div>}
 
         <form action={postRole} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
