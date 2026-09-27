@@ -197,6 +197,12 @@ export const JORDAN: PlayerFixture = {
   ],
   otherFootball: [
     { kind: 'representative', orgName: 'FV State League All-Stars', period: '2026' },
+    // The adult half of D-161: a school or university side still renders on
+    // an 18+ page, and only there. The under-18 half is exercised by Deniz's
+    // and Georgia's school entries, which the database now refuses to write
+    // and no page renders. 'Riverside' is one of the fictional names already
+    // in the seed (L15) — there is no Riverside University.
+    { kind: 'school', orgName: 'Riverside University 1st XI', period: '2023–2025' },
   ],
   highlightsUsed: 2,
   highlights: [
