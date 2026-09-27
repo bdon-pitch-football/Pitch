@@ -115,6 +115,78 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// A19 / D-161 - no school on an under-18's public page, whoever is reading.
+//
+// Deniz and Georgia each carry a school entry written the only way one can now
+// be written: with the trigger off, in the seed. That is the state a real
+// database is in - the row is there, nothing deleted it, and no page shows it.
+// Deniz's page is the guardian-approved SNAPSHOT (D-119), taken before the
+// rule; the preview of the same record is the LIVE assembly. Both are checked,
+// because they are two different queries and only one of them can be filtered
+// in SQL after the fact.
+// ---------------------------------------------------------------------------
+{
+  const SCHOOLS = ['Northcote High 1st XI', 'Point Cook Senior College', 'School 1st XI'];
+  const minorPages = [
+    ['A19: the u16 public CV (approved snapshot)', '/p/dev-deniz', null],
+    ['A19: the u16 print view', '/p/dev-deniz/print', null],
+    ['A19: the sparse u16 CV', '/p/dev-georgia', null],
+    // The 16-17 page is the LIVE assembly, not a snapshot — a different query
+    // with its own filter, and the only band that exercises it under 18.
+    ['A19: the 16-17 public CV (live assembly)', '/p/dev-nate', null],
+    ['A19: the 16-17 print view', '/p/dev-nate/print', null],
+    ['A19: the family\'s own preview of what a club sees', `/build/${deniz.record_id}/preview`, alex],
+    // The fixture preview reaches no database at all — it hands PlayerCV a
+    // fixture, and the fixture carries no band, which the component treats as
+    // a minor (the restrictive default). It is also the page BUZ opens.
+    ['A19: the fixture preview of the CV design', '/cv-preview/deniz', null],
+    ['A19: the sparse fixture preview', '/cv-preview/georgia', null],
+  ];
+  for (const [what, path, who] of minorPages) {
+    const { html } = await get(path, who);
+    const found = SCHOOLS.filter((org) => has(html, org));
+    check(`${what} names no school (${found.join(', ') || 'none'})`, found, []);
+    // The KIND as well as the organisation: "school" in the chip above the
+    // name is the disclosure D-114 removed, without the name attached.
+    check(`${what} carries no school chip`,
+      text(html).some((l) => l.toLowerCase() === 'school'), false);
+  }
+  // The other half of the same rule: an adult keeps it, so this cannot pass by
+  // the block having been deleted.
+  for (const path of ['/p/dev-jordan', '/p/dev-jordan/print', '/preview/site']) {
+    const { html } = await get(path);
+    check(`A19: ${path} still names the adult's university side`,
+      has(html, 'Riverside University 1st XI'), true);
+  }
+  check('A19: and the minors\' other football is otherwise untouched',
+    has((await get('/p/dev-deniz')).html, 'Melbourne Futsal U15'), true);
+}
+
+// The chip is not offered - the other half of the same rule, and the half a
+// family actually meets. The LIST is deliberately untouched: an entry written
+// before the rule is their own words, it renders nowhere public any more, and
+// Remove stays theirs to press. Nothing here deletes a row and no page says
+// anything about it (what a family is told is BUZ's call, D-161).
+{
+  // The attribute in between is React's: the first chip carries defaultChecked,
+  // which renders as checked="" between name and value. A regex without it
+  // could not have passed on the adult's page, whatever the code did.
+  const offersSchool = (html) => /name="kind"[^>]*value="school"/.test(html);
+  const { html } = await get(`/build/${deniz.record_id}/more`, alex);
+  check('A19: the u16 football-history editor offers no School chip',
+    offersSchool(html), false);
+  check('A19: and still lists what the family already wrote, with Remove beside it',
+    has(html, 'Northcote High 1st XI') && has(html, 'Remove'), true);
+
+  // The adult's own editor, reached the way he reaches it. Jordan's record id
+  // is not in .dev-ids.json, so it comes off his own home page.
+  const home = await get('/home', ids.people.jordan);
+  const jordanRecord = /\/build\/([0-9a-f-]{36})/.exec(home.html)?.[1] ?? 'none';
+  const adult = await get(`/build/${jordanRecord}/more`, ids.people.jordan);
+  check('A19: an adult is still offered School', offersSchool(adult.html), true);
+}
+
+// ---------------------------------------------------------------------------
 // D-77 - a dead link of any kind is one identical page.
 // ---------------------------------------------------------------------------
 {

@@ -193,6 +193,46 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 // Runs FIRST, on the fresh database: the generic sweep below pauses profiles
 // and flips switches, and x3 deletes a child.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// A19 / D-161 - the chip that is not there, pressed anyway.
+//
+// A server action stays callable whether or not its page renders the control,
+// so a crafted post is the only way left to ask for a school entry on a
+// child's record. It must write nothing and look exactly like every other kind
+// that is not on the list - and the SAME post with a kind that IS on the list
+// must write, or this check passes on a post that never worked.
+// ---------------------------------------------------------------------------
+{
+  const parent = SEATS.parent;
+  const more = `/build/${ids.children.deniz.record_id}/more`;
+  const add = async (kind, orgName) => {
+    // The page carries TWO addExperience forms. The previous-club one has a
+    // HIDDEN kind, and a duplicate key sends the first value (L10) - so
+    // picking it would have posted previous_club and passed on nothing.
+    const form = forms((await get(more, parent)).html)
+      .find((f) => f.visible.some((v) => v.name === 'kind' && v.type === 'radio'));
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    fd.append('kind', kind); fd.append('orgName', orgName); fd.append('period', '2026');
+    const r = await fetch(BASE + more, { method: 'POST', body: fd, redirect: 'manual',
+      headers: { cookie: cookieFor(parent) } });
+    await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '' };
+  };
+  const listed = async (org) => (await get(more, parent)).html.includes(org);
+  check('A19: the u16 editor offers a kind chip at all, so the post below is real',
+    (await get(more, parent)).html.includes('name="kind"'), true);
+
+  const refused = await add('school', 'Sweep School 1st XI');
+  check('A19: a crafted school entry writes nothing on an under-16 record',
+    await listed('Sweep School 1st XI'), false);
+  const written = await add('futsal', 'Sweep futsal summer');
+  check('A19: while the same post with a kind on the list does write',
+    await listed('Sweep futsal summer'), true);
+  check('A19: and the refused one answered exactly as the written one did',
+    [refused.status, refused.location], [written.status, written.location]);
+}
+
 {
   const parent = SEATS.parent;
   const nate = ids.children.nate;
