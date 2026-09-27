@@ -171,10 +171,22 @@ button:active, a[href]:active { transform: scale(.975); }
 /* Avatar ring for photos on dark surfaces */
 .avatar-ring { box-shadow: 0 0 0 1.5px rgba(61,220,132,.35), 0 4px 18px rgba(0,0,0,.4); }
 
-/* Console surfaces (D-147): reading column on mobile, sidebar + wide table
-   at >=1024px. Attach .console to the page column; .d-only rows render as
-   table lines on desktop, .m-only cards below. The sidebar is
-   components/console-shell.tsx and exists only at >=1024px. */
+/* Console surfaces (D-147 as amended 28 Sep 2026): reading column on a phone,
+   the TABLE from 768px, the SIDEBAR from 1024px. Attach .console to the page
+   column; .d-only rows render as table lines, .m-only cards below the table
+   breakpoint. The sidebar is components/console-shell.tsx.
+
+   THE TWO BREAKPOINTS ARE TWO DIFFERENT QUESTIONS, and D-147 used to answer
+   both with 1024. "Is there room for a table" and "is there room for a
+   232px rail beside it" are not the same question, and answering them
+   together did two measured harms: every iPad in portrait (768, 810, 820,
+   834) got the phone's stacked cards, 17,343px of scroll against 9,691px for
+   the same register as a table; and the one iPad that did reach the console —
+   12.9" portrait, exactly 1024 — landed on the first pixel of a layout with
+   none of the room it assumed and spilled 7px off the right edge.
+   Below 1024 the club, coach and operator seats already carry the phone tab
+   bar, so navigation is solved at 834 without a rail, which frees the whole
+   width for the table. Table at 768, rail at 1024. */
 .console { width: 100%; max-width: 560px; }
 .d-only { display: none; }
 .console-frame { width: 100%; display: flex; justify-content: center; }
@@ -192,6 +204,39 @@ button:active, a[href]:active { transform: scale(.975); }
 }
 .console-nav-link:hover { background: var(--surface-2); color: var(--ink); }
 .console-nav-link[aria-current="page"] { background: var(--surface-2); color: var(--ink); box-shadow: inset 3px 0 0 var(--accent); }
+/* THE TABLE — from 768px, with or without the rail beside it. */
+@media (min-width: 768px) {
+  /* A table needs the width, so the console column stops capping at 560 here
+     rather than at 1024. Without this the rows would render into a 560px
+     column and spill ~120px, which is the same defect one breakpoint lower. */
+  .console { max-width: 1200px; }
+  .m-only { display: none !important; }
+  .d-only { display: grid; }
+  .console-row {
+    /* The columns must fit INSIDE the card, not the viewport, AT THE TIGHTEST
+       WIDTH THE TABLE NOW RENDERS AT — and that is not the narrowest screen.
+       Measured in Chrome, not derived: the card's content box is the viewport
+       less 18px of console padding a side, the card's 1px border a side and
+       16px of card padding a side; the row then spends 10px a side of its own.
+       So the five columns and their four 12px gaps get (viewport - 90) below
+       1024, and (min(1200, viewport) - 232 - 90) at 1024 and up.
+         768  -> 678   (the tightest: a table with no rail)
+         820  -> 730
+         1024 -> 654   (the tightest with the rail: 1024 gains 204px and the
+                        rail costs 232, so 1024 is NARROWER for the row than
+                        820 is — that is the 1024-1031 spill, exactly)
+         1280 -> 958
+       The old minimums came to 744 and overflowed 654 by 90, which spilled 7px
+       past the right edge of a 12.9" iPad in portrait and resolved at 1031.
+       These come to 660 and fit the 678 at 768 with 18px to spare. Every
+       figure below is at or above what the content actually needs, measured
+       the same way: Shortlisted 94, Open the CV 110, Invite to trial 115. */
+    grid-template-columns: minmax(128px, 1fr) minmax(148px, 1.5fr) 100px 116px minmax(120px, 180px);
+    align-items: center; gap: 12px; padding: 13px 0;
+  }
+}
+
+/* THE RAIL — 1024px and up only. */
 @media (min-width: 1024px) {
   .console-frame { max-width: 1200px; display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; }
   .console-nav {
@@ -203,17 +248,6 @@ button:active, a[href]:active { transform: scale(.975); }
   /* Reading-width screens (billing, post a trial, club page) sit beside the
      sidebar, not floating in the middle of what is left. */
   .console-main { flex-direction: row; justify-content: flex-start; align-items: stretch; }
-  .console { max-width: 1200px; }
-  .m-only { display: none !important; }
-  .d-only { display: grid; }
-  .console-row {
-    /* The columns must fit INSIDE the card, not the viewport: 1200 frame
-       less the 232px sidebar, the console padding, the card padding and the
-       row's own padding leaves about 880px. The old minimums came to 934 and
-       pushed the action button out through the right-hand edge. */
-    grid-template-columns: minmax(140px, 1fr) minmax(170px, 1.5fr) 104px 132px minmax(150px, 180px);
-    align-items: center; gap: 12px; padding: 13px 0;
-  }
 }
 
 /* ===========================================================================
@@ -523,14 +557,16 @@ select { min-height: 44px; }
 }
 
 /* ===========================================================================
-   THE DESKTOP CONSOLE.
+   THE TABLE'S OWN MANNERS — wherever the table renders, so 768px and up
+   (D-147 as amended 28 Sep 2026), not only where the rail does.
    
    The Interest Register at 1200px was a plain table, and it is the screen the
    person who pays us stares at longest. Rows need somewhere for the eye to
    rest, the filters need to stay put while you scroll a hundred families, and
-   an action should announce itself on the row it belongs to.
+   an action should announce itself on the row it belongs to. None of that is
+   about the rail; a TD on an iPad scrolls the same hundred families.
    =========================================================================== */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   /* Filters stay put. Scrolling ninety-nine rows should not cost you the
      controls that narrowed them. */
   .console-filters {

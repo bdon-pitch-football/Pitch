@@ -11,6 +11,13 @@
 //   node scripts/layout-check.mjs            375px (default)
 //   node scripts/layout-check.mjs 390 1280   any widths
 //
+// GIVE IT THE BAND EDGES. D-147's console breakpoints are 768 and 1024, and
+// the 1024 overflow this check now pins lived in an 8px band (1024-1031) that
+// 375 and 1280 cannot see. The console widths are
+//   375 768 820 834 1023 1024 1031 1032 1280
+// — a phone, the table's first pixel, two iPads, both sides of the rail
+// breakpoint, both sides of where the old spill resolved, and a laptop.
+//
 // A page FAILS when the document is wider than the viewport. The report names
 // the widest element, which is almost always the one to fix.
 import { spawn } from 'node:child_process';
@@ -21,7 +28,11 @@ import { join } from 'node:path';
 
 const BASE = process.env.RENDER_BASE ?? 'http://localhost:3000';
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const PORT = 9333;
+// The DevTools port, not a product port. Two seats running this at once in two
+// worktrees would otherwise attach to each other's browser and measure each
+// other's app (L30), so a seat can move it the way PITCH_DEV_DB_PORT moves the
+// database. Unset is 9333, unchanged for anyone who sets nothing.
+const PORT = Number(process.env.LAYOUT_CDP_PORT) || 9333;
 const widths = process.argv.slice(2).map(Number).filter(Boolean);
 if (widths.length === 0) widths.push(375);
 

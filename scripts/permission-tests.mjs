@@ -4244,6 +4244,85 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     (srcOf('app/build/[recordId]/page.tsx').match(/<PlayerFrame active="cv">\s*\{\/\*[\s\S]*?<div style=\{\{ width: '100%', display: 'flex', flexDirection: 'column' \}\}>/) ?? []).length, 1);
 }
 
+// ---- the console's TWO breakpoints (D-147 as amended 28 Sep 2026) ----------
+// D-147 named 1024 for both "table instead of stacked cards" and "sidebar
+// instead of tab bar", and those are different questions. Measured: every iPad
+// in portrait (768, 810, 820, 834) fell below the one breakpoint and got the
+// phone, so the Interest Register was 17,343px of scroll at 820 against 9,691
+// as a table; and the one iPad that did reach the console — 12.9" portrait,
+// exactly 1024 — landed on the first pixel of a layout with none of the room
+// it assumed and spilled 7px off the right edge, resolving at 1031.
+//
+// EVERY CHECK HERE FAILS ON THE OLD CSS — one @media (min-width: 1024px)
+// carrying both, and 744px of column minimum. Proven that way (L20).
+{
+  const css = srcOf('app/globals.css');
+  // Media blocks, brace-matched. A regex cannot read nested rules, and every
+  // one of these blocks contains some.
+  const blocksAt = (px) => {
+    const out = [];
+    const re = new RegExp(`@media \\(min-width: ${px}px\\)\\s*\\{`, 'g');
+    let m;
+    while ((m = re.exec(css))) {
+      let i = m.index + m[0].length, depth = 1;
+      while (i < css.length && depth > 0) { depth += css[i] === '{' ? 1 : css[i] === '}' ? -1 : 0; i++; }
+      out.push(css.slice(m.index + m[0].length, i - 1));
+    }
+    return out.join('\n');
+  };
+  const at768 = blocksAt(768), at1024 = blocksAt(1024);
+
+  check('bp1: the table replaces the stacked cards from 768px, so an iPad in portrait gets it',
+    [/\.d-only \{ display: grid; \}/.test(at768), /\.m-only \{ display: none !important; \}/.test(at768),
+      /\.d-only \{ display: grid; \}/.test(at1024)],
+    [true, true, false]);
+  check('bp2: and a console column stops capping at 560px there, or the table has nowhere to render',
+    [/\.console \{ max-width: 1200px; \}/.test(at768), /\.console \{ max-width: 1200px; \}/.test(at1024)],
+    [true, false]);
+  check('bp3: the 232px rail still waits for 1024 — that separation is the whole change',
+    [/grid-template-columns: 232px minmax\(0, 1fr\)/.test(at1024), /232px/.test(at768)], [true, false]);
+  check('bp4: below 1024 the tab bar stays, so a tablet gets the table AND the bar',
+    [/\.seat-tabs \{ display: none; \}/.test(at1024), /seat-tabs/.test(at768)], [true, false]);
+
+  // bp5 is the arithmetic, and it is the check the 1024 overflow needed.
+  // The two budgets are MEASURED in Chrome at those widths (the proposal's own
+  // sums said ~20px where the instrument said 7, so nothing here is derived):
+  // the five columns and their four gaps get the viewport, less 18px of
+  // console padding a side, the card's 1px border and 16px of padding a side,
+  // and 10px a side of the row's own — and above 1024, less the rail.
+  //   768  -> 678   the tightest, a table with no rail
+  //   1024 -> 702   the rail costs 232 where 1024 only gains 204 over 820, so
+  //                 1024 is narrower for the row than 820 is. That is the bug.
+  const tracks = (/\.console-row \{[\s\S]*?grid-template-columns:\s*([^;]+);/.exec(at768)?.[1] ?? '')
+    .trim().match(/minmax\([^)]*\)|\S+/g) ?? [];
+  const minOf = (t) => Number((t.startsWith('minmax')
+    ? /minmax\(\s*(\d+(?:\.\d+)?)px/.exec(t)?.[1]
+    : /^(\d+(?:\.\d+)?)px$/.exec(t)?.[1]) ?? NaN);
+  const gap = Number(/\.console-row \{[\s\S]*?gap:\s*(\d+)px/.exec(at768)?.[1] ?? NaN);
+  const needs = tracks.map(minOf).reduce((a, b) => a + b, 0) + gap * (tracks.length - 1);
+  check(`bp5: the row's five columns fit the narrowest width the table renders at (they need ${needs}px)`,
+    [tracks.length, needs <= 678, needs <= 702], [5, true, true]);
+
+  // bp6 is bp5's tripwire: those two budgets are only right while the chrome
+  // around the row is what they were measured through. Change a padding and
+  // this goes red, which is the signal to re-measure rather than to re-guess.
+  check('bp6: and the chrome those budgets were measured through has not moved',
+    [/className="console"[^>]*padding: '22px 18px 30px 18px'/.test(srcOf('app/club/register/page.tsx')),
+      /className="d-only" style=\{\{ \.\.\.card, padding: '6px 16px'/.test(srcOf('app/club/register/page.tsx')),
+      /\.console-row \{ padding: 14px 10px; \}/.test(at768)],
+    [true, true, true]);
+
+  // Constraint 3 (D-147): no capability appears at one width and not another.
+  // The register serves the table rows AND the cards in the same HTML at every
+  // width and lets CSS choose, so there is no width-only route or action to
+  // test — and nothing may quietly start deciding that in JavaScript.
+  check('bp7: the register decides table-or-cards in CSS only, never from a width it read',
+    [/className="m-only"/.test(srcOf('app/club/register/page.tsx')),
+      /className="console-row console-row-hover d-only"/.test(srcOf('app/club/register/page.tsx')),
+      /innerWidth|matchMedia|useMediaQuery/.test(srcOf('app/club/register/page.tsx'))],
+    [true, true, false]);
+}
+
 // ---- the coach and club doors (BUZ, 21 Sep) ---------------------------------
 // A coach builds their own page; a club person makes an account and then
 // claims the club's page with the code sent to the club's own address. What

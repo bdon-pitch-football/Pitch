@@ -14,7 +14,8 @@
     "test:write": "node scripts/write-tests.mjs",
     "demo": "node scripts/demo.mjs",
     "test:paths": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/safe-path-tests.mts",
-    "test:layout": "node scripts/layout-check.mjs 375 1280"
+    "test:layout": "node scripts/layout-check.mjs 375 1280",
+    "test:layout:console": "node scripts/layout-check.mjs 375 768 820 834 1023 1024 1031 1032 1280"
   },
   "dependencies": {
     "@electric-sql/pglite-socket": "^0.2.11",
