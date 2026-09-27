@@ -664,7 +664,7 @@ if (DEMO) {
 // two things. The merge is the first place anyone could see that. Fixing L30 by
 // isolating builders is what made it possible: nobody was reading anybody
 // else's tree. One name — the namespaced one, because PITCH_DEMO already sets
-// that pattern and a bare DEV_DB_PORT in a shell is a surprise — and the
+// that pattern and an un-namespaced one in a shell is a surprise — and the
 // validation the third seat wrote, which is the part worth keeping (L35).
 //
 // The demo keeps its own port and ignores this: a demo must never land on the

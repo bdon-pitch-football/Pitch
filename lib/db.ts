@@ -9,11 +9,17 @@ import { Pool } from 'pg';
 import { poolConfig } from './db-policy';
 import { isDemo, DEMO_DB_URL } from './demo';
 
-// DEV_DB_PORT lets a seat run its own dev database and app without fighting
+// PITCH_DEV_DB_PORT lets a seat run its own dev database and app without fighting
 // another seat's (LESSONS L30). Unset is the shared default, 54322, so
 // nothing changes for anyone who does not set it. The demo has its own port
 // and ignores this.
-const DEV_URL = `postgres://postgres@127.0.0.1:${process.env.DEV_DB_PORT || '54322'}/postgres`;
+// Both halves must read the SAME variable. They did not: three seats built
+// this knob in three worktrees, the merge resolved dev-db.mts onto the
+// namespaced name and left this line on the bare one, so the documented
+// isolation recipe silently pointed the app at the SHARED database and a
+// seat trying to stay out of everyone's way took the port it was avoiding.
+// That is mine (L30, and L35 below).
+const DEV_URL = `postgres://postgres@127.0.0.1:${process.env.PITCH_DEV_DB_PORT || '54322'}/postgres`;
 
 // A demo reads its own local database and nothing else (lib/demo).
 const url = isDemo() ? DEMO_DB_URL :

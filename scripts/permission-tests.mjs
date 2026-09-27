@@ -4433,11 +4433,24 @@ const componentFilesAll = [];
     [true, false, false]);
   // L30: a seat can run its own dev database. Unset is the shared 54322, so
   // nobody who does not set it notices anything.
-  check('db8: DEV_DB_PORT moves the dev database and the app together, and defaults to the shared one',
-    // Read raw: the dev URL is a postgres:// literal, and codeOnly would
-    // take the rest of that line for a comment.
-    [/DEV_DB_PORT \|\| '54322'/.test(srcOf('lib/db.ts')), /DEV_DB_PORT \|\| 54322/.test(srcOf('scripts/dev-db.mts'))],
-    [true, true]);
+  // Read raw: the dev URL is a postgres:// literal, and codeOnly would take the
+  // rest of that line for a comment.
+  //
+  // The name is matched WHOLE. The old check asked for /DEV_DB_PORT/ and that
+  // matches inside PITCH_DEV_DB_PORT, so on 28 Sep it sat green across a real
+  // split — the script on one name, the app on the other — and a seat running
+  // the documented recipe connected to the shared database and took the port
+  // it was trying to avoid. A check that cannot fail is a hope (L19).
+  const dbSrc = srcOf('lib/db.ts'), seedSrc = srcOf('scripts/dev-db.mts');
+  const whole = (src) => (src.match(/(?<![A-Z_])[A-Z_]*DEV_DB_PORT/g) ?? []);
+  check('db8: one name moves the dev database and the app together, and defaults to the shared one',
+    [whole(dbSrc).every((n) => n === 'PITCH_DEV_DB_PORT'),
+     whole(seedSrc).every((n) => n === 'PITCH_DEV_DB_PORT'),
+     whole(dbSrc).length > 0 && whole(seedSrc).length > 0,
+     /PITCH_DEV_DB_PORT \|\| '54322'/.test(dbSrc),
+     /PITCH_DEV_DB_PORT \|\| 54322/.test(seedSrc),
+     whole(srcOf('.env.example')).every((n) => n === 'PITCH_DEV_DB_PORT')],
+    [true, true, true, true, true, true]);
 }
 
 // The same decision, proved on a real TLS handshake against a fake Postgres

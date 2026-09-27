@@ -1226,23 +1226,30 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   // origin assertion scores a 500 with no Location as a pass — the answer
   // would be `new URL('', site)`, which is the site — so it would go green
   // whether the guard worked or the action fell over (L19).
+  // The value is `no`, not `declined`. These checks were written on 23 Sep
+  // against a product that said `declined`, and the product was corrected —
+  // D-108 bars that word on every surface and the permission suite's own
+  // url1 (F8) forbids it in an address bar. So for some days this suite
+  // asserted, as the expected answer, the exact string another suite exists
+  // to forbid: two suites contradicting each other, and the older one wrong
+  // (L22). A banned word belongs in a test only as the thing being refused.
   const missing = () => ({ ...inviteForm.fields, invitationId: randomUUID(), answer: 'no' });
   const back = async (value) =>
     (await postTo(`/g/controls/${g.child_id}`, alex, { ...missing(), back: value })).location;
   check('sqf4b: N2 — an absolute `back` is not followed off Pitch',
-    await back('https://evil.example/phish'), '/home?squad=declined');
-  check('sqf4c: nor a protocol-relative one', await back('//evil.example/phish'), '/home?squad=declined');
-  check('sqf4d: nor a backslash one', await back('/\\evil.example/phish'), '/home?squad=declined');
+    await back('https://evil.example/phish'), '/home?squad=no');
+  check('sqf4c: nor a protocol-relative one', await back('//evil.example/phish'), '/home?squad=no');
+  check('sqf4d: nor a backslash one', await back('/\\evil.example/phish'), '/home?squad=no');
   // A browser strips tabs and newlines before it parses a Location, so this
   // one reached the parser as `//evil.example` under the 23 Sep guard.
   check('sqf4e: nor one behind a tab a browser strips before it parses',
-    await back('/\t/evil.example/phish'), '/home?squad=declined');
+    await back('/\t/evil.example/phish'), '/home?squad=no');
   // Same origin after one parse, off Pitch after the two Next performs when
   // JavaScript is on — which is every real parent.
   check('sqf4f: nor one that only escapes on the second parse',
-    await back('/..//evil.example'), '/home?squad=declined');
+    await back('/..//evil.example'), '/home?squad=no');
   check('sqf4g: and an honest `back` still takes the parent back',
-    await back(`/g/controls/${g.child_id}`), `/g/controls/${g.child_id}?squad=declined`);
+    await back(`/g/controls/${g.child_id}`), `/g/controls/${g.child_id}?squad=no`);
   check('sqf4h: none of that touched the open invitation',
     forms(await controls()).some((f) => f.fields.invitationId === inviteForm.fields.invitationId), true);
 
