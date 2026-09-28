@@ -98,8 +98,13 @@ After a migration, the running demo still has the old schema.
 **L15 · Never use a real club's name as fictional data (20 Sep).**
 Two "former clubs" chosen for demo players could have belonged to real clubs.
 *Rule:* use names already in the seed (Riverside FC, Kingsway Rovers FC,
-Northern United SC, Westgate Rangers, Sunbury United, Coburg City FC,
+Northern United SC, Westgate Rangers, Quarrymead United, Coburg City FC,
 Brunswick Juniors SC) or ask.
+*Amended 29 Sep (round E):* an invented club is never named after a real
+suburb either. "Sunbury United" broke that and is now "Quarrymead United" in
+the seed, the demo and every suite; the permission suite's fx1 fails if the
+old name comes back. The other names in this list are in the round E report
+for Leo to rule on.
 
 **L16 · Read what a public page actually serves (17 Sep).**
 The legal pages render their markdown as-is, internal drafting notes and all.

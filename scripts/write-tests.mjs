@@ -1957,7 +1957,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 // ---------------------------------------------------------------------------
 // THE CALL SHEET RECORDS THE TECHNICAL DIRECTOR (0058; BUZ, 23 Sep).
 // Walked through the real console: the queue, the sheet, the press, and the
-// person's own confirm link. LAST, because it verifies Sunbury — the seat
+// person's own confirm link. LAST, because it verifies Quarrymead — the seat
 // every "unverified club" check above depends on being unverified.
 // ---------------------------------------------------------------------------
 {
@@ -1971,11 +1971,11 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     await r.text();
     return r.headers.get('location') ?? '';
   };
-  // Find Sunbury's call sheet the way the operator does — from the queue.
+  // Find Quarrymead's call sheet the way the operator does — from the queue.
   const queue = (await get('/ops/verification', op)).html;
   let sheet = null;
   for (const m of new Set([...queue.matchAll(/href="(\/ops\/call\/[0-9a-f-]{36})"/g)].map((x) => x[1]))) {
-    if (/Sunbury United/.test((await get(m, op)).html)) { sheet = m; break; }
+    if (/Quarrymead United/.test((await get(m, op)).html)) { sheet = m; break; }
   }
   check('td-w1: the queue links to a call sheet for the club awaiting a call', Boolean(sheet), true);
   check('td-w2: a club nobody has called has no technical director, and the console says so',
@@ -2024,7 +2024,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 //
 // Walked through the real screens, and the outbox read for what would actually
 // have gone. Straight after the Technical Director block, because it suspends
-// Sunbury — the club that block verifies, and the seat every "unverified club"
+// Quarrymead — the club that block verifies, and the seat every "unverified club"
 // check earlier depends on — and before the sessions block, which ends every
 // session the parent holds. Georgia, not Deniz: the deletion test (x3) has
 // deleted Deniz by now, and Georgia survives the suite.
@@ -2050,18 +2050,18 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
       incorporated: 'yes', authority_confirmed: 'yes', notes: 'suspension drill', ...extra });
   };
 
-  // Sunbury's sheet, found the way the operator finds it. The block above left
+  // Quarrymead's sheet, found the way the operator finds it. The block above left
   // it verified with a live Technical Director.
   const queue = (await get('/ops/verification', op)).html;
   let sheet = null;
   for (const m of new Set([...queue.matchAll(/href="(\/ops\/call\/[0-9a-f-]{36})"/g)].map((x) => x[1]))) {
-    if (/Sunbury United/.test((await get(m, op)).html)) { sheet = m; break; }
+    if (/Quarrymead United/.test((await get(m, op)).html)) { sheet = m; break; }
   }
   check('susp-w0: the call sheet now asks the operator WHY, from a closed list',
     /name="suspension_reason"/.test((await get(sheet, op)).html)
       && /value="child_safety"/.test((await get(sheet, op)).html), true);
 
-  // A family sends Georgia's CV to Sunbury, and to one other club, the whole
+  // A family sends Georgia's CV to Quarrymead, and to one other club, the whole
   // way: the child asks, the parent checks the address and presses send
   // (D-91, D-99). The second send is the family that must NOT be touched.
   const sendTo = async (clubName, address) => {
@@ -2075,24 +2075,24 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     const gSend = forms((await get(`/g/send/${ask}`, parent)).html).find((f) => 'requestId' in f.fields);
     await postTo(`/g/send/${ask}`, parent, gSend.fields);
   };
-  await sendTo('Sunbury United', 'football@sunburyunited.example.au');
+  await sendTo('Quarrymead United', 'football@quarrymeadunited.example.au');
   await sendTo('Elsewhere FC', 'football@elsewhere.example.au');
-  check('susp-w1: the parent has sent Georgia\u2019s CV to Sunbury, and to one other club',
-    [/doc15\.§19 → football@sunburyunited\.example\.au/.test(await box()),
+  check('susp-w1: the parent has sent Georgia\u2019s CV to Quarrymead, and to one other club',
+    [/doc15\.§19 → football@quarrymeadunited\.example\.au/.test(await box()),
      /doc15\.§19 → football@elsewhere\.example\.au/.test(await box())], [true, true]);
 
   // ---- The ordinary suspension. Nobody is told, and that is the ruling. ----
   const before = await deverifies();
   await logCall(sheet, { outcome: 'suspended', suspension_reason: 'administrative' });
   check('susp-w2: an ADMINISTRATIVE suspension takes the club down',
-    /Sunbury United[\s\S]{0,400}?Suspended/.test(plain((await get('/ops/verification', op)).html)), true);
+    /Quarrymead United[\s\S]{0,400}?Suspended/.test(plain((await get('/ops/verification', op)).html)), true);
   check('susp-w3: and tells NOBODY — no family is alarmed because a club’s paperwork lapsed',
     await deverifies(), before);
   // The link the family sent is untouched either way: this is L29, and it is
   // the whole reason M11 was recorded unbuildable.
   const controls = async () => plain((await get(`/g/controls/${kid.child_id}`, parent)).html);
   check('susp-w4: the family’s link still works — we never revoke on their behalf',
-    /football@sunburyunited\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
+    /football@quarrymeadunited\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
 
   // ---- The child-safety suspension. Every affected family, once each. ----
   await logCall(sheet, { outcome: 'verified', td_name: 'Casey Duarte', td_email: 'unproved@example.com' });
@@ -2102,7 +2102,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     /doc15\.§37 → guardian@example\.com/.test(after), true);
   const notice = (after.split('doc15.\u00a737')[1] ?? '').slice(0, 1200);
   check('susp-w6: naming the club and the child',
-    [/Sunbury United is no longer a verified club on Pitch/.test(notice),
+    [/Quarrymead United is no longer a verified club on Pitch/.test(notice),
      /You sent them a link to Georgia's page/.test(notice)], [true, true]);
   check('susp-w6b: and saying nothing about why — that is somebody else\u2019s information',
     /allegation|complaint|investigat|report|safety concern/i.test(notice), false);
@@ -2111,14 +2111,14 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('susp-w8: exactly one message, not one per suspension already sent',
     (after.match(/doc15\.§37/g) ?? []).length, 1);
   check('susp-w9: it has not switched the link off for them — the button is still to press',
-    /football@sunburyunited\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
+    /football@quarrymeadunited\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
 
   // The parent presses it. That is the family unmaking their own disclosure.
   const undo = /\/undo\/([A-Za-z0-9_-]{20,})/.exec(after.split('doc15.§37')[1] ?? '')?.[1];
   const undoForm = forms((await get(`/undo/${undo}`, null)).html).find((f) => 'token' in f.fields);
   await postTo(`/undo/${undo}`, null, undoForm.fields);
   check('susp-w10: one tap from the email switches that club’s link off, with no sign-in',
-    /football@sunburyunited\.example\.au[\s\S]{0,200}?Off /.test(await controls()), true);
+    /football@quarrymeadunited\.example\.au[\s\S]{0,200}?Off /.test(await controls()), true);
   check('susp-w11: and every other club’s link keeps working — a family is not punished for what a club did',
     /football@elsewhere\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
 }

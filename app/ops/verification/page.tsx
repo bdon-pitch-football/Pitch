@@ -54,7 +54,7 @@ export default async function OpsVerification() {
         <HeaderMark back={{ href: '/home' }} />
         <div>
           <h1 style={{ fontSize: 17, fontWeight: 800 }}>Verification</h1>
-          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{awaiting} clubs awaiting a call · {heldTotal} registrations held</div>
+          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{awaiting} club{awaiting === 1 ? '' : 's'} awaiting a call · {heldTotal} registration{heldTotal === 1 ? '' : 's'} held</div>
         </div>
         <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 3 L22 20 H2 Z" /><path d="M12 9.5 v4.5" /><circle cx="12" cy="16.8" r="0.6" fill={T.red} /></svg>

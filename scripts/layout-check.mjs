@@ -577,6 +577,111 @@ for (const width of [390, 1280]) {
 }
 
 // ---------------------------------------------------------------------------
+// /JOIN, PRESSED THE WAY A PERSON PRESSES IT (round E, 29 Sep).
+//
+// Three things the walkthrough rehearsal found by clicking, which no fetch can
+// see because /join is a client page (L10):
+//   · j1  Continue with a name and the tick but no date of birth did NOTHING:
+//         a disabled button, no word, no prompt. Pressed here with a real
+//         mouse event (a disabled button ignores one; el.click() would not be
+//         the same test), and it must either move on or make the browser flag
+//         the missing field — the `invalid` event is the browser's prompt.
+//         Then filled in, it must move on to the next step.
+//   · j2  The four role chips must be named what they show ("Player", …),
+//         read from Chrome's own accessibility tree — the answer a screen
+//         reader is given, not an attribute this script guesses at.
+//   · j3  "Somewhere else" must carry a way back a person can see: the
+//         product's back affordance, the word and not only an arrow, a 44px
+//         target, and pressing it must land on the country question again.
+// Signed out, at a phone and a laptop width, like the ring walk above.
+const joinFails = [];
+let joinChecked = 0;
+const clickOn = async (find) => {
+  const box = await eval_(`JSON.stringify((() => { const el = (${find})(); if (!el) return null;
+    el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2, h: Math.round(r.height) }; })())`);
+  if (!box) return null;
+  for (const type of ['mousePressed', 'mouseReleased']) {
+    await cdp('Input.dispatchMouseEvent', { type, x: box.x, y: box.y, button: 'left', clickCount: 1 });
+  }
+  await new Promise((r) => setTimeout(r, 300));
+  return box;
+};
+const byText = (sel, t) => `() => [...document.querySelectorAll('${sel}')].find((el) => el.innerText.trim().split('\\n')[0].trim() === ${JSON.stringify(t)})`;
+const H1 = `JSON.stringify(document.querySelector('h1')?.innerText.trim() ?? '')`;
+const waitH1 = async (want) => {
+  let h1 = '';
+  for (let i = 0; i < 50; i++) { h1 = await eval_(H1).catch(() => ''); if (h1 === want) break; await new Promise((r) => setTimeout(r, 100)); }
+  return h1;
+};
+// A click that navigated leaves its load event behind; the next visit() must
+// not mistake it for its own.
+const dropLoads = () => { for (let i = events.length - 1; i >= 0; i--) if (events[i].method === 'Page.loadEventFired') events.splice(i, 1); };
+const ROLE_TITLES = ['Player', 'Coach', 'Parent / Guardian', 'Club'];
+await cdp('Network.clearBrowserCookies');
+await cdp('Accessibility.enable');
+for (const width of [390, 1280]) {
+  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
+
+  // j2 — the names, on the step that shows the chips.
+  await visit('/join');
+  await clickOn(byText('button', 'Australia'));
+  const names = [];
+  for (const title of ROLE_TITLES) {
+    const obj = (await cdp('Runtime.evaluate', { expression: `(${byText('button', title)})()` })).result.result;
+    if (!obj?.objectId) { names.push(null); continue; }
+    const node = (await cdp('DOM.describeNode', { objectId: obj.objectId })).result.node;
+    const ax = (await cdp('Accessibility.getPartialAXTree', { backendNodeId: node.backendNodeId, fetchRelatives: false })).result.nodes;
+    const own = ax.find((n) => n.backendDOMNodeId === node.backendNodeId) ?? ax[0];
+    names.push(own?.name?.value ?? '');
+  }
+  joinChecked++;
+  if (JSON.stringify(names) !== JSON.stringify(ROLE_TITLES)) {
+    joinFails.push({ width, what: `j2 the role chips are announced as ${JSON.stringify(names)}, not ${JSON.stringify(ROLE_TITLES)}` });
+  }
+
+  // j1 — Continue with the date of birth left empty.
+  await eval_(`JSON.stringify((window.__invalid = [], document.addEventListener('invalid', (e) => window.__invalid.push(e.target.type || e.target.tagName.toLowerCase()), true), true))`);
+  await clickOn(`() => document.querySelector('input:not([type])')`);
+  await cdp('Input.insertText', { text: 'Rae' });
+  await clickOn(`() => document.querySelector('input[type=checkbox]')`);
+  const before = await eval_(H1);
+  const pressed = await clickOn(byText('button', 'Continue'));
+  const after = await eval_(H1);
+  const flagged = await eval_(`JSON.stringify(window.__invalid)`);
+  joinChecked++;
+  if (!pressed) joinFails.push({ width, what: 'j1 there is no Continue button to press' });
+  else if (after === before && !flagged.includes('date')) {
+    joinFails.push({ width, what: `j1 Continue with no date of birth did nothing — no step, and the browser flagged ${flagged.length ? flagged.join(', ') : 'nothing'}` });
+  }
+  // …and filled in (an adult, so the next step is the account), it moves on.
+  await eval_(`JSON.stringify((() => { const el = document.querySelector('input[type=date]');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, '1990-05-05');
+    el.dispatchEvent(new Event('input', { bubbles: true })); return true; })())`);
+  await clickOn(byText('button', 'Continue'));
+  const next = await waitH1('Your account');
+  joinChecked++;
+  if (next !== 'Your account') joinFails.push({ width, what: `j1b filled in, Continue landed on "${next}", not the account step` });
+  dropLoads();
+
+  // j3 — the way back from Somewhere else.
+  await visit('/join');
+  await clickOn(byText('button', 'Somewhere else'));
+  const at = await eval_(H1);
+  const back = await eval_(`JSON.stringify((() => {
+    const el = [...document.querySelectorAll('a, button')].find((e) => e.innerText.trim() === 'Back' && e.getBoundingClientRect().height > 0);
+    return el ? Math.round(el.getBoundingClientRect().height) : 0; })())`);
+  const pressedBack = back ? await clickOn(byText('a, button', 'Back')) : null;
+  const landed = pressedBack ? await waitH1('Where do you live?') : '';
+  dropLoads();
+  joinChecked++;
+  if (at !== 'Pitch is only in Australia for now.') joinFails.push({ width, what: `j3 "Somewhere else" landed on "${at}"` });
+  else if (!back) joinFails.push({ width, what: 'j3 "Somewhere else" has no way back a person can see (no control reading "Back")' });
+  else if (back < 44) joinFails.push({ width, what: `j3 the way back from "Somewhere else" is ${back}px tall, under 44` });
+  else if (landed !== 'Where do you live?') joinFails.push({ width, what: `j3 Back from "Somewhere else" landed on "${landed}", not the country question` });
+}
+
+// ---------------------------------------------------------------------------
 // THE FAILURE PATH, AS A PERSON SEES IT (28 Sep).
 //
 // This is the only suite with a browser, and the failure path needs one for
@@ -651,6 +756,8 @@ for (const f of ringFails) {
   if (f.none) console.log(`FAIL ${f.width}px · ${f.path} — the keyboard reached no form control at all, so the ring was never measured here`);
   else console.log(`FAIL ${f.width}px · ${f.path} — ${f.bare.length} of ${f.of} controls show no focus ring: ${f.bare.map((c) => `${c.name} (outline ${c.style} ${c.width}px)`).join(', ')}`);
 }
+console.log(`join pass    · ${joinChecked} presses on /join at 390 and 1280 — Continue is never silent, the role chips are named what they show, and Somewhere else has a way back`);
+for (const f of joinFails) console.log(`FAIL ${f.width}px · /join — ${f.what}`);
 for (const f of labelFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — ${f.labels.length} .field-label not at 10px: ${f.labels.map((l) => `"${l.text}" ${l.size}/${l.weight}`).join(', ')}`);
 for (const f of bodyFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — the page paints ${f.bg}, not --bg ${tokenRgb}`);
 // One line per distinct control, not one per view: the same component fails on
@@ -665,9 +772,9 @@ if (proseSmall.length) {
   console.log(`info ${byWhat(proseSmall).length} small link${byWhat(proseSmall).length === 1 ? '' : 's'} inside running prose (a per-screen layout decision, not a component fault):`);
   for (const [what, where] of byWhat(proseSmall).slice(0, 12)) console.log(`     ${what} — e.g. ${where[0]}`);
 }
-const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length;
+const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length;
 if (failures.length === 0 && chromeBad === 0) {
-  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no page broke its Content-Security-Policy, and analytics started only on the four public pages, signed out');
+  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, and /join answers every press');
   process.exit(0);
 }
 for (const f of failures) {
@@ -675,5 +782,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length})`);
 process.exit(1);

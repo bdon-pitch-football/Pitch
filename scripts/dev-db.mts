@@ -241,14 +241,14 @@ const riversideAdmin = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Pat','Nguyen','1983-06-14','admin@example.com')`, [riversideAdmin]);
 await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [riversideAdmin, riverside]);
 
-const sunbury = randomUUID();
-await db.query(`insert into club (id, name, suburb, state, club_state, contact_email) values ($1,'Sunbury United','Sunbury','VIC','claimed','football@sunburyunited.example.au')`, [sunbury]);
-const sunburyAdmin = randomUUID();
-await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'M.','Harris','1979-01-20','sunbury@example.com')`, [sunburyAdmin]);
-await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [sunburyAdmin, sunbury]);
+const quarrymead = randomUUID();
+await db.query(`insert into club (id, name, suburb, state, club_state, contact_email) values ($1,'Quarrymead United','Quarrymead','VIC','claimed','football@quarrymeadunited.example.au')`, [quarrymead]);
+const quarrymeadAdmin = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'M.','Harris','1979-01-20','quarrymead@example.com')`, [quarrymeadAdmin]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [quarrymeadAdmin, quarrymead]);
 
 // registrations: fixture players onto Riverside's register (parent-sent),
-// and held ones at Sunbury
+// and held ones at Quarrymead
 const players = await db.query(`select p.id, p.first_name from person p join development_record dr on dr.person_id = p.id`);
 for (const pl of players.rows as { id: string; first_name: string }[]) {
   await db.query(
@@ -261,7 +261,7 @@ for (const pl of players.rows as { id: string; first_name: string }[]) {
   await db.query(
     `insert into registration (player_id, club_id, positions, club_status, disclosed_by, policy_version)
      values ($1,$2,$3,'new',$4,'20@v2.4')`,
-    [pl.id, sunbury, ['CM'], guardian],
+    [pl.id, quarrymead, ['CM'], guardian],
   );
 }
 
@@ -635,7 +635,7 @@ await db.query(
 const georgiaRec = await recOf('Georgia');
 await db.query(
   `insert into share_request (record_id, requested_by, destination, created_at)
-   values ($1, (select person_id from development_record where id = $1), 'Sunbury United <football@sunburyunited.example.au>', now() - interval '3 days')`,
+   values ($1, (select person_id from development_record where id = $1), 'Quarrymead United <football@quarrymeadunited.example.au>', now() - interval '3 days')`,
   [georgiaRec],
 );
 
@@ -1017,11 +1017,11 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
       // send their own CV — the house adult and the eighteen-year-olds on the
       // bulk register. L40 compares a real send with a limited one, and each
       // sender has ten real sends a day, so it needs more than one of them.
-      heldClub: sunbury,
+      heldClub: quarrymead,
       adultPlayers: (await db.query(
         `select p.id as person_id, dr.id as record_id from person p join development_record dr on dr.person_id = p.id
          where p.dob is not null and fn_age_band(p.dob) = '18plus' order by p.first_name, p.id`)).rows,
     }, null, 2) + '\n',
   );
 }
-console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · admin@example.com (club administrator) · sunbury@example.com (unverified club) · kingsway@example.com (free verified club, TD) · new@example.com (brand-new, nothing yet) · unproved@example.com (signs in nowhere until /confirm/dev-unproved)');
+console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · admin@example.com (club administrator) · quarrymead@example.com (unverified club) · kingsway@example.com (free verified club, TD) · new@example.com (brand-new, nothing yet) · unproved@example.com (signs in nowhere until /confirm/dev-unproved)');
