@@ -24,8 +24,12 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
   // was when the page loaded: filling a field should move the bar.
   const [num, setNum] = useState<string>(record.squad_number == null ? '' : String(record.squad_number));
   const [about, setAbout] = useState<string>(record.about ?? '');
+  // A zero is never printed as a value, here least of all: a form showing 0
+  // reads as already-saved and invites people to leave it (D-70, generalised
+  // by D-162). An absent stat and a zero both open as the muted placeholder,
+  // and saving a blank removes the row rather than writing one.
   const [stats, setStats] = useState<Record<string, string>>(
-    Object.fromEntries(STAT_KEYS.map((k) => [k, record.stats?.[k] == null ? '' : String(record.stats[k])])),
+    Object.fromEntries(STAT_KEYS.map((k) => [k, record.stats?.[k] ? String(record.stats[k]) : ''])),
   );
   // D-105: the form OPENS with this position's set pre-ticked and the player
   // changes it from there. STAT_SETS is that default and was imported by

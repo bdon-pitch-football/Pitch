@@ -2672,16 +2672,51 @@ check("D-105: a keeper's default is appearances and clean sheets",
   [...STAT_SETS[positionGroup(['GK'])]], ['apps', 'clean_sheets']);
 check('D-105: a selection already stored is never overridden by a default',
   /chosen \?\? defaultSurfaced/.test(buildFormSrc), true);
-// And the fixture that hid the bug. Nate's selection is hand-written in
+// And the fixture that hid the bug. Nate's selection was hand-written in
 // lib/fixtures.ts as exactly what a correct default produces, so the keeper's
 // page demoed perfectly for weeks while the form that produces it handed every
-// real keeper the outfield set. The fixture is not derived from STAT_SETS here
-// on purpose — a derived fixture agrees with the code by construction and
-// would go on agreeing with it while it was wrong. It states the answer, and
-// these rows are what make the code produce it.
+// real keeper the outfield set. It is derived now — and that moves the risk
+// rather than removing it, because a wrong STAT_SETS would quietly change
+// every fixture and still look consistent with itself. So the sets are pinned
+// to the words in doc 16 §2 (CLAUDE.md's schema delta), which is the thing the
+// fixture used to stand in for (L33).
+const DOC16_STAT_SETS = {
+  GK: ['apps', 'clean_sheets'],
+  DEF: ['apps', 'clean_sheets', 'goals', 'assists'],
+  MID: ['apps', 'goals', 'assists'],
+  FWD: ['apps', 'goals', 'assists'],
+  UNSET: ['apps', 'goals', 'assists'],
+};
+for (const [group, set] of Object.entries(DOC16_STAT_SETS)) {
+  check(`D-105: the ${group} default pre-selection is doc 16's set`, [...STAT_SETS[group]], set);
+}
+check('D-105: and STAT_SETS answers for every position group, with no sixth',
+  Object.keys(STAT_SETS).sort(), Object.keys(DOC16_STAT_SETS).sort());
+check('D-105: no house fixture writes a selection down instead of deriving it',
+  /surfacedStats:\s*\[/.test(codeOnly(srcOf('lib/fixtures.ts'))), false);
 for (const f of PLAYER_FIXTURES) {
-  check(`D-105: ${f.slug}'s written selection is what STAT_SETS gives ${f.positions.join('/')}`,
+  check(`D-105: ${f.slug} opens on the default for ${f.positions.join('/')}`,
     f.surfacedStats, [...STAT_SETS[positionGroup(f.positions)]]);
+}
+
+// D-162 (28 Sep) — the never-zero rule is a PRODUCT rule: a zero is never
+// rendered as a value, a count or a control that leads nowhere. It bars the
+// digit, not the fact of absence. On the stat surfaces it was already built
+// (every one of them filters value > 0), with one hole: the build form printed
+// a stored 0 back into its own input, which is the pre-filled zero D-70 names.
+check('D-162: the build form never prints a stored zero into a stat input',
+  /record\.stats\?\.\[k\] \?/.test(buildFormSrc), true);
+check('D-162: and a zero typed into it is absence, so nothing stores one',
+  /raw === '' \|\| n === 0 \? null/.test(codeOnly(srcOf('app/build/[recordId]/actions.ts'))), true);
+for (const [what, rel] of Object.entries({
+  ...statSurfaces,
+  'the squad roster': 'app/club/squads/[squadId]/page.tsx',
+  'the record read path': 'lib/record-read.ts',
+  'the approved snapshot': 'lib/cv-build.ts',
+})) {
+  const src = codeOnly(srcOf(rel));
+  check(`D-162: ${what} omits a zero rather than printing one`,
+    /value > 0|\.value > 0|\(v \?\? 0\) > 0|value is not null and value > 0/.test(src), true);
 }
 
 // ---------------------------------------------------------------------------

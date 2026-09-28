@@ -54,8 +54,11 @@ export default function StatTile({ value, label, accent, delay = 0, source }: {
     <div className="cv-rise" style={{ animationDelay: `${0.28 + delay}s`, background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: '10px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
       <div className={done ? 'settle' : undefined} style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.04em', color: accent ? T.accent : T.ink }}>{shown}</div>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,.72)', textTransform: 'uppercase' }}>{label}</div>
+      {/* 9px/800 at .72 white, the same values as the block chip and the tile's
+          own label: .55 measured 4.51:1 on the hero after the 28 Sep surface
+          stack, which is a pass by 0.01 and not a margin to ship. */}
       {source && (
-        <div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(255,255,255,.55)', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.3 }}>{source}</div>
+        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(255,255,255,.72)', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.3 }}>{source}</div>
       )}
     </div>
   );

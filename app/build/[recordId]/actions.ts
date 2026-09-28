@@ -19,7 +19,12 @@ export async function saveDraft(formData: FormData) {
   const stats: Partial<Record<StatKey, number | null>> = {};
   for (const k of STAT_KEYS) {
     const raw = String(formData.get(`stat_${k}`) ?? '').trim();
-    stats[k] = raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0);
+    const n = Math.max(0, parseInt(raw, 10) || 0);
+    // A typed 0 is absence, not a value (D-70 as generalised by D-162): the
+    // row is removed rather than stored, so nothing can print the digit back
+    // into the form or count a keeper with no clean sheets as having stats.
+    // Every page already omitted it; what is left is that it stops existing.
+    stats[k] = raw === '' || n === 0 ? null : n;
   }
   await saveCvDraft(recordId, {
     positions,
