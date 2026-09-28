@@ -13,7 +13,7 @@
 
 ## Why this exists now
 
-A six-seat review of the product on 24–28 September turned up four things that
+A six-seat review of the product between 2026-09-24 and 2026-09-28 turned up four things that
 are yours rather than engineering's. Two are live on pages a parent reads. One
 of them, **item 1**, is the reason the legal build is finished and sitting
 unmerged rather than shipped: the engineering is done and correct, and landing
