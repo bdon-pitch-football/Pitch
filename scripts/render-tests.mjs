@@ -1530,6 +1530,52 @@ const georgia = ids.children.georgia;
   check('z2: and /club/billing renders no count at all, let alone a zero', zeros.length, 0);
 }
 
+// D-162 on the three screens it was still broken on after the first pass —
+// found by verifying a merged breakpoint change at tablet width, and by the
+// provenance seat, which fixed zeros only in its own files.
+{
+  const td = ids.people.marina;
+  // z3 is STRUCTURAL, and says so (L33). The fresh seed has no squad with any
+  // registration or player at all, so the "0 playing" case only appears after
+  // other suites have written data — a rendered check here passed on the OLD
+  // code, which means it could never fail (L19). So this asserts the property
+  // in the source: each figure is guarded by its own count, and neither can be
+  // printed when it is zero. The rendered half still runs, for whenever the
+  // fixture does produce the case.
+  const squadsSrc = readFileSync(fileURLToPath(new URL('../app/club/squads/page.tsx', import.meta.url)), 'utf8');
+  const guarded = /s\.registrations > 0 \? `\$\{s\.registrations\} registered`/.test(squadsSrc)
+    && /s\.players > 0 \? `\$\{s\.players\} playing`/.test(squadsSrc);
+  const squads = text((await get('/club/squads', td)).html).join('\n');
+  check('z3: /club/squads guards each count by its own value, so neither prints as zero (was "0 playing" on ten of eleven)',
+    [guarded, /(^|[^0-9])0 (playing|registered)\b/.test(squads)], [true, false]);
+
+  const board = (await get('/trials', null)).html;
+  const chipZeros = [...board.matchAll(/class="chip-count"[^>]*>\s*0\s*</g)].length;
+  check('z4: /trials offers no filter chip whose count is zero (was "Men 0", "Women 0")', chipZeros, 0);
+
+  const squadIds = [...(await get('/club/squads', td)).html.matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)].map((m) => m[1]);
+  let tileZeros = 0, saidInWords = 0;
+  for (const id of [...new Set(squadIds)]) {
+    const h = (await get(`/club/squads/${id}`, td)).html;
+    tileZeros += [...h.matchAll(/class="tnum"[^>]*>\s*0\s*</g)].length;
+    if (/No [a-z]+ yet/.test(text(h).join('\n'))) saidInWords++;
+  }
+  // z5/z5b are STRUCTURAL as well as rendered, and say so (L33, L19). The seed
+  // has ONE squad with players, and every position group in it is populated
+  // (1, 10, 18, 11, 7) — so the case this tile exists for, a squad with players
+  // and NO KEEPER, never occurs on a fresh seed. A rendered check passes on the
+  // fixed code only because there is nothing to find. So the source is checked
+  // for the property: the zero branch says the absence in words, and the digit
+  // is drawn only when the group has somebody in it.
+  const squadPageSrc = readFileSync(fileURLToPath(new URL('../app/club/squads/[squadId]/page.tsx', import.meta.url)), 'utf8');
+  const digitOnlyWhenPopulated = /byGroup\(g\)\.length > 0 \?/.test(squadPageSrc);
+  const absenceInWords = /No \{one\.toLowerCase\(\)\} yet/.test(squadPageSrc);
+  check('z5: no squad page draws an empty position group as the digit zero',
+    [digitOnlyWhenPopulated, tileZeros], [true, 0]);
+  check('z5b: and an empty group is still SAID — the fact of absence stays, in words',
+    absenceInWords, true);
+}
+
 // ---------------------------------------------------------------------------
 // THE FAILURE PATH (28 Sep). Until today there was no app/not-found.tsx and no
 // app/error.tsx, so 52 notFound() call sites across 33 route files and every

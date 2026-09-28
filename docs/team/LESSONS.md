@@ -278,3 +278,19 @@ directory. **Two at a time, and a builder checks free space itself before it
 builds** — because the head of the team checking once at fan-out missed a
 number that moved by 20 GiB inside one turn. A cap on the count is not a cap on
 the disk.
+
+*Amended again, same day (L37, third failure).* Two builders and a free-space
+check held the disk — free space never went under 17 GiB — and the machine
+still stopped: **load 21.5**, both builders stalled with no progress for ten
+minutes, and a layout run wedged after 19 page views. The resource that ran
+out was CPU, not disk. Each builder runs a dev server, a database, headless
+Chrome and a suite at once; two of them plus my own verification came to nine
+Next processes. And two of the three hottest processes on the machine were
+**macOS's own** (model and asset downloads, 127% and 92%), which we do not
+control and did not cause, and which can arrive at any time.
+*Rule:* **one builder at a time while the head of the team is verifying**,
+two only when nobody else is running browser suites; read `sysctl -n
+vm.loadavg` as well as `df`, and treat a one-minute load above the core count
+as a reason to wait rather than start. A cap on disk is not a cap on CPU, the
+same way a cap on the count was not a cap on disk. The machine is shared with
+its owner, and his own Chrome was the single hottest process when we finished.
