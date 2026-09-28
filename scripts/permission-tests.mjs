@@ -1342,7 +1342,7 @@ check('I5b/I3: the consent log survives the deletion',
     left, []);
   check('I1c: nothing is readable by any actor — their guardian, a coach, nobody',
     [await level(E.guardian, P), await level(E.adult, P), await level(null, P)], ['none', 'none', 'none']);
-  check('I4c: and the child’s own link reads like every other dead state',
+  check('I4c/E8: and the child’s own link reads like every other dead state',
     (await q(`select fn_token_read(decode(md5('e-tok'),'hex')) as r`)).rows[0].r, null);
   check('I5c: the consent log records the request and the completion, and survives',
     (await q(`select array_agg(event order by id)::text[] as e from consent_event
@@ -1535,17 +1535,21 @@ check('U-2c: the undo token is stored hashed, never raw', /token_hash/.test(undo
 check('U-2d: it is single-purpose — one share token, and an expiry',
   /share_token_id/.test(undoCols) && /expires_at/.test(undoCols) && /used_at/.test(undoCols), true);
 
-// M11 — L29 stands, and only the CHILD-SAFETY class notifies families.
-check('M11: de-verification carries a reason class',
+// John's M11/L29 ruling (doc 31, 0025) — L29 stands, and only the CHILD-SAFETY
+// class notifies families. NOT labelled M11 (L4, 28 Sep): doc 14's M11 says a
+// revoked verification revokes every link that club holds, and John ruled that
+// clause unbuildable. These test the ruling that replaced it, which the
+// register has not adopted — so M11 is honestly open until BUZ decides.
+check('deverify1: de-verification carries a reason class',
   (await db.query(`select string_agg(column_name,',') as c from information_schema.columns
     where table_name='club' and column_name='suspension_reason'`)).rows[0].c, 'suspension_reason');
-await expectFail('M11b: and the class is constrained, not free text',
+await expectFail('deverify1b: and the class is constrained, not free text',
   `update club set suspension_reason = 'because i felt like it' where id = '${CLUB.riverside}'`);
 const deverifyMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
   .split('clubDeverifiedEmail')[1].split('export const')[0];
-check('M11c: the notice never says WHY the club was de-verified',
+check('deverify1c: the notice never says WHY the club was de-verified',
   /allegation|investigat|report|complaint|safety concern/i.test(deverifyMsg), false);
-check('M11d: and never revokes on the family’s behalf — it offers the button',
+check('deverify1d: and never revokes on the family’s behalf — it offers the button',
   /we have not switched it off for you/i.test(deverifyMsg), true);
 
 // The rest of John's M11/L29 ruling: the class RECORDED, the function CALLED,
@@ -1704,6 +1708,32 @@ check('U-11: the CV email tells the club replies do not reach the family',
 check('U-11b: and tells them what to do instead', /invitation|post it on Pitch/i.test(cvMsg), true);
 check('U-11c: the old promise of a routed reply is gone',
   /just reply to this email/i.test(cvMsg), false);
+// And the guardian's send screen, which still promised the opposite of the
+// email it sends: "If they reply, it comes to you and <name> together" (L25).
+check('U-11d: the guardian\u2019s send screen promises no reply route either',
+  /if they reply, it comes to you/i.test(codeOnly(srcOf('app/g/send/[requestId]/page.tsx'))), false);
+
+// §19's player line with no club (28 Sep): it read "currently at ." for a
+// player who has none — most of the players sending a CV to find one. The
+// message is composed for real, under the react-server condition Next uses.
+{
+  const { execFileSync } = await import('node:child_process');
+  const at = fileURLToPath(new URL('../lib/messages.ts', import.meta.url));
+  const cv = (args) => JSON.parse(execFileSync(process.execPath, [
+    '--conditions=react-server', '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--input-type=module', '-e',
+    `const m = await import(${JSON.stringify(at)}); process.stdout.write(JSON.stringify(m.cvToClubEmail(...${JSON.stringify(args)})));`,
+  ], { encoding: 'utf8' })).body;
+  const withClub = cv(['Deniz', 14, 'AM, LW', 'Riverside FC', 'tok']);
+  const noClub = cv(['Deniz', 14, 'AM, LW', '', 'tok']);
+  const nothing = cv(['Deniz', 14, '', '', 'tok']);
+  check('msg19a: §19 names the club when the player has one, word for word as before',
+    withClub.includes('Deniz plays AM, LW, currently at Riverside FC.'), true);
+  check('msg19b: and with no club the clause goes — no "currently at ." — and nothing new is said in its place',
+    [noClub.includes('Deniz plays AM, LW.'), /currently at|\s\.\n| ,/.test(noClub),
+     noClub.replace('Deniz plays AM, LW.', 'Deniz plays AM, LW, currently at Riverside FC.') === withClub], [true, false, true]);
+  check('msg19c: with no positions either, the line goes and the paragraphs close up',
+    [/plays/.test(nothing), /\n\n\n/.test(nothing)], [false, false]);
+}
 
 // U-6 — complaints access: purpose-bound, time-boxed, logged, disclosed.
 const grantCols = (await db.query(
@@ -2572,18 +2602,18 @@ const deadShapes = [
   ['absurdly long', sha('x'.repeat(400))],
 ];
 for (const [name, h] of deadShapes) {
-  check(`E1 ${name}: identical null shape, no state leaks through`, await readTok(h), null);
+  check(`dead1 (${name}): identical null shape, no state leaks through`, await readTok(h), null);
 }
-check('E2: and the live one is the only thing that reads', (await readTok(t.live)) === null, false);
+check('dead2: and the live one is the only thing that reads', (await readTok(t.live)) === null, false);
 
-// E3: the dead answer carries nothing at all — not a name, not a club, not
+// The dead answer carries nothing at all — not a name, not a club, not
 // an age. The single read path is the only place that could leak one.
 const readSrc = readFileSync(fileURLToPath(new URL('../lib/record-read.ts', import.meta.url)), 'utf8');
-check('E3: the read path returns a bare null for every dead state',
+check('dead3: the read path returns a bare null for every dead state',
   /if \(!bundle\) return null;/.test(readSrc), true);
 const deadPage = readFileSync(fileURLToPath(new URL('../app/p/[token]/page.tsx', import.meta.url)), 'utf8');
 const deadHalf = deadPage.split('LinkState').slice(1).join('');
-check('E4: the link-state page renders no name, club, age or photo',
+check('E11c: the link-state page renders no name, club, age or photo',
   /first_name|last_name|club|age_group|photo/i.test(deadHalf), false);
 // E11, as doc 14 words it: the body carries no name, no club, no photo, no
 // age, NO INITIALS and NO SQUAD NUMBER. This row was counted as covered by a
@@ -2596,23 +2626,23 @@ check('E11: the link-state page is handed nothing about a person',
   /export default function LinkState\(\{ token, asked \}: \{ token\?: string; asked\?: boolean \}\)/.test(linkStateSrc), true);
 check('E11b: and names no field of a record — no initials, no squad number',
   /first_name|last_name|initials|squad_number|shirt|photo_path|age_group|\bdob\b|positions/i.test(codeOnly(linkStateSrc)), false);
-check('E5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
-check('E6: and sends no referrer to an embed host (D-94 §5)',
+check('dead5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
+check('dead6: and sends no referrer to an embed host (D-94 §5)',
   /no-referrer/.test(readFileSync(fileURLToPath(new URL('../next.config.mjs', import.meta.url)), 'utf8')), true);
 
-// E7: the OG endpoint outlives revocation in every social platform's cache,
+// E14: the OG endpoint outlives revocation in every social platform's cache,
 // so it must re-check on every request and never render an identity for a
 // token that is not live (D-89, D-94 §5).
 const ogSrc = readFileSync(fileURLToPath(new URL('../app/p/[token]/opengraph-image.tsx', import.meta.url)), 'utf8');
-check('E7: the OG route re-reads the token through the one path',
+check('E14c: the OG route re-reads the token through the one path',
   /readCvByToken/.test(ogSrc), true);
-check('E8: and falls back to a generic card rather than an identity',
+check('E14d: and falls back to a generic card rather than an identity',
   /if \(!cv\)|cv \?\?|!cv/.test(ogSrc), true);
 // Strip the comments first: the rule is written down at the top of that file
 // in the very words being searched for, and a check that matches its own
 // documentation passes forever without testing anything.
 const ogCode = codeOnly(ogSrc);
-check('E9: a minor\u2019s card carries no club, age group or region (D-89)',
+check('E12f: a minor\u2019s card carries no club, age group or region (D-89)',
   /club|age_group|region|ageGroup/i.test(ogCode), false);
 
 // ---------------------------------------------------------------------------
@@ -2999,9 +3029,9 @@ await db.query(
    values ($1,$2,$3,'og',$4)`, [cardId, REC.deniz, ID.deniz, sha('card-bytes')]);
 check('Q2: an unapproved card exists with no path at all',
   (await db.query('select storage_path from share_card_approval where id = $1', [cardId])).rows[0].storage_path, null);
-await expectFail('Q3: the club cannot approve a child\u2019s card',
+await expectFail('Q10b: the club cannot approve a child\u2019s card — denied at the query layer',
   `update share_card_approval set approved_by = '${ID.td}', approved_at = now() where id = '${cardId}'`);
-await expectFail('Q4: the u16 cannot approve her own card',
+await expectFail('Q10c: nor can the u16 approve her own',
   `update share_card_approval set approved_by = '${ID.deniz}', approved_at = now() where id = '${cardId}'`);
 await expectFail('Q5: the artefact approved must be the one that was shown',
   `update share_card_approval set image_hash = '\\x99'::bytea, approved_by = '${ID.guardian}', approved_at = now() where id = '${cardId}'`);
@@ -3222,8 +3252,79 @@ const rel = (p) => p.slice(appDir.length);
 // browser too — the only bytes that differ between a revoked and an expired
 // link are the dev cache-buster and the token the requester already holds.
 const pageCode = codeOnly(deadPage);
-check('E10: the page branches on one boolean, never on WHY the link is dead',
+check('dead4: the page branches on one boolean, never on WHY the link is dead',
   /expired|revoked|paused|disabled/i.test(pageCode), false);
+
+// Table E as doc 14 words it (28 Sep). The labels above claimed E1–E10 and
+// tested other things — the read path's shape, noindex, the OG route — so
+// rows were counted and not tested (L4). These test the rows. E9 and E10
+// (identical timing) are not claimed here: nothing in this suite times a
+// response, and render-tests fp7 times club pages, not links.
+{
+  const eChild = crypto.randomUUID(), eRec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Etable',$2)`, [eChild, yearsAgo(13)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now())`, [ID.guardian, eChild]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [eRec, eChild]);
+  // An under-16 page reads only once it has approved content (D-119).
+  await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,'{"name":"Etable"}','approved',$2, now())`, [eRec, ID.guardian]);
+  const mint = (rec, by, tag, issued = '0 days', life = '90 days') => db.query(
+    `insert into share_token (record_id, token_hash, issued_by, issued_at, expires_at)
+     values ($1,$2,$3, now() - ($4)::interval, now() - ($4)::interval + ($5)::interval)`, [rec, sha(tag), by, issued, life]);
+  const live = async (tag) => (await readTok(sha(tag))) !== null;
+
+  await expectFail('E1: an under-16 cannot generate their own link — the token exists only on the guardian’s action (D-91)',
+    `insert into share_token (record_id, token_hash, issued_by) values ('${eRec}', decode(md5('e1-child'),'hex'), '${eChild}')`);
+  await mint(eRec, ID.guardian, 'e2-guardian');
+  const replaceSrc = codeOnly(srcOf('app/g/controls/[childId]/actions.ts')).split('export async function replaceLink')[1]?.split('export async function')[0] ?? '';
+  check('E2: the guardian generates one, and the product mints it with a 90-day expiry (D-53)',
+    [await live('e2-guardian'), /insert into share_token[\s\S]*now\(\) \+ interval '90 days'/.test(replaceSrc)], [true, true]);
+  await mint(REC.nate, ID.nate, 'e3-teen');
+  await db.query(`insert into consent_event (event, actor_id, subject_id, detail)
+    values ('share_dispatched',$1,$1, jsonb_build_object('club_name','Etable FC','recipient','club@etable.example','band_at_send','16_17'))`, [ID.nate]);
+  check('E3: a 16–17 generates their own, and it is visible to their guardian in the consent log',
+    [await live('e3-teen'), (await db.query('select * from fn_send_log($1,$2)', [ID.guardian, ID.nate])).rows
+      .some((r) => r.club_name === 'Etable FC' && r.sending_actor === ID.nate)], [true, true]);
+  // E4: regenerate is replaceLink's two statements, in its one transaction.
+  const regen = /update share_token set revoked_at=now\(\) where record_id=\$1 and revoked_at is null[\s\S]*insert into share_token/.test(replaceSrc)
+    && replaceSrc.indexOf("'begin'") < replaceSrc.indexOf('update share_token') && replaceSrc.indexOf("'commit'") > replaceSrc.indexOf('insert into share_token');
+  await db.query(`update share_token set revoked_at=now() where record_id=$1 and revoked_at is null`, [eRec]);
+  await mint(eRec, ID.guardian, 'e4-new');
+  let e4err = null; let old = 'unread';
+  try { old = await readTok(sha('e2-guardian')); } catch (e) { e4err = e.message; }
+  check('E4: the guardian regenerates and the old token is the link-state page at once — the same null as a token that never existed, not an error',
+    [regen, e4err, old, await readTok(sha('never-a-token-e4')), await live('e4-new')], [true, null, null, null, true]);
+  const liveBefore = await live('e4-new');
+  await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1, true, $2)`, [eChild, ID.guardian]);
+  check('E5: the guardian disables the profile, and every live token goes to the link-state page', [liveBefore, await live('e4-new')], [true, false]);
+  await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [eChild]);
+  await mint(eRec, ID.guardian, 'e6-89', '89 days');
+  await mint(eRec, ID.guardian, 'e6-week', '83 days 12 hours');
+  const reminding = (await db.query('select child_id, token_ids from fn_links_to_remind()')).rows.find((r) => r.child_id === eChild);
+  check('E6: at 89 days a token is still live, and its renewal reminder is queued (a week before, doc 15 §5)',
+    [await live('e6-89'), (reminding?.token_ids ?? []).length], [true, 1]);
+  await mint(eRec, ID.guardian, 'e7-91', '91 days');
+  check('E7: at 91 days it is the link-state page — no grace period', await live('e7-91'), false);
+  await db.query(`delete from share_token where record_id = $1`, [eRec]);
+  await db.query(`delete from share_token where token_hash = $1`, [sha('e3-teen')]);
+}
+
+// Table Q, rows 3 and 4, as doc 14 words them: what an approved under-18
+// card carries, and that any address on it is the marketing site's. The
+// labels Q3/Q4 were on two approval refusals, which are Q10's.
+{
+  const cardSrc = codeOnly(srcOf('app/g/card/[cardId]/image/route.tsx'));
+  const drawn = cardSrc.slice(cardSrc.indexOf('new ImageResponse('));
+  check('Q3: an approved card carries first name, surname initial, positions, number, stats — and no surname, club, age group, region, school, face or record URL',
+    [/const name = `\$\{c\.first_name\}\$\{c\.last_name \? ` \$\{c\.last_name\[0\]\}\.` : ''\}`;/.test(cardSrc),
+     /\{name\}/.test(drawn), /positions\.join/.test(drawn), /squad_number/.test(drawn), /tiles\.map/.test(drawn),
+     /last_name(?!\[0\])|club|age_?group|region|school|photo|avatar|<img|src=|\/p\/|token|https?:/i.test(drawn)],
+    [true, true, true, true, true, false]);
+  const og = codeOnly(eOg);
+  const urls = (src) => [...src.matchAll(/['"`]([^'"`]*pitchfootball\.com\.au[^'"`]*)['"`]/g)].map((m) => m[1]);
+  const found = [...urls(drawn), ...urls(og)];
+  check('Q4: any address on a card is the marketing site — no token and no path',
+    [found.length > 0, found.filter((u) => !/(^|[\s·])pitchfootball\.com\.au$/.test(u))], [true, []]);
+}
 
 
 // Club video (0018) is a LINK, never a file — the parked hosting question
@@ -5613,6 +5714,12 @@ const componentFilesAll = [];
     check('boot1b: without a URL there is no pool at all — every use fails with the same error, and nothing connects to a default host',
       [/const unconfigured = new Proxy\(/.test(dbSrc2), /!url \? unconfigured :/.test(dbSrc2)], [true, true]);
   }
+  // `npm run build:check` rewrote next-env.d.ts to point at .next-check and
+  // left the tree dirty after every run, so every seat's handoff carried a
+  // change nobody made. The file is Next's, generated by every next command;
+  // Next's docs say to ignore it and stop tracking it.
+  check('tree1: next-env.d.ts is ignored — it is Next\u2019s, and a build must leave the tree as it found it',
+    /^\/next-env\.d\.ts$/m.test(srcOf('.gitignore')), true);
   // L30: a seat can run its own dev database. Unset is the shared 54322, so
   // nobody who does not set it notices anything.
   // Read raw: the dev URL is a postgres:// literal, and codeOnly would take the

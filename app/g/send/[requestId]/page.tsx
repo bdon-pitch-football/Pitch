@@ -92,7 +92,9 @@ export default async function GuardianSend({ params, searchParams }: {
           {[
             `A link to ${name}'s CV — not a file, and not a copy.`,
             `You can pause or replace that link later. The club's access stops when you do.`,
-            `If they reply, it comes to you and ${name} together.`,
+            // "If they reply, it comes to you and <name> together" was here, and
+            // it is false: a club's reply to the §19 email reaches nobody (U-11,
+            // doc 15 §19). Removed, 28 Sep; a replacement line is BUZ's to approve.
           ].map((t) => (
             <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
