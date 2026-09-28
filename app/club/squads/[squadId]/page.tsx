@@ -32,13 +32,12 @@ type Player = {
 };
 
 // Which sources this screen may name. Every number on it carries its source
-// (D-62), read from lib/football like the CV's, never typed here. "Self-
-// reported" is approved; "Coach-verified" and "Official import" are waiting
-// on BUZ (28 Sep) and are not said here until he approves them. A number
-// whose source this screen may not name is left off the list — never shown
-// without it — and stays one tap away on the CV. Today every stat in the
-// product is self-reported, so nothing is left off yet.
-const SOURCES_SAID_HERE = new Set<string>([PROVENANCE_LABELS.self_reported]);
+// (D-62), read from lib/football like the CV's, never typed here. All three
+// are approved: "Self-reported" first, then "Coach-verified" and "Official
+// import" (BUZ, 28 Sep, docs/team/APPROVALS-28-SEP.md). The set stays so that
+// a fourth source added to lib/football is left off this screen — never shown
+// without its word — until it is approved too.
+const SOURCES_SAID_HERE = new Set<string>([PROVENANCE_LABELS.self_reported, PROVENANCE_LABELS.coach_verified, PROVENANCE_LABELS.official_import]);
 
 // A team sheet reads keepers first. The player's OWN order inside their
 // positions is first choice, second, third (D-69) — the club is being shown

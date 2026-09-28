@@ -113,7 +113,9 @@ export const LOOK_KEYS = Object.values(LOOKS).flatMap((l) => l[2].map((t) => t[0
 export const FAQ: [string, string][] = [
   ['What is Pitch?', 'A living record for everyone in the game. A player builds their football story once — clubs, seasons, positions, the numbers they choose to show, a few clips — and it follows them for their whole career, wherever it goes. Coaches build their coaching record, clubs their pathway, and parents hold the keys for their kids. Australia first.'],
   ['When does it open?', 'We’re building now, and we open when it’s ready rather than on a countdown. Join the waitlist and you’ll get one email when the whistle goes — nothing before it.'],
-  ['What will it cost?', 'A player’s page is free for good. So is a coach’s record and a club’s page. And under 18 is always free — no paid tier exists on a child’s account, ever. Clubs will be able to choose a paid Interest Register when we open.'],
+  // The answer is BUZ's approved website FAQ answer, word for word (28 Sep,
+  // D-163). The old one promised clubs a paid register at launch.
+  ['What will it cost?', 'Everything is free at launch: players, coaches, club pages and the Interest Register. Players under 18 are free, and that won’t change. We may add paid options for adults and clubs later, and we’ll tell you before anything changes.'],
   ['My child plays — how does Pitch treat under-18s?', 'A parent holds every key. Nothing about your child reaches a club until you’ve read it and sent it yourself. There’s no feed, no messages and no leaderboard for a 14-year-old to disappear into, and you can pause everything in one hold. At 18, the record becomes theirs — a history, not a blank page.'],
   ['Is Pitch a social network?', 'No. Pitch is a player development and pathway platform. There’s no feed, no likes, no followers — a page you choose to send, and a record that grows season on season.'],
   ['What happens with my email address?', 'It’s stored in Australia with the exact consent wording you saw when you joined, it’s used for one email when we open, and every message we ever send carries an unsubscribe link. The privacy policy says the rest, plainly.'],

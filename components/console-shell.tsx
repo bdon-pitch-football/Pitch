@@ -134,12 +134,12 @@ export async function ClubConsole({ active, floodlight, children }: {
   // Same seat query as the pages' own gates and as /home. No seat, no
   // sidebar — the page has already redirected by the time this matters.
   const seat = me ? (await db.query(
-    `select c.name, c.club_state, c.public_slug, m.role from club c
+    `select c.name, c.club_state, c.public_slug, m.role, fn_billing_enabled() as billing from club c
      join membership m on m.club_id = c.id and m.person_id = $1
        and m.role in ('technical_director','club_admin') and m.ended_at is null
      limit 1`,
     [me],
-  )).rows[0] as { name: string; club_state: string; public_slug: string | null; role: string } | undefined : undefined;
+  )).rows[0] as { name: string; club_state: string; public_slug: string | null; role: string; billing: boolean } | undefined : undefined;
 
   if (!seat) {
     return (
@@ -159,7 +159,8 @@ export async function ClubConsole({ active, floodlight, children }: {
     { key: 'roles', href: '/club/roles', label: 'Coaching roles', icon: 'roles' },
     ...(verified ? [{ key: 'post-trial', href: '/club/post-trial', label: 'Post a trial', icon: 'trials' as const }] : []),
     ...(seat.public_slug ? [{ key: 'public', href: `/fc/${seat.public_slug}`, label: 'Your club page', icon: 'page' as const }] : []),
-    { key: 'billing', href: '/club/billing', label: 'Plan & billing', icon: 'card' },
+    // D-163: free at launch — no plan to show while billing is off (0075).
+    ...(seat.billing ? [{ key: 'billing', href: '/club/billing', label: 'Plan & billing', icon: 'card' as const }] : []),
   ];
 
   const head = (

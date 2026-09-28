@@ -34,9 +34,14 @@ const chipStyle = (on: boolean, c: string) => ({
 
 // Pricing section hidden (BUZ, 3 Sep, on reader feedback): the page flows
 // closer-look -> waitlist. The under-18-free promise still appears on the
-// roadmap card; the only price left is the club-scene note. Flip to true to
-// restore the full section.
-const SHOW_PRICING = true;
+// roadmap card. Flip to true to restore the full section.
+//
+// Hidden again, and the club-scene note with it (28 Sep, D-163): Pitch is free
+// at launch, the Interest Register included, and no price is shown anywhere a
+// person can reach. Both still quote $54/$329, the launch price D-163
+// superseded, so neither may render; the live site carries BUZ's approved
+// "Free for everyone at launch." words. Restoring either needs his new copy.
+const SHOW_PRICING = false;
 
 const Check = ({ color, size = 13 }: { color: string; size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -1081,7 +1086,7 @@ export default function ComingSoon() {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, paddingTop: 4 }}>
                     <div onClick={() => goFormAs('club')} style={{ cursor: 'pointer', background: '#eda100', color: '#14100a', fontWeight: 800, fontSize: 15, borderRadius: 14, padding: '0 22px', height: 50, display: 'flex', alignItems: 'center' }}>Join the waitlist</div>
-                    <div style={{ fontSize: 12.5, color: '#7d8f85', fontWeight: 600 }}>Interest Register: $54 a month, cancel anytime — or $329 for twelve months.</div>
+                    {SHOW_PRICING && <div style={{ fontSize: 12.5, color: '#7d8f85', fontWeight: 600 }}>Interest Register: $54 a month, cancel anytime — or $329 for twelve months.</div>}
                   </div>
                 </div>
                 <div style={{ flex: '1 1 300px', position: 'relative', minHeight: 260, alignSelf: 'stretch' }}>

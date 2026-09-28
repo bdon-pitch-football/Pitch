@@ -75,12 +75,13 @@ export async function createPendingInvitation(input: {
   // row, so their funnel — sent, delivered, landed, confirmed — is legible on
   // their own consent log. An under-16 has no row yet: nothing about them
   // exists until their parent approves, which is D-17 working as intended, so
-  // those rows carry the invitation in `detail` and no subject. That is the
-  // reason a parent of an under-16 sees no "we emailed you" line on the
-  // controls screen today — reported 28 Sep, not fixed here.
+  // those rows carry the invitation in `detail` and no subject. At approval
+  // the database attaches them to the child's log (0077; BUZ, 28 Sep,
+  // decision 8) — linked, never rewritten — so the parent's "We emailed you"
+  // line is there on the controls screen.
   const subject = input.childId;
-  await sendAndLog(sms(input.firstName.trim(), age, smsToken), { address: input.guardianPhone.trim() }, 'sms_sent', subject);
-  await sendAndLog(email(input.firstName.trim(), age, emailToken), { address: input.guardianEmail.trim() }, 'email_sent', subject);
+  await sendAndLog(sms(input.firstName.trim(), age, smsToken), { address: input.guardianPhone.trim(), invitationId }, 'sms_sent', subject);
+  await sendAndLog(email(input.firstName.trim(), age, emailToken), { address: input.guardianEmail.trim(), invitationId }, 'email_sent', subject);
   return { id: invitationId };
 }
 

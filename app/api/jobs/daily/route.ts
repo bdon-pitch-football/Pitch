@@ -84,7 +84,7 @@ export async function GET(request: Request) {
   for (const n of nudges as { invitation_id: string; first_name: string; guardian_phone: string }[]) {
     const code = await reissueChannelToken(n.invitation_id, 'sms');
     if (!code) continue;
-    await send(pendingNudgeSms(n.first_name, code), { address: n.guardian_phone });
+    await send(pendingNudgeSms(n.first_name, code), { address: n.guardian_phone, invitationId: n.invitation_id });
     await db.query(
       `insert into consent_event (event, detail) values ('nudge_sent', jsonb_build_object('invitation_id', $1::uuid))`,
       [n.invitation_id],

@@ -61,7 +61,12 @@ export default async function Controls({ params, searchParams }: {
        (select coalesce(json_agg(json_build_object(
            'at', to_char(e.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'event', e.event, 'kind', e.detail->>'kind')
            order by e.at desc, e.id desc), '[]'::json)
-        from (select at, id, event, detail from consent_event where subject_id = p.id) e) as timeline,
+       --
+       -- 0077: the rows come from fn_consent_timeline — the child's own, plus
+       -- an under-16's early funnel lines ("We emailed you", "That email
+       -- reached your inbox", "You opened the permission page"), which were
+       -- written before the child existed and are attached at approval.
+        from fn_consent_timeline($2, p.id) e) as timeline,
        -- L57: the guardian sees EVERY send, with the recipient address in
        -- full. fn_send_log has answered this correctly since 0025 and the
        -- suite has been green on it — and NOTHING IN THE APP EVER CALLED IT.
@@ -93,7 +98,6 @@ export default async function Controls({ params, searchParams }: {
     invite_created: 'We were asked to set up their profile',
     email_sent: 'We emailed you to ask permission',
     email_delivered: 'That email reached your inbox',
-    email_opened: 'You opened that email',
     sms_sent: 'We texted you as well',
     sms_delivered: 'That text reached your phone',
     guardian_landed: 'You opened the permission page',

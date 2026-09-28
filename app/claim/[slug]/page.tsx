@@ -8,6 +8,7 @@ import { HeaderMark } from '@/components/Wordmark';
 import { claimClub, requestClaimCode } from './actions';
 import { T } from '@/lib/palette';
 import { card, sectionLabel as label } from '@/lib/ui';
+import { SUPPORT_EMAIL } from '@/lib/support';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Claim your club', robots: { index: false, follow: false } };
@@ -55,7 +56,7 @@ export default async function ClaimClub({ params, searchParams }: {
           <HeaderMark />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>We need to ring {c.name}.</div>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-            There is no contact address on this club&rsquo;s public listing, so there is nowhere for us to send a code that proves anything. Email <b style={{ color: T.ink }}>help@pitchfootball.com.au</b> and we will call the club instead — it is the same check either way, and it is free.
+            There is no contact address on this club&rsquo;s public listing, so there is nowhere for us to send a code that proves anything. Email <b style={{ color: T.ink }}>{SUPPORT_EMAIL}</b> and we will call the club instead — it is the same check either way, and it is free.
           </div>
         </div>
       </div>
@@ -148,7 +149,7 @@ export default async function ClaimClub({ params, searchParams }: {
             {/* You do not get to choose where the proof goes. A code sent to
                 an address of the reader's choosing proves the reader can read
                 their own email, which is not a fact about the club. */}
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>That is the address on {c.name}&rsquo;s own public listing — the one we built this page from. We can&rsquo;t send it anywhere else. If you can&rsquo;t get to that inbox, email help@pitchfootball.com.au and we&rsquo;ll ring the club instead.</div>
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>That is the address on {c.name}&rsquo;s own public listing — the one we built this page from. We can&rsquo;t send it anywhere else. If you can&rsquo;t get to that inbox, email {SUPPORT_EMAIL} and we&rsquo;ll ring the club instead.</div>
           </div>
           <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>

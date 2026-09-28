@@ -37,11 +37,11 @@ export async function resendApproval(formData: FormData) {
     // parent already confirmed stays confirmed.
     const smsToken = inv.guardian_phone ? await reissueChannelToken(invitationId, 'sms') : null;
     if (smsToken) {
-      await sendAndLog((inv.teen ? guardianConfirmSms16 : guardianApprovalSms)(inv.first_name, age, smsToken), { address: inv.guardian_phone }, 'sms_sent');
+      await sendAndLog((inv.teen ? guardianConfirmSms16 : guardianApprovalSms)(inv.first_name, age, smsToken), { address: inv.guardian_phone, invitationId }, 'sms_sent');
     }
     const emailToken = inv.guardian_email ? await reissueChannelToken(invitationId, 'email') : null;
     if (emailToken) {
-      await sendAndLog((inv.teen ? guardianConfirmEmail16 : guardianApprovalEmail)(inv.first_name, age, emailToken), { address: inv.guardian_email }, 'email_sent');
+      await sendAndLog((inv.teen ? guardianConfirmEmail16 : guardianApprovalEmail)(inv.first_name, age, emailToken), { address: inv.guardian_email, invitationId }, 'email_sent');
     }
   }
   redirect('/ops/support');

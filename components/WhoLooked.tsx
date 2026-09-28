@@ -21,29 +21,37 @@
 // and it is not decided here.
 import { db } from '@/lib/db';
 import { T } from '@/lib/palette';
+import { SUPPORT_EMAIL } from '@/lib/support';
 import { card, sectionLabel } from '@/lib/ui';
 
 // EVERY USER-VISIBLE STRING ON THIS CARD, IN ONE PLACE.
 //
-// ⚠ AWAITING BUZ. None of this is approved copy. It is listed verbatim in
-// docs/team/reports/2026-09-28-builder-unwired-promises.md as a proposal, and
-// it does not reach a user: the card renders in development only until
-// WHO_LOOKED_APPROVED is true — the same rule lib/messaging applies to a draft
-// message ("a flow that depends on one cannot ship until BUZ has approved the
-// words"). Approving the words is changing them here and flipping one flag.
+// APPROVED by BUZ, 28 Sep (docs/team/APPROVALS-28-SEP.md, "Who looked"), as
+// proposed in docs/team/reports/2026-09-28-builder-unwired-promises.md, with
+// his two defaults: the row shows a SHORT report reference, never the uuid,
+// and the footer's contact is his direct address (lib/support), not help@.
+// The flag stays so that un-approving is still one line; while it is true the
+// card renders in production.
 //
 // The suites find the card by its data-who-looked marker and read the
 // function's values, never these words, so BUZ changing one breaks nothing
 // (L32).
-export const WHO_LOOKED_APPROVED = false;
+export const WHO_LOOKED_APPROVED = true;
 export const WHO_LOOKED_COPY = {
   heading: (whose: string) => `Who at Pitch has looked at ${whose} record`,
   nobody: (whose: string) => `Nobody at Pitch has opened ${whose} record.`,
   someone: 'Someone at Pitch',
   why: (what: string) => `Looking into a report · ${what}`,
-  when: (day: string, reportId: string) => `${day} · report ${reportId}`,
-  footer: 'Somebody at Pitch can open a child’s record only while a report about it is open, and only for as long as that report is open. Every time one of us does, it is written down here and it cannot be edited or removed. Ask us why at help@pitchfootball.com.au and we will tell you.',
+  when: (day: string, reportRef: string) => `${day} · report ${reportRef}`,
+  footer: `Somebody at Pitch can open a child’s record only while a report about it is open, and only for as long as that report is open. Every time one of us does, it is written down here and it cannot be edited or removed. Ask us why at ${SUPPORT_EMAIL} and we will tell you.`,
 };
+
+// BUZ's default: a short reference a parent can read out or type into an
+// email, never the report's uuid. Its first eight hex digits, in capitals —
+// enough to find one report among a small queue, and not an identifier that
+// means anything anywhere else. The full id never reaches the page, not even
+// in an attribute.
+export const reportRef = (reportId: string) => reportId.replace(/-/g, '').slice(0, 8).toUpperCase();
 
 type Look = { at: string; investigator: string | null; report_id: string; what: string };
 
@@ -67,10 +75,10 @@ export default async function WhoLooked({ viewerId, personId, name }: {
         // do not keep that".
         <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>{C.nobody(whose)}</div>
       ) : rows.map((r, i) => (
-        <div key={i} data-look={r.report_id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div key={i} data-look={reportRef(r.report_id)} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div data-investigator style={{ fontSize: 14.5, fontWeight: 800 }}>{r.investigator ?? C.someone}</div>
           <div data-what style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{C.why(r.what)}</div>
-          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{C.when(day(r.at), r.report_id)}</div>
+          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{C.when(day(r.at), reportRef(r.report_id))}</div>
         </div>
       ))}
       <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>{C.footer}</div>
