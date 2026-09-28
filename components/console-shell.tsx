@@ -66,6 +66,7 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
               {it.label}
             </Link>
           ))}
+          <Link href="/signout" className="console-nav-link" style={{ marginTop: 'auto' }}>Sign out</Link>
         </nav>
         <div className="console-main">{children}</div>
       </div>
@@ -74,8 +75,20 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
         // rest in a sheet — every rail door is still here, one tap deeper
         // (D-147 as amended 16 Sep). A <details>, so it works without
         // JavaScript; More reads as current when the page is in the sheet.
-        const tabs = items.length > 4 ? items.slice(0, 3) : items;
-        const rest = items.length > 4 ? items.slice(3) : [];
+        // SIGN OUT LIVES HERE, for every seat, at every width (BUZ, 28 Sep).
+        //
+        // Until today it was linked from exactly ONE screen — inside the branch
+        // that only renders for a parent with no children linked — so a player,
+        // a coach, a technical director, an administrator, an operator and any
+        // parent WITH a child had no way to sign out at all. 0062 made a session
+        // a revocable row and sign-out the thing that revokes it; a door with no
+        // handle is not a door, and the person who needs it most is the one who
+        // has just realised somebody else is in their child's account.
+        //
+        // The threshold is 3 rather than 4 so the sheet always exists to hold
+        // it: a seat with exactly four doors now shows three and a More.
+        const tabs = items.length > 3 ? items.slice(0, 3) : items;
+        const rest = items.length > 3 ? items.slice(3) : [];
         const inRest = rest.some((it) => it.key === active);
         return (
           <nav className="seat-tabs" aria-label={`${label} bar`}>
@@ -86,7 +99,7 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
                 <span>{it.short ?? it.label}</span>
               </Link>
             ))}
-            {rest.length > 0 && (
+            {(
               <details className="seat-more">
                 <summary className="seat-tab" data-current={inRest ? 'true' : undefined}>
                   <Glyph k="more" on={inRest} size={21} />
@@ -100,6 +113,9 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
                       <span>{it.label}</span>
                     </Link>
                   ))}
+                  <Link href="/signout" className="seat-sheet-link">
+                    <span>Sign out</span>
+                  </Link>
                 </div>
               </details>
             )}
