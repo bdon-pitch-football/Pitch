@@ -9,6 +9,13 @@ doc 06 (the decisions register, `docs/06-Register.html`), doc 14 (the
 permission tests — the launch gate), doc 15 (every message that sends), doc 16
 (positions, stats, fixtures), `docs/legal/`.
 
+**The register has two copies, and they must match (BUZ, 28 Sep).** The live
+one is `docs/06-Register.html` on `app`. The copy the rest of the company opens
+is `../06-Design-Decisions-Register.html` in the Pitch 3.0 folder. Every time a
+register change lands on `app`, Leo copies it across the same turn, byte for
+byte, and checks with `cmp`. The folder copy had drifted to v4.18 while `app` was
+on v4.23, and anyone opening it saw prices that D-163 had retired.
+
 ## 1. What we are building, in one breath
 
 A player development and pathway platform where the person who can be hurt is

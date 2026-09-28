@@ -63,3 +63,19 @@ and a price we no longer charge.
   with no link back to the child. If the answer is no, it is a small change.
 - **Suppression (22 §6.5).** It is built, and nobody has yet
   confirmed it works end to end. That box is still unticked on the launch gate.
+
+## 4 · The markers inside the clauses, counted
+
+Your ruling on item 2 of doc 35 (take out clauses for capabilities that are
+not built) has not been applied to the served Terms yet. Before it is, here is
+what is actually in them, because the markers are not all one kind:
+
+| Marker | Where | Count | Proposed handling |
+|---|---|---|---|
+| `[DRAFTED]` | doc 22 | 75 | A label on finished text. **Strip it at render**, like the preamble, with the version bumping. Scaffolding, not content. |
+| `[DO NOT PUBLISH UNTIL BUILT]` | doc 22 §6.5 Suppression | 1 | **Remove the clause until it is built**, per your ruling. Suppression is built, but your "green" box (item 3.2) is unticked. Once you tick it, the clause returns in the next version. |
+| `[OUTLINE]` | doc 22 | 5 | Unfinished clauses. **Remove them until they are written.** |
+| `[LEGAL: doc 18 Qn …]` | doc 22 (13), doc 25 (2), doc 23 (1) | 16 | **Open questions for counsel.** Removing the marker publishes a commitment nobody has cleared (the $2,000 floor, the five-year period, the WWCC clause). Yours to decide one by one: keep each clause as written, rewrite it, or hold it back. |
+
+**Proposed:** one Terms release, doc 22 v2.1, that applies items 1 and 4
+together. We would not ship piecemeal edits to a legal page a parent reads.

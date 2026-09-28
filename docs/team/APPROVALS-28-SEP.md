@@ -44,3 +44,9 @@ Anything new still goes to BUZ.
 9. **Doc 15 §32's day-seven and suspension reminders:** the promise comes out of doc 15 until wording exists. It is dormant at launch anyway (D-163).
 10. **Only a child-safety suspension tells families** (`fn_suspension_tells_families`, as built).
 11. **Leo's calls stand:** the payment grace is fixed at 14 days, and a link preview is not a `guardian_landed`.
+
+## Later the same evening
+
+- **M11** adopts John's ruling (D-165).
+- **Wiping the free text on erasure** (D-166).
+- **Route 404s:** accepted as they are. The status is a correct 404, but the page body needs JavaScript, because Next 16.3.5's render-time recovery serves an empty document. No proxy-level existence check (that would be a second existence answer) and no soft 200.
