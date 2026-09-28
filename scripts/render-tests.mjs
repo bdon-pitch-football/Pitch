@@ -764,8 +764,18 @@ const georgia = ids.children.georgia;
       if (!rail || !bar) continue;
       const extra = hrefs(rail).filter((h) => !home.has(h));
       check(`s24: ${seat} ${P} frame offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
-      check(`s25: ${seat} ${P} bar and rail are the same doors`, hrefs(bar), hrefs(rail));
-      check(`s25b: ${seat} ${P} bar holds at most four doors`, hrefs(bar).length <= 4, true);
+      check(`s25: ${seat} ${P} bar and rail are the same doors`,
+        hrefs(bar).filter((h) => h !== '/signout'), hrefs(rail).filter((h) => h !== '/signout'));
+      // Sign out is not a DOOR — it is the way out, and it is deliberately in
+      // every seat's sheet and rail from 28 Sep (BUZ), because until then it
+      // was linked from one screen and no seat with anything to protect could
+      // reach it. The "four fit" rule is about navigation destinations, so it
+      // is counted separately: the bar must still offer at most four places to
+      // GO, and must always offer the way out.
+      const barDoors = hrefs(bar).filter((h) => h !== '/signout');
+      check(`s25b: ${seat} ${P} bar holds at most four doors`, barDoors.length <= 4, true);
+      check(`s25c: ${seat} ${P} bar and rail both offer the way out`,
+        [hrefs(bar).includes('/signout'), hrefs(rail).includes('/signout')], [true, true]);
       // Three or more children collapse to one Children tab, which a
       // child's own page marks instead of a per-child tab.
       if (current.startsWith('/g/controls/') && !rail.includes(`href="${current}"`)) current = '/home#children';
@@ -790,18 +800,24 @@ const georgia = ids.children.georgia;
     .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets')))];
   check(`r42: a new account is offered somewhere to go (${links.join(' ') || 'nowhere'})`,
     links.length >= 3, true);
-  // Every door except Sign out, which is now a state change rather than a
-  // read: following it revokes the session (0062), and this account is the
-  // ONLY one in the product whose home screen offers it — so opening it here
-  // signed this seat out and w16 went red four hundred lines later, which is
-  // the dangerous direction (L34: the answer was "the product is broken").
-  // That door is pressed, and its answer checked, in the write suite
+  // Every door except Sign out, which is a state change rather than a read:
+  // following it revokes the session (0062), so opening it here would sign
+  // this seat out and send a check four hundred lines later red, which is the
+  // dangerous direction (L34: the answer would have been "the product is
+  // broken"). It is pressed, and its answer checked, in the write suite
   // (sess-w1..w3), which is where pressing buttons belongs.
+  //
+  // This check USED TO SAY "and it is only on this screen" — and that was
+  // true, and was the defect. Sign out was linked from one branch of one page,
+  // the one that renders for a parent with no children, so every seat with
+  // something to protect had no way out at all. BUZ put it in every shell on
+  // 28 Sep. A check that asserts the shape of a bug will defend the bug, so it
+  // now asserts the decision: the way out is reachable from here too.
   const doors = links.filter((h) => h !== '/signout');
   check('r43: and every door it offers is one that exists',
     (await Promise.all(doors.map(async (h) => (await get(h, ids.people.robin)).status)))
       .every((st) => st === 200 || st === 307), true);
-  check('r43b: Sign out is one of them, and it is only on this screen',
+  check('r43b: Sign out is reachable from here, as it now is from every seat',
     links.includes('/signout'), true);
 }
 
