@@ -439,8 +439,15 @@ const PUBLIC_PAGES = /^\/(|trials|jobs|fc\/[a-z0-9-]+)$/;
 const ANALYTICS_ON = `JSON.stringify(typeof window.va === 'function' || Boolean(document.querySelector('script[src*="vercel-scripts.com"], script[src*="/_vercel/insights/"]')))`;
 const analyticsFails = [];
 let analyticsOn = 0, analyticsRead = 0;
+// Signed out is read from the browser — is a session cookie set? — not from
+// the seat's name: round B's front-door views are signed out under a label
+// of their own, and the next pass somebody adds will have one too.
+const signedOut = async () => !((await cdp('Network.getCookies', { urls: [BASE] })).result.cookies ?? []).some((c) => c.name === 'pitch_session');
+// A public address that answered with the failure shell (a club slug that
+// does not exist) is not a public page, and carries nothing.
 const analyticsPass = async (width, seat, path) => {
-  const should = seat === 'signed out' && PUBLIC_PAGES.test(path.split(/[?#]/)[0]);
+  const should = PUBLIC_PAGES.test(path.split(/[?#]/)[0]) && await signedOut()
+    && !(await eval_(`JSON.stringify(Boolean(document.querySelector('[data-failure]')))`));
   let on = await eval_(ANALYTICS_ON);
   for (let i = 0; should && !on && i < 30; i++) { await new Promise((r) => setTimeout(r, 100)); on = await eval_(ANALYTICS_ON); }
   analyticsRead++;
