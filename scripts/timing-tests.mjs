@@ -54,9 +54,11 @@
 // query in well under a millisecond, so a branch that makes one more query
 // shows here as a fraction of what it costs in production. The structural
 // checks in the permission suite (lsp1, lim-struct1/2, held-count1) are the
-// belt for that: they assert each path makes the same queries. And a real
-// send in production calls the email provider inline (lib/messaging
-// dispatch), which no local run includes.
+// belt for that: they assert each path makes the same queries. A real send's
+// provider call is no longer in the request at all (lib/messaging, after(),
+// 29 Sep) and both send paths answer on a fixed floor (lib/send-dispatch
+// SEND_ANSWER_FLOOR_MS); lim-after1 and lim-floor1–3 in the permission suite
+// pin both, because no local run makes a provider call to be seen.
 import { createHmac, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -72,6 +74,11 @@ const STEP = 100;
 const MAX_ROUNDS = Number(process.env.TIMING_MAX_ROUNDS) || 1500;
 const WARMUP = 20;
 const ALPHA = 0.001;
+// TIMING_ROWS=L40 (or E10,tok-rl) runs only the rows named — for proving one
+// row red with its bug put back, without half an hour of the others. A
+// partial run says so on its last line and is never a gate result.
+const ROWS = (process.env.TIMING_ROWS ?? '').split(',').map((r) => r.trim()).filter(Boolean);
+const runs = (row) => ROWS.length === 0 || ROWS.includes(row);
 const MAX_RESOLUTION_MS = 1;
 const TARGET_RESOLUTION_MS = 0.8;
 
@@ -274,7 +281,7 @@ function judge(row, what, baselineName, arms, family) {
 // ---------------------------------------------------------------------------
 // E10 — every dead link, the same page in the same time (D-77).
 // ---------------------------------------------------------------------------
-{
+if (runs('E10')) {
   const parent = ids.people.alex;
   const kids = ids.children;
   const deadTitle = title((await get(`/p/${randomBytes(32).toString('base64url')}`)).html);
@@ -330,7 +337,7 @@ function judge(row, what, baselineName, arms, family) {
 // ---------------------------------------------------------------------------
 // L40 — a send refused by the daily limit, in the time a real send takes.
 // ---------------------------------------------------------------------------
-{
+if (runs('L40')) {
   const SEND_DAILY_CAP = 10; // lib/football.ts
   const jordan = ids.people.jordan;
   const adults = ids.adultPlayers.filter((a) => a.person_id !== jordan);
@@ -398,7 +405,7 @@ function judge(row, what, baselineName, arms, family) {
 // touched — and the same comparison runs again. If the held club's pages now
 // stand differently against the twin's, the club could tell.
 // ---------------------------------------------------------------------------
-{
+if (runs('J61')) {
   const club = ids.people['m.'];           // Sunbury United's administrator: held, unverified
   const twinAdmin = ids.people.robin;      // the brand-new seat, who claims Westgate here
   // An eighteen-year-old off the bulk register, not the house adult: the seed
@@ -492,6 +499,7 @@ function judge(row, what, baselineName, arms, family) {
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
+if (ROWS.length) console.log(`PARTIAL RUN (${ROWS.join(', ')} only) — a proof, not the gate. The gate is every row, from a fresh seed.`);
 console.log('NOTE: this mutated the dev database. Restart scripts/dev-db.mts for a clean one.');
 // An inconclusive row has already failed its check above; the flag only says
 // which kind of failure it was, for whoever reads the exit code.

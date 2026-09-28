@@ -180,3 +180,49 @@ export async function dispatchShareRequest(requestId: string, actorId: string): 
   }
   return { raw, band };
 }
+
+// ---------------------------------------------------------------------------
+// The answer floor (doc 14 L38–L40, D-99). A send refused by the daily limit
+// must be indistinguishable from a real one, in time as well as in bytes.
+// The two paths cannot do the same work — a real send writes a token, a
+// consent row and the outbox rows; a refused one writes nothing a reader can
+// see — so the one thing both can do is answer at the same moment: no sooner
+// than SEND_ANSWER_FLOOR_MS after the action began. The provider call is
+// already out of the request (lib/messaging, after()), so what the floor
+// covers is database work, which is bounded and measurable.
+//
+// THE NUMBER, and where it came from (29 Sep). Measured inside the action on
+// the dev app, 118 real sends by adults: median 5.4ms, p99 8.5ms, max 8.9ms.
+// The refused path: median 3.3ms. That is a local database, answering in well
+// under a millisecond. A real send makes about 13 more round trips than a
+// refused one (the share request, the dispatch transaction, the lookup for
+// the emails, an outbox row each), and a guardian's send with a second
+// guardian about 20. In production each costs a Vercel-to-Supabase trip,
+// Sydney to Sydney — about a millisecond, and three on a bad day. So:
+// 8.5ms + 20 × 3ms ≈ 70ms at the worst production p99 we can reason about,
+// and 120ms leaves room over that. The cost is a tenth of a second on a
+// press that lands on a confirmation page. If the production p99 is ever
+// measured above it, this number goes up; it never goes down to "just
+// enough", because a real send that runs past the floor is the difference
+// the floor exists to hide.
+// ---------------------------------------------------------------------------
+export const SEND_ANSWER_FLOOR_MS = 120;
+
+/**
+ * Wait until SEND_ANSWER_FLOOR_MS has passed since `startedAt` (performance.now()).
+ *
+ * A timer alone leaked. Node schedules setTimeout off the event loop's cached
+ * clock, which is staler the more work the request did before it asked — so
+ * the real send, having done more, was released 0.3ms earlier than the
+ * refused one (median; 0.7ms at the tenth percentile), and L40 caught the
+ * floor itself at −0.57ms. So the timer is set to wake short of the floor,
+ * and the last stretch is finished against the real clock, one turn of the
+ * loop at a time. At most a few milliseconds of turns, on a press people
+ * make a few times a day.
+ */
+export async function answerNoSoonerThan(startedAt: number): Promise<void> {
+  const until = startedAt + SEND_ANSWER_FLOOR_MS;
+  const coarse = until - performance.now() - 3;
+  if (coarse > 0) await new Promise((resolve) => setTimeout(resolve, coarse));
+  while (performance.now() < until) await new Promise((resolve) => setImmediate(resolve));
+}

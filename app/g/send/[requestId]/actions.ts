@@ -12,7 +12,7 @@ import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
 import { checkRate } from '@/lib/ratelimit-db';
 import { SEND_DAILY_CAP } from '@/lib/football';
-import { dispatchShareRequest } from '@/lib/send-dispatch';
+import { answerNoSoonerThan, dispatchShareRequest } from '@/lib/send-dispatch';
 
 //
 // FORM FIELDS, NOT bind(). A server action passed straight to
@@ -22,6 +22,8 @@ import { dispatchShareRequest } from '@/lib/send-dispatch';
 // resolve, so without JS it returns a 500 rather than degrading, and it
 // cannot be exercised by anything that is not a browser.
 export async function dispatchSend(formData: FormData) {
+  // L40: the floor is measured from here, before anything either path does.
+  const startedAt = performance.now();
   const requestId = String(formData.get('requestId') ?? '');
   const guardianId = await getSessionPersonId();
   if (!guardianId) redirect('/signin');
@@ -43,11 +45,13 @@ export async function dispatchSend(formData: FormData) {
     // carrying the sender, the time and a reason — no recipient, no child and
     // no content.
     await db.query(`insert into abuse_signal (actor_id, reason, surface) values ($1,'rate_limited','send')`, [guardianId]);
+    await answerNoSoonerThan(startedAt);
     redirect(`/g/send/${requestId}?sent=1`);
   }
 
   // Not yours, already sent, never existed or malformed — one answer.
   const done = isUuid(requestId) ? await dispatchShareRequest(requestId, guardianId) : null;
+  await answerNoSoonerThan(startedAt);
   if (!done) redirect('/home');
   redirect(`/g/send/${requestId}?sent=1&link=${done.raw}`);
 }

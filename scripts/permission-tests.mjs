@@ -897,6 +897,46 @@ check('lim-struct1: the rate check happens after the session work, not instead o
 check('lim-struct2: and both paths end on the same URL',
   (dispatchSrc.match(/\/g\/send\/\$\{requestId\}\?sent=1/g) ?? []).length >= 2, true);
 
+// The two halves of L40's remedy (29 Sep), pinned where the timing suite
+// cannot see them: in production a real send's provider call would be the
+// whole difference, and no local run makes one.
+{
+  const sendCode = codeOnly(srcOf('lib/messaging.ts'));
+  check('lim-after1: no request waits for the email or SMS provider — send() hands it to after() and awaits nothing of it (L40)',
+    [/import \{ after \} from 'next\/server';/.test(sendCode), /await\s+dispatch\(/.test(sendCode), (sendCode.match(/\bdispatch\(/g) ?? []).length],
+    [true, false, 2]);
+  const floorSrc = codeOnly(srcOf('lib/send-dispatch.ts'));
+  const floorDefs = routeFiles.concat(['lib', 'components'].flatMap((d) => readdirSync(fileURLToPath(new URL(`../${d}`, import.meta.url)), { recursive: true })
+    .filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => fileURLToPath(new URL(`../${d}/${f}`, import.meta.url)))))
+    .filter((f) => /SEND_ANSWER_FLOOR_MS\s*=/.test(readFileSync(f, 'utf8')));
+  check('lim-floor1: the answer floor is one number, defined once (lib/send-dispatch.ts)',
+    [floorDefs.map((f) => f.split('/').slice(-2).join('/')), /export const SEND_ANSWER_FLOOR_MS = \d+;/.test(floorSrc)],
+    [['lib/send-dispatch.ts'], true]);
+  check('lim-floor2: and it is kept against the real clock, not left to a timer that wakes early for the path that did more work',
+    /while \(performance\.now\(\) < until\)/.test(floorSrc), true);
+  // Every door that can refuse a send for the limit: the clock starts before
+  // the first thing either path awaits, and every answer after the limit is
+  // checked waits for the floor with nothing awaited between it and the
+  // redirect.
+  for (const [door, file, end] of [['the player’s door', 'app/send/[recordId]/actions.ts', 'const client = await db.connect();'], ['the guardian’s door', 'app/g/send/[requestId]/actions.ts', null]]) {
+    const src = codeOnly(srcOf(file));
+    const fnStart = src.search(/export async function (composeSend|dispatchSend)\(/);
+    // The player's door ends where the under-16 branch begins: that branch
+    // composes a request for a guardian and has no limit to hide.
+    const body = src.slice(fnStart, end ? src.indexOf(end, fnStart) : undefined);
+    const clockFirst = body.indexOf('const startedAt = performance.now();') >= 0
+      && body.indexOf('const startedAt = performance.now();') < body.indexOf('await ');
+    const afterLimit = body.slice(body.indexOf('checkRate('));
+    const redirects = [...afterLimit.matchAll(/redirect\(/g)].map((m) => m.index);
+    const floored = redirects.every((at) => {
+      const floor = afterLimit.lastIndexOf('await answerNoSoonerThan(startedAt);', at);
+      return floor >= 0 && !/await /.test(afterLimit.slice(floor + 'await answerNoSoonerThan(startedAt);'.length, at));
+    });
+    check(`lim-floor3: ${door} starts the clock first and answers every send, refused or real, no sooner than the floor (${redirects.length} answers)`,
+      [clockFirst, redirects.length >= 2, floored], [true, true, true]);
+  }
+}
+
 // L44/L45/L54 — the coach's link is COPIED, never sent.
 const copySrc = readFileSync(fileURLToPath(new URL('../components/cv/CopyLink.tsx', import.meta.url)), 'utf8');
 check('L44: the copy affordance writes to the clipboard', /clipboard\.writeText/.test(copySrc), true);
@@ -4218,11 +4258,15 @@ check('reset12: whatever happened, the answer is the one redirect',
 // ---------------------------------------------------------------------------
 const msgSrc2 = readFileSync(fileURLToPath(new URL('../lib/messaging.ts', import.meta.url)), 'utf8');
 const provSrc = readFileSync(fileURLToPath(new URL('../lib/providers.ts', import.meta.url)), 'utf8');
-check('sendl1: dispatch is wired, not a comment', /await dispatch\(id,/.test(msgSrc2), true);
+// sendl1–3 pinned an inline `await dispatch(` until 29 Sep. The provider call
+// moved out of the request (after(), doc 14 L40), so they pin the same three
+// rules against where it lives now: wired, after the row, production only.
+check('sendl1: dispatch is wired, not a comment — handed to after(), once the response has gone',
+  /after\(\(\) => dispatch\(id,/.test(codeOnly(msgSrc2)), true);
 check('sendl2: the row is written before the provider is called, never after',
-  msgSrc2.indexOf('insert into message_outbox') < msgSrc2.indexOf('await dispatch(id,'), true);
+  msgSrc2.indexOf('insert into message_outbox') < msgSrc2.indexOf('after(() => dispatch(id,'), true);
 check('sendl3: development still sends nothing, whatever keys are in the shell',
-  /NODE_ENV === 'production'\) \{\n    await dispatch/.test(msgSrc2), true);
+  /NODE_ENV === 'production'\) \{\n    after\(\(\) => dispatch/.test(msgSrc2), true);
 
 // Policy stays in the send layer; the adapters are transport only. An adapter
 // that could decide to send would be an adapter that can send something doc
