@@ -2374,7 +2374,11 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
 
   // N23 / N24 — the TD sees the list; the request never tells who is on Pitch.
   const squadsSrc = srcOf('../app/club/squads/page.tsx'), actSrc = srcOf('../app/club/squads/actions.ts');
-  check('N23: the TD’s squads screen lists who holds register access', /from register_grant g/.test(squadsSrc) && /isTd/.test(squadsSrc), true);
+  // Until 0069 this asked for the page's own `from register_grant g` query —
+  // a proxy for the row, and it went false when the list moved into
+  // Postgres. It now asks for what N23 says: the TD's screen renders the
+  // database's list (grants1/grants2 prove what that list holds, and for whom).
+  check('N23: the TD’s squads screen lists who holds register access', /fn_club_register_grants\(/.test(squadsSrc) && /\{isTd && \(/.test(squadsSrc), true);
   check('N23b: and never lists requests still waiting — that would reveal which emails have accounts', /from coach_invite/.test(squadsSrc), false);
   const inviteFn = actSrc.slice(actSrc.indexOf('export async function inviteCoach'), actSrc.indexOf('export async function revokeCoach'));
   check('N24: bringing a coach in ends in one answer, account or not', (inviteFn.match(/redirect\('\/club\/squads\?coachAsked=1'\)/g) ?? []).length, 1);
@@ -3878,6 +3882,34 @@ check('sess14: signing out revokes the session, not just the browser\u2019s copy
   && /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
 check('sess15: setting a password revokes every live session for that person',
   /revokeEverySession\(personId\)/.test(authTs.split('export async function setPassword')[1]?.split('export ')[0] ?? ''), true);
+// 0069: nothing ever deleted a session row. The daily job now removes the
+// ones that expired or were revoked more than thirty days ago, and nothing
+// that could still open a page.
+{
+  const sp = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Session Purge',$2)`, [sp, yearsAgo(40)]);
+  const add = (tag, exp, rev) => db.query(
+    `insert into auth_session (person_id, token_hash, issued_at, expires_at, revoked_at)
+     values ($1, $2, now() - interval '90 days', now() + ($3)::interval, case when $4::text is null then null else now() + ($4)::interval end)`,
+    [sp, sha(`purge-${tag}`), exp, rev]);
+  await add('live', '10 days', null);
+  await add('expired-recently', '-5 days', null);
+  await add('revoked-recently', '10 days', '-5 days');
+  await add('expired-long-ago', '-31 days', null);
+  await add('revoked-long-ago', '10 days', '-31 days');
+  const consentBefore = (await db.query('select count(*)::int as n from consent_event')).rows[0].n;
+  const purged = (await db.query('select fn_purge_sessions() as n')).rows[0].n;
+  const left = (await db.query(`select encode(token_hash,'hex') as h from auth_session where person_id = $1`, [sp])).rows.map((r) => r.h);
+  check('purge-sess1: the purge removes sessions expired or revoked more than thirty days ago, and nothing live or recent',
+    [purged >= 2, ['live', 'expired-recently', 'revoked-recently'].every((t) => left.includes(sha(`purge-${t}`).toString('hex'))),
+     ['expired-long-ago', 'revoked-long-ago'].some((t) => left.includes(sha(`purge-${t}`).toString('hex')))],
+    [true, true, false]);
+  check('purge-sess1b: and it is the daily job that runs it — the consent log is not the session table, and is untouched',
+    [/select fn_purge_sessions\(\)/.test(codeOnly(srcOf('app/api/jobs/daily/route.ts'))),
+     /consent_event/.test(await procSrc('fn_purge_sessions')),
+     (await db.query('select count(*)::int as n from consent_event')).rows[0].n === consentBefore],
+    [true, false, true]);
+}
 // One question, one answer (L23): no page works out for itself whether a
 // session is live. lib/session.ts is the only file that reads the cookie and
 // the only one that names the table.
@@ -4824,6 +4856,31 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
      (await db.query(`select fn_can_read_squad_player($1,$2,$3) as ok`, [ID.coachOther, askSq, kid])).rows[0].ok],
     [true, false, false]);
 
+  // --- D-62 on the squad list (0069): every number carries its source ------
+  {
+    const kidRec = (await db.query(`select id from development_record where person_id = $1`, [kid])).rows[0].id;
+    await db.query(`insert into player_stat (record_id, season, stat_key, value, provenance)
+      values ($1,'2026','apps',9,'self_reported'), ($1,'2026','goals',4,'coach_verified')`, [kidRec]);
+    const row = async (who) => (await gated(who)).find((x) => x.player_id === kid);
+    const td = await row(ID.td);
+    check('prov-sq1: every stat the squad list returns carries the provenance of the row it came from',
+      [td?.apps, td?.apps_provenance, td?.goals, td?.goals_provenance], [9, 'self_reported', 4, 'coach_verified']);
+    check('prov-sq1b: and a stat nobody has comes back with no source either — nothing to describe',
+      [td?.assists, td?.assists_provenance, td?.clean_sheets_provenance], [null, null, null]);
+    const admin = await row(ID.clubAdmin);
+    check('prov-sq1c: an administrator gets no provenance — it is gated with the number it describes (L2)',
+      [admin?.apps, admin?.apps_provenance, admin?.goals_provenance], [null, null, null]);
+    await db.query(`delete from player_stat where record_id = $1 and season = '2026' and stat_key in ('apps','goals')`, [kidRec]);
+    const squadPage = codeOnly(srcOf('app/club/squads/[squadId]/page.tsx'));
+    check('prov-sq1d: the squad screen reads each source from lib/football, as the CV does, and types none of its own',
+      [/sharedProvenance\(stats\)/.test(squadPage), /provenanceLabel\(provenance\)/.test(squadPage),
+       /self-reported|coach-verified|official import/i.test(squadPage)], [true, true, false]);
+    // Leo, 28 Sep: "Self-reported" is approved and the other two await BUZ.
+    // When he approves one, this changes with the set, on purpose.
+    check('copy-held2: the squad screen names only the approved source — "Coach-verified" and "Official import" wait for BUZ',
+      /const SOURCES_SAID_HERE = new Set<string>\(\[PROVENANCE_LABELS\.self_reported\]\);/.test(squadPage), true);
+  }
+
   // --- BUZ's decision 2: the club on an under-16's approved page ----------
   {
     const snapRec = (await db.query(`select id from development_record where person_id = $1`, [kid])).rows[0].id;
@@ -5539,6 +5596,23 @@ const componentFilesAll = [];
   check('db7: lib/db takes its whole shape from the policy and invents nothing',
     [/new Pool\(poolConfig\(/.test(dbSrc2), /max:\s*\d/.test(dbSrc2), /idleTimeoutMillis/.test(dbSrc2)],
     [true, false, false]);
+  // A startup failure served 21 bytes of text/plain (28 Sep): lib/db threw at
+  // IMPORT when SUPABASE_DB_URL was missing, and a throw while Next loads a
+  // route module is answered by its top-level handler, never by our error
+  // pages. Nothing in this module may throw at the top level; the failure
+  // belongs to the first query, inside a render. Comments and strings are
+  // removed in one pass (a URL literal contains //), then braces are counted.
+  {
+    const raw = srcOf('lib/db.ts').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|`(?:\\.|[^`\\])*`|'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, '');
+    let depth = 0, atTop = 0;
+    for (const m of raw.matchAll(/[{}]|\bthrow\b/g)) {
+      if (m[0] === '{') depth++; else if (m[0] === '}') depth--; else if (depth === 0) atTop++;
+    }
+    check('boot1: nothing in lib/db throws while the module loads — Next answers that with 21 bytes of plain text, not a page',
+      [atTop, depth], [0, 0]);
+    check('boot1b: without a URL there is no pool at all — every use fails with the same error, and nothing connects to a default host',
+      [/const unconfigured = new Proxy\(/.test(dbSrc2), /!url \? unconfigured :/.test(dbSrc2)], [true, true]);
+  }
   // L30: a seat can run its own dev database. Unset is the shared 54322, so
   // nobody who does not set it notices anything.
   // Read raw: the dev URL is a postgres:// literal, and codeOnly would take the
@@ -6307,6 +6381,31 @@ const componentFilesAll = [];
     (await readers(mTd)).find((r) => r.scope === 'squads')?.dated, true);
   for (const [who, what] of [[grantedCoach, 'a granted coach'], [mTm, 'a team manager'], [ID.td, 'another club’s TD'], [ID.guardian, 'a guardian'], [null, 'nobody']]) {
     check(`readers5: ${what} gets no list at all`, (await readers(who)).length, 0);
+  }
+  // /club/squads read register_grant with a query of its own and decided for
+  // itself who may see it. The database answers now (0069), and it must give
+  // the TD exactly what the page's own query gave.
+  {
+    const oldPageQuery = (await db.query(
+      `select p.id, trim(p.first_name || ' ' || coalesce(p.last_name, '')) as name,
+         array_agg(s.name order by s.name) as teams,
+         to_char(min(g.granted_at) at time zone 'Australia/Melbourne', 'FMDD Mon') as since
+       from register_grant g join person p on p.id = g.person_id join squad s on s.id = g.squad_id
+       where g.club_id = $1 and g.revoked_at is null
+       group by p.id, p.first_name, p.last_name order by name`, [MON])).rows;
+    const asked = async (who) => (await db.query(
+      `select person_id as id, name, teams, since from fn_club_register_grants($1,$2)`, [who, MON])).rows;
+    check('grants1: the technical director gets exactly the rows the squads page used to query for itself',
+      [oldPageQuery.length > 0, await asked(mTd)], [true, oldPageQuery]);
+    const others = [];
+    for (const [who, what] of [[mAdmin, 'the administrator'], [grantedCoach, 'a granted coach'], [mTm, 'a team manager'],
+                               [ID.td, 'another club’s TD'], [ID.guardian, 'a guardian'], [null, 'nobody']]) {
+      if ((await asked(who)).length > 0) others.push(what);
+    }
+    check('grants2: and nobody else gets a row — the rule is the database’s, not the page’s (doc 34 rule 5)', others, []);
+    const squadsPage = codeOnly(srcOf('app/club/squads/page.tsx'));
+    check('grants3: /club/squads reads no register_grant of its own and asks the function with the session person',
+      [/\bregister_grant\b/.test(squadsPage), /fn_club_register_grants\(\$1, \$2\)`,\s*\[me, c\.id\]/.test(squadsPage)], [false, true]);
   }
   await db.query(`update register_grant set revoked_at = now(), revoked_by = $1 where person_id = $2`, [mTd, grantedCoach]);
   check('N21f: the grant is removed and the coach leaves the list at the next read — nothing stored',
