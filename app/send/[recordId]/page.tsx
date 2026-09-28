@@ -22,7 +22,7 @@ export const metadata = { title: 'Send your CV', robots: { index: false, follow:
 
 const label = sectionLabel;
 const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
-const hero: React.CSSProperties = { borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.line}`, padding: 17 };
+const hero: React.CSSProperties = { borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 17 };
 
 const Row = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>

@@ -158,7 +158,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
             capped, and authorised against this coach's own profile. */}
         <form action="/coach/edit/banner" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Banner</div>
-          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'linear-gradient(160deg, #123326, #0a1510)' }}>
+          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'var(--hero)' }}>
             {c.banner_path ? (
               <div style={{ position: 'relative', lineHeight: 0 }}>
                 <img src={c.banner_path} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />

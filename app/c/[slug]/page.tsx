@@ -111,7 +111,7 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
 
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'var(--hero)', display: 'flex', flexDirection: 'column' }}>
           {/* Same composition as the club page: photo over the banner, the
               picture darkened where the photo and the name sit, and the whole
               thing degrading to the plain gradient for the coach who has not

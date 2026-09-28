@@ -138,7 +138,7 @@ export default async function ClubPage({ params, searchParams }: {
             knows from LinkedIn — and the card degrades to the plain gradient
             when a club has not uploaded one, which most will not have on the
             day they claim their page. */}
-        <div style={{ borderRadius: 22, overflow: 'hidden', background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ borderRadius: 22, overflow: 'hidden', background: 'var(--hero)', display: 'flex', flexDirection: 'column' }}>
           {hasBanner && (
             <div style={{ position: 'relative', lineHeight: 0 }}>
               <img src={c.banner_path} alt="" style={{ width: '100%', height: 168, objectFit: 'cover', display: 'block' }} />
@@ -386,7 +386,7 @@ export default async function ClubPage({ params, searchParams }: {
             headline; the destination gets the accent, because the destination
             is the argument. */}
         {alumni.length > 0 && (
-          <div style={{ borderRadius: 20, background: 'linear-gradient(160deg, #16281f 0%, #0e1b15 72%)', border: `1px solid ${T.line}`, padding: '20px 18px 18px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ borderRadius: 20, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: '20px 18px 18px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
               <h2 style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.015em' }}>The pathway is real</h2>
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, marginTop: 3 }}>Where {c.name} juniors went next.</div>

@@ -148,7 +148,7 @@ export default async function InviteCompose({ params, searchParams }: {
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{minor ? `Football only. ${name} and their parent both read this.` : 'Football only.'}</div>
           </div>
-          <div style={{ borderRadius: 16, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 100%)', border: `1px solid ${T.line}`, padding: 16, display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <div style={{ borderRadius: 16, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 16, display: 'flex', flexDirection: 'column', gap: 11 }}>
             <div style={{ fontSize: 13.5, fontWeight: 800 }}>Where this actually goes</div>
             {where.map(([t, ok]) => (
               <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>

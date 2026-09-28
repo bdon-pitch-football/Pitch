@@ -320,7 +320,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           <HeaderMark />
           <div className="player-grid">
           <div>
-            <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="sheen" style={{ borderRadius: 22, background: 'var(--hero)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
                 <div aria-hidden style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 20, flexShrink: 0 }}>{clubSeat.name[0]}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -574,7 +574,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           <HeaderMark />
           <div className="player-grid">
           <div>
-            <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="sheen" style={{ borderRadius: 22, background: 'var(--hero)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
                 {me.photo_path ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
@@ -711,7 +711,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           <div className="player-grid">
           <div>
           {awaySince && <WhileYouWereAway viewerId={personId as string} since={awaySince} />}
-          <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="sheen" style={{ borderRadius: 22, background: 'var(--hero)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
               {me.photo_path ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -999,7 +999,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           and the whole hero is omitted when there is nothing to put in it —
           the child cards below say the same things in words. */}
       {(linksActive > 0 || expiringSoon > 0 || clubsHolding > 0) && (
-        <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 20px 18px 20px', display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
+        <div style={{ borderRadius: 22, background: 'var(--hero)', padding: '20px 20px 18px 20px', display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
           {linksActive > 0 && (
             <div>
               <div className="numeral numeral-m" style={{ color: T.ink }}>{linksActive}</div>
@@ -1026,7 +1026,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       {waiting.map((w, i) => (
         <div key={w.key} className={i === 0 ? 'sheen' : 'lift'} style={{
           borderRadius: 18, padding: 17, display: 'flex', flexDirection: 'column', gap: 12,
-          background: i === 0 ? 'linear-gradient(160deg, #123326, #0c1d14)' : T.surface,
+          background: i === 0 ? 'var(--hero)' : T.surface,
           border: `1px solid ${i === 0 ? w.tone : T.line}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>

@@ -29,7 +29,7 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
 
-        <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '26px 20px 24px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ borderRadius: 22, background: 'var(--hero)', padding: '26px 20px 24px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(255,255,255,.10)', borderRadius: 999, padding: '6px 12px' }}>
               <div style={{ width: 7, height: 7, borderRadius: 999, background: T.amber }} />
@@ -53,7 +53,7 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
           </div>
         </div>
 
-        <div style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.accent}`, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.accent}`, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 17, fontWeight: 900 }}>Honestly? Just go and ask them.</div>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>A text is easy to miss and easy to put off. Show them the page on your phone.</div>
           {/* DEV ONLY: no SMS sends yet — this is where the guardian's doc-15
