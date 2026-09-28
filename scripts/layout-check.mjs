@@ -82,9 +82,20 @@ const chrome = spawn(CHROME, [
 ], { stdio: 'ignore' });
 const stop = () => {
   try { chrome.kill(); } catch { /* gone */ }
-  try { rmSync(PROFILE, { recursive: true, force: true }); } catch { /* already gone */ }
+  // Chrome's helper processes outlive the parent's kill by a moment and hold
+  // files in the profile, so a single rmSync can throw and leave the whole
+  // thing behind. Measured today: an interrupted run leaked 146MB, which is
+  // L36 — the fault that took this machine to zero disk twice — arriving
+  // through the error path instead of the happy one. Retry briefly.
+  for (let i = 0; i < 40; i++) {
+    try { rmSync(PROFILE, { recursive: true, force: true }); return; } catch { /* still held */ }
+    const until = Date.now() + 50; while (Date.now() < until) { /* sync wait: this runs on exit */ }
+  }
 };
 process.on('exit', stop);
+// A signalled process does not run its 'exit' handlers, and a headless run is
+// exactly the kind of thing somebody stops with a keystroke.
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { stop(); process.exit(130); });
 
 let target;
 for (let i = 0; i < 50 && !target; i++) {
