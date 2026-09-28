@@ -2480,7 +2480,9 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../.next/dev/server/server-reference-manifest.json', import.meta.url)), 'utf8'));
   const joinId = Object.entries(manifest.node).find(([, v]) => v.filename === 'app/join/actions.ts' && v.exportedName === 'startPendingInvitation')?.[0];
   const jfd = new FormData();
-  for (const [k, v] of Object.entries({ [`$ACTION_ID_${joinId}`]: '', firstName: 'Ivy', dob: '2014-05-05', guardianName: 'Drill Parent', guardianPhone: PHONE, guardianEmail: EMAIL })) jfd.append(k, v);
+  // country=AU: every sign-up door asks the country first now, and the server
+  // refuses one that did not come through it (D-63, builder-final-b).
+  for (const [k, v] of Object.entries({ [`$ACTION_ID_${joinId}`]: '', country: 'AU', firstName: 'Ivy', dob: '2014-05-05', guardianName: 'Drill Parent', guardianPhone: PHONE, guardianEmail: EMAIL })) jfd.append(k, v);
   const joined = await fetch(BASE + '/join', { method: 'POST', body: jfd, redirect: 'manual' });
   await joined.text();
   check('sms-w3: the sign-up goes through while SMS is off', /\/join\/waiting\//.test(joined.headers.get('location') ?? ''), true);

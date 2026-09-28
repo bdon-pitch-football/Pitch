@@ -494,7 +494,7 @@ try {
       await fetch(`${BASE}/dev/front-door?on=0`, { method: 'POST' });
     }
     await visit('/p/dev-deniz');
-    const opened = await eval_(`JSON.stringify([...document.querySelectorAll('label[for^="drill-"]')].map((l) => { l.click(); return 1; }).length)`);
+    const opened = await eval_(`JSON.stringify([...document.querySelectorAll('label.drill-tile')].map((l) => { l.click(); return 1; }).length)`);
     const wells = await eval_(`JSON.stringify([...document.querySelectorAll('.drill-well')].filter((w) => getComputedStyle(w).display !== 'none').length)`);
     const mDrill = await eval_(MEASURE(width));
     checked++;
@@ -527,6 +527,12 @@ for (const width of [390, 1280]) {
   await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
   for (const path of RING_PAGES) {
     await visit(path);
+    // /join opens on the country question (D-63, builder-final-b), whose two
+    // answers are buttons; the fields this pass measures appear once
+    // Australia is chosen — so choose it, as a person would.
+    if (path === '/join') {
+      await eval_(`JSON.stringify(([...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Australia')?.click(), true))`);
+    }
     const controls = await tabThrough();
     await cspDrain(width, 'signed out', path);
     const bare = ringless(controls);

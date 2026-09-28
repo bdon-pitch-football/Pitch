@@ -29,21 +29,6 @@ const card: React.CSSProperties = {
   background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16,
 };
 
-// D-160: a number opens, in place, to where it came from — "Verified by
-// Riverside FC · 2 Sep 2026" or "Self-reported · entered 14 Mar 2026"
-// (provenanceLine, lib/football). The CLUB, never the coach: this page is read
-// by whoever holds the link, and naming the adult who coaches this child to
-// that reader is a contact route (BUZ, 28 Sep). fn_stat_public (0083) has no
-// field that could carry a person, so nothing here can print one.
-//
-// Two levels and no more: the tile, and the well under the row. It PUSHES
-// the page down and never floats over it — a modal over a child's CV is a
-// second render of the most dangerous surface we have
-// (docs/design/mockups/provenance-drill.html). No JavaScript: a checkbox per
-// tile and one CSS rule each, so it works with the bundle stalled, and a
-// second tap closes it. A tile with nothing to say (an official import, or a
-// snapshot approved before 0083 with no dates) does not open.
-
 // D-84: "U15 · born Jan–Mar" under the name. The age group is the one the
 // page already carries (the confirmed squad); the quarter is the database's
 // (fn_birth_quarter, 0082). A junior age group only — "U" and a number, the
@@ -57,6 +42,22 @@ export function contextLine(ageGroup: string | undefined, quarter: string | null
   return `${group} · born ${quarter}`;
 }
 
+// D-160: a number opens, in place, to where it came from — "Verified by
+// Riverside FC · 2 Sep 2026" or "Self-reported · entered 14 Mar 2026"
+// (provenanceLine, lib/football). The CLUB, never the coach: this page is read
+// by whoever holds the link, and naming the adult who coaches this child to
+// that reader is a contact route (BUZ, 28 Sep). fn_stat_public (0083) has no
+// field that could carry a person, so nothing here can print one.
+//
+// Two levels and no more: the tile, and the well under the row. It PUSHES
+// the page down and never floats over it — a modal over a child's CV is a
+// second render of the most dangerous surface we have
+// (docs/design/mockups/provenance-drill.html). No JavaScript: each tile is a
+// label wrapping a visually hidden checkbox, and CSS :has() opens its well
+// under the row — so it works with the bundle stalled, a second tap closes
+// it, and the tap target is the whole tile. A tile with nothing to say (an
+// official import, or a snapshot approved before 0083 with no dates) does
+// not open.
 function StatTiles({ p }: { p: PlayerFixture }) {
   // The never-zero rule (D-70): a tile renders only for a selected stat with
   // a positive value. Nothing selected or nothing positive → no block at all.
@@ -75,17 +76,13 @@ function StatTiles({ p }: { p: PlayerFixture }) {
   const drills = tiles.map((t) => ({ key: t.key, line: provenanceLine(t) }));
   return (
     <>
-      {drills.map((d) => d.line && (
-        <input key={d.key} type="checkbox" id={`drill-${d.key}`} className="drill-in" aria-controls={`drill-well-${d.key}`} aria-label={STAT_LABELS[d.key]} />
-      ))}
       <style>{`
         .drill-in { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
         .drill-wells, .drill-well { display: none; }
-        ${drills.filter((d) => d.line).map((d) => `
-        #drill-${d.key}:checked ~ .drill-wells { display: flex; }
-        #drill-${d.key}:checked ~ .drill-wells #drill-well-${d.key} { display: flex; }
-        #drill-${d.key}:checked ~ .drill-row label[for="drill-${d.key}"] > div { background: rgba(255,255,255,.14); }
-        #drill-${d.key}:focus-visible ~ .drill-row label[for="drill-${d.key}"] { outline: 2px solid ${T.accent}; outline-offset: 2px; border-radius: 12px; }`).join('')}
+        .drill-row:has(.drill-in:checked) ~ .drill-wells { display: flex; }
+        .drill-tile:has(> .drill-in:checked) > div { background: rgba(255,255,255,.14); }
+        .drill-tile:has(> .drill-in:focus-visible) { outline: 2px solid ${T.accent}; outline-offset: 2px; border-radius: 12px; }
+        ${drills.filter((d) => d.line).map((d) => `.drill-row:has(#drill-${d.key}:checked) ~ .drill-wells #drill-well-${d.key} { display: flex; }`).join('\n        ')}
       `}</style>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
         <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)' }}>Season 2026</div>
@@ -103,7 +100,12 @@ function StatTiles({ p }: { p: PlayerFixture }) {
               source={shared ? undefined : provenanceLabel(t.provenance)} />
           );
           return drills[i].line
-            ? <label key={t.key} htmlFor={`drill-${t.key}`} style={{ display: 'block', cursor: 'pointer', minWidth: 0 }}>{tile}</label>
+            ? (
+              <label key={t.key} className="drill-tile" style={{ display: 'block', position: 'relative', cursor: 'pointer', minWidth: 0 }}>
+                <input type="checkbox" id={`drill-${t.key}`} className="drill-in" aria-controls={`drill-well-${t.key}`} aria-label={STAT_LABELS[t.key]} />
+                {tile}
+              </label>
+            )
             : <div key={t.key} style={{ minWidth: 0 }}>{tile}</div>;
         })}
       </div>
