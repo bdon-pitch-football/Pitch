@@ -50,6 +50,18 @@ const get = async (path, who) => {
   return { status: r.status, html: await r.text() };
 };
 
+// D-163 (0075): billing is OFF until further notice and this suite presses the product
+// with it off. The blocks that press the Stripe build — D-153's free tier,
+// the checkout form — turn the switch on through the app (/dev/billing; this
+// file cannot reach the database) and put it back. The answer is read back,
+// so a switch that did not flip stops the run.
+async function billingSwitch(on) {
+  const r = await fetch(`${BASE}/dev/billing?on=${on ? 1 : 0}`, { method: 'POST' });
+  const j = r.ok ? await r.json() : null;
+  if (j?.billing !== on) throw new Error(`the billing switch did not turn ${on ? 'on' : 'off'} (${r.status})`);
+}
+await billingSwitch(false);
+
 /** Every <form> on a page, with the fields a browser would send. */
 function forms(html) {
   const out = [];
@@ -427,6 +439,9 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 // woke one guardian and nobody else — so an adult a club invited was never told.
 // ---------------------------------------------------------------------------
 {
+  // D-153's free tier is a Stripe-build state (D-163): with billing off every
+  // verified club reads its whole register. Switched off again after g1.
+  await billingSwitch(true);
   const parent = SEATS.parent, adult = SEATS.player, teen = ids.children.nate.child_id, club = ids.people.dana;
   const kingsway = ids.clubs['kingsway-rovers'];
   const decode = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
@@ -559,6 +574,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const riversideReg = /\/club\/register\/cv\/([0-9a-f-]{36})/.exec((await get('/club/register', ids.people.marina)).html)?.[1];
   check('g1: a free club cannot open another club’s registration — not found, not "no longer accepting"',
     (await get(`/club/invite/${riversideReg}`, club)).status, 404);
+  await billingSwitch(false);
 
   // ---- Doc 14 P19: refusal looks exactly like absence ------------------------
   // The register offered "Invite to trial" for a paused child, the database
@@ -2058,9 +2074,24 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
     .replace(/&#x27;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
   const dana = ids.people.dana;                 // the free club: this page shows checkout
+  // The checkout exists only with billing on (D-163). The form is read with
+  // the switch on, then pressed with it off: while billing is off the action
+  // itself refuses, ticked or not, before anything is recorded.
+  await billingSwitch(true);
   const page = await get('/club/billing', dana);
   const form = forms(page.html).find((f) => f.visible.some((v) => v.name === 'authorised'));
   check('bw1: the checkout form is there, with the D-137 tick on it', Boolean(form), true);
+  await billingSwitch(false);
+  {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form?.fields ?? {})) fd.append(k, v);
+    for (const [k, v] of Object.entries({ plan: 'register_monthly', personName: 'Dana Kovac', roleAtClub: 'Treasurer', authorised: 'on' })) fd.append(k, v);
+    const r = await fetch(BASE + '/club/billing', { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(dana) } });
+    await r.text();
+    check('bw0: with billing off, a fully ticked checkout goes home — nowhere near Stripe, nothing agreed (D-163)',
+      r.headers.get('location'), '/home');
+  }
+  await billingSwitch(true);
 
   // A browser with the tick unticked sends no `authorised` field at all.
   const untick = async (over) => {
@@ -2087,6 +2118,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     /Nothing has been charged\. We need your name, your role at the club, and the tick that says you.re authorised\./.test(back), true);
   check('bw6: the club is still on no plan — nothing was taken and nothing was agreed',
     /Choose how you pay/.test(back) && !/On your statement/.test(back), true);
+  await billingSwitch(false);
 }
 
 // ---------------------------------------------------------------------------
@@ -2279,6 +2311,70 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const ok = await press(WHO, '');
   check('sr4: the same account still signs in, so the refusal is real and not a wall',
     [ok.location, ok.setCookie], ['/home', true]);
+}
+
+// ---------------------------------------------------------------------------
+// 0077 — an under-16's early funnel lines, on the parent's own log (BUZ, 28
+// Sep, decision 8). Signed up through /join as a family would be, approved on
+// both channels by a real adult account, and then read where the parent reads
+// it. Before 0077 this log began at "You approved the profile": everything
+// before it was written about a child who did not exist yet. Last in the file
+// because it gives an adult seat a child, which nothing above expects.
+// (No provider runs in development, so "That email reached your inbox" cannot
+// happen here; the permission suite drives that one through fn_record_delivery.)
+// ---------------------------------------------------------------------------
+{
+  const guardian = ids.people.jordan;          // player@example.com: an adult, proved, signed in
+  const plainText = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, '\n')
+    .replace(/&#x27;|&rsquo;|&#39;/g, "'").split('\n').map((l) => l.trim()).filter(Boolean);
+  const postForm = async (path, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual' });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+  await get('/join', null);
+  const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../.next/dev/server/server-reference-manifest.json', import.meta.url)), 'utf8'));
+  const joinId = Object.entries(manifest.node).find(([, v]) => v.filename === 'app/join/actions.ts' && v.exportedName === 'startPendingInvitation')?.[0];
+  const joined = await postForm('/join', { [`$ACTION_ID_${joinId}`]: '', firstName: 'Ivy', dob: '2014-06-06',
+    guardianName: 'Jordan Fixture', guardianPhone: '0400 777 888', guardianEmail: 'player@example.com' });
+  const invId = /\/join\/waiting\/([0-9a-f-]{36})/.exec(joined)?.[1];
+  check('funnel-w0: an under-16 is signed up through /join, and the parent is asked on both channels', Boolean(invId), true);
+  const box = (await get('/dev/outbox', ids.people.marina)).html;
+  const codes = [...new Set([...box.matchAll(/\/a\/([A-Za-z0-9_-]{20,})/g)].map((m) => m[1]))].slice(0, 2);
+  for (const code of codes) {
+    const pg = (await get(`/a/${code}`, null)).html;             // opening it: "You opened the permission page"
+    const yes = forms(pg).find((f) => /Yes, it/.test(f.submit));
+    if (yes) await postForm(`/a/${code}`, yes.fields);
+  }
+  const approve = forms((await get(`/a/${codes[0]}`, null)).html).find((f) => /Approve/.test(f.submit));
+  const done = approve ? await postForm(`/a/${codes[0]}`, { ...approve.fields, adult: 'on' }) : '';
+  check('funnel-w1: and approves', /\/a\/[0-9a-f-]+\/done/.test(done), true);
+  const childId = /\/g\/controls\/([0-9a-f-]{36})/.exec((await get('/home', guardian)).html)?.[1];
+  const log = childId ? plainText((await get(`/g/controls/${childId}`, guardian)).html) : [];
+  const at = (line) => log.findIndex((l) => l === line);
+  check('funnel-w2: the parent’s log now starts where the story did — asked, emailed, texted, opened (decision 8)',
+    ['We were asked to set up their profile', 'We emailed you to ask permission', 'We texted you as well',
+     'You opened the permission page'].map((l) => at(l) > -1), [true, true, true, true]);
+  check('funnel-w3: with the confirmations and the approval, newest first, the approval above the rest',
+    [at('You confirmed by text') > -1, at('You confirmed by email') > -1,
+     at('You approved the profile') > -1 && at('You approved the profile') < at('You opened the permission page')
+       && at('You opened the permission page') < at('We emailed you to ask permission')], [true, true, true]);
+}
+
+// The one support address (BUZ, 28 Sep). The newest fifty messages this run
+// queued (all the dev inbox shows), read where it shows them: not one carries
+// the old address. Every builder in the catalogue is composed by the
+// permission suite (support2–4); this is the same promise on real sends.
+{
+  // Tags out first: the dev inbox renders every pitchfootball.com.au in a
+  // body as a link (L32), which splits "help@" from its domain in the HTML —
+  // the first version of this check could not see the old address at all.
+  const box = (await get('/dev/outbox', ids.people.marina)).html.replace(/<[^>]+>/g, '');
+  const messages = (box.match(/doc15\.§/g) ?? []).length;
+  check(`support-w1: nothing this run sent carries the old address (${messages} messages read)`,
+    [messages >= 40, /help@pitchfootball\.com\.au/i.test(box), /burak\.donmez@pitch-football\.com/.test(box)], [true, false, true]);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);

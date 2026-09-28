@@ -28,7 +28,7 @@ import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { ClubConsole } from '@/components/console-shell';
 import RegisterPaused from '@/components/RegisterPaused';
-import { billingConfigured, PRICES } from '@/lib/billing';
+import { billingConfigured, billingEnabled, PRICES } from '@/lib/billing';
 import { openPortal, startCheckout } from './actions';
 import { T } from '@/lib/palette';
 import { card, fieldLabel, sectionLabel } from '@/lib/ui';
@@ -54,6 +54,11 @@ const STATE_WORD: Record<string, string> = {
 export default async function Billing({ searchParams }: { searchParams: Promise<{ paid?: string; unconfigured?: string; error?: string }> }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
+  // D-163: free until further notice. While billing is off this is not a place a club
+  // must visit, and every word on it is about money, so nobody reaches it —
+  // the same answer a signed-in person with no club seat gets. The screen is
+  // kept whole behind the switch (0075), not deleted.
+  if (!(await billingEnabled())) redirect('/home');
   // `error` was declared in this type and never taken out of it, so pressing
   // Subscribe without the D-137 authority tick — or with a name that is only
   // spaces — came back to ?error=1 with the fields emptied and NOT ONE WORD

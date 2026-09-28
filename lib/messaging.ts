@@ -62,7 +62,11 @@ export const numberHash = (n: string) => createHash('sha256').update(n.replace(/
  * lands on the right person's consent log (D-78, 0065). Without it a receipt
  * arrives with nothing to attach it to.
  */
-export async function send(msg: Composed, to: { address: string; personId?: string; subjectId?: string }): Promise<SendResult> {
+// `invitationId` (0077): the pending invitation a guardian-approval message
+// belongs to. An under-16 has no person row until approval (D-17), so the
+// outbox row carries the invitation instead, and the provider's delivery
+// receipt can be attached to the child's log when the parent approves.
+export async function send(msg: Composed, to: { address: string; personId?: string; subjectId?: string; invitationId?: string }): Promise<SendResult> {
   // The catalogue is the gate: if a message is not in doc 15, it does not send.
   if (!KEYS.has(msg.key) && !DRAFTS.has(msg.key)) return { queued: false, reason: 'not_in_catalogue' };
   // A draft never reaches a person. In production that is a refusal, not a
@@ -113,9 +117,9 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
   // attempts starts at 1: this row is claimed by the inline dispatch below,
   // so a sweep arriving a minute later does not treat it as untried.
   const { rows } = await db.query(
-    `insert into message_outbox (message_key, channel, to_person, to_address, subject, body, subject_id, attempts, last_attempt_at)
-     values ($1,$2,$3,$4,$5,$6,$7,1,now()) returning id`,
-    [msg.key, msg.channel, to.personId ?? null, to.address, msg.subject ?? null, msg.body, to.subjectId ?? null],
+    `insert into message_outbox (message_key, channel, to_person, to_address, subject, body, subject_id, invitation_id, attempts, last_attempt_at)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,1,now()) returning id`,
+    [msg.key, msg.channel, to.personId ?? null, to.address, msg.subject ?? null, msg.body, to.subjectId ?? null, to.invitationId ?? null],
   );
   const id = rows[0].id as string;
 
@@ -177,7 +181,7 @@ export async function dispatch(
 // so the funnel and the outbox never disagree.
 export async function sendAndLog(
   msg: Composed,
-  to: { address: string; personId?: string },
+  to: { address: string; personId?: string; invitationId?: string },
   funnelEvent: 'email_sent' | 'sms_sent' | 'nudge_sent',
   // Who the message is ABOUT. It goes on the spine row AND on the outbox row,
   // so the provider's delivery receipt writes its own spine row against the
@@ -186,10 +190,14 @@ export async function sendAndLog(
 ): Promise<SendResult> {
   const result = await send(msg, { ...to, subjectId });
   if (result.queued) {
+    // The invitation rides on the spine row too (0077), so an under-16's
+    // "We emailed you" can be attached to their log at approval — linked,
+    // never rewritten.
     await db.query(
       `insert into consent_event (event, subject_id, detail)
-       values ($1, $2, jsonb_build_object('message_key', $3::text))`,
-      [funnelEvent, subjectId ?? null, msg.key],
+       values ($1, $2, jsonb_build_object('message_key', $3::text)
+         || case when $4::uuid is null then '{}'::jsonb else jsonb_build_object('invitation_id', $4::uuid) end)`,
+      [funnelEvent, subjectId ?? null, msg.key, to.invitationId ?? null],
     );
   }
   return result;

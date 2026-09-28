@@ -13,7 +13,7 @@
 3. **No engagement bait to a minor, ever** — no streaks, no "you haven't logged in", no "3 people viewed your CV". Functional only (D-65).
 4. **Anything safety-relevant goes to guardian and child together** (D-19).
 5. **Never a link shortener in an SMS** — shortened links are a spam-filter signal. Always `pitchfootball.com.au` (D-81).
-6. **Every SMS carries a support address**, because someone whose SMS did not arrive cannot use an in-app help link (D-79).
+6. **Every SMS carries a support address**, because someone whose SMS did not arrive cannot use an in-app help link (D-79). **The address is burak.donmez@pitch-football.com** — BUZ, 28 Sep: his direct address is the one contact a user sees, replacing help@ in every message here. It comes from one constant (`lib/support.ts`).
 7. **No message ever contains a WWCC number, a token, or a child's surname alongside their club.**
 8. **Banned words apply here too** (D-85).
 9. **Sender identity:** email from `Pitch <hello@pitchfootball.com.au>` on the transactional subdomain; marketing sends on a separate subdomain and stream entirely (D-81).
@@ -29,7 +29,7 @@
 > **Pitch: Deniz (14) has started a football profile and needs your OK before anything goes live.**
 > **Nothing is visible to anyone until you approve it.**
 > **Approve or decline: pitchfootball.com.au/a/XXXX**
-> **Not expecting this? Ignore it and nothing happens. Questions: help@pitchfootball.com.au**
+> **Not expecting this? Ignore it and nothing happens. Questions: burak.donmez@pitch-football.com**
 
 **Why it is built this way.** The child's first name and age come first, because that is what makes it real rather than phishing. "Nothing is visible until you approve" is second, because it is the sentence that lowers the heart rate. The action is third. And **"ignore it and nothing happens"** is fourth on purpose — it tells a parent who did not expect this that inaction is safe, which is both true (the invitation purges after 14 days, D-17) and the single best anti-panic line we have.
 
@@ -63,7 +63,7 @@
 > If you were not expecting this, you can ignore this email — the request disappears by itself after 14 days and nothing is kept.
 >
 > — Pitch
-> pitchfootball.com.au · help@pitchfootball.com.au
+> pitchfootball.com.au · burak.donmez@pitch-football.com
 
 **Note for the build:** these four bullets are the same four promises as the ParentApproval screen, in the same order and near-identical words. That repetition is deliberate — a parent who reads the email and then sees the screen should recognise it.
 
@@ -74,7 +74,7 @@
 A 16–17 runs their own page, so this is not "approve before anything goes live". It asks the parent to confirm they are the parent, because the controls a 16–17's parent holds (§22, the send switch, the pause) are theirs only once they do (D-155 as amended, D-156).
 
 > **Pitch: Nate (17) has named you as their parent on their football profile. Please confirm it's you: pitchfootball.com.au/a/XXXX**
-> **Not you? Ignore it and nothing happens. Questions: help@pitchfootball.com.au**
+> **Not you? Ignore it and nothing happens. Questions: burak.donmez@pitch-football.com**
 
 **Never:** the child's surname, a club, or urgency.
 
@@ -101,7 +101,7 @@ A 16–17 runs their own page, so this is not "approve before anything goes live
 > If you weren't expecting this, ignore this email — nothing happens, and the request disappears after 14 days.
 >
 > — Pitch
-> pitchfootball.com.au · help@pitchfootball.com.au
+> pitchfootball.com.au · burak.donmez@pitch-football.com
 
 **Why the three bullets are these three:** they are the controls a 16–17's parent actually has in the product today. Nothing here promises search controls or anything not built.
 
@@ -112,7 +112,7 @@ A 16–17 runs their own page, so this is not "approve before anything goes live
 Sent once. Never twice.
 
 > **Pitch: Deniz's football profile is still waiting on your OK. It'll be deleted in 4 days if you don't approve it — nothing will be kept.**
-> **pitchfootball.com.au/a/XXXX · help@pitchfootball.com.au**
+> **pitchfootball.com.au/a/XXXX · burak.donmez@pitch-football.com**
 
 **Why the deletion is the headline rather than a warning.** We are not chasing the parent; we are telling them the default is deletion. That is honest, it is the actual behaviour (D-17), and it removes any sense that ignoring us is a fight.
 
@@ -180,7 +180,7 @@ Triggered when someone with a dead link asks for access.
 >
 > We aim to respond within one business day. If it concerns a child's immediate safety, contact your local police first; we are not an emergency service.
 >
-> — Pitch · help@pitchfootball.com.au
+> — Pitch · burak.donmez@pitch-football.com
 
 ---
 
@@ -296,7 +296,7 @@ While it is held, no parent is told about the change at sixteen — so **discove
 ## 14 · The verification code — SMS
 
 > **Pitch: your code is 4-8-2-9-1-6. It expires in 10 minutes.**
-> **We'll never ring you for this code. help@pitchfootball.com.au**
+> **We'll never ring you for this code. burak.donmez@pitch-football.com**
 
 Six digits, spaced so it is readable on a lock screen. The never-ring line is there because it is the single most effective anti-social-engineering sentence available in an OTP, and it costs nothing.
 
@@ -305,10 +305,10 @@ Six digits, spaced so it is readable on a lock screen. The never-ring line is th
 ## 15 · STOP and HELP replies — SMS
 
 **On STOP:**
-> **Pitch: you're unsubscribed and we won't text this number again. If you were mid-way through approving a child's profile, that will now stop too — reply START or email help@pitchfootball.com.au if that wasn't what you meant.**
+> **Pitch: you're unsubscribed and we won't text this number again. If you were mid-way through approving a child's profile, that will now stop too — reply START or email burak.donmez@pitch-football.com if that wasn't what you meant.**
 
 **On HELP:**
-> **Pitch — a football development platform. You're getting this because someone asked you to approve a child's profile, or you asked us for a code. Reply STOP to opt out. help@pitchfootball.com.au · pitchfootball.com.au**
+> **Pitch — a football development platform. You're getting this because someone asked you to approve a child's profile, or you asked us for a code. Reply STOP to opt out. burak.donmez@pitch-football.com · pitchfootball.com.au**
 
 Required under Australian messaging rules (D-81). The STOP reply names the consequence, because a guardian who opts out mid-approval has silently broken their own child's signup and nobody would otherwise tell them.
 
@@ -352,7 +352,7 @@ For the D-96 age-contradiction hold. **The one message in this file whose job is
 >
 > We can't tell you what we did — that would identify other people — but the report was read by a person and it was not ignored. If you see the same thing again, report it again; a second report about the same thing tells us something the first one didn't.
 >
-> — Pitch · help@pitchfootball.com.au
+> — Pitch · burak.donmez@pitch-football.com
 
 ---
 
@@ -375,7 +375,7 @@ The first thing most Australian clubs will ever see from Pitch, arriving in a ge
 > **If you want Deniz at a trial**, post it on Pitch or send an invitation through their guardian. Both go to the parent, and both keep a record.
 >
 > — Pitch
-> pitchfootball.com.au · help@pitchfootball.com.au
+> pitchfootball.com.au · burak.donmez@pitch-football.com
 >
 > *You received this because a family sent you their child's CV. We did not add you to a list and there is nothing to unsubscribe from.*
 
@@ -406,7 +406,7 @@ The D-91 pattern in message form: **the child asked, the parent sends.** Not an 
 > If you'd rather not, do nothing. The request disappears by itself and Deniz can ask again another time.
 >
 > — Pitch
-> pitchfootball.com.au · help@pitchfootball.com.au
+> pitchfootball.com.au · burak.donmez@pitch-football.com
 
 **Why the address is printed in full, in monospace, above the fold.** D-99 requires it displayed and confirmed before every send, and this is where a wrong address actually gets caught — a fourteen-year-old typing a club email from memory is the realistic failure, not a malicious one. A parent scanning a domain spots it in a second. Rendering it small, or behind a "details" toggle, defeats the control.
 
@@ -495,7 +495,7 @@ An amendment in spirit to §5, and a separate message because the fact that **cl
 
 > **Pitch: there's something waiting for you in your account.**
 > **Sign in to see it: pitchfootball.com.au**
-> **Nothing has been shared with anyone. help@pitchfootball.com.au**
+> **Nothing has been shared with anyone. burak.donmez@pitch-football.com**
 
 **Email — Subject:** `Something is waiting in your Pitch account`
 
@@ -506,7 +506,7 @@ An amendment in spirit to §5, and a separate message because the fact that **cl
 > We keep messages like this inside Pitch rather than in your inbox, so that if you ever switch something off it actually stops. Nothing has been shared with anyone and nothing happens unless you choose it.
 >
 > — Pitch
-> pitchfootball.com.au · help@pitchfootball.com.au
+> pitchfootball.com.au · burak.donmez@pitch-football.com
 
 **Why it is this empty.** Three separate reasons, and each one alone would be enough. A forwarded notification leaks nothing. A phone left face-up on a kitchen bench shows nothing. And an email that names a club is content we cannot revoke sitting in an inbox we do not control — which is the exact failure mode D-117 exists to prevent.
 
@@ -593,7 +593,7 @@ No guardian, no copy, no wake dressing. An adult gets the content.
 > They do not have your phone number or your email address. If you want them to, that is yours to hand over — Pitch will not do it for you.
 >
 > — Pitch
-> pitchfootball.com.au · help@pitchfootball.com.au
+> pitchfootball.com.au · burak.donmez@pitch-football.com
 
 **Why the contact-details line survives into the adult version.** It is the one sentence that is true on every tier and is the whole of what a person actually wants to know when a club they applied to appears in their inbox.
 
@@ -612,7 +612,7 @@ No guardian, no copy, no wake dressing. An adult gets the content.
 > We keep replies about players inside Pitch rather than in email. Signing in takes a moment and it is what lets a family switch access off and have it actually stop.
 >
 > — Pitch
-> pitchfootball.com.au · help@pitchfootball.com.au
+> pitchfootball.com.au · burak.donmez@pitch-football.com
 
 **Why the club's notification is bare too.** Not symmetry for its own sake. A club inbox is shared, forwarded, and often on a volunteer's personal phone; a child's name and a club's name together in that inbox is exactly the pairing §19 and rule 7 forbid. It is also the only version that stays true when the family later revokes — an email naming a child cannot be revoked, and a "sign in to read it" that leads to a withdrawn row can.
 
@@ -722,7 +722,9 @@ D-135 in message form. The invariant is that suspension is not deletion, and the
 
 **Why it doesn't say *declined*, even about a card.** That word is banned in this product for any actor on any surface (D-108, D-85), and the CI check that enforces it does not know the difference between a declined card and a declined child. Carving an exception is how the word finds its way back to a person, so there is no exception: a card *didn't go through*.
 
-**Never:** a number of registrations at risk, a family's name, a countdown in hours, "you're about to lose", or a second channel. One email, one reminder at day seven, one at suspension. And **no message goes to any family, ever, about a club's failed payment** — a family is not a party to it and telling them makes a commercial failure look like a safety event.
+**Never:** a number of registrations at risk, a family's name, a countdown in hours, "you're about to lose", or a second channel. One email. And **no message goes to any family, ever, about a club's failed payment** — a family is not a party to it and telling them makes a commercial failure look like a safety event.
+
+**Amended 28 Sep (BUZ, decision 9 in `docs/team/APPROVALS-28-SEP.md`).** This section used to promise "one reminder at day seven, one at suspension". Neither was ever written, so the promise comes out until wording exists and goes to BUZ. §31 and §32 are dormant anyway: billing is off until further notice (D-163), and neither message sends while it is.
 
 ---
 
@@ -736,7 +738,7 @@ D-135 in message form. The invariant is that suspension is not deletion, and the
 >
 > If it wasn't: **[Change your password]** — that signs out everywhere, on every device, straight away.
 >
-> — Pitch · help@pitchfootball.com.au
+> — Pitch · burak.donmez@pitch-football.com
 
 **Goes to guardians and adults. It does not go to an under-16 alone** — it goes to the guardian, per D-19, because it is a safety message and the account it concerns is one the guardian is responsible for.
 
@@ -760,7 +762,7 @@ The claim address is one already published by the club. The code proves the read
 >
 > If this wasn't you, ignore it. Nothing changes and nobody gets access.
 >
-> — Pitch · help@pitchfootball.com.au
+> — Pitch · burak.donmez@pitch-football.com
 
 **Why D-126 is stated in an email about a code.** This is the exact moment a person forms their model of what claiming a page gets them, and the wrong model — *I'm in, the children's details follow* — is the one that makes the verification call feel like an obstacle three days later. Setting the expectation here makes the call an expected step rather than a surprise gate.
 
@@ -796,7 +798,7 @@ Sent **instead of §10** when the account has never had a password — which is 
 > This link works once and expires in an hour. If you didn't ask for this, ignore it — nothing changes.
 >
 > — Pitch
-> pitchfootball.com.au · help@pitchfootball.com.au
+> pitchfootball.com.au · burak.donmez@pitch-football.com
 
 **The child named is the one they approved most recently.** First name only, never a surname or a club (rule 7). §10's amendment still binds: the screen that asked for it says the same thing whether or not the account exists.
 
@@ -907,7 +909,7 @@ Sent when an operator uses the emergency switch that revokes every live share li
 >
 > **[One sentence, written at the time, saying why.]**
 >
-> If you have questions, write to help@pitchfootball.com.au.
+> If you have questions, write to burak.donmez@pitch-football.com.
 >
 > — Pitch
 

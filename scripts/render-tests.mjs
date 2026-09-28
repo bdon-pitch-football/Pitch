@@ -60,6 +60,20 @@ async function get(path, personId) {
   return { status: res.status, location: res.headers.get('location'), csp: res.headers.get('content-security-policy'), html: await res.text() };
 }
 
+// D-163 (0075): billing is OFF until further notice, and this suite renders the product
+// with it off. The Stripe build stays behind the switch, and the blocks that
+// test IT turn the switch on through the app (/dev/billing — this file cannot
+// reach the database) and put it back. The answer is read back, so a switch
+// that did not flip stops the run rather than testing the wrong product.
+// How many lines of /terms state a dollar figure today (see free-r1c).
+const TERMS_PRICED_LINES = 10;
+async function billingSwitch(on) {
+  const r = await fetch(`${BASE}/dev/billing?on=${on ? 1 : 0}`, { method: 'POST' });
+  const j = r.ok ? await r.json() : null;
+  if (j?.billing !== on) throw new Error(`the billing switch did not turn ${on ? 'on' : 'off'} (${r.status})`);
+}
+await billingSwitch(false);
+
 /** Visible text, in document order, with tags and scripts stripped. */
 function text(html) {
   return html
@@ -125,7 +139,15 @@ const georgia = ids.children.georgia;
   check('r5b: naming WHO at Pitch looked — the investigator fn_who_looked returns',
     /data-investigator="?"?[^>]*>Priya Raman</.test(told), true);
   check('r5c: and why — what was read, and the report it was opened against',
-    [told.includes('read the send log'), /data-look="[0-9a-f-]{36}"/.test(told)], [true, true]);
+    [told.includes('read the send log'), /data-look="[0-9A-F]{8}"/.test(told)], [true, true]);
+  // BUZ's default (28 Sep): a short reference, never the report's uuid — not
+  // in the text and not in an attribute.
+  const ref = /data-look="([0-9A-F]{8})"/.exec(told)?.[1];
+  check('r5f: the row shows the short report reference, and no uuid is anywhere on the card',
+    [ref ? text(told).some((l) => l.endsWith(`· report ${ref}`)) : false,
+     /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(told)], [true, false]);
+  check('r5g: and the footer names the one support address',
+    has(told, 'Ask us why at burak.donmez@pitch-football.com and we will tell you.'), true);
 
   // The other half of the card, and the state almost every real family is in.
   const none = card((await get(`/g/controls/${deniz.child_id}`, alex)).html);
@@ -477,6 +499,9 @@ const georgia = ids.children.georgia;
   const untitled = new Set();    // pages serving no title, or the landing page's
   const homeCanon = new Set();   // pages claiming to be a duplicate of /
   const banned = new Set();      // D-85 / D-108 vocabulary, in served text
+  const priced = new Set();      // D-163: a price, while billing is off
+  const termsPriced = new Set(); // …and the one exemption, counted
+  const oldHelp = new Set();     // the support address BUZ replaced (28 Sep)
   let fetched = 0;
 
   for (const [seat, who] of Object.entries(seats)) {
@@ -521,6 +546,23 @@ const georgia = ids.children.georgia;
           if (m) banned.add(`${P} "${m[1]}" in: ${line.slice(0, 60)}`);
         }
       }
+      // D-163: free until further notice. No page a person can reach states a price — a
+      // dollar sign followed by a digit anywhere in the text the page shows.
+      // (Not the script payload: React's flight data spells references as
+      // "$1", "$L2", and that is not a price anybody reads.)
+      //
+      // ONE NAMED EXEMPTION, and it is not ours to close: /terms renders doc
+      // 22, whose Schedule A still states the D-109 price. Reshaping it is
+      // John's (docs/legal/36-Note-for-John-free-at-launch.md, item 1), and a
+      // legal document is not edited by a builder. Its mentions are counted
+      // below instead, so the exemption cannot grow without failing.
+      for (const line of text(r.html)) {
+        const m = /\$\s?\d/.exec(line);
+        if (!m) continue;
+        if (P === '/terms') { termsPriced.add(line); continue; }
+        priced.add(`${seat} ${P}: ${line.slice(Math.max(0, m.index - 30), m.index + 30)}`);
+      }
+      if (/help@pitchfootball\.com\.au/i.test(text(r.html).join(' ') + r.html)) oldHelp.add(`${seat} ${P}`);
       const canon = /rel="canonical" href="([^"]*)"/.exec(r.html)?.[1];
       if (canon && P !== '/' && /^https?:\/\/[^/]+\/?$/.test(canon)) homeCanon.add(P);
       const inLabels = [...r.html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((m) => m[1]).join('');
@@ -547,6 +589,19 @@ const georgia = ids.children.georgia;
     check(`r40: no screen a ${seat} reaches is a dead end (${[...stuck].join(', ') || 'none'})`,
       stuck.size, 0);
   }
+
+  // D-163. Every page every seat can reach, billing off: no price anywhere.
+  check(`free-r1: no page any seat can reach states a price while billing is off (D-163) (${[...priced].slice(0, 6).join(' | ') || 'none does'})`,
+    priced.size, 0);
+  check(`support-r1: no page any seat can reach shows the old support address (${[...oldHelp].join(', ') || 'none does'})`,
+    oldHelp.size, 0);
+  check(`free-r1b: and the crawl was a crawl (${fetched} pages fetched)`, fetched > 150, true);
+  // The exemption, pinned. /terms states doc 22's figures in exactly these
+  // lines today (A6.1's price, A5.1's cooling-off, the liability floor and
+  // the penalty cap). A new line with a dollar figure on it fails here; the
+  // day John's reshaped Schedule A lands, this count drops and so must the pin.
+  check(`free-r1c: /terms is the one exemption, awaiting John (doc 36 item 1) — ${termsPriced.size} lines state a dollar figure`,
+    termsPriced.size, TERMS_PRICED_LINES);
 
   // A bound action renders $ACTION_REF_n plus encrypted arguments only the
   // client runtime resolves — it 500s without JavaScript instead of
@@ -588,9 +643,11 @@ const georgia = ids.children.georgia;
     const m = new RegExp(`<nav[^>]*aria-label="${label}"[^>]*>([\\s\\S]*?)</nav>`).exec(html);
     return m ? m[1] : null;
   };
+  // D-163: with billing off there is no plan screen, so it is not one of the
+  // doors; the billing block below turns the switch on and checks it there.
   const CLUB = { '/club/register': 'Register', '/club/squads': 'Squads',
     '/club/page-edit': 'Crest & club page', '/club/roles': 'Coaching roles',
-    '/club/post-trial': 'Post a trial', '/club/billing': 'Plan & billing' };
+    '/club/post-trial': 'Post a trial' };
   for (const [seat, who] of [['club TD', ids.people.marina], ['free club', ids.people.dana]]) {
     const home = new Set(hrefs((await get('/home', who)).html));
     home.add('/home');
@@ -630,7 +687,7 @@ const georgia = ids.children.georgia;
     const patHome = new Set(hrefs((await get('/home', pat)).html));
     patHome.add('/home');
     check('s10: a verified club’s administrator is offered no register on /home', patHome.has('/club/register'), false);
-    for (const path of ['/club/squads', '/club/page-edit', '/club/roles', '/club/post-trial', '/club/billing']) {
+    for (const path of ['/club/squads', '/club/page-edit', '/club/roles', '/club/post-trial']) {
       const nav = navOf((await get(path, pat)).html, 'Club');
       check(`s10b: club admin ${path} carries the club sidebar`, nav !== null, true);
       if (!nav) continue;
@@ -1358,6 +1415,34 @@ const georgia = ids.children.georgia;
 // ---------------------------------------------------------------------------
 {
   const marina = ids.people.marina, pat = ids.people.pat, dana = ids.people.dana, felix = ids.people.felix;
+
+  // ---- D-163 first: billing OFF, the launch configuration ------------------
+  // Free until further notice, the register included. Nobody reaches the plan screen,
+  // nothing links to it, every verified club reads its whole register, and
+  // money is said nowhere.
+  for (const [who, id] of [['the TD', marina], ['the administrator', pat], ['a club that never paid', dana], ['a club whose card failed', felix]]) {
+    const r = await get('/club/billing', id);
+    check(`free-r2: ${who} is sent home from /club/billing while billing is off`, [r.status, r.location], [307, '/home']);
+  }
+  for (const [who, id, path] of [['the TD', marina, '/home'], ['the TD', marina, '/club/register'], ['the administrator', pat, '/home'],
+                                  ['a club that never paid', dana, '/club/register'], ['a club whose card failed', felix, '/club/register']]) {
+    const html = (await get(path, id)).html;
+    check(`free-r3: ${who}’s ${path} has no door to a plan and says nothing about paying for one`,
+      [html.includes('/club/billing'), has(html, 'Plan & billing'), has(html, 'We couldn’t take your payment'),
+       has(html, 'See the Interest Register'), has(html, 'The whole register is a plan')], [false, false, false, false, false]);
+  }
+  const dFree = await get('/club/register', dana);
+  check('free-r4: a verified club that never paid reads its whole register — not the trial-interest slice (D-163)',
+    [has(dFree.html, 'Interest in your trials'), has(dFree.html, 'Every under-16 here was put on this register by a parent.')], [false, true]);
+  const fFree = await get('/club/register', felix);
+  check('free-r4b: and so does a verified club whose card once failed — money is not asked while billing is off',
+    [has(fFree.html, 'Interest in your trials'), has(fFree.html, 'Every under-16 here was put on this register by a parent.')], [false, true]);
+  const held = await get('/club/register', ids.people['m.']);
+  check('free-r5: an unverified club still sees a count and no names (D-126), whatever billing says',
+    [/\d+ waiting/.test(text(held.html).join(' ')), has(held.html, 'Every under-16 here was put on this register by a parent.')], [true, false]);
+
+  // ---- The Stripe build, behind the switch ---------------------------------
+  await billingSwitch(true);
   const b = await get('/club/billing', marina);
   check('b1: the price is a display numeral, not body text', /class="numeral numeral-l"/.test(b.html) && has(b.html, '$54'), true);
   check('b1b: with its own caption under it rather than three pixels from it', has(b.html, 'a month, including GST'), true);
@@ -1428,6 +1513,18 @@ const georgia = ids.children.georgia;
     const r = await get('/club/billing', id);
     check(`b14: ${who} is sent home from the billing page (O1)`, [r.status, r.location], [307, '/home']);
   }
+  // With billing on, the plan is one of the club's doors again, on the rail
+  // and on /home both (D-147: the sidebar is a second way to the same doors).
+  for (const [who, id] of [['the TD', marina], ['the administrator', pat]]) {
+    const nav = /<nav[^>]*aria-label="Club"[^>]*>([\s\S]*?)<\/nav>/.exec((await get('/club/billing', id)).html)?.[1] ?? '';
+    check(`b15: with billing on, ${who}’s sidebar carries Plan & billing as the current page`,
+      /href="\/club\/billing"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/club\/billing"/.test(nav), true);
+  }
+  // Outside the two navs: the sidebar on /home carries the door too, so a
+  // check that read the whole page passed with the rail's own card missing.
+  check('b15b: and the TD’s /home offers the same door, in its own rail',
+    (await get('/home', marina)).html.replace(/<nav[\s\S]*?<\/nav>/g, ' ').includes('href="/club/billing"'), true);
+  await billingSwitch(false);
 }
 
 // ---------------------------------------------------------------------------
@@ -1502,6 +1599,17 @@ const georgia = ids.children.georgia;
 {
   const pat = ids.people.pat;        // Riverside: verified, paying, crest, philosophy, public page
   const robyn = ids.people.robyn;    // Tarrowvale City FC: verified, payment failed, no crest, no page
+  // D-163: with billing off (the launch configuration) her home says nothing
+  // about money — no plan, no price, no dunning card.
+  {
+    const off = [(await get('/home', pat)).html, (await get('/home', robyn)).html];
+    check('free-r6: with billing off an administrator’s home shows no plan and no price',
+      [has(off[0], '$54 a month'), off[0].includes('/club/billing'), has(off[0], 'next charge')], [false, false, false]);
+    check('free-r6b: and the club whose card once failed is not told about it',
+      has(off[1], 'We couldn’t take your payment'), false);
+  }
+  // The block below is the Stripe build: its plan card and its dunning card.
+  await billingSwitch(true);
   const a = await get('/home', pat);
   const t = text(a.html);
 
@@ -1562,6 +1670,7 @@ const georgia = ids.children.georgia;
     [has(td.html, 'On your register'), menuCards(td.html) >= 5], [true, true]);
   check('ah13b: and does not get the administrator’s blocks',
     [has(td.html, 'Who can do what here'), has(td.html, 'What a family cannot see yet')], [false, false]);
+  await billingSwitch(false);
 }
 
 // D-162 across every count on the two homes and on billing: no rendered
@@ -1576,9 +1685,12 @@ const georgia = ids.children.georgia;
       .filter((n) => n === '0');
     check(`z1: /home for ${who} renders no count as the digit zero (D-162)`, zeros.length, 0);
   }
+  await billingSwitch(true);   // the plan screen exists only with billing on (D-163)
   const bill = (await get('/club/billing', ids.people.marina)).html;
+  await billingSwitch(false);
   const zeros = [...bill.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim()).filter((n) => n === '0');
-  check('z2: and /club/billing renders no count at all, let alone a zero', zeros.length, 0);
+  check('z2: and /club/billing renders no count at all, let alone a zero',
+    [has(bill, 'The Interest Register'), zeros.length], [true, 0]);
 }
 
 // D-162 on the three screens it was still broken on after the first pass —

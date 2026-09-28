@@ -25,6 +25,11 @@ await db.exec(`
 for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
   await db.exec(readFileSync(join(dir, f), 'utf8'));
 }
+// D-163: what the migrations leave the billing switch at, read before any
+// block below touches it — free0 asks THIS, not the value some later block
+// happened to put back.
+const BILLING_AT_BOOT = (await db.query(
+  `select (select value from app_config where key = 'billing_enabled') as value, fn_billing_enabled() as on`)).rows[0];
 
 let pass = 0, fail = 0;
 async function expectFail(label, sql) {
@@ -65,6 +70,14 @@ const procSrc = async (name) =>
 // The two questions asked from more than one table, hoisted for the same
 // reason: who may put this record in front of somebody, and who may act on
 // it at all.
+// D-163 (0075): billing is OFF until further notice, and every check in this file runs
+// with it off unless it says otherwise. The Stripe build stays in the code
+// behind the switch, and the checks that test IT — the subscription gate, the
+// D-153 free tier, dunning — turn the switch on for their own block and put it
+// back. One helper, so a block cannot leave it in a state nobody chose.
+const billingOn = async (on) =>
+  db.query(`update app_config set value = $1 where key = 'billing_enabled'`, [on ? 'true' : 'false']);
+
 const qDispatch = async (actor, rec) =>
   (await db.query('select fn_can_dispatch($1,$2) as c', [actor, rec])).rows[0].c;
 const recActor = async (who, rec) =>
@@ -488,6 +501,10 @@ await db.query(`insert into registration (id, player_id, club_id, note, policy_v
 const rows = async (person, club) => (await db.query('select * from fn_register_rows($1,$2)', [person, club])).rows;
 const count = async (person, club) => (await db.query('select fn_register_count($1,$2) as n', [person, club])).rows[0].n;
 
+// The Stripe build, behind the switch (D-163): with billing ON, payment is
+// part of the gate. The D-163 checks further down ask the same questions with
+// it off.
+await billingOn(true);
 check('M: no subscription = no rows even for a verified club TD', (await rows(ID.td, CLUB.riverside)).length, 0);
 await db.query(`update club set subscription_status='active' where id=$1`, [CLUB.riverside]);
 check('M: active subscription + verified + TD = rows', (await rows(ID.td, CLUB.riverside)).length, 1);
@@ -503,6 +520,7 @@ check('N7: the adult player withdraws themself', (await db.query('select fn_with
 check('N7: the withdrawn note is emptied atomically', (await db.query('select note from registration where id=$1', [regRiverside])).rows[0].note, null);
 check('N12: a withdrawn row leaves the register', (await rows(ID.td, CLUB.riverside)).length, 0);
 await db.query(`update club set subscription_status=null where id=$1`, [CLUB.riverside]);
+await billingOn(false);
 
 // ---------------------------------------------------------------------------
 // G9 — age bands evaluate in Australia/Melbourne, never UTC.
@@ -629,7 +647,7 @@ const smsBlocks = msgSrc.split(/export const /).filter((b) => /channel: 'sms'/.t
 check('doc15 §A5: no link shortener in any message',
   bodies.some((b) => /bit\.ly|tinyurl|t\.co\//i.test(b)), false);
 check('doc15 §A6: every SMS carries the support address',
-  smsBlocks.every((b) => b.includes('${HELP}') || b.includes('help@pitchfootball.com.au')), true);
+  smsBlocks.every((b) => b.includes('${HELP}')), true);
 const msgCode = msgSrc.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 // §12 names the state a coach page shows — the literal words "WWCC verified",
 // which D-98 allows — and nothing else about a check may appear.
@@ -1735,6 +1753,70 @@ check('U-11d: the guardian\u2019s send screen promises no reply route either',
     [/plays/.test(nothing), /\n\n\n/.test(nothing)], [false, false]);
 }
 
+// ONE CONTACT ADDRESS (BUZ, 28 Sep; APPROVALS-28-SEP "Contact address"):
+// burak.donmez@pitch-football.com replaces help@pitchfootball.com.au on every
+// screen, in every email and in every SMS, from ONE constant. Every builder in
+// the catalogue is composed for real, the way msg19 above composes §19, so a
+// message that types the old address in its own body fails here even though
+// HELP itself is right.
+{
+  const OLD = 'help@pitchfootball.com.au', NEW = 'burak.donmez@pitch-football.com';
+  const supportSrc = srcOf('lib/support.ts');
+  check('support1: the address is one constant, and the message catalogue’s HELP is that constant',
+    [/export const SUPPORT_EMAIL = 'burak\.donmez@pitch-football\.com';/.test(supportSrc),
+     /const HELP = SUPPORT_EMAIL;/.test(srcOf('lib/messages.ts')),
+     /server-only|from '\.\/db'|process\.env/.test(codeOnly(supportSrc))], [true, true, false]);
+  const { execFileSync } = await import('node:child_process');
+  const at = fileURLToPath(new URL('../lib/messages.ts', import.meta.url));
+  const composed = JSON.parse(execFileSync(process.execPath, [
+    '--conditions=react-server', '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--input-type=module', '-e',
+    `const m = await import(${JSON.stringify(at)}); const out = [];
+     for (const [k, v] of Object.entries(m)) {
+       // Strings for every argument; a builder that takes a list (the clubs
+       // a link went to) is retried with lists, so none is skipped quietly.
+       for (const arg of ['X1234', ['X1234']]) {
+         try {
+           const c = typeof v === 'function' ? v(...Array.from({ length: Math.max(v.length, 1) }, () => arg)) : v;
+           if (c && typeof c === 'object' && typeof c.body === 'string') out.push({ k, key: c.key, channel: c.channel, text: (c.subject ?? '') + ' | ' + c.body });
+           break;
+         } catch {}
+       }
+     }
+     process.stdout.write(JSON.stringify(out));`,
+  ], { encoding: 'utf8' }));
+  const keyed = (srcOf('lib/messages.ts').match(/key: 'doc15\./g) ?? []).length;
+  check(`support2: every message in the catalogue was actually composed (${composed.length} of ${keyed})`,
+    composed.length === keyed && keyed > 30, true);
+  const stale = composed.filter((c) => c.text.includes(OLD)).map((c) => c.k);
+  check(`support3: no message sends the old address (${stale.join(', ') || 'none does'})`, stale, []);
+  const smsWithout = composed.filter((c) => c.channel === 'sms' && !c.text.includes(NEW)).map((c) => c.k);
+  check(`support4: every SMS carries the one support address (${smsWithout.join(', ') || 'all do'})`, smsWithout, []);
+  // Screens, components and libraries, code only: the address a person reads
+  // on a page. Comments may name the old address to explain the change.
+  const everyTs = [...routeFiles];
+  (function walk(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) walk(full); else if (/\.(ts|tsx)$/.test(e.name)) everyTs.push(full);
+    }
+  })(fileURLToPath(new URL('../components', import.meta.url)));
+  (function walk(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) walk(full); else if (/\.(ts|tsx)$/.test(e.name)) everyTs.push(full);
+    }
+  })(fileURLToPath(new URL('../lib', import.meta.url)));
+  const typed = everyTs.filter((f) => codeOnly(readFileSync(f, 'utf8')).includes(OLD))
+    .map((f) => f.slice(f.lastIndexOf('/app/') + 1 || f.lastIndexOf('/components/') + 1 || f.lastIndexOf('/lib/') + 1));
+  check(`support5: no screen, component or library types the old address (${typed.join(', ') || 'none does'})`, typed, []);
+  // The one exemption, by name: the waitlist digest is SENT TO BUZ (DIGEST_TO's
+  // default). A recipient of an internal email is not a contact a user reads.
+  const literalNew = everyTs.filter((f) => !f.endsWith('/lib/support.ts') && !f.endsWith('/app/api/digest/route.ts')
+      && codeOnly(readFileSync(f, 'utf8')).includes(NEW))
+    .map((f) => f.slice(f.lastIndexOf('/') + 1));
+  check(`support6: and none types the new one either — it comes from SUPPORT_EMAIL (${literalNew.join(', ') || 'none does'})`, literalNew, []);
+}
+
 // U-6 — complaints access: purpose-bound, time-boxed, logged, disclosed.
 const grantCols = (await db.query(
   `select string_agg(column_name,',') as c from information_schema.columns where table_name='investigation_grant'`)).rows[0].c;
@@ -1792,13 +1874,26 @@ check('U-6e: and a stranger cannot',
     /investigation_grant|investigation_access/.test(codeOnly(whoLooked)), false);
   check('U-6n: and it decides for itself who may ask — it does not (the function does)',
     /guardianship_link|fn_read_level|fn_age_band/.test(codeOnly(whoLooked)), false);
-  // The card's words are BUZ's and he has not seen them. Until he does, the
-  // card does not reach a user: development only, the same rule a draft
-  // message follows in lib/messaging. When he approves, this check changes
-  // with the flag — on purpose, so approving is a visible act.
-  check('copy-held1: the who-looked card\u2019s unapproved words render nowhere in production',
-    /WHO_LOOKED_APPROVED = false/.test(whoLooked)
+  // BUZ approved the card's words on 28 Sep (APPROVALS-28-SEP, "Who looked"),
+  // so it renders in production. The flag and the gate stay: un-approving is
+  // still one line, and this check changed with the flag on purpose.
+  check('copy-held1: the who-looked card is approved, and the gate that held it is still there',
+    /WHO_LOOKED_APPROVED = true/.test(whoLooked)
       && /if \(!WHO_LOOKED_APPROVED && process\.env\.NODE_ENV === 'production'\) return null;/.test(whoLooked), true);
+  // BUZ's two defaults. A parent is shown a short reference, never the
+  // report's uuid — not in the text and not in an attribute — and the footer
+  // names the one support address, from its one constant.
+  {
+    const { reportRef } = { reportRef: (id) => id.replace(/-/g, '').slice(0, 8).toUpperCase() };
+    const code = codeOnly(whoLooked);
+    check('who1: the card never renders the report uuid — every place it is used goes through the short reference',
+      [/\{r\.report_id\}|=\{r\.report_id\}|, r\.report_id\)/.test(code), (code.match(/reportRef\(r\.report_id\)/g) ?? []).length], [false, 2]);
+    check('who2: the short reference is eight characters of the id, in capitals',
+      /export const reportRef = \(reportId: string\) => reportId\.replace\(\/-\/g, ''\)\.slice\(0, 8\)\.toUpperCase\(\);/.test(whoLooked)
+        && reportRef('3f9a21c0-1111-4222-8333-444455556666') === '3F9A21C0', true);
+    check('who3: the footer’s contact is SUPPORT_EMAIL, not a literal address',
+      /Ask us why at \$\{SUPPORT_EMAIL\}/.test(whoLooked) && !/@pitchfootball\.com\.au/.test(whoLooked), true);
+  }
 }
 
 // D-108 carve-out — a club may close a role. It may never record a judgement
@@ -1838,8 +1933,20 @@ const billingRoutes = routeFiles.filter((f) => /\/(billing|checkout|portal|invoi
 for (const f of billingRoutes) {
   const rel = f.split('/app/')[1];
   const src = readFileSync(f, 'utf8');
-  check(`J53: ${rel} is club-scoped, unreachable as a family actor`,
-    /technical_director|club_admin|stripe_event|OPS_EMAILS/.test(src), true);
+  // app/dev/billing (0075) is the suites' switch for D-163's billing flag. It
+  // is not a route in production at all — a 404 before anything is read — so
+  // it is reachable by no actor there, family or club; dev1 pins that.
+  const devOnlyRoute = /^dev\//.test(rel)
+    && /if \(process\.env\.NODE_ENV === 'production' \|\| isDemo\(\)\) return new NextResponse\(null, \{ status: 404 \}\);/.test(src);
+  check(`J53: ${rel} ${devOnlyRoute ? 'does not exist in production' : 'is club-scoped'}, unreachable as a family actor`,
+    /technical_director|club_admin|stripe_event|OPS_EMAILS/.test(src) || devOnlyRoute, true);
+}
+{
+  const devBilling = srcOf('app/dev/billing/route.ts');
+  check('dev1: the billing switch the suites use does not exist in production or in a club demo, and answers POST only',
+    [/if \(process\.env\.NODE_ENV === 'production' \|\| isDemo\(\)\) return new NextResponse\(null, \{ status: 404 \}\);/.test(devBilling),
+     /export async function (GET|PUT|PATCH|DELETE)\b/.test(devBilling), /export async function POST\b/.test(devBilling)],
+    [true, false, true]);
 }
 
 // J54 — deletion has no caller in the dunning path.
@@ -2187,6 +2294,9 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
 // ---- D-153: clubs invite players to trial, in every band, on the free tier ----
 // One object and one route still (P11): an invitation hangs off a registration.
 // What changed is who may create one, and what counts as an answer.
+// D-153's free tier exists only while billing is on (D-163); with it off, a
+// verified club reads its whole register. This block tests the Stripe build.
+await billingOn(true);
 {
   const trialAt = async (club) => (await db.query(
     `insert into trial_notice (club_id, title, trial_on, time_venue)
@@ -2295,6 +2405,7 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
   check('P18c: an unverified club sees nobody, whatever it posted', (await trialRows(unvAdmin, CLUB.unverified)).length, 0);
   check('P18d: another club’s worker sees nothing here', (await trialRows(ID.td, CLUB.other)).length, 0);
 }
+await billingOn(false);
 
 // ---------------------------------------------------------------------------
 // D-154 — a club does not read its register; a named person does (doc 14
@@ -4256,12 +4367,99 @@ check('ctl2: and renders the recipient address, not just the club',
 
 // "Everything that's happened" has to mean everything. It was capped at
 // eight, so a parent could not reach the approval they gave.
+// 0077: the rows come from fn_consent_timeline now, so "not truncated" is
+// asked of the page's from-clause AND of the function, where a limit would
+// otherwise hide.
 check('ctl3: the consent timeline is not truncated',
-  /from consent_event where subject_id = p\.id\) e/.test(gControlsPage), true);
+  [/from fn_consent_timeline\(\$2, p\.id\) e\) as timeline/.test(gControlsPage),
+   /\blimit\b/i.test(await procSrc('fn_consent_timeline'))], [true, false]);
 // Approving writes several rows in one transaction, so a timestamp-only sort
 // left them in arbitrary order on the one screen whose job is to be exact.
 check('ctl4: and it has a stable tiebreak within the same second',
   /order by e\.at desc, e\.id desc/.test(gControlsPage), true);
+
+// ---- 0077: an under-16's early funnel lines attach at approval ------------
+// BUZ, 28 Sep (APPROVALS decision 8). Built the way production builds it:
+// the spine rows written before the child exists, with no subject; the
+// approval row; and then the parent's log. Every check was run against the
+// bug it names (report, 28 Sep).
+{
+  const q = async (sql, args) => (await db.query(sql, args)).rows;
+  const inv = (await q(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email)
+    values ('Funnel', $1, 'Funnel Parent', '+61400000077', 'funnel.parent@fixture.example') returning id`, [yearsAgo(13)]))[0].id;
+  const otherInv = (await q(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone)
+    values ('Other', $1, 'Other Parent', '+61400000078') returning id`, [yearsAgo(12)]))[0].id;
+  const ev = (event, detail, subject = null) => q(
+    `insert into consent_event (event, subject_id, detail) values ($1, $2, $3::jsonb) returning id`, [event, subject, JSON.stringify(detail)]);
+  // What lib/guardian-flow and lib/messaging write, in that order.
+  await ev('invite_created', { invitation_id: inv });
+  await ev('sms_sent', { message_key: 'doc15.§1', invitation_id: inv });
+  await ev('email_sent', { message_key: 'doc15.§2', invitation_id: inv });
+  await q(`insert into message_outbox (message_key, channel, to_address, body, provider_id, invitation_id)
+    values ('doc15.§2', 'email', 'funnel.parent@fixture.example', 'x', 'prov-0077', $1)`, [inv]);
+  await q(`select fn_record_delivery('prov-0077', 'delivered')`);
+  await q(`select fn_record_guardian_landed($1, 'email')`, [inv]);
+  await ev('email_verified', { invitation_id: inv });
+  // Noise the link must not take: another invitation's row, and a word that
+  // is not the funnel's riding on the same invitation id.
+  await ev('email_sent', { message_key: 'doc15.§2', invitation_id: otherInv });
+  await ev('report_filed', { invitation_id: inv });
+  const before = await q(`select id, subject_id from consent_event where detail->>'invitation_id' = $1 order by id`, [inv]);
+
+  // The approval, as approveInvitation writes it.
+  const child = crypto.randomUUID(), parent = crypto.randomUUID(), stranger = crypto.randomUUID();
+  await q(`insert into person (id, first_name, dob) values ($1,'Funnel',$2), ($3,'Funnel Parent',$4), ($5,'Stranger',$4)`,
+    [child, yearsAgo(13), parent, yearsAgo(40), stranger]);
+  await q(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [parent, child]);
+  await q(`update pending_invitation set sms_confirmed_at = now(), email_confirmed_at = now(), approved_at = now() where id = $1`, [inv]);
+  await q(`insert into consent_event (event, actor_id, subject_id, detail) values ('approved', $1, $2, jsonb_build_object('invitation_id', $3::uuid))`,
+    [parent, child, inv]);
+
+  const log = (await q(`select event from fn_consent_timeline($1, $2)`, [parent, child])).map((r) => r.event);
+  check('funnel1: at approval the parent\u2019s log gains "We emailed you", "That email reached your inbox" and "You opened the permission page" (decision 8)',
+    ['email_sent', 'email_delivered', 'guardian_landed'].every((e) => log.includes(e)), true);
+  check('funnel1b: and the rest of the early funnel with them — asked, texted, confirmed',
+    ['invite_created', 'sms_sent', 'email_verified', 'approved'].every((e) => log.includes(e)), true);
+  check('funnel2: linked, not rewritten — every early row still has no subject (consent_event is append-only)',
+    (await q(`select id, subject_id from consent_event where detail->>'invitation_id' = $1 and id = any($2::bigint[]) order by id`,
+      [inv, before.map((r) => r.id)])).every((r) => r.subject_id === null), true);
+  check('funnel3: nothing rides in that is not this invitation\u2019s funnel — another invitation\u2019s send, a non-funnel word',
+    [log.filter((e) => e === 'email_sent').length, log.includes('report_filed')], [1, false]);
+  check('funnel4: the log is the person\u2019s and their guardian\u2019s — a stranger, a nobody and an unrelated guardian read nothing',
+    [(await q(`select 1 from fn_consent_timeline($1, $2)`, [stranger, child])).length,
+     (await q(`select 1 from fn_consent_timeline(null, $1)`, [child])).length,
+     (await q(`select 1 from fn_consent_timeline($1, $2)`, [ID.guardian, child])).length], [0, 0, 0]);
+  await q(`update guardianship_link set revoked_at = now() where child_id = $1`, [child]);
+  check('funnel4b: nor does a guardian whose link was revoked', (await q(`select 1 from fn_consent_timeline($1, $2)`, [parent, child])).length, 0);
+  await q(`update guardianship_link set revoked_at = null where child_id = $1`, [child]);
+  const linkRefused = async (sql) => { try { await db.query(sql); return false; } catch { return true; } };
+  check('funnel5: the link is append-only too — no update, no delete',
+    [await linkRefused(`update consent_event_link set subject_id = '${stranger}'`), await linkRefused(`delete from consent_event_link`)], [true, true]);
+
+  // A 16–17 naming a parent: their rows carry them from the first message,
+  // so the approval attaches nothing (and nothing of anyone else's).
+  const teen = crypto.randomUUID();
+  await q(`insert into person (id, first_name, dob) values ($1,'Funnel Teen',$2)`, [teen, yearsAgo(16)]);
+  const teenInv = (await q(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, child_id)
+    values ('Funnel Teen', $1, 'Teen Parent', '+61400000079', $2) returning id`, [yearsAgo(16), teen]))[0].id;
+  await ev('invite_created', { invitation_id: teenInv });
+  await ev('email_sent', { message_key: 'doc15.§2b', invitation_id: teenInv }, teen);
+  const linksBefore = Number((await q(`select count(*)::int as n from consent_event_link`))[0].n);
+  await q(`insert into consent_event (event, actor_id, subject_id, detail) values ('approved', $1, $2, jsonb_build_object('invitation_id', $3::uuid, 'kind', 'parent_confirmed'))`,
+    [parent, teen, teenInv]);
+  check('funnel6: a 16\u201317\u2019s approval links nothing — the decision is about under-16s, whose rows could not name them',
+    Number((await q(`select count(*)::int as n from consent_event_link`))[0].n), linksBefore);
+
+  // The writers: the invitation now rides on the send, the receipt and the
+  // resend, so there is something to link.
+  check('funnel7: the approval request, its resend and the nudge all carry the invitation onto the spine and the outbox',
+    [/sendAndLog\(sms\([^)]*\)[^;]*invitationId \}, 'sms_sent', subject\)/.test(srcOf('lib/guardian-flow.ts')),
+     /sendAndLog\(email\([^)]*\)[^;]*invitationId \}, 'email_sent', subject\)/.test(srcOf('lib/guardian-flow.ts')),
+     (srcOf('app/ops/support/actions.ts').match(/invitationId \}, '(sms|email)_sent'\)/g) ?? []).length,
+     /invitationId: n\.invitation_id/.test(srcOf('app/api/jobs/daily/route.ts')),
+     /jsonb_build_object\('invitation_id', \$4::uuid\)/.test(srcOf('lib/messaging.ts'))],
+    [true, true, 2, true, true]);
+}
 
 // Every consent_event the vocabulary can produce needs a human line, or a
 // parent reads a database enum on the screen that exists to be plain.
@@ -4270,8 +4468,14 @@ check('ctl4: and it has a stable tiebreak within the same second',
   // is taken whole and the quoted values pulled out of it. A regex that only
   // matched one line found ZERO events and the check passed vacuously — an
   // empty list trivially has nothing missing.
-  const block = /event text not null check \(event in \(([\s\S]*?)\)\)/.exec(migAll)?.[1] ?? '';
-  const vocab = [...block.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]);
+  //
+  // 0076: read from the DATABASE, not from the migration text. The first
+  // create-table block was 0002's list, which three later migrations have
+  // rewritten — it still carried `email_opened` after the word was dropped,
+  // and would have demanded a line for an event the database now refuses.
+  const def = (await db.query(`select pg_get_constraintdef(oid) as d from pg_constraint
+    where conrelid = 'consent_event'::regclass and conname = 'consent_event_event_check'`)).rows[0]?.d ?? '';
+  const vocab = [...def.matchAll(/'([a-z_]+)'::text/g)].map((x) => x[1]);
   check('ctl5: the consent vocabulary was actually found', vocab.length > 20, true);
   const missing = vocab.filter((e) => !gControlsPage.includes(`${e}:`));
   check(`ctl6: every consent event has a plain-English line (missing: ${missing.join(', ') || 'none'})`,
@@ -4894,6 +5098,8 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   // P13/P18) — which is the register's answer, and the askable list is now
   // that answer rather than a second one: Nate came through Riverside's trial
   // and is offered; a plain register row is not, and cannot be asked.
+  // With billing on (D-163): D-153's free tier is a Stripe-build state.
+  await billingOn(true);
   const free = await askable(ID.td, askSq);
   check('SQ18: a verified club on the free tier is offered its own trial\'s registrants and nobody else (P13/P18, D-135)',
     [free.some((x) => x.player_id === ID.nate), free.some((x) => x.player_id === kid),
@@ -4908,6 +5114,7 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [paid.some((x) => x.player_id === kidNoParent),
      await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
              [kidNoParent, CLUB.riverside, askSq, ID.td])], [false, true]);
+  await billingOn(false);
   check('SQ19c: an administrator is offered nobody and cannot ask (D-154, N17)',
     [(await askable(ID.clubAdmin, askSq)).length,
      await r(`insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4)`,
@@ -4978,8 +5185,11 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
        /self-reported|coach-verified|official import/i.test(squadPage)], [true, true, false]);
     // Leo, 28 Sep: "Self-reported" is approved and the other two await BUZ.
     // When he approves one, this changes with the set, on purpose.
-    check('copy-held2: the squad screen names only the approved source — "Coach-verified" and "Official import" wait for BUZ',
-      /const SOURCES_SAID_HERE = new Set<string>\(\[PROVENANCE_LABELS\.self_reported\]\);/.test(squadPage), true);
+    // BUZ approved "Coach-verified" and "Official import" on 28 Sep. The set
+    // now names all three, and only those three: a fourth source added to
+    // lib/football is not said here until it is approved too.
+    check('copy-held2: the squad screen names the three approved sources and no other',
+      /const SOURCES_SAID_HERE = new Set<string>\(\[PROVENANCE_LABELS\.self_reported, PROVENANCE_LABELS\.coach_verified, PROVENANCE_LABELS\.official_import\]\);/.test(squadPage), true);
   }
 
   // --- BUZ's decision 2: the club on an under-16's approved page ----------
@@ -6379,6 +6589,9 @@ const componentFilesAll = [];
     [MON, status, grace, at]);
   const clock = (n) => new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString();
 
+  // Every money state below is the Stripe build, behind the switch (D-163).
+  // The switch goes back off after the 0068 block.
+  await billingOn(true);
   check('money1: a club that never subscribed reads "unsubscribed", not "suspended"', await payState(mTd, MON), 'unsubscribed');
   await apply('active', null, clock(1));
   check('money2: a paying club reads "active"', await payState(mTd, MON), 'active');
@@ -6444,6 +6657,109 @@ const componentFilesAll = [];
     await give('canceled', null, 8);
     check('O4k: a date left behind by an earlier status grants nothing — the gate reads the grace only while past_due',
       [(await grace()) !== null, await open()], [true, false]);
+  }
+  await billingOn(false);
+
+  // ---- D-163 (0075): FREE UNTIL FURTHER NOTICE, THE REGISTER INCLUDED ------------------
+  // Billing is off. Verification is the gate (D-126) and the grants decide
+  // who reads (D-93); money is not asked at all. Every check here was run
+  // against the bug it names and went red (report, 28 Sep).
+  {
+    const active = async (club) => (await q1('select fn_register_active($1) as a', [club])).a;
+    const count = async (who, club) => (await q1('select fn_register_count($1,$2) as n', [who, club])).n;
+    check('free0: billing is off out of the box — the launch configuration is the default one',
+      [BILLING_AT_BOOT.value, BILLING_AT_BOOT.on], ['false', false]);
+    for (const typo of ['TRUE', 'yes', '1', 'on', ' true']) {
+      await db.query(`update app_config set value = $1 where key = 'billing_enabled'`, [typo]);
+      check(`free0b: a config typo does not switch payment on (${JSON.stringify(typo)})`, (await q1('select fn_billing_enabled() as b')).b, false);
+    }
+    await db.query(`delete from app_config where key = 'billing_enabled'`);
+    check('free0c: nor does a missing row', (await q1('select fn_billing_enabled() as b')).b, false);
+    await db.query(`insert into app_config (key, value) values ('billing_enabled', 'false')`);
+
+    // An UNVERIFIED club that has paid nothing: a claimed page, a technical
+    // director recorded on an earlier call, an administrator, and a family on
+    // its register. Bug put back: the off branch answering `true` for any club.
+    const HELD = crypto.randomUUID();
+    await db.query(`insert into club (id, name, club_state) values ($1,'Held Free FC','claimed')`, [HELD]);
+    const hTd = await person('Held TD');
+    await recordTd(hTd, HELD, 'held.td@fixture.example');
+    const hAdmin = await person('Held Admin');
+    await mem(hAdmin, HELD, null, 'club_admin');
+    const hReg = (await q1(`insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4') returning id`,
+      [ID.marcus, HELD])).id;
+    check('free1: an unverified club that has paid nothing reads nothing — the gate says no and no row comes back (D-126)',
+      [await active(HELD), (await rowIds(hTd, HELD)).length, (await rowIds(hAdmin, HELD)).length,
+       (await q1('select fn_can_read_registration($1,$2) as ok', [hTd, hReg])).ok],
+      [false, 0, 0, false]);
+    check('free1b: and the held club still sees a count and no names (D-126)', await count(hAdmin, HELD), 1);
+    await db.query(`update club set subscription_status = 'active' where id = $1`, [HELD]);
+    check('free1c: a subscription row changes none of that — paying never verified a club and still cannot',
+      [await active(HELD), (await rowIds(hTd, HELD)).length], [false, 0]);
+    await db.query(`update club set club_state = 'suspended' where id = $1`, [HELD]);
+    check('free1d: nor does a club we suspended read anything', [await active(HELD), (await rowIds(hTd, HELD)).length], [false, 0]);
+
+    // A VERIFIED club that has paid nothing. Bug put back: 0068's gate, which
+    // asks the subscription and nothing else.
+    await db.query(`update club set subscription_status = null, grace_until = null, plan = null where id = $1`, [MON]);
+    check('free2: a verified club that has paid nothing reads its register (D-163)',
+      [await active(MON), (await rowIds(mTd, MON)).includes(mReg)], [true, true]);
+    check('free2b: the grants still decide who reads it — a granted coach their teams, an administrator and an ungranted coach nothing (D-93)',
+      [(await rowIds(grantedCoach, MON)).includes(mReg), (await rowIds(mAdmin, MON)).length, (await rowIds(ungrantedCoach, MON)).length,
+       (await rowIds(ID.td, MON)).length],
+      [true, 0, 0, 0]);
+    check('free2c: its technical director may invite from it, the same answer the register gives (P19)',
+      (await q1('select fn_can_invite($1,$2) as ok', [mTd, mReg])).ok, true);
+    // Money left over from before the switch opens nothing and closes nothing.
+    await db.query(`update club set subscription_status = 'past_due', grace_until = now() - interval '1 day' where id = $1`, [MON]);
+    check('free2d: a lapsed grace left over from billing does not close a verified club’s register while billing is off',
+      (await rowIds(mTd, MON)).includes(mReg), true);
+
+    // Where the club stands with us: 'free', and nothing about money.
+    check('free3: the club’s own people are told "free", whatever the status column says (0075)',
+      [await payState(mTd, MON), await payState(mAdmin, MON)], ['free', 'free']);
+    check('free3b: and a stranger is still told nothing, not "free"',
+      [await payState(ID.td, MON), await payState(null, MON), await payState(grantedCoach, MON)], [null, null, null]);
+    await db.query(`update club set subscription_status = 'active', grace_until = null where id = $1`, [MON]);
+    check('free3c: a club still marked active never reads "active" while billing is off — so no plan card and no price can render',
+      await payState(mTd, MON), 'free');
+
+    // The switch is the whole of it: on again, and 0068's rule is back.
+    await billingOn(true);
+    await db.query(`update club set subscription_status = null where id = $1`, [MON]);
+    check('free4: with billing switched on the subscription gate is back exactly as it was (D-112, 0068)',
+      [await active(MON), (await rowIds(mTd, MON)).length, await payState(mTd, MON)], [false, 0, 'unsubscribed']);
+    await billingOn(false);
+
+    // The app asks the same switch, before it does anything with money.
+    const page = codeOnly(srcOf('app/club/billing/page.tsx'));
+    const acts = codeOnly(srcOf('app/club/billing/actions.ts'));
+    const hook = codeOnly(srcOf('app/api/stripe/webhook/route.ts'));
+    const gate = "if (!(await billingEnabled())) redirect('/home');";
+    check('free5: /club/billing sends a club home while billing is off, before it reads anything',
+      page.indexOf(gate) > -1 && page.indexOf(gate) < page.indexOf('fn_register_payment_state'), true);
+    check('free5b: and both of its actions refuse before a checkout authority is recorded or a portal opened',
+      [acts.indexOf(gate) > -1 && acts.indexOf(gate) < acts.indexOf('insert into checkout_authority'),
+       acts.lastIndexOf(gate) > acts.indexOf('export async function openPortal') && acts.lastIndexOf(gate) < acts.indexOf('createPortalSession(club')],
+      [true, true]);
+    check('free5c: the Stripe webhook refuses before it reads a byte, so §31 and §32 never send while billing is off',
+      hook.indexOf('if (!(await billingEnabled())) return') > -1
+        && hook.indexOf('if (!(await billingEnabled())) return') < hook.indexOf('await request.text()'), true);
+    check('free5d: no door to the plan is drawn while billing is off — the sidebar and the TD\u2019s home ask the same switch',
+      [/\.\.\.\(seat\.billing \? \[\{ key: 'billing'/.test(srcOf('components/console-shell.tsx')),
+       /fn_billing_enabled\(\) as billing/.test(srcOf('components/console-shell.tsx')),
+       /\{billing && \(\s*<Link href="\/club\/billing"/.test(srcOf('app/home/page.tsx'))], [true, true, true]);
+    const pricedFiles = [...routeFiles, ...(function walk(d, out = []) {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const full = join(d, e.name);
+        if (e.isDirectory()) walk(full, out); else if (/\.(ts|tsx)$/.test(e.name)) out.push(full);
+      }
+      return out;
+    })(fileURLToPath(new URL('../components', import.meta.url)))]
+      .filter((f) => /\bPRICES\b/.test(codeOnly(readFileSync(f, 'utf8')))).map((f) => f.split('/app/')[1] ?? f.split('/components/')[1]).sort();
+    check(`free5e: PRICES renders in two places only, both behind the switch (${pricedFiles.join(', ')})`,
+      [pricedFiles, /plan\?\.pay_state === 'active' && \([\s\S]{0,600}PRICES\.register_annual/.test(srcOf('app/home/page.tsx'))],
+      [['club/billing/page.tsx', 'home/page.tsx'], true]);
   }
 
   // One answer, two callers — the whole point of the migration.
@@ -6882,6 +7198,13 @@ const componentFilesAll = [];
     [smsStatusSrc.indexOf('verifyTwilioSignature(request.url') > -1
       && smsStatusSrc.indexOf('verifyTwilioSignature(request.url') < smsStatusSrc.indexOf('params.MessageSid'),
       resendSrc.indexOf('verify(payload') < resendSrc.indexOf('JSON.parse(payload)')], [true, true]);
+  // 0076 (BUZ, 28 Sep): the word is gone from the vocabulary, so the database
+  // itself refuses it — whoever writes, from wherever.
+  check('D-78c2: the consent vocabulary no longer holds email_opened — the database refuses the row (0076)',
+    await (async () => { try { await db.query(`insert into consent_event (event) values ('email_opened')`); return 'written'; }
+                         catch (e) { return /consent_event_event_check/.test(e.message) ? 'refused' : e.message; } })(), 'refused');
+  check('D-78c3: and the guardian’s log has no line for it',
+    /email_opened|You opened that email/.test(srcOf('app/g/controls/[childId]/page.tsx')), false);
   check('D-78c: nothing anywhere writes email_opened — open tracking was declined, not forgotten',
     routeFiles.concat([fileURLToPath(new URL('../lib/messaging.ts', import.meta.url))])
       .filter((f) => /insert into consent_event/.test(readFileSync(f, 'utf8')) && /'email_opened'/.test(readFileSync(f, 'utf8'))).length, 0);
@@ -7060,14 +7383,17 @@ const componentFilesAll = [];
       .map((f) => fileURLToPath(new URL('../lib/' + f, import.meta.url))).filter((f) => /\.ts$/.test(f)));
     const tsWriters = tsAll.map((f) => readFileSync(f, 'utf8')).filter((src) => /insert into consent_event/.test(src)).join('\n');
     const pgWriters = (await db.query(
-      `select prosrc from pg_proc where prosrc ilike '%insert into consent_event%'`)).rows.map((r) => r.prosrc).join('\n');
+      // consent_event and not consent_event_link (0077): the link table names
+      // the funnel's words in order to attach them, and naming a word is not
+      // writing it — counting it would make every one of them look written.
+      `select prosrc from pg_proc where prosrc ~* 'insert into consent_event[^_]'`)).rows.map((r) => r.prosrc).join('\n');
     const written = (w) => new RegExp(`'${w}'`).test(tsWriters) || new RegExp(`'${w}'`).test(pgWriters);
 
     // Named, with the reason, exactly as the unsent-message list above is.
     // Nothing joins this list without an argument in a report.
-    const NO_WRITER_BY_DECISION = {
-      email_opened: 'declined on purpose (app/api/webhooks/resend): an open-tracking pixel on a guardian’s email is surveillance, and doc 14 J41 refuses the same thing for links. The label and the D-78 vocabulary word are both proposed for removal — 28 Sep report, awaiting BUZ',
-    };
+    // It is empty (28 Sep): its one entry, email_opened, left the vocabulary
+    // and the screen together (0076) when BUZ approved the removal.
+    const NO_WRITER_BY_DECISION = {};
     const orphans = labels.filter((w) => !written(w) && !(w in NO_WRITER_BY_DECISION));
     check(`F8f: every line the guardian reads has something that writes it (${orphans.join(', ') || 'all do'})`, orphans, []);
     const stale = Object.keys(NO_WRITER_BY_DECISION).filter((w) => written(w));

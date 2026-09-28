@@ -29,6 +29,7 @@ import { db } from '@/lib/db';
 import { paymentFailedEmail, paymentTakenEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 import { clubIdFromEvent, invoiceFacts, melbourneDay, receiptFields } from '@/lib/receipts';
+import { billingEnabled } from '@/lib/billing';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,11 @@ async function billingClub(clubId: string) {
 }
 
 export async function POST(request: Request) {
+  // D-163: free until further notice. While billing is off (0075) nothing here runs —
+  // no event is recorded, no subscription state is written, and doc 15 §31
+  // and §32 never send. It answers exactly as an unconfigured webhook does,
+  // before the payload is read.
+  if (!(await billingEnabled())) return NextResponse.json({ ok: false }, { status: 503 });
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ ok: false }, { status: 503 });
 

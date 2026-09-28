@@ -7,6 +7,7 @@ import { createAccount, createClubAccount, createCoachAccount, startPendingInvit
 import { ageOn } from '@/lib/age';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
+import { SUPPORT_EMAIL } from '@/lib/support';
 
 const field: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 };
 const fieldLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
@@ -32,7 +33,7 @@ export default function Join() {
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (q.get('clubAge')) setNotice('A club page is run by adults, so we could not set that one up. Ask someone on your committee to do it.');
-    else if (q.get('coachAge')) setNotice('A coaching page is for adults, so we could not set that one up. Your club can bring you in in the meantime — email help@pitchfootball.com.au.');
+    else if (q.get('coachAge')) setNotice(`A coaching page is for adults, so we could not set that one up. Your club can bring you in in the meantime — email ${SUPPORT_EMAIL}.`);
     else if (q.get('error')) setNotice('That did not go through. Check the email address and that your password is at least ten characters.');
   }, []);
 
@@ -115,7 +116,7 @@ export default function Join() {
                 is the worst version. */}
             {role === 'coach' && age !== null && age < 18 && (
               <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                <b style={{ color: T.ink }}>A coaching page is for adults.</b> You can still coach — plenty of good coaches are your age — but the page and its link wait until you turn 18. Your club can set you up in the meantime: email help@pitchfootball.com.au.
+                <b style={{ color: T.ink }}>A coaching page is for adults.</b> You can still coach — plenty of good coaches are your age — but the page and its link wait until you turn 18. Your club can set you up in the meantime: email {SUPPORT_EMAIL}.
               </div>
             )}
             {role === 'club' && age !== null && age < 18 && (
@@ -171,7 +172,7 @@ export default function Join() {
               )}
               {role === 'club' && (
                 <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.55 }}>
-                  Next: open your club&rsquo;s page on Pitch and press <b style={{ color: T.secondary }}>Claim your club</b>. We email a code to the club&rsquo;s own public address, so the person who claims it is someone the club can already be reached at. If your club isn&rsquo;t on Pitch yet, email help@pitchfootball.com.au and we&rsquo;ll add it.
+                  Next: open your club&rsquo;s page on Pitch and press <b style={{ color: T.secondary }}>Claim your club</b>. We email a code to the club&rsquo;s own public address, so the person who claims it is someone the club can already be reached at. If your club isn&rsquo;t on Pitch yet, email {SUPPORT_EMAIL} and we&rsquo;ll add it.
                 </div>
               )}
             </form>

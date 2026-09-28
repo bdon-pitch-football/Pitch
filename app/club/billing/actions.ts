@@ -6,7 +6,7 @@ import { headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { legalStamp } from '@/lib/legal-stamp';
 import { getSessionPersonId } from '@/lib/session';
-import { createCheckoutSession, createPortalSession, type PlanKey } from '@/lib/billing';
+import { billingEnabled, createCheckoutSession, createPortalSession, type PlanKey } from '@/lib/billing';
 
 async function clubFor(personId: string) {
   const { rows } = await db.query(
@@ -22,6 +22,10 @@ async function clubFor(personId: string) {
 export async function startCheckout(formData: FormData) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
+  // D-163: a server action is reachable by a POST whether or not the page
+  // that renders it is. While billing is off nothing is recorded and nobody
+  // is sent anywhere near Stripe.
+  if (!(await billingEnabled())) redirect('/home');
   const club = await clubFor(me);
   if (!club) redirect('/home');
 
@@ -47,6 +51,7 @@ export async function startCheckout(formData: FormData) {
 export async function openPortal() {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
+  if (!(await billingEnabled())) redirect('/home');
   const club = await clubFor(me);
   if (!club?.stripe_customer_id) redirect('/club/billing?unconfigured=1');
   const h = await headers();

@@ -10,7 +10,19 @@
 // Until the account exists these functions report themselves unconfigured and
 // the UI says so plainly rather than pretending to take money.
 import 'server-only';
+import { db } from './db';
 import { isDemo } from './demo';
+
+// D-163: free for everyone until further notice, the Interest Register included. Whether money is
+// switched on at all is ONE answer, in the database (0075, fn_billing_enabled),
+// because the register gate is in the database and the two must never
+// disagree. While it is off nothing in this file is reachable: /club/billing
+// sends a club home, its two actions refuse, the webhook refuses, and no
+// screen renders PRICES. Turning it on is a config change plus BUZ's copy.
+export async function billingEnabled(): Promise<boolean> {
+  const { rows } = await db.query('select fn_billing_enabled() as on');
+  return rows[0]?.on === true;
+}
 
 // `label` is the one-line form the checkout radios use. `numeral` and `per`
 // are the same price set as a display numeral and its caption, because on
@@ -27,7 +39,8 @@ export type PlanKey = keyof typeof PRICES;
 export const billingConfigured = () =>
   !isDemo() && Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_MONTHLY && process.env.STRIPE_PRICE_ANNUAL);
 
-// Creates a hosted Checkout session. The disclosure — price, frequency, that
+// Creates a hosted Checkout session. Callers ask billingEnabled() first; this
+// asks billingConfigured() because an account can exist while billing is off. The disclosure — price, frequency, that
 // it renews, and how to cancel — has already been shown on OUR page before
 // the customer reaches Stripe (D-136); it is our obligation, not Stripe's.
 export async function createCheckoutSession(input: {

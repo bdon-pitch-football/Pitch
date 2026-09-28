@@ -6,6 +6,7 @@ import { getInvitationForParentPage } from '@/lib/guardian-flow';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
 import { card } from '@/lib/ui';
+import { SUPPORT_EMAIL } from '@/lib/support';
 import { db } from '@/lib/db';
 import OpenInBrowser from '@/components/OpenInBrowser';
 import { emailSetupLink } from './actions';
@@ -82,7 +83,7 @@ export default async function Done({ params, searchParams }: { params: Promise<{
             </form>
           ) : (
             <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-              To sign in and manage {inv.first_name}&rsquo;s page you&rsquo;ll need an email address on your account. Write to help@pitchfootball.com.au and we&rsquo;ll set it up.
+              To sign in and manage {inv.first_name}&rsquo;s page you&rsquo;ll need an email address on your account. Write to {SUPPORT_EMAIL} and we&rsquo;ll set it up.
             </div>
           )}
         </div>

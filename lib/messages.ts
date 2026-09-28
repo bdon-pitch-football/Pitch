@@ -13,9 +13,12 @@
 import 'server-only';
 // Type only — erased at compile time, so the copy file still depends on nothing.
 import type { ReceiptFields } from './receipts';
+// The support address is one constant with no dependencies of its own (BUZ,
+// 28 Sep: his direct address replaces help@ in every message).
+import { SUPPORT_EMAIL } from './support.ts';
 
 const SITE = 'pitchfootball.com.au';
-const HELP = 'help@pitchfootball.com.au';
+const HELP = SUPPORT_EMAIL;
 
 export type Channel = 'sms' | 'email';
 export interface Composed {
@@ -422,9 +425,9 @@ If you do nothing, nothing publishes. There's no time limit on this and we won't
 //
 // The card fragment is conditional. A Stripe invoice does not carry the card's
 // last four digits, and inventing them is not available to a tax invoice — so
-// where we do not have them the line reads "receipt <n>" alone. PROPOSED, not
-// approved: listed verbatim in the 28 Sep report. Passing a last4 renders doc
-// 15's line exactly as approved.
+// where we do not have them the line reads "receipt <n>" alone. APPROVED by
+// BUZ, 28 Sep, and dormant while billing is off (D-163: so this never
+// sends). Passing a last4 renders doc 15's line exactly as approved.
 export const paymentTakenEmail = (r: ReceiptFields): Composed => ({
   key: 'doc15.§31',
   channel: 'email',

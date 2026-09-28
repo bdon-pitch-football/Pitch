@@ -16,7 +16,7 @@ import WhileYouWereAway from '@/components/WhileYouWereAway';
 import SquadCard from '@/components/SquadCard';
 import { ClubConsole, CoachConsole } from '@/components/console-shell';
 import CopyLink from '@/components/cv/CopyLink';
-import { PRICES } from '@/lib/billing';
+import { billingEnabled, PRICES } from '@/lib/billing';
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
 
@@ -256,6 +256,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       [clubSeat.id],
     )).rows[0].n as number;
     const pageUrl = clubSeat.public_slug ? `pitchfootball.com.au/fc/${clubSeat.public_slug}` : null;
+    // D-163: free until further notice. While billing is off (0075) there is no plan to
+    // go and look at, so the door to one is not drawn — the same condition
+    // the sidebar uses, from the same function.
+    const billing = await billingEnabled();
     // D-162: a zero is never rendered as a value or a count — it is omitted.
     // A squad with no confirmed players in October and a squad nobody has
     // filled in are not the same thing, and "0" makes them identical.
@@ -483,7 +487,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                 {clubSeat.public_slug && (
                   <Link href={`/fc/${clubSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Your club page</Link>
                 )}
-                <Link href="/club/billing" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Plan &amp; billing</Link>
+                {billing && (
+                  <Link href="/club/billing" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Plan &amp; billing</Link>
+                )}
               </>
             ) : (
               <>

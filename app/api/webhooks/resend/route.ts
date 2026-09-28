@@ -76,10 +76,10 @@ export async function POST(request: Request) {
       // opened and clicked are not tracked, and this is a decision rather
       // than an omission: an open-tracking pixel in an email to a guardian is
       // surveillance of a parent reading about their own child, and doc 14
-      // J41 refuses the same thing for share links. D-78's vocabulary still
-      // carries `email_opened` and the guardian's screen still renders a line
-      // for it; both are proposed for removal (report, 28 Sep) and neither is
-      // BUZ's to lose without being asked. Nothing here will ever write it.
+      // J41 refuses the same thing for share links. BUZ approved taking the
+      // word out altogether (28 Sep): `email_opened` is no longer in the
+      // consent vocabulary (0076) and the guardian's screen has no line for
+      // it, so nothing here could write it even by mistake.
       break;
   }
   return NextResponse.json({ ok: true });
