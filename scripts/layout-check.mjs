@@ -31,6 +31,14 @@
 //     are not children of a .field and they rendered as body text.
 //   · body. The page must paint --bg and not the unnamed sixth level
 //     (#070b09) that sat under everything.
+//
+// AND THE CONTENT-SECURITY-POLICY (D-94 §8, 28 Sep). Every page view fails if
+// the browser refused anything under the policy (lib/csp.ts) — a policy that
+// blocks the product's own scripts, fonts or images is broken, and one that
+// has never been read in a browser is a guess. Before any of that is trusted,
+// an inline script is injected into a real page, served with its real header,
+// and must be REFUSED — and the same page served without the header must run
+// it, or the probe cannot tell the two apart (L19).
 import { spawn } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -132,9 +140,15 @@ await new Promise((r) => ws.addEventListener('open', r, { once: true }));
 let seq = 0;
 const waiting = new Map();
 const events = [];
+const cspConsole = [];
 ws.addEventListener('message', (m) => {
   const msg = JSON.parse(m.data);
   if (msg.id && waiting.has(msg.id)) { const w = waiting.get(msg.id); waiting.delete(msg.id); w.resolve(msg); }
+  // Console lines about the policy are kept apart from the page events, so
+  // loaded() never throws one away while it looks for the load event.
+  else if (msg.method === 'Log.entryAdded') {
+    if (/Content Security Policy/i.test(msg.params?.entry?.text ?? '')) cspConsole.push(msg.params.entry.text);
+  }
   else if (msg.method) events.push(msg);
 });
 // EVERY CDP CALL HAS A DEADLINE (QA, 28 Sept).
@@ -186,6 +200,23 @@ const loaded = () => new Promise((resolve) => {
 });
 await cdp('Page.enable');
 await cdp('Network.enable');
+await cdp('Log.enable');
+// Every document records its own policy violations from before its first
+// script runs. A script the debugger adds is not subject to the page's CSP,
+// so this watcher is never itself the thing refused.
+await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `window.__csp = [];
+  document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(
+    e.effectiveDirective + ' refused ' + (e.blockedURI || 'inline') + (e.sourceFile ? ' (' + e.sourceFile.split('?')[0] + ':' + e.lineNumber + ')' : '')));` });
+const cspFails = [];
+// What the page refused, from the page's own record and from the console. Read
+// after every page view; a view that refused anything is a failure.
+const cspDrain = async (width, seat, path) => {
+  let seen = [];
+  try { seen = JSON.parse((await cdp('Runtime.evaluate', { expression: 'JSON.stringify(window.__csp ?? [])', returnByValue: true })).result.result.value ?? '[]'); }
+  catch { /* a page that never loaded is reported by the walk */ }
+  const console_ = cspConsole.splice(0);
+  if (seen.length || console_.length) cspFails.push({ width, seat, path, refused: [...new Set([...seen, ...console_.map((t) => t.slice(0, 140))])] });
+};
 
 // What the page measures about itself, against the DEVICE width we set — not
 // window.innerWidth. In phone emulation (and on a real phone) the browser
@@ -339,6 +370,50 @@ if (!selfBad || !selfOk || selfBad.style !== 'none' || selfOk.width < 2) {
   stop(); process.exit(2);
 }
 
+// THE POLICY'S OWN SELF-TEST (D-94 §8). A real page, fetched from the app with
+// its real header, with one inline script put into its HTML on the way to the
+// browser — exactly what a stored XSS in a club's philosophy or a child's
+// "About" would look like if escaping ever failed. Served WITH the header, the
+// script must not run and the page must record the refusal; served WITHOUT
+// the header, the same script must run. If either half fails, the probe cannot
+// tell a working policy from a missing one and nothing below about the policy
+// means anything.
+const injectProbe = async (keepPolicy) => {
+  const url = `${BASE}/signin?csp-probe=${keepPolicy ? 'kept' : 'stripped'}`;
+  await cdp('Fetch.enable', { patterns: [{ urlPattern: `${BASE}/signin?csp-probe=*`, requestStage: 'Response' }] });
+  const nav = cdp('Page.navigate', { url });
+  let paused = null;
+  for (let i = 0; i < 300 && !paused; i++) {
+    const at = events.findIndex((e) => e.method === 'Fetch.requestPaused');
+    if (at >= 0) paused = events.splice(at, 1)[0].params;
+    else await new Promise((r) => setTimeout(r, 50));
+  }
+  if (!paused) { await cdp('Fetch.disable'); return { ran: null, refused: [] }; }
+  const got = (await cdp('Fetch.getResponseBody', { requestId: paused.requestId })).result;
+  const html = got.base64Encoded ? Buffer.from(got.body, 'base64').toString('utf8') : got.body;
+  const injected = html.replace('</head>', '<script>window.__injected = 1</script></head>');
+  // The body is handed back decoded and one script longer, so the length and
+  // encoding headers no longer describe it; everything else is the app's own.
+  const headers = (paused.responseHeaders ?? []).filter((h) => !/^(content-length|content-encoding)$/i.test(h.name)
+    && (keepPolicy || h.name.toLowerCase() !== 'content-security-policy'));
+  await cdp('Fetch.fulfillRequest', { requestId: paused.requestId, responseCode: paused.responseStatusCode ?? 200,
+    responseHeaders: headers, body: Buffer.from(injected).toString('base64') });
+  await nav;
+  await loaded();
+  await cdp('Fetch.disable');
+  const out = await eval_(`JSON.stringify({ ran: window.__injected === 1, refused: window.__csp ?? [] })`);
+  cspConsole.splice(0);
+  return { ...out, injectedOk: injected !== html };
+};
+const withPolicy = await injectProbe(true);
+const withoutPolicy = await injectProbe(false);
+if (!withPolicy.injectedOk || withPolicy.ran !== false || !withPolicy.refused.some((r) => /^script-src/.test(r)) || withoutPolicy.ran !== true) {
+  console.error('SELF-TEST FAILED: the injected inline script '
+    + JSON.stringify({ withPolicy, withoutPolicy })
+    + ' — it must be refused (and the refusal recorded) under the real header, and run without it.');
+  stop(); process.exit(2);
+}
+
 const failures = [];
 const ringFails = [], labelFails = [], bodyFails = [], tapFails = [], proseSmall = [];
 let checked = 0;
@@ -367,6 +442,7 @@ try {
       let paths = START[seat] ?? [];
       if (who) {
         await visit('/home');
+        await cspDrain(width, seat, '/home');
         const links = await eval_(`JSON.stringify([...new Set([...document.querySelectorAll('a[href^="/"]')].map(a => a.getAttribute('href').split('#')[0]))])`);
         paths = ['/home', ...links.filter((p) => !/^\/(signout|dev\/|api\/)/.test(p))].slice(0, 40);
       }
@@ -376,12 +452,14 @@ try {
         checked++;
         if (m.doc > m.vw + 1) failures.push({ width, seat, path, ...m });
         await chromePass(width, seat, path);
+        await cspDrain(width, seat, path);
       }
       if (DEEP[seat]) {
-        if (seat.startsWith('club')) await visit('/club/squads');
+        if (seat.startsWith('club')) { await visit('/club/squads'); await cspDrain(width, seat, '/club/squads'); }
         const squad = seat.startsWith('club') ? await eval_(`JSON.stringify(document.querySelector('a[href^="/club/squads/"]')?.getAttribute('href') ?? '')`) : '';
         for (const path of DEEP[seat].map((p) => p.replace('@squad', squad))) {
           await visit(path);
+          await cspDrain(width, seat, path);
           // The 404 used to be Next's stock page and was recognised by its
           // words. It is app/not-found.tsx now, and its words are a proposal
           // awaiting BUZ — so this reads the marker attribute the failure
@@ -423,6 +501,7 @@ for (const width of [390, 1280]) {
   for (const path of RING_PAGES) {
     await visit(path);
     const controls = await tabThrough();
+    await cspDrain(width, 'signed out', path);
     const bare = ringless(controls);
     const n = controls.filter((c) => c.control).length;
     ringChecked += n;
@@ -479,6 +558,7 @@ for (const width of widths) {
     const m = await eval_(MEASURE(width));
     checked++; failureChecks++;
     await chromePass(width, 'failure path', path);
+    await cspDrain(width, 'failure path', path);
     const wrong = [];
     if (!seen.h1) wrong.push('no heading');
     if (!seen.mark) wrong.push('no Pitch mark');
@@ -491,6 +571,8 @@ for (const width of widths) {
 stop();
 console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px (${failureChecks} of them failure-path views)`);
 console.log(`chrome pass  · ${ringChecked} controls tabbed to at 390 and 1280 · ${checked} views read for .field-label and the page colour`);
+console.log(`policy       · an injected inline script was refused under the real header and ran without it · every view read for a refusal`);
+for (const f of cspFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — the Content-Security-Policy refused ${f.refused.length} thing${f.refused.length === 1 ? '' : 's'}: ${f.refused.join(' | ')}`);
 for (const f of ringFails) {
   if (f.none) console.log(`FAIL ${f.width}px · ${f.path} — the keyboard reached no form control at all, so the ring was never measured here`);
   else console.log(`FAIL ${f.width}px · ${f.path} — ${f.bare.length} of ${f.of} controls show no focus ring: ${f.bare.map((c) => `${c.name} (outline ${c.style} ${c.width}px)`).join(', ')}`);
@@ -509,9 +591,9 @@ if (proseSmall.length) {
   console.log(`info ${byWhat(proseSmall).length} small link${byWhat(proseSmall).length === 1 ? '' : 's'} inside running prose (a per-screen layout decision, not a component fault):`);
   for (const [what, where] of byWhat(proseSmall).slice(0, 12)) console.log(`     ${what} — e.g. ${where[0]}`);
 }
-const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length;
+const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length;
 if (failures.length === 0 && chromeBad === 0) {
-  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target');
+  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, and no page broke its Content-Security-Policy');
   process.exit(0);
 }
 for (const f of failures) {
@@ -519,5 +601,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length})`);
 process.exit(1);

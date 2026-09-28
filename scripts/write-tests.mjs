@@ -2281,6 +2281,70 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     [ok.location, ok.setCookie], ['/home', true]);
 }
 
+// ---------------------------------------------------------------------------
+// THE SMS SWITCH (0070, D-81, D-94 §10; builder, 28 Sep). Pressed through
+// /ops/switches, and proved by what the send layer then does: a child's
+// sign-up while SMS is off queues the parent's email and NO text; back on, the
+// support console's resend queues one; under a cap lower than the month's
+// spend, none; with the cap cleared, one again. The number is used by nothing
+// else in any suite, so the three-a-day limit per number is this block's
+// alone and cannot be the reason a text is missing — the two "one again"
+// checks are what prove that.
+// ---------------------------------------------------------------------------
+{
+  const op = ids.people.marina;
+  const PHONE = '0400 707 070', EMAIL = 'sms-drill@example.com';
+  const texts = async () => (((await get('/dev/outbox', op)).html).match(/0400 707 070/g) ?? []).length;
+  const pressSwitch = async (label, extra) => {
+    const form = forms((await get('/ops/switches', op)).html).find((f) => f.submit.startsWith(label));
+    if (!form) return 'no form';
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ ...form.fields, ...extra })) fd.append(k, v);
+    const r = await fetch(BASE + '/ops/switches', { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(op) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+  const resend = async () => {
+    const path = `/ops/support?q=${encodeURIComponent(PHONE)}`;
+    const form = forms((await get(path, op)).html).find((f) => f.submit.startsWith('Resend the approval request'));
+    if (!form) return 'no form';
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(op) } });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+
+  check('sms-w1: switching SMS off with no reason is refused', /error=reason/.test(await pressSwitch('Switch SMS off', { reason: '' })), true);
+  check('sms-w2: with a reason, SMS goes off', /done=sms-off/.test(await pressSwitch('Switch SMS off', { reason: 'sms drill' })), true);
+
+  // A child's sign-up, posted as a browser with no JavaScript would (the
+  // form is a client component, so its action id comes from Next's manifest).
+  await get('/join', null);
+  const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../.next/dev/server/server-reference-manifest.json', import.meta.url)), 'utf8'));
+  const joinId = Object.entries(manifest.node).find(([, v]) => v.filename === 'app/join/actions.ts' && v.exportedName === 'startPendingInvitation')?.[0];
+  const jfd = new FormData();
+  for (const [k, v] of Object.entries({ [`$ACTION_ID_${joinId}`]: '', firstName: 'Ivy', dob: '2014-05-05', guardianName: 'Drill Parent', guardianPhone: PHONE, guardianEmail: EMAIL })) jfd.append(k, v);
+  const joined = await fetch(BASE + '/join', { method: 'POST', body: jfd, redirect: 'manual' });
+  await joined.text();
+  check('sms-w3: the sign-up goes through while SMS is off', /\/join\/waiting\//.test(joined.headers.get('location') ?? ''), true);
+  const boxOff = (await get('/dev/outbox', op)).html;
+  check('sms-w4: the parent’s email is queued and the text is not', [boxOff.includes(EMAIL), await texts()], [true, 0]);
+
+  check('sms-w5: SMS back on', /done=sms-on/.test(await pressSwitch('Switch SMS back on', { reason: 'sms drill over' })), true);
+  check('sms-w6: and the support console’s resend now queues the text', [/\/ops\/support/.test(await resend()), await texts()], [true, 1]);
+
+  check('sms-w7: a limit that is not an amount is refused', /error=cap/.test(await pressSwitch('Set this limit', { dollars: 'lots', reason: 'cap drill' })), true);
+  check('sms-w8: a limit of one cent, below this month’s spend, is set', /done=cap-set/.test(await pressSwitch('Set this limit', { dollars: '0.01', reason: 'cap drill' })), true);
+  await resend();
+  check('sms-w9: and under it, the resend queues no text', await texts(), 1);
+  check('sms-w10: going back to the environment’s limit', /done=cap-cleared/.test(await pressSwitch('Go back to the limit set in Vercel', { reason: 'cap drill over' })), true);
+  await resend();
+  check('sms-w11: and texts go again', await texts(), 2);
+  const swLog = (await get('/ops/switches', op)).html;
+  check('sms-w12: the switch log names every reason', ['sms drill', 'sms drill over', 'cap drill', 'cap drill over'].every((r) => swLog.includes(r)), true);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 console.log('NOTE: this mutated the dev database. Restart scripts/dev-db.mts for a clean one.');
 process.exit(failures.length ? 1 : 0);

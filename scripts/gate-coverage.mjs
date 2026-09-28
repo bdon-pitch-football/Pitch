@@ -21,7 +21,15 @@ const specPath = [
 ].find((p) => existsSync(p));
 if (!specPath) { console.error('doc 14 not found'); process.exit(1); }
 const spec = readFileSync(specPath, 'utf8');
-const suite = readFileSync(fileURLToPath(new URL('./permission-tests.mjs', import.meta.url)), 'utf8');
+// The permission suite, and the timing suite (28 Sep): doc 14 §K conditions 3,
+// 7 and 10 — E10, L40, J61 — are timing measurements against the running app,
+// and until then they were "pinned" here by structural checks in the
+// permission suite that tested something else under their labels (L4). Those
+// checks keep their place under their own names; the rows are pinned only by
+// the suite that measures them. A pinned row is a row with a test; whether the
+// test passes is that suite's answer, not this script's.
+const suite = ['./permission-tests.mjs', './timing-tests.mjs']
+  .map((f) => readFileSync(fileURLToPath(new URL(f, import.meta.url)), 'utf8')).join('\n');
 
 const ids = new Set([...spec.matchAll(/^\| ([A-Z]{1,2}\d+[a-z]?) \|/gm)].map((m) => m[1]));
 

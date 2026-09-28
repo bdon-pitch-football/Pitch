@@ -1,0 +1,31 @@
+-- ---------------------------------------------------------------------------
+-- 0071 — the alumni wall's "18 or over" guard holds on an edit too.
+--
+-- The wall is club-authored free text on a public page, and an entry never
+-- names a person under 18 (CLAUDE.md, the D-74 reinstatement guardrail). 0051
+-- made the database refuse an entry nobody had confirmed "Everyone named here
+-- is 18 or over" — but only BEFORE INSERT. An UPDATE was never asked, so an
+-- entry could be rewritten to say anything, and an entry that predates 0051
+-- (no confirmation at all) could be edited and stay unconfirmed. The release
+-- seat's migration-on-data run of 28 Sep printed both.
+--
+-- There is no product UPDATE path today (app/club/page-edit has add and
+-- remove), so this is the belt, not a live hole: the guard now answers the
+-- same question whichever way a row is written. The function is 0051's,
+-- unchanged; only when it fires changes.
+--
+-- What this does NOT do: confirm, hide or delete the entries that predate
+-- 0051. Whether an unconfirmed entry stays on a public wall is a product
+-- decision about a public page and is reported to BUZ, not made here. After
+-- this migration such an entry cannot be edited without someone confirming
+-- it; it can still be removed, which the club page's editor already offers.
+--
+-- A consequence to know before anyone changes alumni_entry's foreign keys to
+-- person: an ON DELETE SET NULL on adults_confirmed_by would be an UPDATE,
+-- and this trigger would refuse it — so deleting the confirming person would
+-- fail rather than silently leave an unconfirmed entry on the wall. That is
+-- the intended answer; say so if it is ever not.
+-- ---------------------------------------------------------------------------
+drop trigger alumni_entry_adults_confirmed on alumni_entry;
+create trigger alumni_entry_adults_confirmed before insert or update on alumni_entry
+  for each row execute function alumni_entry_needs_adults_confirmed();

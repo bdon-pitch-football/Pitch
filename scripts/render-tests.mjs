@@ -1775,5 +1775,29 @@ const georgia = ids.children.georgia;
   }
 }
 
+// ---- the sitemap (D-95, doc 32 A6; builder, 28 Sep) -------------------------
+// What search engines are told to crawl. Club pages that are on Pitch —
+// claimed OR verified, the same test the club page uses — published adult
+// coaches, and the three boards. Nothing tokenised, nothing about a child, and
+// nothing that the page itself asks search engines to leave alone: a sitemap
+// entry carrying noindex is the two halves of the product disagreeing.
+{
+  const r = await fetch(BASE + '/sitemap.xml');
+  const xml = await r.text();
+  const paths = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+  const verified = ['riverside-fc', 'kingsway-rovers'].filter((slug) => ids.clubs[slug]);
+  check(`sm1: a club BUZ has verified is in the sitemap (${verified.join(', ')})`,
+    verified.length === 2 && verified.every((slug) => paths.includes(`/fc/${slug}`)), true);
+  check('sm2: every entry is a board, a club page or a coach page — never a tokenised or personal page',
+    paths.filter((p) => !/^\/(|trials|jobs|fc\/[a-z0-9-]+|c\/[a-z0-9-]+)$/.test(p)), []);
+  const noindexed = [];
+  for (const p of paths.filter((x) => /^\/(fc|c)\//.test(x))) {
+    const page = await get(p);
+    if (page.status !== 200 || /<meta name="robots" content="[^"]*noindex/.test(page.html)) noindexed.push(`${p} (${page.status})`);
+  }
+  check(`sm3: and every club or coach page it lists is a live page that does not ask to be left out of search (${paths.length} entries)`,
+    noindexed, []);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 process.exit(failures.length ? 1 : 0);
