@@ -5935,8 +5935,12 @@ const componentFilesAll = [];
   check('age2: and on an eighteenth birthday that answer is eighteen, not seventeen',
     ageOn(dobFor(18)), 18);
   // L20, in place: the formula that was there says seventeen on the day.
-  const old = Math.floor((Date.now() - new Date(dobFor(18)).getTime()) / (365.25 * 24 * 3600 * 1000));
-  check('age3: the formula it replaced is shown to get that day wrong', old, 17);
+  // Pinned to one instant, not the clock: against Date.now() the old formula's
+  // answer on a birthday depends on the hour (it read 18 from 22:00 to midnight
+  // Melbourne and the check flipped on unchanged code). 2008-09-28 to the first
+  // instant of 2026-09-28 is 6574 days (four leap days) — 17.99 by /365.25.
+  const old = Math.floor((Date.UTC(2026, 8, 28) - Date.UTC(2008, 8, 28)) / (365.25 * 24 * 3600 * 1000));
+  check('age3: the formula it replaced gets an eighteenth birthday wrong (a fixed instant)', old, 17);
   const withFormula = [...routeFiles, ...componentFilesAll, ...readdirSync(fileURLToPath(new URL('../lib', import.meta.url)))
     .filter((f) => /\.tsx?$/.test(f) && f !== 'age.ts').map((f) => fileURLToPath(new URL('../lib/' + f, import.meta.url)))]
     .filter((f) => /365\.25/.test(readFileSync(f, 'utf8')));
