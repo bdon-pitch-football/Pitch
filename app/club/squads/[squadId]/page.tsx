@@ -14,7 +14,7 @@ import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
 import { T } from '@/lib/palette';
 import { card, fieldLabel } from '@/lib/ui';
-import { POSITIONS, type PositionCode } from '@/lib/football';
+import { POSITIONS, PROVENANCE_LABELS, provenanceLabel, sharedProvenance, type PositionCode } from '@/lib/football';
 import { answerClaim, cancelInvitation, inviteToSquad, removeFromSquad } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,19 @@ type Player = {
   foot: string | null; record_id: string | null; joined_at: string;
   clips: number | null; apps: number | null; goals: number | null; assists: number | null;
   clean_sheets: number | null; on_register: boolean;
+  // D-62: the source of each number, from the row the number came from (0069).
+  apps_provenance: string | null; goals_provenance: string | null;
+  assists_provenance: string | null; clean_sheets_provenance: string | null;
 };
+
+// Which sources this screen may name. Every number on it carries its source
+// (D-62), read from lib/football like the CV's, never typed here. "Self-
+// reported" is approved; "Coach-verified" and "Official import" are waiting
+// on BUZ (28 Sep) and are not said here until he approves them. A number
+// whose source this screen may not name is left off the list — never shown
+// without it — and stays one tap away on the CV. Today every stat in the
+// product is self-reported, so nothing is left off yet.
+const SOURCES_SAID_HERE = new Set<string>([PROVENANCE_LABELS.self_reported]);
 
 // A team sheet reads keepers first. The player's OWN order inside their
 // positions is first choice, second, third (D-69) — the club is being shown
@@ -229,11 +241,16 @@ export default async function SquadPage({ params, searchParams }: {
                     {inGroup.map((p) => {
                       // The never-zero rule, on the club's list as on the page
                       // (D-70): a stat nobody has is left out, never shown as 0.
-                      const stats: { label: string; value: number }[] = [];
-                      const stat = (label: string, v: number | null) => { if ((v ?? 0) > 0) stats.push({ label, value: v as number }); };
-                      stat('apps', p.apps);
-                      if (p.position_group === 'GK') stat('clean sheets', p.clean_sheets);
-                      else { stat('goals', p.goals); stat('assists', p.assists); }
+                      const stats: { label: string; value: number; provenance: string | null }[] = [];
+                      const stat = (label: string, v: number | null, provenance: string | null) => {
+                        if ((v ?? 0) > 0 && SOURCES_SAID_HERE.has(provenanceLabel(provenance))) stats.push({ label, value: v as number, provenance });
+                      };
+                      stat('apps', p.apps, p.apps_provenance);
+                      if (p.position_group === 'GK') stat('clean sheets', p.clean_sheets, p.clean_sheets_provenance);
+                      else { stat('goals', p.goals, p.goals_provenance); stat('assists', p.assists, p.assists_provenance); }
+                      // As on the CV: one caption while every number shares a
+                      // source, and a source on each number once they differ.
+                      const shared = sharedProvenance(stats);
                       return (
                         <div key={p.player_id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -285,10 +302,10 @@ export default async function SquadPage({ params, searchParams }: {
                               {stats.map((x) => (
                                 <div key={x.label}>
                                   <span className="tnum" style={{ fontSize: 15, fontWeight: 900, color: T.ink, letterSpacing: '-0.04em' }}>{x.value}</span>
-                                  <span style={{ fontSize: 10.5, fontWeight: 700, color: T.muted, marginLeft: 5 }}>{x.label}</span>
+                                  <span style={{ fontSize: 10.5, fontWeight: 700, color: T.muted, marginLeft: 5 }}>{shared ? x.label : `${x.label} · ${provenanceLabel(x.provenance).toLowerCase()}`}</span>
                                 </div>
                               ))}
-                              <span style={{ fontSize: 10.5, fontWeight: 700, color: T.muted, marginLeft: 'auto' }}>2026 · self-reported</span>
+                              <span style={{ fontSize: 10.5, fontWeight: 700, color: T.muted, marginLeft: 'auto' }}>{shared ? `2026 · ${PROVENANCE_LABELS[shared].toLowerCase()}` : '2026'}</span>
                             </div>
                           )}
                         </div>

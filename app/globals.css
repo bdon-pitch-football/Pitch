@@ -639,7 +639,7 @@ select { min-height: 44px; }
 .card-amber  { border-color: var(--amber); }
 
 /* A section label, used everywhere and redefined everywhere. */
-.kicker { font-size: 11px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); }
+.kicker { font-size: 11px; font-weight: 800; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--muted); }
 
 /* ---------------------------------------------------------------------------
    D-147: reading surfaces cap at 640px at >=1024px. They were capped at 560,

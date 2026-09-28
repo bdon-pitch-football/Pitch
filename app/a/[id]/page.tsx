@@ -11,8 +11,10 @@
 // Reached by the invitation id (the child's "Show them my page"), it carries
 // no channel and says where the two links are.
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { ageOn } from '@/lib/age';
 import { recordGuardianLanded, resolveApprovalLink } from '@/lib/guardian-flow';
+import { isLinkPreviewFetch, PITCH_METHOD_HEADER } from '@/lib/link-preview';
 import { approve, confirmIt } from './actions';
 import { card } from '@/lib/ui';
 import { LegalBody } from '@/app/legal/legal-page';
@@ -47,7 +49,12 @@ export default async function Approval({ params, searchParams }: { params: Promi
   // The consent funnel's middle state (D-78): the parent reached the page.
   // Once per invitation, and it confirms nothing — confirming is still a
   // press (D-156). Read the function for what this can and cannot claim.
-  await recordGuardianLanded(inv.id, inv.channel);
+  // A messaging app building a preview of a forwarded link is not the
+  // parent, and neither is a HEAD (lib/link-preview — a heuristic).
+  const h = await headers();
+  if (!isLinkPreviewFetch(h.get(PITCH_METHOD_HEADER), h.get('user-agent'))) {
+    await recordGuardianLanded(inv.id, inv.channel);
+  }
   const here = inv.channel;
   const confirmedHere = here === 'sms' ? inv.sms_confirmed : here === 'email' ? inv.email_confirmed : false;
   const bothConfirmed = inv.sms_confirmed && inv.email_confirmed;

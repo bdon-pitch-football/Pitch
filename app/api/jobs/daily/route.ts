@@ -33,6 +33,12 @@ export async function GET(request: Request) {
   // U-4 (John): the operational abuse counter is ninety days, and it lives
   // nowhere near a child's record.
   const { rows: abuse } = await db.query('select fn_purge_abuse_signals() as n');
+  // Sessions that expired or were revoked more than thirty days ago (0069,
+  // D-25). A session row answers nothing once it is dead, and nothing deleted
+  // one before this. This is allowed where deleting from the consent log is
+  // not: a session row is operational state, not the append-only record of
+  // what a family agreed to, and consent_event is untouched here.
+  const { rows: sessions } = await db.query('select fn_purge_sessions() as n');
   // doc 14 F8: a guardian reading the consent log sees "every approval,
   // revocation, share, outside-contact attempt and age transition". Bands are
   // computed and never stored (D-49), so a birthday is not an event anything
@@ -108,6 +114,7 @@ export async function GET(request: Request) {
     lapsedInterestRequests: lapsedInterest[0].n,
     lapsedSquadInvitations: lapsedSquad[0].n,
     abuseSignalsPurged: abuse[0].n,
+    sessionsPurged: sessions[0].n,
     ageTransitionsLogged: bands[0].n,
     birthdayNotices: noticed,
     // Says so out loud, so a run that sends nothing is not read as a run that

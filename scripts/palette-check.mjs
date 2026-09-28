@@ -197,5 +197,33 @@ console.log(`info ${inline} token colours still written as raw hex (next layer):
   }
 }
 
+// ---- a section label is tracked at 0.14em -----------------------------------
+// The charter: "Section labels: 11px, 800, uppercase, letter-spacing 0.14em".
+// .kicker is the section label, and on 28 Sep it resolved to --ls-label,
+// 0.06em — the light-caps value — so every section label drawn with the
+// class was tracked at the wrong one of the five values, and nothing here
+// looked at letter-spacing at all. Any rule in globals.css with the section
+// label's shape must RESOLVE (through :root) to 0.14em, and .kicker must be
+// one of them, so removing the class cannot make this pass.
+{
+  const cssSrc = read('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rootDecls = Object.fromEntries([...(cssSrc.match(/:root\s*\{([^{}]*)\}/)?.[1] ?? '')
+    .matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+  const resolve = (v) => { let x = (v ?? '').trim(), n = 0;
+    while (/^var\((--[\w-]+)\)$/.test(x) && n++ < 5) x = (rootDecls[x.match(/^var\((--[\w-]+)\)$/)[1]] ?? '').trim();
+    return x; };
+  const shaped = [];
+  for (const m of cssSrc.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const body = m[2];
+    if (/font-size:\s*11px/.test(body) && /font-weight:\s*800/.test(body) && /text-transform:\s*uppercase/.test(body)) {
+      shaped.push({ sel: m[1].trim().split('\n').pop().trim(), ls: resolve(body.match(/letter-spacing:\s*([^;]+)/)?.[1]) });
+    }
+  }
+  const wrong = shaped.filter((r) => r.ls !== '0.14em');
+  if (!shaped.some((r) => r.sel === '.kicker')) fail('.kicker is not in globals.css with the section label\u2019s shape (11px, 800, uppercase)');
+  else if (wrong.length) for (const r of wrong) fail(`\`${r.sel}\` is a section label (11px/800/uppercase) tracked at ${r.ls || 'nothing'} — the charter says 0.14em`);
+  else ok(`section labels: ${shaped.length} rule(s) with the charter\u2019s shape, every one at 0.14em (${shaped.map((r) => r.sel).join(', ')})`);
+}
+
 console.log(failures ? `\n${failures} failed` : '\nALL GREEN');
 process.exit(failures ? 1 : 0);

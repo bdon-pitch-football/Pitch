@@ -5,12 +5,14 @@
 //
 // The policy itself, and why each host is in it, is lib/csp.ts — a plain
 // function, so the permission suite can read the production policy without a
-// build. This file only mints the nonce and hands the header to Next and to
-// the browser. Next reads the nonce from the REQUEST's header and stamps it on
-// its own scripts while rendering, which is why every page renders per
-// request (app/layout.tsx calls connection()).
+// build. This file mints the nonce and hands the header to Next and to the
+// browser, and stamps the request method for lib/link-preview. Next reads the
+// nonce from the REQUEST's header and stamps it on its own scripts while
+// rendering, which is why every page renders per request (app/layout.tsx
+// calls connection()).
 import { NextResponse, type NextRequest } from 'next/server';
 import { contentSecurityPolicy, storageOrigin } from './lib/csp';
+import { PITCH_METHOD_HEADER } from '@/lib/link-preview';
 
 export function proxy(req: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
@@ -20,6 +22,10 @@ export function proxy(req: NextRequest) {
   });
   const headers = new Headers(req.headers);
   headers.set('content-security-policy', csp);
+  // A page cannot see the request method, and the approval page must not
+  // count a HEAD as a parent opening it (lib/link-preview). Always set, so a
+  // caller cannot supply their own.
+  headers.set(PITCH_METHOD_HEADER, req.method);
   const res = NextResponse.next({ request: { headers } });
   res.headers.set('Content-Security-Policy', csp);
   return res;

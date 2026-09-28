@@ -161,13 +161,13 @@ export async function getInvitationForParentPage(id: string) {
  * an under-16 nothing about the child exists yet, by D-17, so the row carries
  * the invitation and no subject.
  *
- * KNOWN LIMIT, reported rather than hidden: this is a page load, and a link in
- * an SMS or an email is routinely fetched by the messaging app's own preview
- * bot. So this event can be written by something that is not the parent. D-78
- * defines the state as the page being opened, which is what this records; the
- * alternative — writing it on the first press — is the same moment as
- * `email_verified`/`sms_verified` and tells the funnel nothing new. Leo's call
- * if the noise matters more than the state.
+ * It is a page load, and a link in an SMS or an email is routinely fetched by
+ * the messaging app's own preview bot. Leo's call (28 Sep): the page does not
+ * call this for a HEAD or for a known link-preview fetcher (lib/link-preview).
+ * That list is a heuristic and says so; a fetcher we have not named can still
+ * write this row. D-78 defines the state as the page being opened; writing it
+ * on the first press instead would be the same moment as
+ * `email_verified`/`sms_verified` and tell the funnel nothing new.
  */
 export async function recordGuardianLanded(invitationId: string, channel: 'sms' | 'email' | null): Promise<void> {
   if (!isUuid(invitationId)) return;

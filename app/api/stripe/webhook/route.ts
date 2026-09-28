@@ -95,6 +95,10 @@ export async function POST(request: Request) {
     case 'customer.subscription.updated': {
       const status = String(obj.status ?? 'active');
       // Fourteen days of grace before the register is suspended (D-135).
+      // The window offered here only starts a grace when none is running:
+      // fn_apply_subscription keeps the first failure's date through every
+      // later past_due event, and only a payment clears it (0068). Stripe
+      // sends this event on every retry, so it used to restart the fortnight.
       await apply(status, status === 'past_due' ? graceWindow() : null);
       break;
     }
@@ -124,10 +128,9 @@ export async function POST(request: Request) {
       // wrong when this branch first became reachable (28 Sep):
       //
       //  · The grace is fourteen days from the FIRST failure (D-135, doc 14
-      //    O4). fn_apply_subscription writes whatever grace it is given, so a
-      //    fresh window on each retry would push the pause out another
-      //    fortnight every time and the register would never pause. A grace
-      //    already running is kept.
+      //    O4). fn_apply_subscription keeps a grace already running whatever
+      //    it is handed (0068); this branch still reads it first, because
+      //    whether one was running is what decides the email below.
       //  · doc 15 §32 is one email, not one per retry — and the date in it is
       //    the date the database will actually act on.
       const { rows: [before] } = await db.query(

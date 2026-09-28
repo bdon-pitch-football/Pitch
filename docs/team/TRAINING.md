@@ -87,6 +87,19 @@ CSP_CHECK_PORT=<your app port> npm run test:csp-prod   # after build:check, with
                           # stopped: the CSP the BUILT app sends (no eval, no websocket)
 ```
 
+**Every seat in its own worktree runs on its own ports — all four of them.**
+Leo assigns them; the shared defaults (54322, 3000, 9333) belong to whoever
+sets nothing, which on a busy day is somebody else. The layout check's Chrome
+DevTools port is the one seats forget: two layout runs on the default 9333
+attach to each other's browser and measure each other's app (L30).
+
+```bash
+PITCH_DEV_DB_PORT=54362 node scripts/dev-db.mts             # database
+PITCH_DEV_DB_PORT=54362 npx next dev -p 3160                  # app
+RENDER_BASE=http://localhost:3160 npm run test:render         # and write-tests, and test:timing
+RENDER_BASE=http://localhost:3160 LAYOUT_CDP_PORT=9363 node scripts/layout-check.mjs 375 1280
+```
+
 **Order matters:** reseed → perms → render → write → reseed → layout → timing → reseed. **Every suite in that line writes, including render** — the order is not a preference. Never run
 the write suite twice without a reseed in between (LESSONS L7).
 

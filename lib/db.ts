@@ -26,7 +26,16 @@ const url = isDemo() ? DEMO_DB_URL :
   process.env.SUPABASE_DB_URL ||
   (process.env.NODE_ENV !== 'production' ? DEV_URL : undefined);
 
-if (!url) throw new Error('SUPABASE_DB_URL is not set');
+// A missing URL used to throw right here, at import. A throw while Next is
+// LOADING a route module never reaches our error pages: Next answers it from
+// its top-level request handler with a 21-byte text/plain "Internal Server
+// Error" (next/dist/server/base-server.js, handleRequest — not configurable),
+// and nearly every page imports this file. So the failure waits for the first
+// query, which happens inside a render, where app/error.tsx and
+// app/global-error.tsx answer it with a 500 that is a page. Nothing connects
+// anywhere without a URL: the stand-in below has no pool behind it, only the
+// same error, on every method.
+const NOT_CONFIGURED = 'SUPABASE_DB_URL is not set';
 
 // The certificate authority to pin for a real database (lib/db-policy). It is
 // Supabase's own PUBLIC certificate, not a secret: in the environment as a
@@ -48,11 +57,14 @@ const ca = process.env.SUPABASE_CA_CERT || (() => {
 // makes queries serialize cheaply instead. A real database gets the other
 // shape (more than one connection, TLS verified); which one is which is
 // lib/db-policy's decision, off the host.
-const makePool = () => {
-  const pool = new Pool(poolConfig(url, { ca }));
+const makePool = (connectionString: string) => {
+  const pool = new Pool(poolConfig(connectionString, { ca }));
   pool.on('error', () => {}); // a dropped client is replaced on next query
   return pool;
 };
 
 const g = globalThis as typeof globalThis & { __pitchDbPool?: Pool };
-export const db = g.__pitchDbPool ?? (g.__pitchDbPool = makePool());
+const unconfigured = new Proxy({} as Pool, {
+  get: (_t, prop) => (prop === 'then' ? undefined : () => { throw new Error(NOT_CONFIGURED); }),
+});
+export const db: Pool = !url ? unconfigured : (g.__pitchDbPool ?? (g.__pitchDbPool = makePool(url)));
