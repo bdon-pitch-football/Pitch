@@ -1221,6 +1221,126 @@ check('M11c: the notice never says WHY the club was de-verified',
 check('M11d: and never revokes on the family’s behalf — it offers the button',
   /we have not switched it off for you/i.test(deverifyMsg), true);
 
+// The rest of John's M11/L29 ruling: the class RECORDED, the function CALLED,
+// and doc 15 §37 actually sent (0063, app/ops/call/[clubId]/actions.ts).
+//
+// Everything below was built in 0025 and had no caller. The suite itself
+// listed clubDeverifiedEmail as a named exemption — "needs the child-safety
+// reason class on the verification call" — and fn_guardians_to_notify_on_
+// suspension was the only fn_* in the schema with zero app callers, zero SQL
+// callers and zero tests. The suspend button shipped anyway, which is what
+// made this the highest-consequence half-built chain in the product: an
+// operator could take a club down for a child-safety reason this afternoon
+// and no family holding a live link to it would learn anything.
+//
+// NOT labelled M11: doc 14's M11 says "revocation of `verified` is equivalent
+// to revocation of every link that club holds", and that is the clause John
+// recorded as UNBUILDABLE — tokens are not club-bound, so it would kill links
+// families sent to other clubs. The notice is what replaces it, and a label
+// claiming to test the row would be claiming to test the opposite (L4).
+{
+  const sClub = crypto.randomUUID(), sCall = crypto.randomUUID();
+  const sKid = crypto.randomUUID(), sRec = crypto.randomUUID();
+  const sOther = crypto.randomUUID(), sOtherRec = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state, contact_email) values ($1,'Suspendable FC','claimed','football@suspendable.example.au')`, [sClub]);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0009','FV club directory','verified','27@v1.0')`, [sCall, sClub]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [sCall, sClub]);
+
+  // Two children of the same guardian. One family's link went to this club;
+  // the other's went somewhere else, and must hear nothing.
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Told',$3), ($2,'Untold',$3)`,
+    [sKid, sOther, yearsAgo(13)]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2), ($3,$4)`, [sRec, sKid, sOtherRec, sOther]);
+  for (const kid of [sKid, sOther]) {
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, kid]);
+  }
+  await db.query(`update person set email = coalesce(email,'suspend-guardian@example.com') where id = $1`, [ID.guardian]);
+  const sent = async (rec, destination) => {
+    const tok = (await db.query(
+      `insert into share_token (record_id, token_hash, issued_by, expires_at)
+       values ($1,$2,$3, now() + interval '60 days') returning id`,
+      [rec, sha('suspend-' + crypto.randomUUID()), ID.guardian])).rows[0].id;
+    await db.query(
+      `insert into share_request (record_id, requested_by, destination, dispatched_by, dispatched_at, share_token_id)
+       values ($1,$2,$3,$2,now(),$4)`, [rec, ID.guardian, destination, tok]);
+    return tok;
+  };
+  const toldTok = await sent(sRec, 'Suspendable FC <football@suspendable.example.au>');
+  await sent(sOtherRec, 'Somewhere Else FC <football@somewhereelse.example.au>');
+  const tell = async () => (await db.query(`select * from fn_guardians_to_notify_on_suspension($1)`, [sClub])).rows;
+
+  // The class on the CALL, so a later verification cannot erase which class
+  // this suspension was. `club.suspension_reason` is a mutable column on a
+  // mutable row; doc 27's log is the record a regulator would be shown.
+  check('susp1: the class of a suspension is recorded on the call that made it',
+    (await db.query(`select string_agg(column_name,',') as c from information_schema.columns
+      where table_name='verification_call' and column_name='suspension_reason'`)).rows[0].c, 'suspension_reason');
+  await expectFail('susp2: and it is the same closed list, not free text',
+    `insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, suspension_reason, policy_version)
+     values ('${sClub}', now(), 'BUZ', '03 9000 0009', 'FV club directory', 'suspended', 'because i felt like it', '27@v1.0')`);
+  await expectFail('susp3: a call that did not suspend cannot carry a class of suspension',
+    `insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, suspension_reason, policy_version)
+     values ('${sClub}', now(), 'BUZ', '03 9000 0009', 'FV club directory', 'verified', 'child_safety', '27@v1.0')`);
+
+  // The four ways of getting it wrong, and all four answer "nobody". This is
+  // the half that matters most: a message wrongly sent to a hundred families
+  // about their child's club cannot be taken back.
+  check('susp4: a verified club tells nobody, whatever else is true', (await tell()).length, 0);
+  await db.query(`update club set club_state='suspended' where id=$1`, [sClub]);
+  check('susp5: suspended with NO class recorded tells nobody — it does not fall through to everyone',
+    (await tell()).length, 0);
+  await db.query(`update club set suspension_reason='administrative' where id=$1`, [sClub]);
+  check('susp6: an administrative suspension tells nobody (M10 is all it does)', (await tell()).length, 0);
+  await db.query(`update club set suspension_reason='non_payment' where id=$1`, [sClub]);
+  check('susp7: nor does non-payment — a family is never told because a club stopped paying (D-135)',
+    (await tell()).length, 0);
+
+  // And the one class that does.
+  await db.query(`update club set suspension_reason='child_safety' where id=$1`, [sClub]);
+  const told = await tell();
+  check('susp8: a child-safety suspension names the guardian whose live link went to THIS club',
+    told.map((r) => [r.guardian_id, r.child_first_name, r.token_id]),
+    [[ID.guardian, 'Told', toldTok]]);
+  check('susp9: and the club by name, so the caller composing §37 assembles nothing',
+    told[0]?.club_name, 'Suspendable FC');
+  check('susp10: the family whose link went to a DIFFERENT club is not told — the link is not club-bound (L29)',
+    told.some((r) => r.child_first_name === 'Untold'), false);
+  await db.query(`update share_token set revoked_at = now() where id = $1`, [toldTok]);
+  check('susp11: a link already switched off is not warned about again', (await tell()).length, 0);
+  await db.query(`update share_token set revoked_at = null where id = $1`, [toldTok]);
+  // A class left behind on a club that is up again must not be able to notify.
+  await db.query(`update club set club_state='verified' where id=$1`, [sClub]);
+  check('susp12: a class still sitting on a club that has been verified again tells nobody',
+    (await tell()).length, 0);
+}
+
+// The action side: the class is recorded, the database is asked who to tell,
+// and no mapping from class to "families are told" exists in the app.
+{
+  const callAction = readFileSync(fileURLToPath(new URL('../app/ops/call/[clubId]/actions.ts', import.meta.url)), 'utf8');
+  const code = codeOnly(callAction);
+  check('susp13: the only path that suspends a club records the class on the call and on the club',
+    /insert into verification_call[\s\S]*suspension_reason/.test(code)
+      && /club_state='suspended', suspension_reason=\$2/.test(code), true);
+  check('susp14: verifying a club clears the class of the suspension before it',
+    /club_state='verified'[^`]*suspension_reason=null/.test(code), true);
+  check('susp15: it asks the database who must be told, and sends doc 15 §37',
+    /fn_guardians_to_notify_on_suspension\(/.test(code) && /clubDeverifiedEmail\(/.test(code), true);
+  // The sentence "only the child-safety class notifies families" is a
+  // child-safety judgement. It lives in Postgres or a second caller gets it
+  // wrong (L23). The action may name the class as a VALUE the form offers;
+  // it may not branch on it.
+  check('susp16: and decides nothing itself — no branch on the class anywhere in the action',
+    /(if|\?|&&|\|\|)[^\n]*['"`]child_safety['"`]/.test(code), false);
+  check('susp17: the notice is sent after the transaction, not while holding the client (L1)',
+    code.indexOf('client.release()') < code.indexOf('fn_guardians_to_notify_on_suspension'), true);
+  // It must never revoke on the family's behalf. John: "The family made the
+  // disclosure. The family unmakes it."
+  check('susp18: and it revokes nothing — it mints the button and nothing else',
+    /update share_token/.test(code) || /revoked_at/.test(code), false);
+}
+
 // U-11 — no inbound reply route, and the send says so.
 const cvMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
   .split('cvToClubEmail')[1].split('export const')[0];
@@ -1250,6 +1370,44 @@ check('U-6d2: and gets a straight answer — who, and against which report',
   looked[0].investigator.length > 0 && looked[0].report_id === u6Report, true);
 check('U-6e: and a stranger cannot',
   (await db.query('select * from fn_who_looked($1,$2)', [ID.coachV, ID.deniz])).rows.length, 0);
+
+// U-6's fourth condition in the PRODUCT, not only in the database (doc 14 L60,
+// which leaves complaints access to U-6; doc 34 rule 6 says register reads are
+// disclosable in the same terms).
+//
+// fn_who_looked has answered this since 0025 with zero app callers. The screen
+// that should have called it already calls its sibling fn_send_log — and that
+// sibling's own comment in app/g/controls records this exact defect being
+// found and fixed once before: "green on it — AND NOTHING IN THE APP EVER
+// CALLED IT." Same bug, same screen.
+{
+  const looked2 = async (viewer, person) =>
+    (await db.query('select * from fn_who_looked($1,$2)', [viewer, person])).rows;
+  check('U-6f: a SECOND approved guardian gets the same straight answer (D-51 equal visibility)',
+    (await looked2(ID.guardian2, ID.deniz)).length, 1);
+  check('U-6g: the child’s own club cannot ask — its TD is not the family',
+    (await looked2(ID.td, ID.deniz)).length, 0);
+  check('U-6h: nor a club administrator', (await looked2(ID.clubAdmin, ID.deniz)).length, 0);
+  check('U-6i: nor nobody at all', (await looked2(null, ID.deniz)).length, 0);
+  // A guardian who has been revoked is a stranger from that moment.
+  await db.query(`update guardianship_link set revoked_at = now() where guardian_id=$1 and child_id=$2`, [ID.guardian2, ID.deniz]);
+  check('U-6j: a revoked guardian cannot ask', (await looked2(ID.guardian2, ID.deniz)).length, 0);
+  await db.query(`update guardianship_link set revoked_at = null where guardian_id=$1 and child_id=$2`, [ID.guardian2, ID.deniz]);
+
+  // The surface. The guardian's controls screen is the one place a parent
+  // looks, and the card must take its answer from the function — never
+  // assemble one from investigation_grant or investigation_access (L23).
+  const whoLooked = readFileSync(fileURLToPath(new URL('../components/WhoLooked.tsx', import.meta.url)), 'utf8');
+  const gControls = readFileSync(fileURLToPath(new URL('../app/g/controls/[childId]/page.tsx', import.meta.url)), 'utf8');
+  check('U-6k: the guardian’s controls screen carries the who-looked card',
+    /<WhoLooked\b/.test(gControls), true);
+  check('U-6l: and the card asks fn_who_looked for the answer',
+    /fn_who_looked\(/.test(whoLooked), true);
+  check('U-6m: it assembles no answer of its own — it never touches the grant or the access log',
+    /investigation_grant|investigation_access/.test(codeOnly(whoLooked)), false);
+  check('U-6n: and it decides for itself who may ask — it does not (the function does)',
+    /guardianship_link|fn_read_level|fn_age_band/.test(codeOnly(whoLooked)), false);
+}
 
 // D-108 carve-out — a club may close a role. It may never record a judgement
 // about a named individual.
@@ -3463,7 +3621,6 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   const NOT_YET = {
     verificationCodeSms: 'doc 15 §14: approval uses two links (D-156), not codes',
     sendRequestLapsedEmail: 'doc 15 §35: the composer is an under-16 with no address; nothing to send to',
-    clubDeverifiedEmail: 'doc 15 §37: needs the child-safety reason class on the verification call (doc 32 D)',
     paymentTakenEmail: 'doc 15 §31: Stripe is not connected yet',
     paymentFailedEmail: 'doc 15 §32: Stripe is not connected yet',
   };

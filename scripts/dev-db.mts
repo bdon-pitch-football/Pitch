@@ -606,6 +606,35 @@ await db.query(
   [await personOf('Nate'), riverside],
 );
 
+// 6. doc 31 U-6's fourth condition — "a guardian may ask who at Pitch has
+// looked at their child's record and why, and get a straight answer" — and
+// doc 34 rule 6, which says register reads are disclosable in the same terms.
+// fn_who_looked (0025) answers it and, until 28 Sep, no page called it.
+//
+// Nothing in the product GRANTS an investigator access yet: while the
+// complaints investigator is one person (doc 31: "today the complaints
+// investigator is BUZ") the grant is made by hand, so with no fixture the
+// card that answers this question renders its empty state for every child and
+// the answer it exists to give is never seen by anyone. Nate's record carries
+// one look. Deniz's carries none, which is the other half of the card and the
+// state almost every real family will be in.
+//
+// The investigator is invented, like every person in this seed. A real
+// person's name does not go in a fixture, and BUZ's least of all.
+const investigator = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Priya','Raman','1979-03-14')`, [investigator]);
+const u6Report = (await db.query(
+  `insert into report (subject_kind, subject_ref, reason, created_at)
+   values ('club_page','riverside-fc','A parent says the club page names a junior player.', now() - interval '3 days')
+   returning id`)).rows[0].id as string;
+const u6Grant = (await db.query(
+  `insert into investigation_grant (report_id, investigator_id, subject_id, granted_at, expires_at)
+   values ($1, $2, $3, now() - interval '3 days', now() + interval '11 days') returning id`,
+  [u6Report, investigator, await personOf('Nate')])).rows[0].id as string;
+await db.query(
+  `insert into investigation_access (grant_id, at, what) values ($1, now() - interval '3 days', 'read the send log')`,
+  [u6Grant]);
+
 // A FREE verified club (D-153): verified by call, no subscription, one posted
 // trial, and a family who registered interest in that trial. Riverside is on
 // the paid register, so without this club "a free club can invite players to

@@ -14,6 +14,7 @@ import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
 import RegisterReaders from '@/components/RegisterReaders';
 import SquadCard from '@/components/SquadCard';
+import WhoLooked from '@/components/WhoLooked';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Controls', robots: { index: false, follow: false } };
@@ -251,6 +252,13 @@ export default async function Controls({ params, searchParams }: {
 
         {/* doc 34 rule 6 (0047): who at each club has read the registration. */}
         <RegisterReaders viewerId={me as string} personId={childId} name={name} back={`/g/controls/${childId}`} taken={Boolean(taken)} />
+
+        {/* And who at PITCH has (doc 31 U-6's fourth condition; doc 34 rule 6
+            says it in the same terms). fn_who_looked has answered this since
+            0025 and no page called it — the same defect as fn_send_log above,
+            on the same screen. The component asks the function and renders
+            what it returns; it decides nothing (L23). */}
+        <WhoLooked viewerId={me as string} personId={childId} name={name} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <h2 style={label}>Everything that&rsquo;s happened</h2>

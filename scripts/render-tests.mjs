@@ -89,6 +89,35 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// U-6's fourth condition — the same promise, the same screen, the same bug.
+//
+// John: "a guardian may ask who at Pitch has looked at their child's record
+// and why, and get a straight answer. That is the condition that makes the
+// other three real." fn_who_looked answered it from 0025 and no page called
+// it, exactly as fn_send_log above. Reading the source cannot catch that;
+// rendering the page can.
+// ---------------------------------------------------------------------------
+{
+  const nate = ids.children.nate;
+  const told = (await get(`/g/controls/${nate.child_id}`, alex)).html;
+  check('r5a: the guardian is told WHO at Pitch looked at their child’s record',
+    has(told, 'Priya Raman'), true);
+  check('r5b: and why — the report it was opened against, and what was read',
+    has(told, 'Looking into a report · read the send log'), true);
+  check('r5c: under the heading a parent would look under',
+    has(told, 'Who at Pitch has looked at Nate’s record'), true);
+
+  // The other half of the card, and the state almost every real family is in.
+  // An empty card that renders nothing leaves a parent unable to tell "nobody
+  // has" from "we do not keep that".
+  const none = (await get(`/g/controls/${deniz.child_id}`, alex)).html;
+  check('r5d: a child nobody has looked at gets the plain answer, not a blank',
+    has(none, 'Nobody at Pitch has opened Deniz’s record.'), true);
+  check('r5e: and no other family’s answer leaks onto that page',
+    has(none, 'Priya Raman'), false);
+}
+
+// ---------------------------------------------------------------------------
 // The CV, per age band. The stat tiles used to ship zeros in the HTML.
 // ---------------------------------------------------------------------------
 {
