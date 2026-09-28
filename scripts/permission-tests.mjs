@@ -6203,8 +6203,13 @@ const componentFilesAll = [];
   await apply('past_due', new Date(Date.now() + 5 * 86400000).toISOString(), clock(2));
   check('O4: inside the fourteen days a failed payment reads "grace"', await payState(mTd, MON), 'grace');
   check('O4b: and the register is still readable during the grace (D-135)', (await rowIds(mTd, MON)).includes(mReg), true);
-  await apply('past_due', new Date(Date.now() - 86400000).toISOString(), clock(3));
-  check('O4c: once the grace has run out it reads "suspended"', await payState(mTd, MON), 'suspended');
+  // The fortnight runs out. The suite cannot move the clock, so it moves the
+  // one date the clock is compared with — which is also the one thing no
+  // Stripe event may now do (0068). A retry arriving after that, carrying a
+  // fresh fortnight, must not revive the register.
+  await db.query(`update club set grace_until = now() - interval '1 day' where id = $1`, [MON]);
+  await apply('past_due', new Date(Date.now() + 14 * 86400000).toISOString(), clock(3));
+  check('O4c: once the grace has run out it reads "suspended" — and a later retry does not revive it', await payState(mTd, MON), 'suspended');
   check('O4d: the register is hidden', (await rowIds(mTd, MON)).length, 0);
   check('O4e: and the registration row is still there — hidden, not deleted',
     (await q1(`select count(*)::int as n from registration where id = $1`, [mReg])).n, 1);
@@ -6220,6 +6225,41 @@ const componentFilesAll = [];
   check('money7c: nor a guardian', await payState(ID.guardian, MON), null);
   check('money7d: nor another club’s technical director', await payState(ID.td, MON), null);
   check('money7e: nor nobody at all', await payState(null, MON), null);
+
+  // 0068 — THE GRACE DOES NOT SLIDE (Leo, 28 Sep; D-135, doc 14 O4). Every
+  // past_due event used to write a fresh fortnight, and Stripe sends one on
+  // each retry, so a club whose card had failed never paused. Asked of the
+  // function directly, because that is the only writer (D-112) and the rule
+  // has to hold whichever webhook branch calls it.
+  {
+    const G = crypto.randomUUID();
+    await db.query(`insert into club (id, name, club_state) values ($1,'Grace Fixture FC','claimed')`, [G]);
+    const at = (n) => new Date(Date.UTC(2026, 0, 2, 0, 0, n)).toISOString();
+    const inDays = (d) => new Date(Date.now() + d * 86400000).toISOString();
+    const give = (status, grace, n) => db.query(
+      `select fn_apply_subscription($1,$2,null,null,$3::timestamptz,null,$4::timestamptz)`, [G, status, grace, at(n)]);
+    const grace = async () => (await q1('select grace_until from club where id = $1', [G])).grace_until?.toISOString() ?? null;
+    const open = async () => (await q1('select fn_register_active($1) as a', [G])).a;
+
+    await give('active', null, 1);
+    await give('past_due', inDays(14), 2);
+    const first = await grace();
+    await give('past_due', inDays(30), 3);
+    check('O4g: a second past_due event does not move the grace — fourteen days from the FIRST failure',
+      [first !== null, await grace()], [true, first]);
+    await give('unpaid', null, 4);
+    await give('past_due', inDays(30), 5);
+    check('O4h: nor does a detour through another unpaid status — only a payment clears it',
+      await grace(), first);
+    await give('active', null, 6);
+    check('O4i: a successful payment clears it', await grace(), null);
+    await give('past_due', inDays(14), 7);
+    check('O4j: and the next failure after a payment starts a fortnight of its own',
+      (await grace()) !== null && (await grace()) !== first, true);
+    await give('canceled', null, 8);
+    check('O4k: a date left behind by an earlier status grants nothing — the gate reads the grace only while past_due',
+      [(await grace()) !== null, await open()], [true, false]);
+  }
 
   // One answer, two callers — the whole point of the migration.
   const readSrc = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
