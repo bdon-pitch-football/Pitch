@@ -1385,6 +1385,17 @@ check('M11d: and never revokes on the family’s behalf — it offers the button
   await sent(sOtherRec, 'Somewhere Else FC <football@somewhereelse.example.au>');
   const tell = async () => (await db.query(`select * from fn_guardians_to_notify_on_suspension($1)`, [sClub])).rows;
 
+  // THE CHOICE, IN ONE PLACE. Which classes tell families is BUZ's call, not
+  // the build's; it lives in fn_suspension_tells_families and nowhere else,
+  // at the most restrictive reading doc 31 and doc 15 §37 allow.
+  check('susp0: one function decides which class tells families, and today only child_safety does',
+    (await db.query(`select c, fn_suspension_tells_families(c) as t
+      from unnest(array['child_safety','administrative','non_payment',null]::text[]) c`)).rows.map((r) => [r.c, r.t]),
+    [['child_safety', true], ['administrative', false], ['non_payment', false], [null, false]]);
+  check('susp0b: and it is the ONLY place in the schema that names the class as a reason to tell anyone',
+    (await db.query(`select proname from pg_proc where prosrc like '%child_safety%' order by proname`)).rows.map((r) => r.proname),
+    ['fn_suspension_tells_families']);
+
   // The class on the CALL, so a later verification cannot erase which class
   // this suspension was. `club.suspension_reason` is a mutable column on a
   // mutable row; doc 27's log is the record a regulator would be shown.
@@ -1491,7 +1502,7 @@ await expectFail('U-6c2: nor deleted',
 const looked = (await db.query('select * from fn_who_looked($1,$2)', [ID.guardian, ID.deniz])).rows;
 check('U-6d: a guardian can ask who looked at their child’s record', looked.length, 1);
 check('U-6d2: and gets a straight answer — who, and against which report',
-  looked[0].investigator.length > 0 && looked[0].report_id === u6Report, true);
+  looked[0]?.investigator?.length > 0 && looked[0]?.report_id === u6Report, true);
 check('U-6e: and a stranger cannot',
   (await db.query('select * from fn_who_looked($1,$2)', [ID.coachV, ID.deniz])).rows.length, 0);
 

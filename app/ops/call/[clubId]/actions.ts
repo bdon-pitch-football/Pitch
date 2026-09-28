@@ -30,12 +30,14 @@
 // the undo token and the page it lands on had all been written for months.
 //
 // The mapping from class to "families are told" is John's ruling and it is a
-// child-safety judgement, so it is NOT in this file: 0066 put it inside
-// fn_guardians_to_notify_on_suspension, which returns nobody unless the club
-// is suspended for the child-safety class. This action records the class the
-// operator chose, asks the database who must be told, and sends to exactly
-// that list (L23). It never revokes a link — the family made the disclosure
-// and the family unmakes it, which is the whole of John's M11/L29.
+// child-safety judgement, so it is NOT in this file. 0066 wrote it once, as
+// fn_suspension_tells_families(class) — the one place BUZ changes it — and
+// fn_guardians_to_notify_on_suspension asks it, returning nobody unless the
+// club is suspended for a class that function says tells families. This
+// action records the class the operator chose, asks the database who must be
+// told, and sends to exactly that list (L23). It never revokes a link — the
+// family made the disclosure and the family unmakes it, which is the whole of
+// John's M11/L29.
 import { randomBytes, createHash } from 'node:crypto';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';

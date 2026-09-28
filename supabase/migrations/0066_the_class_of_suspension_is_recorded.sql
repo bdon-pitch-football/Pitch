@@ -43,9 +43,11 @@
 --     message about their child's club arriving at a hundred families who
 --     should never have received it. It cannot be taken back.
 --
---     So the gate moves INTO the function that already answers "who must be
---     told". `fn_guardians_to_notify_on_suspension` now returns nobody unless
---     the club is actually suspended AND the recorded class is 'child_safety'.
+--     So the choice is ONE function, `fn_suspension_tells_families(class)`,
+--     and the function that already answers "who must be told" asks it.
+--     `fn_guardians_to_notify_on_suspension` now returns nobody unless the
+--     club is actually suspended AND that one function says its recorded class
+--     tells families — which, today, only 'child_safety' does.
 --     Every way of getting this wrong therefore answers "nobody":
 --       · no class recorded at all            → nobody
 --       · 'administrative' or 'non_payment'   → nobody
@@ -80,7 +82,22 @@ alter table verification_call add constraint verification_call_reason_needs_susp
 comment on column verification_call.suspension_reason is
   'doc 31 M11/L29 — the class of this suspension, recorded on the immutable call row. Only child_safety tells families (doc 15 §37).';
 
--- 2 · The class gate moves into the answer. The signature changes (club_name
+-- 2 · THE ONE PLACE THE CHOICE LIVES. Which classes of suspension tell
+-- families is a child-safety judgement and it is BUZ's, not the build's. It is
+-- written here, once, as a function of the class and nothing else, and every
+-- caller comes through it. It stands at the most restrictive reading the spec
+-- allows: exactly the one class doc 31 and doc 15 §37 name — child_safety —
+-- and no other. Changing the answer is changing this one function, by a
+-- migration, with the D-number in its header.
+create function fn_suspension_tells_families(p_class text) returns boolean
+language sql immutable as $$
+  select coalesce(p_class = 'child_safety', false)
+$$;
+
+comment on function fn_suspension_tells_families(text) is
+  'doc 31 M11/L29, doc 15 §37 — THE one place that decides which class of suspension tells families. Most restrictive reading: child_safety only. BUZ''s call; awaiting a D-number.';
+
+-- 3 · The class gate moves into the answer. The signature changes (club_name
 -- is new), so this is a drop and create rather than a replace.
 drop function if exists fn_guardians_to_notify_on_suspension(uuid);
 
@@ -105,7 +122,7 @@ language sql stable as $$
     -- de-verification tells nobody; a class recorded against a club that is
     -- not suspended tells nobody; no class at all tells nobody.
     and c.club_state = 'suspended'
-    and c.suspension_reason = 'child_safety'
+    and fn_suspension_tells_families(c.suspension_reason)
     and gp.email is not null
 $$;
 
