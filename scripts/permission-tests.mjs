@@ -5772,9 +5772,14 @@ const componentFilesAll = [];
         verifyTwilioSignature(url, params, good, 'other-token'),
         verifyTwilioSignature(url, params, null, 'tok')], [true, false, false, false]);
   }
-  check('D-78: both provider webhooks write the spine through the one function, and neither writes it themselves',
-    [/fn_record_delivery/.test(resendSrc), /insert into consent_event/.test(resendSrc),
-      /fn_record_delivery/.test(smsStatusSrc), /insert into consent_event/.test(smsStatusSrc)],
+  // Not "the file mentions the function" — that was true of the old route too,
+  // which called it for a bounce and wrote delivered_at itself (proved: the
+  // proxy stayed green with the bug back). The rule is that NEITHER the outbox
+  // column NOR the spine is written in a route: the receipt has three effects
+  // and they belong in one statement (L33).
+  check('D-78: both provider webhooks write every effect of a receipt through the one function, and neither touches the outbox or the spine itself',
+    [/fn_record_delivery/.test(resendSrc), /update message_outbox|insert into consent_event/.test(resendSrc),
+      /fn_record_delivery/.test(smsStatusSrc), /update message_outbox|insert into consent_event/.test(smsStatusSrc)],
     [true, false, true, false]);
   check('D-78b: and each verifies its signature before reading a byte of the body',
     [smsStatusSrc.indexOf('verifyTwilioSignature') < smsStatusSrc.indexOf('params.MessageSid'),
