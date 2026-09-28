@@ -14,7 +14,7 @@ import { card, fieldLabel, sectionLabel } from '@/lib/ui';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Emergency switches', robots: { index: false, follow: false } };
 
-const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 const ACTION: Record<string, string> = {
   links_paused: 'Paused every shared link',
   links_resumed: 'Switched shared links back on',

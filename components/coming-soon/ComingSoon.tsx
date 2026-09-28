@@ -1286,7 +1286,7 @@ export default function ComingSoon() {
 
       {/* ===== WAITLIST ===== */}
       <div ref={formRef} style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 60px 24px', boxSizing: 'border-box' }}>
-        <div data-reveal="1" style={{ position: 'relative', overflow: 'hidden', borderRadius: 32, background: 'linear-gradient(160deg, #10201a 0%, #0b1410 60%, #080d0a 100%)', border: '1px solid #1c2822', padding: 'clamp(28px, 4vw, 56px)', display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center', ...reveal }}>
+        <div data-reveal="1" style={{ position: 'relative', overflow: 'hidden', borderRadius: 32, background: 'var(--hero)', border: '1px solid #1c2822', padding: 'clamp(28px, 4vw, 56px)', display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center', ...reveal }}>
           <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(60% 70% at 100% 0%, ${accentGlow} 0%, transparent 65%)`, pointerEvents: 'none', transition: 'background .5s' }} />
           <div style={{ position: 'relative', flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* ANNA COPY PASS v1 §8+10 */}

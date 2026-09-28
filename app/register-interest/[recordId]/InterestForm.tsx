@@ -98,7 +98,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
               <div style={{ fontSize: 11, fontWeight: 700, color: T.muted }}>{note.length} / 140</div>
             </div>
             <div style={card}>
-              <textarea name="note" aria-label="One line, if you want" value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="Right-footed 10. Happy anywhere across the front three." style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical', minHeight: 40 }} />
+              <textarea name="note" aria-label="One line, if you want" value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="Right-footed 10. Happy anywhere across the front three." style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical', minHeight: 40 }} />
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{self ? `Football only. ${club.name} read it on their register.` : 'Football only. Your parent reads this before it goes anywhere.'}</div>
           </div>
@@ -110,7 +110,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
             <Row ok={false}>Take yourself off and the link stops working the same minute.</Row>
           </div>
           {self ? (
-            <div style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(61,220,132,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
             </div>
@@ -120,7 +120,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
             </div>
           </div>
           ) : (
-          <div style={{ borderRadius: 18, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(164,121,226,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="2.6" /><circle cx="16.5" cy="9.5" r="2" /><path d="M4.5 20 c0-3 2-5 4.5-5 s4.5 2 4.5 5 M14 20 c0-2.4 1.2-4 2.5-4 s2.5 1.6 2.5 4" /></svg>
             </div>
