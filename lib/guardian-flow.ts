@@ -71,8 +71,16 @@ export async function createPendingInvitation(input: {
   // they are the parent (§1b, §2b).
   const sms = input.childId ? guardianConfirmSms16 : guardianApprovalSms;
   const email = input.childId ? guardianConfirmEmail16 : guardianApprovalEmail;
-  await sendAndLog(sms(input.firstName.trim(), age, smsToken), { address: input.guardianPhone.trim() }, 'sms_sent');
-  await sendAndLog(email(input.firstName.trim(), age, emailToken), { address: input.guardianEmail.trim() }, 'email_sent');
+  // Who the two messages are ABOUT (D-78, 0065). A 16–17 already has a person
+  // row, so their funnel — sent, delivered, landed, confirmed — is legible on
+  // their own consent log. An under-16 has no row yet: nothing about them
+  // exists until their parent approves, which is D-17 working as intended, so
+  // those rows carry the invitation in `detail` and no subject. That is the
+  // reason a parent of an under-16 sees no "we emailed you" line on the
+  // controls screen today — reported 28 Sep, not fixed here.
+  const subject = input.childId;
+  await sendAndLog(sms(input.firstName.trim(), age, smsToken), { address: input.guardianPhone.trim() }, 'sms_sent', subject);
+  await sendAndLog(email(input.firstName.trim(), age, emailToken), { address: input.guardianEmail.trim() }, 'email_sent', subject);
   return { id: invitationId };
 }
 
@@ -134,6 +142,38 @@ export async function getInvitationForParentPage(id: string) {
     [id],
   );
   return (rows[0] ?? null) as { id: string; first_name: string; dob: string; approved_at: string | null; held_at: string | null; existing_child: boolean } | null;
+}
+
+/**
+ * The parent reached the permission page (D-78, `guardian_landed`).
+ *
+ * The funnel's whole purpose is to separate "the message never arrived" from
+ * "it arrived and nothing happened", and this is the state in the middle: the
+ * one word in D-78's vocabulary that means the page was opened. It was in the
+ * vocabulary, rendered on the guardian's own screen as "You opened the
+ * permission page", seeded into the dev fixture — and written by nothing, so
+ * on real data it could never appear (L13).
+ *
+ * Once per invitation, not once per visit: the log is append-only and a parent
+ * reloading a page four times did not open it four times.
+ *
+ * The subject is the child where one exists (a 16–17 naming their parent). For
+ * an under-16 nothing about the child exists yet, by D-17, so the row carries
+ * the invitation and no subject.
+ *
+ * KNOWN LIMIT, reported rather than hidden: this is a page load, and a link in
+ * an SMS or an email is routinely fetched by the messaging app's own preview
+ * bot. So this event can be written by something that is not the parent. D-78
+ * defines the state as the page being opened, which is what this records; the
+ * alternative — writing it on the first press — is the same moment as
+ * `email_verified`/`sms_verified` and tells the funnel nothing new. Leo's call
+ * if the noise matters more than the state.
+ */
+export async function recordGuardianLanded(invitationId: string, channel: 'sms' | 'email' | null): Promise<void> {
+  if (!isUuid(invitationId)) return;
+  // The rule lives in fn_record_guardian_landed (0065), where the permission
+  // suite drives it: once per open invitation, nothing after approval or a hold.
+  await db.query('select fn_record_guardian_landed($1::uuid, $2)', [invitationId, channel]);
 }
 
 /** "Yes, it's me — continue" (D-156). A press, never a page load. */

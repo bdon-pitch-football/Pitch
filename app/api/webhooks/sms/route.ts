@@ -12,22 +12,15 @@
 // The reply we send back is itself from the catalogue — a STOP confirmation
 // is a message like any other, and doc 15 is closed.
 import { NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { db } from '@/lib/db';
 import { helpReplySms, stopReplySms } from '@/lib/messages';
 import { dispatch, numberHash, sendAndLog } from '@/lib/messaging';
+// Twilio signs the URL plus the sorted POST body with the auth token. The
+// check lives in lib/twilio-signature because the delivery-status callback
+// next door has to make the identical one (0065).
+import { verifyTwilioSignature } from '@/lib/twilio-signature';
 
 export const dynamic = 'force-dynamic';
-
-/** Twilio signs the URL plus the sorted POST body with the auth token. */
-function verify(url: string, params: Record<string, string>, header: string | null, token: string): boolean {
-  if (!header) return false;
-  const data = url + Object.keys(params).sort().map((k) => k + params[k]).join('');
-  const expected = createHmac('sha1', token).update(data).digest('base64');
-  const a = Buffer.from(header);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 export async function POST(request: Request) {
   const token = process.env.SMS_WEBHOOK_SECRET;
@@ -37,7 +30,7 @@ export async function POST(request: Request) {
   const params: Record<string, string> = {};
   for (const [k, v] of form.entries()) params[k] = String(v);
 
-  if (!verify(request.url, params, request.headers.get('x-twilio-signature'), token)) {
+  if (!verifyTwilioSignature(request.url, params, request.headers.get('x-twilio-signature'), token)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 

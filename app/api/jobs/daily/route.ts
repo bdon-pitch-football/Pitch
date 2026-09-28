@@ -33,6 +33,14 @@ export async function GET(request: Request) {
   // U-4 (John): the operational abuse counter is ninety days, and it lives
   // nowhere near a child's record.
   const { rows: abuse } = await db.query('select fn_purge_abuse_signals() as n');
+  // doc 14 F8: a guardian reading the consent log sees "every approval,
+  // revocation, share, outside-contact attempt and age transition". Bands are
+  // computed and never stored (D-49), so a birthday is not an event anything
+  // was recording — the guardian's screen had a line for it that nothing could
+  // ever write. This appends one row per band a person reaches. It looks back
+  // seven days so a missed morning is caught up, and the band is the
+  // idempotency key, so nothing is ever written twice (0065).
+  const { rows: bands } = await db.query('select fn_record_age_transitions() as n');
 
   // doc 15 §13, thirty days before a sixteenth birthday. The transition to
   // discoverable is gated on this having DELIVERED (doc 14 §B11), so the
@@ -100,6 +108,7 @@ export async function GET(request: Request) {
     lapsedInterestRequests: lapsedInterest[0].n,
     lapsedSquadInvitations: lapsedSquad[0].n,
     abuseSignalsPurged: abuse[0].n,
+    ageTransitionsLogged: bands[0].n,
     birthdayNotices: noticed,
     // Says so out loud, so a run that sends nothing is not read as a run that
     // found nobody (doc 14 §B11 depends on the difference).

@@ -68,6 +68,9 @@ export async function sendSms(to: string, body: string): Promise<Dispatch> {
   const key = process.env.SMS_API_KEY;
   const from = process.env.SMS_LONG_NUMBER;
   if (isDemo() || !sid || !key || !from) return { ok: false, reason: 'not_configured', permanent: false };
+  // https only: a callback URL is a public address we hand a third party.
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  const site = origin.startsWith('https://') ? origin.replace(/\/$/, '') : '';
 
   let res: Response;
   try {
@@ -77,7 +80,15 @@ export async function sendSms(to: string, body: string): Promise<Dispatch> {
         authorization: `Basic ${Buffer.from(`${sid}:${key}`).toString('base64')}`,
         'content-type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
+      body: new URLSearchParams({
+        To: to, From: from, Body: body,
+        // Where the carrier's delivery receipt comes back to (D-78). Without
+        // this parameter the receipt endpoint exists and never hears anything,
+        // and a text that never arrived stays indistinguishable from a parent
+        // who ignored one. Only set when we know our own public origin —
+        // Twilio refuses a callback that is not absolute.
+        ...(site ? { StatusCallback: `${site}/api/webhooks/sms/status` } : {}),
+      }).toString(),
     });
   } catch {
     return { ok: false, reason: 'network', permanent: false };
