@@ -56,22 +56,31 @@ export async function POST(request: Request) {
 
   // Only the outcome is recorded. The reason column never carries message
   // content (0009) and a receipt must not become a second copy of the body.
+  //
+  // The write goes through fn_record_delivery (0065) rather than straight at
+  // the outbox column, because a receipt has three jobs and they belong in one
+  // statement: the outbox row, the consent-spine row D-78 asks for by name,
+  // and the sixteenth-birthday notice doc 14 B11 gates discovery on. Until
+  // 0065 this route did the first one only, so on the spine "the parent
+  // ignored us" and "Gmail spam-foldered us" were still the same row — which
+  // is the entire reason the spine exists.
   switch (event.type) {
     case 'email.delivered':
-      await db.query(
-        `update message_outbox set delivered_at = now() where provider_id = $1 and delivered_at is null`,
-        [providerId],
-      );
+      await db.query('select fn_record_delivery($1, $2)', [providerId, 'delivered']);
       break;
     case 'email.bounced':
     case 'email.complained':
-      await db.query(
-        `update message_outbox set failed_at = now(), failure_reason = $2 where provider_id = $1`,
-        [providerId, event.type],
-      );
+      await db.query('select fn_record_delivery($1, $2, $3)', [providerId, 'failed', event.type]);
       break;
     default:
-      break; // opened/clicked are not tracked: we do not need them (D-99)
+      // opened and clicked are not tracked, and this is a decision rather
+      // than an omission: an open-tracking pixel in an email to a guardian is
+      // surveillance of a parent reading about their own child, and doc 14
+      // J41 refuses the same thing for share links. D-78's vocabulary still
+      // carries `email_opened` and the guardian's screen still renders a line
+      // for it; both are proposed for removal (report, 28 Sep) and neither is
+      // BUZ's to lose without being asked. Nothing here will ever write it.
+      break;
   }
   return NextResponse.json({ ok: true });
 }

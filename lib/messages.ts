@@ -11,6 +11,8 @@
 //  · A club's approach to a family is a bare wake, never content (D-117).
 //  · Silence is a supported outcome — nothing here chases (D-138).
 import 'server-only';
+// Type only — erased at compile time, so the copy file still depends on nothing.
+import type { ReceiptFields } from './receipts';
 
 const SITE = 'pitchfootball.com.au';
 const HELP = 'help@pitchfootball.com.au';
@@ -408,26 +410,33 @@ If you do nothing, nothing publishes. There's no time limit on this and we won't
 // NEVER: a player's name, a registration count, anything about who has
 // registered. This lands in a club inbox and a billing surface carries no
 // child data (doc 14 O10).
-export const paymentTakenEmail = (
-  clubLegalName: string, planLabel: string, amount: string, gst: string,
-  paidOn: string, cardLast4: string, receiptNo: string, renewsOn: string, refundable: boolean,
-): Composed => ({
+//
+// It takes the fields as one object (lib/receipts builds them) rather than nine
+// positional strings, because nine strings in a row is a receipt that says the
+// GST where the amount goes and type-checks perfectly.
+//
+// The card fragment is conditional. A Stripe invoice does not carry the card's
+// last four digits, and inventing them is not available to a tax invoice — so
+// where we do not have them the line reads "receipt <n>" alone. PROPOSED, not
+// approved: listed verbatim in the 28 Sep report. Passing a last4 renders doc
+// 15's line exactly as approved.
+export const paymentTakenEmail = (r: ReceiptFields): Composed => ({
   key: 'doc15.§31',
   channel: 'email',
-  subject: `${clubLegalName} — your Pitch receipt`,
+  subject: `${r.clubLegalName} — your Pitch receipt`,
   body:
 `Tax invoice
-${clubLegalName}
-${planLabel}
-${amount} AUD, paid ${paidOn} — includes ${gst} GST
-Card ending ${cardLast4} · receipt ${receiptNo}
-Renews ${renewsOn} at ${amount} AUD unless you cancel before then.
+${r.clubLegalName}
+${r.planLabel}
+${r.amount} AUD, paid ${r.paidOn} — includes ${r.gst} GST
+${r.cardLast4 ? `Card ending ${r.cardLast4} · ` : ''}receipt ${r.receiptNo}
+Renews ${r.renewsOn} at ${r.amount} AUD unless you cancel before then.
 
 EBSD Enterprises Pty Ltd trading as Pitch Football · ABN 65 701 879 718
 
 Manage or cancel this subscription: ${SITE}/club/billing
 
-Cancelling lives in your club settings on Pitch and takes about as long as signing up did.${refundable ? ` Cancel within 14 days of today and we refund the whole ${amount}, no questions.` : ''}
+Cancelling lives in your club settings on Pitch and takes about as long as signing up did.${r.refundable ? ` Cancel within 14 days of today and we refund the whole ${r.amount}, no questions.` : ''}
 
 This charge shows on your statement as PITCH FOOTBALL.
 Something wrong? Reply to this email before you ring your bank — we can usually fix it the same day.

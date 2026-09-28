@@ -52,7 +52,17 @@ export type SendResult =
  */
 export const numberHash = (n: string) => createHash('sha256').update(n.replace(/\s/g, '')).digest();
 
-export async function send(msg: Composed, to: { address: string; personId?: string }): Promise<SendResult> {
+/**
+ * Queue one message.
+ *
+ * `to.personId` is who it goes TO; `to.subjectId` is who it is ABOUT, and they
+ * are rarely the same person — a guardian's approval email is addressed to the
+ * parent and is about the child. The subject rides on the outbox row so that
+ * when the provider's delivery receipt comes back, the spine row it writes
+ * lands on the right person's consent log (D-78, 0065). Without it a receipt
+ * arrives with nothing to attach it to.
+ */
+export async function send(msg: Composed, to: { address: string; personId?: string; subjectId?: string }): Promise<SendResult> {
   // The catalogue is the gate: if a message is not in doc 15, it does not send.
   if (!KEYS.has(msg.key) && !DRAFTS.has(msg.key)) return { queued: false, reason: 'not_in_catalogue' };
   // A draft never reaches a person. In production that is a refusal, not a
@@ -103,9 +113,9 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
   // attempts starts at 1: this row is claimed by the inline dispatch below,
   // so a sweep arriving a minute later does not treat it as untried.
   const { rows } = await db.query(
-    `insert into message_outbox (message_key, channel, to_person, to_address, subject, body, attempts, last_attempt_at)
-     values ($1,$2,$3,$4,$5,$6,1,now()) returning id`,
-    [msg.key, msg.channel, to.personId ?? null, to.address, msg.subject ?? null, msg.body],
+    `insert into message_outbox (message_key, channel, to_person, to_address, subject, body, subject_id, attempts, last_attempt_at)
+     values ($1,$2,$3,$4,$5,$6,$7,1,now()) returning id`,
+    [msg.key, msg.channel, to.personId ?? null, to.address, msg.subject ?? null, msg.body, to.subjectId ?? null],
   );
   const id = rows[0].id as string;
 
@@ -169,9 +179,12 @@ export async function sendAndLog(
   msg: Composed,
   to: { address: string; personId?: string },
   funnelEvent: 'email_sent' | 'sms_sent' | 'nudge_sent',
+  // Who the message is ABOUT. It goes on the spine row AND on the outbox row,
+  // so the provider's delivery receipt writes its own spine row against the
+  // same person (D-78, 0065) instead of against nobody.
   subjectId?: string,
 ): Promise<SendResult> {
-  const result = await send(msg, to);
+  const result = await send(msg, { ...to, subjectId });
   if (result.queued) {
     await db.query(
       `insert into consent_event (event, subject_id, detail)

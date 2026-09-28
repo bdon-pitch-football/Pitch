@@ -3180,11 +3180,20 @@ check('sendl11: and does not define its own',
 check('sendl12: STOP is matched case- and punctuation-insensitively',
   /toUpperCase\(\)\.replace\(\/\[\^A-Z\]\/g, ''\)/.test(smsHook), true);
 
-// Both webhooks write to the consent spine, so both must prove who they are.
+// Every webhook writes to the consent spine, so every one of them must prove
+// who it is. WAS: "the file contains timingSafeEqual" — a proxy that went red
+// on 28 Sep when the Twilio check moved into lib/twilio-signature so the two
+// Twilio endpoints could not drift apart. The rule was never the word; it is
+// that the handler refuses an unsigned body with a constant-time compare, in
+// this file or in the one module it shares (L33).
+const sigSrc = (src) => src + (/verifyTwilioSignature/.test(src)
+  ? readFileSync(fileURLToPath(new URL('../lib/twilio-signature.ts', import.meta.url)), 'utf8') : '');
 for (const [what, file] of [['the SMS webhook', '../app/api/webhooks/sms/route.ts'],
+                            ['the SMS delivery webhook', '../app/api/webhooks/sms/status/route.ts'],
                             ['the email webhook', '../app/api/webhooks/resend/route.ts']]) {
-  const src = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
-  check(`sendl13: ${what} verifies its signature`, /timingSafeEqual/.test(src), true);
+  const src = sigSrc(readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8'));
+  check(`sendl13: ${what} verifies its signature`,
+    /timingSafeEqual/.test(src) && /status: 401/.test(src), true);
   check(`sendl14: ${what} refuses when unconfigured rather than accepting`,
     /status: 503/.test(src), true);
 }
@@ -3237,7 +3246,7 @@ check('sendl17b: and the claim is a write, not a lock it lets go of',
 check('sendl17c: dispatch does not stamp attempts — the caller claims',
   /update message_outbox set attempts = attempts \+ 1[\s\S]{0,80}where id = \$1`/.test(msgSrc2), false);
 check('sendl17d: send() claims its own row in the insert',
-  /attempts, last_attempt_at\)\s*\n?\s*values \(\$1,\$2,\$3,\$4,\$5,\$6,1,now\(\)\)/.test(msgSrc2), true);
+  /attempts, last_attempt_at\)\s*\n?\s*values \((?:\$\d+,)+1,now\(\)\)/.test(msgSrc2), true);
 check('sendl18: and it is behind the cron secret like every other job',
   /CRON_SECRET/.test(sweep), true);
 check('sendl19: its response carries counts, never addresses or names',
@@ -3464,8 +3473,6 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     verificationCodeSms: 'doc 15 §14: approval uses two links (D-156), not codes',
     sendRequestLapsedEmail: 'doc 15 §35: the composer is an under-16 with no address; nothing to send to',
     clubDeverifiedEmail: 'doc 15 §37: needs the child-safety reason class on the verification call (doc 32 D)',
-    paymentTakenEmail: 'doc 15 §31: Stripe is not connected yet',
-    paymentFailedEmail: 'doc 15 §32: Stripe is not connected yet',
   };
   const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]);
   const root = fileURLToPath(new URL('..', import.meta.url));
@@ -4945,6 +4952,257 @@ const componentFilesAll = [];
     }
   }
   check(`ban1: D-108's words are not on any screen (${found.slice(0, 4).join(' · ') || 'none are'})`, found.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// 0065 · THE RECEIPT, THE DELIVERY RECEIPTS, AND THE LABELS A PARENT READS
+// (D-136, D-137, D-148; D-78; doc 14 O2/O3, B11, F8; LESSONS L5, L13, L19)
+//
+// Three defects of one shape: a webhook writing to the wrong place, or not at
+// all. The receipt had no trigger, the email receipt stopped at the outbox, the
+// SMS receipt did not exist, and the guardian's consent log rendered five lines
+// nothing in the product could ever write.
+//
+// The last group is the one that stops this recurring: it reads the labels off
+// the screen and demands a writer for each, so a label added tomorrow with
+// nothing behind it turns this suite red.
+// ---------------------------------------------------------------------------
+{
+  const { execFileSync } = await import('node:child_process');
+  const hook = srcOf('app/api/stripe/webhook/route.ts');
+  const hookCode = codeOnly(hook);
+  const resendSrc = codeOnly(srcOf('app/api/webhooks/resend/route.ts'));
+  const smsStatusSrc = codeOnly(srcOf('app/api/webhooks/sms/status/route.ts'));
+  const receipts = await import('../lib/receipts.ts');
+
+  // --- the receipt (doc 15 §31) ------------------------------------------
+  const facts = receipts.invoiceFacts({
+    id: 'in_test', number: 'PF-00184', amount_paid: 32900, currency: 'aud',
+    lines: { data: [{ period: { end: Math.floor(Date.UTC(2028, 2, 3) / 1000) } }] },
+  });
+  const paidAt = new Date(Date.UTC(2027, 2, 2, 22, 0, 0)); // 3 March 2027, Melbourne
+  const club = { name: 'Riverside Football Club', plan: 'register_annual', contactEmail: 'committee@riverside.example.au' };
+  const built = receipts.receiptFields(club, facts, paidAt);
+
+  check('O2: the receipt is addressed to the CLUB’s own mailbox (D-137)',
+    built?.to, 'committee@riverside.example.au');
+  // The whole point of D-137: a treasurer is reimbursed without an argument,
+  // and doc 14 O2 says a billing email that resolves a family address cannot
+  // exist. No club address is no receipt — never a fallback to whoever paid.
+  check('O2b: a club with no mailbox gets no receipt rather than one to the payer',
+    receipts.receiptFields({ ...club, contactEmail: null }, facts, paidAt), null);
+  check('O2c: and the webhook has no other way to address one — no person, no guardian, no player',
+    /guardian|player|to_person|from person|person\./i.test(hookCode.replace(/person_name/g, '')), false);
+
+  // D-148: the price on the page is GST-inclusive, so the GST inside it is one
+  // eleventh. doc 15 §31 prints $29.91 on $329.00, and this is that sum.
+  check('D-148: the tax invoice shows the GST inside a GST-inclusive price',
+    [built?.receipt.amount, built?.receipt.gst], ['$329.00', '$29.91']);
+  check('D-148b: on the monthly plan too', receipts.receiptFields(
+    { ...club, plan: 'register_monthly' }, { ...facts, amountCents: 5400 }, paidAt)?.receipt.gst, '$4.91');
+  check('D-136: the renewal date is the period the invoice paid for',
+    built?.receipt.renewsOn, '3 March 2028');
+  // No period in the payload: the date comes from our own plan rather than
+  // from a guess about somebody else's field.
+  check('D-136b: and where the payload gives none, from the plan',
+    receipts.receiptFields(club, { ...facts, periodEnd: null }, paidAt)?.receipt.renewsOn, '3 March 2028');
+  check('D-136c: the 14-day cooling-off is the annual plan only',
+    [built?.receipt.refundable,
+      receipts.receiptFields({ ...club, plan: 'register_monthly' }, facts, paidAt)?.receipt.refundable], [true, false]);
+  check('D-136d: a $0 invoice is not a charge and gets no tax invoice',
+    receipts.invoiceFacts({ id: 'in_0', amount_paid: 0 }), null);
+  check('D-136e: the receipt number is Stripe’s, never invented',
+    [built?.receipt.receiptNo, receipts.invoiceFacts({ id: 'in_x', amount_paid: 100 })?.receiptNo], ['PF-00184', 'in_x']);
+  // The club id does NOT arrive in an invoice's own metadata — Stripe puts a
+  // subscription's metadata under subscription_details. Reading only
+  // `metadata.club_id` is why the dunning branch (D-135) could never fire.
+  check('D-135: an invoice event resolves its club from where Stripe actually puts it',
+    [receipts.clubIdFromEvent({ subscription_details: { metadata: { club_id: 'club-1' } } }),
+      receipts.clubIdFromEvent({ metadata: { club_id: 'club-2' } }),
+      receipts.clubIdFromEvent({})], ['club-1', 'club-2', null]);
+  check('D-135b: and falls back to our own stripe_customer_id',
+    /from club where stripe_customer_id/.test(hookCode), true);
+
+  // The words themselves. lib/messages is a server module, so it is imported
+  // in a child process under the same react-server condition Next resolves it
+  // under — the body asserted here is the one that would send.
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const compose = (json) => JSON.parse(execFileSync(process.execPath, [
+    '--conditions=react-server', '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--input-type=module', '-e',
+    `const m = await import(${JSON.stringify(join(root, 'lib/messages.ts'))});
+     process.stdout.write(JSON.stringify(m.paymentTakenEmail(${json})));`,
+  ], { encoding: 'utf8' }));
+  const receipt = compose(JSON.stringify(built.receipt));
+  check('doc15 §31: the receipt is the approved message, keyed to doc 15',
+    [receipt.key, receipt.subject], ['doc15.§31', 'Riverside Football Club — your Pitch receipt']);
+  check('D-148c: headed a tax invoice, with the entity, the ABN and the GST shown separately',
+    ['Tax invoice', 'EBSD Enterprises Pty Ltd trading as Pitch Football · ABN 65 701 879 718', 'includes $29.91 GST']
+      .every((t) => receipt.body.includes(t)), true);
+  check('D-136f: the disclosure is ours — renewal, the cancel route inside Pitch, the cooling-off, the statement descriptor',
+    ['Renews 3 March 2028 at $329.00 AUD unless you cancel before then.',
+      'pitchfootball.com.au/club/billing',
+      'Cancel within 14 days of today and we refund the whole $329.00, no questions.',
+      'This charge shows on your statement as PITCH FOOTBALL.'].every((t) => receipt.body.includes(t)), true);
+  // O10: a billing surface carries no child data. Not "we did not put any in" —
+  // there is nothing about a child in what the receipt is built from.
+  check('O10: nothing about any child can reach the receipt',
+    /player|registration|child|first_name|record/i.test(receipt.body), false);
+  // The card's last four are not on a Stripe invoice (lib/receipts). Omitted
+  // rather than guessed, and the line reads exactly as doc 15 has it when we
+  // do have them.
+  check('doc15 §31b: the card line renders as approved when we have the digits, and omits them when we do not',
+    [compose(JSON.stringify({ ...built.receipt, cardLast4: '4242' })).body.includes('Card ending 4242 · receipt PF-00184'),
+      receipt.body.includes('receipt PF-00184'), receipt.body.includes('Card ending')], [true, true, false]);
+
+  // O3: a payment sets a subscription flag and nothing else — and the branch
+  // that sends the receipt sets nothing at all, so a late receipt for an old
+  // charge cannot disturb the ordering guard 0032 installed.
+  const succeeded = hookCode.split("case 'invoice.payment_succeeded'")[1]?.split('case ')[0] ?? '';
+  check('O3: the payment-succeeded branch writes no subscription state — a receipt and nothing else',
+    [succeeded.length > 0, /apply\(|fn_apply_subscription|update club/.test(succeeded)], [true, false]);
+  check('O3b: and it is the webhook that sends it — no other path calls the receipt',
+    routeFiles.concat(readdirSync(fileURLToPath(new URL('../lib', import.meta.url))).map((f) => join(fileURLToPath(new URL('../lib', import.meta.url)), f)))
+      .filter((f) => /\.tsx?$/.test(f) && !/lib\/messages\.ts$/.test(f))
+      .filter((f) => /paymentTakenEmail|paymentFailedEmail/.test(readFileSync(f, 'utf8')))
+      .map((f) => f.slice(f.lastIndexOf('/app/') + 1 || f.lastIndexOf('/lib/') + 1)),
+    ['app/api/stripe/webhook/route.ts']);
+  check('D-136g: every charge produces one receipt — a replayed event sends no second tax invoice',
+    hookCode.indexOf('from stripe_event where id') < hookCode.indexOf("case 'invoice.payment_succeeded'"), true);
+
+  // --- provider delivery receipts on the spine (D-78) ---------------------
+  const { verifyTwilioSignature } = await import('../lib/twilio-signature.ts');
+  const twilioSig = (url, params, token) => createHmac('sha1', token)
+    .update(url + Object.keys(params).sort().map((k) => k + params[k]).join('')).digest('base64');
+  {
+    const url = 'https://pitchfootball.com.au/api/webhooks/sms/status';
+    const params = { MessageSid: 'SM1', MessageStatus: 'delivered' };
+    const good = twilioSig(url, params, 'tok');
+    check('D-81: a Twilio signature is accepted only when it is right',
+      [verifyTwilioSignature(url, params, good, 'tok'),
+        verifyTwilioSignature(url, { ...params, MessageStatus: 'failed' }, good, 'tok'),
+        verifyTwilioSignature(url, params, good, 'other-token'),
+        verifyTwilioSignature(url, params, null, 'tok')], [true, false, false, false]);
+  }
+  check('D-78: both provider webhooks write the spine through the one function, and neither writes it themselves',
+    [/fn_record_delivery/.test(resendSrc), /insert into consent_event/.test(resendSrc),
+      /fn_record_delivery/.test(smsStatusSrc), /insert into consent_event/.test(smsStatusSrc)],
+    [true, false, true, false]);
+  check('D-78b: and each verifies its signature before reading a byte of the body',
+    [smsStatusSrc.indexOf('verifyTwilioSignature') < smsStatusSrc.indexOf('params.MessageSid'),
+      resendSrc.indexOf('verify(payload') < resendSrc.indexOf('JSON.parse(payload)')], [true, true]);
+  check('D-78c: nothing anywhere writes email_opened — open tracking was declined, not forgotten',
+    routeFiles.concat([fileURLToPath(new URL('../lib/messaging.ts', import.meta.url))])
+      .filter((f) => /insert into consent_event/.test(readFileSync(f, 'utf8')) && /'email_opened'/.test(readFileSync(f, 'utf8'))).length, 0);
+
+  // Behaviour, on the database. A delivered message writes one spine row of
+  // the right word, against the person the message was ABOUT.
+  const kid = crypto.randomUUID(), parent = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Receipt Kid',$2), ($3,'Receipt Parent',$4)`,
+    [kid, yearsAgo(15), parent, yearsAgo(41)]);
+  const outbox = async (provider, channel, subject) => (await db.query(
+    `insert into message_outbox (message_key, channel, to_person, to_address, body, provider_id, subject_id)
+     values ($1,$2,$3,$4,'x',$5,$6) returning id`,
+    [channel === 'sms' ? 'doc15.§1' : 'doc15.§2', channel, parent,
+      channel === 'sms' ? '+61400000000' : 'p@example.com', provider, subject])).rows[0].id;
+  const spine = async (person) => (await db.query(
+    `select event from consent_event where subject_id = $1 order by id`, [person])).rows.map((r) => r.event);
+
+  await outbox('resend-1', 'email', kid);
+  check('D-78d: an email delivery receipt writes email_delivered on the spine (D-78, doc 14 F8)',
+    await db.query(`select fn_record_delivery('resend-1','delivered') as e`).then((r) => r.rows[0].e), 'email_delivered');
+  check('D-78e: against the person the message was about, not the person it went to',
+    [await spine(kid), await spine(parent)], [['email_delivered'], []]);
+  check('D-78f: a retried receipt writes nothing twice',
+    [await db.query(`select fn_record_delivery('resend-1','delivered') as e`).then((r) => r.rows[0].e), (await spine(kid)).length], [null, 1]);
+
+  await outbox('SM-1', 'sms', kid);
+  check('D-78g: an SMS delivery receipt writes sms_delivered',
+    await db.query(`select fn_record_delivery('SM-1','delivered') as e`).then((r) => r.rows[0].e), 'sms_delivered');
+
+  // A bounce is not a delivery and does not borrow its word (L5). It lands on
+  // the outbox, where the reason column lives, and writes no spine row.
+  await outbox('resend-2', 'email', kid);
+  const bounced = await db.query(`select fn_record_delivery('resend-2','failed','email.bounced') as e`);
+  const bounceRow = (await db.query(`select failed_at is not null as failed, failure_reason, delivered_at from message_outbox where provider_id='resend-2'`)).rows[0];
+  check('D-78h: a bounce writes the outbox and no spine row — the vocabulary has no word for one',
+    [bounced.rows[0].e, bounceRow.failed, bounceRow.failure_reason, bounceRow.delivered_at, (await spine(kid)).length],
+    [null, true, 'email.bounced', null, 2]);
+  check('D-78i: a receipt for a message we never sent writes nothing at all',
+    [await db.query(`select fn_record_delivery('never-sent','delivered') as e`).then((r) => r.rows[0].e), (await spine(kid)).length], [null, 2]);
+
+  // B11 — the row doc 14 states as: discovery at sixteen is gated on the
+  // 30-day notice having DELIVERED, and if it never delivered, discovery stays
+  // off. 0013 said the provider receipt writes that; nothing did until now.
+  {
+    const teen = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,'Notice Teen',$2)`, [teen, yearsAgo(16, -10)]);
+    const ob = await outbox('resend-b11', 'email', teen);
+    await db.query(`insert into age_transition_notice (child_id, outbox_id) values ($1,$2)`, [teen, ob]);
+    check('B11: a 16–17 whose guardian notice has not delivered is in no search',
+      await searchable(ID.coachV, teen), false);
+    await db.query(`select fn_record_delivery('resend-b11','delivered')`);
+    check('B11b: the provider’s delivery receipt is what turns it on, and the only thing that does',
+      [await db.query(`select fn_transition_notice_delivered($1) as d`, [teen]).then((r) => r.rows[0].d),
+        await searchable(ID.coachV, teen)], [true, true]);
+  }
+
+  // Age transitions (doc 14 F8: a guardian sees every age transition).
+  {
+    const sixteen = crypto.randomUUID(), eighteen = crypto.randomUUID(), younger = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,'Turned16',$2), ($3,'Turned18',$4), ($5,'Not Yet',$6)`,
+      [sixteen, yearsAgo(16), eighteen, yearsAgo(18), younger, yearsAgo(14)]);
+    const n = await db.query('select fn_record_age_transitions() as n');
+    check('F8: a band change is written to the consent log, for the child it happened to',
+      [(await spine(sixteen)), (await spine(eighteen)), (await spine(younger))],
+      [['age_transition'], ['age_transition'], []]);
+    check('F8b: with the band and the date it changed, so a late run is still honest',
+      (await db.query(`select detail->>'band' as band, detail->>'on' as on from consent_event where subject_id=$1`, [sixteen])).rows[0],
+      { band: '16_17', on: yearsAgo(0) });
+    check('F8c: and the same run again writes nothing — the band is the key',
+      [n.rows[0].n >= 2, (await db.query('select fn_record_age_transitions() as n')).rows[0].n], [true, 0]);
+    check('F8d: the daily job is what runs it — a birthday is not a page load (L31)',
+      /fn_record_age_transitions/.test(srcOf('app/api/jobs/daily/route.ts')), true);
+  }
+
+  // --- every label the guardian's log renders has a writer ---------------
+  //
+  // THE CHECK THAT STOPS THIS RECURRING. Five lines on that screen — "That
+  // email reached your inbox", "You opened that email", "That text reached
+  // your phone", "You opened the permission page", "Their age band changed" —
+  // were promises to a parent that nothing in the product could keep. Four are
+  // now written. The fifth is a deliberate refusal, named below with its
+  // reason, and a future label with nothing behind it fails here.
+  {
+    const controls = srcOf('app/g/controls/[childId]/page.tsx');
+    const map = /const EVENT_LINES: Record<string, string> = \{([\s\S]*?)\n  \};/.exec(controls)?.[1] ?? '';
+    const labels = [...map.matchAll(/^\s{4}([a-z_]+):/gm)].map((m) => m[1]);
+    check('F8e: the guardian’s consent log renders a line for every word in the spine vocabulary',
+      labels.length > 30, true);
+
+    // A writer is anything that actually inserts the word: a TS path, or a
+    // Postgres function. Reading the CHECK constraint does not count — that is
+    // the vocabulary, not a writer.
+    const tsAll = routeFiles.concat(readdirSync(fileURLToPath(new URL('../lib', import.meta.url)))
+      .map((f) => fileURLToPath(new URL('../lib/' + f, import.meta.url))).filter((f) => /\.ts$/.test(f)));
+    const tsWriters = tsAll.map((f) => readFileSync(f, 'utf8')).filter((src) => /insert into consent_event/.test(src)).join('\n');
+    const pgWriters = (await db.query(
+      `select prosrc from pg_proc where prosrc ilike '%insert into consent_event%'`)).rows.map((r) => r.prosrc).join('\n');
+    const written = (w) => new RegExp(`'${w}'`).test(tsWriters) || new RegExp(`'${w}'`).test(pgWriters);
+
+    // Named, with the reason, exactly as the unsent-message list above is.
+    // Nothing joins this list without an argument in a report.
+    const NO_WRITER_BY_DECISION = {
+      email_opened: 'declined on purpose (app/api/webhooks/resend): an open-tracking pixel on a guardian’s email is surveillance, and doc 14 J41 refuses the same thing for links. The label and the D-78 vocabulary word are both proposed for removal — 28 Sep report, awaiting BUZ',
+    };
+    const orphans = labels.filter((w) => !written(w) && !(w in NO_WRITER_BY_DECISION));
+    check(`F8f: every line the guardian reads has something that writes it (${orphans.join(', ') || 'all do'})`, orphans, []);
+    const stale = Object.keys(NO_WRITER_BY_DECISION).filter((w) => written(w));
+    check(`F8g: and nothing is excused that is now written (${stale.join(', ') || 'none'})`, stale, []);
+    // The exception list cannot outlive the label: if BUZ says remove it, the
+    // entry goes with it.
+    check('F8h: and nothing is excused that the screen no longer renders',
+      Object.keys(NO_WRITER_BY_DECISION).filter((w) => !labels.includes(w)), []);
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
