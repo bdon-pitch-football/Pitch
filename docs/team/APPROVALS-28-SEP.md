@@ -19,13 +19,17 @@ Anything new still goes to BUZ.
 | Stat sources | "Coach-verified" · "Official import" | builder-provenance-honesty |
 | Parent's consent log | "You opened that email" is **removed**: the label goes, and the word `email_opened` leaves `consent_event`'s CHECK in one migration (see builder-webhooks, Found 1) | builder-webhooks |
 | Tax invoice | Without card digits the line reads "receipt PF-00184"; with them, "Card ending 4242 · receipt PF-00184". Plan lines as proposed. **Dormant at launch (D-163).** | builder-webhooks |
-| Who looked | The heading, empty state, fallback name, row and footer, as proposed. **Two defaults:** the row shows a **short report reference**, not the full uuid, and the footer's contact is **help@pitchfootball.com.au**, the brief's `SUPPORT_EMAIL`. That mailbox has to exist before launch. | builder-unwired-promises |
+| Who looked | The heading, empty state, fallback name, row and footer, as proposed. **Two defaults:** the row shows a **short report reference**, not the full uuid, and the footer's contact is **burak.donmez@pitch-football.com**, BUZ's direct address, which he restated in chat on 28 Sep (not help@). | builder-unwired-promises |
 | Ops call sheet | The suspension reason label, the three options and the note, as proposed. Also the six Technical Director strings from builder-td-wall. | builder-unwired-promises, builder-td-wall |
 | Billing screen | All proposed strings. **Dormant at launch (D-163):** they render only when billing is switched on. | builder-billing-and-return |
 | Website | "Free for everyone at launch." · the Clubs card · the FAQ answer · the /join club line. **Live 28 Sep.** | this session |
 | CV context marker | "U15 · born Jan–Mar", "Apr–Jun", "Jul–Sep" or "Oct–Dec" (D-84, D-164). **Never on the share card or the OG image.** | this session |
 | Country step | "Where do you live?" · "Australia" / "Somewhere else" · "Pitch is only in Australia for now." Nothing is collected from anyone who picks Somewhere else. | this session |
 | Premium rows (18+ only) | "Unlimited clips" · "See who viewed your CV", each with a PREMIUM tag and "Coming soon" · "Tap a locked feature to be first in line." · after a tap: "Premium is coming. You're first in line." | this session |
+
+## Contact address
+
+**burak.donmez@pitch-football.com is the one contact address a user sees**, BUZ in chat on 28 Sep: "as mentioned i want to use my direct email." It replaces help@pitchfootball.com.au everywhere, including screens, emails, SMS and the who-looked card, through one constant.
 
 ## Decisions — the defaults, now approved
 
