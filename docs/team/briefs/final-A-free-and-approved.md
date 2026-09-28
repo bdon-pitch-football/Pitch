@@ -46,6 +46,8 @@ write stays held and goes into your report word for word.
   `burak.donmez@pitch-football.com`, from ONE constant (`SUPPORT_EMAIL`, defaulting to it). That covers
   `lib/messages.ts` `HELP`, the SMS bodies it feeds, `/join`, `/a/[id]/done`, `/claim/[slug]` and `WhoLooked`.
   A check must fail if the old address renders or sends anywhere.
+- **Squad screen stat labels:** "Coach-verified" and "Official import" are approved. Apply the one-line change
+  the cleanup builder held (its report, item 4).
 - **Doc 15 §32:** remove the day-seven and suspension-reminder promise. Doc
   edit only.
 
