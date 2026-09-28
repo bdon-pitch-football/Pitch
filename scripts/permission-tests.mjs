@@ -1167,6 +1167,218 @@ check('I4: and its token now reads like every other dead state',
 check('I5b/I3: the consent log survives the deletion',
   (await db.query(`select count(*)::int as n from consent_event where subject_id=$1`, [delChild])).rows[0].n, 1);
 
+// ---------------------------------------------------------------------------
+// ERASURE AS A PROPERTY (D-26, doc 14 I1/I4/I5, U-6; 0067).
+//
+// The one-tap deletion failed for any child an investigator had looked at
+// (investigation_access cannot be deleted and pinned the grant), and from
+// 28 Sep for any 16–17 who signed up (message_outbox.subject_id). Both were a
+// table the deletion's author did not know about. The checks above build a
+// child with a record and a token and nothing else, so they could not see it.
+//
+// This one does not list the tables. It reads every foreign key onto
+// person(id) from pg_constraint, puts the child in EVERY one of those columns
+// — including the ones a child cannot reach today, because the property is
+// "no row names the child", not "no row a child can reach today names the
+// child" — runs fn_erase_child, the function the button calls, and asks each
+// column again. A table added tomorrow that references a person fails the
+// first check below by name until somebody decides what erasure does to it.
+// ---------------------------------------------------------------------------
+{
+  const q = (sql, args) => db.query(sql, args);
+  const fkCols = (await q(
+    `select c.conrelid::regclass::text as tbl, a.attname as col
+     from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+     where c.contype = 'f' and c.confrelid = 'person'::regclass order by 1, 2`)).rows.map((r) => `${r.tbl}.${r.col}`);
+
+  // The world: a club of its own, so nothing here moves another table's counts.
+  const E = {};
+  for (const k of ['child', 'guardian', 'other', 'otherGuardian', 'adult', 'investigator', 'club', 'squad', 'rec', 'otherRec',
+    'report', 'comp', 'role', 'reg', 'otherReg', 'otherReg2', 'inv', 'otherInv', 'tok', 'otherTok', 'outAbout', 'grant', 'otherGrant']) {
+    E[k] = crypto.randomUUID();
+  }
+  const P = E.child;
+  const person = (id, name, dob) => q(`insert into person (id, first_name, last_name, dob) values ($1,$2,'Erasure',$3)`, [id, name, dob]);
+  await person(P, 'Erin', yearsAgo(16, -100));          // 16–17: the band that can reach the most tables
+  await person(E.guardian, 'Gale', yearsAgo(44));
+  await person(E.other, 'Oli', yearsAgo(12));
+  await person(E.otherGuardian, 'Ona', yearsAgo(41));
+  await person(E.adult, 'Ade', yearsAgo(38));
+  await person(E.investigator, 'Ivy', yearsAgo(33));
+  await q(`insert into club (id, name, club_state) values ($1,'Erasure Park FC','claimed')`, [E.club]);
+  await q(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,'E-U17','U17','boys','2026')`, [E.squad, E.club]);
+  await q(`insert into competency (id, framework_version, code) values ($1,'erasure-fixture','ERASE-1')`, [E.comp]);
+  await q(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'player_cv','erasure-fixture','fixture')`, [E.report]);
+
+  // Every column gets the child, whatever the product's own rules would say:
+  // the triggers that keep a minor out of adult roles are switched off for the
+  // fixture only, and switched back on before anything is asserted.
+  const FIXTURE = {
+    'abuse_signal.actor_id': `insert into abuse_signal (actor_id, reason, surface) values ($P,'blocked','send')`,
+    'age_transition_notice.child_id': `insert into age_transition_notice (child_id) values ($P)`,
+    'alumni_entry.added_by': `insert into alumni_entry (club_id, line, added_by) values ('${E.club}','A former player',$P)`,
+    'alumni_entry.adults_confirmed_by': `insert into alumni_entry (club_id, line, adults_confirmed_by, adults_confirmed_at) values ('${E.club}','Another former player',$P, now())`,
+    'assessment_entry.author_id': `insert into assessment_entry (record_id, competency_id, band, author_id) values ('${E.otherRec}','${E.comp}','developing',$P)`,
+    'assessment_session.author_id': `insert into assessment_session (author_id) values ($P)`,
+    'auth_credential.person_id': `insert into auth_credential (person_id, password_hash) values ($P,'fixture')`,
+    'auth_device.person_id': `insert into auth_device (person_id, device_hash) values ($P,'\\x01')`,
+    'auth_reset.person_id': `insert into auth_reset (person_id, token_hash, expires_at) values ($P, decode(md5('e-reset'),'hex'), now() + interval '1 day')`,
+    'auth_reset.proves_person_id': `insert into auth_reset (person_id, proves_person_id, token_hash, expires_at) values ('${E.adult}',$P, decode(md5('e-reset2'),'hex'), now() + interval '1 day')`,
+    'auth_session.person_id': `insert into auth_session (person_id, token_hash, expires_at) values ($P, decode(md5('e-sess'),'hex'), now() + interval '1 day')`,
+    'club_video.added_by': `insert into club_video (club_id, url, title, added_by) values ('${E.club}','https://www.youtube-nocookie.com/embed/erasure','Training',$P)`,
+    'coach_authorship.author_id': `insert into coach_authorship (author_id, entries) values ($P, 3)`,
+    'coach_invite.invited_by': `insert into coach_invite (club_id, person_id, invited_by, squad_ids, wwcc_checked) values ('${E.club}','${E.adult}',$P, array['${E.squad}']::uuid[], true)`,
+    'coach_invite.person_id': `insert into coach_invite (club_id, person_id, invited_by, squad_ids, wwcc_checked) values ('${E.club}',$P,'${E.adult}', array['${E.squad}']::uuid[], true)`,
+    'coach_profile.person_id': `insert into coach_profile (person_id) values ($P)`,
+    'coaching_role.posted_by': `insert into coaching_role (club_id, title, posted_by) values ('${E.club}','Assistant coach',$P)`,
+    'development_record.person_id': `insert into development_record (id, person_id) values ('${E.rec}',$P)`,
+    'email_proof.person_id': `insert into email_proof (person_id, token_hash, expires_at) values ($P, decode(md5('e-proof'),'hex'), now() + interval '1 day')`,
+    'growth_note.entered_by': `insert into growth_note (record_id, entered_by, height_cm, measured_on) values ('${E.otherRec}',$P, 150, current_date)`,
+    'guardian_setting.child_id': `insert into guardian_setting (child_id, profile_paused) values ($P, false)`,
+    'guardian_setting.updated_by': `insert into guardian_setting (child_id, profile_paused, updated_by) values ('${E.other}', true, $P)`,
+    'guardianship_link.child_id': `insert into guardianship_link (guardian_id, child_id, approved_at) values ('${E.guardian}',$P, now())`,
+    'guardianship_link.guardian_id': `insert into guardianship_link (guardian_id, child_id, approved_at) values ($P,'${E.other}', now())`,
+    'investigation_grant.investigator_id': `insert into investigation_grant (id, report_id, investigator_id, subject_id, expires_at) values ('${E.otherGrant}','${E.report}',$P,'${E.other}', now() + interval '7 days')`,
+    'investigation_grant.subject_id': `insert into investigation_grant (id, report_id, investigator_id, subject_id, expires_at) values ('${E.grant}','${E.report}','${E.investigator}',$P, now() + interval '7 days')`,
+    'invitation_reply.approved_by': `insert into invitation_reply (invitation_id, replied_by, approved_by, approved_at) values ('${E.otherInv}','${E.other}',$P, now())`,
+    'invitation_reply.replied_by': `insert into invitation_reply (invitation_id, replied_by) values ('${E.inv}',$P)`,
+    'membership.person_id': `insert into membership (person_id, club_id, squad_id, role) values ($P,'${E.club}','${E.squad}','player')`,
+    'message_outbox.subject_id': `insert into message_outbox (id, message_key, channel, to_address, body, subject_id) values ('${E.outAbout}','guardian_confirm_16','email','gale@example.com','fixture',$P)`,
+    'message_outbox.to_person': `insert into message_outbox (message_key, channel, to_address, body, to_person) values ('fixture','email','erin@example.com','fixture',$P)`,
+    'pending_invitation.child_id': `insert into pending_invitation (first_name, dob, child_id) values ('Erin','${yearsAgo(16, -100)}',$P)`,
+    'players_wanted_notice.added_by': `insert into players_wanted_notice (club_id, title, added_by) values ('${E.club}','Keepers wanted',$P)`,
+    'profile_version.approved_by': `insert into profile_version (record_id, content, status, approved_by, approved_at) values ('${E.otherRec}','{}','approved',$P, now())`,
+    'profile_version.created_by': `insert into profile_version (record_id, content, status, created_by) values ('${E.otherRec}','{}','pending',$P)`,
+    'record_entry.author_id': `insert into record_entry (record_id, entry_type, author_id, provenance) values ('${E.otherRec}','coach_note',$P,'coach_verified')`,
+    'register_grant.granted_by': `insert into register_grant (club_id, person_id, squad_id, granted_by) values ('${E.club}','${E.adult}','${E.squad}',$P)`,
+    'register_grant.person_id': `insert into register_grant (club_id, person_id, squad_id, granted_by) values ('${E.club}',$P,'${E.squad}','${E.adult}')`,
+    'register_grant.revoked_by': `insert into register_grant (club_id, person_id, squad_id, granted_by, revoked_at, revoked_by) values ('${E.club}','${E.adult}','${E.squad}','${E.adult}', now(), $P)`,
+    'register_read_log.person_id': `insert into register_read_log (person_id, registration_id, surface) values ($P,'${E.otherReg}','list')`,
+    'registration.disclosed_by': `insert into registration (id, player_id, club_id, policy_version, disclosed_by) values ('${E.otherReg2}','${E.other}','${E.club}','20@v2.4',$P)`,
+    'registration.player_id': `insert into registration (id, player_id, club_id, policy_version) values ('${E.reg}',$P,'${E.club}','20@v2.4')`,
+    'registration_request.dispatched_by': `insert into registration_request (record_id, club_id, dispatched_by, dispatched_at) values ('${E.rec}','${E.club}',$P, now())`,
+    'role_application.coach_id': `insert into role_application (role_id, coach_id) values ('${E.role}',$P)`,
+    'send_held.person_id': `insert into send_held (person_id, club_name) values ($P,'Erasure Park FC')`,
+    'share_card_approval.approved_by': `insert into share_card_approval (record_id, requested_by, card_kind, approved_by, approved_at) values ('${E.rec}','${E.guardian}','og',$P, now())`,
+    'share_card_approval.requested_by': `insert into share_card_approval (record_id, requested_by, card_kind) values ('${E.rec}',$P,'og')`,
+    'share_request.dispatched_by': `insert into share_request (record_id, requested_by, dispatched_by, dispatched_at) values ('${E.rec}','${E.guardian}',$P, now())`,
+    'share_request.requested_by': `insert into share_request (record_id, requested_by) values ('${E.rec}',$P)`,
+    'share_token.issued_by': `insert into share_token (id, record_id, token_hash, issued_by) values ('${E.tok}','${E.rec}', decode(md5('e-tok'),'hex'),$P)`,
+    'squad_claim.answered_by': `insert into squad_claim (person_id, club_id, squad_id, asked_by, answered_by, answered_at) values ('${E.other}','${E.club}','${E.squad}','${E.otherGuardian}',$P, now())`,
+    'squad_claim.asked_by': `insert into squad_claim (person_id, club_id, squad_id, asked_by) values ('${E.other}','${E.club}','${E.squad}',$P)`,
+    'squad_claim.person_id': `insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($P,'${E.club}','${E.squad}','${E.guardian}')`,
+    'squad_invitation.answered_by': `insert into squad_invitation (person_id, club_id, squad_id, invited_by, answered_by, answered_at) values ('${E.other}','${E.club}','${E.squad}','${E.adult}',$P, now())`,
+    'squad_invitation.invited_by': `insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ('${E.other}','${E.club}','${E.squad}',$P)`,
+    'squad_invitation.person_id': `insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($P,'${E.club}','${E.squad}','${E.adult}')`,
+    'undo_token.issued_to': `insert into undo_token (token_hash, share_token_id, issued_to, expires_at) values (decode(md5('e-undo'),'hex'),'${E.otherTok}',$P, now() + interval '1 day')`,
+    'verification_challenge.person_id': `insert into verification_challenge (person_id, channel, token_hash, expires_at) values ($P,'email', decode(md5('e-vc'),'hex'), now() + interval '1 day')`,
+    'wwcc_attestation.attested_by': `insert into wwcc_attestation (person_id, club_id, attested_by) values ('${E.adult}','${E.club}',$P)`,
+    'wwcc_attestation.person_id': `insert into wwcc_attestation (person_id, club_id, attested_by) values ($P,'${E.club}','${E.adult}')`,
+  };
+
+  const missing = fkCols.filter((k) => !(k in FIXTURE));
+  check(`erase0: every column that references a person has an erasure fixture${missing.length ? ` — NOT HANDLED: ${missing.join(', ')}` : ''}`, missing, []);
+  check('erase0b: and the fixture names no column that no longer exists',
+    Object.keys(FIXTURE).filter((k) => !fkCols.includes(k)), []);
+
+  let fixtureErr = null;
+  await db.exec(`set session_replication_role = replica`);
+  try {
+    // The other child's side of the world, which must come through intact.
+    await q(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now())`, [E.otherGuardian, E.other]);
+    await q(`insert into development_record (id, person_id) values ($1,$2)`, [E.otherRec, E.other]);
+    await q(`insert into share_token (id, record_id, token_hash, issued_by) values ($1,$2, decode(md5('e-otok'),'hex'),$3)`, [E.otherTok, E.otherRec, E.otherGuardian]);
+    await q(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`, [E.otherReg, E.other, E.club]);
+    await q(`insert into invitation (id, registration_id, club_id, body) values ($1,$2,$3,'Come and train')`, [E.otherInv, E.otherReg, E.club]);
+    await q(`insert into coaching_role (id, club_id, title, posted_by) values ($1,$2,'Head coach',$3)`, [E.role, E.club, E.adult]);
+    await q(`insert into record_entry (record_id, entry_type, author_id, provenance) values ($1,'attendance',$2,'coach_verified')`, [E.otherRec, E.adult]);
+    // Order matters only where one fixture row points at another — and with
+    // the triggers off, so is the foreign key, so the order is the check.
+    const first = ['development_record.person_id', 'registration.player_id', 'share_token.issued_by', 'message_outbox.subject_id'];
+    for (const k of first) await db.exec(FIXTURE[k].replaceAll('$P', `'${P}'`));
+    await q(`insert into invitation (id, registration_id, club_id, body) values ($1,$2,$3,'Come and train')`, [E.inv, E.reg, E.club]);
+    for (const k of Object.keys(FIXTURE).filter((x) => !first.includes(x))) {
+      await db.exec(FIXTURE[k].replaceAll('$P', `'${P}'`));
+    }
+    // A LOGGED LOOK at the child, and one by them, which is what pinned the grant.
+    await q(`insert into investigation_access (grant_id, what) values ($1,'send rows'), ($2,'send rows')`, [E.grant, E.otherGrant]);
+    // Rows elsewhere that point at a message about the child.
+    await q(`insert into access_request (share_token_id, requester_name, requester_role, notified_outbox_id) values ($1,'Riley','coach',$2)`, [E.otherTok, E.outAbout]);
+    await q(`insert into age_transition_notice (child_id, outbox_id) values ($1,$2)`, [E.other, E.outAbout]);
+  } catch (e) { fixtureErr = e.message; }
+  await db.exec(`set session_replication_role = origin`);
+  check('erase1: the fixture builds', fixtureErr, null);
+
+  const namedIn = async () => {
+    const out = [];
+    for (const k of fkCols) {
+      const [t, c] = k.split('.');
+      const n = (await q(`select count(*)::int as n from ${t} where ${c} = $1`, [P])).rows[0].n;
+      if (n > 0) out.push(k);
+    }
+    return out;
+  };
+  const before = await namedIn();
+  check('erase2: before the deletion the child is named in every one of those columns',
+    fkCols.filter((k) => !before.includes(k)), []);
+
+  // The door: only an approved guardian erases, and a refusal changes nothing.
+  await expectFail('erase3: a stranger cannot erase a child — the function asks, not only the page',
+    `select fn_erase_child('${E.adult}','${P}')`);
+  await expectFail('erase3b: nor can a guardian of a different child',
+    `select fn_erase_child('${E.otherGuardian}','${P}')`);
+  check('erase3c: and the refusal deleted nothing', (await namedIn()).length, before.length);
+  await expectFail('erase4: outside an erasure an entry’s author is still immutable (D-50)',
+    `update record_entry set author_id = null where record_id = '${E.otherRec}' and author_id = '${E.adult}'`);
+  await expectFail('erase4b: and a new investigation grant must still name whose record it opens',
+    `insert into investigation_grant (report_id, investigator_id, subject_id, expires_at) values ('${E.report}','${E.investigator}', null, now() + interval '1 day')`);
+
+  let eraseErr = null;
+  try { await q('select fn_erase_child($1,$2)', [E.guardian, P]); } catch (e) { eraseErr = e.message; }
+  check('I1: the one-tap deletion commits for a child who is named in every table that references a person, including one an investigator looked at',
+    eraseErr, null);
+  const left = await namedIn();
+  check(`I1b: and afterwards no row, in any table that references a person, names the child${left.length ? ` — STILL NAMED IN: ${left.join(', ')}` : ''}`,
+    left, []);
+  check('I1c: nothing is readable by any actor — their guardian, a coach, nobody',
+    [await level(E.guardian, P), await level(E.adult, P), await level(null, P)], ['none', 'none', 'none']);
+  check('I4c: and the child’s own link reads like every other dead state',
+    (await q(`select fn_token_read(decode(md5('e-tok'),'hex')) as r`)).rows[0].r, null);
+  check('I5c: the consent log records the request and the completion, and survives',
+    (await q(`select array_agg(event order by id)::text[] as e from consent_event
+              where (subject_id = $1 and event = 'deletion_requested') or (actor_id = $2 and event = 'deletion_completed')`, [P, E.guardian])).rows[0].e,
+    ['deletion_requested', 'deletion_completed']);
+
+  // U-6 after erasure (Leo, 28 Sep): the trail survives, unlinked.
+  const trail = (await q(`select ig.subject_id, ig.report_id, count(ia.id)::int as looks
+    from investigation_grant ig left join investigation_access ia on ia.grant_id = ig.id where ig.id = $1 group by 1, 2`, [E.grant])).rows[0];
+  check('U-6o: the investigation trail survives the erasure — the grant, its report and the logged look',
+    [trail?.report_id, trail?.looks], [E.report, 1]);
+  check('U-6p: with no link to the child', trail?.subject_id ?? null, null);
+  check('U-6q: and who-looked answers nothing about a person who no longer exists',
+    (await q('select * from fn_who_looked($1,$2)', [E.guardian, P])).rows.length, 0);
+
+  // Someone else's record is theirs (D-48, D-10): the entries the child wrote
+  // on it stay, unsigned; the other child's own entries and link are untouched.
+  const otherRow = (await q(`select
+      (select count(*)::int from record_entry where record_id = $1) as entries,
+      (select count(*)::int from record_entry where record_id = $1 and author_id is null) as unsigned,
+      (select count(*)::int from assessment_entry where record_id = $1) as assessed,
+      (select count(*)::int from growth_note where record_id = $1) as growth,
+      (select revoked_at is null from share_token where id = $2) as live,
+      (select count(*)::int from guardianship_link where child_id = $3 and guardian_id = $4) as parent,
+      (select profile_paused from guardian_setting where child_id = $3) as paused,
+      (select count(*)::int from age_transition_notice where child_id = $3) as notice`,
+    [E.otherRec, E.otherTok, E.other, E.otherGuardian])).rows[0];
+  check('erase5: another child’s record keeps what the erased child wrote on it, unsigned, and loses nothing of its own',
+    otherRow, { entries: 2, unsigned: 1, assessed: 1, growth: 1, live: true, parent: 1, paused: true, notice: 1 });
+
+  // The button runs this function and nothing of its own.
+  const del = codeOnly(srcOf('app/g/controls/[childId]/actions.ts')).split('export async function deleteEverything')[1]?.split('export async function')[0] ?? '';
+  check('erase6: "Delete everything" runs fn_erase_child and deletes nothing itself',
+    [/select fn_erase_child\(\$1, \$2\)/.test(del), /delete from|client\.query/i.test(del)], [true, false]);
+}
+
 // J51 — a revoked note is empty EVERYWHERE, as a property of the data.
 check('J51: no row anywhere retains a note for a withdrawn registration',
   (await db.query(`select count(*)::int as n from registration where withdrawn_at is not null and note is not null`)).rows[0].n, 0);
