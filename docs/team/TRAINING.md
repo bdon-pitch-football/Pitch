@@ -76,9 +76,11 @@ npm run test:timing       # doc 14 E10, L40, J61: response timing against the
                           # running app (§K conditions 3, 7, 10). Needs db + app.
                           # MUTATES MORE THAN ANY OTHER SUITE: it pauses a child,
                           # deletes one, sends ~120 CVs and claims a club page.
-                          # LAST in the line, then reseed. Takes 5–15 minutes:
+                          # LAST in the line, then reseed. Takes 10–30 minutes:
                           # it samples until it can see 0.8ms, so a busy machine
-                          # makes it longer, not wrong.
+                          # makes it longer, not wrong. Start it on a freshly
+                          # started app: `next dev` restarts itself when its
+                          # memory climbs, and a restart mid-run stops the run.
 node scripts/gate-coverage.mjs  # doc 14 rows pinned by the suite
 node scripts/palette-check.mjs · python3 scripts/corpus-check.py · node scripts/secret-scan.mjs
 npx tsc --noEmit

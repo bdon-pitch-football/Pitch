@@ -75,6 +75,16 @@ const ALPHA = 0.001;
 const MAX_RESOLUTION_MS = 1;
 const TARGET_RESOLUTION_MS = 0.8;
 
+// A run that stops must say why (L37's rule for a wedged browser). The usual
+// cause here is `next dev` restarting itself when its memory climbs — it
+// prints "approaching the used memory threshold" and drops the request in
+// flight — and a half-measured row is not a measurement.
+process.on('uncaughtException', (e) => {
+  console.error(`\ntiming STOPPED — ${e?.message ?? e}${e?.cause?.message ? ` (${e.cause.message})` : ''}`);
+  console.error('If the app log says "approaching the used memory threshold", `next dev` restarted mid-run: restart the app, reseed, and run again. Nothing measured above this line is a result.');
+  process.exit(2);
+});
+
 const ids = JSON.parse(readFileSync(new URL('../.dev-ids.json', import.meta.url), 'utf8'));
 if (!ids.adultPlayers || !ids.heldClub) {
   console.error('.dev-ids.json has no adultPlayers/heldClub — reseed (node scripts/dev-db.mts) so it matches this suite');
