@@ -17,6 +17,11 @@ export default function GlobalError({ retry }: { error: Error & { digest?: strin
     <html lang="en-AU">
       <body style={{ margin: 0, background: T.bg, color: T.ink, fontFamily: 'system-ui, sans-serif' }}>
         <title>{c.title}</title>
+        {/* This document gets no globals.css, so the focus ring the chrome pass
+            put on every control does not reach it either. One rule, the same
+            ring, so the keyboard is not stranded on the one screen that exists
+            because everything else already failed. */}
+        <style>{':focus-visible{outline:2px solid ' + T.accent + ';outline-offset:2px}'}</style>
         <div data-failure="error" style={{ minHeight: '100dvh', display: 'flex', justifyContent: 'center', background: T.bg }}>
           <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
             {/* The mark, top right, with no chrome to hang it on (BUZ, 24 Aug:
