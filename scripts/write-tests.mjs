@@ -269,6 +269,78 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// 0a1 · D-105 — THE KEEPER'S FORM OPENS WITH THE KEEPER'S SET.
+//
+// STAT_SETS is the brief's position-aware DEFAULT PRE-SELECTION, and until
+// 28 Sep it was exported and imported by nothing: the form typed the outfield
+// three in, so every goalkeeper opened their own page with Goals and Assists
+// lit and Clean sheets dimmed. It demoed correctly for weeks because the GK
+// fixture's selection was hand-set to exactly what a correct default produces.
+//
+// Nate is the keeper. His record carries a selection, so the default can only
+// be seen after it is cleared — which is a real action (D-105 allows every
+// stat to be switched off). Then the form is posted the way a browser with NO
+// JavaScript posts it, because that is the only path on which the server, not
+// the page, has to know what a keeper's default is.
+//
+// Pressed state is read from aria-pressed rather than from a colour: a test
+// that reads a hex value is testing the palette.
+// ---------------------------------------------------------------------------
+{
+  const nate = ids.children.nate;
+  const buildPath = `/build/${nate.record_id}`;
+  const pressed = (html, label) =>
+    new RegExp(`<button[^>]*aria-pressed="true"[^>]*>${label}</button>`).test(html);
+  const unhtml = (t) => t.replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  // The form as it stands, so a post about one field does not wipe the others.
+  const state = async () => {
+    const { html } = await get(buildPath, nate.child_id);
+    const form = forms(html).find((f) => 'positions' in f.fields);
+    const fields = { ...form.fields };
+    for (const v of form.visible) {
+      if (v.file) continue;
+      fields[v.name] = v.type === 'select' ? (v.options?.[0] ?? '') : (v.value ?? '');
+    }
+    fields.about = unhtml(/<textarea[^>]*name="about"[^>]*>([\s\S]*?)<\/textarea>/.exec(html)?.[1] ?? '');
+    return { html, fields };
+  };
+  const save = async (fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + buildPath, { method: 'POST', body: fd, redirect: 'manual',
+      headers: { cookie: cookieFor(nate.child_id) } });
+    await r.text();
+    return r.status;
+  };
+
+  const before = await state();
+  check('gk-w1: the keeper\u2019s form opens on his stored selection',
+    [pressed(before.html, 'Clean sheets'), pressed(before.html, 'Goals')], [true, false]);
+
+  // He switches every stat off. Nothing is selected, so nothing is stored.
+  check('gk-w2: switching every stat off saves without JavaScript',
+    await save({ ...before.fields, surfaced: '' }), 303);
+  const cleared = await state();
+  check('gk-w3: and with no selection stored the form falls back to the KEEPER\u2019s set, not the outfield three',
+    [pressed(cleared.html, 'Appearances'), pressed(cleared.html, 'Clean sheets'),
+     pressed(cleared.html, 'Goals'), pressed(cleared.html, 'Assists')],
+    [true, true, false, false]);
+
+  // Now the no-JavaScript post: the page sends no selection at all, so the
+  // SERVER applies the default for the positions it is saving.
+  const noJs = { ...cleared.fields };
+  delete noJs.surfaced;
+  check('gk-w4: posting with no selection at all saves', await save(noJs), 303);
+  const saved = await state();
+  check('gk-w5: the keeper\u2019s default is what got stored, so his page carries clean sheets',
+    [pressed(saved.html, 'Clean sheets'), pressed(saved.html, 'Goals')], [true, false]);
+  const preview = (await get(`/build/${nate.record_id}/preview`, nate.child_id)).html;
+  check('gk-w6: and the page a club sees shows Clean sheets and no Goals (D-67, D-70)',
+    [/Clean sheets/i.test(preview), /\bGoals\b/.test(preview)], [true, false]);
+}
+
+// ---------------------------------------------------------------------------
 // 0b · D-153 — A CLUB INVITES A PLAYER TO TRIAL, IN EVERY BAND, ON THE FREE TIER.
 //
 // Walked through the real screens, and the outbox read for what would actually

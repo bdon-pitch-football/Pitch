@@ -115,6 +115,31 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// D-62 / D-105 — where the words on a number come from.
+//
+// The tag was the literal "Self-reported", printed whatever the row said.
+// Every stat the product can write today IS self-reported (lib/cv-build is the
+// only writer), so what these pages SERVE is unchanged — which is the point:
+// the change is honest about where the word comes from, not about what it
+// says. The coach-verified and mixed renders cannot be reached from any suite,
+// because nothing in the product writes a coach_verified stat and this suite
+// cannot open the database (PGlite serves one connection and next-server holds
+// it); they are pinned as rules in the permission suite and were rendered by
+// hand on 28 Sep — see the handoff.
+// ---------------------------------------------------------------------------
+{
+  const { html } = await get('/p/dev-nate');
+  check('pv-r1: a keeper\u2019s CV serves clean sheets with its source beside it',
+    [has(html, 'Clean sheets'), has(html, 'Self-reported')], [true, true]);
+  const nate = ids.children.nate;
+  const form = (await get(`/build/${nate.record_id}`, nate.child_id)).html;
+  const chosen = (label) => new RegExp(`<button[^>]*aria-pressed="true"[^>]*>${label}</button>`).test(form);
+  check('pv-r2: and his build form opens with the keeper\u2019s set chosen, never goals and assists (D-105)',
+    [chosen('Appearances'), chosen('Clean sheets'), chosen('Goals'), chosen('Assists')],
+    [true, true, false, false]);
+}
+
+// ---------------------------------------------------------------------------
 // D-77 - a dead link of any kind is one identical page.
 // ---------------------------------------------------------------------------
 {

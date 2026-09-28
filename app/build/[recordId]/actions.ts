@@ -2,7 +2,7 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { saveCvDraft } from '@/lib/cv-build';
-import { STAT_KEYS, type StatKey } from '@/lib/football';
+import { STAT_KEYS, STAT_SETS, positionGroup, type StatKey } from '@/lib/football';
 import { requireRecordActor } from '@/lib/record-guard';
 
 //
@@ -15,6 +15,7 @@ export async function saveDraft(formData: FormData) {
   // Never trust the record id in the URL (D-94 §3).
   await requireRecordActor(recordId);
   const positions = String(formData.get('positions') ?? '').split(',').filter(Boolean);
+  const chosenStats = formData.get('surfaced') === null ? null : String(formData.get('surfaced'));
   const stats: Partial<Record<StatKey, number | null>> = {};
   for (const k of STAT_KEYS) {
     const raw = String(formData.get(`stat_${k}`) ?? '').trim();
@@ -25,7 +26,15 @@ export async function saveDraft(formData: FormData) {
     squadNumber: formData.get('squadNumber') ? Number(formData.get('squadNumber')) : null,
     foot: (formData.get('foot') as 'Left' | 'Right') || null,
     about: String(formData.get('about') ?? ''),
-    surfacedStats: String(formData.get('surfaced') ?? '').split(',').filter(Boolean) as StatKey[],
+    // D-105: the form posts `surfaced` once the player has chosen. When it is
+    // ABSENT they have not, so the default is the position set — worked out
+    // here from the positions being saved in this same request, because a
+    // record is created with no positions and the form has to be able to save
+    // a first choice of position and the default that belongs to it at once.
+    // With no JavaScript there is no other moment at which that could happen.
+    surfacedStats: (chosenStats === null
+      ? [...STAT_SETS[positionGroup(positions)]]
+      : chosenStats.split(',').filter(Boolean)) as StatKey[],
     stats,
     season: '2026',
   });

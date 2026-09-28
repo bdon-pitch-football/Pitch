@@ -8,7 +8,10 @@
 import LinkState from '@/components/cv/LinkState';
 import { readCvByToken } from '@/lib/record-read';
 import { cvMetadata, DEAD_LINK_METADATA } from '@/lib/cv-meta';
-import { POSITIONS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
+import {
+  POSITIONS, PROVENANCE_LABELS, STAT_LABELS, provenanceLabel, sharedProvenance,
+  type PositionCode, type StatKey,
+} from '@/lib/football';
 import PrintButton from './PrintButton';
 import { T } from '@/lib/palette';
 
@@ -40,8 +43,13 @@ export default async function PrintCv({ params, searchParams }: {
 
   const stats = cv.stats.filter((s) => s.value > 0);
   const tiles = (cv.surfacedStats as StatKey[])
-    .map((k) => ({ key: k, value: stats.find((s) => s.key === k)?.value }))
-    .filter((t): t is { key: StatKey; value: number } => typeof t.value === 'number');
+    .map((k) => stats.find((s) => s.key === k))
+    .filter((s): s is (typeof stats)[number] => s !== undefined && typeof s.value === 'number');
+  // D-62 on the sheet a technical director carries around trial day: the tag
+  // is read off the row, one line for the block while they agree and one under
+  // each number when they do not. It used to be the word "Self-reported",
+  // typed in, whatever the rows said.
+  const shared = sharedProvenance(tiles);
 
   return (
     <div style={{ background: '#ffffff', color: T.bg, minHeight: '100dvh', padding: '32px 28px', fontFamily: 'inherit' }}>
@@ -66,9 +74,14 @@ export default async function PrintCv({ params, searchParams }: {
               <div key={t.key}>
                 <div style={{ fontSize: 30, fontWeight: 900, lineHeight: 1 }}>{t.value}</div>
                 <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5b6b60', marginTop: 3 }}>{STAT_LABELS[t.key]}</div>
+                {shared ? null : (
+                  <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5b6b60', marginTop: 2 }}>{provenanceLabel(t.provenance)}</div>
+                )}
               </div>
             ))}
-            <div style={{ marginLeft: 'auto', alignSelf: 'flex-end', fontSize: 10.5, color: '#5b6b60', fontWeight: 700 }}>Self-reported</div>
+            {shared && (
+              <div style={{ marginLeft: 'auto', alignSelf: 'flex-end', fontSize: 10.5, color: '#5b6b60', fontWeight: 700 }}>{PROVENANCE_LABELS[shared]}</div>
+            )}
           </div>
         )}
 

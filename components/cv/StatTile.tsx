@@ -20,8 +20,12 @@ import { T } from '@/lib/palette';
 // the correct no-op there, because there is no paint to be ahead of.
 const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
-export default function StatTile({ value, label, accent, delay = 0 }: {
-  value: number; label: string; accent: boolean; delay?: number;
+// `source` is the D-62 tag for THIS number, and it is passed only when the
+// block cannot caption itself — when the numbers beside it came from somewhere
+// else. While every stat in the record shares one source the block says it
+// once, exactly as before, and nothing is drawn here.
+export default function StatTile({ value, label, accent, delay = 0, source }: {
+  value: number; label: string; accent: boolean; delay?: number; source?: string;
 }) {
   const [shown, setShown] = useState(value);
   const [done, setDone] = useState(false);
@@ -50,6 +54,9 @@ export default function StatTile({ value, label, accent, delay = 0 }: {
     <div className="cv-rise" style={{ animationDelay: `${0.28 + delay}s`, background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: '10px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
       <div className={done ? 'settle' : undefined} style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.04em', color: accent ? T.accent : T.ink }}>{shown}</div>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,.72)', textTransform: 'uppercase' }}>{label}</div>
+      {source && (
+        <div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(255,255,255,.55)', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.3 }}>{source}</div>
+      )}
     </div>
   );
 }
