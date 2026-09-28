@@ -153,7 +153,7 @@ export default async function SquadPage({ params, searchParams }: {
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{squad.name}</h1>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>
-            {[squad.age_group, squad.competition_gender, squad.season].filter(Boolean).join(' · ')} · <b style={{ color: T.ink }}>{players.length} playing</b>
+            {[squad.age_group, squad.competition_gender, squad.season].filter(Boolean).join(' · ')}{players.length > 0 && <> · <b style={{ color: T.ink }}>{players.length} playing</b></>}
           </div>
         </div>
 
@@ -196,10 +196,19 @@ export default async function SquadPage({ params, searchParams }: {
                   for first is whether they have a keeper. */}
               {reads && (
                 <div style={{ ...card, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                  {/* D-162 bars the DIGIT, not the fact. "0 GOALKEEPERS" is the first
+                      thing a coach looks for — whether they have a keeper — so the
+                      absence stays on the tile, said in words instead of a zero. */}
                   {GROUPS.filter(([g]) => g !== 'UNSET').map(([g, many, one]) => (
                     <div key={g}>
-                      <div className="tnum" style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.04em', color: byGroup(g).length ? T.ink : T.muted }}>{byGroup(g).length}</div>
-                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>{byGroup(g).length === 1 ? one : many}</div>
+                      {byGroup(g).length > 0 ? (
+                        <>
+                          <div className="tnum" style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.04em', color: T.ink }}>{byGroup(g).length}</div>
+                          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>{byGroup(g).length === 1 ? one : many}</div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 12.5, fontWeight: 800, color: T.muted, minHeight: 36, display: 'flex', alignItems: 'flex-end' }}>No {one.toLowerCase()} yet</div>
+                      )}
                     </div>
                   ))}
                   {byGroup('UNSET').length > 0 && (
