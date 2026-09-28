@@ -68,11 +68,14 @@ export async function assembleCv(recordId: string, personId: string, band: strin
   const r = await db.query(
     `select
       (select row_to_json(x) from (
-        select p.first_name, p.photo_path, p.last_name, dr.positions, dr.squad_number, dr.foot, dr.about, dr.surfaced_stats
+        select p.first_name, p.photo_path, p.last_name, dr.positions, dr.squad_number, dr.foot, dr.about, dr.surfaced_stats,
+               -- D-84: the quarter, never the date (0082).
+               fn_birth_quarter(p.dob) as birth_quarter
         from development_record dr join person p on p.id = dr.person_id
         where dr.id = $1) x) as core,
-      (select coalesce(json_agg(json_build_object('season', season, 'key', stat_key, 'value', value, 'provenance', provenance)), '[]'::json)
-        from player_stat where record_id = $1 and value > 0) as stats,
+      -- D-160: each number with its source, its dates and the verifying
+      -- CLUB — never the coach. The database's shape (0083), not ours.
+      fn_stat_public($1) as stats,
       (select coalesce(json_agg(json_build_object('title', title, 'detail', detail) order by sort), '[]'::json)
         from achievement where record_id = $1) as achievements,
       -- fn_experience_public is the database's answer to which of these may
@@ -98,6 +101,7 @@ export async function assembleCv(recordId: string, personId: string, band: strin
   return {
     slug: 'live',
     band: bundle.band as CvData['band'],
+    birthQuarter: row.core.birth_quarter ?? null,
     firstName: row.core.first_name,
     photoPath: row.core.photo_path ?? undefined,
     lastName: row.core.last_name ?? '',

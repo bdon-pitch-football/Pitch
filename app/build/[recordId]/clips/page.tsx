@@ -1,4 +1,7 @@
-// Highlights.dc.html — paste-a-link clips, u18 variant (no premium rows).
+// Highlights.dc.html — paste-a-link clips. Under 18 the screen is clean;
+// an adult's carries Highlights18.dc.html's two locked Premium rows (D-164,
+// D-82: never on an under-18 account, decided from the band the database
+// derived for this record).
 // Click-to-play façades only on any public render (D-97); this screen never
 // embeds anything either.
 import { notFound } from 'next/navigation';
@@ -8,6 +11,7 @@ import { requireRecordActor } from '@/lib/record-guard';
 import { HeaderMark } from '@/components/Wordmark';
 import { CLIP_LIMIT_ADULT_FREE, CLIP_LIMIT_UNDER_18 } from '@/lib/football';
 import { addClip, removeClip } from './actions';
+import PremiumRows from '@/components/PremiumRows';
 import { T } from '@/lib/palette';
 import { fieldLabel } from '@/lib/ui';
 
@@ -19,11 +23,11 @@ const sourceOf = (url: string) =>
 
 export default async function Clips({ params, searchParams }: {
   params: Promise<{ recordId: string }>;
-  searchParams: Promise<{ error?: string; full?: string }>;
+  searchParams: Promise<{ error?: string; full?: string; first?: string }>;
 }) {
   const { recordId } = await params;
   await requireRecordActor(recordId);
-  const { error, full } = await searchParams;
+  const { error, full, first } = await searchParams;
   const { rows } = await db.query(
     `select fn_age_band(p.dob) as band,
        (select coalesce(json_agg(json_build_object('id', h.id, 'title', h.title, 'url', h.url,
@@ -91,6 +95,7 @@ export default async function Clips({ params, searchParams }: {
           )}
         </div>
         <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted, textAlign: 'center' }}>Swap a clip out any time.</div>
+        {band === '18plus' && <PremiumRows on="clips" tapped={first === '1'} />}
       </div>
     </PlayerFrame>
   );

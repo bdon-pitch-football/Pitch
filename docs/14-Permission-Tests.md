@@ -69,6 +69,7 @@ The core table. **Read as: this actor, on a player in this age band, gets this.*
 | A14 | `club_unverified` | **Nothing**, even for its own players — verification gates the data flow | **Nothing** | Public CV |
 | A15 | `support` | **Invitation state only. Never the record** (D-79) | Same | Same |
 | A19 | any actor above, on a `school` experience entry | **Never rendered, on any surface, and the write is refused by the database** (D-161) | Same | **Rendered** — a school or university side is an adult's to name |
+| A20 | `token` (live) reading a `coach_verified` stat | **The verifying club and the date, and no person** — never the coach's name, id or role (D-160) | Same | Same |
 
 **A15b.** `team_manager` on a player in their own squad: **squad membership, fixtures and contact routing only — never the development record.** Same wall as `club_admin_own`.
 
