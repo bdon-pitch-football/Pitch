@@ -15,7 +15,7 @@ export default function NotFound() {
   return (
     <>
       <FailureState kind="not-found" glyph={NOT_FOUND_GLYPH} heading={c.heading} reason={c.reason} why={c.why}>
-        <a href="/" className="btn btn-primary">{c.action}</a>
+        <a href="/home" className="btn btn-primary">{c.action}</a>
       </FailureState>
     </>
   );

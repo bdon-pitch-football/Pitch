@@ -39,7 +39,7 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
             {FAILURE_COPY.reportDone.thanks}
           </div>
-          <a href="/" className="btn btn-secondary">{FAILURE_COPY.reportDone.action}</a>
+          <a href="/home" className="btn btn-secondary">{FAILURE_COPY.reportDone.action}</a>
         </div>
       </div>
     );

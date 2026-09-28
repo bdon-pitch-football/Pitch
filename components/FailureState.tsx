@@ -45,6 +45,12 @@ import { T } from '@/lib/palette';
 
 // One label for "out of here", on all three screens, because a person meeting
 // a second failure should not be learning a second word for the same door.
+//
+// It goes to /home, not /. Before launch / is the waitlist page, which has no
+// door into the product at all — a signed-in parent sent there from a 404
+// would have had no way back and no way to sign out. /home is the seat's own
+// home, where the console shell carries sign-out for every seat (rail on a
+// laptop, the More sheet on a phone); signed out, it is the sign-in prompt.
 const WAY_BACK = 'Go to the start';
 
 export const FAILURE_COPY = {

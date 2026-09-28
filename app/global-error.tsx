@@ -41,7 +41,7 @@ export default function GlobalError({ retry }: { error: Error & { digest?: strin
             <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{c.reason}</div>
             <div style={{ background: T.sunken, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>{c.why}</div>
             <button type="button" onClick={() => retry()} style={{ height: 50, borderRadius: 14, fontSize: 15, fontWeight: 800, letterSpacing: '0.02em', background: T.accent, color: T.onAccent, border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}>{c.action}</button>
-            <a href="/" style={{ height: 46, borderRadius: 14, fontSize: 14, fontWeight: 700, letterSpacing: '0.02em', background: T.surface2, color: T.ink, border: `1px solid ${T.line}`, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', boxSizing: 'border-box' }}>{c.home}</a>
+            <a href="/home" style={{ height: 46, borderRadius: 14, fontSize: 14, fontWeight: 700, letterSpacing: '0.02em', background: T.surface2, color: T.ink, border: `1px solid ${T.line}`, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', boxSizing: 'border-box' }}>{c.home}</a>
           </div>
         </div>
       </body>

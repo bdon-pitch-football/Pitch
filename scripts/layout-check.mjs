@@ -463,7 +463,9 @@ const SEEN = `(() => {
     && /P\\s*TCH|PTCH/.test(document.body.innerText.replace(/\\s+/g, ''));
   const home = [...document.querySelectorAll('a[href]')].some((a) => {
     const h = a.getAttribute('href');
-    return h === '/' || h === '/home' || h === '/signin';
+    // /home, where the shell carries sign-out for every seat. Not / — before
+    // launch that is the waitlist page, with no door into the product.
+    return h === '/home';
   });
   return JSON.stringify({ h1: h1 ? h1.innerText.trim().slice(0, 60) : '', mark, home });
 })()`;

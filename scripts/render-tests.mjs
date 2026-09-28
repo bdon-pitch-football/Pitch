@@ -1511,8 +1511,11 @@ const georgia = ids.children.georgia;
   const typo = await get('/no-such-page');
   check('fp1: a mistyped URL answers 404 on a page of ours, not Next’s stock one',
     [typo.status, /next-error-h1|This page could not be found/.test(typo.html)], [404, false]);
-  check('fp2: it carries a heading, the Pitch mark and a way back',
-    [/<h1[^>]*>[^<]/.test(typo.html), typo.html.includes('data-failure="not-found"'), has(typo.html, HEADING), /TCH/.test(typo.html), /href="\/"[^>]*btn-primary|btn-primary[^>]*>Go to the start/.test(typo.html) || has(typo.html, HOME)],
+  // The way back is /home, not /: before launch / is the waitlist page and has
+  // no door into the product, so a signed-in person sent there was stranded
+  // with no sign-out. /home carries the console shell, and sign-out with it.
+  check('fp2: it carries a heading, the Pitch mark and a way back to the seat\u2019s home',
+    [/<h1[^>]*>[^<]/.test(typo.html), typo.html.includes('data-failure="not-found"'), has(typo.html, HEADING), /TCH/.test(typo.html), /<a href="\/home" class="btn btn-primary">/.test(typo.html) && has(typo.html, HOME)],
     [true, true, true, true, true]);
   check('fp3: and a title of its own — not the landing page’s line',
     /<title[^>]*>([^<]*)<\/title>/.exec(typo.html)?.[1], 'Page not found · Pitch Football');
