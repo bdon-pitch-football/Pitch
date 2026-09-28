@@ -7,9 +7,8 @@ for BUZ seeing what has been built. It is not the club meeting: that is
 Everyone in it is made up. It runs on the laptop only and sends nothing. The
 messages it would have sent wait in **What families receive** on /demo.
 
-**Draft.** Leo clicks through every step before the
-walkthrough. Anything that does not do what this says is either fixed first
-or struck from this page. We do not show a screen we haven't opened.
+**Rehearsed on 29 Sep** (Leo, fresh demo, every act). What behaved differently from
+this script is corrected below, and what needs fixing is in round E.
 
 ## Start
 
@@ -22,10 +21,12 @@ brings you back to the list at any time.
 
 ## Act 1 · The front door (nobody signed in) — about 5 minutes
 
-1. **The front door** `/`: today it is the coming-soon page. Flip the
-   launch-day switch and it becomes the real front door (D-164), with four
-   ways in: sign up, find a club, trials, and claim your club. Show both,
-   because the flip is the launch.
+1. **The front door** `/`: today it is the coming-soon page. The launch-day
+   switch (D-164) cannot be flipped inside a demo, by design, so show it on the
+   development app (`localhost:3000`, `POST /dev/front-door?on=1`). It has
+   "Somebody should be writing this down", then *Who are you?* (player, parent,
+   coach, club), *Browse trials without an account*, and sign-in. Switch it
+   back off afterwards.
 2. **The trials index** `/trials`: one chronological noticeboard, filtered by
    age group, region, gender and position. There is no recommender. Filter
    chips with nothing behind them are hidden (D-162).
@@ -77,8 +78,8 @@ brings you back to the list at any time.
     parent is told every time. The keeper's stat set shows clean sheets and
     never goals conceded. There are no paid surfaces, because Nate is under
     18.
-11. **Switch to Jordan (adult).** The same CV spine with two quiet locked
-    "Premium" rows, and three free clips instead of ten. Tap a row: "Premium is
+11. **Switch to Jordan (adult) → My CV → Highlights.** The same CV spine with
+    two quiet locked "Premium" rows, and three free clips instead of ten. Tap a row: "Premium is
     coming. You're first in line." It is counted anonymously, with no price
     shown (D-163). Nate's page, one step earlier, has none of this.
 
