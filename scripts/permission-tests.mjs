@@ -6221,8 +6221,12 @@ const componentFilesAll = [];
     [/fn_record_delivery/.test(resendSrc), /update message_outbox|insert into consent_event/.test(resendSrc),
       /fn_record_delivery/.test(smsStatusSrc), /update message_outbox|insert into consent_event/.test(smsStatusSrc)],
     [true, false, true, false]);
+  // The CALL, not the name: the first 'verifyTwilioSignature' in the file is
+  // its import, which comes before everything — so the first version of this
+  // check could not fail (proved: it stayed green with the body read first).
   check('D-78b: and each verifies its signature before reading a byte of the body',
-    [smsStatusSrc.indexOf('verifyTwilioSignature') < smsStatusSrc.indexOf('params.MessageSid'),
+    [smsStatusSrc.indexOf('verifyTwilioSignature(request.url') > -1
+      && smsStatusSrc.indexOf('verifyTwilioSignature(request.url') < smsStatusSrc.indexOf('params.MessageSid'),
       resendSrc.indexOf('verify(payload') < resendSrc.indexOf('JSON.parse(payload)')], [true, true]);
   check('D-78c: nothing anywhere writes email_opened — open tracking was declined, not forgotten',
     routeFiles.concat([fileURLToPath(new URL('../lib/messaging.ts', import.meta.url))])
