@@ -1096,6 +1096,33 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   let d = txt(await desk());
   check('g32-3: the operator sees it, labelled, with the reason', /Says this account belongs to a child/.test(d) && /This looks like a 12-year-old/.test(d), true);
 
+  // --- rep1: A REPORT OVER THE LIMIT IS STILL SAVED (doc 35 5a) --------------
+  // Until 28 Sep the rate limit gated the INSERT: the eleventh report from one
+  // address in an hour was never written, and the person was still told it had
+  // been received. For a report about a child that meant a real concern could
+  // vanish silently. John ruled, BUZ chose: every report is saved, and only the
+  // confirmation email is limited, because it goes to an address the reporter
+  // typed. Twelve reports from one address; all twelve must reach the desk.
+  {
+    const burstIp = '203.0.113.77';               // TEST-NET-3, reaches nobody
+    const burstMail = 'burst-reporter@example.com';
+    for (let i = 1; i <= 12; i++) {
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(reportForm.fields)) fd.append(k, v);
+      fd.set('concern', 'child_account');
+      fd.set('reason', `Burst report ${i} of 12`);
+      fd.set('reporterEmail', burstMail);
+      const r = await fetch(BASE + '/report', { method: 'POST', body: fd, redirect: 'manual',
+        headers: { 'x-forwarded-for': burstIp } });
+      await r.text();
+    }
+    const onDesk = (txt(await desk()).match(/Burst report \d+ of 12/g) ?? []).length;
+    check('rep1: twelve reports from one address in an hour — all twelve reach the desk', onDesk, 12);
+    const mailed = (txt((await get('/dev/outbox', op)).html).match(/burst-reporter@example\.com/g) ?? []).length;
+    check('rep2: and the confirmation email is still limited, so the form cannot mail anybody without end',
+      mailed > 0 && mailed <= 10, true);
+  }
+
   // --- A1/C1: hide the page without deleting it -----------------------------
   check('g32-4: before: the page opens and Riverside lists Nate',
     [title((await get('/p/dev-nate', null)).html) !== dead, /Nate/.test(txt((await get('/club/register', op)).html))], [true, true]);
