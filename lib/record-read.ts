@@ -8,18 +8,66 @@
 // all return the same null. The route renders one identical page for all of
 // them (D-77) — no branch in here may distinguish them.
 import 'server-only';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { headers } from 'next/headers';
+import { cache } from 'react';
 import { db } from './db';
 import type { PlayerFixture } from './fixtures';
+import { checkRate } from './ratelimit-db';
 
 export type CvData = PlayerFixture;
+
+// ---------------------------------------------------------------------------
+// The rate limit on this path (CLAUDE.md §2, D-94; brief C, 29 Sep). Every
+// unauthenticated endpoint has one, and this is the one a stranger holding a
+// link actually reaches. Counted twice: per link, from anywhere, and per
+// address, across every link. Both are counted on every read, whichever one
+// bites, so a refused read costs what a passed one does.
+//
+// THE NUMBERS, chosen so that a family sharing a link normally never meets
+// them. The busiest hour one link plausibly has: a parent posts it into a
+// team group of twenty-five families, the club forwards it to its coaches,
+// grandparents open it twice — sixty to a hundred opens. A page view counts
+// once (its title and its body share one answer, below), and so does a
+// preview card or a print. 300 an hour per link is three times that hour.
+// The busiest address: a club office in trial week opening sixty CVs, or a
+// school's shared connection — about a hundred. 600 an hour per address. The
+// one case the address limit could reach a family is a mobile carrier putting
+// many phones behind one address; at our size that is remote, and the number
+// goes up before it bites anyone.
+//
+// WHAT IT STOPS: a machine hammering one link — scraping it, or sampling its
+// response time, which over a real network takes thousands of reads of the
+// same link to see a millisecond (the attack doc 14 E10 is written against) —
+// and one address walking many links.
+//
+// WHAT A REFUSAL LOOKS LIKE: the dead-link page (D-77), with nothing to tell
+// it from any other. Same copy, and the same database work as a string that
+// was never a link — fn_token_read against a hash nothing can match — so a
+// refused read of a live link and a refused read of nothing take the same
+// time. No header, no status, no counter (doc 14 C7's oracle rule).
+// ---------------------------------------------------------------------------
+export const TOKEN_READ_LIMITS = { perLink: 300, perAddress: 600, windowSeconds: 60 * 60 } as const;
+
+// One answer per request. The CV page reads the token for its title and
+// again for its body (deliberately — see app/p/[token]/page.tsx), and the two
+// must agree: a live title over a limited body would say the link exists.
+// React's cache() holds the answer for one request and no longer; outside a
+// render (the preview-card route) it simply asks.
+const withinLimits = cache(async (hashHex: string): Promise<boolean> => {
+  const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
+  const link = await checkRate(`token-read:link:${hashHex}`, TOKEN_READ_LIMITS.perLink, TOKEN_READ_LIMITS.windowSeconds);
+  const address = await checkRate(`token-read:ip:${ip}`, TOKEN_READ_LIMITS.perAddress, TOKEN_READ_LIMITS.windowSeconds);
+  return link && address;
+});
 
 export async function readCvByToken(rawToken: string): Promise<CvData | null> {
   // tokens are >=128-bit random strings; anything absurd is dead without a query
   if (!rawToken || rawToken.length > 200) return null;
   const hash = createHash('sha256').update(rawToken).digest();
+  const lookup = (await withinLimits(hash.toString('hex'))) ? hash : randomBytes(32);
 
-  const { rows } = await db.query('select fn_token_read($1) as bundle', [hash]);
+  const { rows } = await db.query('select fn_token_read($1) as bundle', [lookup]);
   const bundle = rows[0]?.bundle as
     | { record_id: string; person_id: string; band: string; approved_content: CvData | null }
     | null;

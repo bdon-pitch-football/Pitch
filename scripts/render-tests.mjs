@@ -52,12 +52,21 @@ const cookieFor = (personId) => {
   return `pitch_session=${t}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(t).digest('base64url')}`;
 };
 
+// Every page this suite is served, whoever it was served to, and whether it
+// carried Vercel Analytics — read at the end ("an-r", brief C, 29 Sep), so the
+// whole suite is the crawl and not only the sweep written for it. The mark is
+// the client module's name in Next's payload, which the dev server spells
+// out; a production build hashes it, and this suite runs against dev.
+const ANALYTICS_MARK = /@vercel\/analytics|PublicAnalyticsScript/;
+const served = [];
 async function get(path, personId) {
   const res = await fetch(BASE + path, {
     redirect: 'manual',
     headers: personId ? { cookie: cookieFor(personId) } : {},
   });
-  return { status: res.status, location: res.headers.get('location'), csp: res.headers.get('content-security-policy'), html: await res.text() };
+  const html = await res.text();
+  served.push({ path, who: personId ?? null, status: res.status, analytics: ANALYTICS_MARK.test(html) });
+  return { status: res.status, location: res.headers.get('location'), csp: res.headers.get('content-security-policy'), html };
 }
 
 // D-163 (0075): billing is OFF until further notice, and this suite renders the product
@@ -2118,6 +2127,84 @@ const georgia = ids.children.georgia;
   }
   check(`sm3: and every club or coach page it lists is a live page that does not ask to be left out of search (${paths.length} entries)`,
     noindexed, []);
+}
+
+// ---- Vercel Analytics: four public pages, signed out, nowhere else ---------
+// (brief C, 29 Sep.) Analytics records the path of every page it counts. It
+// was mounted in the root layout, so switching it on in the Vercel dashboard
+// would have sent /p/<token> — a child's share link — and every guardian, CV
+// and signed-in page to a third party: against pillar zero 5 (no analytics on
+// minors) and D-94 §1 (no token in any log). It now runs on the front door,
+// the trials board, the jobs board and a club's public page, and only for a
+// visitor with no session (a signed-in visitor may be a child we know is one).
+//
+// The allowlist is written out here, not imported from lib/analytics-scope:
+// a check that asks the code under test what the rule is agrees with it when
+// it is wrong. Every seat is sent to every route family below, and then EVERY
+// page this suite fetched, from the first check to this one, is judged.
+{
+  const PUBLIC = /^\/(|trials|jobs|fc\/[a-z0-9-]+)$/;
+  const kids = ids.children;
+  const jordanRec = ids.adultPlayers.find((a) => a.person_id === ids.people.jordan)?.record_id;
+  const role = /href="\/jobs\/([0-9a-f-]{36})"/.exec((await get('/jobs')).html)?.[1];
+  const FAMILIES = [
+    // the four
+    '/', '/trials', '/jobs', '/fc/riverside-fc',
+    // public, and still not marketing: one job, a coach's CV and its print
+    role ? `/jobs/${role}` : '/jobs/none', '/c/sam-kaya', '/c/sam-kaya/print', '/cv-preview/deniz',
+    // tokenised: a live link, its print view, a dead one, one that never was,
+    // a parent's approval link and an address confirmation
+    '/p/dev-jordan', '/p/dev-jordan/print', '/p/dev-expired', `/p/${createHmac('sha256', 'an-r').update(String(Date.now())).digest('base64url')}`,
+    '/a/dev-mila-text', '/confirm/dev-unproved',
+    // guardian
+    `/g/controls/${kids.georgia.child_id}`, `/g/pending/${kids.deniz.record_id}`,
+    // a child's CV being built, and a player's own pages
+    `/build/${kids.deniz.record_id}`, `/build/${kids.deniz.record_id}/preview`,
+    '/home', jordanRec ? `/send/${jordanRec}` : '/send/none', '/registers', `/squad/${ids.people.jordan}`,
+    // club, coach and operator
+    '/club/register', '/club/squads', '/coach/edit', '/ops/verification',
+    // the doors and the documents
+    '/signin', '/join', '/report', '/reset', '/privacy', '/privacy/family', '/terms', '/claim/westgate-rangers',
+  ];
+  const SEATS = {
+    'signed out': null, 'a parent': ids.people.alex, 'an adult player': ids.people.jordan,
+    'a 16–17 player': kids.nate.child_id, 'an under-16': kids.deniz.child_id, 'a coach': ids.people.sam,
+    'a club TD': ids.people.marina, 'a club administrator': ids.people.pat, 'an unverified club': ids.people['m.'],
+    'brand new': ids.people.robin,
+  };
+  for (const who of Object.values(SEATS)) for (const path of FAMILIES) await get(path, who);
+
+  const seatOf = (who) => Object.entries(SEATS).find(([, id]) => id === who)?.[0] ?? `person ${who}`;
+  const offList = served.filter((r) => r.analytics && !(r.who === null && PUBLIC.test(r.path.split(/[?#]/)[0])));
+  check(`an-r1: the analytics script is served on no page off the four, and to no one signed in (${served.length} pages served in this suite, ${new Set(served.map((r) => r.path)).size} distinct)`,
+    [...new Set(offList.map((r) => `${r.path} as ${seatOf(r.who)}`))], []);
+  const missing = ['/', '/trials', '/jobs', '/fc/riverside-fc'].filter((p) => !served.some((r) => r.path === p && r.who === null && r.status === 200 && r.analytics));
+  check('an-r2: and it is served on each of the four, signed out', missing, []);
+  // The crawl proves nothing about a family it never reached (L19): each one
+  // must have served a real page to at least one seat.
+  const FAMILY_OF = [['a share link', /^\/p\//], ['a guardian page', /^\/g\//], ['an approval link', /^\/a\//],
+    ['a CV being built', /^\/build\//], ['a coach CV', /^\/c\//], ['a player’s pages', /^\/(home|send|registers|squad)\b/],
+    ['the club console', /^\/club\//], ['the coach console', /^\/coach\//], ['the operator console', /^\/ops\//]];
+  // After the launch-day switch (D-164, 0080) `/` is the product's front
+  // door, a different page at the same address. It is the front door either
+  // way, so it counts either way — and still not for anyone signed in.
+  const flip = async (on) => {
+    const r = await fetch(`${BASE}/dev/front-door?on=${on ? 1 : 0}`, { method: 'POST' });
+    if ((r.ok ? await r.json() : null)?.frontDoor !== on) throw new Error(`the front-door switch did not turn ${on ? 'on' : 'off'}`);
+  };
+  await flip(true);
+  let open;
+  try {
+    open = [];
+    for (const [path, who] of [['/', null], ['/?for=parent', null], ['/', ids.people.alex], ['/?for=club', ids.people.marina]]) {
+      const r = await get(path, who);
+      open.push([r.status, /Who are you\?|For parents|For clubs/.test(r.html), ANALYTICS_MARK.test(r.html)]);
+    }
+  } finally { await flip(false); }
+  check('an-r4: with the launch-day switch on, the front door at / carries it too — signed out, and not for anyone signed in',
+    open, [[200, true, true], [200, true, true], [200, true, false], [200, true, false]]);
+  check(`an-r3: the crawl reached every family with a rendered page (${FAMILY_OF.length} families, ${Object.keys(SEATS).length} seats)`,
+    FAMILY_OF.filter(([, re]) => !served.some((r) => re.test(r.path) && r.status === 200)).map(([f]) => f), []);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);

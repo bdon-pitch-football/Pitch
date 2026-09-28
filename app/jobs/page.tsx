@@ -9,6 +9,7 @@ import { HeaderMark } from '@/components/Wordmark';
 import { CoachConsole } from '@/components/console-shell';
 import { T } from '@/lib/palette';
 import { card } from '@/lib/ui';
+import PublicAnalytics from '@/components/PublicAnalytics';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
@@ -31,7 +32,10 @@ export default async function Jobs() {
     club_state: string; applications: number;
   }[];
 
+  // One of the four pages analytics may count (lib/analytics-scope). Beside
+  // the console, not in it: the shell lays its children in a row (L3).
   return (
+    <>
     <CoachConsole active="jobs">
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
@@ -89,5 +93,7 @@ export default async function Jobs() {
         <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>
     </CoachConsole>
+    <PublicAnalytics />
+    </>
   );
 }

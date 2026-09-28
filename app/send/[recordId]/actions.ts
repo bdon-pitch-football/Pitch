@@ -21,7 +21,7 @@ import { sendWaitingEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 import { checkRate } from '@/lib/ratelimit-db';
 import { requireRecordActor } from '@/lib/record-guard';
-import { dispatchShareRequest } from '@/lib/send-dispatch';
+import { answerNoSoonerThan, dispatchShareRequest } from '@/lib/send-dispatch';
 import { sendState } from '@/lib/send-state';
 import { replaceOwnLinks, switchOffOneLink } from '@/lib/link-switch';
 
@@ -33,6 +33,8 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 // so it 500s without JavaScript instead of degrading. Every id below was
 // already re-checked server-side — bind() never made one trustworthy.
 export async function composeSend(formData: FormData) {
+  // L40: the floor is measured from here, before anything either path does.
+  const startedAt = performance.now();
   const recordId = String(formData.get('recordId') ?? '');
   // Never trust the record id in the URL (D-94 §3).
   const { personId } = await requireRecordActor(recordId);
@@ -56,6 +58,7 @@ export async function composeSend(formData: FormData) {
       // The player's own list must not show this as sent (John, 17 Sep; 0046).
       // The page they land on stays identical to a real send (U-3, J40).
       await db.query(`insert into send_held (person_id, club_name) values ($1,$2)`, [personId, clubName.slice(0, 60)]);
+      await answerNoSoonerThan(startedAt);
       redirect(`/send/${recordId}?sent=1`);
     }
     const { rows } = await db.query(
@@ -63,6 +66,7 @@ export async function composeSend(formData: FormData) {
       [recordId, personId, `${clubName} <${address}>`],
     );
     const done = await dispatchShareRequest(rows[0].id, personId);
+    await answerNoSoonerThan(startedAt);
     // The switch can be turned off between the page and the press. Fail
     // closed, onto the screen that says so, rather than claiming a send.
     if (!done) redirect(`/send/${recordId}`);

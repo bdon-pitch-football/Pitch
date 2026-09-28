@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import { Archivo } from 'next/font/google';
-import { Analytics } from '@vercel/analytics/next';
 import { connection } from 'next/server';
 import './globals.css';
 import SiteFooter from '@/components/SiteFooter';
@@ -73,10 +72,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {isDemo() && <DemoBar />}
         {children}
         <SiteFooter />
-        {/* Vercel Web Analytics — cookieless aggregate counts only (doc 29 §9
-            allows privacy-respecting aggregates; no third-party tag, served
-            same-origin). Inert until enabled on the Vercel dashboard. */}
-        <Analytics />
+        {/* No analytics here. A layout is every page — /p/<token>, a child's
+            record, a guardian's controls — and analytics records the path.
+            It is mounted on four public pages only (components/PublicAnalytics,
+            lib/analytics-scope; brief C, 29 Sep). */}
       </body>
     </html>
   );

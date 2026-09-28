@@ -8,6 +8,10 @@
 //        send (L38 already makes the two byte-identical)
 //   J61  a club cannot learn that a held registration existed and was taken
 //        off: its own pages answer the same, byte for byte and in time
+//   tok-rl  a read refused by the token path's rate limit (lib/record-read,
+//        per link and per address) answers as a link that never existed,
+//        byte for byte and in time, whether the link is live or not. Not a
+//        doc 14 row: CLAUDE.md §2 asks for the limit, D-77 for the answer.
 //
 // Until 28 Sep all three were "met" by structural checks in the permission
 // suite — the page branches on one boolean, the limit is checked after the
@@ -54,9 +58,11 @@
 // query in well under a millisecond, so a branch that makes one more query
 // shows here as a fraction of what it costs in production. The structural
 // checks in the permission suite (lsp1, lim-struct1/2, held-count1) are the
-// belt for that: they assert each path makes the same queries. And a real
-// send in production calls the email provider inline (lib/messaging
-// dispatch), which no local run includes.
+// belt for that: they assert each path makes the same queries. A real send's
+// provider call is no longer in the request at all (lib/messaging, after(),
+// 29 Sep) and both send paths answer on a fixed floor (lib/send-dispatch
+// SEND_ANSWER_FLOOR_MS); lim-after1 and lim-floor1–3 in the permission suite
+// pin both, because no local run makes a provider call to be seen.
 import { createHmac, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -72,6 +78,11 @@ const STEP = 100;
 const MAX_ROUNDS = Number(process.env.TIMING_MAX_ROUNDS) || 1500;
 const WARMUP = 20;
 const ALPHA = 0.001;
+// TIMING_ROWS=L40 (or E10,tok-rl) runs only the rows named — for proving one
+// row red with its bug put back, without half an hour of the others. A
+// partial run says so on its last line and is never a gate result.
+const ROWS = (process.env.TIMING_ROWS ?? '').split(',').map((r) => r.trim()).filter(Boolean);
+const runs = (row) => ROWS.length === 0 || ROWS.includes(row);
 const MAX_RESOLUTION_MS = 1;
 const TARGET_RESOLUTION_MS = 0.8;
 
@@ -271,10 +282,21 @@ function judge(row, what, baselineName, arms, family) {
   return { flagged, conclusive, res };
 }
 
+// The token path counts reads per link and per address (lib/record-read), and
+// the suite is one address. /dev/ratelimit empties the counters; it does not
+// exist in production (permission suite dev2).
+const clearRateLimits = async () => {
+  const r = await fetch(`${BASE}/dev/ratelimit`, { method: 'POST' });
+  if (!r.ok) throw new Error(`could not clear the rate limiter (${r.status}) — is this the dev app?`);
+};
+// E10 replaces Deniz's link; the fresh one it gets back is a live link the
+// rate-limit row can use. If E10 did not run, dev-deniz is still live.
+let freshDeniz = null;
+
 // ---------------------------------------------------------------------------
 // E10 — every dead link, the same page in the same time (D-77).
 // ---------------------------------------------------------------------------
-{
+if (runs('E10')) {
   const parent = ids.people.alex;
   const kids = ids.children;
   const deadTitle = title((await get(`/p/${randomBytes(32).toString('base64url')}`)).html);
@@ -285,7 +307,10 @@ function judge(row, what, baselineName, arms, family) {
   // E4 — the guardian replaces Deniz's link; dev-deniz is now renewed away.
   const denizForms = forms((await get(`/g/controls/${kids.deniz.child_id}`, parent)).html);
   const replace = denizForms.find((f) => f.submit === 'Replace');
-  if (replace) await post(`/g/controls/${kids.deniz.child_id}`, parent, replace.fields);
+  if (replace) {
+    const replaced = await post(`/g/controls/${kids.deniz.child_id}`, parent, replace.fields);
+    freshDeniz = /[?&]link=([^&#]+)/.exec(replaced.location)?.[1] ?? null;
+  }
   // E5 — the guardian switches Nate's profile off.
   const nateForms = forms((await get(`/g/controls/${kids.nate.child_id}`, parent)).html);
   const pause = nateForms.find((f) => f.fields.paused === 'true');
@@ -310,7 +335,15 @@ function judge(row, what, baselineName, arms, family) {
   };
   const arms = Object.fromEntries(Object.keys(STATES).map((k) => [k, []]));
   const bodies = {};
+  // This row samples each dead link far past the token path's own rate limit
+  // (lib/record-read: 300 reads of a link an hour), which exists to stop a
+  // stranger doing exactly this. It measures the links, so it clears the
+  // counters every 50 rounds, untimed, well inside both limits; the limit is
+  // measured in its own row below (tok-rl).
+  let e10Rounds = 0;
+  await clearRateLimits();
   await sampleUntilResolved(async (keep) => {
+    if (++e10Rounds % 50 === 0) await clearRateLimits();
     for (const k of shuffle(Object.keys(STATES))) {
       const tok = STATES[k]();
       const { ms, out } = await timed(async () => { const res = await fetch(`${BASE}/p/${tok}`); return { status: res.status, html: await res.text() }; });
@@ -328,9 +361,77 @@ function judge(row, what, baselineName, arms, family) {
 }
 
 // ---------------------------------------------------------------------------
+// tok-rl — the token path's rate limit, answered as a link that never existed
+// (CLAUDE.md §2; D-77; brief C, 29 Sep). The same method as E10: the arms in
+// the same rounds, in a fresh order each round, against a string that was
+// never a link, after the row proves its own resolution. A refusal that a
+// stranger could tell from a dead link — by its bytes or by its time — would
+// tell them the link they are holding is live, which is the thing D-77 hides.
+//
+// The suite plays many addresses by sending its own X-Forwarded-For (Next
+// keeps one that arrives; on Vercel the platform sets it). Three arms:
+//   · a live link read past its own limit, from a fresh address each time;
+//   · a second live link, read from an address past its limit;
+//   · a string that was never a link, from that same address.
+// ---------------------------------------------------------------------------
+if (runs('tok-rl')) {
+  const m = /TOKEN_READ_LIMITS = \{ perLink: (\d+), perAddress: (\d+)/.exec(readFileSync(new URL('../lib/record-read.ts', import.meta.url), 'utf8'));
+  const [perLink, perAddress] = [Number(m?.[1]), Number(m?.[2])];
+  let nIp = 0;
+  const freshIp = () => { nIp++; return `10.${(nIp >> 16) & 255}.${(nIp >> 8) & 255}.${nIp & 255}`; };
+  const OVER = '10.250.0.1';
+  const read = async (tok, ip) => {
+    const res = await fetch(`${BASE}/p/${tok}`, { headers: { 'x-forwarded-for': ip } });
+    return { status: res.status, html: await res.text() };
+  };
+  const deadTitle = title((await read(randomBytes(32).toString('base64url'), freshIp())).html);
+  const live = async (tok, ip) => title((await read(tok, ip)).html) !== deadTitle;
+  const first = 'dev-jordan', second = freshDeniz ?? 'dev-deniz';
+  await clearRateLimits();
+  // Exactly at the boundary, so a page that counted one view twice (its title
+  // and its body) would be caught refusing a family at half the number.
+  // The first link: read perLink - 1 times from addresses that are all new,
+  // then the last allowed read, then the first refused one.
+  for (let i = 0; i < perLink - 1; i++) await read(first, freshIp());
+  const linkEdge = [await live(first, freshIp()), await live(first, freshIp())];
+  // One address: perAddress - 1 reads of strings that were never links, then
+  // the second live link as its last allowed read and its first refused one —
+  // and still live from any other address.
+  for (let i = 0; i < perAddress - 1; i++) await read(randomBytes(32).toString('base64url'), OVER);
+  const addressEdge = [await live(second, OVER), await live(second, OVER), await live(second, freshIp())];
+  check(`tok-rl setup: a link's read ${perLink} is served and read ${perLink + 1} refused; an address's read ${perAddress} is served and read ${perAddress + 1} refused, while the same link stays live from anywhere else`,
+    [Number.isFinite(perLink) && Number.isFinite(perAddress), linkEdge, addressEdge], [true, [true, false], [true, false, true]]);
+
+  const ARMS = {
+    'never a link (E9)': () => [randomBytes(32).toString('base64url'), freshIp()],
+    'a live link over its own limit': () => [first, freshIp()],
+    'a live link, from an address over its limit': () => [second, OVER],
+    'never a link, from an address over its limit': () => [randomBytes(32).toString('base64url'), OVER],
+  };
+  const arms = Object.fromEntries(Object.keys(ARMS).map((k) => [k, []]));
+  const bodies = {};
+  await sampleUntilResolved(async (keep) => {
+    for (const k of shuffle(Object.keys(ARMS))) {
+      const [tok, ip] = ARMS[k]();
+      const { ms, out } = await timed(() => read(tok, ip));
+      if (keep) arms[k].push(ms);
+      if (keep && !bodies[k]) bodies[k] = { status: out.status, html: normalise(out.html, tok) };
+    }
+  }, () => Object.values(arms), ALPHA / (Object.keys(ARMS).length - 1));
+  const base = bodies['never a link (E9)'];
+  check('tok-rl b: every refused read is served the same status and the same bytes as a link that never existed (nonce and the token itself aside)',
+    Object.entries(bodies).filter(([, b]) => b.status !== base.status || b.html !== base.html).map(([k]) => k), []);
+  const { flagged, conclusive, res } = judge('tok-rl', 'a read refused by the token path’s rate limit, against a link that never existed', 'never a link (E9)', arms);
+  if (!conclusive) inconclusive = true;
+  check(`tok-rl: a refused read is not distinguishable from a link that never existed by response time, live link or not${conclusive ? ` (resolution ${res?.toFixed(2)}ms)` : ' — INCONCLUSIVE'}`,
+    conclusive ? flagged : 'inconclusive', []);
+  await clearRateLimits();
+}
+
+// ---------------------------------------------------------------------------
 // L40 — a send refused by the daily limit, in the time a real send takes.
 // ---------------------------------------------------------------------------
-{
+if (runs('L40')) {
   const SEND_DAILY_CAP = 10; // lib/football.ts
   const jordan = ids.people.jordan;
   const adults = ids.adultPlayers.filter((a) => a.person_id !== jordan);
@@ -398,7 +499,7 @@ function judge(row, what, baselineName, arms, family) {
 // touched — and the same comparison runs again. If the held club's pages now
 // stand differently against the twin's, the club could tell.
 // ---------------------------------------------------------------------------
-{
+if (runs('J61')) {
   const club = ids.people['m.'];           // Sunbury United's administrator: held, unverified
   const twinAdmin = ids.people.robin;      // the brand-new seat, who claims Westgate here
   // An eighteen-year-old off the bulk register, not the house adult: the seed
@@ -492,6 +593,7 @@ function judge(row, what, baselineName, arms, family) {
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
+if (ROWS.length) console.log(`PARTIAL RUN (${ROWS.join(', ')} only) — a proof, not the gate. The gate is every row, from a fresh seed.`);
 console.log('NOTE: this mutated the dev database. Restart scripts/dev-db.mts for a clean one.');
 // An inconclusive row has already failed its check above; the flag only says
 // which kind of failure it was, for whoever reads the exit code.

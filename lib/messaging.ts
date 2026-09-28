@@ -21,6 +21,7 @@
 // code, and it is on the launch checklist.
 import 'server-only';
 import { createHash } from 'node:crypto';
+import { after } from 'next/server';
 import { db } from './db';
 import { CATALOGUE_KEYS, DRAFT_KEYS, HELD_KEYS, type Composed } from './messages';
 import { sendEmail, sendSms } from './providers';
@@ -124,8 +125,9 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
     await db.query('insert into sms_meter (number_hash, cents) values ($1,$2)', [h, DEFAULT_SMS_COST_CENTS]);
   }
 
-  // attempts starts at 1: this row is claimed by the inline dispatch below,
-  // so a sweep arriving a minute later does not treat it as untried.
+  // attempts starts at 1: this row is claimed by the dispatch below, which
+  // runs after the response, so a sweep arriving a minute later does not
+  // treat it as untried.
   const { rows } = await db.query(
     `insert into message_outbox (message_key, channel, to_person, to_address, subject, body, subject_id, invitation_id, attempts, last_attempt_at)
      values ($1,$2,$3,$4,$5,$6,$7,$8,1,now()) returning id`,
@@ -141,8 +143,23 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
   //
   // In development nothing leaves the machine — /dev/outbox is the inbox —
   // and that stays true whether or not a key happens to be in the shell.
+  //
+  // AFTER the response, never inside it (doc 14 L40, D-99; 29 Sep). The
+  // provider is a network round trip to another continent, and a request
+  // that waits for it answers tens to hundreds of milliseconds later than
+  // one that sent nothing. That gap was the oracle: a send refused by the
+  // daily limit (L38) answered faster than a real one, and a request-access
+  // or a sign-in that emails someone answered slower than one that did not.
+  // The row above is the durable part and it is already written; delivery
+  // is Next's after() (next/server — it runs once the response has gone,
+  // including after a redirect). If the instance dies before it runs, the
+  // row was claimed with attempts = 1 and the outbox sweep picks it up five
+  // minutes later, exactly as it does for a provider that timed out.
+  // Nothing is awaited or thrown from here: a failure is recorded by
+  // dispatch() on the row, and an error escaping into the platform's log
+  // could carry an address (D-94 §1).
   if (process.env.NODE_ENV === 'production') {
-    await dispatch(id, msg.channel, to.address, msg.subject ?? '', msg.body, msg.key);
+    after(() => dispatch(id, msg.channel, to.address, msg.subject ?? '', msg.body, msg.key).then(() => undefined, () => undefined));
   }
   return { queued: true, id };
 }

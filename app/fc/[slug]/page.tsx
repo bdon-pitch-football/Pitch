@@ -18,6 +18,7 @@ import ClipCard from '@/components/cv/ClipCard';
 import Wordmark from '@/components/Wordmark';
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
+import PublicAnalytics from '@/components/PublicAnalytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,7 +128,9 @@ export default async function ClubPage({ params, searchParams }: {
   // An unclaimed listing has no register anybody reads. That family sends a CV.
   const onPitch = c.club_state === 'claimed' || c.club_state === 'verified';
 
+  // One of the four pages analytics may count (lib/analytics-scope).
   return (
+    <>
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
@@ -435,5 +438,7 @@ export default async function ClubPage({ params, searchParams }: {
         <a href={`/report?kind=club_page&page=${encodeURIComponent(slug)}`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
       </div>
     </div>
+    <PublicAnalytics />
+    </>
   );
 }
