@@ -30,7 +30,7 @@ hand, by us. Expect zero.
 4. If any is not zero, follow its row below. Make every fix in **one
    transaction**, then run all seven again. Deploy only when all seven return
    nothing.
-5. Six of the migrations after 0050 cannot be re-run once applied (the release
+5. Six of the migrations after 0050 cannot be re-run once they have run (the release
    report, Part 6). If a deploy stops partway, finish it by hand from the file
    that failed. Do not re-run the chain from the start.
 
