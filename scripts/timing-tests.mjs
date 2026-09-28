@@ -382,7 +382,7 @@ function judge(row, what, baselineName, arms, family) {
 // So the comparison is against a TWIN, in the same rounds: a second club
 // awaiting verification (Westgate Rangers, claimed here through the product
 // by the brand-new seat), whose same two pages are fetched in every round
-// beside the held club's. Each round gives the held club's time less the
+// right beside the held club's. Each round gives the held club's time less the
 // twin's, page for page; drift lands on both and cancels. Then one family
 // registers with the held club and takes it off again — the twin is never
 // touched — and the same comparison runs again. If the held club's pages now
@@ -418,12 +418,19 @@ function judge(row, what, baselineName, arms, family) {
     const diffs = Object.fromEntries(VIEWS.map((v) => [v, []]));
     const raw = Object.fromEntries(VIEWS.flatMap((v) => [[`held ${v}`, []], [`twin ${v}`, []]]));
     const bodies = {};
+    // Each held page is fetched back to back with its twin (in a random order
+    // within the pair), so the two share whatever the machine is doing at that
+    // moment. Shuffling all four apart let a load spike land on one of a pair
+    // and not the other: the differences swung by ±20ms on a busy afternoon
+    // and the row could not resolve a millisecond.
     const round = async (keep) => {
       const t = {};
-      for (const [who, v] of shuffle(VIEWS.flatMap((v) => [['held', v], ['twin', v]]))) {
-        const { ms, out } = await timed(() => get(v, who === 'held' ? club : twinAdmin));
-        t[`${who} ${v}`] = ms;
-        if (keep && who === 'held' && !bodies[v]) bodies[v] = normalise(out.html);
+      for (const v of shuffle(VIEWS)) {
+        for (const who of shuffle(['held', 'twin'])) {
+          const { ms, out } = await timed(() => get(v, who === 'held' ? club : twinAdmin));
+          t[`${who} ${v}`] = ms;
+          if (keep && who === 'held' && !bodies[v]) bodies[v] = normalise(out.html);
+        }
       }
       if (keep) for (const v of VIEWS) { diffs[v].push(t[`held ${v}`] - t[`twin ${v}`]); raw[`held ${v}`].push(t[`held ${v}`]); raw[`twin ${v}`].push(t[`twin ${v}`]); }
     };
