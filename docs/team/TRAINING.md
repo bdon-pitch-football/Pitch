@@ -78,10 +78,22 @@ npm run test:render       # every page as every seat. Needs db + app.
                           # Run it BEFORE anything you measure, never after.
 node scripts/write-tests.mjs    # presses every button. MUTATES the db — reseed after.
 node scripts/layout-check.mjs 375 1280   # real Chrome, every page, every seat
+                                         # — and every page's Content-Security-Policy
+npm run test:timing       # doc 14 E10, L40, J61: response timing against the
+                          # running app (§K conditions 3, 7, 10). Needs db + app.
+                          # MUTATES MORE THAN ANY OTHER SUITE: it pauses a child,
+                          # deletes one, sends ~120 CVs and claims a club page.
+                          # LAST in the line, then reseed. Takes 10–30 minutes:
+                          # it samples until it can see 0.8ms, so a busy machine
+                          # makes it longer, not wrong. Start it on a freshly
+                          # started app: `next dev` restarts itself when its
+                          # memory climbs, and a restart mid-run stops the run.
 node scripts/gate-coverage.mjs  # doc 14 rows pinned by the suite
 node scripts/palette-check.mjs · python3 scripts/corpus-check.py · node scripts/secret-scan.mjs
 npx tsc --noEmit
 SUPABASE_DB_URL=postgres://ci@127.0.0.1:5432/ci npm run build:check
+CSP_CHECK_PORT=<your app port> npm run test:csp-prod   # after build:check, with your dev app
+                          # stopped: the CSP the BUILT app sends (no eval, no websocket)
 ```
 
 **Every seat in its own worktree runs on its own ports — all four of them.**
@@ -93,11 +105,11 @@ attach to each other's browser and measure each other's app (L30).
 ```bash
 PITCH_DEV_DB_PORT=54362 node scripts/dev-db.mts             # database
 PITCH_DEV_DB_PORT=54362 npx next dev -p 3160                  # app
-RENDER_BASE=http://localhost:3160 npm run test:render         # and write-tests
+RENDER_BASE=http://localhost:3160 npm run test:render         # and write-tests, and test:timing
 RENDER_BASE=http://localhost:3160 LAYOUT_CDP_PORT=9363 node scripts/layout-check.mjs 375 1280
 ```
 
-**Order matters:** reseed → perms → render → write → reseed → layout. **Every suite in that line writes, including render** — the order is not a preference. Never run
+**Order matters:** reseed → perms → render → write → reseed → layout → timing → reseed. **Every suite in that line writes, including render** — the order is not a preference. Never run
 the write suite twice without a reseed in between (LESSONS L7).
 
 The club demo runs separately (`npm run demo -- "Club FC"`, app on 3030, its

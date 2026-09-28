@@ -12,7 +12,11 @@
 //   · a global monthly spend cap, and it is MANDATORY: no cap configured
 //     refuses every SMS, exactly as the kill switch does (BUZ decision 5,
 //     23 Sep; release seat R4). An empty variable is not "no limit".
-//   · a kill switch a tired founder can hit at 11pm
+//   · a kill switch a tired founder can hit at 11pm — from /ops/switches
+//     (0070), not only from the environment. The environment stays the
+//     ceiling: an operator can switch SMS off or lower the cap, never switch
+//     on what SMS_KILL_SWITCH switched off or raise the cap above
+//     SMS_MONTHLY_CAP_CENTS (lib/sms-policy).
 // Credit is prepaid, never a card on file — that is an account setting, not
 // code, and it is on the launch checklist.
 import 'server-only';
@@ -21,7 +25,7 @@ import { db } from './db';
 import { CATALOGUE_KEYS, DRAFT_KEYS, HELD_KEYS, type Composed } from './messages';
 import { sendEmail, sendSms } from './providers';
 import { replyToFor } from './reply-policy';
-import { smsCapCents } from './sms-policy';
+import { effectiveSmsCapCents, smsCapCents, smsSwitchedOff } from './sms-policy';
 
 const KEYS = new Set<string>(CATALOGUE_KEYS);
 // Drafts (lib/messages DRAFT_KEYS): written and wired, not yet approved. They
@@ -92,6 +96,12 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
     if (cap === null && process.env.NODE_ENV === 'production') {
       return { queued: false, reason: 'sms_no_cap' };
     }
+    // The operator's switch (0070), read on every SMS so it takes effect on
+    // the next one, not the next deploy. Off is off whichever side said it;
+    // the cap in force is the lower of the two.
+    const { rows: sw } = await db.query('select sms_off, sms_cap_cents from fn_sms_switch()');
+    if (smsSwitchedOff(process.env.SMS_KILL_SWITCH, sw[0]?.sms_off)) return { queued: false, reason: 'sms_killed' };
+    const limit = effectiveSmsCapCents(cap, sw[0]?.sms_cap_cents);
 
     const h = numberHash(to.address);
     // STOP means stop. Doc 15 §15 promises "we won't text this number again"
@@ -107,9 +117,9 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
     const { rows: cnt } = await db.query('select fn_sms_count_24h($1) as n', [h]);
     if (cnt[0].n >= SMS_PER_NUMBER_24H) return { queued: false, reason: 'sms_rate_limited' };
 
-    if (cap !== null) {
+    if (limit !== null) {
       const { rows: spend } = await db.query('select fn_sms_spend_month() as c');
-      if (spend[0].c + DEFAULT_SMS_COST_CENTS > cap) return { queued: false, reason: 'sms_cap_reached' };
+      if (spend[0].c + DEFAULT_SMS_COST_CENTS > limit) return { queued: false, reason: 'sms_cap_reached' };
     }
     await db.query('insert into sms_meter (number_hash, cents) values ($1,$2)', [h, DEFAULT_SMS_COST_CENTS]);
   }

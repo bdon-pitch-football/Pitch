@@ -197,7 +197,7 @@ async function scenario(name, dirty) {
   const q = async (sql) => (await db.query(sql)).rows[0];
   if (newFiles.some((f) => f.startsWith('0051'))) {
     const a = await q(`select count(*)::int n from alumni_entry where adults_confirmed_by is null`);
-    say(`     after 0051: ${a.n} alumni entr${a.n === 1 ? 'y has' : 'ies have'} no "18 or over" confirmation and stay on the public wall (the trigger is insert-only)`);
+    say(`     after 0051: ${a.n} alumni entr${a.n === 1 ? 'y has' : 'ies have'} no "18 or over" confirmation and stay on the public wall (from 0071 they cannot be edited unconfirmed; whether they stay up is BUZ's call — docs/team/RELEASE-PREFLIGHT.md)`);
     try {
       await db.exec(`update alumni_entry set line = line || '' where adults_confirmed_by is null`);
       say('     after 0051: an unconfirmed entry can still be UPDATED (edited text is not re-confirmed)');

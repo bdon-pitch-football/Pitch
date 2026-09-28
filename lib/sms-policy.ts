@@ -25,3 +25,39 @@ export function smsCapCents(raw: string | undefined | null): number | null {
   if (!Number.isFinite(cents) || cents <= 0) return null;
   return cents;
 }
+
+// The switch on /ops/switches (0070). The environment is the ceiling and the
+// database can only make things stricter: SMS is off if either says so, and
+// the cap in force is the lower of the two. Nothing an operator presses can
+// raise the spend above SMS_MONTHLY_CAP_CENTS or switch on what
+// SMS_KILL_SWITCH switched off.
+
+/** Is SMS switched off, by the environment or by an operator? */
+export function smsSwitchedOff(envKill: string | undefined | null, dbOff: boolean | null | undefined): boolean {
+  return envKill === 'true' || dbOff === true;
+}
+
+/**
+ * The monthly cap in force, in cents: the lower of the environment's cap and
+ * the operator's, or whichever one exists. Null when neither exists — and in
+ * production that case never reaches here, because no environment cap
+ * already refuses every SMS (smsCapCents, BUZ decision 5).
+ */
+export function effectiveSmsCapCents(envCap: number | null, dbCap: number | null | undefined): number | null {
+  const caps = [envCap, dbCap ?? null].filter((c): c is number => typeof c === 'number' && Number.isFinite(c) && c > 0);
+  return caps.length ? Math.min(...caps) : null;
+}
+
+/**
+ * Read an operator's cap from the form: dollars, as typed, into cents. Null
+ * for anything that is not a positive amount, or that is ABOVE the
+ * environment's cap — the database may lower the ceiling, never raise it.
+ */
+export function operatorCapCents(dollars: string, envCap: number | null): number | null {
+  const t = String(dollars ?? '').trim().replace(/^\$/, '');
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  const cents = Math.round(Number(t) * 100);
+  if (!Number.isFinite(cents) || cents <= 0) return null;
+  if (envCap !== null && cents > envCap) return null;
+  return cents;
+}

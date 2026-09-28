@@ -7,6 +7,12 @@ import { db } from '@/lib/db';
 //
 // Tokenised pages never do, at any age (D-95) — there is no branch below that
 // could add one, which is the point of listing only these two tables.
+//
+// A club page is on Pitch when it is claimed OR verified (the same test the
+// club page itself uses, app/fc/[slug]). This used to ask for 'claimed' only,
+// so the moment BUZ verified a club on the phone it dropped out of the
+// sitemap — the clubs we had spoken to were the ones search could not find
+// (release report, 28 Sep). Unclaimed and suspended pages stay out, as before.
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -19,7 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const clubs = await db.query(
-      "select public_slug from club where public_slug is not null and club_state = 'claimed'");
+      "select public_slug from club where public_slug is not null and club_state in ('claimed', 'verified')");
     for (const c of clubs.rows) entries.push({ url: `${base}/fc/${c.public_slug}`, changeFrequency: 'weekly', priority: 0.7 });
 
     // Coaches are adults with a public link they chose to have (D-100).

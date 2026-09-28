@@ -10,6 +10,7 @@ import { requireOperator } from '@/lib/ops-guard';
 import { REVOKE_ALL_PHRASE } from '@/lib/ops-policy';
 import { linksSwitchedOffEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
+import { operatorCapCents, smsCapCents } from '@/lib/sms-policy';
 
 const reasonOf = (formData: FormData) => String(formData.get('reason') ?? '').trim().slice(0, 500);
 
@@ -56,4 +57,35 @@ export async function revokeAllLinks(formData: FormData) {
   const message = linksSwitchedOffEmail(familyReason);
   for (const r of recipients) await send(message, { address: r.email, personId: r.id });
   redirect(`/ops/switches?done=revoked&n=${Number(n)}&told=${recipients.length}`);
+}
+
+// The SMS switch (0070, D-81, D-94 §10). Off or on, logged with a name and a
+// reason like the other two. The environment stays the ceiling: switching on
+// here cannot undo SMS_KILL_SWITCH, and lib/messaging obeys whichever is off.
+export async function setSmsOff(formData: FormData) {
+  const op = await requireOperator();
+  const off = String(formData.get('off') ?? '') === 'on';
+  const reason = reasonOf(formData);
+  if (reason.length < 3) redirect('/ops/switches?error=reason');
+  await db.query('select fn_ops_set_sms_off($1, $2, $3, $4)', [off, op.personId, op.email, reason]);
+  redirect(`/ops/switches?done=${off ? 'sms-off' : 'sms-on'}`);
+}
+
+// A lower monthly cap, or back to the environment's. Dollars as typed, stored
+// in cents. A cap above SMS_MONTHLY_CAP_CENTS is refused here, before the
+// database sees it: the database may lower the ceiling and never raise it,
+// and a log row recording a raise that could never take effect would be a
+// record of something that did not happen.
+export async function setSmsCap(formData: FormData) {
+  const op = await requireOperator();
+  const reason = reasonOf(formData);
+  if (reason.length < 3) redirect('/ops/switches?error=reason');
+  const clear = String(formData.get('clear') ?? '') === 'on';
+  const envCap = smsCapCents(process.env.SMS_MONTHLY_CAP_CENTS);
+  const typed = String(formData.get('dollars') ?? '');
+  const cents = clear ? null : operatorCapCents(typed, null);
+  if (!clear && cents === null) redirect('/ops/switches?error=cap');
+  if (!clear && envCap !== null && cents !== null && cents > envCap) redirect('/ops/switches?error=cap-ceiling');
+  await db.query('select fn_ops_set_sms_cap($1, $2, $3, $4)', [cents, op.personId, op.email, reason]);
+  redirect(`/ops/switches?done=${clear ? 'cap-cleared' : 'cap-set'}`);
 }
