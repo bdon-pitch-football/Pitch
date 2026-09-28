@@ -654,19 +654,26 @@ await db.query(
 //
 // The investigator is invented, like every person in this seed. A real
 // person's name does not go in a fixture, and BUZ's least of all.
-const investigator = randomUUID();
-await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Priya','Raman','1979-03-14')`, [investigator]);
-const u6Report = (await db.query(
-  `insert into report (subject_kind, subject_ref, reason, created_at)
-   values ('club_page','riverside-fc','A parent says the club page names a junior player.', now() - interval '3 days')
-   returning id`)).rows[0].id as string;
-const u6Grant = (await db.query(
-  `insert into investigation_grant (report_id, investigator_id, subject_id, granted_at, expires_at)
-   values ($1, $2, $3, now() - interval '3 days', now() + interval '11 days') returning id`,
-  [u6Report, investigator, await personOf('Nate')])).rows[0].id as string;
-await db.query(
-  `insert into investigation_access (grant_id, at, what) values ($1, now() - interval '3 days', 'read the send log')`,
-  [u6Grant]);
+// Not in a club demo (npm run demo): a room full of a club's people does not
+// need a line saying someone at Pitch opened a child's record, and — until the
+// deletion cascade can reach investigation_access (see the builder report of
+// 28 Sep) — a child carrying one cannot be deleted, and a demo is exactly where
+// somebody presses Delete to see what happens.
+if (!process.env.DEMO_CLUB?.trim()) {
+  const investigator = randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Priya','Raman','1979-03-14')`, [investigator]);
+  const u6Report = (await db.query(
+    `insert into report (subject_kind, subject_ref, reason, created_at)
+     values ('club_page','riverside-fc','A parent says the club page names a junior player.', now() - interval '3 days')
+     returning id`)).rows[0].id as string;
+  const u6Grant = (await db.query(
+    `insert into investigation_grant (report_id, investigator_id, subject_id, granted_at, expires_at)
+     values ($1, $2, $3, now() - interval '3 days', now() + interval '11 days') returning id`,
+    [u6Report, investigator, await personOf('Nate')])).rows[0].id as string;
+  await db.query(
+    `insert into investigation_access (grant_id, at, what) values ($1, now() - interval '3 days', 'read the send log')`,
+    [u6Grant]);
+}
 
 // A FREE verified club (D-153): verified by call, no subscription, one posted
 // trial, and a family who registered interest in that trial. Riverside is on
