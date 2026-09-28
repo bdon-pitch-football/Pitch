@@ -105,9 +105,20 @@ const chrome = spawn(CHROME, [
 ], { stdio: 'ignore' });
 const stop = () => {
   try { chrome.kill(); } catch { /* gone */ }
-  try { rmSync(PROFILE, { recursive: true, force: true }); } catch { /* already gone */ }
+  // Chrome's helper processes outlive the parent's kill by a moment and hold
+  // files in the profile, so a single rmSync can throw and leave the whole
+  // thing behind. Measured today: an interrupted run leaked 146MB, which is
+  // L36 — the fault that took this machine to zero disk twice — arriving
+  // through the error path instead of the happy one. Retry briefly.
+  for (let i = 0; i < 40; i++) {
+    try { rmSync(PROFILE, { recursive: true, force: true }); return; } catch { /* still held */ }
+    const until = Date.now() + 50; while (Date.now() < until) { /* sync wait: this runs on exit */ }
+  }
 };
 process.on('exit', stop);
+// A signalled process does not run its 'exit' handlers, and a headless run is
+// exactly the kind of thing somebody stops with a keystroke.
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { stop(); process.exit(130); });
 
 let target;
 for (let i = 0; i < 50 && !target; i++) {
@@ -123,11 +134,45 @@ const waiting = new Map();
 const events = [];
 ws.addEventListener('message', (m) => {
   const msg = JSON.parse(m.data);
-  if (msg.id && waiting.has(msg.id)) { waiting.get(msg.id)(msg); waiting.delete(msg.id); }
+  if (msg.id && waiting.has(msg.id)) { const w = waiting.get(msg.id); waiting.delete(msg.id); w.resolve(msg); }
   else if (msg.method) events.push(msg);
 });
-const cdp = (method, params = {}) => new Promise((resolve) => {
-  const id = ++seq; waiting.set(id, resolve); ws.send(JSON.stringify({ id, method, params }));
+// EVERY CDP CALL HAS A DEADLINE (QA, 28 Sept).
+//
+// This used to be a promise nothing could ever reject. `loaded()` below caps
+// itself at 30s, and it was the ONLY thing here that did — Page.navigate,
+// Runtime.evaluate, Network.setCookie and setDeviceMetricsOverride all waited
+// forever. So when Chrome's debugging endpoint stopped answering (measured:
+// /json/list returned nothing while the Chrome processes sat alive at 0% CPU,
+// and the dev app served the same page in 0.16s), this run sat for 34 minutes
+// having written NOTHING to its log, because it only prints at the end. From
+// outside, a wedged browser and a slow one look identical.
+//
+// That is the honest answer to "/squad/[personId]?back=controls hung a
+// headless capture twice and has no screenshot at any width". It is not that
+// page: it is whichever page the walk happened to be on. A hang with no
+// output names an innocent bystander, and two people went looking at it.
+//
+// Now: a deadline per call, the socket closing rejects everything in flight,
+// and the failure names the last path attempted. A tool that stops must SAY
+// it stopped.
+const CDP_TIMEOUT_MS = Number(process.env.LAYOUT_CDP_TIMEOUT_MS) || 60000;
+let lastPath = '(startup)';
+const failAll = (why) => {
+  for (const [id, entry] of waiting) { waiting.delete(id); entry.reject(new Error(why)); }
+};
+ws.addEventListener('close', () => failAll('Chrome closed the debugging socket'));
+ws.addEventListener('error', () => failAll('the debugging socket errored'));
+const cdp = (method, params = {}) => new Promise((resolve, reject) => {
+  const id = ++seq;
+  const timer = setTimeout(() => {
+    waiting.delete(id);
+    reject(new Error(`Chrome stopped answering: ${method} got no reply in ${CDP_TIMEOUT_MS}ms, at ${lastPath}`));
+  }, CDP_TIMEOUT_MS);
+  waiting.set(id, { resolve: (msg) => { clearTimeout(timer); resolve(msg); },
+                    reject: (e) => { clearTimeout(timer); reject(e); } });
+  try { ws.send(JSON.stringify({ id, method, params })); }
+  catch (e) { clearTimeout(timer); waiting.delete(id); reject(e); }
 });
 const loaded = () => new Promise((resolve) => {
   const start = Date.now();
@@ -164,7 +209,12 @@ const MEASURE = (device) => `(() => {
 })()`;
 
 const eval_ = async (expr) => JSON.parse((await cdp('Runtime.evaluate', { expression: expr, returnByValue: true })).result.result.value);
-const visit = async (path) => { await cdp('Page.navigate', { url: BASE + path }); await loaded(); await new Promise((r) => setTimeout(r, 250)); };
+const visit = async (path) => {
+  lastPath = path;
+  await cdp('Page.navigate', { url: BASE + path });
+  await loaded();
+  await new Promise((r) => setTimeout(r, 250));
+};
 
 // ---- the chrome pass -------------------------------------------------------
 // A real Tab keypress, sent to the renderer. el.focus() is not the same event:
@@ -292,6 +342,10 @@ if (!selfBad || !selfOk || selfBad.style !== 'none' || selfOk.width < 2) {
 const failures = [];
 const ringFails = [], labelFails = [], bodyFails = [], tapFails = [], proseSmall = [];
 let checked = 0;
+// Two builders restructured this loop on the same day: one added the two
+// measurements below to every page view, the other wrapped the walk so a
+// wedged browser fails loudly instead of hanging for 34 minutes. Both are
+// kept — the helper stays outside the try, the walk inside it.
 // Two measurements cheap enough to take on every page view the walk already
 // makes, so they cover every seat and every width this is called with.
 const chromePass = async (width, seat, path) => {
@@ -302,42 +356,54 @@ const chromePass = async (width, seat, path) => {
   const small = await eval_(TARGETS);
   for (const t of small) (t.prose ? proseSmall : tapFails).push({ width, seat, path, ...t });
 };
-for (const width of widths) {
-  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
-  for (const [seat, who] of Object.entries(SEATS)) {
-    await cdp('Network.clearBrowserCookies');
-    if (who) await cdp('Network.setCookie', { name: 'pitch_session', value: cookieFor(who), url: BASE });
-    // Every page this seat can reach from home in one step, plus the fixed
-    // public set when signed out — the same reach the render suite walks.
-    let paths = START[seat] ?? [];
-    if (who) {
-      await visit('/home');
-      const links = await eval_(`JSON.stringify([...new Set([...document.querySelectorAll('a[href^="/"]')].map(a => a.getAttribute('href').split('#')[0]))])`);
-      paths = ['/home', ...links.filter((p) => !/^\/(signout|dev\/|api\/)/.test(p))].slice(0, 40);
-    }
-    for (const path of paths) {
-      await visit(path);
-      const m = await eval_(MEASURE(width));
-      checked++;
-      if (m.doc > m.vw + 1) failures.push({ width, seat, path, ...m });
-      await chromePass(width, seat, path);
-    }
-    if (DEEP[seat]) {
-      if (seat.startsWith('club')) await visit('/club/squads');
-      const squad = seat.startsWith('club') ? await eval_(`JSON.stringify(document.querySelector('a[href^="/club/squads/"]')?.getAttribute('href') ?? '')`) : '';
-      for (const path of DEEP[seat].map((p) => p.replace('@squad', squad))) {
+try {
+  for (const width of widths) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
+    for (const [seat, who] of Object.entries(SEATS)) {
+      await cdp('Network.clearBrowserCookies');
+      if (who) await cdp('Network.setCookie', { name: 'pitch_session', value: cookieFor(who), url: BASE });
+      // Every page this seat can reach from home in one step, plus the fixed
+      // public set when signed out — the same reach the render suite walks.
+      let paths = START[seat] ?? [];
+      if (who) {
+        await visit('/home');
+        const links = await eval_(`JSON.stringify([...new Set([...document.querySelectorAll('a[href^="/"]')].map(a => a.getAttribute('href').split('#')[0]))])`);
+        paths = ['/home', ...links.filter((p) => !/^\/(signout|dev\/|api\/)/.test(p))].slice(0, 40);
+      }
+      for (const path of paths) {
         await visit(path);
-        const where = await eval_(`JSON.stringify({ at: location.pathname + location.search, missing: document.body.innerText.includes('This page could not be found') })`);
-        checked++;
-        if (where.at !== path || where.missing) { failures.push({ width, seat, path, unrendered: where.missing ? '404' : `landed on ${where.at}` }); continue; }
         const m = await eval_(MEASURE(width));
+        checked++;
         if (m.doc > m.vw + 1) failures.push({ width, seat, path, ...m });
         await chromePass(width, seat, path);
       }
+      if (DEEP[seat]) {
+        if (seat.startsWith('club')) await visit('/club/squads');
+        const squad = seat.startsWith('club') ? await eval_(`JSON.stringify(document.querySelector('a[href^="/club/squads/"]')?.getAttribute('href') ?? '')`) : '';
+        for (const path of DEEP[seat].map((p) => p.replace('@squad', squad))) {
+          await visit(path);
+          const where = await eval_(`JSON.stringify({ at: location.pathname + location.search, missing: document.body.innerText.includes('This page could not be found') })`);
+          checked++;
+          if (where.at !== path || where.missing) { failures.push({ width, seat, path, unrendered: where.missing ? '404' : `landed on ${where.at}` }); continue; }
+          const m = await eval_(MEASURE(width));
+          if (m.doc > m.vw + 1) failures.push({ width, seat, path, ...m });
+        }
+      }
     }
   }
+
+} catch (e) {
+  // A wedged browser is a FAILED RUN, not a quiet one. Print what we had, say
+  // where it stopped, and exit non-zero so nobody reads silence as green.
+  stop();
+  console.error(`\nlayout check STOPPED after ${checked} page views — ${e.message}`);
+  console.error('Nothing below this line was measured. Re-run; if it repeats, the machine is out of room (L37) or Chrome is wedged.');
+  process.exit(2);
 }
 
+// The ring walk runs after the catch closes the main walk. It drives the same
+// browser, so a wedge here is caught by the per-call deadline and reported by
+// the same path — silence is never green (QA, 28 Sep).
 // ---- the focus ring, at 390 and 1280 ---------------------------------------
 // Fixed widths, not the ones this was called with: the ring is a phone-and-
 // laptop question and these are the two the defect was measured at. Signed

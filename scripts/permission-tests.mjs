@@ -5293,5 +5293,66 @@ const componentFilesAll = [];
   check(`ban1: D-108's words are not on any screen (${found.slice(0, 4).join(' · ') || 'none are'})`, found.length, 0);
 }
 
+// ---------------------------------------------------------------------------
+// QA, 28 Sep — two faults found by pressing things rather than by reading.
+// ---------------------------------------------------------------------------
+
+// qa-silent1 · A FAILED ACTION MUST SAY SO ON THE PAGE IT LANDS ON.
+//
+// Pressing Subscribe at /club/billing with D-137's authority box unticked
+// answers 303 /club/billing?error=1 — and that page never reads `error`, so
+// the screen comes back with the fields emptied and not one word about what
+// happened. Measured on this tree: the page it lands on adds nothing at all.
+// The person's only rational conclusion is that payments are broken, on the
+// one screen in the product that takes money.
+//
+// The rule, not the instance: if an action can send somebody to a page with a
+// flag that means "that did not work", the page must read that flag. `saved`,
+// `removed` and `done` are excluded — a success is visible in the thing that
+// changed. Naming a flag in the searchParams TYPE is not reading it; that is
+// exactly how this one hid.
+{
+  const FAILURE = /^(error|bad|cannot|needs|expired|short|unconfigured|invalid|refused|failed?)$/i;
+  const actionFiles = [];
+  (function walk(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.name === 'actions.ts') actionFiles.push(full);
+    }
+  })(fileURLToPath(new URL('../app', import.meta.url)));
+  const appRoot = fileURLToPath(new URL('../app', import.meta.url));
+  const silent = [];
+  for (const f of actionFiles) {
+    const src = readFileSync(f, 'utf8');
+    for (const m of src.matchAll(/redirect\(\s*['"`]([^'"`]*\?[^'"`]*)['"`]/g)) {
+      const [path, qs] = [m[1].split('?')[0], m[1].split('?').slice(1).join('?')];
+      if (path.includes('${')) continue;
+      const pagePath = join(appRoot, ...path.split('/').filter(Boolean), 'page.tsx');
+      let page;
+      try { page = readFileSync(pagePath, 'utf8'); } catch { continue; }
+      // A flag named in the searchParams type annotation is not a flag read.
+      const body = page.replace(/searchParams:\s*Promise<\{[^}]*\}>/g, 'searchParams: Promise<{}>');
+      for (const kv of qs.split('&')) {
+        const flag = kv.split('=')[0].split('#')[0].trim();
+        if (!flag || flag.includes('${') || !FAILURE.test(flag)) continue;
+        if (!new RegExp('\\b' + flag + '\\b').test(body)) {
+          silent.push(`${f.slice(f.indexOf('/app/') + 1)} -> ${path}?${flag}`);
+        }
+      }
+    }
+  }
+  check(`qa-silent1: a form that failed says so on the page it lands on (${[...new Set(silent)].join(' · ') || 'all of them do'})`,
+    [...new Set(silent)].length, 0);
+}
+
+// qa-devport1/qa-devport2 lived here and are GONE (QA, 28 Sept, second pass).
+// They asserted that lib/db.ts and scripts/dev-db.mts read the same variable
+// and that dev-db.mts's instructions name the one the APP reads. `db8` above
+// now does both and more: it matches the name WHOLE, across lib/db.ts,
+// scripts/dev-db.mts and .env.example, comments included, and pins both
+// defaults. Two checks for one rule is two places to be wrong — the stronger
+// one stays and mine go (L33: replace a proxy, do not keep a second copy).
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);
