@@ -423,7 +423,32 @@ let checked = 0;
 // kept — the helper stays outside the try, the walk inside it.
 // Two measurements cheap enough to take on every page view the walk already
 // makes, so they cover every seat and every width this is called with.
+// VERCEL ANALYTICS, AS THE BROWSER RUNS IT (brief C, 29 Sep). The render
+// suite reads whether a page SERVES the analytics component (an-r1–r3); this
+// reads whether the browser actually started it — window.va, which the
+// package defines the moment it injects its script, or the script itself. On
+// for a signed-out visitor on the four public pages (the front door, /trials,
+// /jobs, a club page) and off everywhere else, for every seat. The four are
+// written out here rather than imported from lib/analytics-scope, so a wrong
+// list there cannot make this agree with it. The script arrives after
+// hydration, so a page that should carry it gets three seconds to; a view
+// where it is off and should be on fails, which is what keeps this check from
+// being blind (L19): the signed-out /trials and club page are walked at every
+// width.
+const PUBLIC_PAGES = /^\/(|trials|jobs|fc\/[a-z0-9-]+)$/;
+const ANALYTICS_ON = `JSON.stringify(typeof window.va === 'function' || Boolean(document.querySelector('script[src*="vercel-scripts.com"], script[src*="/_vercel/insights/"]')))`;
+const analyticsFails = [];
+let analyticsOn = 0, analyticsRead = 0;
+const analyticsPass = async (width, seat, path) => {
+  const should = seat === 'signed out' && PUBLIC_PAGES.test(path.split(/[?#]/)[0]);
+  let on = await eval_(ANALYTICS_ON);
+  for (let i = 0; should && !on && i < 30; i++) { await new Promise((r) => setTimeout(r, 100)); on = await eval_(ANALYTICS_ON); }
+  analyticsRead++;
+  if (on) analyticsOn++;
+  if (on !== should) analyticsFails.push({ width, seat, path, on });
+};
 const chromePass = async (width, seat, path) => {
+  await analyticsPass(width, seat, path);
   const labels = await eval_(LABELS);
   if (labels.length) labelFails.push({ width, seat, path, labels });
   const bg = await eval_(BODYBG);
@@ -466,6 +491,7 @@ try {
           // shell carries instead (L32: a suite that reads a page is reading a
           // fixture, so pin it to something that does not move with the copy).
           const where = await eval_(`JSON.stringify({ at: location.pathname + location.search, missing: Boolean(document.querySelector('[data-failure="not-found"]')) })`);
+          await analyticsPass(width, seat, path);
           checked++;
           if (where.at !== path || where.missing) { failures.push({ width, seat, path, unrendered: where.missing ? '404' : `landed on ${where.at}` }); continue; }
           const m = await eval_(MEASURE(width));
@@ -568,8 +594,16 @@ for (const width of widths) {
   }
 }
 
+// The two public pages the signed-out walk does not start from, read for
+// analytics only (their layout is not this change's to measure).
+await cdp('Network.clearBrowserCookies');
+await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
+for (const path of ['/', '/jobs']) { await visit(path); await analyticsPass(1280, 'signed out', path); await cspDrain(1280, 'signed out', path); }
+
 stop();
 console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px (${failureChecks} of them failure-path views)`);
+console.log(`analytics    · ${analyticsRead} views read · started in ${analyticsOn} · it may start only for a signed-out visitor on the front door, /trials, /jobs or a club page, and must start there`);
+for (const f of analyticsFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — Vercel Analytics ${f.on ? 'STARTED here, off the four public pages or for a signed-in seat' : 'did not start on a public page, signed out — the check cannot see it'}`);
 console.log(`chrome pass  · ${ringChecked} controls tabbed to at 390 and 1280 · ${checked} views read for .field-label and the page colour`);
 console.log(`policy       · an injected inline script was refused under the real header and ran without it · every view read for a refusal`);
 for (const f of cspFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — the Content-Security-Policy refused ${f.refused.length} thing${f.refused.length === 1 ? '' : 's'}: ${f.refused.join(' | ')}`);
@@ -591,9 +625,9 @@ if (proseSmall.length) {
   console.log(`info ${byWhat(proseSmall).length} small link${byWhat(proseSmall).length === 1 ? '' : 's'} inside running prose (a per-screen layout decision, not a component fault):`);
   for (const [what, where] of byWhat(proseSmall).slice(0, 12)) console.log(`     ${what} — e.g. ${where[0]}`);
 }
-const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length;
+const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length;
 if (failures.length === 0 && chromeBad === 0) {
-  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, and no page broke its Content-Security-Policy');
+  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no page broke its Content-Security-Policy, and analytics started only on the four public pages, signed out');
   process.exit(0);
 }
 for (const f of failures) {

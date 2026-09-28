@@ -11,6 +11,7 @@ import { PGlite } from '@electric-sql/pglite';
 // question and a second place to be wrong (L23).
 import { PROVENANCE, PROVENANCE_LABELS, STAT_SETS, positionGroup, sharedProvenance } from '../lib/football.ts';
 import { PLAYER_FIXTURES } from '../lib/fixtures.ts';
+import { analyticsAllowed, analyticsBeforeSend } from '../lib/analytics-scope.ts';
 import { createHash, createHmac } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -101,6 +102,12 @@ const codeOnly = (src) => src
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/^\s*\/\/.*$/gm, '')
   .replace(/\/\/.*$/gm, '');
+
+// Every .ts/.tsx under app/, components/ and lib/ — for checks that pin where
+// a thing is defined or imported (tok-p1, an-p2, an-p3).
+const tsSourceFiles = () => ['app', 'components', 'lib'].flatMap((top) =>
+  readdirSync(fileURLToPath(new URL(`../${top}`, import.meta.url)), { recursive: true })
+    .filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => `${top}/${f}`));
 
 // Every file under app/, walked once. Route ENUMERATION is how several of
 // doc 14's rows are specified — the absence of a route is the assertion —
@@ -1992,6 +1999,18 @@ for (const f of billingRoutes) {
     [/if \(process\.env\.NODE_ENV === 'production' \|\| isDemo\(\)\) return new NextResponse\(null, \{ status: 404 \}\);/.test(devBilling),
      /export async function (GET|PUT|PATCH|DELETE)\b/.test(devBilling), /export async function POST\b/.test(devBilling)],
     [true, false, true]);
+}
+
+{
+  // app/dev/ratelimit (brief C, 29 Sep) empties the rate limiter for the
+  // timing suite. In production it would be a way round every limit in the
+  // product, so it must not exist there at all.
+  const devRate = srcOf('app/dev/ratelimit/route.ts');
+  check('dev2: the rate-limit reset the timing suite uses does not exist in production or in a club demo, and answers POST only',
+    [/if \(process\.env\.NODE_ENV === 'production' \|\| isDemo\(\)\) return new NextResponse\(null, \{ status: 404 \}\);/.test(devRate),
+     /export async function (GET|PUT|PATCH|DELETE)\b/.test(devRate), /export async function POST\b/.test(devRate),
+     devRate.indexOf('status: 404') < devRate.indexOf('delete from rate_hit')],
+    [true, false, true, true]);
 }
 
 // J54 — deletion has no caller in the dunning path.
@@ -7656,6 +7675,55 @@ const componentFilesAll = [];
   const pfMissing = preflight.filter(([c, q]) => !new RegExp('`' + c + '`\\*\\*\\n```sql\\n' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ';\\n```').test(pfDoc));
   check(`pf1: every pre-flight query the migration script prints is in docs/team/RELEASE-PREFLIGHT.md, word for word (${preflight.length})`,
     [preflight.length, pfMissing.map(([c]) => c)], [7, []]);
+}
+
+// --- The token read path's rate limit (CLAUDE.md §2; brief C, 29 Sep). What
+//     a refusal looks like and how long it takes is the timing suite's row
+//     tok-rl; these pin the two things it cannot see from outside.
+{
+  const readSrc = codeOnly(srcOf('lib/record-read.ts'));
+  const limitHomes = tsSourceFiles().filter((f) => /TOKEN_READ_LIMITS\s*=|token-read:/.test(codeOnly(srcOf(f))));
+  check('tok-p1: the limits are one constant, in the one read path, and nothing else counts token reads (lib/record-read.ts)',
+    [limitHomes, /export const TOKEN_READ_LIMITS = \{ perLink: \d+, perAddress: \d+, windowSeconds: [\d * ]+ \} as const;/.test(readSrc)],
+    [['lib/record-read.ts'], true]);
+  // A refusal makes the query a string that was never a link makes: one
+  // fn_token_read, reached on both paths, with nothing returned before it.
+  const afterDecision = readSrc.slice(readSrc.indexOf('await withinLimits('));
+  check('tok-p2: a refused read asks the database the question a link that never existed asks, and both limits are counted every time',
+    [/\? hash : randomBytes\(32\);/.test(afterDecision), (readSrc.match(/fn_token_read\(/g) ?? []).length,
+     /return null/.test(afterDecision.slice(0, afterDecision.indexOf('fn_token_read('))),
+     /const link = await checkRate\([^;]*\);\s*const address = await checkRate\([^;]*\);\s*return link && address;/.test(readSrc),
+     /const withinLimits = cache\(/.test(readSrc)],
+    [true, 1, false, true, true]);
+}
+
+// --- Vercel Analytics sees four public pages and nothing else (brief C,
+//     29 Sep; pillar zero 5, D-25; D-94 §1). What the pages actually serve is
+//     the render suite's (an-r1–r3) and what a browser runs is the layout
+//     check's; these pin where it can be mounted at all.
+{
+  const importing = (re) => tsSourceFiles().filter((f) => re.test(codeOnly(srcOf(f)))).sort();
+  check('an-p1: the root layout mounts no analytics — a layout is every page, /p/<token> included',
+    /analytics/i.test(codeOnly(srcOf('app/layout.tsx'))), false);
+  check('an-p2: @vercel/analytics is imported in one file, and that file hands it the allowlist as beforeSend',
+    [importing(/from '@vercel\/analytics/), /<Analytics beforeSend=\{analyticsBeforeSend\} \/>/.test(srcOf('components/PublicAnalyticsScript.tsx'))],
+    [['components/PublicAnalyticsScript.tsx'], true]);
+  check('an-p3: which is mounted by one component, and that component by the four public pages only',
+    [importing(/from '\.\/PublicAnalyticsScript'|from '@\/components\/PublicAnalyticsScript'/),
+     importing(/from '@\/components\/PublicAnalytics'/)],
+    [['components/PublicAnalytics.tsx'], ['app/fc/[slug]/page.tsx', 'app/jobs/page.tsx', 'app/page.tsx', 'app/trials/page.tsx']]);
+  check('an-p4: and mounts nothing at all for a visitor with a session (who may be a child we know is one)',
+    /if \(await getSessionPersonId\(\)\) return null;\s*return <PublicAnalyticsScript \/>;/.test(codeOnly(srcOf('components/PublicAnalytics.tsx'))), true);
+  const allowed = ['/', '/trials', '/jobs', '/fc/riverside-fc'];
+  const refused = ['/p/dev-jordan', '/p/dev-jordan/print', '/a/dev-mila-text', '/g/controls/x', '/build/x', '/c/sam-kaya',
+    '/cv-preview/deniz', '/jobs/0b7c', '/trials/x', '/fc/riverside-fc/print', '/fc/', '/home', '/signin', '//', '/trials/', ''];
+  check(`an-p5: the allowlist is exactly the front door, /trials, /jobs and a club page (${allowed.length} in, ${refused.length} out)`,
+    [allowed.filter((p) => !analyticsAllowed(p)), refused.filter((p) => analyticsAllowed(p))], [[], []]);
+  const ev = (u) => analyticsBeforeSend({ type: 'pageview', url: u })?.url ?? null;
+  check('an-p6: an event the script would send after a navigation inside the tab is dropped off the list, and trimmed to its path on it',
+    [ev('https://pitchfootball.com.au/p/abc123'), ev('https://pitchfootball.com.au/g/controls/x?link=abc'),
+     ev('https://pitchfootball.com.au/trials?age=U12#top'), ev('https://pitchfootball.com.au/'), ev('not a url')],
+    [null, null, 'https://pitchfootball.com.au/trials', 'https://pitchfootball.com.au/', null]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

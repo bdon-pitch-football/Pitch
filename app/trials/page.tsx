@@ -9,6 +9,7 @@ import { db } from '@/lib/db';
 import Wordmark from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { T } from '@/lib/palette';
+import PublicAnalytics from '@/components/PublicAnalytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,7 +141,9 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
     </div>
   );
 
+  // One of the four pages analytics may count (lib/analytics-scope).
   return (
+    <>
     <TrialsFrame>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
@@ -224,5 +227,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
         </div>
       </div>
     </TrialsFrame>
+    <PublicAnalytics />
+    </>
   );
 }
