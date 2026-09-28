@@ -137,8 +137,15 @@ export default async function Squads({ searchParams }: {
               <a href={`/club/squads/${s.id}`} style={{ fontSize: 15, fontWeight: 800, color: T.ink, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>{s.name}</a>
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
                 {[s.age_group, s.competition_gender, s.season].filter(Boolean).join(' · ')}
+                {/* D-162: a count that is zero is omitted, never printed. This line
+                    said "0 playing" on ten of eleven squads in October, which is
+                    true and reads as a broken page. Each figure shows only when
+                    it has something to say. */}
                 {(s.registrations > 0 || s.players > 0) && (
-                  <> · <span style={{ color: T.secondary }}>{s.registrations} registered · {s.players} playing</span></>
+                  <> · <span style={{ color: T.secondary }}>{[
+                    s.registrations > 0 ? `${s.registrations} registered` : null,
+                    s.players > 0 ? `${s.players} playing` : null,
+                  ].filter(Boolean).join(' · ')}</span></>
                 )}
               </div>
             </div>

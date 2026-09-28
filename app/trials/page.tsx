@@ -71,6 +71,11 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   // Each option shows how many trials it would leave, given the other
   // choices already made — so nobody taps their way into an empty board.
   const count = (next: Partial<typeof current>) => upcoming.filter((l) => matches(l, { ...current, ...next })).length;
+  // D-162: a filter chip whose count is zero is not shown — an option that
+  // cannot change what you see is not an option. "Men 0" and "Women 0" sat
+  // here as tappable chips leading to an empty board. A chip that is currently
+  // SELECTED always stays, whatever its count, or it could not be taken off.
+  const shows = (n: number, on: boolean) => n > 0 || on;
   const statesHere = Object.keys(STATES).filter((k) => upcoming.some((l) => l.state === k));
   const posHere = (Object.keys(POSITIONS) as PositionCode[]).filter((c) => upcoming.some((l) => (l.position_needs ?? []).includes(c)));
 
@@ -104,14 +109,14 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
         <div style={groupLabel}>Age group</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           <Chip to={href({ age: null })} on={!age}>Any age</Chip>
-          {agesHere.map((a) => <Chip key={a} to={href({ age: age === a ? null : a })} on={age === a}>{a === 'SEN' ? 'Seniors' : a}<span className="chip-count">{count({ age: a })}</span></Chip>)}
+          {agesHere.filter((a) => shows(count({ age: a }), age === a)).map((a) => <Chip key={a} to={href({ age: age === a ? null : a })} on={age === a}>{a === 'SEN' ? 'Seniors' : a}<span className="chip-count">{count({ age: a })}</span></Chip>)}
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
         <div style={groupLabel}>Competition</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           <Chip to={href({ gender: null })} on={!gender}>All</Chip>
-          {GENDERS.map(([v, t]) => <Chip key={v} to={href({ gender: gender === v ? null : v })} on={gender === v}>{t}<span className="chip-count">{count({ gender: v })}</span></Chip>)}
+          {GENDERS.filter(([v]) => shows(count({ gender: v }), gender === v)).map(([v, t]) => <Chip key={v} to={href({ gender: gender === v ? null : v })} on={gender === v}>{t}<span className="chip-count">{count({ gender: v })}</span></Chip>)}
         </div>
       </div>
       {statesHere.length > 1 && (
@@ -119,7 +124,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
           <div style={groupLabel}>State</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             <Chip to={href({ state: null })} on={!state}>Both</Chip>
-            {statesHere.map((k) => <Chip key={k} to={href({ state: state === k ? null : k })} on={state === k}>{STATES[k]}<span className="chip-count">{count({ state: k })}</span></Chip>)}
+            {statesHere.filter((k) => shows(count({ state: k }), state === k)).map((k) => <Chip key={k} to={href({ state: state === k ? null : k })} on={state === k}>{STATES[k]}<span className="chip-count">{count({ state: k })}</span></Chip>)}
           </div>
         </div>
       )}
@@ -128,7 +133,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
           <div style={groupLabel}>Positions wanted</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             <Chip to={href({ pos: null })} on={!pos}>Any</Chip>
-            {posHere.map((c) => <Chip key={c} to={href({ pos: pos === c ? null : c })} on={pos === c} title={POSITIONS[c].label}>{c}<span className="chip-count">{count({ pos: c })}</span></Chip>)}
+            {posHere.filter((c) => shows(count({ pos: c }), pos === c)).map((c) => <Chip key={c} to={href({ pos: pos === c ? null : c })} on={pos === c} title={POSITIONS[c].label}>{c}<span className="chip-count">{count({ pos: c })}</span></Chip>)}
           </div>
         </div>
       )}
