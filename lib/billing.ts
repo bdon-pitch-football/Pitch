@@ -13,7 +13,7 @@ import 'server-only';
 import { db } from './db';
 import { isDemo } from './demo';
 
-// D-163: free at launch, the Interest Register included. Whether money is
+// D-163: free for everyone until further notice, the Interest Register included. Whether money is
 // switched on at all is ONE answer, in the database (0075, fn_billing_enabled),
 // because the register gate is in the database and the two must never
 // disagree. While it is off nothing in this file is reachable: /club/billing

@@ -50,7 +50,7 @@ const get = async (path, who) => {
   return { status: r.status, html: await r.text() };
 };
 
-// D-163 (0075): billing is OFF at launch and this suite presses the product
+// D-163 (0075): billing is OFF until further notice and this suite presses the product
 // with it off. The blocks that press the Stripe build — D-153's free tier,
 // the checkout form — turn the switch on through the app (/dev/billing; this
 // file cannot reach the database) and put it back. The answer is read back,

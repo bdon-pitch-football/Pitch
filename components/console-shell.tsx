@@ -159,7 +159,7 @@ export async function ClubConsole({ active, floodlight, children }: {
     { key: 'roles', href: '/club/roles', label: 'Coaching roles', icon: 'roles' },
     ...(verified ? [{ key: 'post-trial', href: '/club/post-trial', label: 'Post a trial', icon: 'trials' as const }] : []),
     ...(seat.public_slug ? [{ key: 'public', href: `/fc/${seat.public_slug}`, label: 'Your club page', icon: 'page' as const }] : []),
-    // D-163: free at launch — no plan to show while billing is off (0075).
+    // D-163: free until further notice — no plan to show while billing is off (0075).
     ...(seat.billing ? [{ key: 'billing', href: '/club/billing', label: 'Plan & billing', icon: 'card' as const }] : []),
   ];
 

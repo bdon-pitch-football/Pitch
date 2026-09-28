@@ -37,10 +37,10 @@ const chipStyle = (on: boolean, c: string) => ({
 // roadmap card. Flip to true to restore the full section.
 //
 // Hidden again, and the club-scene note with it (28 Sep, D-163): Pitch is free
-// at launch, the Interest Register included, and no price is shown anywhere a
-// person can reach. Both still quote $54/$329, the launch price D-163
-// superseded, so neither may render; the live site carries BUZ's approved
-// "Free for everyone at launch." words. Restoring either needs his new copy.
+// for everyone until further notice, the Interest Register included, and no
+// price is shown anywhere a person can reach. Both still quote $54/$329, the
+// price D-163 superseded, so neither may render. Restoring either needs BUZ's
+// new copy.
 const SHOW_PRICING = false;
 
 const Check = ({ color, size = 13 }: { color: string; size?: number }) => (

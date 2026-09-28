@@ -724,7 +724,7 @@ D-135 in message form. The invariant is that suspension is not deletion, and the
 
 **Never:** a number of registrations at risk, a family's name, a countdown in hours, "you're about to lose", or a second channel. One email. And **no message goes to any family, ever, about a club's failed payment** — a family is not a party to it and telling them makes a commercial failure look like a safety event.
 
-**Amended 28 Sep (BUZ, decision 9 in `docs/team/APPROVALS-28-SEP.md`).** This section used to promise "one reminder at day seven, one at suspension". Neither was ever written, so the promise comes out until wording exists and goes to BUZ. §31 and §32 are dormant at launch anyway: billing is off (D-163), and neither message sends while it is.
+**Amended 28 Sep (BUZ, decision 9 in `docs/team/APPROVALS-28-SEP.md`).** This section used to promise "one reminder at day seven, one at suspension". Neither was ever written, so the promise comes out until wording exists and goes to BUZ. §31 and §32 are dormant anyway: billing is off until further notice (D-163), and neither message sends while it is.
 
 ---
 

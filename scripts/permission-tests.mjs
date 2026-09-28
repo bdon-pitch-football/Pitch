@@ -70,7 +70,7 @@ const procSrc = async (name) =>
 // The two questions asked from more than one table, hoisted for the same
 // reason: who may put this record in front of somebody, and who may act on
 // it at all.
-// D-163 (0075): billing is OFF at launch, and every check in this file runs
+// D-163 (0075): billing is OFF until further notice, and every check in this file runs
 // with it off unless it says otherwise. The Stripe build stays in the code
 // behind the switch, and the checks that test IT — the subscription gate, the
 // D-153 free tier, dunning — turn the switch on for their own block and put it
@@ -6660,7 +6660,7 @@ const componentFilesAll = [];
   }
   await billingOn(false);
 
-  // ---- D-163 (0075): FREE AT LAUNCH, THE REGISTER INCLUDED ------------------
+  // ---- D-163 (0075): FREE UNTIL FURTHER NOTICE, THE REGISTER INCLUDED ------------------
   // Billing is off. Verification is the gate (D-126) and the grants decide
   // who reads (D-93); money is not asked at all. Every check here was run
   // against the bug it names and went red (report, 28 Sep).

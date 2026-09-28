@@ -52,7 +52,7 @@ async function billingClub(clubId: string) {
 }
 
 export async function POST(request: Request) {
-  // D-163: free at launch. While billing is off (0075) nothing here runs —
+  // D-163: free until further notice. While billing is off (0075) nothing here runs —
   // no event is recorded, no subscription state is written, and doc 15 §31
   // and §32 never send. It answers exactly as an unconfigured webhook does,
   // before the payload is read.

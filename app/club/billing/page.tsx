@@ -54,7 +54,7 @@ const STATE_WORD: Record<string, string> = {
 export default async function Billing({ searchParams }: { searchParams: Promise<{ paid?: string; unconfigured?: string; error?: string }> }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
-  // D-163: free at launch. While billing is off this is not a place a club
+  // D-163: free until further notice. While billing is off this is not a place a club
   // must visit, and every word on it is about money, so nobody reaches it —
   // the same answer a signed-in person with no club seat gets. The screen is
   // kept whole behind the switch (0075), not deleted.

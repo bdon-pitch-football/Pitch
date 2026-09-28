@@ -1,5 +1,7 @@
 -- ---------------------------------------------------------------------------
--- 0075 — free at launch, the Interest Register included (D-163).
+-- 0075 — free for everyone until further notice, the Interest Register
+-- included (D-163, as amended the evening of 28 Sep: "Free until further
+-- notice for everyone. No timeline yet.").
 --
 -- BUZ, 28 Sep: "at launch everything will be free … the interest register
 -- included. Premium will be priced at further notice." D-163 records it and
@@ -10,7 +12,7 @@
 --
 -- WHAT CHANGES, AND IT IS ONE SWITCH IN ONE PLACE.
 --
---   app_config 'billing_enabled'   'false' at launch. Nothing else in the
+--   app_config 'billing_enabled'   'false' until BUZ prices Premium. Nothing else in the
 --                                  product holds a second copy of the answer.
 --   fn_billing_enabled()           the only reader of that row. The pages ask
 --                                  it through lib/billing; the register gate
@@ -62,12 +64,12 @@ language sql stable as $$
 $$;
 
 comment on function fn_billing_enabled() is
-  'D-163: billing is off at launch. The one answer to "is money switched on"; app_config billing_enabled holds it.';
+  'D-163: billing is off until further notice. The one answer to "is money switched on"; app_config billing_enabled holds it.';
 
 create or replace function fn_register_active(p_club uuid) returns boolean
 language sql stable as $$
   select case
-    -- D-163: free at launch. Verification is the gate (D-126), and nothing else.
+    -- D-163: free until further notice. Verification is the gate (D-126), and nothing else.
     when not fn_billing_enabled() then exists (
       select 1 from club c where c.id = p_club and c.club_state = 'verified')
     -- The subscription gate (D-112, D-135, 0068): active, or past_due and

@@ -256,7 +256,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       [clubSeat.id],
     )).rows[0].n as number;
     const pageUrl = clubSeat.public_slug ? `pitchfootball.com.au/fc/${clubSeat.public_slug}` : null;
-    // D-163: free at launch. While billing is off (0075) there is no plan to
+    // D-163: free until further notice. While billing is off (0075) there is no plan to
     // go and look at, so the door to one is not drawn — the same condition
     // the sidebar uses, from the same function.
     const billing = await billingEnabled();

@@ -60,7 +60,7 @@ async function get(path, personId) {
   return { status: res.status, location: res.headers.get('location'), csp: res.headers.get('content-security-policy'), html: await res.text() };
 }
 
-// D-163 (0075): billing is OFF at launch, and this suite renders the product
+// D-163 (0075): billing is OFF until further notice, and this suite renders the product
 // with it off. The Stripe build stays behind the switch, and the blocks that
 // test IT turn the switch on through the app (/dev/billing — this file cannot
 // reach the database) and put it back. The answer is read back, so a switch
@@ -546,7 +546,7 @@ const georgia = ids.children.georgia;
           if (m) banned.add(`${P} "${m[1]}" in: ${line.slice(0, 60)}`);
         }
       }
-      // D-163: free at launch. No page a person can reach states a price — a
+      // D-163: free until further notice. No page a person can reach states a price — a
       // dollar sign followed by a digit anywhere in the text the page shows.
       // (Not the script payload: React's flight data spells references as
       // "$1", "$L2", and that is not a price anybody reads.)
@@ -1417,7 +1417,7 @@ const georgia = ids.children.georgia;
   const marina = ids.people.marina, pat = ids.people.pat, dana = ids.people.dana, felix = ids.people.felix;
 
   // ---- D-163 first: billing OFF, the launch configuration ------------------
-  // Free at launch, the register included. Nobody reaches the plan screen,
+  // Free until further notice, the register included. Nobody reaches the plan screen,
   // nothing links to it, every verified club reads its whole register, and
   // money is said nowhere.
   for (const [who, id] of [['the TD', marina], ['the administrator', pat], ['a club that never paid', dana], ['a club whose card failed', felix]]) {

@@ -1,6 +1,6 @@
 // DEV ONLY — flips the billing switch (D-163, 0075) for the HTTP suites.
 //
-// Billing is off at launch and the Stripe build stays behind the switch. The
+// Billing is off until further notice and the Stripe build stays behind the switch. The
 // render and write suites have to press the billing screens both ways, and
 // they cannot touch the database themselves — PGlite serves one connection
 // and the app holds it — so the switch is flipped through the app, the same

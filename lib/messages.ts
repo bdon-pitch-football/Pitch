@@ -426,7 +426,7 @@ If you do nothing, nothing publishes. There's no time limit on this and we won't
 // The card fragment is conditional. A Stripe invoice does not carry the card's
 // last four digits, and inventing them is not available to a tax invoice — so
 // where we do not have them the line reads "receipt <n>" alone. APPROVED by
-// BUZ, 28 Sep, and dormant at launch (D-163: billing is off, so this never
+// BUZ, 28 Sep, and dormant while billing is off (D-163: so this never
 // sends). Passing a last4 renders doc 15's line exactly as approved.
 export const paymentTakenEmail = (r: ReceiptFields): Composed => ({
   key: 'doc15.§31',
