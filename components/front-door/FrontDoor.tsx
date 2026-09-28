@@ -339,7 +339,7 @@ export default function FrontDoor({ seat }: { seat: FrontDoorSeat | null }) {
         <div className="fd-desk" style={{ flexDirection: 'column' }}>
           <div style={{ height: 4, background: T.amber }} />
           <div style={{ height: 62, borderBottom: `1px solid ${T.line}`, background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 28px', gap: 24 }}>
-            <Link href="/signin" style={{ fontSize: 13, fontWeight: 700, color: T.secondary, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Sign in</Link>
+            <Link href="/signin" style={{ fontSize: 13, fontWeight: 700, color: T.secondary, textDecoration: 'none', minHeight: 44, minWidth: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Sign in</Link>
           </div>
         </div>
       )}
