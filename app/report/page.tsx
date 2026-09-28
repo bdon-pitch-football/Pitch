@@ -2,11 +2,18 @@
 // public page. The confirmation is doc 15 §7's copy, and it is honest about
 // what we are not: an emergency service.
 import { HeaderMark } from '@/components/Wordmark';
+import { FAILURE_COPY } from '@/components/FailureState';
 import { fileReport } from './actions';
 import { T } from '@/lib/palette';
 import { card, fieldLabel as label } from '@/lib/ui';
 
-export const metadata = { title: 'Report this page', robots: { index: false, follow: false } };
+// The confirmation is a different screen from the form, and it inherited the
+// form's title: a person who had just reported a concern about a child was
+// still looking at a tab reading "Report this page".
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ done?: string }> }) {
+  const { done } = await searchParams;
+  return { title: done ? FAILURE_COPY.reportDone.title : 'Report this page', robots: { index: false, follow: false } };
+}
 
 const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
 
@@ -18,13 +25,21 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
       <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
         <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
-          <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>We&rsquo;ve received your report</div>
+          {/* Three faults on the one screen a person reaches after reporting a
+              concern about a child, and no new words fix them. The thanks was
+              a styled <div>, so h1 was 0 and a screen reader announced nothing
+              on arrival. The one urgent line sat BELOW the thanks in the
+              lowest-contrast style on the page. And the tab still read "Report
+              this page" (generateMetadata, above). Doc 15 §7's sentences,
+              unchanged — heading, order and contrast are not. */}
+          <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em', margin: 0 }}>{FAILURE_COPY.reportDone.heading}</h1>
+          <div className="card-accent" style={{ ...card, fontSize: 13.5, color: T.ink, fontWeight: 700, lineHeight: 1.55 }}>
+            {FAILURE_COPY.reportDone.urgent}
+          </div>
           <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-            Thanks — we have your report and a person will look at it. We aim to respond within one business day.
+            {FAILURE_COPY.reportDone.thanks}
           </div>
-          <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-            If it concerns a child&rsquo;s immediate safety, contact your local police first; we are not an emergency service.
-          </div>
+          <a href="/" className="btn btn-secondary">{FAILURE_COPY.reportDone.action}</a>
         </div>
       </div>
     );

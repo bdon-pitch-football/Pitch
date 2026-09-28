@@ -54,7 +54,10 @@ export default function LinkState({ token, asked }: { token?: string; asked?: bo
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your role and club</div>
               <input name="role" required maxLength={120} placeholder="Technical Director, Riverside FC" style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
             </label>
-            <button type="submit" style={{ background: T.surface2, border: `1px solid ${T.line}`, color: T.ink, borderRadius: 14, height: 46, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Ask the family</button>
+            {/* LinkState.dc.html draws this as the primary button (#3ddc84,
+                50px) and the build had drifted to the secondary well. It is
+                the ONLY action on the page; a lone action is primary. */}
+            <button type="submit" className="btn btn-primary">Ask the family</button>
           </form>
         ))}
       </div>

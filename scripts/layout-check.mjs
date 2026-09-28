@@ -180,7 +180,12 @@ for (const width of widths) {
       const squad = seat.startsWith('club') ? await eval_(`JSON.stringify(document.querySelector('a[href^="/club/squads/"]')?.getAttribute('href') ?? '')`) : '';
       for (const path of DEEP[seat].map((p) => p.replace('@squad', squad))) {
         await visit(path);
-        const where = await eval_(`JSON.stringify({ at: location.pathname + location.search, missing: document.body.innerText.includes('This page could not be found') })`);
+        // The 404 used to be Next's stock page and was recognised by its
+        // words. It is app/not-found.tsx now, and its words are a proposal
+        // awaiting BUZ — so this reads the marker attribute the failure shell
+        // carries instead (L32: a suite that reads a page is reading a
+        // fixture, so pin it to something that does not move with the copy).
+        const where = await eval_(`JSON.stringify({ at: location.pathname + location.search, missing: Boolean(document.querySelector('[data-failure="not-found"]')) })`);
         checked++;
         if (where.at !== path || where.missing) { failures.push({ width, seat, path, unrendered: where.missing ? '404' : `landed on ${where.at}` }); continue; }
         const m = await eval_(MEASURE(width));
@@ -190,8 +195,61 @@ for (const width of widths) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// THE FAILURE PATH, AS A PERSON SEES IT (28 Sep).
+//
+// This is the only suite with a browser, and the failure path needs one for
+// two reasons. A colour is not a fact until something computes it: the stock
+// Next 404 forces `body{color:#000;background:#fff}` inline, and on a
+// dark-only product (the charter: Night Match IS the brand) the only honest
+// way to say "that is not white any more" is to ask the browser. And the 500
+// page is a Client Component, because Next requires an error boundary to be
+// one — so its markup is in a JS chunk and not in the document a fetch reads.
+// Everything a fetch CAN see is in the render suite (fp1–fp14).
+//
+// Four surfaces: a mistyped URL, a dead club slug (a notFound() from inside a
+// route, which arrives differently), a route that threw, and the screen after
+// somebody reports a concern about a child.
+const NIGHT = new Set(['rgb(11, 18, 14)', 'rgb(7, 11, 9)', 'rgb(18, 27, 22)', 'rgb(26, 36, 32)', 'rgb(14, 23, 18)']);
+const FAILURE_VIEWS = [
+  ['a mistyped URL', '/no-such-page'],
+  ['a dead club slug', '/fc/no-such-club'],
+  ['a route that threw', '/dev/boom'],
+  ['the screen after a report', '/report?done=1'],
+];
+const SEEN = `(() => {
+  const h1 = document.querySelector('h1');
+  const mark = [...document.querySelectorAll('svg')].some((s) => s.querySelector('circle') && s.closest('a, div'))
+    && /P\\s*TCH|PTCH/.test(document.body.innerText.replace(/\\s+/g, ''));
+  const home = [...document.querySelectorAll('a[href]')].some((a) => {
+    const h = a.getAttribute('href');
+    return h === '/' || h === '/home' || h === '/signin';
+  });
+  const bg = getComputedStyle(document.body).backgroundColor;
+  const ink = getComputedStyle(document.body).color;
+  return JSON.stringify({ h1: h1 ? h1.innerText.trim().slice(0, 60) : '', mark, home, bg, ink });
+})()`;
+await cdp('Network.clearBrowserCookies');
+let failureChecks = 0;
+for (const width of widths) {
+  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
+  for (const [what, path] of FAILURE_VIEWS) {
+    await visit(path);
+    const seen = await eval_(SEEN);
+    const m = await eval_(MEASURE(width));
+    checked++; failureChecks++;
+    const wrong = [];
+    if (!seen.h1) wrong.push('no heading');
+    if (!seen.mark) wrong.push('no Pitch mark');
+    if (!seen.home) wrong.push('no way back');
+    if (!NIGHT.has(seen.bg)) wrong.push(`background ${seen.bg}, not a Night Match tone`);
+    if (m.doc > m.vw + 1) wrong.push(`${m.doc}px wide on ${m.vw}px`);
+    if (wrong.length) failures.push({ width, seat: 'failure path', path, unrendered: `${what} — ${wrong.join('; ')}` });
+  }
+}
+
 stop();
-console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px`);
+console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px (${failureChecks} of them failure-path views)`);
 if (failures.length === 0) {
   console.log('ALL GREEN — nothing is wider than the screen');
   process.exit(0);

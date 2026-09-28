@@ -432,6 +432,47 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('p19d: and her invite page is not found — not an error, not "paused"',
     (await get(`/club/invite/${gReg}`, club)).status, 404);
   check('p19e: nor is her CV page', (await get(`/club/register/cv/${gReg}`, club)).status, 404);
+
+  // p19g — THE ONE THING IN THE 404 WORK THAT COULD MAKE US LESS SAFE.
+  // Until 28 Sep both of these served Next's stock page, so they matched by
+  // accident. Now they serve app/not-found.tsx, and they have to match on
+  // purpose: a club that probes a URL must not be able to tell "there is a
+  // child here whose parent has just switched her off" from "there is no such
+  // club". Same status, same title, same words, same speed. The render suite
+  // holds the pairs that need no mutation (fp6, fp7); this is the pair that
+  // needs somebody to press pause, which is why it lives here.
+  {
+    const prose = (html) => {
+      const body = html.replace(/<template[\s\S]*?<\/template>/g, ' ');
+      const hits = new Set();
+      for (const m of body.matchAll(/[A-Za-z][A-Za-z0-9 ,.'\u2019\u2014\u2013:;()&!?-]{14,}/g)) {
+        const t = m[0].replace(/\s+/g, ' ').trim();
+        if (/node:|_next|self\.__next|function |\.js|http|localhost|[0-9a-f]{12}/.test(t)) continue;
+        if (!/ [a-z]/.test(t)) continue;
+        hits.add(t);
+      }
+      return [...hits].sort();
+    };
+    const title = (h) => /<title[^>]*>([^<]*)<\/title>/.exec(h)?.[1];
+    // A route's own robots directive rides along in its payload and says which
+    // route was typed, not whether anything was there (render suite fp6).
+    const METADATA = /^(no)?index[, ]/;
+    const paused = await get(`/club/register/cv/${gReg}`, club);
+    const nosuch = await get('/fc/no-such-club', club);
+    const pa = prose(paused.html); const pn = prose(nosuch.html);
+    const diff = [...pa.filter((x) => !pn.includes(x)), ...pn.filter((x) => !pa.includes(x))].filter((x) => !METADATA.test(x));
+    check(`p19g: a paused child's registration and a club that never existed answer identically${diff.length ? ` (differs: ${diff.join(' / ')})` : ''}`,
+      [paused.status, nosuch.status, title(paused.html) === title(nosuch.html), diff.length,
+        pa.includes('This page isn\u2019t here')], [404, 404, true, 0, true]);
+    const ms = async (path) => { const t = process.hrtime.bigint(); await get(path, club); return Number(process.hrtime.bigint() - t) / 1e6; };
+    const median = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+    const a = []; const b = [];
+    for (let i = 0; i < 9; i++) { a.push(await ms(`/club/register/cv/${gReg}`)); b.push(await ms('/fc/no-such-club')); }
+    const [ma, mb] = [median(a), median(b)];
+    check(`p19h: and indistinguishably fast \u2014 ${ma.toFixed(0)}ms vs ${mb.toFixed(0)}ms over 9 runs`,
+      Math.abs(ma - mb) < Math.max(40, 0.5 * Math.min(ma, mb)), true);
+  }
+
   await postTo(`/g/controls/${georgia}`, parent, await (pauseForm('false'))());
   check('p19f: switched back on, the links return',
     doorsTo((await get('/club/register', club)).html)?.includes(`/club/register/cv/${gReg}`), true);
@@ -1709,6 +1750,47 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     [/Active\./.test(live), /Waiting on their account/.test(live)], [true, false]);
   check('td-w6b: and the queue agrees',
     /Technical Director Casey Duarte · active · recorded by BUZ/.test(words((await get('/ops/verification', op)).html)), true);
+}
+
+// ---------------------------------------------------------------------------
+// A REFUSED SIGN-IN, PRESSED FOR REAL (28 Sep).
+//
+// signIn() ended in redirect('/home') on every path — success, wrong password,
+// no such account, rate-limited — and /home signed out renders "Welcome back /
+// One account, whichever seat you hold." So every mistyped password looked
+// like an outage, and the code's comment cited D-94 §2 for it. D-94 §2 asks
+// for the response to be IDENTICAL whether or not the account exists; it does
+// not ask for silence. One line, the same line for every cause, satisfies it.
+//
+// These press the button rather than read the handler, because the property is
+// about what four different causes produce.
+// ---------------------------------------------------------------------------
+{
+  const signInForm = forms((await get('/signin', null)).html).find((f) => 'email' in Object.fromEntries(f.visible.map((v) => [v.name, v])));
+  const press = async (email, password) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(signInForm.fields)) fd.append(k, v);
+    fd.append('email', email);
+    fd.append('password', password);
+    const r = await fetch(BASE + '/signin', { method: 'POST', body: fd, redirect: 'manual' });
+    const body = await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '', setCookie: Boolean(r.headers.get('set-cookie')), body };
+  };
+  check('sr1: the sign-in form is reachable with no JavaScript', Boolean(signInForm), true);
+
+  // An account that exists, with the wrong password.
+  const wrong = await press('guardian@example.com', 'not-the-password');
+  // An address no account holds.
+  const nobody = await press('nobody-at-all@example.com', 'not-the-password');
+  check('sr2: a wrong password is refused, and says so — it does not land on "Welcome back"',
+    [wrong.location, wrong.setCookie], ['/signin?refused=1', false]);
+  check('sr3: and an address no account holds answers IDENTICALLY (D-94 §2 — no enumeration oracle)',
+    [nobody.status === wrong.status, nobody.location === wrong.location, nobody.body === wrong.body], [true, true, true]);
+
+  // The refusal is not a wall: the same account still gets in.
+  const ok = await press('guardian@example.com', '');
+  check('sr4: the same account still signs in, so the refusal is real and not a wall',
+    [ok.location, ok.setCookie], ['/home', true]);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);

@@ -1043,5 +1043,168 @@ const georgia = ids.children.georgia;
   check('pv8: signed out, the preview asks you to sign in', [anon.status, anon.location], [307, '/signin']);
 }
 
+// ---------------------------------------------------------------------------
+// THE FAILURE PATH (28 Sep). Until today there was no app/not-found.tsx and no
+// app/error.tsx, so 52 notFound() call sites across 33 route files and every
+// uncaught render error served Next's stock page — white, system font, no
+// Pitch mark, no way back, and the tab still reading "every season on the
+// record." These checks are written against the property, not the words: every
+// string on those pages is a proposal awaiting BUZ, so nothing below asserts a
+// sentence it does not have to.
+//
+// HOW A ROUTE'S 404 ARRIVES, because it changes what a fetch can see. An
+// unmatched URL is server-rendered: the markup is in the HTML. A notFound()
+// thrown INSIDE a route is thrown after the shell has flushed, so React
+// delivers the page as an RSC payload inside <script> and paints it on the
+// client — the HTML body is empty and the words are in the payload. Measured
+// on both the dev server and a production build (`next build && next start`);
+// it is the same either way. So `prose()` below reads the whole document.
+// What a person actually SEES for these is measured in real Chrome by
+// scripts/layout-check.mjs, which is also where "not the stock white" is
+// asserted, because a colour needs a browser to be a fact.
+// ---------------------------------------------------------------------------
+{
+  /**
+   * Every sentence the page BODY carries, wherever it carries it. The head is
+   * dropped: route segments set their own metadata and it survives into their
+   * 404 (/club/register/cv sets robots noindex,nofollow; /c/[slug] has its own
+   * opengraph-image), so two families differ in the head while showing the
+   * same page. That is not an existence oracle — it tells you the route you
+   * typed, not whether anything was there — but it is reported as a finding.
+   */
+  const prose = (html) => {
+    // Dev-only <template> error metadata holds a stack trace that names the
+    // component which threw — different per route, and absent in production.
+    const body = html.replace(/<head[\s\S]*?<\/head>/, ' ').replace(/<template[\s\S]*?<\/template>/g, ' ');
+    const hits = new Set();
+    for (const m of body.matchAll(/[A-Za-z][A-Za-z0-9 ,.'’—–:;()&!?-]{14,}/g)) {
+      const t = m[0].replace(/\s+/g, ' ').trim();
+      if (/node:|_next|self\.__next|function |\.js|http|localhost|[0-9a-f]{12}/.test(t)) continue;
+      if (!/ [a-z]/.test(t)) continue;   // a sentence has a space in it; a nonce, a uuid and a slug do not
+      hits.add(t);
+    }
+    return [...hits].sort();
+  };
+  const HEADING = 'This page isn’t here';
+  const HOME = 'Go to the start';
+  // The four sentences the 404 is made of. Both sides of every pair below must
+  // carry all four, so "identical" cannot be satisfied by two empty pages.
+  const HEADING_SET = [HEADING, HOME,
+    'The address may be wrong, or what was here may have been taken down.',
+    'We don’t say whether something was here and has gone, or was never here at all. The answer is the same either way, so a wrong address can’t be used to find out who is on Pitch.'];
+
+  // ---- a mistyped URL -------------------------------------------------------
+  const typo = await get('/no-such-page');
+  check('fp1: a mistyped URL answers 404 on a page of ours, not Next’s stock one',
+    [typo.status, /next-error-h1|This page could not be found/.test(typo.html)], [404, false]);
+  check('fp2: it carries a heading, the Pitch mark and a way back',
+    [/<h1[^>]*>[^<]/.test(typo.html), typo.html.includes('data-failure="not-found"'), has(typo.html, HEADING), /TCH/.test(typo.html), /href="\/"[^>]*btn-primary|btn-primary[^>]*>Go to the start/.test(typo.html) || has(typo.html, HOME)],
+    [true, true, true, true, true]);
+  check('fp3: and a title of its own — not the landing page’s line',
+    /<title[^>]*>([^<]*)<\/title>/.exec(typo.html)?.[1], 'Page not found · Pitch Football');
+  check('fp4: the dark page is the only page — nothing forces a white body',
+    /<style[^>]*>[^<]*background:\s*#fff/.test(typo.html), false);
+
+  // ---- a notFound() from inside a route ------------------------------------
+  for (const [what, path] of [['a dead club slug', '/fc/no-such-club'], ['a dead coach slug', '/c/no-such-coach'],
+    ['an expired job link', '/jobs/00000000-0000-0000-0000-000000000000']]) {
+    const r = await get(path);
+    check(`fp5: ${what} answers 404 with our page, not Next’s`,
+      [r.status, prose(r.html).includes(HEADING), /next-error-h1|This page could not be found/.test(r.html)],
+      [404, true, false]);
+  }
+
+  // ---- the oracle, which is the one thing here that could make us less safe -
+  // A 404 must not answer differently depending on WHAT was missing. Next
+  // hands not-found.tsx no props, so the page cannot know — and these prove
+  // the property rather than the argument. The paused-registrant half of it
+  // needs somebody to press pause, so it lives in the write suite (p19g).
+  {
+    // The register's CV page sends a stranger to /signin before it looks
+    // anything up, so the pair that matters there is read as the club's own
+    // technical director — the seat that would be doing the probing.
+    const pairs = [
+      ['two dead club slugs', '/fc/no-such-club', '/fc/another-dead-club', null],
+      ['two dead job links', '/jobs/00000000-0000-0000-0000-000000000000', '/jobs/11111111-1111-1111-1111-111111111111', null],
+      ['a dead club slug and a dead job link', '/fc/no-such-club', '/jobs/00000000-0000-0000-0000-000000000000', null],
+      ['a dead club slug and a registration nobody may read', '/fc/no-such-club', '/club/register/cv/00000000-0000-0000-0000-000000000000', ids.people.marina],
+    ];
+    for (const [what, a, b, who] of pairs) {
+      const ra = await get(a, who); const rb = await get(b, who);
+      const title = (h) => /<title[^>]*>([^<]*)<\/title>/.exec(h)?.[1];
+      const pa = prose(ra.html); const pb = prose(rb.html);
+      // A route's own robots directive rides along in its flight payload, so
+      // /club/register/cv's "noindex, nofollow" shows up beside Next's
+      // automatic "noindex" on a 404. It says which route you typed, which you
+      // already know, and nothing about whether anything was there — so it is
+      // allowed through by name rather than by widening the comparison.
+      const METADATA = /^(no)?index[, ]/;
+      const diff = [...pa.filter((x) => !pb.includes(x)), ...pb.filter((x) => !pa.includes(x))].filter((x) => !METADATA.test(x));
+      check(`fp6: ${what} answer identically — same status, same title, same words${diff.length ? ` (differs: ${diff.join(' / ')})` : ''}`,
+        [ra.status === rb.status, title(ra.html) === title(rb.html), diff.length,
+          HEADING_SET.every((x) => pa.includes(x) && pb.includes(x))], [true, true, 0, true]);
+    }
+  }
+  // Timing, on the same terms as doc 14 E10: a test, not a hope. Reported as
+  // numbers either way, because the interesting failure is a slow one.
+  {
+    const ms = async (path) => { const t = process.hrtime.bigint(); await get(path); return Number(process.hrtime.bigint() - t) / 1e6; };
+    const median = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+    const runs = 9;
+    const a = []; const b = [];
+    for (let i = 0; i < runs; i++) { a.push(await ms('/fc/no-such-club')); b.push(await ms('/fc/another-dead-club')); }
+    const [ma, mb] = [median(a), median(b)];
+    check(`fp7: and indistinguishably fast — ${ma.toFixed(0)}ms vs ${mb.toFixed(0)}ms over ${runs} runs`,
+      Math.abs(ma - mb) < Math.max(40, 0.5 * Math.min(ma, mb)), true);
+  }
+
+  // ---- the 500 --------------------------------------------------------------
+  // /dev/boom throws on purpose and is notFound() in production, exactly as
+  // /design and /dev/outbox are. app/error.tsx is a Client Component (Next
+  // requires it), so its markup is in a JS chunk rather than the document —
+  // what a fetch can prove is the status and that the stock page is gone.
+  {
+    const boom = await get('/dev/boom');
+    check('fp8: a route that throws answers 500, and not with Next’s stock page',
+      [boom.status, /next-error-h1|A server error occurred|This page couldn’t load|Application error: a client-side exception/.test(boom.html)], [500, false]);
+  }
+
+  // ---- a refused sign-in ----------------------------------------------------
+  // D-94 §2 wants the response identical whether or not the account exists, not
+  // silent. signIn() used to redirect('/home') on every path, so a wrong
+  // password landed on "Welcome back / One account, whichever seat you hold."
+  // The refusal is DRIVEN for real in the write suite (sr1–sr4); here it is
+  // the page that is checked.
+  {
+    const REFUSED = 'That didn’t work. Check the email address and the password and try again.';
+    const refused = await get('/signin?refused=1');
+    check('fp9: a refused sign-in has one line, the same line for every cause',
+      [refused.status, has(refused.html, REFUSED), /role="alert"/.test(refused.html)], [200, true, true]);
+    check('fp10: and it is on the sign-in page, not on "Welcome back"',
+      has((await get('/home')).html, REFUSED), false);
+  }
+
+  // ---- the screen after reporting a concern about a child -------------------
+  {
+    const done = await get('/report?done=1');
+    const t = text(done.html);
+    const iUrgent = t.findIndex((l) => l.includes('contact your local police first'));
+    const iThanks = t.findIndex((l) => l.includes('a person will look at it'));
+    check('fp11: /report?done=1 has a real heading, so a screen reader announces one',
+      /<h1[^>]*>We’ve received your report<\/h1>/.test(done.html), true);
+    check('fp12: the emergency line is ABOVE the thanks, and not in the faintest style',
+      [iUrgent !== -1, iThanks !== -1, iUrgent < iThanks], [true, true, true]);
+    check('fp13: and the tab no longer says "Report this page"',
+      /<title[^>]*>([^<]*)<\/title>/.exec(done.html)?.[1], 'Report received · Pitch Football');
+  }
+
+  // ---- the page this one was modelled on -----------------------------------
+  {
+    const dead = await get('/p/dev-expired');
+    check('fp14: the D-77 dead-link page carries the Pitch mark and a primary action',
+      [/TCH/.test(dead.html), /class="btn btn-primary"[^>]*>Ask the family/.test(dead.html)], [true, true]);
+  }
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 process.exit(failures.length ? 1 : 0);
