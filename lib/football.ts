@@ -133,3 +133,31 @@ export const EXPERIENCE_KIND_LABELS: Record<ExperienceKind, string> = {
   representative: 'Representative', ntc_academy: 'NTC',
   tournament: 'Tournament', other: 'Other',
 };
+
+// D-161 — no school reaches a public page for anybody under 18, not as a
+// field (D-114 took the field away) and not as an "other football" entry. An
+// adult keeps it: a university or a school side is theirs to name.
+//
+// The RULE is the database's (0061) — the write is refused there, so it holds
+// for the next screen somebody builds. These two exist for the two things a
+// refused write cannot do: stop offering a chip nobody may use, and stop an
+// entry written BEFORE the rule from rendering. The second matters because a
+// u16's page is a guardian-approved snapshot (D-119) taken before today, and
+// nothing deletes those rows or that snapshot — they are the family's own
+// words (D-161 leaves what a family is told to BUZ).
+//
+// The band is the one the permission layer derived (fn_age_band), carried and
+// never computed here. An absent band is treated as a minor — the same
+// restrictive default fn_age_band uses for an unknown date of birth.
+const ADULT_ONLY_KINDS: readonly ExperienceKind[] = ['school'];
+const adultOnly = (kind: string) => ADULT_ONLY_KINDS.includes(kind as ExperienceKind);
+
+/** The "other football" chips a record of this band may be offered. */
+export function experienceKindsOffered(band?: string | null): ExperienceKind[] {
+  return OTHER_FOOTBALL_KINDS.filter((k) => band === '18plus' || !adultOnly(k));
+}
+
+/** The experience entries a page of this band may render, whatever it holds. */
+export function renderableExperience<T extends { kind: string }>(entries: T[], band?: string | null): T[] {
+  return entries.filter((e) => band === '18plus' || !adultOnly(e.kind));
+}

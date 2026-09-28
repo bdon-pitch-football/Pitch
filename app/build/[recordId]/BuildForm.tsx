@@ -14,7 +14,7 @@ interface RecordData {
   surfaced_stats: string[]; stats: Record<string, number>; has_pending: boolean; clips: number;
 }
 
-const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
 export default function BuildForm({ record, saved }: { record: RecordData; saved: boolean }) {
   const [photoName, setPhotoName] = useState<string | null>(null);

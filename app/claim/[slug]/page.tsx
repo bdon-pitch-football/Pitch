@@ -100,7 +100,7 @@ export default async function ClaimClub({ params, searchParams }: {
               <div style={label}>Your code</div>
               <div style={card}>
                 <input name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required placeholder="000000"
-                  style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 22, fontWeight: 900, letterSpacing: '0.14em', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', padding: 0, width: '100%' }} />
+                  style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 22, fontWeight: 900, letterSpacing: '0.14em', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', padding: 0, width: '100%' }} />
               </div>
             </div>
             <button type="submit" className="btn btn-primary">Claim {c.name}</button>

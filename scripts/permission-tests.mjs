@@ -353,6 +353,115 @@ const permSqlCode = readFileSync(join(dir, '0003_permissions.sql'), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '');
 check('D-72 permission engine source never references experience_entry', permSqlCode.includes('experience_entry') ? 'referenced' : 'clean', 'clean');
 
+// ---------------------------------------------------------------------------
+// A19 / D-161 — no school reaches a public page for anybody under 18. The
+// rule is the database's (0061): the write is refused against the date of
+// birth at write time, and the read paths ask the same function at read time,
+// so an eighteenth birthday is nobody's special case.
+//
+// D-72 is untouched and is asserted three lines above: the entry still grants
+// nothing to anybody. This runs the other way round — the record's age band
+// decides what the entry may say.
+// ---------------------------------------------------------------------------
+const schoolRow = (rec) =>
+  `insert into experience_entry (record_id, kind, org_name) values ('${rec}','school','Riverside University 1st XI')`;
+await expectFail('A19: a school entry is refused on an under-16 record', schoolRow(REC.deniz));
+await expectFail('A19: and refused on a 16-17 record', schoolRow(REC.nate));
+await db.exec(schoolRow(REC.marcus));
+const schoolRows = async (rec) =>
+  (await db.query(`select count(*)::int as n from experience_entry where record_id=$1 and kind='school'`, [rec])).rows[0].n;
+check('A19: the same insert succeeds on an adult record', await schoolRows(REC.marcus), 1);
+check('A19: and the child has none', await schoolRows(REC.deniz), 0);
+
+// The read side, asked of the database rather than of a page (D-80): the one
+// function every assembly path calls.
+const kindPublic = async (rec, kind) =>
+  (await db.query(`select fn_experience_public($1,$2) as ok`, [rec, kind])).rows[0].ok;
+const schoolPublic = (rec) => kindPublic(rec, 'school');
+check('A19: the adult\'s school entry may reach a public page', await schoolPublic(REC.marcus), true);
+check('A19: the under-16\'s may not', await schoolPublic(REC.deniz), false);
+check('A19: nor the 16-17\'s', await schoolPublic(REC.nate), false);
+check('A19: and a record that does not exist may not either — restrictive by default',
+  await schoolPublic('00000000-0000-0000-0000-000000000000'), false);
+check('A19: every other kind is unaffected, for every band',
+  [await kindPublic(REC.deniz, 'futsal'), await kindPublic(REC.deniz, 'previous_club'),
+   await kindPublic(REC.deniz, 'representative'), await kindPublic(REC.nate, 'ntc_academy')],
+  [true, true, true, true]);
+
+// Age is DERIVED, never stored (D-49). The same row, the same person, one
+// date of birth apart: nothing anywhere has to remember a birthday.
+await db.query(`update person set dob = $2 where id = $1`, [ID.nate, yearsAgo(19)]);
+check('A19: the refusal follows the date of birth — an 18th birthday needs no job',
+  await schoolPublic(REC.nate), true);
+await db.exec(schoolRow(REC.nate));
+check('A19: and the write the database refused yesterday is accepted today',
+  await schoolRows(REC.nate), 1);
+await db.query(`delete from experience_entry where record_id=$1 and kind='school'`, [REC.nate]);
+await db.query(`update person set dob = $2 where id = $1`, [ID.nate, yearsAgo(17)]);
+check('A19: and the 16-17 fixture is back where it was', await schoolPublic(REC.nate), false);
+
+// The two other ways a school entry could arrive on a child's record.
+const probeEntry = crypto.randomUUID();
+await db.query(`insert into experience_entry (id, record_id, kind, org_name) values ($1,$2,'futsal','Fixture futsal')`,
+  [probeEntry, REC.deniz]);
+await expectFail('A19: an existing entry cannot be edited into a school entry',
+  `update experience_entry set kind='school' where id='${probeEntry}'`);
+await expectFail('A19: nor can an adult\'s school entry be moved onto a child\'s record',
+  `update experience_entry set record_id='${REC.deniz}' where record_id='${REC.marcus}' and kind='school'`);
+
+// An entry that already exists is NOT deleted — it is the family's own words,
+// and what they are told is BUZ's call (D-161). The seed holds one for the
+// same reason; this writes one the only way one can now be written.
+await db.exec(`alter table experience_entry disable trigger no_school_under_18`);
+await db.exec(schoolRow(REC.deniz));
+await db.exec(`alter table experience_entry enable trigger no_school_under_18`);
+check('A19: a row written before the rule is still there', await schoolRows(REC.deniz), 1);
+check('A19: and still reaches no public page', await schoolPublic(REC.deniz), false);
+check('A19: and still grants its reader nothing (D-72 unchanged)',
+  [await level(ID.coachOther, ID.deniz), await level(ID.adminOther, ID.deniz)], ['none', 'none']);
+await db.query(`update experience_entry set org_name='School 1st XI' where record_id=$1 and kind='school'`, [REC.deniz]);
+check('D-161: and can still be corrected in place, which is what the demo layer does to every text column',
+  (await db.query(`select org_name from experience_entry where record_id=$1 and kind='school'`, [REC.deniz])).rows[0].org_name,
+  'School 1st XI');
+
+// The approved snapshot is the one a guardian already approved, so it is
+// filtered where it is SERVED (fn_approved_cv, the single function 0054 made
+// of the four surfaces that read one). The row stays; the page does not get it.
+{
+  // A snapshot as one looked before today: a guardian approved it, a school
+  // entry is in it, and nothing may rewrite it. Restored afterwards, because
+  // the fixture's approved content is what table R reads.
+  const before = (await db.query(
+    `select content from profile_version where record_id=$1 and status='approved'`, [REC.deniz])).rows[0].content;
+  await db.query(
+    `update profile_version set content = $2 where record_id=$1 and status='approved'`,
+    [REC.deniz, JSON.stringify({ ...before, otherFootball: [
+      { kind: 'school', orgName: 'Marlowe High 1st XI' }, { kind: 'futsal', orgName: 'Melbourne Futsal U15' }] })]);
+  const served = (await db.query(`select fn_approved_cv($1) as cv`, [REC.deniz])).rows[0].cv;
+  const stored = (await db.query(
+    `select content from profile_version where record_id=$1 and status='approved'`, [REC.deniz])).rows[0].content;
+  check('A19: the snapshot a guardian approved still holds the school entry',
+    stored.otherFootball.map((e) => e.kind), ['school', 'futsal']);
+  check('A19: and fn_approved_cv — the one function all four snapshot surfaces read — serves it to nobody',
+    served.otherFootball.map((e) => e.kind), ['futsal']);
+  check('A19: and the rest of the snapshot is served unchanged', served.name, before.name);
+  await db.query(`update profile_version set content = $2 where record_id=$1 and status='approved'`,
+    [REC.deniz, JSON.stringify(before)]);
+}
+
+// Both assembly paths ask the database. The render suite proves what the page
+// serves; this is what stops a third assembly appearing without the question.
+for (const [what, rel] of [['the live assembly', 'lib/record-read.ts'], ['the snapshot builder', 'lib/cv-build.ts']]) {
+  check(`A19: ${what} asks fn_experience_public for every entry it returns`,
+    /fn_experience_public\(\$1, kind\)/.test(codeOnly(srcOf(rel))), true);
+}
+// A delete is not a read: stripped first, or the family editor's Remove
+// button makes this pass for the wrong reason.
+const experienceSrc = (f) => codeOnly(readFileSync(f, 'utf8')).replace(/delete from experience_entry/g, '');
+const readsExperience = routeFiles.filter((f) => /from experience_entry/.test(experienceSrc(f)));
+check(`A19: and no page under app/ reads one without the band in the same query (${readsExperience.length} reads them)`,
+  readsExperience.filter((f) => !/fn_experience_public|fn_age_band/.test(experienceSrc(f))).length, 0);
+
 // The 30-day notice query finds a child at the boundary and nobody else.
 const soon16 = crypto.randomUUID();
 const soon16Dob = (() => { const d = new Date(melbourneToday); d.setFullYear(d.getFullYear() - 16); d.setDate(d.getDate() + 30); return iso(d); })();
@@ -2067,6 +2176,17 @@ const deadPage = readFileSync(fileURLToPath(new URL('../app/p/[token]/page.tsx',
 const deadHalf = deadPage.split('LinkState').slice(1).join('');
 check('E4: the link-state page renders no name, club, age or photo',
   /first_name|last_name|club|age_group|photo/i.test(deadHalf), false);
+// E11, as doc 14 words it: the body carries no name, no club, no photo, no
+// age, NO INITIALS and NO SQUAD NUMBER. This row was counted as covered by a
+// label on a sign-out assertion (L4, a fourth time) — gate-coverage said
+// 261/261 and nothing in the file tested it. The page cannot leak a person
+// because it is handed none: LinkState takes a token and a boolean, and names
+// no field of a record anywhere.
+const linkStateSrc = readFileSync(fileURLToPath(new URL('../components/cv/LinkState.tsx', import.meta.url)), 'utf8');
+check('E11: the link-state page is handed nothing about a person',
+  /export default function LinkState\(\{ token, asked \}: \{ token\?: string; asked\?: boolean \}\)/.test(linkStateSrc), true);
+check('E11b: and names no field of a record — no initials, no squad number',
+  /first_name|last_name|initials|squad_number|shirt|photo_path|age_group|\bdob\b|positions/i.test(codeOnly(linkStateSrc)), false);
 check('E5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
 check('E6: and sends no referrer to an embed host (D-94 §5)',
   /no-referrer/.test(readFileSync(fileURLToPath(new URL('../next.config.mjs', import.meta.url)), 'utf8')), true);
@@ -2613,18 +2733,15 @@ await db.query(`insert into person (id, first_name, dob, email) values ($1,'Rese
 const rawTok = 'test-reset-token';
 const tokHash = sha(rawTok);
 await db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() + interval '1 hour')`, [resetPerson, tokHash]);
-const consume = async () => (await db.query(
-  `update auth_reset set used_at = now()
-   where id = (select id from auth_reset where token_hash = $1 and used_at is null and expires_at > now() limit 1)
-   returning person_id`, [tokHash])).rows[0]?.person_id ?? null;
-check('reset token works once', await consume(), resetPerson);
-check('reset token cannot be reused', await consume(), null);
+// Through the database's own answer, not a copy of its query (L23). These
+// three carried their own hand-written UPDATE, which from 0062 was no longer
+// the statement the product runs — it never looked at revoked_at, so it would
+// have stayed green with supersession completely broken.
+const consume = async (h) => (await db.query('select fn_use_auth_reset($1) as p', [h])).rows[0].p;
+check('reset token works once', await consume(tokHash), resetPerson);
+check('reset token cannot be reused', await consume(tokHash), null);
 await db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`, [resetPerson, sha('expired-token')]);
-const expiredUse = (await db.query(
-  `update auth_reset set used_at = now()
-   where id = (select id from auth_reset where token_hash = $1 and used_at is null and expires_at > now() limit 1)
-   returning person_id`, [sha('expired-token')])).rows[0]?.person_id ?? null;
-check('an expired reset token is refused', expiredUse, null);
+check('an expired reset token is refused', await consume(sha('expired-token')), null);
 
 // ---------------------------------------------------------------------------
 // Route enumeration — absence as a property (doc 14 §N12, §P11, §C1, D-122).
@@ -2649,8 +2766,6 @@ const pageCode = codeOnly(deadPage);
 check('E10: the page branches on one boolean, never on WHY the link is dead',
   /expired|revoked|paused|disabled/i.test(pageCode), false);
 
-check('E11: signing out destroys the session and nothing else',
-  /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
 
 // Club video (0018) is a LINK, never a file — the parked hosting question
 // must not creep in through this door.
@@ -3219,14 +3334,176 @@ check('store4: storage is server-only', /^import 'server-only';/m.test(storeSrc)
 check('store5: the bucket is configurable, not hardcoded to one project',
   /SUPABASE_STORAGE_BUCKET/.test(storeSrc), true);
 
-// A signature proves the cookie was minted here, not that its person still
-// exists. Deletion removes person rows; sessions issued before it stayed
-// valid and every write then hit a foreign key instead of a sign-in screen.
+// ---------------------------------------------------------------------------
+// Sessions can be revoked (0062). The QA bug hunt of 28 Sept measured a
+// captured cookie still opening /home after Sign out, after the password was
+// changed, and after signing back in: the cookie was the person's id plus an
+// HMAC of the person's id, so there was no session to end.
+//
+// These two used to read lib/session.ts for the strings `from person where
+// id = $1` and `isUuid(id)` — proxies for two real rules, and both proxies
+// went false when the implementation changed while the rules got stronger
+// (L33). They are now asked of the database, which is where doc 14 §0 says a
+// permission question is answered.
+// ---------------------------------------------------------------------------
 const sessionSrc = readFileSync(fileURLToPath(new URL('../lib/session.ts', import.meta.url)), 'utf8');
-check('sess1: a session is only a session while its person exists',
-  /from person where id = \$1/.test(sessionSrc), true);
-check('sess2: and a malformed id in a cookie never reaches Postgres',
-  /isUuid\(id\)/.test(sessionSrc), true);
+const authTs = authSrc; // read above, beside the other credential checks
+{
+  const whose = async (token) =>
+    (await db.query('select fn_session_person($1) as p', [sha(token)])).rows[0].p;
+  const issue = async (person, token) =>
+    (await db.query('select fn_session_issue($1,$2) as e', [person, sha(token)])).rows[0].e;
+
+  const pa = crypto.randomUUID(), pb = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Session A',$2), ($3,'Session B',$2)`,
+    [pa, yearsAgo(38), pb]);
+
+  await issue(pa, 'sess-laptop');
+  await issue(pa, 'sess-phone');
+  await issue(pb, 'sess-other-person');
+
+  check('sess1: a live session resolves to the person it was issued to', await whose('sess-laptop'), pa);
+  check('sess2: a token nobody was ever issued resolves to nobody', await whose('sess-never-issued'), null);
+
+  // Sign out. The row, not the browser's copy of the cookie: this is the
+  // property the bug hunt measured false — a cookie captured before Sign out
+  // still opened /home afterwards, for as long as whoever held it liked.
+  await db.query('select fn_session_revoke($1)', [sha('sess-laptop')]);
+  check('sess3: a revoked session resolves to nobody, so a replayed cookie is dead',
+    await whose('sess-laptop'), null);
+  check('sess4: and signing out of one device leaves the other one signed in',
+    await whose('sess-phone'), pa);
+
+  // A new password ends every live session for that person — what makes the
+  // sentence already on the reset screen true rather than something to delete.
+  await issue(pa, 'sess-laptop-2');
+  const killed = (await db.query('select fn_sessions_revoke_all($1) as n', [pa])).rows[0].n;
+  check('sess5: a new password revokes every live session for that person',
+    [Number(killed), await whose('sess-phone'), await whose('sess-laptop-2')], [2, null, null]);
+  check('sess6: and nobody else\u2019s', await whose('sess-other-person'), pb);
+
+  // Expiry is enforced in SQL on every read, never in the cookie alone. Set
+  // directly because fn_session_issue only ever issues a live one.
+  await db.query(
+    `insert into auth_session (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`,
+    [pb, sha('sess-lapsed')]);
+  check('sess7: a lapsed session resolves to nobody, whatever the cookie says',
+    await whose('sess-lapsed'), null);
+  const life = await db.query(
+    `with s as (select fn_session_issue($1,$2) as e)
+     select (e - now()) > interval '29 days 23 hours' and (e - now()) <= interval '30 days' as ok from s`,
+    [pb, sha('sess-lifetime')]);
+  check('sess8: the lifetime is the database\u2019s answer, 30 days from issue', life.rows[0].ok, true);
+
+  // Not new, and it must not be lost in the change: a session outliving a
+  // guardian's deletion used to mean every action wrote a person id into a
+  // foreign key and got a database error instead of a sign-in screen.
+  await issue(pb, 'sess-deleted-person');
+  await db.query('delete from person where id = $1', [pb]);
+  check('sess9: a session is only a session while its person exists',
+    await whose('sess-deleted-person'), null);
+}
+
+// The cookie: an opaque token, ≥128 bits, stored only as a hash — the D-94 §4
+// standard the share token already holds. Nothing in it names the person, so
+// knowing a person id (they are in URLs all over the product) forges nothing.
+check('sess10: the cookie carries a random token, never the person id',
+  /jar\.set\(COOKIE, `\$\{token\}\.\$\{sign\(token\)\}`/.test(sessionSrc), true);
+check('sess11: 192 bits of CSPRNG, and only its hash is stored',
+  /randomBytes\(24\)\.toString\('base64url'\)/.test(sessionSrc)
+  && /createHash\('sha256'\)\.update\(token\)/.test(sessionSrc), true);
+check('sess12: there is no column that could hold a session token in the clear',
+  (await db.query(`select column_name from information_schema.columns
+                   where table_name = 'auth_session' order by column_name`)).rows.map((r) => r.column_name),
+  ['expires_at', 'id', 'issued_at', 'person_id', 'revoked_at', 'token_hash']);
+check('sess13: a cookie that does not verify is refused before Postgres is touched',
+  codeOnly(sessionSrc).indexOf('timingSafeEqual') < codeOnly(sessionSrc).indexOf('fn_session_person'), true);
+check('sess14: signing out revokes the session, not just the browser\u2019s copy of it',
+  /fn_session_revoke/.test(sessionSrc)
+  && /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
+check('sess15: setting a password revokes every live session for that person',
+  /revokeEverySession\(personId\)/.test(authTs.split('export async function setPassword')[1]?.split('export ')[0] ?? ''), true);
+// One question, one answer (L23): no page works out for itself whether a
+// session is live. lib/session.ts is the only file that reads the cookie and
+// the only one that names the table.
+{
+  const readers = files.filter((f) => /\.tsx?$/.test(f) && /pitch_session|auth_session/.test(readFileSync(f, 'utf8')));
+  check(`sess16: no page decides for itself whether a session is live (${readers.map(rel).join(' ') || 'none do'})`,
+    readers.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Reset links: one live at a time, and using one burns it (0062). QA got 24
+// live links to one address and the OLDEST still opened the set-a-password
+// form; a second still worked after the first had been used.
+// ---------------------------------------------------------------------------
+{
+  const rp = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Flood','${yearsAgo(41)}','flood@example.com')`, [rp]);
+  const issueReset = async (token, proves = null) => db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at, proves_person_id)
+     values ($1,$2, now() + interval '1 hour', $3)`, [rp, sha(token), proves]);
+  const use = async (token) =>
+    (await db.query('select fn_use_auth_reset($1) as p', [sha(token)])).rows[0].p;
+
+  for (let i = 0; i < 24; i++) await issueReset(`flood-${i}`);
+  const live = await db.query(
+    `select count(*)::int as n from auth_reset
+     where person_id = $1 and used_at is null and revoked_at is null and expires_at > now()`, [rp]);
+  check('reset1: twenty-four presses leave exactly one live link', live.rows[0].n, 1);
+  check('reset2: and the oldest of them opens nothing', await use('flood-0'), null);
+  check('reset3: the newest one works', await use('flood-23'), rp);
+  check('reset4: and it does not work twice', await use('flood-23'), null);
+
+  // Using one kills the rest, not only the ones issuing killed. Two rows are
+  // forced live here — the state a race, or any future route that writes this
+  // table without the trigger, could leave behind.
+  await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() + interval '1 hour'), ($1,$3, now() + interval '1 hour')`,
+    [rp, sha('pair-a'), sha('pair-b')]);
+  await db.query(`update auth_reset set revoked_at = null where token_hash in ($1,$2)`, [sha('pair-a'), sha('pair-b')]);
+  check('reset5: using one link kills every other live link for that person',
+    [await use('pair-a'), await use('pair-b')], [rp, null]);
+
+  await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`,
+    [rp, sha('reset-lapsed')]);
+  check('reset6: a lapsed link is refused', await use('reset-lapsed'), null);
+
+  // The trap in 0062, asserted so nobody removes the seam later: 0056 reads a
+  // USED auth_reset row as proof that somebody opened a link we sent to that
+  // address. Superseding with used_at would have manufactured that proof out
+  // of links nobody ever opened — L21, the hole 0056 exists to close.
+  const sp = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Superseded','${yearsAgo(35)}','superseded@example.com')`, [sp]);
+  for (const t of ['sup-1', 'sup-2']) await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at, proves_person_id)
+     values ($1,$2, now() + interval '1 hour', $1)`, [sp, sha(t)]);
+  // Asked the way 0056 asks it: with only SUPERSEDED links on this account,
+  // the database must refuse to record that anybody proved that address. A
+  // check that only read fn_email_proved passed with the bug put back,
+  // because nothing had tried to write the column — the rule is about what
+  // the evidence lets you write, so the check has to try the write (L19).
+  await expectFail('reset7: a superseded link nobody opened is not evidence of a proved address (L21, 0056)',
+    `update person set email_proved_at = now() where id = '${sp}'`);
+  check('reset7b: so the account is still unproved',
+    (await db.query(`select fn_email_proved($1) as p`, [sp])).rows[0].p, false);
+  await use('sup-2');
+  check('reset8: and the one that WAS opened proves it',
+    (await db.query(`select fn_email_proved($1) as p`, [sp])).rows[0].p, true);
+}
+check('reset9: consumeReset asks the database, it does not carry its own SQL',
+  /fn_use_auth_reset/.test(authTs) && !/update auth_reset set used_at/.test(authTs), true);
+// The cap QA measured missing: the IP comes off a header the caller sets, so
+// the only limit that binds is the one on the address. It must be consulted
+// for every address, before anything looks the address up, or it is an
+// enumeration oracle (D-94 §2).
+check('reset10: the reset route caps per address as well as per declared IP',
+  /checkRate\(`reset:addr:\$\{email\}`/.test(resetSrc) && /checkRate\(`reset:ip:\$\{ip\}`/.test(resetSrc), true);
+check('reset11: and the cap is read before anything looks the address up',
+  resetSrc.indexOf('reset:addr:') < resetSrc.indexOf('createReset('), true);
+check('reset12: whatever happened, the answer is the one redirect',
+  (codeOnly(resetSrc).match(/redirect\('\/reset\?sent=1'\)/g) ?? []).length, 1);
 
 // ---------------------------------------------------------------------------
 // The send layer actually sends (0031, D-81, D-78, doc 15 §15). Every message
@@ -4535,6 +4812,85 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [true, true, false]);
 }
 
+// ---- the focus ring, and the two ways it was taken away (28 Sep) -----------
+// Measured with real Tab keypresses in Chrome, not el.focus(): on /signin,
+// /join, /report, /reset/[token] and the D-77 request-access form, every form
+// control came back with outlineStyle NONE while every button and link on the
+// same page showed the green ring. Two causes, and the second is why fixing
+// the first was not enough: `input:focus, select:focus { outline: none }` at
+// (0,1,1) beat `:focus-visible` at (0,1,0), and twenty-four component files
+// re-asserted `outline: 'none'` inline, which beats every selector there is.
+// A keyboard user typing a password, ticking consent or filing a child-safety
+// report could not see which field they were in.
+// The rendered proof is scripts/layout-check.mjs's chrome pass at 390 and
+// 1280; these three are the static rules that keep it fixed.
+{
+  // Comments stripped first. Both rules this block is about are QUOTED in the
+  // comment above them in globals.css, so a regex over the raw file finds the
+  // explanation and calls it the defect.
+  const css = srcOf('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const ring = /:focus-visible \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  check('ring1: nothing in the stylesheet switches a form control\'s outline off',
+    [/input:focus[^{]*\{[^}]*outline:\s*none/.test(css),
+     /select:focus[^{]*\{[^}]*outline:\s*none/.test(css),
+     /\.field input[^{]*\{[^}]*outline:\s*none/.test(css)],
+    [false, false, false]);
+  check('ring2: the ring is 2px of the accent token, and an inline style cannot take it back',
+    [/outline:\s*2px solid var\(--accent\)/.test(ring), /!important/.test(ring), /outline-offset/.test(ring)],
+    [true, true, true]);
+  // The inline overrides themselves. app/club/billing/page.tsx is the one left
+  // and it is held by another seat this week (28 Sep) — its one line is in the
+  // handoff. The !important above means the ring renders there regardless;
+  // this counts the source so the tidy-up is not forgotten. Take the exemption
+  // out when that branch lands. components/coming-soon is the marketing page's
+  // decorative selection outline, not a focus state.
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const everySrc = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    e.name === 'node_modules' || e.name.startsWith('.') ? []
+      : e.isDirectory() ? everySrc(join(d, e.name))
+        : /\.(ts|tsx)$/.test(e.name) ? [join(d, e.name)] : []);
+  const inlineOff = ['app', 'components', 'lib']
+    .flatMap((d) => everySrc(join(root, d)))
+    .filter((f) => !f.includes('coming-soon') && /outline:\s*'none'/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(root.length)).sort();
+  check(`ring3: no screen re-asserts outline:'none' on a control (${inlineOff.join(', ') || 'none left'})`,
+    inlineOff, ['app/club/billing/page.tsx']);
+}
+
+// ---- the cheapest fix in the product (28 Sep) ------------------------------
+// .field-label was written as `.field > .field-label` — a CHILD selector —
+// and 19 of the 53 elements carrying the class are not children of a .field:
+// /club/billing (5), /club/post-trial (8), /register-interest (4) and
+// /club/invite (2) put the caption above a bare card or on a <legend>. The
+// rule never matched, so nineteen captions rendered as inherited body text.
+// That is why the price on the billing page was set three pixels larger than
+// its own label. The rendered proof — every .field-label on every page
+// computing to 10px — is in scripts/layout-check.mjs's chrome pass.
+{
+  const css = srcOf('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  // The selector list of the rule that styles the caption, read as text.
+  const sel = (/([^};{]*)\{[^}]*font-size: 10px; font-weight: 800; letter-spacing: var\(--ls-label\)/.exec(css)?.[1] ?? '')
+    .split(',').map((x) => x.trim()).filter(Boolean);
+  check(`lbl1: .field-label is a class, not a child of .field, so it matches where it is used (${sel.join(' | ')})`,
+    [sel.includes('.field-label'), sel.some((x) => x.includes('> .field-label'))], [true, false]);
+  // And it is not vacuous: those captions are still there, on all four screens.
+  //
+  // The COUNT is deliberately not asserted any more. It was 19 when the
+  // selector was fixed and 15 an hour later, because /club/billing was rebuilt
+  // in a different worktree on the same day and its captions legitimately
+  // changed — so the check went red over a number that was never the point.
+  // What matters is that every one of these screens still uses the class the
+  // fixed selector matches; a screen dropping to zero would mean the captions
+  // had been deleted rather than styled, which is the only way this fix could
+  // be vacuous. (L32: a check coupled to a count of somebody else's markup is
+  // a check that fails when they do their job.)
+  const outsideWell = ['app/club/post-trial/page.tsx', 'app/club/billing/page.tsx',
+    'app/register-interest/[recordId]/InterestForm.tsx', 'app/club/invite/[registrationId]/page.tsx']
+    .map((f) => (srcOf(f).match(/className="field-label"/g) ?? []).length);
+  check(`lbl2: and the captions that were dead are still on those four screens (${outsideWell.join('+')})`,
+    [outsideWell.every((n) => n > 0), outsideWell.reduce((a, b) => a + b, 0) >= 12], [true, true]);
+}
+
 // ---- the coach and club doors (BUZ, 21 Sep) ---------------------------------
 // A coach builds their own page; a club person makes an account and then
 // claims the club's page with the code sent to the club's own address. What
@@ -5035,6 +5391,337 @@ const componentFilesAll = [];
     }
   }
   check(`ban1: D-108's words are not on any screen (${found.slice(0, 4).join(' · ') || 'none are'})`, found.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// QA, 28 Sep — two faults found by pressing things rather than by reading.
+// ---------------------------------------------------------------------------
+
+// qa-silent1 · A FAILED ACTION MUST SAY SO ON THE PAGE IT LANDS ON.
+//
+// Pressing Subscribe at /club/billing with D-137's authority box unticked
+// answers 303 /club/billing?error=1 — and that page never reads `error`, so
+// the screen comes back with the fields emptied and not one word about what
+// happened. Measured on this tree: the page it lands on adds nothing at all.
+// The person's only rational conclusion is that payments are broken, on the
+// one screen in the product that takes money.
+//
+// The rule, not the instance: if an action can send somebody to a page with a
+// flag that means "that did not work", the page must read that flag. `saved`,
+// `removed` and `done` are excluded — a success is visible in the thing that
+// changed. Naming a flag in the searchParams TYPE is not reading it; that is
+// exactly how this one hid.
+{
+  const FAILURE = /^(error|bad|cannot|needs|expired|short|unconfigured|invalid|refused|failed?)$/i;
+  const actionFiles = [];
+  (function walk(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.name === 'actions.ts') actionFiles.push(full);
+    }
+  })(fileURLToPath(new URL('../app', import.meta.url)));
+  const appRoot = fileURLToPath(new URL('../app', import.meta.url));
+  const silent = [];
+  for (const f of actionFiles) {
+    const src = readFileSync(f, 'utf8');
+    for (const m of src.matchAll(/redirect\(\s*['"`]([^'"`]*\?[^'"`]*)['"`]/g)) {
+      const [path, qs] = [m[1].split('?')[0], m[1].split('?').slice(1).join('?')];
+      if (path.includes('${')) continue;
+      const pagePath = join(appRoot, ...path.split('/').filter(Boolean), 'page.tsx');
+      let page;
+      try { page = readFileSync(pagePath, 'utf8'); } catch { continue; }
+      // A flag named in the searchParams type annotation is not a flag read.
+      const body = page.replace(/searchParams:\s*Promise<\{[^}]*\}>/g, 'searchParams: Promise<{}>');
+      for (const kv of qs.split('&')) {
+        const flag = kv.split('=')[0].split('#')[0].trim();
+        if (!flag || flag.includes('${') || !FAILURE.test(flag)) continue;
+        if (!new RegExp('\\b' + flag + '\\b').test(body)) {
+          silent.push(`${f.slice(f.indexOf('/app/') + 1)} -> ${path}?${flag}`);
+        }
+      }
+    }
+  }
+  check(`qa-silent1: a form that failed says so on the page it lands on (${[...new Set(silent)].join(' · ') || 'all of them do'})`,
+    [...new Set(silent)].length, 0);
+}
+
+// qa-devport1/qa-devport2 lived here and are GONE (QA, 28 Sept, second pass).
+// They asserted that lib/db.ts and scripts/dev-db.mts read the same variable
+// and that dev-db.mts's instructions name the one the APP reads. `db8` above
+// now does both and more: it matches the name WHOLE, across lib/db.ts,
+// scripts/dev-db.mts and .env.example, comments included, and pins both
+// defaults. Two checks for one rule is two places to be wrong — the stronger
+// one stays and mine go (L33: replace a proxy, do not keep a second copy).
+// 0063 — THE MONEY SAYS ONE THING. Two club screens computed a club's
+// subscription state for themselves and disagreed about a club whose payment
+// failed: /club/billing showed the dunning card and /club/register dropped
+// silently to the free tier's own heading. fn_register_payment_state is the one
+// answer both now read (D-135, D-136, doc 14 O4, O11; LESSONS L23).
+// ---------------------------------------------------------------------------
+{
+  const q1 = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const payState = async (who, club) => (await q1('select fn_register_payment_state($1,$2) as s', [who, club])).s;
+  const rowIds = async (who, club) => (await db.query('select registration_id from fn_register_rows($1,$2)', [who, club])).rows.map((r) => r.registration_id);
+
+  const MON = crypto.randomUUID();
+  const monCall = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Dunning FC','claimed')`, [MON]);
+  await db.query(
+    `insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+     values ($1,$2,now(),'BUZ','03 9000 0003','FV club directory','verified','27@v1.0')`, [monCall, MON]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [monCall, MON]);
+
+  const person = async (name, years = 35) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, last_name, dob) values ($1,$2,'Fixture',$3)`, [id, name, yearsAgo(years)]);
+    return id;
+  };
+  const mTd = await person('Money TD');
+  await recordTd(mTd, MON, 'money.td@fixture.example');
+  const mAdmin = await person('Money Admin');
+  await mem(mAdmin, MON, null, 'club_admin');
+  const mTm = await person('Money Manager');
+  await mem(mTm, MON, null, 'team_manager');
+  const mSq = (await q1(`insert into squad (club_id, name, age_group, competition_gender, season) values ($1,'M-U15','U15','boys','2026') returning id`, [MON])).id;
+  const mSq2 = (await q1(`insert into squad (club_id, name, age_group, competition_gender, season) values ($1,'M-U16','U16','boys','2026') returning id`, [MON])).id;
+  const grantedCoach = await person('Money Coach');
+  await mem(grantedCoach, MON, null, 'coach');
+  await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [grantedCoach, MON, mTd]);
+  const ungrantedCoach = await person('Money Bench');
+  await mem(ungrantedCoach, MON, null, 'coach');
+  await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [ungrantedCoach, MON, mTd]);
+  for (const sq of [mSq, mSq2]) {
+    await db.query(`insert into register_grant (club_id, person_id, squad_id, granted_by) values ($1,$2,$3,$4)`, [MON, grantedCoach, sq, mTd]);
+  }
+  const mReg = (await q1(
+    `insert into registration (player_id, club_id, squad_target, policy_version) values ($1,$2,$3,'20@v2.4') returning id`,
+    [ID.marcus, MON, mSq])).id;
+
+  // The webhook is the only writer of subscription state (D-112), so the state
+  // is driven through fn_apply_subscription exactly as Stripe drives it.
+  const apply = (status, grace, at) => db.query(
+    `select fn_apply_subscription($1,$2,'register_monthly', now() + interval '14 days', $3::timestamptz, 'cus_fixture', $4::timestamptz)`,
+    [MON, status, grace, at]);
+  const clock = (n) => new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString();
+
+  check('money1: a club that never subscribed reads "unsubscribed", not "suspended"', await payState(mTd, MON), 'unsubscribed');
+  await apply('active', null, clock(1));
+  check('money2: a paying club reads "active"', await payState(mTd, MON), 'active');
+  check('money2b: and its register resolves', (await rowIds(mTd, MON)).includes(mReg), true);
+
+  // O4 — 14-day grace, THEN suspended. Registrations hidden, never deleted.
+  await apply('past_due', new Date(Date.now() + 5 * 86400000).toISOString(), clock(2));
+  check('O4: inside the fourteen days a failed payment reads "grace"', await payState(mTd, MON), 'grace');
+  check('O4b: and the register is still readable during the grace (D-135)', (await rowIds(mTd, MON)).includes(mReg), true);
+  await apply('past_due', new Date(Date.now() - 86400000).toISOString(), clock(3));
+  check('O4c: once the grace has run out it reads "suspended"', await payState(mTd, MON), 'suspended');
+  check('O4d: the register is hidden', (await rowIds(mTd, MON)).length, 0);
+  check('O4e: and the registration row is still there — hidden, not deleted',
+    (await q1(`select count(*)::int as n from registration where id = $1`, [mReg])).n, 1);
+  await apply('canceled', null, clock(4));
+  check('money5: a cancelled club reads "cancelled", which is not the same state', await payState(mTd, MON), 'cancelled');
+
+  // O11 — billing is club-internal. The administrator is told exactly as much
+  // as the TD is, and nobody else is told anything at all.
+  await apply('active', null, clock(5));
+  check('O11b: the invoicing volunteer gets the same answer as the TD', await payState(mAdmin, MON), await payState(mTd, MON));
+  check('money7: a team manager is told nothing about the club’s money', await payState(mTm, MON), null);
+  check('money7b: nor a granted coach', await payState(grantedCoach, MON), null);
+  check('money7c: nor a guardian', await payState(ID.guardian, MON), null);
+  check('money7d: nor another club’s technical director', await payState(ID.td, MON), null);
+  check('money7e: nor nobody at all', await payState(null, MON), null);
+
+  // One answer, two callers — the whole point of the migration.
+  const readSrc = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  for (const [rel, what] of [['../app/club/billing/page.tsx', 'the billing page'], ['../app/club/register/page.tsx', 'the register page']]) {
+    check(`money8: ${what} reads fn_register_payment_state rather than working it out`,
+      /fn_register_payment_state/.test(readSrc(rel)), true);
+  }
+  check('money8b: and the register page no longer decides a payment state from the status column',
+    /subscription_status/.test(codeOnly(readSrc('../app/club/register/page.tsx'))), false);
+  check('money9: a suspended club’s register says why the list is gone',
+    /RegisterPaused/.test(readSrc('../app/club/register/page.tsx')), true);
+  // D-25 — three facts we do not hold and must not start holding.
+  const billingSrc = codeOnly(readSrc('../app/club/billing/page.tsx'));
+  check('money10: the billing page asks for no card brand, no last four and no receipt address (D-25)',
+    /last4|last_four|card_brand|brand|receipt_email|receipts_to/i.test(billingSrc), false);
+
+  // ---- N23 as a database answer: who reads this club's register -----------
+  const readers = async (who) => (await db.query(
+    `select reader_name, role_label, scope, squad_names, since is not null as dated from fn_club_register_readers($1,$2)`, [who, MON])).rows;
+  const tdView = await readers(mTd);
+  const byName = Object.fromEntries(tdView.map((r) => [r.reader_name, r]));
+  check('N23c: the TD’s list names every reader of this register',
+    Object.keys(byName).sort(), ['Money Admin Fixture', 'Money Coach Fixture', 'Money Manager Fixture', 'Money TD Fixture']);
+  check('N23d: the technical director reads the whole register', byName['Money TD Fixture']?.scope, 'whole');
+  check('N23e: a granted coach reads their teams, named', [byName['Money Coach Fixture']?.scope, byName['Money Coach Fixture']?.squad_names], ['squads', ['M-U15', 'M-U16']]);
+  check('N23f: and every row is dated — who, which squads, since when', tdView.every((r) => r.dated), true);
+  check('readers1: the administrator is on the list reading no registration (D-93)',
+    [byName['Money Admin Fixture']?.scope, byName['Money Admin Fixture']?.role_label], ['none', 'Club administrator']);
+  check('readers2: so is a team manager (doc 34 rule 4)', byName['Money Manager Fixture']?.scope, 'none');
+  check('readers3: a coach with no grant is not a reader and is not listed',
+    tdView.some((r) => r.reader_name === 'Money Bench Fixture'), false);
+  // The administrator gets the SAME list, in full. I built it restricted to
+  // the TD on TRAINING §3.8 and the design settles it the other way:
+  // club-home-admin.html draws this block on the administrator's own home and
+  // argues it is the only place D-93's split is said out loud to the person it
+  // constrains. It widens nothing minor-facing, which is the condition O11
+  // actually sets — no registration, no child, no count of children is in it.
+  check('readers4: the administrator gets the same list, in full — D-93 said out loud to the person it constrains',
+    (await readers(mAdmin)).map((r) => r.reader_name), tdView.map((r) => r.reader_name));
+  check('readers4b: and it still carries no registration, no child and no count of children',
+    (await db.query(`select * from fn_club_register_readers($1,$2)`, [mAdmin, MON]))
+      .fields.map((f) => f.name).sort(),
+    ['reader_id', 'reader_name', 'role_label', 'scope', 'since', 'squad_names'].sort());
+  check('readers4c: and "since when" for a granted coach is when the GRANT was made, not when they joined the club',
+    (await readers(mTd)).find((r) => r.scope === 'squads')?.dated, true);
+  for (const [who, what] of [[grantedCoach, 'a granted coach'], [mTm, 'a team manager'], [ID.td, 'another club’s TD'], [ID.guardian, 'a guardian'], [null, 'nobody']]) {
+    check(`readers5: ${what} gets no list at all`, (await readers(who)).length, 0);
+  }
+  await db.query(`update register_grant set revoked_at = now(), revoked_by = $1 where person_id = $2`, [mTd, grantedCoach]);
+  check('N21f: the grant is removed and the coach leaves the list at the next read — nothing stored',
+    (await readers(mTd)).some((r) => r.reader_name === 'Money Coach Fixture'), false);
+}
+
+// ---------------------------------------------------------------------------
+// 0064 — THE RETURN. Sixty days away, three dated facts, and nothing at all
+// for a child (D-25, D-53, D-65/D-81, D-74/D-90, doc 34 rule 6).
+// ---------------------------------------------------------------------------
+{
+  const q1 = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const arrive = async (who) => (await q1('select fn_note_arrival($1) as s', [who])).s;
+  const seen = async (who) => (await q1('select last_seen_at from person where id = $1', [who])).last_seen_at;
+  const facts = async (who, since) => (await db.query(
+    `select kind, to_char(fact_on, 'FMDD Mon') as on_label, subject, club_name, reader_name, reader_role, surface,
+       to_char(checked_on, 'FMDD Mon') as checked_label
+     from fn_return_facts($1, $2::timestamptz)`, [who, since])).rows;
+  const adult = async (name) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`, [id, name, yearsAgo(41)]);
+    return id;
+  };
+
+  // --- when a return opens, and when it does not
+  const fresh = await adult('Return Fresh');
+  check('ret1: a first visit is not a return', await arrive(fresh), null);
+  check('ret1b: and it is recorded, once, as one timestamp', (await seen(fresh)) !== null, true);
+  const recent = await adult('Return Recent');
+  await db.query(`update person set last_seen_at = now() - interval '59 days' where id = $1`, [recent]);
+  check('ret2: fifty-nine days away is not a return', await arrive(recent), null);
+  const away = await adult('Return Away');
+  await db.query(`update person set last_seen_at = now() - interval '61 days' where id = $1`, [away]);
+  const opened = await arrive(away);
+  check('ret2b: sixty-one days away opens one, measured from the last visit', opened !== null, true);
+  check('ret3: a second arrival the same day keeps the same window — the block does not vanish on a Back press',
+    String(await arrive(away)), String(opened));
+  await db.query(`update person set returned_at = now() - interval '2 days' where id = $1`, [away]);
+  check('ret3b: and it closes after a day', await arrive(away), null);
+
+  // --- nothing at all for a child (D-25), and the refusal is the database's
+  check('ret4: an under-16 arriving records nothing', await arrive(ID.deniz), null);
+  check('ret4b: not even the timestamp — a fourteen-year-old’s visits are not held', await seen(ID.deniz), null);
+  await db.query(`update person set last_seen_at = now() - interval '90 days' where id = $1`, [ID.deniz]);
+  check('ret4c: nor does one appear if somebody puts it there by hand', await arrive(ID.deniz), null);
+  check('ret5: and asked directly, an under-16 is told nothing while away',
+    (await facts(ID.deniz, new Date(Date.now() - 90 * 86400000).toISOString())).length, 0);
+  await db.query(`update person set last_seen_at = null where id = $1`, [ID.deniz]);
+  check('ret5b: a 16–17 does get a return — doc 34 rule 6 is where the line is, and this migration did not move it',
+    (await arrive(ID.nate)) === null, true);   // nate has no last_seen yet: a first visit
+
+  // --- the read line: the ledger, through the gate that already exists.
+  // Its own family, because every other section of this file has been reading
+  // Riverside's register and logging as it went. "The only read in the window"
+  // is not true of ID.guardian, and a check that assumed it was would have been
+  // asserting the fixture rather than the function (LESSONS L32).
+  const since = new Date(Date.now() - 70 * 86400000).toISOString();
+  const rParent = await adult('Return Parent');
+  const rChild = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Winona','Fixture','2012-05-05')`, [rChild]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [rParent, rChild]);
+  const rRec = crypto.randomUUID();
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rRec, rChild]);
+  const rReg = (await q1(
+    `insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4') returning id`,
+    [rChild, CLUB.riverside])).id;
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface, read_at)
+     values ($1,$2,'list', now() - interval '20 days')`, [ID.clubAdmin, rReg]);
+  const listOnly = (await facts(rParent, since)).find((f) => f.kind === 'read');
+  check('ret6: a read of the list says so, naming the person and their role at that club',
+    [listOnly?.reader_name, listOnly?.reader_role, listOnly?.club_name, listOnly?.surface, listOnly?.subject],
+    ['clubAdmin', 'Club administrator', 'Riverside FC', 'list', 'Winona']);
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface, read_at)
+     values ($1,$2,'cv', now() - interval '30 days')`, [ID.td, rReg]);
+  const both = (await facts(rParent, since)).find((f) => f.kind === 'read');
+  check('ret6b: a CV opened outranks a list loaded, even when it is the older of the two',
+    [both?.reader_name, both?.surface], ['td', 'cv']);
+  check('ret6c: exactly one read line, whatever the ledger holds — a list of readers is a count with names on',
+    (await facts(rParent, since)).filter((f) => f.kind === 'read').length, 1);
+  check('ret6d: a viewer with no guardianship is told nothing about that child',
+    (await facts(ID.exGuardian, since)).some((f) => f.subject === 'Winona'), false);
+  check('ret6e: and neither is the club that did the reading',
+    (await facts(ID.td, since)).some((f) => f.subject === 'Winona'), false);
+  check('ret7: the same read, with the window starting after it, is not "while you were away"',
+    (await facts(rParent, new Date(Date.now() - 10 * 86400000).toISOString())).some((f) => f.kind === 'read'), false);
+  // M3 — at eighteen a guardianship is visibility only if re-granted (D-49).
+  const marcusReg = (await q1(
+    `insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4') returning id`,
+    [ID.marcus, CLUB.riverside])).id;
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface, read_at)
+     values ($1,$2,'cv', now() - interval '20 days')`, [ID.td, marcusReg]);
+  check('ret8: an adult child’s reads are not their parent’s to see without a re-grant (M3, D-49)',
+    (await facts(ID.guardian, since)).some((f) => f.subject === 'Marcus'), false);
+
+  // --- the link line
+  const tk = crypto.randomUUID();
+  await db.query(
+    `insert into share_token (record_id, token_hash, token_hint, issued_by, expires_at)
+     values ($1,$2,'ret-hint',$3, now() + interval '40 days')`, [rRec, sha(`ret-${tk}`), rParent]);
+  check('ret9: the link line is the live token’s own expiry',
+    (await facts(rParent, since)).some((f) => f.kind === 'link_expiry' && f.subject === 'Winona'), true);
+  await db.query(`update share_token set paused = true where token_hash = $1`, [sha(`ret-${tk}`)]);
+  check('ret9b: a paused link has no expiry to state, so the line is omitted rather than guessed',
+    (await facts(rParent, since)).some((f) => f.kind === 'link_expiry'), false);
+  await db.query(`update share_token set revoked_at = now(), paused = false where token_hash = $1`, [sha(`ret-${tk}`)]);
+  check('ret9c: a revoked link has none either',
+    (await facts(rParent, since)).some((f) => f.kind === 'link_expiry'), false);
+  await db.query(`update share_token set revoked_at = null where token_hash = $1`, [sha(`ret-${tk}`)]);
+
+  // --- the trials line: a stale date CANNOT render (D-74, D-90)
+  await db.query(`update trial_notice set trial_on = current_date + 20, last_checked = current_date - 40`);
+  check('ret10: every notice unchecked for forty days — the trials line is omitted entirely, not guessed',
+    (await facts(rParent, since)).some((f) => f.kind === 'trials'), false);
+  const notice = (await q1(`select id from trial_notice limit 1`));
+  if (notice) {
+    await db.query(`update trial_notice set last_checked = current_date, trial_on = current_date + 9 where id = $1`, [notice.id]);
+    const t = (await facts(rParent, since)).find((f) => f.kind === 'trials');
+    check('ret10b: a notice a human has checked inside thirty days puts it back, with its check stamp',
+      [Boolean(t), Boolean(t?.checked_label)], [true, true]);
+    check('ret10c: the date is the notice’s own, never a season written down somewhere',
+      t?.on_label, (await q1(`select to_char(trial_on, 'FMDD Mon') as d from trial_notice where id = $1`, [notice.id])).d);
+    await db.query(`update trial_notice set trial_on = current_date - 1 where id = $1`, [notice.id]);
+    check('ret10d: and a notice whose date has passed never renders anywhere',
+      (await facts(rParent, since)).some((f) => f.kind === 'trials'), false);
+    await db.query(`update trial_notice set trial_on = current_date + 9 where id = $1`, [notice.id]);
+  }
+  check('ret11: the trials line is the same for every viewer — no recommender, no personalisation (D-74)',
+    (await facts(rParent, since)).find((f) => f.kind === 'trials')?.on_label,
+    (await facts(ID.nate, since)).find((f) => f.kind === 'trials')?.on_label);
+
+  // --- what the block is NOT
+  const retSrc = codeOnly(readFileSync(fileURLToPath(new URL('../components/WhileYouWereAway.tsx', import.meta.url)), 'utf8'));
+  check('ret12: nothing in the block counts anything — no streak, no visit count, no read count',
+    /streak|\btimes\b|count\(|\blength\b\s*[><]|visits/i.test(retSrc), false);
+  check('ret13: and no verb is aimed at the reader',
+    /\b(update your|renew|don.t forget|complete your|come back|you haven)/i.test(retSrc), false);
+  const arrivalSrc = await procSrc('fn_note_arrival');
+  check('ret14: the arrival is one overwritten timestamp, never an appended history',
+    /insert into/i.test(codeOnly(arrivalSrc)), false);
+  check('ret15: nothing about this block sends anything',
+    /message_outbox|sendMessage|resend|sms/i.test(retSrc), false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

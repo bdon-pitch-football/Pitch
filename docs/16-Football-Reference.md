@@ -99,7 +99,7 @@ All three are **fictional and clearly fictional**. No real minor's data appears 
 | **Stats 2026** | Apps 18 · Goals 11 · Assists 7 — all `self_reported` |
 | **About** | "Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery." |
 | **Achievements** | U15 League — Runners up (2026 season) · Players' Player of the Year (Riverside FC, 2025) |
-| **Other football** | School — Northcote High 1st XI, 2026 · Futsal — Melbourne Futsal U15, Summer 2025–26 |
+| **Other football** | School — Marlowe High 1st XI, 2026 · Futsal — Melbourne Futsal U15, Summer 2025–26 |
 | **Highlights** | 2 of 10 used |
 | **What he tests** | The happy path, and the U16 share model (child asks, guardian sends — D-91) |
 
@@ -135,7 +135,7 @@ All three are **fictional and clearly fictional**. No real minor's data appears 
 | **Stats 2026** | Apps 16 · Goals 3 · Assists 5 — all `self_reported` |
 | **About** | "Left-footed six who likes the ball in tight spaces. Reads the game early and gets on the half-turn. Working on my range of passing and getting into the box more." |
 | **Achievements** | Club Player of the Year — U15 Girls (Kingsway Rovers FC, 2025) |
-| **Other football** | School — Point Cook Senior College, 2026 · Futsal — Werribee summer league, 2025–26 |
+| **Other football** | School — Westhaven Senior College, 2026 · Futsal — Werribee summer league, 2025–26 |
 | **Highlights** | 1 of 10 used — deliberately thin, see below |
 | **What she tests** | The club page's girls'/women's rows as first-class entries · the trials index gender filter · **a genuinely sparse CV** |
 

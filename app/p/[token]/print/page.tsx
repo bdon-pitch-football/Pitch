@@ -9,7 +9,7 @@ import LinkState from '@/components/cv/LinkState';
 import { readCvByToken } from '@/lib/record-read';
 import { cvMetadata, DEAD_LINK_METADATA } from '@/lib/cv-meta';
 import {
-  POSITIONS, PROVENANCE_LABELS, STAT_LABELS, provenanceLabel, sharedProvenance,
+  POSITIONS, PROVENANCE_LABELS, STAT_LABELS, provenanceLabel, renderableExperience, sharedProvenance,
   type PositionCode, type StatKey,
 } from '@/lib/football';
 import PrintButton from './PrintButton';
@@ -42,6 +42,10 @@ export default async function PrintCv({ params, searchParams }: {
   if (!cv) return <LinkState token={token} asked={asked === '1'} />;
 
   const stats = cv.stats.filter((s) => s.value > 0);
+  // No school on an under-18's page, and a printed page is the one that
+  // outlives the link (D-161). Same answer as the screen version, from the
+  // same band the tokenised read path derived.
+  const otherFootball = renderableExperience(cv.otherFootball, cv.band);
   const tiles = (cv.surfacedStats as StatKey[])
     .map((k) => stats.find((s) => s.key === k))
     .filter((s): s is (typeof stats)[number] => s !== undefined && typeof s.value === 'number');
@@ -103,10 +107,10 @@ export default async function PrintCv({ params, searchParams }: {
           </div>
         )}
 
-        {cv.otherFootball.length > 0 && (
+        {otherFootball.length > 0 && (
           <div style={{ marginTop: 20 }}>
             <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5b6b60' }}>Other football</div>
-            {cv.otherFootball.map((e) => (
+            {otherFootball.map((e) => (
               <div key={e.orgName} style={{ fontSize: 13, marginTop: 5 }}>
                 <b>{e.orgName}</b>{e.period ? ` — ${e.period}` : ''}
               </div>
