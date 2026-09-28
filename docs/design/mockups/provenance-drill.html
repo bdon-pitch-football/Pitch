@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: the provenance drill</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--hero:linear-gradient(160deg,#123326 0%,#0c1d14 60%,#0a1510 100%);--r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--r-pill:999px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px;--ease:cubic-bezier(.22,1,.36,1)}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h3{font-size:14px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:22px 0 6px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink)}
+.board{padding:0 22px 60px;overflow-x:auto}
+.bh{max-width:900px;margin:30px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.tag-later{background:rgba(164,121,226,.16);color:var(--purple)}
+.bh .t{font-size:18px;font-weight:900;letter-spacing:var(--ls-title)}
+.bh .s{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin:0 auto}
+.w1280{width:1280px}.w390{width:390px}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.floodlight{background:radial-gradient(ellipse 130% 85% at 50% -25%,#17422e 0%,#10281c 42%,#0b120e 78%)}
+.hero{border-radius:var(--r-hero);background:var(--hero);padding:24px 20px 22px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden}
+
+/* --- SUGGESTED COPY MARKER ------------------------------------------------
+   Every string a user would read that is NOT already in the product is
+   underlined like this. Nothing underlined is approved; it is a suggestion
+   for BUZ. Everything not underlined is lifted verbatim from the built
+   screen or from lib/fixtures.ts. */
+.sug{border-bottom:1px dotted rgba(237,161,0,.6)}
+
+/* --- THE DRILL ------------------------------------------------------------
+   Radio inputs, no JavaScript. One group per stats block: choosing a tile
+   opens exactly one well and closes the others, which is the behaviour
+   <details name="stat"> gives natively in the product. */
+.drill input{position:absolute;opacity:0;width:0;height:0}
+.tiles{display:grid;gap:7px;position:relative}
+.tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  background:rgba(255,255,255,.08);border-radius:var(--r-well);padding:10px 4px;min-height:60px;
+  cursor:pointer;position:relative;border-top:2px solid transparent;
+  transition:background .16s var(--ease),border-color .16s var(--ease)}
+.tile:hover{background:rgba(255,255,255,.12)}
+.tile .n{font-size:21px;font-weight:900;letter-spacing:var(--ls-numeral);color:var(--ink)}
+.tile .n.acc{color:var(--accent)}
+.tile .l{font-size:10.5px;font-weight:700;letter-spacing:var(--ls-label);color:rgba(255,255,255,.72);text-transform:uppercase}
+.tile .chev{position:absolute;right:7px;top:9px;opacity:.5}
+.well{display:none;background:rgba(11,18,14,.55);border:1px solid var(--line);border-radius:var(--r-well);
+  padding:13px 14px;flex-direction:column;gap:9px;box-shadow:inset 3px 0 0 var(--accent)}
+.drill input:checked + .tiles{}
+#a1:checked ~ .w-a,#g1:checked ~ .w-g,#s1:checked ~ .w-s,
+#a2:checked ~ .w-a,#g2:checked ~ .w-g,#s2:checked ~ .w-s,
+#n3:checked ~ .w-n,#c3:checked ~ .w-c,
+#a4:checked ~ .w-a,#g4:checked ~ .w-g{display:flex}
+.drill:has(#a1:checked) label[for=a1],.drill:has(#g1:checked) label[for=g1],.drill:has(#s1:checked) label[for=s1],
+.drill:has(#a2:checked) label[for=a2],.drill:has(#g2:checked) label[for=g2],.drill:has(#s2:checked) label[for=s2],
+.drill:has(#n3:checked) label[for=n3],.drill:has(#c3:checked) label[for=c3],
+.drill:has(#a4:checked) label[for=a4],.drill:has(#g4:checked) label[for=g4]{background:rgba(255,255,255,.14);border-top-color:var(--accent)}
+.wk{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:rgba(255,255,255,.55)}
+.wline{font-size:13px;font-weight:700;color:var(--ink);line-height:1.45}
+.wsub{font-size:12.5px;font-weight:500;color:rgba(255,255,255,.62);line-height:1.5}
+.lvl2{border-top:1px solid var(--line);padding-top:9px}
+.lvl2 > summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:7px;
+  font-size:12.5px;font-weight:700;color:rgba(255,255,255,.72)}
+.lvl2 > summary::-webkit-details-marker{display:none}
+.lvl2[open] > summary{color:var(--ink)}
+.lvl2 .body{font-size:12.5px;font-weight:500;color:rgba(255,255,255,.62);line-height:1.6;padding-bottom:4px}
+.closer{align-self:flex-start;min-height:44px;display:flex;align-items:center;font-size:12px;font-weight:800;
+  letter-spacing:var(--ls-button);color:rgba(255,255,255,.55);cursor:pointer}
+.closer:hover{color:var(--ink)}
+.hl{display:inline-flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.22);border-radius:var(--r-pill);padding:3px 9px}
+.hl .d{width:5px;height:5px;border-radius:999px;background:rgba(255,255,255,.5)}
+.hl .t{font-size:9px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.65)}
+.note{max-width:900px;margin:12px auto 0;font-size:12.5px;color:var(--muted);line-height:1.6;font-weight:500}
+.note b{color:var(--secondary)}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 24 Sep 2026 · mockup 1 of 5 · the one that matters most in a year</div>
+<h1>The provenance drill</h1>
+<p class="lead">A stat on a CV opens, in place, into where that number came from. Two levels, pushed
+not overlaid. It is the only move in this set that makes Pitch structurally different from a profile
+page, and D-62 already forces the data onto every stat — we render it as a 9px chip.</p>
+
+<h3>What is wrong now</h3>
+<p><code>components/cv/PlayerCV.tsx:43</code> renders the whole of D-62 as a pill reading
+<b>Self-reported</b>, 9px, 65% white, once, above the row. Below it three tiles carry a number each
+and nothing else. So the most important claim on the page — <i>who says so</i> — is the smallest
+type on the screen, and it is attached to the block rather than to the number. A technical director
+reading eleven goals has no way to ask the page where eleven came from, and the page has no answer
+even though the database holds one on every row. <b>Under the number there is nothing.</b> That is
+the shape of a social profile, which gets thinner the deeper you go.</p>
+
+<h3>What the change does for the person on this screen</h3>
+<p>Two different people, one mechanic.</p>
+<p><b>The club.</b> A TD working a register opens the tile and gets the date it was entered, the
+season, and the squad it belongs to. When assessments ship, the same tile says a coach's name, their
+club and the date they confirmed it — and that is the moment the CV stops being a claim and starts
+being a record. Nothing else we could build changes a TD's trust in this page as much.</p>
+<p><b>The fourteen-year-old.</b> Depth that rewards looking is the opposite of a number that invites
+inflating. The page is visibly a ledger with dates on it, not a scoreboard. There is no ranking, no
+comparison, no other child anywhere in the mechanic.</p>
+
+<h3>What it costs to build</h3>
+<p><b>Low, and no schema at all.</b> <code>player_stat</code> is already keyed
+<code>(record_id, season, stat_key, source_experience_id)</code> and carries <code>provenance</code>;
+the row's own <code>created_at</code> and the squad are already joined onto the page. The work is one
+component — <code>StatTile</code> becomes a disclosure — plus the two or three lines it renders.
+Production form is <code>&lt;details name="stat"&gt;</code>, the native exclusive accordion: no
+JavaScript, no state, one open at a time, and it keeps working with the bundle stalled. This mockup
+uses radio inputs only because the well has to sit outside the three-column grid.</p>
+<p><b>The one real cost is a permission line, not a day of work.</b> Everything the tile reveals must
+come back through the single tokenised read path (D-80) — not a second route, not a client fetch.
+That is an hour if it is done on the first day and a rewrite if it is not.</p>
+
+<h3>What it does NOT change</h3>
+<p>Not the closed tile: collapsed, the row is pixel-identical to what ships today — same 21px numeral,
+same 10.5px label, same 7px gap, same three tiles. Not the never-zero rule (D-70): a tile that is not
+rendered has nothing to open. Not the stat catalogue. Not the order of anything on the page. Not the
+9.5px <b>Self-reported</b> pill, which stays where it is as the summary of the block. No modal, ever:
+a modal over a child's CV is a second render of the most dangerous surface we have.</p>
+
+<h3>The decision this needs from BUZ, and it is one line</h3>
+<p><b>At level two, does a stranger holding the link see the coach's name?</b> A verified club
+should. A person who was forwarded a fourteen-year-old's CV in a WhatsApp group is a different
+reader, and naming an adult who coaches that child to that reader is a contact route we did not mean
+to give. <b>The mockup draws the restrictive answer</b> — link-holders get
+<span class="sug">"Confirmed by a coach at Riverside FC"</span>, verified clubs get the name — because
+CLAUDE.md says to choose the more restrictive option and tell you what was chosen. It is a doc 14
+question, not a design one.</p>
+
+<div class="note"><b>Copy rule for this whole file:</b> every string a user would read that is not
+already in the product is <span class="sug">underlined like this</span>. Nothing underlined is
+approved copy. Everything not underlined is verbatim from the built screen or from
+<code style="font-family:ui-monospace,Menlo,monospace;color:var(--accent)">lib/fixtures.ts</code>.</div>
+</div>
+
+<div class="board">
+
+<!-- ============================ NOW · 1280 ============================ -->
+<div class="bh"><span class="tag tag-now">now · 1280</span><div><div class="t">Three numbers and a 9px pill</div><div class="s">Deniz Yılmaz, 14, Riverside FC U15 Boys. The reading column caps at 640px (D-147); this is the top of it.</div></div></div>
+
+<div class="stage w1280">
+<div class="floodlight" style="padding:22px 0 30px">
+<div style="width:640px;margin:0 auto;padding:0 18px;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;justify-content:flex-end"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+  <div class="hero">
+    <div style="position:absolute;right:-14px;top:-30px;font-size:170px;font-weight:900;letter-spacing:var(--ls-numeral);color:rgba(61,220,132,.08);line-height:1">10</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+      <div style="width:66px;height:66px;border-radius:20px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px">DY</div>
+      <svg viewBox="0 0 100 62" width="86" height="53" style="opacity:.9"><rect x="1" y="1" width="98" height="60" rx="6" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><line x1="50" y1="1" x2="50" y2="61" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="68" cy="19.2" r="5" fill="#3ddc84"/><circle cx="74" cy="9.9" r="3.6" fill="rgba(61,220,132,.45)"/></svg>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;position:relative">
+      <div style="font-size:28px;font-weight:900;line-height:1.05;letter-spacing:var(--ls-title)">Deniz Yılmaz</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.78)">AM · LW · #10 · Right footed</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.62)">Riverside FC — U15 Boys · Brunswick VIC</div>
+    </div>
+    <div style="display:flex"><div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);border-radius:var(--r-pill);padding:4px 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z"/><path d="M9 12 L11 14 L15 9.5"/></svg><span>Parent-approved</span></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.55)">Season 2026</div>
+      <div class="hl"><div class="d"></div><div class="t">Self-reported</div></div>
+    </div>
+    <div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:-6px">
+      <div class="tile" style="cursor:default"><div class="n">18</div><div class="l">Apps</div></div>
+      <div class="tile" style="cursor:default"><div class="n acc">11</div><div class="l">Goals</div></div>
+      <div class="tile" style="cursor:default"><div class="n">7</div><div class="l">Assists</div></div>
+    </div>
+  </div>
+  <div style="font-size:11.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(227,73,72,.8)">Under each number: nothing. The page has an answer in the database and no way to ask it.</div>
+</div>
+</div>
+</div>
+
+<!-- ============================ PROPOSED · 1280 ============================ -->
+<div class="bh"><span class="tag tag-new">proposed · 1280 · open it</span><div><div class="t">The tiles are live in this file — press one</div><div class="s">Level one is a well inside the hero. It pushes the page down; nothing floats over the CV.</div></div></div>
+
+<div class="stage w1280">
+<div class="floodlight" style="padding:22px 0 30px">
+<div style="width:640px;margin:0 auto;padding:0 18px;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;justify-content:flex-end"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+  <div class="hero">
+    <div style="position:absolute;right:-14px;top:-30px;font-size:170px;font-weight:900;letter-spacing:var(--ls-numeral);color:rgba(61,220,132,.08);line-height:1">10</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+      <div style="width:66px;height:66px;border-radius:20px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px">DY</div>
+      <svg viewBox="0 0 100 62" width="86" height="53" style="opacity:.9"><rect x="1" y="1" width="98" height="60" rx="6" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><line x1="50" y1="1" x2="50" y2="61" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="68" cy="19.2" r="5" fill="#3ddc84"/><circle cx="74" cy="9.9" r="3.6" fill="rgba(61,220,132,.45)"/></svg>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;position:relative">
+      <div style="font-size:28px;font-weight:900;line-height:1.05;letter-spacing:var(--ls-title)">Deniz Yılmaz</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.78)">AM · LW · #10 · Right footed</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.62)">Riverside FC — U15 Boys · Brunswick VIC</div>
+    </div>
+    <div style="display:flex"><div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);border-radius:var(--r-pill);padding:4px 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z"/><path d="M9 12 L11 14 L15 9.5"/></svg><span>Parent-approved</span></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.55)">Season 2026</div>
+      <div class="hl"><div class="d"></div><div class="t">Self-reported</div></div>
+    </div>
+
+    <div class="drill" style="display:flex;flex-direction:column;gap:9px;margin-top:-6px;position:relative">
+      <input type="radio" name="d1" id="z1" checked>
+      <input type="radio" name="d1" id="a1">
+      <input type="radio" name="d1" id="g1">
+      <input type="radio" name="d1" id="s1">
+      <div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <label class="tile" for="a1"><div class="n">18</div><div class="l">Apps</div><svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></label>
+        <label class="tile" for="g1"><div class="n acc">11</div><div class="l">Goals</div><svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></label>
+        <label class="tile" for="s1"><div class="n">7</div><div class="l">Assists</div><svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></label>
+      </div>
+
+      <div class="well w-a">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><div class="wk">Apps · 18</div><div class="wk">Self-reported</div></div>
+        <div class="wline"><span class="sug">Entered by Deniz on 6 September 2026</span></div>
+        <div class="wsub"><span class="sug">2026 season · Riverside FC · U15 Boys</span></div>
+        <details class="lvl2">
+          <summary><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg><span class="sug">What self-reported means</span></summary>
+          <div class="body"><span class="sug">Deniz entered this number himself. Nobody at Riverside FC has confirmed it. Pitch does not change a number a player enters, and does not check it.</span></div>
+        </details>
+        <label class="closer" for="z1">Close</label>
+      </div>
+
+      <div class="well w-g">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><div class="wk">Goals · 11</div><div class="wk">Self-reported</div></div>
+        <div class="wline"><span class="sug">Entered by Deniz on 6 September 2026</span></div>
+        <div class="wsub"><span class="sug">2026 season · Riverside FC · U15 Boys</span></div>
+        <details class="lvl2">
+          <summary><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg><span class="sug">What self-reported means</span></summary>
+          <div class="body"><span class="sug">Deniz entered this number himself. Nobody at Riverside FC has confirmed it. Pitch does not change a number a player enters, and does not check it.</span></div>
+        </details>
+        <label class="closer" for="z1">Close</label>
+      </div>
+
+      <div class="well w-s">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><div class="wk">Assists · 7</div><div class="wk">Self-reported</div></div>
+        <div class="wline"><span class="sug">Entered by Deniz on 6 September 2026</span></div>
+        <div class="wsub"><span class="sug">2026 season · Riverside FC · U15 Boys</span></div>
+        <details class="lvl2">
+          <summary><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg><span class="sug">What self-reported means</span></summary>
+          <div class="body"><span class="sug">Deniz entered this number himself. Nobody at Riverside FC has confirmed it. Pitch does not change a number a player enters, and does not check it.</span></div>
+        </details>
+        <label class="closer" for="z1">Close</label>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div class="kicker" style="color:rgba(255,255,255,.55)">About</div>
+    <div style="font-size:14px;line-height:1.55;color:var(--secondary)">Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery.</div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="note"><b>Two levels and no more.</b> Nielsen's finding is that past two disclosure levels
+people get lost; Apple Health runs four and gets away with it because people live in Health. Level
+one is the well. Level two is the single <i>What self-reported means</i> line inside it. There is no
+level three, and the design should not be allowed to grow one.</div>
+
+<!-- ============================ COACH VERIFIED ============================ -->
+<div class="bh"><span class="tag tag-later">December · the reason to build it now</span><div><div class="t">The same component when a stat is <code style="font-family:ui-monospace,Menlo,monospace;color:var(--accent);font-size:15px">coach_verified</code></div><div class="s">Assessments are Stage 2 and no assessment screen is in launch scope — but D-62 ships the field now, and this is what it is for. Sam Kaya is Riverside FC&rsquo;s verified U15 Boys coach: the only person the permission matrix lets write to Deniz&rsquo;s record.</div></div></div>
+
+<div class="stage w1280">
+<div class="floodlight" style="padding:22px 0 26px">
+<div style="width:640px;margin:0 auto;padding:0 18px;display:flex;flex-direction:column;gap:18px">
+  <div class="hero" style="padding:20px 20px 18px">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div style="font-size:24px;font-weight:900;line-height:1.05;letter-spacing:var(--ls-title)">Deniz Yılmaz</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.78)">AM · LW · #10 · Right footed</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.62)">Riverside FC — U15 Boys · Brunswick VIC</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.55)">Season 2026</div>
+      <div class="hl"><div class="d" style="background:#3ddc84"></div><div class="t" style="color:rgba(255,255,255,.8)"><span class="sug">2 of 3 coach verified</span></div></div>
+    </div>
+    <div class="drill" style="display:flex;flex-direction:column;gap:9px;margin-top:-6px;position:relative">
+      <input type="radio" name="d3" id="z3" checked>
+      <input type="radio" name="d3" id="n3">
+      <input type="radio" name="d3" id="c3">
+      <div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <label class="tile" for="n3"><div class="n">18</div><div class="l">Apps</div><svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></label>
+        <label class="tile" for="c3"><div class="n acc">11</div><div class="l">Goals</div><svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></label>
+        <div class="tile" style="cursor:default;opacity:.92"><div class="n">7</div><div class="l">Assists</div></div>
+      </div>
+      <div class="well w-n">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><div class="wk">Apps · 18</div><div class="wk" style="color:var(--accent)"><span class="sug">Coach verified</span></div></div>
+        <div class="wline"><span class="sug">Confirmed by Sam Kaya · Coach, U15 Boys, Riverside FC · 12 September 2026</span></div>
+        <div class="wsub"><span class="sug">Entered by Deniz on 6 September 2026. 2026 season.</span></div>
+        <label class="closer" for="z3">Close</label>
+      </div>
+      <div class="well w-c">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><div class="wk">Goals · 11</div><div class="wk" style="color:var(--accent)"><span class="sug">Coach verified</span></div></div>
+        <div class="wline"><span class="sug">Confirmed by Sam Kaya · Coach, U15 Boys, Riverside FC · 12 September 2026</span></div>
+        <div class="wsub"><span class="sug">Entered by Deniz on 6 September 2026. 2026 season.</span></div>
+        <label class="closer" for="z3">Close</label>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:6px">
+    <div style="font-size:12.5px;font-weight:800;color:var(--secondary)">Two things this panel is doing deliberately</div>
+    <div style="font-size:12.5px;color:var(--muted);line-height:1.6"><b style="color:var(--secondary)">One.</b> The third tile is still self-reported and still opens to the self-reported well. <b style="color:var(--secondary)">A page with mixed provenance must look normal</b>, not broken — it is the state almost every real CV will be in for years, and a design that only looks right when every stat is verified is a design that never looks right.</div>
+    <div style="font-size:12.5px;color:var(--muted);line-height:1.6"><b style="color:var(--secondary)">Two.</b> A <b style="color:var(--secondary)">verified club</b> reads the line above with the coach&rsquo;s name on it. A <b style="color:var(--secondary)">stranger holding the share link</b> reads <span class="sug" style="color:var(--secondary)">&ldquo;Confirmed by a coach at Riverside FC · 12 September 2026&rdquo;</span> — the same fact, no adult named to an unknown reader. One boolean from the permission function decides which line renders, and which one is right is BUZ&rsquo;s call, not mine.</div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ============================ 390 ============================ -->
+<div class="bh"><span class="tag tag-new">proposed · 390</span><div><div class="t">The same screen, the same order, one column</div><div class="s">The well is full width under the row at every breakpoint, so the phone and the laptop are one design. Every target here is ≥44px.</div></div></div>
+
+<div class="stage w390">
+<div class="floodlight" style="padding:22px 0 26px">
+<div style="padding:0 18px;display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;justify-content:flex-end"><span class="wm" style="font-size:17px">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+  <div class="hero" style="padding:20px 16px 18px">
+    <div style="position:absolute;right:-14px;top:-30px;font-size:150px;font-weight:900;letter-spacing:var(--ls-numeral);color:rgba(61,220,132,.08);line-height:1">10</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+      <div style="width:60px;height:60px;border-radius:18px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px">DY</div>
+      <svg viewBox="0 0 100 62" width="76" height="47" style="opacity:.9"><rect x="1" y="1" width="98" height="60" rx="6" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><line x1="50" y1="1" x2="50" y2="61" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/><circle cx="68" cy="19.2" r="5" fill="#3ddc84"/><circle cx="74" cy="9.9" r="3.6" fill="rgba(61,220,132,.45)"/></svg>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;position:relative">
+      <div style="font-size:28px;font-weight:900;line-height:1.05;letter-spacing:var(--ls-title)">Deniz Yılmaz</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.78)">AM · LW · #10 · Right footed</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.62)">Riverside FC — U15 Boys · Brunswick VIC</div>
+    </div>
+    <div style="display:flex"><div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);border-radius:var(--r-pill);padding:4px 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z"/><path d="M9 12 L11 14 L15 9.5"/></svg><span>Parent-approved</span></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:rgba(255,255,255,.55)">Season 2026</div>
+      <div class="hl"><div class="d"></div><div class="t">Self-reported</div></div>
+    </div>
+    <div class="drill" style="display:flex;flex-direction:column;gap:9px;margin-top:-6px;position:relative">
+      <input type="radio" name="d2" id="z2" checked>
+      <input type="radio" name="d2" id="a2">
+      <input type="radio" name="d2" id="g2">
+      <input type="radio" name="d2" id="s2">
+      <div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <label class="tile" for="a2"><div class="n">18</div><div class="l">Apps</div><svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></label>
+        <label class="tile" for="g2"><div class="n acc">11</div><div class="l">Goals</div><svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></label>
+        <label class="tile" for="s2"><div class="n">7</div><div class="l">Assists</div><svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></label>
+      </div>
+      <div class="well w-a">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px"><div class="wk">Apps · 18</div><div class="wk">Self-reported</div></div>
+        <div class="wline"><span class="sug">Entered by Deniz on 6 September 2026</span></div>
+        <div class="wsub"><span class="sug">2026 season · Riverside FC · U15 Boys</span></div>
+        <details class="lvl2"><summary><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg><span class="sug">What self-reported means</span></summary><div class="body"><span class="sug">Deniz entered this number himself. Nobody at Riverside FC has confirmed it. Pitch does not change a number a player enters, and does not check it.</span></div></details>
+        <label class="closer" for="z2">Close</label>
+      </div>
+      <div class="well w-g">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px"><div class="wk">Goals · 11</div><div class="wk">Self-reported</div></div>
+        <div class="wline"><span class="sug">Entered by Deniz on 6 September 2026</span></div>
+        <div class="wsub"><span class="sug">2026 season · Riverside FC · U15 Boys</span></div>
+        <details class="lvl2"><summary><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg><span class="sug">What self-reported means</span></summary><div class="body"><span class="sug">Deniz entered this number himself. Nobody at Riverside FC has confirmed it. Pitch does not change a number a player enters, and does not check it.</span></div></details>
+        <label class="closer" for="z2">Close</label>
+      </div>
+      <div class="well w-s">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px"><div class="wk">Assists · 7</div><div class="wk">Self-reported</div></div>
+        <div class="wline"><span class="sug">Entered by Deniz on 6 September 2026</span></div>
+        <div class="wsub"><span class="sug">2026 season · Riverside FC · U15 Boys</span></div>
+        <details class="lvl2"><summary><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg><span class="sug">What self-reported means</span></summary><div class="body"><span class="sug">Deniz entered this number himself. Nobody at Riverside FC has confirmed it. Pitch does not change a number a player enters, and does not check it.</span></div></details>
+        <label class="closer" for="z2">Close</label>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div class="kicker" style="color:rgba(255,255,255,.55)">About</div>
+    <div style="font-size:14px;line-height:1.55;color:var(--secondary)">Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery.</div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="note" style="margin-top:22px"><b>What this mechanic is not.</b> It is not a streak, a
+count of visits, a percentile, an activity grid or a reason to come back. It rewards attention paid
+to a number that is already on the page, once, and then it closes. Nothing about it is aimed at
+making a fourteen-year-old open the app again.</div>
+
+</div>
+</body>
+</html>

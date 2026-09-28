@@ -11,9 +11,12 @@ import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
 import { PlayerFrame, GuardianFrame } from '@/components/player-shell';
 import RegisterReaders from '@/components/RegisterReaders';
+import RegisterPaused from '@/components/RegisterPaused';
+import WhileYouWereAway from '@/components/WhileYouWereAway';
 import SquadCard from '@/components/SquadCard';
 import { ClubConsole, CoachConsole } from '@/components/console-shell';
 import CopyLink from '@/components/cv/CopyLink';
+import { PRICES } from '@/lib/billing';
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
 
@@ -253,12 +256,63 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       [clubSeat.id],
     )).rows[0].n as number;
     const pageUrl = clubSeat.public_slug ? `pitchfootball.com.au/fc/${clubSeat.public_slug}` : null;
-    const tile = (n: number, word: string, color: string) => (
+    // D-162: a zero is never rendered as a value or a count — it is omitted.
+    // A squad with no confirmed players in October and a squad nobody has
+    // filled in are not the same thing, and "0" makes them identical.
+    const tile = (n: number, word: string, color: string) => n > 0 ? (
       <div>
         <div className="numeral numeral-m" style={{ color }}>{n}</div>
         <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{word}</div>
       </div>
-    );
+    ) : null;
+
+    // THE ADMINISTRATOR'S HOME (club-home-admin.html, 23 Sep; BUZ asked for it
+    // 28 Sep). It was the technical director's screen rendered for somebody
+    // with none of her access: the hero carried a register row an
+    // administrator correctly cannot have (D-93, D-154), so it drew three
+    // lines and 50px of blank and read as a card that failed to load — and the
+    // right rail was the sidebar again, word for word, as six identical grey
+    // buttons with no primary action anywhere on the screen. It is very often
+    // the first Pitch screen anybody at a club opens.
+    //
+    // What replaces it: the three numbers an administrator IS entitled to —
+    // squads, live notices, open roles, none of which touches a registration —
+    // one accent action, the club's public state, and a plain statement of
+    // their own limits. Not one registration and not one child's name reaches
+    // this screen.
+    const admin = !isTd ? (await db.query(
+      `select
+         (select count(*)::int from squad s where s.club_id = $1) as squads,
+         (select count(*)::int from trial_notice t where t.club_id = $1
+            and t.trial_on >= (now() at time zone 'Australia/Melbourne')::date) as trials_live,
+         c.crest_path is null as no_crest,
+         (c.philosophy is null or length(btrim(c.philosophy)) = 0) as no_philosophy
+       from club c where c.id = $1`,
+      [clubSeat.id],
+    )).rows[0] as { squads: number; trials_live: number; no_crest: boolean; no_philosophy: boolean } : null;
+    // Who can do what here — the one place in the product where D-93's role
+    // split is said out loud to the person it constrains. The database's
+    // answer, never assembled here (L23): the same function /club/billing
+    // reads, so the two screens cannot disagree about who reads the register.
+    const canDo = !isTd ? (await db.query(
+      `select reader_id, reader_name, role_label, scope, squad_names,
+         to_char(since at time zone 'Australia/Melbourne', 'FMDD Mon') as since
+       from fn_club_register_readers($1, $2)`,
+      [personId, clubSeat.id],
+    )).rows as { reader_id: string; reader_name: string | null; role_label: string; scope: 'whole' | 'squads' | 'none'; squad_names: string[]; since: string | null }[] : [];
+    const theTd = canDo.find((r) => r.scope === 'whole');
+    const plan = !isTd ? (await db.query(
+      `select fn_register_payment_state($1, c.id) as pay_state, c.plan,
+         to_char(c.current_period_end at time zone 'Australia/Melbourne', 'FMDD Mon') as renews
+       from club c where c.id = $2`,
+      [personId, clubSeat.id],
+    )).rows[0] as { pay_state: string | null; plan: string | null; renews: string | null } : null;
+    // What an administrator's own row says, in words rather than as a shrug.
+    const canDoLine = (r: typeof canDo[number]) =>
+      r.scope === 'whole' ? 'Technical Director — the register, and the club\u2019s development record'
+      : r.scope === 'squads' ? `Coach — the registrations for ${r.squad_names.join(' and ')}${r.since ? `, since ${r.since}` : ''}`
+      : r.role_label === 'Club administrator' ? 'Club administrator — the page, squads, notices, coaching roles and the plan. No registrations.'
+      : `${r.role_label} — no registrations.`;
 
     return (
       <ClubConsole active="home" floodlight>
@@ -293,10 +347,42 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                   {tile(counts.invited ?? 0, 'Invited', T.purple)}
                 </div>
               )}
+              {/* The administrator's numbers. Squads, notices and roles are the
+                  club's own furniture — no registration, no count of children,
+                  nothing about anybody under 18. Each is omitted at zero
+                  (D-162) rather than printed as a 0 beside a label. */}
+              {verified && !isTd && admin && (
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
+                  {admin.squads > 0 && (
+                    <div>
+                      <div className="numeral numeral-l" style={{ color: T.ink }}>{admin.squads}</div>
+                      <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{admin.squads === 1 ? 'Squad you run' : 'Squads you run'}</div>
+                    </div>
+                  )}
+                  {tile(admin.trials_live, 'Trials live', T.accent)}
+                  {tile(openRoles, openRoles === 1 ? 'Coaching role open' : 'Coaching roles open', T.secondary)}
+                </div>
+              )}
+              {verified && !isTd && theTd?.reader_name && (
+                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.62)', fontWeight: 500, lineHeight: 1.6 }}>
+                  The register is {theTd.reader_name.split(' ')[0]}&rsquo;s. You keep the club&rsquo;s page, its squads, its notices and its plan.
+                </div>
+              )}
+              {/* D-162: the held count is a fact about absence when it is zero,
+                  and a fact about absence belongs in words, not as a 0. */}
               {!verified && (
-                <div style={{ fontSize: 17, fontWeight: 900 }}>{clubSeat.register_count} waiting</div>
+                <div style={{ fontSize: 17, fontWeight: 900 }}>
+                  {clubSeat.register_count > 0 ? `${clubSeat.register_count} waiting` : 'Nobody is waiting yet'}
+                </div>
               )}
             </div>
+
+            {/* The one accent action on an administrator's screen. Before this
+                there was none: six identical grey buttons and nowhere for the
+                eye to land. */}
+            {verified && !isTd && (
+              <Link href="/club/post-trial" className="btn btn-primary">Post a trial notice</Link>
+            )}
 
             {verified && isTd && (counts.new ?? 0) > 0 && (
               <Link href="/club/register?status=new" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none', border: `1px solid ${T.accent}` }}>
@@ -326,10 +412,43 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                     {isTd && t.interested > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, flexShrink: 0 }}>{t.interested} interested</div>}
                   </div>
                 ))}
+                {!isTd && trials.length > 0 && (
+                  <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>A notice comes off the board by itself the day after its date. Nobody has to remember.</div>
+                )}
               </div>
             )}
 
-            {pageUrl && (
+            {/* What a family cannot see yet. Two things, and the block is
+                absent when neither is missing — never a completeness score,
+                and never an empty prompt (D-74's objection to the three
+                dropped club-page blocks, and D-162's). */}
+            {!isTd && admin && (admin.no_crest || admin.no_philosophy) && (
+              <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <h2 style={label}>What a family cannot see yet</h2>
+                {admin.no_crest && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 800 }}>Your crest</div>
+                      <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>The page shows an initial where the crest goes.</div>
+                    </div>
+                    <Link href="/club/page-edit" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Add it</Link>
+                  </div>
+                )}
+                {admin.no_crest && admin.no_philosophy && <hr style={{ height: 1, background: T.line, border: 'none', margin: 0 }} />}
+                {admin.no_philosophy && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 800 }}>How the club plays</div>
+                      <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>The section is left out rather than shown empty.</div>
+                    </div>
+                    <Link href="/club/page-edit" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Write it</Link>
+                  </div>
+                )}
+                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>Two things, not a score. A club page with nothing missing is not a better club.</div>
+              </div>
+            )}
+
+            {pageUrl && isTd && (
               <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{pageUrl}</div>
@@ -347,19 +466,81 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             {(isTd || !verified) && (
               <Link href="/club/register" className="btn btn-primary">Register</Link>
             )}
-            {verified && (
-              <Link href="/club/post-trial" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Post a trial</Link>
+            {/* THE TECHNICAL DIRECTOR'S RAIL, unchanged. It repeats the sidebar
+                too and that is a separate proposal; the administrator's is the
+                one BUZ asked for, because for her the rail WAS the screen. */}
+            {isTd ? (
+              <>
+                {verified && (
+                  <Link href="/club/post-trial" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Post a trial</Link>
+                )}
+                <Link href="/club/squads" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Squads</Link>
+                <Link href="/club/page-edit" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Crest &amp; club page</Link>
+                <Link href="/club/roles" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.secondary }}>Coaching roles</div>
+                  {openRoles > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.accent }}>{openRoles} open</div>}
+                </Link>
+                {clubSeat.public_slug && (
+                  <Link href={`/fc/${clubSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Your club page</Link>
+                )}
+                <Link href="/club/billing" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Plan &amp; billing</Link>
+              </>
+            ) : (
+              <>
+                {/* The club's public state, not a second copy of the sidebar.
+                    Every door here is still in the frame beside it (D-147: the
+                    rail is a second way to the same doors, never a new one). */}
+                {pageUrl && (
+                  <div className="card-sunken" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+                    <h2 style={label}>Your club page</h2>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{pageUrl}</div>
+                    <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+                      <CopyLink url={`https://${pageUrl}`} label="Copy the link" compact />
+                      <Link href={`/fc/${clubSeat.public_slug}`} style={{ height: 44, padding: '0 16px', borderRadius: 999, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Open it</Link>
+                    </div>
+                    <hr style={{ height: 1, background: T.line, border: 'none', margin: 0 }} />
+                    <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6 }}>
+                      Public and live.{admin && admin.trials_live > 0 ? ' Your trial notices are on it and on the trials board.' : ''}
+                    </div>
+                  </div>
+                )}
+
+                {/* The safety story on the screen an administrator meets first,
+                    and the only place D-93's split is said out loud to the
+                    person it constrains. The database's answer, not this
+                    page's (L23). */}
+                {canDo.length > 0 && (
+                  <div className="card-sunken" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+                    <h2 style={label}>Who can do what here</h2>
+                    {canDo.map((r, i) => (
+                      <div key={r.reader_id} style={{ borderTop: i === 0 ? undefined : `1px solid ${T.line}`, paddingTop: i === 0 ? 0 : 11 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 800, color: r.reader_id === personId ? T.accent : T.ink }}>
+                          {r.reader_id === personId ? 'You' : r.reader_name ?? 'A club member'}
+                        </div>
+                        <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, marginTop: 2, lineHeight: 1.5 }}>{canDoLine(r)}</div>
+                      </div>
+                    ))}
+                    <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>
+                      A treasurer who sends the invoices should not be able to read a child&rsquo;s development notes. That is on purpose.
+                    </div>
+                  </div>
+                )}
+
+                {plan?.pay_state === 'active' && (
+                  <Link href="/club/billing" className="card-sunken lift" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 6, textDecoration: 'none' }}>
+                    <h2 style={label}>Plan</h2>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: T.ink }}>
+                      {(plan.plan === 'register_annual' ? PRICES.register_annual : PRICES.register_monthly).label}
+                      {plan.renews ? ` · next charge ${plan.renews.trim()}` : ''}
+                    </div>
+                    <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>The receipt is addressed to the club, not to you, so it can be reimbursed without an argument.</div>
+                  </Link>
+                )}
+                {plan && (plan.pay_state === 'grace' || plan.pay_state === 'suspended') && (
+                  <RegisterPaused state={plan.pay_state} billingLink />
+                )}
+              </>
             )}
-            <Link href="/club/squads" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Squads</Link>
-            <Link href="/club/page-edit" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Crest &amp; club page</Link>
-            <Link href="/club/roles" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: T.secondary }}>Coaching roles</div>
-              {openRoles > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.accent }}>{openRoles} open</div>}
-            </Link>
-            {clubSeat.public_slug && (
-              <Link href={`/fc/${clubSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Your club page</Link>
-            )}
-            <Link href="/club/billing" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Plan &amp; billing</Link>
           </div>
           </div>
         </div>
@@ -437,7 +618,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
                 <h2 style={label}>Your page</h2>
-                <div style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{done} of {steps.length} done</div>
+                {/* D-162: "0 of 6 done" prints a zero as a value. The bar
+                    below says the same thing without it. */}
+                {done > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{done} of {steps.length} done</div>}
               </div>
               <div aria-hidden style={{ height: 6, borderRadius: 999, background: T.surface2, overflow: 'hidden' }}>
                 <div style={{ width: `${Math.round((done / steps.length) * 100)}%`, height: 6, borderRadius: 999, background: T.accent }} />
@@ -515,12 +698,19 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     const todo = steps.filter((x) => !x.done).slice(0, 2);
     const live = Boolean(pg?.link);
 
+    // The return (0064). fn_note_arrival records nothing and answers nothing
+    // for an under-16, so a fourteen-year-old's visits are not timestamped and
+    // this block does not render for them — the refusal is the database's, not
+    // this page's, and doc 34 rule 6 (who may see a read receipt) is untouched.
+    const awaySince = (await db.query('select fn_note_arrival($1) as since', [personId])).rows[0].since as string | null;
+
     return (
       <PlayerFrame active="home">
         <div className="console h-rise" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
           <div className="player-grid">
           <div>
+          {awaySince && <WhileYouWereAway viewerId={personId as string} since={awaySince} />}
           <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
               {me.photo_path ? (
@@ -575,7 +765,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
               <h2 style={label}>Your page</h2>
-              <div style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{done} of {steps.length} done</div>
+              {done > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{done} of {steps.length} done</div>}
             </div>
             <div aria-hidden style={{ height: 6, borderRadius: 999, background: T.surface2, overflow: 'hidden' }}>
               <div style={{ width: `${Math.round((done / steps.length) * 100)}%`, height: 6, borderRadius: 999, background: T.accent }} />
@@ -778,6 +968,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   const expiringSoon = children.filter((c) => c.expiresInDays !== null && c.expiresInDays <= 30).length;
   const clubsHolding = children.reduce((n, c) => n + c.registers, 0);
 
+  // The return (0064). A parent gone from March to September comes back to a
+  // queue of their own omissions, oldest first, and nothing at all about what
+  // happened to their child's record in those months — which is the one
+  // question they came back with. Three dated facts, above the queue, and then
+  // the page is the page. Never sent: it is computed on arrival and read on
+  // arrival, because the moment it becomes a send it is a re-engagement prompt
+  // (D-65 as amended by D-81).
+  const awaySince = (await db.query('select fn_note_arrival($1) as since', [personId])).rows[0].since as string | null;
+
   // Guardian seat — inside the parent's frame (D-147, amended 16 Sep).
   return (
     <GuardianFrame active="home">
@@ -787,23 +986,40 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
         <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everything about your children on Pitch, and every control over it, is here.</div>
       </div>
 
+      {awaySince && <WhileYouWereAway viewerId={personId as string} since={awaySince} />}
+
       {/* The state of things, in three numbers. Nothing here is new data —
           it is what the child cards below already say, added up, which is
-          the form a parent can take in at a glance. */}
-      <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 20px 18px 20px', display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
-        <div>
-          <div className="numeral numeral-m" style={{ color: T.ink }}>{linksActive}</div>
-          <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{linksActive === 1 ? 'Link active' : 'Links active'}</div>
+          the form a parent can take in at a glance.
+
+          D-162: a zero is never one of those numbers. "0 Expiring in 30 days"
+          is the best possible news rendered as the shape of a problem, and a
+          parent with no live link at all was shown "0 Links active" beside a
+          child who has never been sent anywhere. Each tile is omitted at zero
+          and the whole hero is omitted when there is nothing to put in it —
+          the child cards below say the same things in words. */}
+      {(linksActive > 0 || expiringSoon > 0 || clubsHolding > 0) && (
+        <div style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '20px 20px 18px 20px', display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
+          {linksActive > 0 && (
+            <div>
+              <div className="numeral numeral-m" style={{ color: T.ink }}>{linksActive}</div>
+              <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{linksActive === 1 ? 'Link active' : 'Links active'}</div>
+            </div>
+          )}
+          {expiringSoon > 0 && (
+            <div>
+              <div className="numeral numeral-m" style={{ color: T.amber }}>{expiringSoon}</div>
+              <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Expiring in 30 days</div>
+            </div>
+          )}
+          {clubsHolding > 0 && (
+            <div>
+              <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{clubsHolding}</div>
+              <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{clubsHolding === 1 ? 'Club register' : 'Club registers'}</div>
+            </div>
+          )}
         </div>
-        <div>
-          <div className="numeral numeral-m" style={{ color: expiringSoon > 0 ? T.amber : 'rgba(255,255,255,.45)' }}>{expiringSoon}</div>
-          <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Expiring in 30 days</div>
-        </div>
-        <div>
-          <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{clubsHolding}</div>
-          <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{clubsHolding === 1 ? 'Club register' : 'Club registers'}</div>
-        </div>
-      </div>
+      )}
 
       {/* Oldest first, and only the top one carries the accent button. Three
           primary buttons in a row is the same as none. */}

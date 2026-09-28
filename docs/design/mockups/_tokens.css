@@ -1,0 +1,14 @@
+/* Night Match, exactly as app/globals.css :root and lib/palette.ts hold them.
+   Copied (not linked) into each mockup's <style> so every file in this folder
+   opens standalone from disk with no network and no build step. If a token
+   here ever differs from globals.css, globals.css is right and this is stale —
+   scripts/palette-check.mjs does not read this folder. */
+:root{
+  --bg:#0b120e; --surface:#121b16; --surface-2:#1a2420; --surface-sunken:#0e1712;
+  --line:#24322a; --ink:#eef5f0; --secondary:#b9c8bf; --muted:#7d8f85; --placeholder:#6b7d73;
+  --accent:#3ddc84; --on-accent:#06130c; --amber:#eda100; --purple:#a479e2; --red:#e34948;
+  --hero:linear-gradient(160deg,#123326 0%,#0c1d14 60%,#0a1510 100%);
+  --r-hero:22px; --r-card:16px; --r-well:12px; --r-btn:14px; --r-pill:999px;
+  --ls-caps:.14em; --ls-label:.06em; --ls-button:.02em; --ls-title:-.015em; --ls-numeral:-.04em;
+  --card-pad:15px 14px; --ease:cubic-bezier(.22,1,.36,1);
+}
