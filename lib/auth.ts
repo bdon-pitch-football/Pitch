@@ -18,6 +18,7 @@ import 'server-only';
 import { createHash, randomBytes, randomUUID, scrypt as _scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { db } from './db';
+import { revokeEverySession } from './session';
 
 const scrypt = promisify(_scrypt) as (p: string, s: string, k: number) => Promise<Buffer>;
 const KEYLEN = 64;
@@ -27,6 +28,15 @@ export async function hashPasswordForTiming(password: string): Promise<void> {
   await scrypt(password, randomBytes(16).toString('hex'), KEYLEN);
 }
 
+// Setting a password ends every live session for this person (0062) —
+// INCLUDING the one doing the setting, and that is the decision rather than an
+// oversight. A parent changing their password believes it locks the other
+// person out; if we exempted "the session doing the resetting" then whoever
+// holds a captured cookie AND intercepts one reset email keeps their session
+// while the parent is the one who has to sign in again. The exemption would
+// be worth nothing anyway: the reset flow already ends at /signin?reset=1 and
+// the sign-up doors sign nobody in, so no path in the product loses anything
+// it had. It costs one sign-in and it is the more restrictive answer.
 export async function setPassword(personId: string, password: string): Promise<void> {
   const salt = randomBytes(16).toString('hex');
   const derived = (await scrypt(password, salt, KEYLEN)).toString('hex');
@@ -35,6 +45,7 @@ export async function setPassword(personId: string, password: string): Promise<v
      on conflict (person_id) do update set password_hash = $2, updated_at = now()`,
     [personId, `${salt}:${derived}`],
   );
+  await revokeEverySession(personId);
 }
 
 // Always does the same work, whether or not the person or credential exists,
@@ -124,6 +135,9 @@ export async function createReset(email: string): Promise<{ token: string; sendT
   if (!recipient) return null;
 
   const token = randomBytes(24).toString('base64url');
+  // Inserting this one kills every link outstanding for this person — the
+  // auth_reset_one_live trigger (0062), not a line here, so no future route
+  // that sends a reset can forget it.
   // §10a only when the email is going to the account holder themselves — and
   // that is also the only case in which using the link proves the ADDRESS on
   // the account (0056). An under-16's reset goes to their parent, which
@@ -137,31 +151,17 @@ export async function createReset(email: string): Promise<{ token: string; sendT
   return { token, sendTo: recipient, firstPasswordChild: ownMail ? (p.first_password_child ?? null) : null };
 }
 
-// Single use: the row is marked used in the same statement that reads it, so
-// two simultaneous uses cannot both succeed.
-//
-// Using a link we emailed to the account's own address is proof of that
-// address (0056): whoever set this password holds that inbox. The proof is
-// written after the row is marked used, because the database asks for the
-// evidence before it will accept it.
+// Single use, and using one kills every other live link for that person
+// (0062). All three rules — marked used in the same statement that reads it so
+// two simultaneous uses cannot both succeed, the siblings revoked with it, and
+// the 0056 address proof written once the row is used — live in
+// fn_use_auth_reset, because a reset link is a key to an account and the
+// question "is this key still a key" must have exactly one answer (L23).
 export async function consumeReset(token: string): Promise<string | null> {
-  const { rows } = await db.query(
-    `update auth_reset set used_at = now()
-     where id = (
-       select id from auth_reset
-       where token_hash = $1 and used_at is null and expires_at > now()
-       limit 1)
-     returning person_id, proves_person_id`,
-    [createHash('sha256').update(token).digest()],
-  );
-  if (!rows[0]) return null;
-  if (rows[0].proves_person_id) {
-    await db.query(
-      `update person set email_proved_at = coalesce(email_proved_at, now()) where id = $1`,
-      [rows[0].proves_person_id],
-    );
-  }
-  return rows[0].person_id;
+  if (!token || token.length > 200) return null;
+  const { rows } = await db.query('select fn_use_auth_reset($1) as person_id',
+    [createHash('sha256').update(token).digest()]);
+  return (rows[0]?.person_id as string | null) ?? null;
 }
 
 // A device we have not seen before (doc 15 §33). Never an IP, never a city.

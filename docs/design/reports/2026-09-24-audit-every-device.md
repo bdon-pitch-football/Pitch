@@ -1,6 +1,6 @@
 # Device audit — every width (24 September 2026)
 
-> **Filed by Leo on 28 September**, four days late, from the device seat's
+> **Filed by Leo on 2026-09-28**, four days late, from the device seat's
 > handover. That seat's operating rules forbade it writing report files, so it
 > reported in full to me and I did not file it — and the gap was found by the
 > next builder, who reached for the write-up behind a decision it was
@@ -69,7 +69,7 @@ after cleanup   12.0 GiB free      (4.3 GiB recovered)
 | iPad Pro 12.9" | 1024 | console — *and see §2* |
 | Any iPad, landscape | 1080–1366 | console |
 
-**Closed 28 September** by BUZ's call: the table from 768, the rail still at
+**Closed 2026-09-28** by BUZ's call: the table from 768, the rail still at
 1024 (D-147 amended). `/ops/*` fell off the same cliff — an operator triaging a
 child-safety report on an iPad got the phone tab bar.
 

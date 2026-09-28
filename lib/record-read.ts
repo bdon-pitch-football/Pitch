@@ -36,6 +36,11 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
   // written. It went unnoticed because an absent band falls back to "minor",
   // which is the correct answer for a u16 — right for the wrong reason.
   if (bundle.approved_content) {
+    // No filtering here, deliberately. A snapshot approved before D-161 still
+    // holds a school entry and nothing rewrites it — but fn_approved_cv, the
+    // one function that serves a snapshot to all four of its surfaces (0054,
+    // 0061), is where that is answered. A second answer here would be a second
+    // place to be wrong (L23).
     return { ...bundle.approved_content, band: bundle.band as CvData['band'] };
   }
 
@@ -70,8 +75,12 @@ export async function assembleCv(recordId: string, personId: string, band: strin
         from player_stat where record_id = $1 and value > 0) as stats,
       (select coalesce(json_agg(json_build_object('title', title, 'detail', detail) order by sort), '[]'::json)
         from achievement where record_id = $1) as achievements,
+      -- fn_experience_public is the database's answer to which of these may
+      -- appear on a public page for this record: no school for an under-18,
+      -- decided from the date of birth at read time (D-161, 0061).
       (select coalesce(json_agg(json_build_object('kind', kind, 'orgName', org_name, 'period', season_label, 'note', notes)), '[]'::json)
-        from experience_entry where record_id = $1 and kind <> 'previous_club') as other,
+        from experience_entry where record_id = $1 and kind <> 'previous_club'
+          and fn_experience_public($1, kind)) as other,
       (select coalesce(json_agg(json_build_object('orgName', org_name, 'period', season_label) order by season_label desc nulls last, created_at desc), '[]'::json)
         from experience_entry where record_id = $1 and kind = 'previous_club') as previous_clubs,
       (select coalesce(json_agg(json_build_object('title', title, 'url', url) order by added_at), '[]'::json)

@@ -2,6 +2,15 @@
 // ALL PEOPLE AND CLUBS HERE ARE FICTIONAL, deliberately and checkably so —
 // no real minor's data appears in any environment, ever (doc 16 §4).
 // Riverside FC, Northern United SC and Kingsway Rovers FC do not exist;
+// nor do Saltmarsh Rovers, Marchfield City, Elderslie Juniors, Ashvale
+// Lions, Barrowfield Juniors, Crestmoor SC, Halvard City, Marlowe High or
+// Westhaven Senior College. THE RULE IS STRONGER THAN 'PICK A NAME NOBODY
+// USES': an invented club is never named after a real suburb, because that
+// is exactly how real community clubs are named and nobody can verify the
+// non-existence of one. Six real organisations reached a child's page this
+// way and a seventh was only caught because a builder read the file for a
+// different reason (L15, TRAINING §3.1). The localities stay real — a
+// fictional club in a real suburb is intended and is what the demo needs.
 // check before inventing a fourth club.
 //
 // These are built before any screen because they are the test data every
@@ -64,7 +73,7 @@ export const DENIZ: PlayerFixture = {
   club: 'Riverside FC',
   locality: 'Brunswick VIC',
   squad: { name: 'U15 Boys', ageGroup: 'U15', competitionGender: 'boys' },
-  previousClubs: [{ orgName: 'Brunswick Juniors SC', period: '2019–2023' }],
+  previousClubs: [{ orgName: 'Elderslie Juniors SC', period: '2019–2023' }],
   about:
     'Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery.',
   stats: [
@@ -77,7 +86,7 @@ export const DENIZ: PlayerFixture = {
     { title: "Players' Player of the Year", detail: 'Riverside FC, 2025' },
   ],
   otherFootball: [
-    { kind: 'school', orgName: 'Northcote High 1st XI', period: '2026' },
+    { kind: 'school', orgName: 'Marlowe High 1st XI', period: '2026' },
     { kind: 'futsal', orgName: 'Melbourne Futsal U15', period: 'Summer 2025–26' },
   ],
   highlightsUsed: 2,
@@ -100,8 +109,8 @@ export const NATE: PlayerFixture = {
   locality: 'Preston VIC',
   squad: { name: 'U18 Boys', ageGroup: 'U18', competitionGender: 'boys' },
   previousClubs: [
-    { orgName: 'Preston Lions FC', period: '2022–2024' },
-    { orgName: 'Reservoir Juniors', period: '2018–2021' },
+    { orgName: 'Ashvale Lions FC', period: '2022–2024' },
+    { orgName: 'Barrowfield Juniors', period: '2018–2021' },
   ],
   about:
     'Reserve keeper pushing for the starting spot. Comfortable playing out under pressure, strong on crosses. Working on my distribution range and commanding the six-yard box.',
@@ -137,7 +146,7 @@ export const GEORGIA: PlayerFixture = {
   positions: ['CM', 'DM'],
   squadNumber: 6,
   foot: 'Left',
-  club: 'Kingsway Rovers FC',
+  club: 'Saltmarsh Rovers FC',
   locality: 'Altona VIC',
   // No previous clubs on purpose: Georgia is the sparse CV, and the section
   // must vanish rather than render an empty heading (D-70's rule, applied).
@@ -151,9 +160,9 @@ export const GEORGIA: PlayerFixture = {
     { season: '2026', key: 'goals', value: 3, provenance: 'self_reported' },
     { season: '2026', key: 'assists', value: 5, provenance: 'self_reported' },
   ],
-  achievements: [{ title: 'Club Player of the Year — U15 Girls', detail: 'Kingsway Rovers FC, 2025' }],
+  achievements: [{ title: 'Club Player of the Year — U15 Girls', detail: 'Saltmarsh Rovers FC, 2025' }],
   otherFootball: [
-    { kind: 'school', orgName: 'Point Cook Senior College', period: '2026' },
+    { kind: 'school', orgName: 'Westhaven Senior College', period: '2026' },
     { kind: 'futsal', orgName: 'Werribee summer league', period: '2025–26' },
   ],
   highlightsUsed: 1, // deliberately thin — does a modest CV still look worth sending?
@@ -177,12 +186,12 @@ export const JORDAN: PlayerFixture = {
   positions: ['ST', 'LW'],
   squadNumber: 9,
   foot: 'Left',
-  club: 'Coburg City FC',
+  club: 'Marchfield City FC',
   locality: 'Coburg VIC',
   squad: { name: 'Seniors Men', ageGroup: 'SEN', competitionGender: 'men' },
   previousClubs: [
-    { orgName: 'Pascoe Vale SC', period: '2023–2025' },
-    { orgName: 'Moreland Zebras FC', period: '2021–2023' },
+    { orgName: 'Crestmoor SC', period: '2023–2025' },
+    { orgName: 'Halvard City FC', period: '2021–2023' },
   ],
   about:
     'Left-footed nine who runs the channel and finishes early. Four seasons of senior football, looking for a step up in level for 2027.',
@@ -192,11 +201,17 @@ export const JORDAN: PlayerFixture = {
     { season: '2026', key: 'assists', value: 6, provenance: 'self_reported' },
   ],
   achievements: [
-    { title: 'Golden Boot — State League 2', detail: 'Coburg City FC, 2026' },
+    { title: 'Golden Boot — State League 2', detail: 'Marchfield City FC, 2026' },
     { title: 'Promotion winners', detail: '2025 season' },
   ],
   otherFootball: [
     { kind: 'representative', orgName: 'FV State League All-Stars', period: '2026' },
+    // The adult half of D-161: a school or university side still renders on
+    // an 18+ page, and only there. The under-18 half is exercised by Deniz's
+    // and Georgia's school entries, which the database now refuses to write
+    // and no page renders. 'Riverside' is one of the fictional names already
+    // in the seed (L15) — there is no Riverside University.
+    { kind: 'school', orgName: 'Riverside University 1st XI', period: '2023–2025' },
   ],
   highlightsUsed: 2,
   highlights: [

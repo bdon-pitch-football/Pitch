@@ -103,8 +103,33 @@ for (const p of PLAYER_FIXTURES) {
     await db.query(`insert into achievement (record_id, title, detail, sort) values ($1,$2,$3,$4)`, [recordId, a.title, a.detail, i]);
   }
   for (const e of p.otherFootball) {
+    // A school entry on a child's record is the one row the product can no
+    // longer write (D-161, 0061). It exists in a real database only because it
+    // was written before the rule, and D-161 leaves it there: nothing deletes
+    // it, nothing renders it, and whether the family is told is BUZ's call.
+    // The seed needs one so every check about it has a subject, so it writes
+    // it the only way it can be written — with the trigger off for that
+    // insert, and back on immediately. If this ever stops being necessary,
+    // the database stopped refusing and that is the bug.
+    const legacy = e.kind === 'school' && !isAdult;
+    if (legacy) await db.query(`alter table experience_entry disable trigger no_school_under_18`);
     await db.query(`insert into experience_entry (record_id, kind, org_name, season_label, notes) values ($1,$2,$3,$4,$5)`,
       [recordId, e.kind, e.orgName, e.period, e.note ?? null]);
+    if (legacy) await db.query(`alter table experience_entry enable trigger no_school_under_18`);
+  }
+  // A 16-17 is the ONLY under-18 band whose public page is assembled live:
+  // a u16's is the guardian-approved snapshot (D-119), so Deniz's and
+  // Georgia's school entries exercise fn_approved_cv and nothing else. Nate
+  // gets one so the live assembly's own filter is exercised by a real rendered
+  // page rather than by reading the query (D-161, 0061). It names no
+  // organisation: 'School 1st XI' is the wording the demo layer already uses
+  // in place of a real school (L15), and it is seeded here rather than added
+  // to lib/fixtures because doc 16 is where his CV data is specified.
+  if (p.slug === 'nate') {
+    await db.query(`alter table experience_entry disable trigger no_school_under_18`);
+    await db.query(`insert into experience_entry (record_id, kind, org_name, season_label) values ($1,'school','School 1st XI','2026')`,
+      [recordId]);
+    await db.query(`alter table experience_entry enable trigger no_school_under_18`);
   }
   // Clubs before this one (0028). Same table, same free text, grants nothing.
   for (const e of p.previousClubs ?? []) {
@@ -865,6 +890,27 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
   );
   console.log(`  ids    : ${who.rows.map((r) => `${r.first_name}=${r.id}`).join(' ')}`);
 
+  // A LIVE SESSION FOR EVERY FIXTURE PERSON, and its token written out with
+  // the ids (0062). A session is now a row, so a suite cannot become a seat by
+  // signing a person id any more — it needs a session the database issued, and
+  // it cannot ask for one itself: PGlite serves one connection and next-server
+  // holds it, so no script can reach this database while the app is up. The
+  // seed is the only place that can mint these, which is also the honest
+  // place: a session token in a gitignored file beside a throwaway database is
+  // the same kind of handle the dev share tokens already are.
+  //
+  // Issued through fn_session_issue rather than an insert, so the fixtures
+  // carry exactly the lifetime the product issues.
+  // A demo signs its seats in by pressing a button (app/demo), so it needs
+  // none of these and gets none.
+  const sessions: Record<string, string> = {};
+  for (const r of (DEMO ? [] : (await db.query(`select id from person`)).rows)) {
+    const personId = (r as { id: string }).id;
+    const token = randomBytes(24).toString('base64url');
+    await db.query(`select fn_session_issue($1,$2)`, [personId, sha(token)]);
+    sessions[personId] = token;
+  }
+
   // Written to disk as well, because the render tests need to BE these people
   // and every reseed mints fresh uuids. Gitignored: it is a handle on a local
   // throwaway database, not a secret and not a fixture.
@@ -880,6 +926,7 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     fileURLToPath(new URL('../.dev-ids.json', import.meta.url)),
     JSON.stringify({
       people: Object.fromEntries(who.rows.map((r) => [String(r.first_name).toLowerCase(), r.id])),
+      sessions,
       children: Object.fromEntries(kids.rows.map((r) => [String(r.first_name).toLowerCase(), r])),
       pendingInvitation: pendingInvitationId,
       clubs: Object.fromEntries(

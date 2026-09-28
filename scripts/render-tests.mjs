@@ -32,11 +32,25 @@ function check(name, actual, expected) {
   else { failures.push(name); console.log(`FAIL ${name} - expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`); }
 }
 
-// The dev session cookie is a signed person id (lib/session.ts). Minting one
-// here is how a test BECOMES a seat; there is no other way in without
+// The dev session cookie is a signed session token (lib/session.ts). Minting
+// one here is how a test BECOMES a seat; there is no other way in without
 // driving a browser.
-const cookieFor = (personId) =>
-  `pitch_session=${personId}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(personId).digest('base64url')}`;
+// A session is a row now (0062), so a cookie is not something a script can
+// compute: it has to name a session the database issued. The seed issues one
+// per fixture person and writes the token beside the ids — this file cannot
+// ask the database itself, because PGlite serves one connection and the app
+// holds it. A missing one is a stale .dev-ids.json against a running database,
+// which is worth saying out loud rather than failing as "signed out" fifty
+// times (F5's failure shape).
+const sessionToken = (p) => {
+  const t = ids.sessions?.[p];
+  if (!t) throw new Error(`no seeded session for ${p} — reseed (node scripts/dev-db.mts) so .dev-ids.json matches the running database`);
+  return t;
+};
+const cookieFor = (personId) => {
+  const t = sessionToken(personId);
+  return `pitch_session=${t}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(t).digest('base64url')}`;
+};
 
 async function get(path, personId) {
   const res = await fetch(BASE + path, {
@@ -101,7 +115,7 @@ const georgia = ids.children.georgia;
   check('r9: the club crest line carries the locality from the CLUB record',
     has(html, 'Brunswick VIC'), true);
   check('r10: football history names the current club and the one before it',
-    order(html, 'Riverside FC', 'Brunswick Juniors SC'), true);
+    order(html, 'Riverside FC', 'Elderslie Juniors SC'), true);
   check('r11: and says which of the two Pitch stands behind',
     has(html, 'Only the club at the top is one we hold on Pitch.'), true);
   check('r12: one clip subtitle, not one per card',
@@ -112,6 +126,78 @@ const georgia = ids.children.georgia;
   check('r13: an adult CV does NOT claim a parent approved it', has(html, 'Parent-approved'), false);
   check('r14: and carries no guardian-facing no-reply block',
     has(html, 'no way to reply to a family'), false);
+}
+
+// ---------------------------------------------------------------------------
+// A19 / D-161 - no school on an under-18's public page, whoever is reading.
+//
+// Deniz and Georgia each carry a school entry written the only way one can now
+// be written: with the trigger off, in the seed. That is the state a real
+// database is in - the row is there, nothing deleted it, and no page shows it.
+// Deniz's page is the guardian-approved SNAPSHOT (D-119), taken before the
+// rule; the preview of the same record is the LIVE assembly. Both are checked,
+// because they are two different queries and only one of them can be filtered
+// in SQL after the fact.
+// ---------------------------------------------------------------------------
+{
+  const SCHOOLS = ['Marlowe High 1st XI', 'Westhaven Senior College', 'School 1st XI'];
+  const minorPages = [
+    ['A19: the u16 public CV (approved snapshot)', '/p/dev-deniz', null],
+    ['A19: the u16 print view', '/p/dev-deniz/print', null],
+    ['A19: the sparse u16 CV', '/p/dev-georgia', null],
+    // The 16-17 page is the LIVE assembly, not a snapshot — a different query
+    // with its own filter, and the only band that exercises it under 18.
+    ['A19: the 16-17 public CV (live assembly)', '/p/dev-nate', null],
+    ['A19: the 16-17 print view', '/p/dev-nate/print', null],
+    ['A19: the family\'s own preview of what a club sees', `/build/${deniz.record_id}/preview`, alex],
+    // The fixture preview reaches no database at all — it hands PlayerCV a
+    // fixture, and the fixture carries no band, which the component treats as
+    // a minor (the restrictive default). It is also the page BUZ opens.
+    ['A19: the fixture preview of the CV design', '/cv-preview/deniz', null],
+    ['A19: the sparse fixture preview', '/cv-preview/georgia', null],
+  ];
+  for (const [what, path, who] of minorPages) {
+    const { html } = await get(path, who);
+    const found = SCHOOLS.filter((org) => has(html, org));
+    check(`${what} names no school (${found.join(', ') || 'none'})`, found, []);
+    // The KIND as well as the organisation: "school" in the chip above the
+    // name is the disclosure D-114 removed, without the name attached.
+    check(`${what} carries no school chip`,
+      text(html).some((l) => l.toLowerCase() === 'school'), false);
+  }
+  // The other half of the same rule: an adult keeps it, so this cannot pass by
+  // the block having been deleted.
+  for (const path of ['/p/dev-jordan', '/p/dev-jordan/print', '/preview/site']) {
+    const { html } = await get(path);
+    check(`A19: ${path} still names the adult's university side`,
+      has(html, 'Riverside University 1st XI'), true);
+  }
+  check('A19: and the minors\' other football is otherwise untouched',
+    has((await get('/p/dev-deniz')).html, 'Melbourne Futsal U15'), true);
+}
+
+// The chip is not offered - the other half of the same rule, and the half a
+// family actually meets. The LIST is deliberately untouched: an entry written
+// before the rule is their own words, it renders nowhere public any more, and
+// Remove stays theirs to press. Nothing here deletes a row and no page says
+// anything about it (what a family is told is BUZ's call, D-161).
+{
+  // The attribute in between is React's: the first chip carries defaultChecked,
+  // which renders as checked="" between name and value. A regex without it
+  // could not have passed on the adult's page, whatever the code did.
+  const offersSchool = (html) => /name="kind"[^>]*value="school"/.test(html);
+  const { html } = await get(`/build/${deniz.record_id}/more`, alex);
+  check('A19: the u16 football-history editor offers no School chip',
+    offersSchool(html), false);
+  check('A19: and still lists what the family already wrote, with Remove beside it',
+    has(html, 'Marlowe High 1st XI') && has(html, 'Remove'), true);
+
+  // The adult's own editor, reached the way he reaches it. Jordan's record id
+  // is not in .dev-ids.json, so it comes off his own home page.
+  const home = await get('/home', ids.people.jordan);
+  const jordanRecord = /\/build\/([0-9a-f-]{36})/.exec(home.html)?.[1] ?? 'none';
+  const adult = await get(`/build/${jordanRecord}/more`, ids.people.jordan);
+  check('A19: an adult is still offered School', offersSchool(adult.html), true);
 }
 
 // ---------------------------------------------------------------------------
@@ -368,8 +454,15 @@ const georgia = ids.children.georgia;
         unnamed.add(`${P} ${/name="([^"]*)"/.exec(f[0])?.[1] ?? '?'}`);
       }
 
+      // /signout is followed by nobody here. It used to be harmless — it
+      // deleted a cookie this walk does not keep — but signing out now
+      // REVOKES the session (0062), so following it once would end the seat
+      // and report every page after it as signed out. The layout check and
+      // the capture tool have always excluded it for the same reason in
+      // spirit. Pressing it is the write suite's job (sess-w1..w3).
       const links = [...new Set([...r.html.matchAll(/href="(\/[^"#][^"]*)"/g)].map((m) => m[1])
-        .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)))];
+        .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)
+          && h !== '/signout'))];
       if (who && links.length === 0 && !TERMINAL.some((t) => P.includes(t))) stuck.add(P);
       for (const h of links) if (!seen.has(h)) queue.push(h);
     }
@@ -672,9 +765,19 @@ const georgia = ids.children.georgia;
     .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets')))];
   check(`r42: a new account is offered somewhere to go (${links.join(' ') || 'nowhere'})`,
     links.length >= 3, true);
+  // Every door except Sign out, which is now a state change rather than a
+  // read: following it revokes the session (0062), and this account is the
+  // ONLY one in the product whose home screen offers it — so opening it here
+  // signed this seat out and w16 went red four hundred lines later, which is
+  // the dangerous direction (L34: the answer was "the product is broken").
+  // That door is pressed, and its answer checked, in the write suite
+  // (sess-w1..w3), which is where pressing buttons belongs.
+  const doors = links.filter((h) => h !== '/signout');
   check('r43: and every door it offers is one that exists',
-    (await Promise.all(links.map(async (h) => (await get(h, ids.people.robin)).status)))
+    (await Promise.all(doors.map(async (h) => (await get(h, ids.people.robin)).status)))
       .every((st) => st === 200 || st === 307), true);
+  check('r43b: Sign out is one of them, and it is only on this screen',
+    links.includes('/signout'), true);
 }
 
 // ---------------------------------------------------------------------------
