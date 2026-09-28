@@ -6,7 +6,7 @@
 
 ## What changed
 
-On 28 Sep BUZ decided that **Pitch is free at launch, the Interest Register
+BUZ decided that **Pitch is free at launch, the Interest Register
 included** (register D-163). No card is taken anywhere, and Premium is priced
 later. The Stripe build stays in the code, switched off. **Nothing about
 verification changes:** a club reads the register only after a human has
@@ -45,7 +45,7 @@ can buy.
 
 `pitchfootball.com.au/terms` is served from the website's own branch, not from
 the app. It shows **doc 22 v1.7, with the whole drafting preamble, the
-`[DRAFTED]` markers and the prices**: 14 price mentions as of 28 Sep. That is
+`[DRAFTED]` markers and the prices**: 14 price mentions when checked. That is
 exactly what you ruled on this morning (item 1: stripping the preamble is not
 material; the version still bumps). The fix exists only in the app.
 
@@ -61,5 +61,5 @@ and a price we no longer charge.
 - **After a child is deleted, do we keep the anonymous record of who looked at
   their record and why?** The deletion fix (D-26) is being built to keep it,
   with no link back to the child. If the answer is no, it is a small change.
-- **Suppression (22 §6.5).** It was built on 17 Sep, and nobody has yet
+- **Suppression (22 §6.5).** It is built, and nobody has yet
   confirmed it works end to end. That box is still unticked on the launch gate.
