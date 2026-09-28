@@ -2368,7 +2368,10 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 // the old address. Every builder in the catalogue is composed by the
 // permission suite (support2–4); this is the same promise on real sends.
 {
-  const box = (await get('/dev/outbox', ids.people.marina)).html;
+  // Tags out first: the dev inbox renders every pitchfootball.com.au in a
+  // body as a link (L32), which splits "help@" from its domain in the HTML —
+  // the first version of this check could not see the old address at all.
+  const box = (await get('/dev/outbox', ids.people.marina)).html.replace(/<[^>]+>/g, '');
   const messages = (box.match(/doc15\.§/g) ?? []).length;
   check(`support-w1: nothing this run sent carries the old address (${messages} messages read)`,
     [messages >= 40, /help@pitchfootball\.com\.au/i.test(box), /burak\.donmez@pitch-football\.com/.test(box)], [true, false, true]);

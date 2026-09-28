@@ -562,7 +562,7 @@ const georgia = ids.children.georgia;
         if (P === '/terms') { termsPriced.add(line); continue; }
         priced.add(`${seat} ${P}: ${line.slice(Math.max(0, m.index - 30), m.index + 30)}`);
       }
-      if (/help@pitchfootball\.com\.au/i.test(r.html)) oldHelp.add(`${seat} ${P}`);
+      if (/help@pitchfootball\.com\.au/i.test(text(r.html).join(' ') + r.html)) oldHelp.add(`${seat} ${P}`);
       const canon = /rel="canonical" href="([^"]*)"/.exec(r.html)?.[1];
       if (canon && P !== '/' && /^https?:\/\/[^/]+\/?$/.test(canon)) homeCanon.add(P);
       const inLabels = [...r.html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((m) => m[1]).join('');
