@@ -2031,8 +2031,15 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   };
   check('sr1: the sign-in form is reachable with no JavaScript', Boolean(signInForm), true);
 
+  // The account is new@example.com, which no other check in any suite signs in
+  // as. It was guardian@example.com, and the sessions block above (0062) gives
+  // that parent a password partway through the run, so by the time this block
+  // pressed anything the seed's email-only sign-in no longer applied and sr4
+  // reported a wall that was not there (L32, L13: ask what the state is by the
+  // time you read it, not what the seed wrote).
+  const WHO = 'new@example.com';
   // An account that exists, with the wrong password.
-  const wrong = await press('guardian@example.com', 'not-the-password');
+  const wrong = await press(WHO, 'not-the-password');
   // An address no account holds.
   const nobody = await press('nobody-at-all@example.com', 'not-the-password');
   check('sr2: a wrong password is refused, and says so — it does not land on "Welcome back"',
@@ -2041,7 +2048,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     [nobody.status === wrong.status, nobody.location === wrong.location, nobody.body === wrong.body], [true, true, true]);
 
   // The refusal is not a wall: the same account still gets in.
-  const ok = await press('guardian@example.com', '');
+  const ok = await press(WHO, '');
   check('sr4: the same account still signs in, so the refusal is real and not a wall',
     [ok.location, ok.setCookie], ['/home', true]);
 }
