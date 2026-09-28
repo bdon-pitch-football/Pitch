@@ -501,6 +501,7 @@ const georgia = ids.children.georgia;
   const banned = new Set();      // D-85 / D-108 vocabulary, in served text
   const priced = new Set();      // D-163: a price, while billing is off
   const termsPriced = new Set(); // …and the one exemption, counted
+  const opsCost = new Set();     // the operator's own SMS spend (free-r1d)
   const oldHelp = new Set();     // the support address BUZ replaced (28 Sep)
   let fetched = 0;
 
@@ -560,6 +561,10 @@ const georgia = ids.children.georgia;
         const m = /\$\s?\d/.exec(line);
         if (!m) continue;
         if (P === '/terms') { termsPriced.add(line); continue; }
+        // The operator's own SMS spend and limit (0070, D-81) are what WE pay, shown
+        // only behind requireOperator — not a price anyone is charged. Exempt on
+        // that one page, on those words only; everything else stays strict.
+        if (P === '/ops/switches' && /spent this month|limit|cap/i.test(line)) { opsCost.add(line); continue; }
         priced.add(`${seat} ${P}: ${line.slice(Math.max(0, m.index - 30), m.index + 30)}`);
       }
       if (/help@pitchfootball\.com\.au/i.test(text(r.html).join(' ') + r.html)) oldHelp.add(`${seat} ${P}`);
@@ -595,6 +600,8 @@ const georgia = ids.children.georgia;
     priced.size, 0);
   check(`support-r1: no page any seat can reach shows the old support address (${[...oldHelp].join(', ') || 'none does'})`,
     oldHelp.size, 0);
+  check(`free-r1d: the only other exemption is the operator's own SMS spend on /ops/switches (${[...opsCost].slice(0, 2).join(' | ') || 'none'})`,
+    [...opsCost].every((l) => /spent this month|limit|cap/i.test(l)), true);
   check(`free-r1b: and the crawl was a crawl (${fetched} pages fetched)`, fetched > 150, true);
   // The exemption, pinned. /terms states doc 22's figures in exactly these
   // lines today (A6.1's price, A5.1's cooling-off, the liability floor and
