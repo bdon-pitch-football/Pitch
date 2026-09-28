@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0065 — the class of a suspension is recorded on the call that made it, and
+-- 0066 — the class of a suspension is recorded on the call that made it, and
 -- the database — not a page — decides which class tells families
 -- (doc 31 M11/L29, 7 Sep; doc 15 §37; doc 27's call log; D-126; LESSONS L23).
 --

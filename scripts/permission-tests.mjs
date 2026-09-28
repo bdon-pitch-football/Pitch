@@ -1337,7 +1337,7 @@ check('M11d: and never revokes on the family’s behalf — it offers the button
   /we have not switched it off for you/i.test(deverifyMsg), true);
 
 // The rest of John's M11/L29 ruling: the class RECORDED, the function CALLED,
-// and doc 15 §37 actually sent (0065, app/ops/call/[clubId]/actions.ts).
+// and doc 15 §37 actually sent (0066, app/ops/call/[clubId]/actions.ts).
 //
 // Everything below was built in 0025 and had no caller. The suite itself
 // listed clubDeverifiedEmail as a named exemption — "needs the child-safety
@@ -1391,6 +1391,15 @@ check('M11d: and never revokes on the family’s behalf — it offers the button
   check('susp1: the class of a suspension is recorded on the call that made it',
     (await db.query(`select string_agg(column_name,',') as c from information_schema.columns
       where table_name='verification_call' and column_name='suspension_reason'`)).rows[0].c, 'suspension_reason');
+  // The positive control first. Without it the two refusals below pass on a
+  // schema with no such column at all — every insert naming it fails — which
+  // was measured (L19): they must refuse for the reason they claim.
+  let accepted = true;
+  try {
+    await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, suspension_reason, policy_version)
+      values ($1, now(), 'BUZ', '03 9000 0009', 'FV club directory', 'suspended', 'child_safety', '27@v1.0')`, [sClub]);
+  } catch { accepted = false; }
+  check('susp1b: a suspending call carrying a class from the list is accepted', accepted, true);
   await expectFail('susp2: and it is the same closed list, not free text',
     `insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, suspension_reason, policy_version)
      values ('${sClub}', now(), 'BUZ', '03 9000 0009', 'FV club directory', 'suspended', 'because i felt like it', '27@v1.0')`);

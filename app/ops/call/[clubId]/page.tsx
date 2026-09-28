@@ -114,7 +114,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
               <option value="takedown">takedown</option>
             </select>
           </label>
-          {/* doc 31 M11/L29, doc 15 §37, 0065. The class of the suspension is
+          {/* doc 31 M11/L29, doc 15 §37, 0066. The class of the suspension is
               recorded on the call, and it is what decides whether families
               holding a live link to this club are told at all. The operator
               records it; nothing on this page works out what it means — the

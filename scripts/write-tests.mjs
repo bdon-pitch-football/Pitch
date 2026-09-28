@@ -1933,6 +1933,116 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 }
 
 // ---------------------------------------------------------------------------
+// A CLUB IS SUSPENDED AND THE FAMILIES ARE TOLD — or are not, which is the
+// half that has to be right (doc 31 M11/L29; doc 15 §37; 0066).
+//
+// Every piece of this existed in 0025 and nothing connected them: the reason
+// class, the recipient function, the undo token, the /undo page and the words.
+// The suspend button shipped, so an operator could take a club down for a
+// child-safety reason and no family holding a live link to it learnt anything.
+//
+// Walked through the real screens, and the outbox read for what would actually
+// have gone. Straight after the Technical Director block, because it suspends
+// Sunbury — the club that block verifies, and the seat every "unverified club"
+// check earlier depends on — and before the sessions block, which ends every
+// session the parent holds. Georgia, not Deniz: the deletion test (x3) has
+// deleted Deniz by now, and Georgia survives the suite.
+// ---------------------------------------------------------------------------
+{
+  const op = ids.people.marina, parent = ids.people.alex, kid = ids.children.georgia;
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const box = async () => plain((await get('/dev/outbox', parent)).html);
+  const deverifies = async () => ((await box()).match(/doc15\.§37/g) ?? []).length;
+  const postTo = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return r.headers.get('location') ?? '';
+  };
+  const logCall = async (sheet, extra) => {
+    const form = forms((await get(sheet, op)).html).find((f) => f.visible.some((v) => v.name === 'outcome'));
+    return postTo(sheet, op, { ...form.fields,
+      operator: 'BUZ', number_called: '03 9000 0500', number_source: 'FV club directory',
+      answered_by: 'Committee', club_confirmed: 'yes', person_confirmed: 'yes',
+      incorporated: 'yes', authority_confirmed: 'yes', notes: 'suspension drill', ...extra });
+  };
+
+  // Sunbury's sheet, found the way the operator finds it. The block above left
+  // it verified with a live Technical Director.
+  const queue = (await get('/ops/verification', op)).html;
+  let sheet = null;
+  for (const m of new Set([...queue.matchAll(/href="(\/ops\/call\/[0-9a-f-]{36})"/g)].map((x) => x[1]))) {
+    if (/Sunbury United/.test((await get(m, op)).html)) { sheet = m; break; }
+  }
+  check('susp-w0: the call sheet now asks the operator WHY, from a closed list',
+    /name="suspension_reason"/.test((await get(sheet, op)).html)
+      && /value="child_safety"/.test((await get(sheet, op)).html), true);
+
+  // A family sends Georgia's CV to Sunbury, and to one other club, the whole
+  // way: the child asks, the parent checks the address and presses send
+  // (D-91, D-99). The second send is the family that must NOT be touched.
+  const sendTo = async (clubName, address) => {
+    const sendForm = forms((await get(`/send/${kid.record_id}`, parent)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+    await postTo(`/send/${kid.record_id}`, parent, { ...sendForm.fields, clubName, address });
+    // The outbox is newest first; the §20 that names this address carries
+    // the parent's own confirm link.
+    const text = await box();
+    const at = text.indexOf(`It goes to: ${address}`);
+    const ask = /\/g\/send\/([0-9a-f-]{36})/.exec(text.slice(at))?.[1];
+    const gSend = forms((await get(`/g/send/${ask}`, parent)).html).find((f) => 'requestId' in f.fields);
+    await postTo(`/g/send/${ask}`, parent, gSend.fields);
+  };
+  await sendTo('Sunbury United', 'football@sunburyunited.example.au');
+  await sendTo('Elsewhere FC', 'football@elsewhere.example.au');
+  check('susp-w1: the parent has sent Georgia\u2019s CV to Sunbury, and to one other club',
+    [/doc15\.§19 → football@sunburyunited\.example\.au/.test(await box()),
+     /doc15\.§19 → football@elsewhere\.example\.au/.test(await box())], [true, true]);
+
+  // ---- The ordinary suspension. Nobody is told, and that is the ruling. ----
+  const before = await deverifies();
+  await logCall(sheet, { outcome: 'suspended', suspension_reason: 'administrative' });
+  check('susp-w2: an ADMINISTRATIVE suspension takes the club down',
+    /Sunbury United[\s\S]{0,400}?Suspended/.test(plain((await get('/ops/verification', op)).html)), true);
+  check('susp-w3: and tells NOBODY — no family is alarmed because a club’s paperwork lapsed',
+    await deverifies(), before);
+  // The link the family sent is untouched either way: this is L29, and it is
+  // the whole reason M11 was recorded unbuildable.
+  const controls = async () => plain((await get(`/g/controls/${kid.child_id}`, parent)).html);
+  check('susp-w4: the family’s link still works — we never revoke on their behalf',
+    /football@sunburyunited\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
+
+  // ---- The child-safety suspension. Every affected family, once each. ----
+  await logCall(sheet, { outcome: 'verified', td_name: 'Casey Duarte', td_email: 'unproved@example.com' });
+  await logCall(sheet, { outcome: 'suspended', suspension_reason: 'child_safety' });
+  const after = await box();
+  check('susp-w5: a CHILD-SAFETY suspension emails the guardian whose live link went to that club (§37)',
+    /doc15\.§37 → guardian@example\.com/.test(after), true);
+  const notice = (after.split('doc15.\u00a737')[1] ?? '').slice(0, 1200);
+  check('susp-w6: naming the club and the child',
+    [/Sunbury United is no longer a verified club on Pitch/.test(notice),
+     /You sent them a link to Georgia's page/.test(notice)], [true, true]);
+  check('susp-w6b: and saying nothing about why — that is somebody else\u2019s information',
+    /allegation|complaint|investigat|report|safety concern/i.test(notice), false);
+  check('susp-w7: and it carries the one-tap switch, not a sign-in hunt',
+    /Switch this link off: (https?:\/\/)?pitchfootball\.com\.au\/undo\/[A-Za-z0-9_-]{20,}/.test(notice), true);
+  check('susp-w8: exactly one message, not one per suspension already sent',
+    (after.match(/doc15\.§37/g) ?? []).length, 1);
+  check('susp-w9: it has not switched the link off for them — the button is still to press',
+    /football@sunburyunited\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
+
+  // The parent presses it. That is the family unmaking their own disclosure.
+  const undo = /\/undo\/([A-Za-z0-9_-]{20,})/.exec(after.split('doc15.§37')[1] ?? '')?.[1];
+  const undoForm = forms((await get(`/undo/${undo}`, null)).html).find((f) => 'token' in f.fields);
+  await postTo(`/undo/${undo}`, null, undoForm.fields);
+  check('susp-w10: one tap from the email switches that club’s link off, with no sign-in',
+    /football@sunburyunited\.example\.au[\s\S]{0,200}?Off /.test(await controls()), true);
+  check('susp-w11: and every other club’s link keeps working — a family is not punished for what a club did',
+    /football@elsewhere\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
+}
+
+// ---------------------------------------------------------------------------
 // D-137 at checkout: the name, the role and the tick. The page declared
 // `error` in its searchParams type and never took it out again, so pressing
 // Subscribe without the authority tick — or with a name that is only spaces,
@@ -2165,104 +2275,6 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const ok = await press(WHO, '');
   check('sr4: the same account still signs in, so the refusal is real and not a wall',
     [ok.location, ok.setCookie], ['/home', true]);
-}
-
-// ---------------------------------------------------------------------------
-// A CLUB IS SUSPENDED AND THE FAMILIES ARE TOLD — or are not, which is the
-// half that has to be right (doc 31 M11/L29; doc 15 §37; 0065).
-//
-// Every piece of this existed in 0025 and nothing connected them: the reason
-// class, the recipient function, the undo token, the /undo page and the words.
-// The suspend button shipped, so an operator could take a club down for a
-// child-safety reason and no family holding a live link to it learnt anything.
-//
-// Walked through the real screens, and the outbox read for what would actually
-// have gone. LAST, because it suspends Sunbury — the club the block above
-// verifies, and the seat every "unverified club" check earlier depends on.
-// ---------------------------------------------------------------------------
-{
-  const op = ids.people.marina, parent = ids.people.alex, deniz = ids.children.deniz;
-  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
-    .replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
-  const box = async () => plain((await get('/dev/outbox', parent)).html);
-  const deverifies = async () => ((await box()).match(/doc15\.§37/g) ?? []).length;
-  const postTo = async (path, who, fields) => {
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
-    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
-    await r.text();
-    return r.headers.get('location') ?? '';
-  };
-  const logCall = async (sheet, extra) => {
-    const form = forms((await get(sheet, op)).html).find((f) => f.visible.some((v) => v.name === 'outcome'));
-    return postTo(sheet, op, { ...form.fields,
-      operator: 'BUZ', number_called: '03 9000 0500', number_source: 'FV club directory',
-      answered_by: 'Committee', club_confirmed: 'yes', person_confirmed: 'yes',
-      incorporated: 'yes', authority_confirmed: 'yes', notes: 'suspension drill', ...extra });
-  };
-
-  // Sunbury's sheet, found the way the operator finds it. The block above left
-  // it verified with a live Technical Director.
-  const queue = (await get('/ops/verification', op)).html;
-  let sheet = null;
-  for (const m of new Set([...queue.matchAll(/href="(\/ops\/call\/[0-9a-f-]{36})"/g)].map((x) => x[1]))) {
-    if (/Sunbury United/.test((await get(m, op)).html)) { sheet = m; break; }
-  }
-  check('susp-w0: the call sheet now asks the operator WHY, from a closed list',
-    /name="suspension_reason"/.test((await get(sheet, op)).html)
-      && /value="child_safety"/.test((await get(sheet, op)).html), true);
-
-  // A family sends Deniz's CV to Sunbury, the whole way: the child asks, the
-  // parent checks the address and presses send (D-91, D-99).
-  const sendForm = forms((await get(`/send/${deniz.record_id}`, parent)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
-  await postTo(`/send/${deniz.record_id}`, parent, { ...sendForm.fields,
-    clubName: 'Sunbury United', address: 'football@sunburyunited.example.au' });
-  const ask = [...(await box()).matchAll(/\/g\/send\/([0-9a-f-]{36})/g)].map((m) => m[1]).pop();
-  const gSend = forms((await get(`/g/send/${ask}`, parent)).html).find((f) => 'requestId' in f.fields);
-  await postTo(`/g/send/${ask}`, parent, gSend.fields);
-  check('susp-w1: the parent has sent Deniz’s CV to Sunbury, and the club has it',
-    /doc15\.§19 → football@sunburyunited\.example\.au/.test(await box()), true);
-
-  // ---- The ordinary suspension. Nobody is told, and that is the ruling. ----
-  const before = await deverifies();
-  await logCall(sheet, { outcome: 'suspended', suspension_reason: 'administrative' });
-  check('susp-w2: an ADMINISTRATIVE suspension takes the club down',
-    /Sunbury United[\s\S]{0,400}?Suspended/.test(plain((await get('/ops/verification', op)).html)), true);
-  check('susp-w3: and tells NOBODY — no family is alarmed because a club’s paperwork lapsed',
-    await deverifies(), before);
-  // The link the family sent is untouched either way: this is L29, and it is
-  // the whole reason M11 was recorded unbuildable.
-  const controls = async () => plain((await get(`/g/controls/${deniz.child_id}`, parent)).html);
-  check('susp-w4: the family’s link still works — we never revoke on their behalf',
-    /football@sunburyunited\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
-
-  // ---- The child-safety suspension. Every affected family, once each. ----
-  await logCall(sheet, { outcome: 'verified', td_name: 'Casey Duarte', td_email: 'unproved@example.com' });
-  await logCall(sheet, { outcome: 'suspended', suspension_reason: 'child_safety' });
-  const after = await box();
-  check('susp-w5: a CHILD-SAFETY suspension emails the guardian whose live link went to that club (§37)',
-    /doc15\.§37 → guardian@example\.com/.test(after), true);
-  const notice = (after.split('doc15.\u00a737')[1] ?? '').slice(0, 1200);
-  check('susp-w6: naming the club and the child',
-    [/Sunbury United is no longer a verified club on Pitch/.test(notice),
-     /You sent them a link to Deniz's page/.test(notice)], [true, true]);
-  check('susp-w6b: and saying nothing about why — that is somebody else\u2019s information',
-    /allegation|complaint|investigat|report|safety concern/i.test(notice), false);
-  check('susp-w7: and it carries the one-tap switch, not a sign-in hunt',
-    /Switch this link off: http[^ ]*\/undo\/[A-Za-z0-9_-]{20,}/.test(after), true);
-  check('susp-w8: exactly one message, not one per suspension already sent',
-    (after.match(/doc15\.§37/g) ?? []).length, 1);
-  check('susp-w9: it has not switched the link off for them — the button is still to press',
-    /football@sunburyunited\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
-
-  // The parent presses it. That is the family unmaking their own disclosure.
-  const undo = /\/undo\/([A-Za-z0-9_-]{20,})/.exec(after.split('doc15.§37')[1] ?? '')?.[1];
-  const undoForm = forms((await get(`/undo/${undo}`, null)).html).find((f) => 'token' in f.fields);
-  await postTo(`/undo/${undo}`, null, undoForm.fields);
-  check('susp-w10: one tap from the email switches that club’s link off, with no sign-in',
-    /football@sunburyunited\.example\.au[\s\S]{0,200}?Off /.test(await controls()), true);
-  check('susp-w11: and every other club’s link keeps working — a family is not punished for what a club did',
-    /recruitment@kingswayrovers\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
