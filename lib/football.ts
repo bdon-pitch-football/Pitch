@@ -62,6 +62,37 @@ export const STAT_SETS: Record<PositionGroup, readonly StatKey[]> = {
 export const PROVENANCE = ['self_reported', 'coach_verified', 'official_import'] as const;
 export type Provenance = (typeof PROVENANCE)[number];
 
+// The words the tag is displayed as, one per value in the domain above, so
+// that adding a fourth value cannot compile without a word for it. Every
+// surface that renders a number reads its label from here and never types
+// one: a literal is how a coach-verified number ends up under "Self-reported".
+export const PROVENANCE_LABELS: Record<Provenance, string> = {
+  self_reported: 'Self-reported',
+  coach_verified: 'Coach-verified',
+  official_import: 'Official import',
+};
+
+// An out-of-domain value cannot come from the database — player_stat and
+// record_entry both constrain the column to the three above — so this is the
+// belt behind the braces, and it reads as the WEAKEST claim rather than
+// silently inheriting a stronger one.
+const known = (p: string | null | undefined): Provenance =>
+  (PROVENANCE as readonly string[]).includes(p ?? '') ? (p as Provenance) : 'self_reported';
+
+export const provenanceLabel = (p: string | null | undefined): string => PROVENANCE_LABELS[known(p)];
+
+// The tag belongs to the NUMBER, not to the block. A block may caption itself
+// once only while every number under it came from the same place; the moment
+// two differ there is no sentence that is true of all of them, so the caller
+// tags each number instead — never one averaged label over a mixed block.
+// Returns the shared value, or null for "they differ" and for an empty block
+// (which renders nothing to caption anyway).
+export function sharedProvenance(rows: readonly { provenance?: string | null }[]): Provenance | null {
+  if (rows.length === 0) return null;
+  const first = known(rows[0].provenance);
+  return rows.every((r) => known(r.provenance) === first) ? first : null;
+}
+
 // --- Interest Register club-side status (doc 16 §3d, D-108) -----------------
 // Three values, no fourth, and none of them is a verdict. `declined`,
 // `rejected` and `unsuccessful` cannot be written — the constraint also lives

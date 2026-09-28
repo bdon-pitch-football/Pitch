@@ -9,7 +9,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import { readCvByToken } from '@/lib/record-read';
-import { POSITIONS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
+import {
+  POSITIONS, PROVENANCE_LABELS, STAT_LABELS, provenanceLabel, sharedProvenance,
+  type PositionCode, type StatKey,
+} from '@/lib/football';
 import { T } from '@/lib/palette';
 
 // D-94 §5: the card endpoint OUTLIVES revocation in every platform's cache,
@@ -73,9 +76,16 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
   // A 22-year-old's card read "Jordan A." Absent band still means minor.
   const isAdult = cv.band === '18plus';
   const tiles = (cv.surfacedStats as StatKey[])
-    .map((key) => ({ key, value: cv.stats.find((s) => s.key === key && s.value > 0)?.value }))
-    .filter((t): t is { key: StatKey; value: number } => typeof t.value === 'number')
+    .map((key) => cv.stats.find((s) => s.key === key && s.value > 0))
+    .filter((s): s is (typeof cv.stats)[number] => s !== undefined && typeof s.value === 'number')
     .slice(0, 3);
+  // D-62, on an image every platform that meets the link caches for good: the
+  // tag is read off the row. One line under the numbers while they share a
+  // source, each number tagged where they do not. The word was typed in here.
+  const shared = sharedProvenance(tiles);
+  // One text node, not two: satori lays every child of a flex box out as a
+  // flex item, so a label and the domain beside it have to be one string.
+  const credit = shared ? `${PROVENANCE_LABELS[shared]} · pitchfootball.com.au` : 'pitchfootball.com.au';
 
   return new ImageResponse(
     (
@@ -118,10 +128,13 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
                     <div key={t.key} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                       <div style={{ display: 'flex', fontSize: 74, fontWeight: 900, letterSpacing: '-3px', lineHeight: 1, color: t.key === 'goals' || t.key === 'clean_sheets' ? T.accent : T.ink }}>{String(t.value)}</div>
                       <div style={{ display: 'flex', fontSize: 19, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '3.5px', marginTop: 6 }}>{STAT_LABELS[t.key]}</div>
+                      {shared ? null : (
+                        <div style={{ display: 'flex', fontSize: 16, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '2.5px', marginTop: 5 }}>{provenanceLabel(t.provenance)}</div>
+                      )}
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', fontSize: 19, fontWeight: 500, color: T.muted }}>Self-reported · pitchfootball.com.au</div>
+                <div style={{ display: 'flex', fontSize: 19, fontWeight: 500, color: T.muted }}>{credit}</div>
               </div>
             </div>
           </div>

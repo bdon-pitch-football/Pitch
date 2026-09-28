@@ -21,7 +21,13 @@
 // Dates of birth are chosen so the ages hold through 2026 in
 // Australia/Melbourne and exercise the band boundaries in doc 14 §G.
 
-import type { ExperienceKind, PositionCode, Provenance, StatKey } from './football';
+// The stat SET is imported as a value, not as a type: every fixture's
+// selection is the default the product would choose for its positions, asked
+// of the same STAT_SETS the build form asks. The extension is on the specifier
+// because scripts/dev-db.mts loads this file through raw Node, which does not
+// resolve an extensionless TypeScript import (tsconfig allows it).
+import { STAT_SETS, positionGroup } from './football.ts';
+import type { ExperienceKind, PositionCode, Provenance, StatKey } from './football.ts';
 
 export interface FixtureStat {
   season: string;
@@ -62,7 +68,24 @@ export interface PlayerFixture {
   surfacedStats: StatKey[]; // D-105 — the player's selection, position set by default
 }
 
-export const DENIZ: PlayerFixture = {
+/**
+ * Build a fixture, taking the surfaced-stats selection from the same default
+ * the build form applies — STAT_SETS by position group — instead of writing
+ * the answer down here.
+ *
+ * Nate's was hand-set to ['apps','clean_sheets'], which is exactly what a
+ * correct default produces for a keeper, while nothing in the product imported
+ * STAT_SETS at all: so the GK fixture that exists to exercise a keeper's page
+ * demoed perfectly for weeks and the form handed every real keeper the outfield
+ * set. A fixture that supplies the answer cannot find the bug it was built to
+ * find. Pass `surfacedStats` explicitly only to model a player who has CHANGED
+ * their selection, and say in a comment that that is what it is.
+ */
+function player(f: Omit<PlayerFixture, 'surfacedStats'> & { surfacedStats?: StatKey[] }): PlayerFixture {
+  return { ...f, surfacedStats: f.surfacedStats ?? [...STAT_SETS[positionGroup(f.positions)]] };
+}
+
+export const DENIZ: PlayerFixture = player({
   slug: 'deniz',
   firstName: 'Deniz',
   lastName: 'Yılmaz',
@@ -94,10 +117,9 @@ export const DENIZ: PlayerFixture = {
     { title: 'Season highlights 2026', url: 'https://www.youtube.com/watch?v=dev-deniz-1' },
     { title: 'vs Northern Utd — full performance', url: 'https://www.youtube.com/watch?v=dev-deniz-2' },
   ],
-  surfacedStats: ['apps', 'goals', 'assists'],
-};
+});
 
-export const NATE: PlayerFixture = {
+export const NATE: PlayerFixture = player({
   slug: 'nate',
   firstName: 'Nate',
   lastName: 'Halloran',
@@ -135,10 +157,9 @@ export const NATE: PlayerFixture = {
     { title: 'Penalty save — Metro League', url: 'https://www.youtube.com/watch?v=dev-nate-2' },
     { title: 'Distribution reel', url: 'https://www.youtube.com/watch?v=dev-nate-3' },
   ],
-  surfacedStats: ['apps', 'clean_sheets'],
-};
+});
 
-export const GEORGIA: PlayerFixture = {
+export const GEORGIA: PlayerFixture = player({
   slug: 'georgia',
   firstName: 'Georgia',
   lastName: 'Whitcombe',
@@ -169,8 +190,7 @@ export const GEORGIA: PlayerFixture = {
   highlights: [
     { title: 'Season highlights 2026', url: 'https://www.youtube.com/watch?v=dev-georgia-1' },
   ],
-  surfacedStats: ['apps', 'goals', 'assists'],
-};
+});
 
 // The adult. There was no 18+ player fixture at all, so the one band whose
 // page is assembled live with NO guardian anywhere in it could only be seen
@@ -178,7 +198,7 @@ export const GEORGIA: PlayerFixture = {
 // looked at: no parent-approved chip, no "there is no way to reply" block,
 // and a record that is the player's own with no approval step between them
 // and their page.
-export const JORDAN: PlayerFixture = {
+export const JORDAN: PlayerFixture = player({
   slug: 'jordan',
   firstName: 'Jordan',
   lastName: 'Abebe',
@@ -218,8 +238,7 @@ export const JORDAN: PlayerFixture = {
     { title: 'Season highlights 2026', url: 'https://www.youtube.com/watch?v=dev-jordan-1' },
     { title: 'Movement & finishing reel', url: 'https://www.youtube.com/watch?v=dev-jordan-2' },
   ],
-  surfacedStats: ['apps', 'goals', 'assists'],
-};
+});
 
 export const PLAYER_FIXTURES = [DENIZ, NATE, GEORGIA, JORDAN] as const;
 

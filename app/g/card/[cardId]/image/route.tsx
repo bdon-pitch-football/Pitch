@@ -11,7 +11,10 @@ import { ImageResponse } from 'next/og';
 import { notFound, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
-import { POSITIONS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
+import {
+  POSITIONS, PROVENANCE_LABELS, STAT_LABELS, provenanceLabel, sharedProvenance,
+  type PositionCode, type StatKey,
+} from '@/lib/football';
 import { T } from '@/lib/palette';
 
 const font = (w: number) => readFileSync(join(process.cwd(), 'assets/fonts', `Archivo-${w}.ttf`));
@@ -19,6 +22,9 @@ const FONTS = [
   { name: 'Archivo', data: font(700), weight: 700 as const },
   { name: 'Archivo', data: font(900), weight: 900 as const },
 ];
+
+// One stat as the card reads it: the number and where it came from (D-62).
+interface Stat { key: StatKey; value: number; provenance: string }
 
 const SIZES: Record<string, { width: number; height: number }> = {
   story: { width: 1080, height: 1920 },
@@ -34,7 +40,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
   const { rows } = await db.query(
     `select sca.card_kind, p.first_name, coalesce(p.last_name,'') as last_name,
        dr.positions, dr.squad_number, dr.surfaced_stats,
-       (select coalesce(json_agg(json_build_object('key', stat_key, 'value', value)), '[]'::json)
+       (select coalesce(json_agg(json_build_object('key', stat_key, 'value', value, 'provenance', provenance)), '[]'::json)
         from player_stat where record_id = dr.id and value > 0) as stats
      from share_card_approval sca
      join development_record dr on dr.id = sca.record_id
@@ -50,16 +56,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
   const size = SIZES[c.card_kind] ?? SIZES.story;
   const name = `${c.first_name}${c.last_name ? ` ${c.last_name[0]}.` : ''}`;
   const positions = (c.positions as PositionCode[]) ?? [];
-  const stats = (c.stats as { key: StatKey; value: number }[]) ?? [];
+  const stats = (c.stats as Stat[]) ?? [];
   const tiles = ((c.surfaced_stats as StatKey[]) ?? [])
-    .map((k) => ({ key: k, value: stats.find((s) => s.key === k)?.value }))
-    .filter((t): t is { key: StatKey; value: number } => typeof t.value === 'number')
+    .map((k) => stats.find((s) => s.key === k))
+    .filter((s): s is Stat => s !== undefined && typeof s.value === 'number')
     .slice(0, 3);
   const big = Math.round(size.width / 11);
+  // Padding comes off the SHORTER side. It was width/14 everywhere, which on
+  // the 1200x630 card is 86px top and bottom out of 630: the composition only
+  // just fitted (the badge already touched the numbers) and the source line
+  // beside each number pushed the wordmark into the name. Square and story are
+  // taller than wide, so for them this is exactly the value it was.
+  const pad = Math.min(size.width, size.height) / 14;
+  // D-62: never a number without its source — and on this artefact it matters
+  // more than anywhere else, because the guardian approves it BECAUSE it
+  // cannot be recalled (D-101) and every platform that meets it caches it for
+  // good (D-89). The tag is a fact about the number, not about the child, so
+  // it is the only thing D-89 lets us add beside them. One caption while the
+  // numbers share a source; each number carries its own when they differ.
+  const shared = sharedProvenance(tiles);
 
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: size.width / 14, fontFamily: 'Archivo', background: 'radial-gradient(ellipse 120% 80% at 50% -15%, #1a4a34 0%, #123326 38%, #0c1d14 72%, #0a1510 100%)' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: pad, fontFamily: 'Archivo', background: 'radial-gradient(ellipse 120% 80% at 50% -15%, #1a4a34 0%, #123326 38%, #0c1d14 72%, #0a1510 100%)' }}>
         <div style={{ display: 'flex', fontSize: big * 0.32, fontWeight: 700, letterSpacing: big * 0.09, color: T.accent }}>PITCH</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: big * 0.22 }}>
           <div style={{ display: 'flex', fontSize: big * 1.5, fontWeight: 900, color: T.ink, letterSpacing: -big * 0.06, lineHeight: 1 }}>{name}</div>
@@ -70,13 +89,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
             <div style={{ display: 'flex', fontSize: big * 0.42, fontWeight: 700, color: T.secondary }}>{positions.join('  ·  ')}</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: big * 0.7 }}>
-          {tiles.map((t) => (
-            <div key={t.key} style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', fontSize: big, fontWeight: 900, lineHeight: 1, letterSpacing: -big * 0.04, color: t.key === 'goals' || t.key === 'clean_sheets' ? T.accent : T.ink }}>{String(t.value)}</div>
-              <div style={{ display: 'flex', fontSize: big * 0.26, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: big * 0.05, marginTop: big * 0.1 }}>{STAT_LABELS[t.key]}</div>
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: big * 0.22 }}>
+          {/* ABOVE the numbers, as the CV heads its block: drawn underneath, the
+              one caption sat directly below the first tile's label and read as
+              that tile's own tag — "only the appearances are verified". */}
+          {shared ? (
+            <div style={{ display: 'flex', fontSize: big * 0.24, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: big * 0.05 }}>{PROVENANCE_LABELS[shared]}</div>
+          ) : null}
+          <div style={{ display: 'flex', gap: big * 0.7 }}>
+            {tiles.map((t) => (
+              <div key={t.key} style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', fontSize: big, fontWeight: 900, lineHeight: 1, letterSpacing: -big * 0.04, color: t.key === 'goals' || t.key === 'clean_sheets' ? T.accent : T.ink }}>{String(t.value)}</div>
+                <div style={{ display: 'flex', fontSize: big * 0.26, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: big * 0.05, marginTop: big * 0.1 }}>{STAT_LABELS[t.key]}</div>
+                {shared ? null : (
+                  <div style={{ display: 'flex', fontSize: big * 0.22, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: big * 0.04, marginTop: big * 0.06 }}>{provenanceLabel(t.provenance)}</div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     ),

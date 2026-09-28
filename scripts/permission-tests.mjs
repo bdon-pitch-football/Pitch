@@ -5,6 +5,12 @@
 //
 // This file grows until every row of doc 14 is here. Green or we do not go.
 import { PGlite } from '@electric-sql/pglite';
+// The stat catalogue and the provenance vocabulary live in TypeScript, not in
+// Postgres (D-70), so the rules inside them are asked of the module itself
+// rather than copied into this file — a copy is a second answer to the same
+// question and a second place to be wrong (L23).
+import { PROVENANCE, PROVENANCE_LABELS, STAT_SETS, positionGroup, sharedProvenance } from '../lib/football.ts';
+import { PLAYER_FIXTURES } from '../lib/fixtures.ts';
 import { createHash, createHmac } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -2593,6 +2599,125 @@ await expectFail('Q5: the artefact approved must be the one that was shown',
 await db.exec(`update share_card_approval set approved_by = '${ID.guardian}', approved_at = now(), storage_path = 'cards/deniz.png' where id = '${cardId}'`);
 check('Q6: the guardian approves, and only then does a path exist',
   (await db.query('select storage_path from share_card_approval where id = $1', [cardId])).rows[0].storage_path, 'cards/deniz.png');
+
+// ---------------------------------------------------------------------------
+// D-62 — "the UI always displays the tag... never render a number without its
+// source" — and the tag it displays is the one the ROW carries.
+//
+// Deliberately NOT labelled with a doc 14 row id (L4): doc 14 §D7/D8 test who
+// may WRITE a provenance and that it is derived from the actor, and §Q tests
+// who may approve a share card. Nothing in doc 14 says what a rendered number
+// is captioned, so these rows are D-62's and D-105's, not doc 14's.
+//
+// Every one of these was false on 28 Sep: six surfaces printed the word
+// "Self-reported" as a literal whatever the rows said, and the guardian-
+// approved card — the one artefact that cannot be recalled (D-101) and that
+// every platform caches for good (D-89) — printed three numbers in its
+// largest type with no source at all.
+// ---------------------------------------------------------------------------
+const statSurfaces = {
+  'the public CV': 'components/cv/PlayerCV.tsx',
+  'the print sheet': 'app/p/[token]/print/page.tsx',
+  'the public OG card': 'app/p/[token]/opengraph-image.tsx',
+  'the guardian-approved share card': 'app/g/card/[cardId]/image/route.tsx',
+};
+for (const [what, rel] of Object.entries(statSurfaces)) {
+  const src = codeOnly(srcOf(rel));
+  check(`D-62: ${what} labels a number from the row, never from a typed word`,
+    [/PROVENANCE_LABELS|provenanceLabel/.test(src), /['"`]Self-reported/.test(src)], [true, false]);
+  check(`D-62: ${what} captions a mixed block per number, never with one averaged label`,
+    /sharedProvenance/.test(src), true);
+}
+const cardSrc = codeOnly(srcOf('app/g/card/[cardId]/image/route.tsx'));
+check('D-62: the share card reads provenance out of the database beside the value',
+  /'provenance', provenance/.test(cardSrc), true);
+// D-89, restated as a guard on the change above: a tag is a fact about the
+// number. Nothing about the CHILD may ride in beside it.
+check('D-89: and the card still carries no club, age group, region or school',
+  /club|age_group|ageGroup|region|suburb|school/i.test(cardSrc), false);
+
+// The vocabulary itself: the column's domain and the words we display must be
+// the same three, so a fourth value cannot arrive without a word for it.
+const provDef = (await db.query(
+  `select pg_get_constraintdef(oid) as d from pg_constraint
+   where conrelid = 'player_stat'::regclass and pg_get_constraintdef(oid) like '%provenance%'`)).rows[0].d;
+check('D-62: every provenance player_stat permits has a word to display it',
+  PROVENANCE.every((v) => provDef.includes(`'${v}'`))
+    && (provDef.match(/'/g) ?? []).length === PROVENANCE.length * 2, true);
+check('D-62: and they are the three tags the register names',
+  PROVENANCE.map((v) => PROVENANCE_LABELS[v]), ['Self-reported', 'Coach-verified', 'Official import']);
+
+// The mixed-block rule, which is the one product question in this change:
+// a caption is a statement about every number under it.
+check('D-62: a block whose numbers share a source is captioned once',
+  sharedProvenance([{ provenance: 'self_reported' }, { provenance: 'self_reported' }]), 'self_reported');
+check('D-62: a coach-verified number is captioned coach-verified, not self-reported',
+  sharedProvenance([{ provenance: 'coach_verified' }]), 'coach_verified');
+check('D-62: a mixed block gets no block caption at all, so each number carries its own',
+  sharedProvenance([{ provenance: 'self_reported' }, { provenance: 'coach_verified' }]), null);
+check('D-62: an empty block is captioned by nothing', sharedProvenance([]), null);
+check('D-62: a value outside the domain reads as the weakest claim, never a stronger one',
+  sharedProvenance([{ provenance: 'endorsed_by_dad' }, { provenance: 'self_reported' }]), 'self_reported');
+
+// D-105 — STAT_SETS is the DEFAULT PRE-SELECTION. It was exported and imported
+// by nothing, and the build form typed the outfield three in instead, so a
+// goalkeeper opened their own page with Goals and Assists lit and Clean sheets
+// dimmed. It is a default, not a renderer: the player still chooses (D-105) and
+// the never-zero rule still decides what appears (D-70).
+const buildFormSrc = codeOnly(srcOf('app/build/[recordId]/BuildForm.tsx'));
+check('D-105: the build form opens on the position set, not on a list typed into it',
+  [/STAT_SETS\[positionGroup\(/.test(buildFormSrc), /\['apps', 'goals', 'assists'\]/.test(buildFormSrc)],
+  [true, false]);
+check("D-105: a keeper's default is appearances and clean sheets",
+  [...STAT_SETS[positionGroup(['GK'])]], ['apps', 'clean_sheets']);
+check('D-105: a selection already stored is never overridden by a default',
+  /chosen \?\? defaultSurfaced/.test(buildFormSrc), true);
+// And the fixture that hid the bug. Nate's selection was hand-written in
+// lib/fixtures.ts as exactly what a correct default produces, so the keeper's
+// page demoed perfectly for weeks while the form that produces it handed every
+// real keeper the outfield set. It is derived now — and that moves the risk
+// rather than removing it, because a wrong STAT_SETS would quietly change
+// every fixture and still look consistent with itself. So the sets are pinned
+// to the words in doc 16 §2 (CLAUDE.md's schema delta), which is the thing the
+// fixture used to stand in for (L33).
+const DOC16_STAT_SETS = {
+  GK: ['apps', 'clean_sheets'],
+  DEF: ['apps', 'clean_sheets', 'goals', 'assists'],
+  MID: ['apps', 'goals', 'assists'],
+  FWD: ['apps', 'goals', 'assists'],
+  UNSET: ['apps', 'goals', 'assists'],
+};
+for (const [group, set] of Object.entries(DOC16_STAT_SETS)) {
+  check(`D-105: the ${group} default pre-selection is doc 16's set`, [...STAT_SETS[group]], set);
+}
+check('D-105: and STAT_SETS answers for every position group, with no sixth',
+  Object.keys(STAT_SETS).sort(), Object.keys(DOC16_STAT_SETS).sort());
+check('D-105: no house fixture writes a selection down instead of deriving it',
+  /surfacedStats:\s*\[/.test(codeOnly(srcOf('lib/fixtures.ts'))), false);
+for (const f of PLAYER_FIXTURES) {
+  check(`D-105: ${f.slug} opens on the default for ${f.positions.join('/')}`,
+    f.surfacedStats, [...STAT_SETS[positionGroup(f.positions)]]);
+}
+
+// D-162 (28 Sep) — the never-zero rule is a PRODUCT rule: a zero is never
+// rendered as a value, a count or a control that leads nowhere. It bars the
+// digit, not the fact of absence. On the stat surfaces it was already built
+// (every one of them filters value > 0), with one hole: the build form printed
+// a stored 0 back into its own input, which is the pre-filled zero D-70 names.
+check('D-162: the build form never prints a stored zero into a stat input',
+  /record\.stats\?\.\[k\] \?/.test(buildFormSrc), true);
+check('D-162: and a zero typed into it is absence, so nothing stores one',
+  /raw === '' \|\| n === 0 \? null/.test(codeOnly(srcOf('app/build/[recordId]/actions.ts'))), true);
+for (const [what, rel] of Object.entries({
+  ...statSurfaces,
+  'the squad roster': 'app/club/squads/[squadId]/page.tsx',
+  'the record read path': 'lib/record-read.ts',
+  'the approved snapshot': 'lib/cv-build.ts',
+})) {
+  const src = codeOnly(srcOf(rel));
+  check(`D-162: ${what} omits a zero rather than printing one`,
+    /value > 0|\.value > 0|\(v \?\? 0\) > 0|value is not null and value > 0/.test(src), true);
+}
 
 // ---------------------------------------------------------------------------
 // Table F — two guardians, most-restrictive-wins (D-51). Deniz has two.
