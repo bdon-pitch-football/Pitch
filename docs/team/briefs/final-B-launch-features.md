@@ -67,6 +67,19 @@ a date. Hold those lines and list them for BUZ.
 - **Doc 14 row:** a link-holder reading a coach-verified stat learns the club
   and the date, and no person.
 
+## 6 · D-166 — erasure wipes the free text that could name the child
+
+- **What:** `fn_erase_child` (0067) also sets `investigation_access.what` and
+  `report.reason` to NULL for rows about the erased child. The trail's `at`,
+  the grant, the investigator and the report id survive.
+- **How:** `investigation_access` is append-only by trigger. Use the same
+  erasure-only exception 0067 built (`fn_is_erasing_name`): only inside
+  `pitch.erasing`, only for rows tied to that child, and only nulling that one
+  column, with every other column unchanged.
+- **Check:** extend the deletion property check. After erasure, no free-text
+  column in the trail contains the child's first name. Prove it red with the
+  wipe removed.
+
 ## Machine and method
 
 - **Your tree:** `.claude/worktrees/builder-final-b` (Leo creates it).
