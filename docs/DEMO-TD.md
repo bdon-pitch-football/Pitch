@@ -78,15 +78,17 @@ haven't rung yet** → **Register**.
 **Registrations**: two teams, fourteen players, no way to invite anyone. Then
 **Pat Nguyen**: no Register in the menu at all.
 
-> "Your treasurer can run the page and the billing and never read a child's
+> "Your treasurer can run the page and never read a child's
 > record. Your U14 coach reads their own two teams and nothing else. That's
 > the database deciding, not a setting somebody could get wrong."
 
-**8 · What it costs.** *Switch seat* → **Marina** → **Plan & billing**.
+**8 · What it costs.** No screen for this one.
 
-> "Fifty-four a month, cancel any time, or three twenty-nine a year. Your club
-> page, your trial notices, CVs arriving by email and coach verification are
-> free and stay free."
+> "It's free at launch, all of it, the register included. Your club page,
+> your trial notices, CVs arriving by email and coach verification too. If
+> that ever changes, you'll hear it from me well before it does."
+
+Never name a future price or a date for one (D-163).
 
 ---
 
