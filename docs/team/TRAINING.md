@@ -85,7 +85,10 @@ own database on 54323). Never stop the dev database by name; stop it by port
 (LESSONS L8).
 
 **Worktree hygiene, and it is not optional (L37).** A builder's tree holds a
-full Next build — 1.2 to 2.4 GB. **At most three builders run at once.** When
+full Next build — 1.2 to 2.4 GB. **At most two builders run at once**, and a
+builder reads `df -h /` before it starts `next dev` or a browser suite and
+**stops and reports if free space is under 6 GiB** rather than building into
+the last of it. When
 a branch merges, its worktree is removed in the same breath: the branch keeps
 the work and the tree is residue. Delete `.next`, `.next-check` and
 `.next-demo` whenever a tree goes idle, and read `df -h /` when you fan out
