@@ -121,3 +121,17 @@ deploy's. The options are:
 
 The builder's report of 28 Sep puts this to him. Until he answers, the
 restrictive choice is (a).
+
+## Before the front door is switched on (D-164)
+
+Round E (29 Sep) found that a production build started with `next start -H 127.0.0.1` answers `/`
+with `307 → /` forever while `front_door_open` is on. The proxy rewrites to a different host, so Next
+treats it as a new request, and the proxy bounces `/front-door` back to `/`. Without `-H`, it serves 200.
+**Nobody has checked what Vercel does.**
+
+1. Deploy the release to a **Vercel preview**, never production, with the switch **on** in that
+   preview's database.
+2. `curl -sI <preview-url>/` must answer `200`, not `307`. Then load `/` in a browser and check
+   the heading and all four ways in.
+3. If it loops, the switch is not turned on for launch until the proxy rewrite is fixed and this
+   check passes. The coming-soon page stays up meanwhile; nothing else depends on it.
