@@ -212,7 +212,15 @@ export default async function ClubPage({ params, searchParams }: {
                  it. A claimed club that has not had the phone call yet shows
                  neither: not the verified chip, which it has not earned, and
                  not a sentence that is no longer true. */
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.6)' }}>Compiled from public information — not affiliated until claimed</div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.6)' }}>Compiled from public information — not affiliated until claimed</div>
+                {/* The door the club sign-up points at ("open your club's page
+                    on Pitch and press Claim your club", /join) and nothing
+                    linked to: /claim/[slug] was reachable from no page at all
+                    (D-164). Unclaimed listings only; the claim page asks the
+                    person to sign in and proves the club by its own address. */}
+                <Link href={`/claim/${slug}`} style={{ fontSize: 12, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Claim your club</Link>
+              </div>
             ) : null}
           </div>
           </div>

@@ -824,6 +824,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             ) : (
               <Link href={`/send/${rec}`} className="btn btn-primary">Send my CV to a club</Link>
             )}
+            {/* Main.dc.html's second button. /share-card had no link from
+                anywhere (D-164). A share card is an under-18's, approved as an
+                image by their parent (D-101) — so it is offered where there is
+                a confirmed parent to approve it, and to nobody else. */}
+            {me.band !== '18plus' && me.has_guardian && (
+              <Link href={`/share-card/${rec}`} className="btn btn-secondary">Share my CV</Link>
+            )}
             <div style={{ display: 'flex', gap: 9 }}>
               <Link href={`/build/${rec}`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Build your CV</Link>
               <Link href="/trials" className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Trials near you</Link>

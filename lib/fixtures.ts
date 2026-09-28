@@ -34,6 +34,13 @@ export interface FixtureStat {
   key: StatKey;
   value: number;
   provenance: Provenance; // all launch stats are self_reported (D-62)
+  // Where the number came from, as fn_stat_public (0083) gives it: the
+  // Melbourne date it was entered and, for a coach-verified one, the CLUB and
+  // the date. Never the coach (D-160). Absent on a snapshot approved before
+  // 0083, and then the tile does not open.
+  enteredOn?: string;    // YYYY-MM-DD
+  verifiedClub?: string;
+  verifiedOn?: string;   // YYYY-MM-DD
 }
 
 export interface PlayerFixture {
@@ -65,6 +72,10 @@ export interface PlayerFixture {
   // (doc 14 §J1). The page needs it because two things on it are only true
   // of a minor: the parent-approved chip, and who a club is pointed at.
   band?: 'u16' | '16_17' | '18plus';
+  // D-84: the birth quarter ('Jan–Mar' …), derived from the date of birth by
+  // the database on every read (fn_birth_quarter, 0082) and stamped on the
+  // way out, like the band. Never stored, never on a card (D-89).
+  birthQuarter?: string | null;
   surfacedStats: StatKey[]; // D-105 — the player's selection, position set by default
 }
 

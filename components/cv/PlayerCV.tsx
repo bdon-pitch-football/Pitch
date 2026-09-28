@@ -8,7 +8,7 @@
 // on a phone on 4G at a football ground.
 import type { FixtureStat, PlayerFixture } from '@/lib/fixtures';
 import {
-  POSITIONS, PROVENANCE_LABELS, STAT_LABELS, positionGroup, provenanceLabel, renderableExperience,
+  POSITIONS, PROVENANCE_LABELS, STAT_LABELS, positionGroup, provenanceLabel, provenanceLine, renderableExperience,
   sharedProvenance, type PositionCode,
 } from '@/lib/football';
 import { HeaderMark } from '@/components/Wordmark';
@@ -29,6 +29,34 @@ const card: React.CSSProperties = {
   background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16,
 };
 
+// D-160: a number opens, in place, to where it came from — "Verified by
+// Riverside FC · 2 Sep 2026" or "Self-reported · entered 14 Mar 2026"
+// (provenanceLine, lib/football). The CLUB, never the coach: this page is read
+// by whoever holds the link, and naming the adult who coaches this child to
+// that reader is a contact route (BUZ, 28 Sep). fn_stat_public (0083) has no
+// field that could carry a person, so nothing here can print one.
+//
+// Two levels and no more: the tile, and the well under the row. It PUSHES
+// the page down and never floats over it — a modal over a child's CV is a
+// second render of the most dangerous surface we have
+// (docs/design/mockups/provenance-drill.html). No JavaScript: a checkbox per
+// tile and one CSS rule each, so it works with the bundle stalled, and a
+// second tap closes it. A tile with nothing to say (an official import, or a
+// snapshot approved before 0083 with no dates) does not open.
+
+// D-84: "U15 · born Jan–Mar" under the name. The age group is the one the
+// page already carries (the confirmed squad); the quarter is the database's
+// (fn_birth_quarter, 0082). A junior age group only — "U" and a number, the
+// shape of every string BUZ approved — and nothing at all when either half is
+// missing: a guess is worse than a blank. Never a date of birth, a year or an
+// exact age, and never on a card (D-89): opengraph-image and the share card
+// do not read this.
+export function contextLine(ageGroup: string | undefined, quarter: string | null | undefined): string | null {
+  const group = (ageGroup ?? '').trim();
+  if (!/^U\d{1,2}$/.test(group) || !quarter) return null;
+  return `${group} · born ${quarter}`;
+}
+
 function StatTiles({ p }: { p: PlayerFixture }) {
   // The never-zero rule (D-70): a tile renders only for a selected stat with
   // a positive value. Nothing selected or nothing positive → no block at all.
@@ -44,8 +72,21 @@ function StatTiles({ p }: { p: PlayerFixture }) {
   // origin of a number the first time a coach verifies one. Where the rows
   // differ there is no honest single label, so each tile carries its own.
   const shared = sharedProvenance(tiles);
+  const drills = tiles.map((t) => ({ key: t.key, line: provenanceLine(t) }));
   return (
     <>
+      {drills.map((d) => d.line && (
+        <input key={d.key} type="checkbox" id={`drill-${d.key}`} className="drill-in" aria-controls={`drill-well-${d.key}`} aria-label={STAT_LABELS[d.key]} />
+      ))}
+      <style>{`
+        .drill-in { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+        .drill-wells, .drill-well { display: none; }
+        ${drills.filter((d) => d.line).map((d) => `
+        #drill-${d.key}:checked ~ .drill-wells { display: flex; }
+        #drill-${d.key}:checked ~ .drill-wells #drill-well-${d.key} { display: flex; }
+        #drill-${d.key}:checked ~ .drill-row label[for="drill-${d.key}"] > div { background: rgba(255,255,255,.14); }
+        #drill-${d.key}:focus-visible ~ .drill-row label[for="drill-${d.key}"] { outline: 2px solid ${T.accent}; outline-offset: 2px; border-radius: 12px; }`).join('')}
+      `}</style>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
         <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)' }}>Season 2026</div>
         {shared && (
@@ -55,12 +96,27 @@ function StatTiles({ p }: { p: PlayerFixture }) {
           </div>
         )}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tiles.length}, minmax(0,1fr))`, gap: 7, position: 'relative', marginTop: -6 }}>
-        {tiles.map((t, i) => (
-          <StatTile key={t.key} value={t.value} label={STAT_LABELS[t.key]} accent={t.key === 'goals' || t.key === 'clean_sheets'} delay={i * 0.09}
-            source={shared ? undefined : provenanceLabel(t.provenance)} />
+      <div className="drill-row" style={{ display: 'grid', gridTemplateColumns: `repeat(${tiles.length}, minmax(0,1fr))`, gap: 7, position: 'relative', marginTop: -6 }}>
+        {tiles.map((t, i) => {
+          const tile = (
+            <StatTile value={t.value} label={STAT_LABELS[t.key]} accent={t.key === 'goals' || t.key === 'clean_sheets'} delay={i * 0.09}
+              source={shared ? undefined : provenanceLabel(t.provenance)} />
+          );
+          return drills[i].line
+            ? <label key={t.key} htmlFor={`drill-${t.key}`} style={{ display: 'block', cursor: 'pointer', minWidth: 0 }}>{tile}</label>
+            : <div key={t.key} style={{ minWidth: 0 }}>{tile}</div>;
+        })}
+      </div>
+      {drills.some((d) => d.line) && (
+      <div className="drill-wells" style={{ flexDirection: 'column', gap: 7, position: 'relative', marginTop: -6 }}>
+        {tiles.map((t, i) => drills[i].line && (
+          <div key={t.key} id={`drill-well-${t.key}`} className="drill-well" style={{ flexDirection: 'column', gap: 3, background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: '11px 13px' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.72)' }}>{STAT_LABELS[t.key]} · {t.value}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.ink, lineHeight: 1.45 }}>{drills[i].line}</div>
+          </div>
         ))}
       </div>
+      )}
     </>
   );
 }
@@ -117,6 +173,7 @@ export default function PlayerCV({ p, reportRef }: { p: PlayerFixture; reportRef
   // and it is the one that catches an entry written before the rule — a u16's
   // page is a snapshot approved before today, and nothing rewrites it.
   const otherFootball = renderableExperience(p.otherFootball, p.band);
+  const context = contextLine(p.squad.ageGroup, p.birthQuarter);
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -145,6 +202,7 @@ export default function PlayerCV({ p, reportRef }: { p: PlayerFixture; reportRef
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
             <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{p.firstName} {p.lastName}</h1>
+            {context && <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 700 }}>{context}</div>}
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 500 }}>{posLine} · #{p.squadNumber} · {p.foot} footed</div>
             {/* The club line carried a HARDCODED 'Melbourne VIC' — every player
                 in the country read as Melbourne. The locality now comes from

@@ -187,6 +187,43 @@ async function post(path, who, form) {
 }
 
 // ---------------------------------------------------------------------------
+// D-164 (4): a tap on a locked Premium row (builder-final-b). Pressed as a
+// person would press it — the form on the page, with the row's own value —
+// and the answer read off the page it lands on. It runs FIRST, before any
+// block below turns the adult player into somebody's parent (funnel-w0) and
+// his home stops linking to his own Highlights. The count itself, and that a
+// minor's tap is never counted, are the permission suite's (prem1–prem2c):
+// this file cannot read the database.
+// ---------------------------------------------------------------------------
+{
+  const jordan = ids.people.jordan;
+  const home = await get('/home', jordan);
+  const clipsPath = /href="(\/build\/[0-9a-f-]{36}\/clips)"/.exec(home.html)?.[1];
+  const page = clipsPath ? await get(clipsPath, jordan) : { html: '' };
+  const form = forms(page.html).find((f) => f.fields.on === 'clips');
+  check('prem-w1: an adult\'s Highlights carries the Premium form', Boolean(form), true);
+  if (form) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    fd.append('feature', 'unlimited_clips');
+    const r = await fetch(BASE + clipsPath, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(jordan) } });
+    await r.text();
+    const to = (r.headers.get('location') ?? '').replace(BASE, '');
+    check('prem-w2: pressing "Unlimited clips" lands back on the same Highlights, saying so', to, `${clipsPath}?first=1`);
+    const landed = await get(to, jordan);
+    check('prem-w3: "Premium is coming. You’re first in line." — and nothing asks for a card or a price',
+      [/Premium is coming\. You(’|&#x27;|&rsquo;)re first in line\./.test(landed.html), /\$\s?\d|card number|checkout/i.test(landed.html.replace(/<script[\s\S]*?<\/script>/g, ''))],
+      [true, false]);
+  }
+  // The same press from a 16–17 — who is never shown the rows — goes nowhere
+  // a minor could see Premium on, and records nothing (prem2 proves the count).
+  const coachPage = await get('/coach/edit', ids.children.nate.child_id);
+  check('prem-w4: a 16–17 on the coach page is never given the form to press',
+    [coachPage.status, forms(coachPage.html).some((f) => f.fields.on === 'coach')], [200, false]);
+}
+
+
+// ---------------------------------------------------------------------------
 // Collect every distinct form the product renders, per seat.
 // ---------------------------------------------------------------------------
 const SIGNED_OUT_ROUTES = ['/signin', '/join', '/reset', '/report', '/p/dev-deniz', '/p/dev-revoked'];
@@ -1014,8 +1051,28 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   await get('/join', null);
   const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../.next/dev/server/server-reference-manifest.json', import.meta.url)), 'utf8'));
   const actionId = (name) => Object.entries(manifest.node).find(([, v]) => v.filename === 'app/join/actions.ts' && v.exportedName === name)?.[0];
-  const joinPost = (name, fields) => post('/join', { fields: { [`$ACTION_ID_${actionId(name)}`]: '' } }, fields);
+  // Every door now asks the country first (D-63, D-164): a form that came
+  // through it carries country=AU, so every sign-up below does too.
+  const joinPost = (name, fields) => post('/join', { fields: { [`$ACTION_ID_${actionId(name)}`]: '', country: 'AU' } }, fields);
   check('ia15: the sign-up actions are found', Boolean(actionId('startPendingInvitation') && actionId('createAccount')), true);
+
+  // --- D-63 / D-164 (3): Australia only, asked of the server too ------------
+  // A sign-up that did not come through the country step — a script, a stale
+  // page, "Somewhere else" worked around — makes nothing: no invitation, no
+  // account, no message to anybody, whatever the age.
+  {
+    const bare = (name, fields) => post('/join', { fields: { [`$ACTION_ID_${actionId(name)}`]: '' } }, fields);
+    const kid = await bare('startPendingInvitation', { firstName: 'Nomad', dob: '2014-04-04', guardianName: 'Far Away', guardianPhone: '0400 555 666', guardianEmail: 'nomad.parent@example.com' });
+    const adult = await bare('createAccount', { firstName: 'Nomad', dob: '1990-04-04', email: 'nomad@example.com', password: 'nomad-password-123' });
+    const coach = await bare('createCoachAccount', { firstName: 'Nomad', lastName: 'Coach', dob: '1985-04-04', email: 'nomad.coach@example.com', password: 'nomad-password-123' });
+    const club = await bare('createClubAccount', { firstName: 'Nomad', lastName: 'Club', dob: '1980-04-04', email: 'nomad.club@example.com', password: 'nomad-password-123' });
+    const elsewhere = await bare('createAccount', { country: 'NZ', firstName: 'Kiwi', dob: '1990-05-05', email: 'kiwi@example.com', password: 'kiwi-password-1234' });
+    check('ctry-w1: every door refuses a sign-up that did not say Australia, and goes back to the country question',
+      [kid, adult, coach, club, elsewhere].map((r) => r.location.replace(BASE, '')), ['/join', '/join', '/join', '/join', '/join']);
+    const after = (await get('/dev/outbox', ids.people.alex)).html;
+    check('ctry-w2: and it collected nothing — no message went to any address it was given',
+      /nomad|kiwi/i.test(after), false);
+  }
 
   // --- D-157: a parent email is required -------------------------------------
   const noEmail = await joinPost('startPendingInvitation', { firstName: 'Noah', dob: '2014-02-02', guardianName: 'No Email', guardianPhone: '0400 111 222' });
@@ -2337,7 +2394,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   await get('/join', null);
   const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../.next/dev/server/server-reference-manifest.json', import.meta.url)), 'utf8'));
   const joinId = Object.entries(manifest.node).find(([, v]) => v.filename === 'app/join/actions.ts' && v.exportedName === 'startPendingInvitation')?.[0];
-  const joined = await postForm('/join', { [`$ACTION_ID_${joinId}`]: '', firstName: 'Ivy', dob: '2014-06-06',
+  const joined = await postForm('/join', { [`$ACTION_ID_${joinId}`]: '', country: 'AU', firstName: 'Ivy', dob: '2014-06-06',
     guardianName: 'Jordan Fixture', guardianPhone: '0400 777 888', guardianEmail: 'player@example.com' });
   const invId = /\/join\/waiting\/([0-9a-f-]{36})/.exec(joined)?.[1];
   check('funnel-w0: an under-16 is signed up through /join, and the parent is asked on both channels', Boolean(invId), true);

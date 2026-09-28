@@ -93,6 +93,24 @@ export function sharedProvenance(rows: readonly { provenance?: string | null }[]
   return rows.every((r) => known(r.provenance) === first) ? first : null;
 }
 
+// D-160: what an opened stat tile says about where its number came from —
+// "Verified by Riverside FC · 2 Sep 2026" or "Self-reported · entered 14 Mar
+// 2026". The CLUB, never the coach: the fields this reads are the ones
+// fn_stat_public (0083) returns, and none of them can carry a person. Null
+// when there is nothing true to say (an official import, or a snapshot
+// approved before the dates existed): the tile then does not open.
+// The dates arrive as Melbourne calendar dates (YYYY-MM-DD), so they are
+// printed as dates, never re-read through a clock or a zone.
+const calendarDay = (iso: string): string => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]} ${y}`;
+};
+export function provenanceLine(s: { provenance?: string | null; enteredOn?: string; verifiedClub?: string; verifiedOn?: string }): string | null {
+  if (s.provenance === 'coach_verified' && s.verifiedClub && s.verifiedOn) return `Verified by ${s.verifiedClub} · ${calendarDay(s.verifiedOn)}`;
+  if (s.provenance === 'self_reported' && s.enteredOn) return `${PROVENANCE_LABELS.self_reported} · entered ${calendarDay(s.enteredOn)}`;
+  return null;
+}
+
 // --- Interest Register club-side status (doc 16 §3d, D-108) -----------------
 // Three values, no fourth, and none of them is a verdict. `declined`,
 // `rejected` and `unsuccessful` cannot be written — the constraint also lives

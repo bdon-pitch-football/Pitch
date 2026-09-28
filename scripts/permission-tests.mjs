@@ -30,6 +30,9 @@ for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
 // happened to put back.
 const BILLING_AT_BOOT = (await db.query(
   `select (select value from app_config where key = 'billing_enabled') as value, fn_billing_enabled() as on`)).rows[0];
+// D-164 (0080), read before any block can move it, for the same reason.
+const FRONT_DOOR_AT_BOOT = (await db.query(
+  `select (select value from app_config where key = 'front_door_open') as value, fn_front_door_open() as open`)).rows[0];
 
 let pass = 0, fail = 0;
 async function expectFail(label, sql) {
@@ -1212,7 +1215,8 @@ check('I5b/I3: the consent log survives the deletion',
   // The world: a club of its own, so nothing here moves another table's counts.
   const E = {};
   for (const k of ['child', 'guardian', 'other', 'otherGuardian', 'adult', 'investigator', 'club', 'squad', 'rec', 'otherRec',
-    'report', 'comp', 'role', 'reg', 'otherReg', 'otherReg2', 'inv', 'otherInv', 'tok', 'otherTok', 'outAbout', 'grant', 'otherGrant']) {
+    'report', 'comp', 'role', 'reg', 'otherReg', 'otherReg2', 'inv', 'otherInv', 'tok', 'otherTok', 'outAbout', 'grant', 'otherGrant',
+    'reportHold', 'reportTok', 'reportCoach', 'reportOther']) {
     E[k] = crypto.randomUUID();
   }
   const P = E.child;
@@ -1226,7 +1230,8 @@ check('I5b/I3: the consent log survives the deletion',
   await q(`insert into club (id, name, club_state) values ($1,'Erasure Park FC','claimed')`, [E.club]);
   await q(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,'E-U17','U17','boys','2026')`, [E.squad, E.club]);
   await q(`insert into competency (id, framework_version, code) values ($1,'erasure-fixture','ERASE-1')`, [E.comp]);
-  await q(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'player_cv','erasure-fixture','fixture')`, [E.report]);
+  // D-166: the free text on the trail names the child, as a real one would.
+  await q(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'player_cv','erasure-fixture','Erin is in a photo on this page')`, [E.report]);
 
   // Every column gets the child, whatever the product's own rules would say:
   // the triggers that keep a minor out of adult roles are switched off for the
@@ -1263,6 +1268,8 @@ check('I5b/I3: the consent log survives the deletion',
     'membership.person_id': `insert into membership (person_id, club_id, squad_id, role) values ($P,'${E.club}','${E.squad}','player')`,
     'message_outbox.subject_id': `insert into message_outbox (id, message_key, channel, to_address, body, subject_id) values ('${E.outAbout}','guardian_confirm_16','email','gale@example.com','fixture',$P)`,
     'message_outbox.to_person': `insert into message_outbox (message_key, channel, to_address, body, to_person) values ('fixture','email','erin@example.com','fixture',$P)`,
+    'player_stat.verified_by': `insert into player_stat (record_id, season, stat_key, value, provenance, verified_club_id, verified_by, verified_at) values ('${E.otherRec}','2026','goals',4,'coach_verified','${E.club}',$P, now())`,
+    'player_stat_history.verified_by': `insert into player_stat_history (record_id, season, stat_key, value, provenance, verified_club_id, verified_by, verified_at) values ('${E.otherRec}','2026','apps',9,'coach_verified','${E.club}',$P, now())`,
     'pending_invitation.child_id': `insert into pending_invitation (first_name, dob, child_id) values ('Erin','${yearsAgo(16, -100)}',$P)`,
     'players_wanted_notice.added_by': `insert into players_wanted_notice (club_id, title, added_by) values ('${E.club}','Keepers wanted',$P)`,
     'profile_version.approved_by': `insert into profile_version (record_id, content, status, approved_by, approved_at) values ('${E.otherRec}','{}','approved',$P, now())`,
@@ -1319,7 +1326,18 @@ check('I5b/I3: the consent log survives the deletion',
       await db.exec(FIXTURE[k].replaceAll('$P', `'${P}'`));
     }
     // A LOGGED LOOK at the child, and one by them, which is what pinned the grant.
-    await q(`insert into investigation_access (grant_id, what) values ($1,'send rows'), ($2,'send rows')`, [E.grant, E.otherGrant]);
+    await q(`insert into investigation_access (grant_id, what) values ($1,'Erin’s send rows'), ($2,'Oli’s send rows')`, [E.grant, E.otherGrant]);
+    // D-166: every way a report is tied to a child, each saying her name — a
+    // hold on her record, her share link's hash, her own coach page — and one
+    // report about somebody else entirely, which must come through untouched.
+    await q(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'other','erasure-hold','Erin is in this clip')`, [E.reportHold]);
+    await q(`insert into content_hold (record_id, report_id) values ($1,$2)`, [E.rec, E.reportHold]);
+    await q(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'player_cv', md5('e-tok'),'Erin’s page names her school')`, [E.reportTok]);
+    // (Unreachable today — an under-18's coach page carries no public link,
+    // 0042 — and handled anyway, as 0067 handles every such row.)
+    await q(`update coach_profile set public_slug = 'erasure-coach-page' where person_id = $1`, [P]);
+    await q(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'coach_cv','erasure-coach-page','Erin coaches my son')`, [E.reportCoach]);
+    await q(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'player_cv','erasure-other','Oli’s page has a phone number on it')`, [E.reportOther]);
     // Rows elsewhere that point at a message about the child.
     await q(`insert into access_request (share_token_id, requester_name, requester_role, notified_outbox_id) values ($1,'Riley','coach',$2)`, [E.otherTok, E.outAbout]);
     await q(`insert into age_transition_notice (child_id, outbox_id) values ($1,$2)`, [E.other, E.outAbout]);
@@ -1351,6 +1369,15 @@ check('I5b/I3: the consent log survives the deletion',
   await expectFail('erase4b: and a new investigation grant must still name whose record it opens',
     `insert into investigation_grant (report_id, investigator_id, subject_id, expires_at) values ('${E.report}','${E.investigator}', null, now() + interval '1 day')`);
 
+  // D-166: the trail as it stands, to compare after.
+  const lookRow = async () => (await q(`select ia.id, ia.at, ia.grant_id, ig.investigator_id, ig.report_id
+    from investigation_access ia join investigation_grant ig on ig.id = ia.grant_id where ia.grant_id = $1`, [E.grant])).rows[0];
+  const lookBefore = await lookRow();
+  await expectFail('erase7e: outside an erasure the log of looks is still append-only — what was looked at cannot be blanked',
+    `update investigation_access set what = null where grant_id = '${E.grant}'`);
+  await expectFail('erase7f: and a new look must say what was looked at',
+    `insert into investigation_access (grant_id, what) values ('${E.grant}', null)`);
+
   let eraseErr = null;
   try { await q('select fn_erase_child($1,$2)', [E.guardian, P]); } catch (e) { eraseErr = e.message; }
   check('I1: the one-tap deletion commits for a child who is named in every table that references a person, including one an investigator looked at',
@@ -1375,6 +1402,52 @@ check('I5b/I3: the consent log survives the deletion',
   check('U-6p: with no link to the child', trail?.subject_id ?? null, null);
   check('U-6q: and who-looked answers nothing about a person who no longer exists',
     (await q('select * from fn_who_looked($1,$2)', [E.guardian, P])).rows.length, 0);
+
+  // D-166: erasure wipes the free text that could name the child. The trail
+  // is kept (U-6) — who looked, when, under which grant, for which report —
+  // and nothing on it says her name any more.
+  {
+    const TRAIL = ['investigation_access', 'investigation_grant', 'report'];
+    const textCols = (await q(`select table_name || '.' || column_name as c from information_schema.columns
+      where table_schema = 'public' and table_name = any($1) and data_type in ('text', 'character varying') order by 1`, [TRAIL])).rows.map((r) => r.c);
+    const named = [];
+    for (const c of textCols) {
+      const [t, col] = c.split('.');
+      const n = (await q(`select count(*)::int as n from ${t} where ${col} ~* '\\yerin\\y'`)).rows[0].n;
+      if (n) named.push(`${c} (${n})`);
+    }
+    check(`erase7: after erasure no free-text column in the investigation trail contains the child's first name (${named.join(', ') || 'none does'})`,
+      named, []);
+    check('erase7b: every report tied to her — by an investigation grant, a hold on her record, her link, her coach page — keeps its row and loses its reason',
+      (await q(`select id, reason from report where id = any($1) order by id`, [[E.report, E.reportHold, E.reportTok, E.reportCoach]])).rows.map((r) => r.reason),
+      [null, null, null, null]);
+    const lookAfter = await lookRow();
+    check('erase7c: the look itself survives — its time, its grant, the investigator and the report id — with no text',
+      [lookAfter?.id, String(lookAfter?.at), lookAfter?.grant_id, lookAfter?.investigator_id, lookAfter?.report_id,
+       ((await q(`select what from investigation_access where grant_id = $1`, [E.grant])).rows[0] ?? { what: 'row gone' }).what],
+      [lookBefore.id, String(lookBefore.at), lookBefore.grant_id, lookBefore.investigator_id, lookBefore.report_id, null]);
+    check('erase7d: another child\'s look and a report about somebody else keep their words',
+      [(await q(`select what from investigation_access where grant_id = $1`, [E.otherGrant])).rows[0]?.what,
+       (await q(`select reason from report where id = $1`, [E.reportOther])).rows[0]?.reason],
+      ['Oli’s send rows', 'Oli’s page has a phone number on it']);
+    // Every text column on the trail, and what erasure does with it. A new
+    // free-text column fails here by name until somebody decides.
+    const WIPED = ['investigation_access.what', 'report.reason'];
+    const NOT_WIPED = {
+      'investigation_grant.extended_reason': 'free text, typed when a grant is extended once — NOT in D-166; in the builder report for BUZ and John',
+      'report.actioned_by': 'the operator\'s name, not the child\'s',
+      'report.concern': 'one of a fixed set of words (0049)',
+      'report.outcome': 'one of a fixed set of words',
+      'report.reporter_email': 'the reporter\'s own address, optional',
+      'report.subject_kind': 'one of a fixed set of words',
+      'report.subject_ref': 'a token hash or a page slug — the slug of an erased coach page names nobody once the page is gone',
+    };
+    check(`erase7g: every text column on the trail is either wiped or named with a reason (${textCols.filter((c) => !WIPED.includes(c) && !(c in NOT_WIPED)).join(', ') || 'all are'})`,
+      textCols.filter((c) => !WIPED.includes(c) && !(c in NOT_WIPED)), []);
+  }
+  check('erase7h: a stat she verified as a coach stays verified by the club, and stops naming her',
+    (await q(`select provenance, verified_club_id, verified_by from player_stat where record_id = $1 and stat_key = 'goals'`, [E.otherRec])).rows[0],
+    { provenance: 'coach_verified', verified_club_id: E.club, verified_by: null });
 
   // Someone else's record is theirs (D-48, D-10): the entries the child wrote
   // on it stay, unsigned; the other child's own entries and link are untouched.
@@ -2793,8 +2866,11 @@ check('G10: added_as_minor is NOT NULL — it can never be left to be guessed la
 // G11: D-67 — a minor's public CV never renders a negative number. The read
 // path filters at the query, not in the component, so no future surface can
 // forget.
+// 0083 moved the filter into the one function every stat surface now reads
+// (fn_stat_public), so the check asks THAT, not the text of the query that
+// used to hold it (L33: replace a proxy with the rule, never delete it).
 check('G11: the read path drops non-positive stats before they leave Postgres',
-  /value > 0/.test(readSrc), true);
+  /value > 0/.test(readSrc) || (/fn_stat_public\(\$1\) as stats/.test(readSrc) && /ps\.value > 0/.test(await procSrc('fn_stat_public'))), true);
 
 // ---------------------------------------------------------------------------
 // Tables H and J — the club walls. A treasurer made an administrator to send
@@ -3265,8 +3341,11 @@ for (const [what, rel] of Object.entries({
   'the approved snapshot': 'lib/cv-build.ts',
 })) {
   const src = codeOnly(srcOf(rel));
+  // The read path and the snapshot read fn_stat_public (0083), which is
+  // where their filter now lives — asked of the function, not the query text.
+  const viaFn = /fn_stat_public\(\$1\) as stats/.test(src) && /ps\.value > 0/.test(await procSrc('fn_stat_public'));
   check(`D-162: ${what} omits a zero rather than printing one`,
-    /value > 0|\.value > 0|\(v \?\? 0\) > 0|value is not null and value > 0/.test(src), true);
+    /value > 0|\.value > 0|\(v \?\? 0\) > 0|value is not null and value > 0/.test(src) || viaFn, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -5167,8 +5246,13 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   // --- D-62 on the squad list (0069): every number carries its source ------
   {
     const kidRec = (await db.query(`select id from development_record where person_id = $1`, [kid])).rows[0].id;
+    // 0083: a coach-verified number is written by fn_verify_stat and nothing
+    // else, so the fixture asks it — the TD holds that pen club-wide.
     await db.query(`insert into player_stat (record_id, season, stat_key, value, provenance)
-      values ($1,'2026','apps',9,'self_reported'), ($1,'2026','goals',4,'coach_verified')`, [kidRec]);
+      values ($1,'2026','apps',9,'self_reported'), ($1,'2026','goals',4,'self_reported')`, [kidRec]);
+    const goalsId = (await db.query(`select id from player_stat where record_id = $1 and stat_key = 'goals' and season = '2026'`, [kidRec])).rows[0].id;
+    check('prov-sq0: the fixture\'s coach-verified number is written the way the product writes one',
+      (await db.query('select fn_verify_stat($1, $2) as ok', [ID.td, goalsId])).rows[0].ok, true);
     const row = async (who) => (await gated(who)).find((x) => x.player_id === kid);
     const td = await row(ID.td);
     check('prov-sq1: every stat the squad list returns carries the provenance of the row it came from',
@@ -7403,6 +7487,246 @@ const componentFilesAll = [];
     check('F8h: and nothing is excused that the screen no longer renders',
       Object.keys(NO_WRITER_BY_DECISION).filter((w) => !labels.includes(w)), []);
   }
+}
+
+// ===========================================================================
+// FINAL ROUND B (28 Sep, builder-final-b) — D-164's four launch calls and
+// D-160's coach-verified stats. Its own world, so nothing above moves it and
+// it moves nothing above.
+// ===========================================================================
+{
+  const q1 = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const W = {};
+  for (const k of ['club', 'otherClub', 'unvClub', 'squad', 'squad2', 'otherSquad', 'unvSquad', 'call', 'call2',
+    'kid', 'teen', 'adult', 'guardian', 'coachV', 'coachU', 'coachSide', 'coachAway', 'coachUnv', 'admin', 'tm', 'coachTeen',
+    'kidRec', 'teenRec', 'adultRec']) W[k] = crypto.randomUUID();
+  const person = (id, name, dob) => db.query(`insert into person (id, first_name, last_name, dob) values ($1,$2,'FinalB',$3)`, [id, name, dob]);
+  await person(W.kid, 'Kit', yearsAgo(14));
+  await person(W.teen, 'Tay', yearsAgo(17));
+  await person(W.adult, 'Ade', yearsAgo(24));
+  for (const k of ['guardian', 'coachV', 'coachU', 'coachSide', 'coachAway', 'coachUnv', 'admin', 'tm']) await person(W[k], `Fb ${k}`, yearsAgo(38));
+  await person(W.coachTeen, 'Teen coach', yearsAgo(16, -30));
+  await db.query(`insert into club (id, name, club_state) values ($1,'Final B Park FC','claimed'), ($2,'Final B Away FC','claimed'), ($3,'Final B Unverified FC','claimed')`,
+    [W.club, W.otherClub, W.unvClub]);
+  for (const [club, call] of [[W.club, W.call], [W.otherClub, W.call2]]) {
+    await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [call, club]);
+    await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [call, club]);
+  }
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values
+    ($1,$5,'FB U15','U15','boys','2026'), ($2,$5,'FB U18','U18','boys','2026'), ($3,$6,'FB Away','U15','boys','2026'), ($4,$7,'FB Unv','U15','boys','2026')`,
+    [W.squad, W.squad2, W.otherSquad, W.unvSquad, W.club, W.otherClub, W.unvClub]);
+  const mem = (p, c, sq, role) => db.query(`insert into membership (person_id, club_id, squad_id, role) values ($1,$2,$3,$4)`, [p, c, sq, role]);
+  await mem(W.kid, W.club, W.squad, 'player');
+  await mem(W.teen, W.club, W.squad2, 'player');
+  await mem(W.adult, W.club, W.squad2, 'player');
+  await mem(W.kid, W.unvClub, W.unvSquad, 'player');
+  await mem(W.coachV, W.club, W.squad, 'coach');
+  await mem(W.coachU, W.club, W.squad, 'coach');       // no WWCC attestation
+  await mem(W.coachSide, W.club, W.squad2, 'coach');   // attested, another squad
+  await mem(W.coachAway, W.otherClub, W.otherSquad, 'coach');
+  await mem(W.coachUnv, W.unvClub, W.unvSquad, 'coach');
+  await mem(W.admin, W.club, null, 'club_admin');
+  await mem(W.tm, W.club, W.squad, 'team_manager');
+  for (const [p, c] of [[W.coachV, W.club], [W.coachSide, W.club], [W.coachAway, W.otherClub], [W.coachUnv, W.unvClub]]) {
+    await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [p, c, W.admin]);
+  }
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now()), ($1,$3,now())`, [W.guardian, W.kid, W.teen]);
+  for (const [rec, p] of [[W.kidRec, W.kid], [W.teenRec, W.teen], [W.adultRec, W.adult]]) {
+    await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CM'])`, [rec, p]);
+  }
+  const stat = async (rec, key, value) => (await q1(
+    `insert into player_stat (record_id, season, stat_key, value, provenance) values ($1,'2026',$2,$3,'self_reported') returning id`, [rec, key, value])).id;
+
+  // ---- D-164 (1): the front door's switch (0080) -----------------------------
+  check('fd-p1: the front door is switched off out of the box — / is the coming-soon page until launch day',
+    [FRONT_DOOR_AT_BOOT.value, FRONT_DOOR_AT_BOOT.open], ['false', false]);
+  for (const typo of ['TRUE', 'yes', '1', ' true']) {
+    await db.query(`update app_config set value = $1 where key = 'front_door_open'`, [typo]);
+    check(`fd-p1b: a config typo does not open it (${JSON.stringify(typo)})`, (await q1('select fn_front_door_open() as o')).o, false);
+  }
+  await db.query(`delete from app_config where key = 'front_door_open'`);
+  check('fd-p1c: nor does a missing row', (await q1('select fn_front_door_open() as o')).o, false);
+  await db.query(`insert into app_config (key, value) values ('front_door_open', 'true')`);
+  check('fd-p1d: the literal true, and only that, opens it', (await q1('select fn_front_door_open() as o')).o, true);
+  await db.query(`update app_config set value = 'false' where key = 'front_door_open'`);
+
+  const proxySrc = codeOnly(srcOf('proxy.ts'));
+  const rootPage = srcOf('app/page.tsx');
+  check('fd-p2: / itself is untouched — app/page.tsx asks nothing and imports no front door (render fd0 measures the bytes)',
+    [/front-door|frontDoor|FrontDoor|@\/lib\/db/.test(rootPage), /^export default function Home\(\)/m.test(rootPage)], [false, true]);
+  check('fd-p2b: proxy.ts rewrites only "/", only when the switch says so, fails closed, and still stamps the request method',
+    [/if \(path !== '\/'\) return null/.test(proxySrc), /await frontDoorOpen\(\)/.test(proxySrc), /catch \{ open = false; \}/.test(proxySrc),
+     /headers\.set\(PITCH_METHOD_HEADER, req\.method\)/.test(proxySrc)], [true, true, true, true]);
+  const fdPage = codeOnly(srcOf('app/front-door/page.tsx'));
+  check('fd-p2c: and the front door page itself answers not-found while the switch is off',
+    /if \(!\(await frontDoorOpen\(\)\)\) notFound\(\)/.test(fdPage), true);
+  const devFd = srcOf('app/dev/front-door/route.ts');
+  check('fd-p2d: /dev/front-door is gated as /dev/billing is — no production, no demo, POST only',
+    [/NODE_ENV === 'production' \|\| isDemo\(\)/.test(devFd), /export async function POST/.test(devFd), /export async function GET/.test(devFd)], [true, true, false]);
+  // The held lines are not in the file at all, so they cannot render by
+  // accident (D-163 as amended): no price, no date, no "at launch", "for now",
+  // "limited" or "first X clubs", and nothing from the Founding XI.
+  const fdSrc = codeOnly(srcOf('components/front-door/FrontDoor.tsx'));
+  const fdHeld = [/\$\s?\d/, /\bfree\b/i, /at launch/i, /for now/i, /\blimited\b/i, /first (eleven|\d+)/i, /Founding XI/i, /December/, /September/, /inc GST/i, /\/yr/, /\bPro\b/]
+    .filter((re) => re.test(fdSrc)).map(String);
+  check(`fd-p3: the front door's source carries none of the held lines (${fdHeld.join(' ') || 'none'})`, fdHeld, []);
+
+  // ---- D-164 (2) / D-84: the birth quarter, and nothing narrower -------------
+  const quarter = async (d) => (await q1('select fn_birth_quarter($1::date) as q', [d])).q;
+  check('ctx1: the quarter turns on the first of the month, at both ends of the year',
+    [await quarter('2012-01-01'), await quarter('2012-03-31'), await quarter('2012-04-01'), await quarter('2012-06-30'),
+     await quarter('2012-07-01'), await quarter('2012-09-30'), await quarter('2012-10-01'), await quarter('2012-12-31'), await quarter(null)],
+    ['Jan–Mar', 'Jan–Mar', 'Apr–Jun', 'Apr–Jun', 'Jul–Sep', 'Jul–Sep', 'Oct–Dec', 'Oct–Dec', null]);
+  await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1, $2, 'approved', $3, now())`,
+    [W.kidRec, JSON.stringify({ firstName: 'Kit', stats: [] }), W.guardian]);
+  const served = (await q1('select fn_approved_cv($1) as c', [W.kidRec])).c;
+  check('ctx2: the approved snapshot is served with the quarter stamped on the way out — derived, not stored',
+    [served.birthQuarter, (await q1('select content ? \'birthQuarter\' as s from profile_version where record_id = $1', [W.kidRec])).s],
+    [await quarter(yearsAgo(14)), false]);
+  check('ctx3: and nothing in what it serves is a date of birth or a year',
+    Object.entries(served).filter(([k, v]) => /dob|birth(?!Quarter)|year|age$/i.test(k) || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v))).map(([k]) => k), []);
+  // D-89: the card surfaces read no quarter and no age group — the band's own
+  // rule, applied to the marker that narrows a child further.
+  const cardSurfaces = ['app/p/[token]/opengraph-image.tsx', 'app/g/card/[cardId]/image/route.tsx', 'lib/cv-meta.ts'];
+  check('ctx4: the Open Graph image, the share card and the link-preview text never read the quarter or the context line (D-89)',
+    cardSurfaces.filter((f) => /birthQuarter|contextLine|fn_birth_quarter|born /.test(codeOnly(srcOf(f)))), []);
+  const cvSrc = codeOnly(srcOf('components/cv/PlayerCV.tsx'));
+  check('ctx5: the CV draws the marker from the age group and the quarter only — never p.dob — and only for a "U<n>" group',
+    [/contextLine\(p\.squad\.ageGroup, p\.birthQuarter\)/.test(cvSrc), /p\.dob/.test(cvSrc), /\^U\\d\{1,2\}\$/.test(cvSrc)], [true, false, true]);
+
+  // ---- D-164 (4) / D-82: one anonymous count per feature, adults only --------
+  const taps = async () => Object.fromEntries((await db.query('select feature, taps::int as t from premium_interest')).rows.map((r) => [r.feature, r.t]));
+  const tap = async (who, f) => (await q1('select fn_premium_interest($1, $2) as ok', [who, f])).ok;
+  const t0 = await taps();
+  check('prem1: an adult\'s tap counts one, for that feature',
+    [await tap(W.adult, 'unlimited_clips'), (await taps()).unlimited_clips ?? 0], [true, (t0.unlimited_clips ?? 0) + 1]);
+  await db.query('insert into coach_profile (person_id) values ($1)', [W.coachTeen]);
+  check('prem2: a 16–17 who coaches MiniRoos, a 16–17 player and an under-16 are never counted (D-82: no intent capture on a minor)',
+    [await tap(W.coachTeen, 'who_viewed'), await tap(W.teen, 'unlimited_clips'), await tap(W.kid, 'who_viewed')], [false, false, false]);
+  check('prem2b: nor is nobody, nor a feature that is not one of the two',
+    [await tap(null, 'who_viewed'), await tap(W.adult, 'reel_builder'), await tap(W.adult, null)], [false, false, false]);
+  check('prem2c: and none of those refusals moved a count', await taps(), { ...t0, unlimited_clips: (t0.unlimited_clips ?? 0) + 1 });
+  const cols = (await db.query(`select column_name from information_schema.columns where table_name = 'premium_interest' order by ordinal_position`)).rows.map((r) => r.column_name);
+  check('prem3: the count keeps a feature and a number — no person, no session, no IP, no time', cols, ['feature', 'taps']);
+  await expectFail('prem3b: and no third feature can be counted', `insert into premium_interest (feature, taps) values ('reel_builder', 1)`);
+  const clipsPage = codeOnly(srcOf('app/build/[recordId]/clips/page.tsx'));
+  const coachPage = codeOnly(srcOf('app/coach/edit/page.tsx'));
+  check('prem4: the rows render only for an adult — the record\'s band on Highlights, the coach\'s own age on the coach page',
+    [/\{band === '18plus' && <PremiumRows on="clips"/.test(clipsPage), /\{c\.adult && <PremiumRows on="coach"/.test(coachPage),
+     (clipsPage.match(/<PremiumRows/g) ?? []).length, (coachPage.match(/<PremiumRows/g) ?? []).length], [true, true, 1, 1]);
+  const rowsSrc = codeOnly(srcOf('components/PremiumRows.tsx'));
+  const tapSrc = codeOnly(srcOf('components/premium-actions.ts'));
+  check('prem5: at most two rows, no price, and the tap writes nothing but the database\'s count',
+    [(rowsSrc.match(/\['(unlimited_clips|who_viewed)'/g) ?? []).length, /\$\s?\d/.test(rowsSrc),
+     (tapSrc.match(/db\.query\(/g) ?? []).length, /select fn_premium_interest\(\$1, \$2\)/.test(tapSrc), /insert|console\.|headers\(|cookies\(/.test(tapSrc),
+     /formData\.get\('back'\)|safePath/.test(tapSrc)],
+    [2, false, 2, true, false, false]);
+
+  // ---- D-164 (3) / D-63: the country step comes first and collects nothing ----
+  const joinPage = codeOnly(srcOf('app/join/page.tsx'));
+  const joinAct = codeOnly(srcOf('app/join/actions.ts'));
+  const doors = ['startPendingInvitation', 'createAccount', 'createCoachAccount', 'createClubAccount'];
+  check('ctry1: every sign-up door refuses a sign-up that did not come through the country step, before it reads or writes anything',
+    doors.map((d) => new RegExp(`export async function ${d}\\(formData: FormData\\) \\{\\s*if \\(!inAustralia\\(formData\\)\\) redirect\\('/join'\\);`).test(joinAct)),
+    doors.map(() => true));
+  check('ctry1b: the answer is not stored — "country" is read once, to say yes or no',
+    [(joinAct.match(/'country'/g) ?? []).length, /insert[^`]*country/i.test(joinAct)], [1, false]);
+  const elsewhere = joinPage.split("step === 'elsewhere' ? (")[1]?.split(") : step === 'signup' ? (")[0] ?? '';
+  check('ctry2: Somewhere else collects nothing — no field, no form, no action, no request, at any age',
+    [elsewhere.length > 0, /<input|<form|action=|fetch\(|FormData|startPendingInvitation|create\w*Account/.test(elsewhere),
+     elsewhere.includes('Pitch is only in Australia for now.')], [true, false, true]);
+  check('ctry3: it is the first thing asked — the page opens on the country, before the name or the date of birth',
+    [/useState<'country' \| 'elsewhere' \| 'signup' \| 'parent' \| 'account'>\('country'\)/.test(joinPage),
+     joinPage.indexOf('Where do you live?') < joinPage.indexOf('type="date"')], [true, true]);
+  check('ctry3b: and both forms that create anything carry it',
+    (joinPage.match(/<input type="hidden" name="country" value="AU" \/>/g) ?? []).length, 2);
+
+  // ---- D-160: coach-verified stats -------------------------------------------
+  const kidGoals = await stat(W.kidRec, 'goals', 11);
+  const kidApps = await stat(W.kidRec, 'apps', 18);
+  const verify = async (who, st) => (await q1('select fn_verify_stat($1, $2) as ok', [who, st])).ok;
+  const row = async (st) => q1('select provenance, verified_club_id, verified_by, verified_at is not null as at, value from player_stat where id = $1', [st]);
+  check('cv1: the player\'s own squad coach, WWCC-attested at a verified club, marks a stat coach-verified',
+    await verify(W.coachV, kidGoals), true);
+  const v1 = await row(kidGoals);
+  check('cv1b: and the server set the provenance, the CLUB (the player\'s own), the actor and the time — none of it came from a request',
+    [v1.provenance, v1.verified_club_id, v1.verified_by, v1.at], ['coach_verified', W.club, W.coachV, true]);
+  const refused = {
+    'a coach with no WWCC': W.coachU, 'a coach of another squad': W.coachSide, 'a coach at another club': W.coachAway,
+    'a coach at an unverified club the child also plays for': W.coachUnv, 'the club administrator': W.admin,
+    'the team manager': W.tm, 'the player': W.kid, 'their parent': W.guardian, 'nobody': null,
+  };
+  const refusedOut = [];
+  for (const [who, id] of Object.entries(refused)) if (await verify(id, kidApps)) refusedOut.push(who);
+  check(`cv2: nobody else holds that pen (${refusedOut.join(', ') || 'nobody did'})`, refusedOut, []);
+  check('cv2b: and the refusals wrote nothing', (await row(kidApps)).provenance, 'self_reported');
+  await expectFail('cv3: no insert can arrive as coach-verified, whatever it says',
+    `insert into player_stat (record_id, season, stat_key, value, provenance) values ('${W.teenRec}','2026','goals',3,'coach_verified')`);
+  await expectFail('cv3b: nor carry a verifying club of its own',
+    `insert into player_stat (record_id, season, stat_key, value, provenance, verified_club_id) values ('${W.teenRec}','2026','assists',3,'self_reported','${W.club}')`);
+  await db.query(`update player_stat set provenance = 'coach_verified', verified_club_id = $2, verified_by = $3, verified_at = now() where id = $1`, [kidApps, W.club, W.coachV]);
+  check('cv3c: and an update cannot promote one — the columns come back as they were',
+    [(await row(kidApps)).provenance, (await row(kidApps)).verified_by], ['self_reported', null]);
+  // Re-saving the same number (the build form upserts every stat on every save).
+  await db.query(`insert into player_stat (record_id, season, stat_key, value, provenance) values ($1,'2026','goals',11,'self_reported')
+    on conflict (record_id, season, stat_key) where source_experience_id is null do update set value = excluded.value`, [W.kidRec]);
+  check('cv4: saving the page with the same number keeps the verification', (await row(kidGoals)).provenance, 'coach_verified');
+  const hist = async (rec) => (await db.query(`select stat_key, value, provenance, verified_club_id, verified_by from player_stat_history where record_id = $1 order by id`, [rec])).rows;
+  check('cv4b: and adds nothing to the history', (await hist(W.kidRec)).length, 0);
+  // The player edits it (approved default 7): the same upsert lib/cv-build runs.
+  await db.query(`insert into player_stat (record_id, season, stat_key, value, provenance) values ($1,'2026','goals',14,'self_reported')
+    on conflict (record_id, season, stat_key) where source_experience_id is null do update set value = excluded.value`, [W.kidRec]);
+  const edited = await row(kidGoals);
+  check('cv5: when the player edits a coach-verified stat, the new value is self-reported, with no club and no coach',
+    [edited.value, edited.provenance, edited.verified_club_id, edited.verified_by], [14, 'self_reported', null, null]);
+  check('cv5b: and the coach\'s value stays in the history, with who confirmed it and for which club',
+    await hist(W.kidRec), [{ stat_key: 'goals', value: 11, provenance: 'coach_verified', verified_club_id: W.club, verified_by: W.coachV }]);
+  check('cv5c: a coach can confirm the new number', [await verify(W.coachV, kidGoals), (await row(kidGoals)).provenance], [true, 'coach_verified']);
+  await db.query(`delete from player_stat where id = $1`, [kidGoals]);  // the player blanks it (lib/cv-build)
+  check('cv6: blanking a verified stat keeps it in the history too', (await hist(W.kidRec)).map((h) => [h.value, h.provenance]), [[11, 'coach_verified'], [14, 'coach_verified']]);
+  await expectFail('cv7: the history is append-only — no update', `update player_stat_history set value = 99 where record_id = '${W.kidRec}'`);
+  await expectFail('cv7b: and no delete', `delete from player_stat_history where record_id = '${W.kidRec}'`);
+  const zero = await stat(W.teenRec, 'clean_sheets', 0);
+  check('cv8: a zero is never a thing to confirm (D-70), and a teen\'s squad coach is not the kid\'s',
+    [await verify(W.coachSide, zero), await verify(W.coachV, await stat(W.teenRec, 'apps', 9)), await verify(W.coachSide, await stat(W.teenRec, 'goals', 2))],
+    [false, false, true]);
+  // No code path writes the word. The database function is the only writer.
+  const writers = routeFiles.concat(readdirSync(fileURLToPath(new URL('../lib', import.meta.url))).map((f) => fileURLToPath(new URL('../lib/' + f, import.meta.url))))
+    .filter((f) => /\.tsx?$/.test(f)).filter((f) => /player_stat[\s\S]{0,200}'coach_verified'|coach_verified'[\s\S]{0,80}player_stat/.test(codeOnly(readFileSync(f, 'utf8'))));
+  check(`cv9: no page and no library writes coach_verified onto a stat — fn_verify_stat is the one writer (${writers.join(', ') || 'none'})`, writers, []);
+
+  // doc 14 A20 — the row D-160 adds: a link-holder reading a coach-verified
+  // stat learns the club and the date, and no person. What every page reads
+  // (the share link through lib/record-read, a u16's approved version through
+  // lib/cv-build) is fn_stat_public; this is its answer, key by key.
+  const teenGoals = (await q1(`select id from player_stat where record_id = $1 and stat_key = 'goals'`, [W.teenRec])).id;
+  const pub = (await q1('select fn_stat_public($1) as s', [W.teenRec])).s;
+  const verified = pub.find((x) => x.key === 'goals');
+  const coachName = (await q1('select first_name, last_name from person where id = $1', [W.coachSide]));
+  const leaked = JSON.stringify(pub).match(new RegExp([W.coachSide, coachName.first_name, coachName.last_name, 'verified_by', 'verifiedBy', 'coachName'].map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i'));
+  check('A20: a link-holder reading a coach-verified stat learns the club and the date, and no person',
+    [verified?.provenance, verified?.verifiedClub, /^\d{4}-\d{2}-\d{2}$/.test(verified?.verifiedOn ?? ''), leaked?.[0] ?? null],
+    ['coach_verified', 'Final B Park FC', true, null]);
+  check('A20b: every stat carries exactly the keys a page may show — no field exists that could carry a person',
+    [...new Set(pub.flatMap((x) => Object.keys(x)))].sort(), ['enteredOn', 'key', 'provenance', 'season', 'value', 'verifiedClub', 'verifiedOn']);
+  check('A20c: and a zero is not among them (D-70)', pub.some((x) => x.value === 0), false);
+  const readSrc = codeOnly(srcOf('lib/record-read.ts'));
+  const buildSrc = codeOnly(srcOf('lib/cv-build.ts'));
+  check('A20d: the share link and the approved version both read the stats through fn_stat_public, and the CV draws only the club and the date',
+    [/fn_stat_public\(\$1\) as stats/.test(readSrc), /fn_stat_public\(\$1\) as stats/.test(buildSrc),
+     /from player_stat where record_id = \$1 and value > 0/.test(readSrc + buildSrc),
+     /provenanceLine\(t\)/.test(cvSrc), /verifiedBy|verified_by|coach(Name|_name)/.test(cvSrc + codeOnly(srcOf('lib/football.ts')))],
+    [true, true, false, true, false]);
+  // The words themselves, from the one place that writes them.
+  const { provenanceLine } = await import('../lib/football.ts');
+  check('A20e: the opened tile reads "Verified by <club> · <date>" or "Self-reported · entered <date>", and says nothing it cannot stand behind',
+    [provenanceLine(verified), provenanceLine({ provenance: 'self_reported', enteredOn: '2026-03-14' }),
+     provenanceLine({ provenance: 'official_import', enteredOn: '2026-03-14' }), provenanceLine({ provenance: 'self_reported' }),
+     provenanceLine({ provenance: 'coach_verified', verifiedOn: '2026-09-02' })],
+    [`Verified by Final B Park FC · ${provenanceLine({ provenance: 'coach_verified', verifiedClub: 'x', verifiedOn: verified.verifiedOn }).split(' · ')[1]}`,
+     'Self-reported · entered 14 Mar 2026', null, null, null]);
+  void teenGoals;
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

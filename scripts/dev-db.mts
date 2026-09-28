@@ -593,6 +593,33 @@ const personOf = async (name: string) =>
 
 // 1. Deniz has a pending edit waiting on his guardian (D-119)
 const denizRec = await recOf('Deniz');
+
+// D-160 (0083): a coach-verified number, written the way the product writes
+// one. Doc 16 §3b makes Sam "Riverside's verified U15 Boys coach —
+// squad-scoped access", and the seed never gave him the squad: so no seat in
+// the dev database held the pen fn_write_provenance hands a squad coach, and
+// "Verified by Riverside FC" could not be looked at anywhere. He gets Deniz's
+// squad and confirms Deniz's goals through fn_verify_stat — the seed does not
+// write a provenance itself, and if the function refuses, the seed stops.
+{
+  const sq = (await db.query(
+    `select m.club_id, m.squad_id from membership m join development_record dr on dr.person_id = m.person_id
+     where dr.id = $1 and m.role = 'player' and m.ended_at is null`, [denizRec])).rows[0];
+  await db.query(`insert into membership (person_id, club_id, squad_id, role) values ($1,$2,$3,'coach')`, [sam, sq.club_id, sq.squad_id]);
+  const goals = (await db.query(
+    `select id from player_stat where record_id = $1 and season = '2026' and stat_key = 'goals' and source_experience_id is null`,
+    [denizRec])).rows[0].id as string;
+  if ((await db.query('select fn_verify_stat($1,$2) as ok', [sam, goals])).rows[0].ok !== true) {
+    throw new Error('D-160: Sam could not verify a stat in his own squad — the seed and fn_write_provenance disagree');
+  }
+  // A u16's page is the approved snapshot (D-119), and lib/cv-build builds a
+  // snapshot's stats from fn_stat_public — so the next version his guardian
+  // approves carries the verification. The seed's snapshot stands in for that
+  // approval, exactly as it stands in for the first one.
+  await db.query(
+    `update profile_version set content = jsonb_set(content, '{stats}', fn_stat_public($1)) where record_id = $1 and status = 'approved'`,
+    [denizRec]);
+}
 await db.query(
   // Staggered created_at across the four waiting items. They were all seeded
   // at now(), so every card read "today" and the oldest-first ordering on
