@@ -1,5 +1,7 @@
 # PITCH — Terms of Service
 
+> **v2.0, 28 September 2026 — published. No clause changes.** These drafting notes are no longer served, and the footer names this version and no longer says it is unpublished. **Why v2.0 and not v1.10:** v1.9 is already recorded in this document while the register said v1.8, so the next number had to be newer than both — and v1.10 reads as older than v1.9 to anyone comparing decimals. **Clause 6.5 and open items 4 and 5 are unchanged and still served:** ruling 2 removes clauses describing capabilities that are not built, and 6.5 describes doc 32 A1, which migration 0049 built on 17 September; doc 32 B6 says 6.5 may publish if A1 and A2 are green. That question is with John. John, doc 35 ruling 1: removing the preamble from what is served is not material; the version bumps so that a consent row names exactly the text that was shown, and nobody is re-asked. Ruling 3: these versions are the published ones.
+>
 > **⚠️ v1.6, 3 September 2026 — this restores work that was lost, and the loss was my doing.** On 1 September I filed pack v1.5, then revised it **in place, keeping the same version number**, so as not to create a phantom version. **That made the second set of changes invisible.** The corpus was built from the first copy and swept for the domain (D-150), and the contact work never arrived: the named Privacy Officer, the explanation of the two domains, the reason there is no postal address, and — the one that matters — **clause 8.3's plain statement that an appeal is not independently reviewed.** The live terms went back to promising a parent a second pair of eyes that does not exist.
 >
 > **The lesson is against me, not against the sweep.** A pack that has been filed is something somebody else may already have consumed. **Revising it in place under the same number is not a smaller change than a version bump — it is an invisible one.** From here, a filed pack is immutable and a correction is a new version, whether or not anything has been published.
@@ -366,4 +368,4 @@ Where a child's safety is involved we may act immediately and without notice, an
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v1.9 · 7 September 2026 · not yet published · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v2.0 · 28 September 2026 · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*

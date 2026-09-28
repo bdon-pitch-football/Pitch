@@ -326,6 +326,14 @@ button:active, a[href]:active { transform: scale(.975); }
      Referenced, not copied — it was hardcoded in 21 places and used as a
      token in none. */
   --hero: linear-gradient(160deg, #24543c 0%, #1f3d2e 60%, #1d3126 100%);
+  /* The same inversion, the same fix, the other three families (BUZ, 28 Sep).
+     Every amber stop, every purple stop and the grey panel's dark stop sat
+     BELOW the cards once the surfaces were real. Matched to the green ladder
+     at the same luminances with the hue preserved, so caution still reads as
+     caution and the guardian surface still reads as itself. */
+  --hero-amber:  linear-gradient(160deg, #5c4923 0%, #45371a 60%, #382d15 100%);
+  --hero-purple: linear-gradient(160deg, #534475 0%, #3d3257 60%, #312845 100%);
+  --hero-grey:   linear-gradient(160deg, #424f49 0%, #313b36 100%);
 
   /* Ink */
   --ink:           #eef5f0;
@@ -335,17 +343,20 @@ button:active, a[href]:active { transform: scale(.975); }
      smallest value on --muted's own tint line that holds 4.5 with margin
      (4.61 on --surface-2, 5.15 on a card, 6.61 on the page). */
   --muted:         #8a9d92;
-  --placeholder:   #6b7d73;
+  /* Lifted 28 Sep (BUZ) so every one of these clears 4.5:1 as TEXT on the
+     lightest surface it lands on — each is used as `color` more often than as
+     an edge (9, 7 and 8 call sites). The old values could not: red topped out
+     at 4.31 and placeholder at 4.81 on pure black, so no change of background
+     could have saved them. Hue preserved; saturation and value searched for
+     the first pair that clears the floor. */
+  --placeholder:   #909994;
 
   /* Accent and states */
   --accent:        #3ddc84;
   --on-accent:     #06130c;
   --amber:         #eda100;
-  --purple:        #a479e2;
-  --red:           #e34948;
-
-  /* Gradients */
-  --hero: linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%);
+  --purple:        #ab87e0;
+  --red:           #e37776;
 
   /* Radii — charter values, named */
   --r-hero:  22px;

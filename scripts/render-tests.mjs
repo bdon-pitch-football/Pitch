@@ -129,6 +129,31 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// D-62 / D-105 — where the words on a number come from.
+//
+// The tag was the literal "Self-reported", printed whatever the row said.
+// Every stat the product can write today IS self-reported (lib/cv-build is the
+// only writer), so what these pages SERVE is unchanged — which is the point:
+// the change is honest about where the word comes from, not about what it
+// says. The coach-verified and mixed renders cannot be reached from any suite,
+// because nothing in the product writes a coach_verified stat and this suite
+// cannot open the database (PGlite serves one connection and next-server holds
+// it); they are pinned as rules in the permission suite and were rendered by
+// hand on 28 Sep — see the handoff.
+// ---------------------------------------------------------------------------
+{
+  const { html } = await get('/p/dev-nate');
+  check('pv-r1: a keeper\u2019s CV serves clean sheets with its source beside it',
+    [has(html, 'Clean sheets'), has(html, 'Self-reported')], [true, true]);
+  const nate = ids.children.nate;
+  const form = (await get(`/build/${nate.record_id}`, nate.child_id)).html;
+  const chosen = (label) => new RegExp(`<button[^>]*aria-pressed="true"[^>]*>${label}</button>`).test(form);
+  check('pv-r2: and his build form opens with the keeper\u2019s set chosen, never goals and assists (D-105)',
+    [chosen('Appearances'), chosen('Clean sheets'), chosen('Goals'), chosen('Assists')],
+    [true, true, false, false]);
+}
+
+// ---------------------------------------------------------------------------
 // A19 / D-161 - no school on an under-18's public page, whoever is reading.
 //
 // Deniz and Georgia each carry a school entry written the only way one can now
@@ -739,8 +764,18 @@ const georgia = ids.children.georgia;
       if (!rail || !bar) continue;
       const extra = hrefs(rail).filter((h) => !home.has(h));
       check(`s24: ${seat} ${P} frame offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
-      check(`s25: ${seat} ${P} bar and rail are the same doors`, hrefs(bar), hrefs(rail));
-      check(`s25b: ${seat} ${P} bar holds at most four doors`, hrefs(bar).length <= 4, true);
+      check(`s25: ${seat} ${P} bar and rail are the same doors`,
+        hrefs(bar).filter((h) => h !== '/signout'), hrefs(rail).filter((h) => h !== '/signout'));
+      // Sign out is not a DOOR — it is the way out, and it is deliberately in
+      // every seat's sheet and rail from 28 Sep (BUZ), because until then it
+      // was linked from one screen and no seat with anything to protect could
+      // reach it. The "four fit" rule is about navigation destinations, so it
+      // is counted separately: the bar must still offer at most four places to
+      // GO, and must always offer the way out.
+      const barDoors = hrefs(bar).filter((h) => h !== '/signout');
+      check(`s25b: ${seat} ${P} bar holds at most four doors`, barDoors.length <= 4, true);
+      check(`s25c: ${seat} ${P} bar and rail both offer the way out`,
+        [hrefs(bar).includes('/signout'), hrefs(rail).includes('/signout')], [true, true]);
       // Three or more children collapse to one Children tab, which a
       // child's own page marks instead of a per-child tab.
       if (current.startsWith('/g/controls/') && !rail.includes(`href="${current}"`)) current = '/home#children';
@@ -765,18 +800,24 @@ const georgia = ids.children.georgia;
     .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets')))];
   check(`r42: a new account is offered somewhere to go (${links.join(' ') || 'nowhere'})`,
     links.length >= 3, true);
-  // Every door except Sign out, which is now a state change rather than a
-  // read: following it revokes the session (0062), and this account is the
-  // ONLY one in the product whose home screen offers it — so opening it here
-  // signed this seat out and w16 went red four hundred lines later, which is
-  // the dangerous direction (L34: the answer was "the product is broken").
-  // That door is pressed, and its answer checked, in the write suite
+  // Every door except Sign out, which is a state change rather than a read:
+  // following it revokes the session (0062), so opening it here would sign
+  // this seat out and send a check four hundred lines later red, which is the
+  // dangerous direction (L34: the answer would have been "the product is
+  // broken"). It is pressed, and its answer checked, in the write suite
   // (sess-w1..w3), which is where pressing buttons belongs.
+  //
+  // This check USED TO SAY "and it is only on this screen" — and that was
+  // true, and was the defect. Sign out was linked from one branch of one page,
+  // the one that renders for a parent with no children, so every seat with
+  // something to protect had no way out at all. BUZ put it in every shell on
+  // 28 Sep. A check that asserts the shape of a bug will defend the bug, so it
+  // now asserts the decision: the way out is reachable from here too.
   const doors = links.filter((h) => h !== '/signout');
   check('r43: and every door it offers is one that exists',
     (await Promise.all(doors.map(async (h) => (await get(h, ids.people.robin)).status)))
       .every((st) => st === 200 || st === 307), true);
-  check('r43b: Sign out is one of them, and it is only on this screen',
+  check('r43b: Sign out is reachable from here, as it now is from every seat',
     links.includes('/signout'), true);
 }
 
@@ -1150,6 +1191,54 @@ const georgia = ids.children.georgia;
   check('g32-r5: nothing calls itself "Pitch Football Pty Ltd"', /Pitch Football Pty Ltd/i.test((await get('/signin')).html), false);
 }
 
+// ---------------------------------------------------------------------------
+// What the legal surfaces SERVE (0056). The source markdown keeps its drafting
+// preamble; no page may put it in front of a person. The worst of it was never
+// /privacy: doc 32 B3 puts doc 21 INSIDE the guardian approval flow, so the one
+// screen the whole consent funnel passes through opened by telling a parent
+// that the policy they were being asked to accept was NOT YET PUBLISHED.
+//
+// The permission suite checks the same property against lib/legal-doc. This
+// checks the page, because L16 was written about a renderer that was fine in
+// theory and served the notes in practice.
+// ---------------------------------------------------------------------------
+{
+  const MARKERS = ['NOT YET PUBLISHED', 'do-not-publish', 'not to be published', '⚠️',
+    'Nothing here binds', 'working draft', 'the loss was my doing'];
+  // The embedded document only — a marker anywhere else on the approval page
+  // would be a different bug, and this check should not be the one to find it.
+  const approval = (await get('/a/dev-mila-text')).html;
+  const embedded = /<div class="legal-doc"[^>]*>([\s\S]*?)<\/div><style>/.exec(approval)?.[1] ?? '';
+  check('leg-r1: the approval flow embeds the child policy, and it is not empty',
+    embedded.length > 2000, true);
+  check(`leg-r2: nothing in it says the policy is not published (${MARKERS.filter((m) => embedded.includes(m)).join(' · ') || 'none does'})`,
+    MARKERS.filter((m) => embedded.includes(m)), []);
+  // The version a page must show is the register's, read the way the page
+  // reads it — not typed here, so a bump in the register cannot leave this
+  // suite asserting the old number.
+  const { legalDocument } = await import('../lib/legal-doc.ts');
+  const line = (file) => { const d = legalDocument(file); return `Version ${d.version.replace(/^v/, '')} · ${d.date}`; };
+  check(`leg-r3: and a parent can still see which version they are accepting (${line('21-Privacy-Policy-Child.md')})`,
+    embedded.includes(line('21-Privacy-Policy-Child.md')), true);
+  // John, 28 Sep: these versions are the published ones, so nothing a parent
+  // is shown says otherwise — in the flow or on the page, in any case.
+  check(`leg-r7: nothing in the approval flow's policy says "not yet published" (${/not yet published/i.test(embedded) ? 'it does' : 'nothing does'})`,
+    /not yet published/i.test(embedded), false);
+
+  for (const [path, file] of [['/privacy', '20-Privacy-Policy-Adult.md'], ['/privacy/family', '21-Privacy-Policy-Child.md'], ['/terms', '22-Terms-of-Service.md']]) {
+    const { status, html } = await get(path);
+    const doc = /<div\s+class="legal-doc"[^>]*>([\s\S]*?)<\/div><style>/.exec(html)?.[1] ?? '';
+    check(`leg-r4: ${path} serves the document and no drafting marker (${MARKERS.filter((m) => doc.includes(m)).join(' · ') || 'none'})`,
+      [status, doc.length > 2000, MARKERS.filter((m) => doc.includes(m))], [200, true, []]);
+    check(`leg-r5: ${path} carries its version and date (${line(file)})`, has(html, line(file)), true);
+    check(`leg-r8: ${path} never calls itself unpublished`, /not yet published/i.test(doc), false);
+    // The title is still the first thing on the page: the preamble went, and
+    // nothing of the document went with it.
+    check(`leg-r6: ${path} opens with the document, not a rule under its title`,
+      /<h1[^>]*>[^<]+<\/h1>\s*<p><em>Version/.test(doc), true);
+  }
+}
+
 // "Preview my page" (BUZ, 19 Sep): the family sees the page exactly as a club
 // does — and only the family. An under-16 previews the APPROVED version, never
 // the pending edit no club can see (D-119).
@@ -1439,6 +1528,172 @@ const georgia = ids.children.georgia;
   const bill = (await get('/club/billing', ids.people.marina)).html;
   const zeros = [...bill.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim()).filter((n) => n === '0');
   check('z2: and /club/billing renders no count at all, let alone a zero', zeros.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// THE FAILURE PATH (28 Sep). Until today there was no app/not-found.tsx and no
+// app/error.tsx, so 52 notFound() call sites across 33 route files and every
+// uncaught render error served Next's stock page — white, system font, no
+// Pitch mark, no way back, and the tab still reading "every season on the
+// record." These checks are written against the property, not the words: every
+// string on those pages is a proposal awaiting BUZ, so nothing below asserts a
+// sentence it does not have to.
+//
+// HOW A ROUTE'S 404 ARRIVES, because it changes what a fetch can see. An
+// unmatched URL is server-rendered: the markup is in the HTML. A notFound()
+// thrown INSIDE a route is thrown after the shell has flushed, so React
+// delivers the page as an RSC payload inside <script> and paints it on the
+// client — the HTML body is empty and the words are in the payload. Measured
+// on both the dev server and a production build (`next build && next start`);
+// it is the same either way. So `prose()` below reads the whole document.
+// What a person actually SEES for these is measured in real Chrome by
+// scripts/layout-check.mjs, which is also where "not the stock white" is
+// asserted, because a colour needs a browser to be a fact.
+// ---------------------------------------------------------------------------
+{
+  /**
+   * Every sentence the page BODY carries, wherever it carries it. The head is
+   * dropped: route segments set their own metadata and it survives into their
+   * 404 (/club/register/cv sets robots noindex,nofollow; /c/[slug] has its own
+   * opengraph-image), so two families differ in the head while showing the
+   * same page. That is not an existence oracle — it tells you the route you
+   * typed, not whether anything was there — but it is reported as a finding.
+   */
+  const prose = (html) => {
+    // Dev-only <template> error metadata holds a stack trace that names the
+    // component which threw — different per route, and absent in production.
+    const body = html.replace(/<head[\s\S]*?<\/head>/, ' ').replace(/<template[\s\S]*?<\/template>/g, ' ');
+    const hits = new Set();
+    for (const m of body.matchAll(/[A-Za-z][A-Za-z0-9 ,.'’—–:;()&!?-]{14,}/g)) {
+      const t = m[0].replace(/\s+/g, ' ').trim();
+      if (/node:|_next|self\.__next|function |\.js|http|localhost|[0-9a-f]{12}/.test(t)) continue;
+      if (!/ [a-z]/.test(t)) continue;   // a sentence has a space in it; a nonce, a uuid and a slug do not
+      hits.add(t);
+    }
+    return [...hits].sort();
+  };
+  const HEADING = 'This page isn’t here';
+  const HOME = 'Go to the start';
+  // The four sentences the 404 is made of. Both sides of every pair below must
+  // carry all four, so "identical" cannot be satisfied by two empty pages.
+  const HEADING_SET = [HEADING, HOME,
+    'The address may be wrong, or what was here may have been taken down.',
+    'We don’t say whether something was here and has gone, or was never here at all. The answer is the same either way, so a wrong address can’t be used to find out who is on Pitch.'];
+
+  // ---- a mistyped URL -------------------------------------------------------
+  const typo = await get('/no-such-page');
+  check('fp1: a mistyped URL answers 404 on a page of ours, not Next’s stock one',
+    [typo.status, /next-error-h1|This page could not be found/.test(typo.html)], [404, false]);
+  // The way back is /home, not /: before launch / is the waitlist page and has
+  // no door into the product, so a signed-in person sent there was stranded
+  // with no sign-out. /home carries the console shell, and sign-out with it.
+  check('fp2: it carries a heading, the Pitch mark and a way back to the seat\u2019s home',
+    [/<h1[^>]*>[^<]/.test(typo.html), typo.html.includes('data-failure="not-found"'), has(typo.html, HEADING), /TCH/.test(typo.html), /<a href="\/home" class="btn btn-primary">/.test(typo.html) && has(typo.html, HOME)],
+    [true, true, true, true, true]);
+  check('fp3: and a title of its own — not the landing page’s line',
+    /<title[^>]*>([^<]*)<\/title>/.exec(typo.html)?.[1], 'Page not found · Pitch Football');
+  check('fp4: the dark page is the only page — nothing forces a white body',
+    /<style[^>]*>[^<]*background:\s*#fff/.test(typo.html), false);
+
+  // ---- a notFound() from inside a route ------------------------------------
+  for (const [what, path] of [['a dead club slug', '/fc/no-such-club'], ['a dead coach slug', '/c/no-such-coach'],
+    ['an expired job link', '/jobs/00000000-0000-0000-0000-000000000000']]) {
+    const r = await get(path);
+    check(`fp5: ${what} answers 404 with our page, not Next’s`,
+      [r.status, prose(r.html).includes(HEADING), /next-error-h1|This page could not be found/.test(r.html)],
+      [404, true, false]);
+  }
+
+  // ---- the oracle, which is the one thing here that could make us less safe -
+  // A 404 must not answer differently depending on WHAT was missing. Next
+  // hands not-found.tsx no props, so the page cannot know — and these prove
+  // the property rather than the argument. The paused-registrant half of it
+  // needs somebody to press pause, so it lives in the write suite (p19g).
+  {
+    // The register's CV page sends a stranger to /signin before it looks
+    // anything up, so the pair that matters there is read as the club's own
+    // technical director — the seat that would be doing the probing.
+    const pairs = [
+      ['two dead club slugs', '/fc/no-such-club', '/fc/another-dead-club', null],
+      ['two dead job links', '/jobs/00000000-0000-0000-0000-000000000000', '/jobs/11111111-1111-1111-1111-111111111111', null],
+      ['a dead club slug and a dead job link', '/fc/no-such-club', '/jobs/00000000-0000-0000-0000-000000000000', null],
+      ['a dead club slug and a registration nobody may read', '/fc/no-such-club', '/club/register/cv/00000000-0000-0000-0000-000000000000', ids.people.marina],
+    ];
+    for (const [what, a, b, who] of pairs) {
+      const ra = await get(a, who); const rb = await get(b, who);
+      const title = (h) => /<title[^>]*>([^<]*)<\/title>/.exec(h)?.[1];
+      const pa = prose(ra.html); const pb = prose(rb.html);
+      // A route's own robots directive rides along in its flight payload, so
+      // /club/register/cv's "noindex, nofollow" shows up beside Next's
+      // automatic "noindex" on a 404. It says which route you typed, which you
+      // already know, and nothing about whether anything was there — so it is
+      // allowed through by name rather than by widening the comparison.
+      const METADATA = /^(no)?index[, ]/;
+      const diff = [...pa.filter((x) => !pb.includes(x)), ...pb.filter((x) => !pa.includes(x))].filter((x) => !METADATA.test(x));
+      check(`fp6: ${what} answer identically — same status, same title, same words${diff.length ? ` (differs: ${diff.join(' / ')})` : ''}`,
+        [ra.status === rb.status, title(ra.html) === title(rb.html), diff.length,
+          HEADING_SET.every((x) => pa.includes(x) && pb.includes(x))], [true, true, 0, true]);
+    }
+  }
+  // Timing, on the same terms as doc 14 E10: a test, not a hope. Reported as
+  // numbers either way, because the interesting failure is a slow one.
+  {
+    const ms = async (path) => { const t = process.hrtime.bigint(); await get(path); return Number(process.hrtime.bigint() - t) / 1e6; };
+    const median = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+    const runs = 9;
+    const a = []; const b = [];
+    for (let i = 0; i < runs; i++) { a.push(await ms('/fc/no-such-club')); b.push(await ms('/fc/another-dead-club')); }
+    const [ma, mb] = [median(a), median(b)];
+    check(`fp7: and indistinguishably fast — ${ma.toFixed(0)}ms vs ${mb.toFixed(0)}ms over ${runs} runs`,
+      Math.abs(ma - mb) < Math.max(40, 0.5 * Math.min(ma, mb)), true);
+  }
+
+  // ---- the 500 --------------------------------------------------------------
+  // /dev/boom throws on purpose and is notFound() in production, exactly as
+  // /design and /dev/outbox are. app/error.tsx is a Client Component (Next
+  // requires it), so its markup is in a JS chunk rather than the document —
+  // what a fetch can prove is the status and that the stock page is gone.
+  {
+    const boom = await get('/dev/boom');
+    check('fp8: a route that throws answers 500, and not with Next’s stock page',
+      [boom.status, /next-error-h1|A server error occurred|This page couldn’t load|Application error: a client-side exception/.test(boom.html)], [500, false]);
+  }
+
+  // ---- a refused sign-in ----------------------------------------------------
+  // D-94 §2 wants the response identical whether or not the account exists, not
+  // silent. signIn() used to redirect('/home') on every path, so a wrong
+  // password landed on "Welcome back / One account, whichever seat you hold."
+  // The refusal is DRIVEN for real in the write suite (sr1–sr4); here it is
+  // the page that is checked.
+  {
+    const REFUSED = 'That didn’t work. Check the email address and the password and try again.';
+    const refused = await get('/signin?refused=1');
+    check('fp9: a refused sign-in has one line, the same line for every cause',
+      [refused.status, has(refused.html, REFUSED), /role="alert"/.test(refused.html)], [200, true, true]);
+    check('fp10: and it is on the sign-in page, not on "Welcome back"',
+      has((await get('/home')).html, REFUSED), false);
+  }
+
+  // ---- the screen after reporting a concern about a child -------------------
+  {
+    const done = await get('/report?done=1');
+    const t = text(done.html);
+    const iUrgent = t.findIndex((l) => l.includes('contact your local police first'));
+    const iThanks = t.findIndex((l) => l.includes('a person will look at it'));
+    check('fp11: /report?done=1 has a real heading, so a screen reader announces one',
+      /<h1[^>]*>We’ve received your report<\/h1>/.test(done.html), true);
+    check('fp12: the emergency line is ABOVE the thanks, and not in the faintest style',
+      [iUrgent !== -1, iThanks !== -1, iUrgent < iThanks], [true, true, true]);
+    check('fp13: and the tab no longer says "Report this page"',
+      /<title[^>]*>([^<]*)<\/title>/.exec(done.html)?.[1], 'Report received · Pitch Football');
+  }
+
+  // ---- the page this one was modelled on -----------------------------------
+  {
+    const dead = await get('/p/dev-expired');
+    check('fp14: the D-77 dead-link page carries the Pitch mark and a primary action',
+      [/TCH/.test(dead.html), /class="btn btn-primary"[^>]*>Ask the family/.test(dead.html)], [true, true]);
+  }
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);

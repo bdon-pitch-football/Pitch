@@ -5,6 +5,12 @@
 //
 // This file grows until every row of doc 14 is here. Green or we do not go.
 import { PGlite } from '@electric-sql/pglite';
+// The stat catalogue and the provenance vocabulary live in TypeScript, not in
+// Postgres (D-70), so the rules inside them are asked of the module itself
+// rather than copied into this file — a copy is a second answer to the same
+// question and a second place to be wrong (L23).
+import { PROVENANCE, PROVENANCE_LABELS, STAT_SETS, positionGroup, sharedProvenance } from '../lib/football.ts';
+import { PLAYER_FIXTURES } from '../lib/fixtures.ts';
 import { createHash, createHmac } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -2595,6 +2601,125 @@ check('Q6: the guardian approves, and only then does a path exist',
   (await db.query('select storage_path from share_card_approval where id = $1', [cardId])).rows[0].storage_path, 'cards/deniz.png');
 
 // ---------------------------------------------------------------------------
+// D-62 — "the UI always displays the tag... never render a number without its
+// source" — and the tag it displays is the one the ROW carries.
+//
+// Deliberately NOT labelled with a doc 14 row id (L4): doc 14 §D7/D8 test who
+// may WRITE a provenance and that it is derived from the actor, and §Q tests
+// who may approve a share card. Nothing in doc 14 says what a rendered number
+// is captioned, so these rows are D-62's and D-105's, not doc 14's.
+//
+// Every one of these was false on 28 Sep: six surfaces printed the word
+// "Self-reported" as a literal whatever the rows said, and the guardian-
+// approved card — the one artefact that cannot be recalled (D-101) and that
+// every platform caches for good (D-89) — printed three numbers in its
+// largest type with no source at all.
+// ---------------------------------------------------------------------------
+const statSurfaces = {
+  'the public CV': 'components/cv/PlayerCV.tsx',
+  'the print sheet': 'app/p/[token]/print/page.tsx',
+  'the public OG card': 'app/p/[token]/opengraph-image.tsx',
+  'the guardian-approved share card': 'app/g/card/[cardId]/image/route.tsx',
+};
+for (const [what, rel] of Object.entries(statSurfaces)) {
+  const src = codeOnly(srcOf(rel));
+  check(`D-62: ${what} labels a number from the row, never from a typed word`,
+    [/PROVENANCE_LABELS|provenanceLabel/.test(src), /['"`]Self-reported/.test(src)], [true, false]);
+  check(`D-62: ${what} captions a mixed block per number, never with one averaged label`,
+    /sharedProvenance/.test(src), true);
+}
+const cardSrc = codeOnly(srcOf('app/g/card/[cardId]/image/route.tsx'));
+check('D-62: the share card reads provenance out of the database beside the value',
+  /'provenance', provenance/.test(cardSrc), true);
+// D-89, restated as a guard on the change above: a tag is a fact about the
+// number. Nothing about the CHILD may ride in beside it.
+check('D-89: and the card still carries no club, age group, region or school',
+  /club|age_group|ageGroup|region|suburb|school/i.test(cardSrc), false);
+
+// The vocabulary itself: the column's domain and the words we display must be
+// the same three, so a fourth value cannot arrive without a word for it.
+const provDef = (await db.query(
+  `select pg_get_constraintdef(oid) as d from pg_constraint
+   where conrelid = 'player_stat'::regclass and pg_get_constraintdef(oid) like '%provenance%'`)).rows[0].d;
+check('D-62: every provenance player_stat permits has a word to display it',
+  PROVENANCE.every((v) => provDef.includes(`'${v}'`))
+    && (provDef.match(/'/g) ?? []).length === PROVENANCE.length * 2, true);
+check('D-62: and they are the three tags the register names',
+  PROVENANCE.map((v) => PROVENANCE_LABELS[v]), ['Self-reported', 'Coach-verified', 'Official import']);
+
+// The mixed-block rule, which is the one product question in this change:
+// a caption is a statement about every number under it.
+check('D-62: a block whose numbers share a source is captioned once',
+  sharedProvenance([{ provenance: 'self_reported' }, { provenance: 'self_reported' }]), 'self_reported');
+check('D-62: a coach-verified number is captioned coach-verified, not self-reported',
+  sharedProvenance([{ provenance: 'coach_verified' }]), 'coach_verified');
+check('D-62: a mixed block gets no block caption at all, so each number carries its own',
+  sharedProvenance([{ provenance: 'self_reported' }, { provenance: 'coach_verified' }]), null);
+check('D-62: an empty block is captioned by nothing', sharedProvenance([]), null);
+check('D-62: a value outside the domain reads as the weakest claim, never a stronger one',
+  sharedProvenance([{ provenance: 'endorsed_by_dad' }, { provenance: 'self_reported' }]), 'self_reported');
+
+// D-105 — STAT_SETS is the DEFAULT PRE-SELECTION. It was exported and imported
+// by nothing, and the build form typed the outfield three in instead, so a
+// goalkeeper opened their own page with Goals and Assists lit and Clean sheets
+// dimmed. It is a default, not a renderer: the player still chooses (D-105) and
+// the never-zero rule still decides what appears (D-70).
+const buildFormSrc = codeOnly(srcOf('app/build/[recordId]/BuildForm.tsx'));
+check('D-105: the build form opens on the position set, not on a list typed into it',
+  [/STAT_SETS\[positionGroup\(/.test(buildFormSrc), /\['apps', 'goals', 'assists'\]/.test(buildFormSrc)],
+  [true, false]);
+check("D-105: a keeper's default is appearances and clean sheets",
+  [...STAT_SETS[positionGroup(['GK'])]], ['apps', 'clean_sheets']);
+check('D-105: a selection already stored is never overridden by a default',
+  /chosen \?\? defaultSurfaced/.test(buildFormSrc), true);
+// And the fixture that hid the bug. Nate's selection was hand-written in
+// lib/fixtures.ts as exactly what a correct default produces, so the keeper's
+// page demoed perfectly for weeks while the form that produces it handed every
+// real keeper the outfield set. It is derived now — and that moves the risk
+// rather than removing it, because a wrong STAT_SETS would quietly change
+// every fixture and still look consistent with itself. So the sets are pinned
+// to the words in doc 16 §2 (CLAUDE.md's schema delta), which is the thing the
+// fixture used to stand in for (L33).
+const DOC16_STAT_SETS = {
+  GK: ['apps', 'clean_sheets'],
+  DEF: ['apps', 'clean_sheets', 'goals', 'assists'],
+  MID: ['apps', 'goals', 'assists'],
+  FWD: ['apps', 'goals', 'assists'],
+  UNSET: ['apps', 'goals', 'assists'],
+};
+for (const [group, set] of Object.entries(DOC16_STAT_SETS)) {
+  check(`D-105: the ${group} default pre-selection is doc 16's set`, [...STAT_SETS[group]], set);
+}
+check('D-105: and STAT_SETS answers for every position group, with no sixth',
+  Object.keys(STAT_SETS).sort(), Object.keys(DOC16_STAT_SETS).sort());
+check('D-105: no house fixture writes a selection down instead of deriving it',
+  /surfacedStats:\s*\[/.test(codeOnly(srcOf('lib/fixtures.ts'))), false);
+for (const f of PLAYER_FIXTURES) {
+  check(`D-105: ${f.slug} opens on the default for ${f.positions.join('/')}`,
+    f.surfacedStats, [...STAT_SETS[positionGroup(f.positions)]]);
+}
+
+// D-162 (28 Sep) — the never-zero rule is a PRODUCT rule: a zero is never
+// rendered as a value, a count or a control that leads nowhere. It bars the
+// digit, not the fact of absence. On the stat surfaces it was already built
+// (every one of them filters value > 0), with one hole: the build form printed
+// a stored 0 back into its own input, which is the pre-filled zero D-70 names.
+check('D-162: the build form never prints a stored zero into a stat input',
+  /record\.stats\?\.\[k\] \?/.test(buildFormSrc), true);
+check('D-162: and a zero typed into it is absence, so nothing stores one',
+  /raw === '' \|\| n === 0 \? null/.test(codeOnly(srcOf('app/build/[recordId]/actions.ts'))), true);
+for (const [what, rel] of Object.entries({
+  ...statSurfaces,
+  'the squad roster': 'app/club/squads/[squadId]/page.tsx',
+  'the record read path': 'lib/record-read.ts',
+  'the approved snapshot': 'lib/cv-build.ts',
+})) {
+  const src = codeOnly(srcOf(rel));
+  check(`D-162: ${what} omits a zero rather than printing one`,
+    /value > 0|\.value > 0|\(v \?\? 0\) > 0|value is not null and value > 0/.test(src), true);
+}
+
+// ---------------------------------------------------------------------------
 // Table F — two guardians, most-restrictive-wins (D-51). Deniz has two.
 // ---------------------------------------------------------------------------
 check('F1: both guardians read in full', await level(ID.guardian2, ID.deniz), 'full');
@@ -2624,8 +2749,23 @@ const resetSrc = readFileSync(fileURLToPath(new URL('../app/reset/actions.ts', i
 check('D-94: passwords are never stored in the clear', /password_hash/.test(authSrc) && !/values \(\$1, *password\)/.test(authSrc), true);
 check('D-94: password comparison is constant-time', authSrc.includes('timingSafeEqual'), true);
 check('D-94: a non-existent account still does the hashing work (no timing oracle)', authSrc.includes('decoy'), true);
-check('D-94: sign-in has exactly one outcome, whatever happened',
-  (signinSrc.match(/redirect\(/g) ?? []).length, 1);
+// WAS: "exactly one outcome, whatever happened" — one redirect() in the file,
+// counted. That was a proxy for "the refusal never says why", and the proxy was
+// doing harm: it pinned redirect('/home') on every path, so a wrong password
+// landed on "Welcome back / One account, whichever seat you hold." and every
+// mistyped password read as an outage. D-94 §2 asks for the response to be
+// IDENTICAL whether or not the account exists; it does not ask for silence.
+// The rule itself, in place of the proxy (L33): two outcomes, in and refused,
+// and every cause of a refusal reaches the same one. Pressed for real in the
+// write suite, sr2–sr4.
+{
+  const code = codeOnly(signinSrc);
+  const targets = [...code.matchAll(/redirect\((['"`])([^'"`]*)\1\)/g)].map((m) => m[2]);
+  check(`D-94: sign-in has two outcomes — in, or refused — and nothing else (${targets.join(', ')})`,
+    targets, ['/home', '/signin?refused=1']);
+  check('D-94: and the refusal never says which of the four causes it was',
+    /refused=(password|nosuch|unknown|rate|locked)|refused=1[^'"`]*&|reason=/.test(code), false);
+}
 check('D-94: reset request has exactly one outcome', resetSrc.includes("redirect('/reset?sent=1')"), true);
 check('§10 amendment: an under-16 reset routes to the guardian', authSrc.includes("band === 'u16' && !p.dobless_guardian ? p.guardian_email"), true);
 // The one exception: a parent created at approval, who has no date of birth
@@ -5311,6 +5451,234 @@ const componentFilesAll = [];
 }
 
 // ---------------------------------------------------------------------------
+// The legal pages serve the published document, not our drafting notes (0056).
+//
+// WAS: app/legal/legal-page.tsx rendered the markdown in docs/legal as-is, so
+// every legal surface opened with the author's preamble — 1,294 rendered words
+// on /privacy before the policy spoke, 1,401 on /terms — and the same block sat
+// inside the guardian approval flow, where doc 32 B3 requires doc 21 be SHOWN.
+// The first thing a parent read while deciding whether to trust us with their
+// child was that the policy they were being asked to accept was NOT YET
+// PUBLISHED and that some of our work had been lost. L16 wrote this down on
+// 17 September; it stayed true for eleven days.
+//
+// The checks are over lib/legal-doc — the one answer both /privacy and the
+// approval flow render — for every document the register lists as rendered in
+// the product. Docs 24 and 25 have no route yet (see the report); they are
+// checked anyway, so the day they get one they are already clean.
+{
+  const { legalDocument, renderedLegalDocs, renderedVersions, stripDraftingPreamble, publishedDate, versionLine } =
+    await import('../lib/legal-doc.ts');
+
+  // Every phrase that says "this is not the document you think you are
+  // reading". Matched against the rendered markdown, which is what a page
+  // serves — not against the source file, which keeps all of it on purpose.
+  const MARKERS = ['NOT YET PUBLISHED', 'do-not-publish', 'not to be published', '⚠️',
+    'Nothing here binds', 'working draft', 'the loss was my doing'];
+  const legalDir = fileURLToPath(new URL('../docs/legal', import.meta.url));
+  const fileFor = (doc) => {
+    const f = readdirSync(legalDir).find((x) => x.startsWith(`${doc}-`) && x.endsWith('.md'));
+    if (!f) throw new Error(`the register lists doc ${doc} as rendered and there is no markdown for it`);
+    return f;
+  };
+
+  const live = renderedLegalDocs();
+  check(`leg1: the register's authority table is the list of live documents (${live.map((d) => `${d.doc}@${d.version}`).join(' ')})`,
+    live.length, 5);
+
+  for (const { doc, version } of live) {
+    const file = fileFor(doc);
+    const raw = readFileSync(join(legalDir, file), 'utf8');
+    const served = legalDocument(file);
+    const line = versionLine(served.version, served.date);
+
+    const hits = MARKERS.filter((m) => served.markdown.includes(m));
+    check(`leg2: doc ${doc} serves no drafting marker (${hits.join(' · ') || 'none'})`, hits, []);
+    check(`leg3: doc ${doc} resolves the register's version, and a date out of the document (${served.version} · ${served.date})`,
+      [served.version, /^\d{1,2} (January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/.test(served.date)],
+      [version, true]);
+    check(`leg4: doc ${doc} carries that version on screen, in its first lines`,
+      served.markdown.split('\n').slice(0, 6).includes(line), true);
+    // Nothing below the title has moved: what we serve from the first line of
+    // the document proper to its last is a verbatim substring of the file in
+    // docs/legal. No clause, no heading, no sentence, and no version bump.
+    const lines = served.markdown.split('\n');
+    const tail = lines.slice(lines.indexOf(line) + 1).join('\n').trim();
+    check(`leg5: doc ${doc} is served verbatim below the title — no clause, heading or sentence changed`,
+      [lines[0], raw.split('\n')[0], raw.includes(tail)], [raw.split('\n')[0], raw.split('\n')[0], true]);
+  }
+
+  // Narrow on purpose, and the narrowness is the check. A clean document comes
+  // back byte for byte; a blockquote that is content survives.
+  const clean = '# A clean document\n\n## One\n\nText.\n\n> A quotation that is content.\n\n## Two\n\nMore.\n';
+  check('leg6: a document with no preamble is returned byte for byte', stripDraftingPreamble(clean), clean);
+  check('leg7: a preamble under a subtitle goes, with the rule that closes it; the body blockquote stays',
+    stripDraftingPreamble('# Title\n\n### Subtitle\n\n> **v1.0, 1 May 2026 — NOT YET PUBLISHED.**\n>\n> More notes.\n\n---\n\n## One\n\n> Content.\n'),
+    '# Title\n\n### Subtitle\n\n## One\n\n> Content.\n');
+  check('leg8: a blockquote below a section heading is never a preamble',
+    stripDraftingPreamble('# Title\n\n## One\n\n> Content.\n'), '# Title\n\n## One\n\n> Content.\n');
+  check('leg9: and the two real ones are still served — doc 22 Schedule A, doc 25 Part 4',
+    [legalDocument(fileFor('22')).markdown.includes('> **What is on sale, and what is not.**'),
+     legalDocument(fileFor('25')).markdown.includes('> **Today the investigator is one person')],
+    [true, true]);
+
+  // Fail loudly. A legal page that silently renders no version is the same bug
+  // in different clothes, so every way of not knowing throws.
+  const threw = (f) => { try { f(); return false; } catch { return true; } };
+  check('leg10: a document that dates its current version nowhere fails loudly',
+    threw(() => publishedDate('# Title\n\nNo date in here.\n', 'v9.9', '99')), true);
+  check('leg11: a version the document dates twice, differently, is not chosen between',
+    threw(() => publishedDate('> **v1.0, 1 May 2026.**\n\n*doc 99 · v1.0 draft · 2 May 2026*\n', 'v1.0', '99')), true);
+  check('leg12: a register with no authority table fails loudly',
+    threw(() => renderedVersions('# not the register\n')), true);
+  check('leg13: a register that lists one document at two versions fails loudly (7 September)',
+    threw(() => renderedVersions('**Rendered in the product:**\n| **20** | **P** | **v2.7** | a | b |\n| **20** | **P** | **v2.8** | a | b |\n')), true);
+  check('leg14: a specification\'s version in the internal table is not a published document\'s',
+    renderedVersions('**Rendered in the product:**\n| **20** | **P** | **v2.7** | a | b |\n\n**Internal — specifications, not background:**\n| **20** | **X** | **v9.9** | z |\n').get('20'),
+    'v2.7');
+  check('leg15: a document with no title is left alone rather than guessed at',
+    stripDraftingPreamble('> **v1.0 — notes.**\n\nBody.\n'), '> **v1.0 — notes.**\n\nBody.\n');
+
+  // A consent row must resolve, years later, to the text that person read
+  // (doc 32 B2; John, 3 Sep). The first version of this check asserted that the
+  // stamp hashes the FILE in docs/legal — a proxy for that rule, written when
+  // the file and the page were the same bytes. They are not the same bytes any
+  // more, so the proxy had become the opposite of the rule it stood for: it
+  // would have held a guardian's row against 728 words she was never shown,
+  // including the line saying the policy is not published. Replaced with the
+  // rule (L33), and the first half of it is a fact, not a regex.
+  const stampSrc = readFileSync(fileURLToPath(new URL('../lib/legal-stamp.ts', import.meta.url)), 'utf8');
+  const shaOf = (s) => createHash('sha256').update(s).digest('hex');
+  const bytesDiffer = ['20', '21', '22'].filter((doc) => {
+    const file = fileFor(doc);
+    return shaOf(legalDocument(file).markdown)
+      !== shaOf(readFileSync(join(legalDir, file), 'utf8'));
+  });
+  check('leg16: what a stamped document SERVES and what docs/legal holds are different bytes — one hash cannot describe both',
+    bytesDiffer, ['20', '21', '22']);
+  // The other half can only be structural from here: lib/legal-stamp is
+  // server-only and a plain node script cannot import it.
+  check('leg17: so the stamp is taken from the served document, never from the file',
+    /legalDocument\(LEGAL_FILES\[doc\]\)\.markdown/.test(stampSrc) && !/update\(bytes\)/.test(stampSrc), true);
+  // And the renderer has one door. A page that opened docs/legal for itself
+  // could serve the preamble again without a check here noticing.
+  const readsLegal = (src) => /'docs',\s*'legal'/.test(src) || /readFileSync\([^)]*docs\/legal/.test(src);
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const readers = [...walk(join(root, 'app')), ...walk(join(root, 'lib'))]
+    .filter((f) => /\.tsx?$/.test(f) && readsLegal(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(root.length));
+  check(`leg18: exactly one file opens docs/legal (${readers.join(', ') || 'none'})`,
+    readers, ['lib/legal-doc.ts']);
+}
+
+// ---------------------------------------------------------------------------
+// John's rulings of 28 Sep (docs/legal/35, "Rulings — 2026-09-28").
+//
+// 1. Stripping the preamble is not material; the version still bumps, so every
+//    consent row names exactly the text that was shown; nobody is re-asked.
+// 2. Clauses describing capabilities that are not built come out until they
+//    are built. ([DRAFTED], [OUTLINE] and [LEGAL: doc 18 Qn] are a different
+//    class and the ruling does not touch them.)
+// 3. One version per document, everywhere — register table, register prose,
+//    the document's own header and footer — and the "not yet published"
+//    colophons go, because these versions are the published ones.
+// ---------------------------------------------------------------------------
+{
+  const { legalDocument, renderedLegalDocs } = await import('../lib/legal-doc.ts');
+  const legalDir = fileURLToPath(new URL('../docs/legal', import.meta.url));
+  const fileFor = (doc) => readdirSync(legalDir).find((x) => x.startsWith(`${doc}-`) && x.endsWith('.md'));
+  const live = renderedLegalDocs();
+
+  // Ruling 3: no served page calls itself unpublished, in any case.
+  for (const { doc } of live) {
+    const served = legalDocument(fileFor(doc)).markdown;
+    const hit = /not yet published/i.exec(served);
+    check(`jr1: doc ${doc} serves no "not yet published" (${hit ? served.slice(Math.max(0, hit.index - 40), hit.index + 20).replace(/\s+/g, ' ') : 'none'})`,
+      Boolean(hit), false);
+  }
+
+  // Ruling 3: one version per document. The register's table is the answer;
+  // everything else that names the document's version must name the same one.
+  const reg = readFileSync(join(legalDir, '00-Legal-Register.md'), 'utf8');
+  const prose = /currently\s+`20@(v[\d.]+)`,\s*`21@(v[\d.]+)`,\s*`22@(v[\d.]+)`/.exec(reg);
+  const consentSrc = readFileSync(fileURLToPath(new URL('../lib/consent.ts', import.meta.url)), 'utf8');
+  const policyVersion = /POLICY_VERSION\s*=\s*'([^']+)'/.exec(consentSrc)?.[1];
+  const num = (v) => v.replace(/^v/, '').split('.').map(Number);
+  const newer = (a, b) => { const [x, y] = [num(a), num(b)]; return x[0] - y[0] || x[1] - y[1]; };
+  for (const { doc, version } of live) {
+    const raw = readFileSync(join(legalDir, fileFor(doc)), 'utf8');
+    // What the document says about itself: its change-log heads ("v2.7, 15
+    // September…"), its status lines ("Doc 21 · v2.5 …"), its colophon, and —
+    // doc 20 only — the "Version:" line in its body.
+    const heads = [...raw.matchAll(/^>\s*\*\*(?:⚠️\s*)?(v\d+\.\d+),/gm)].map((m) => m[1]);
+    const status = [...raw.matchAll(new RegExp(`[Dd]oc ${doc} · (v\\d+\\.\\d+)`, 'g'))].map((m) => m[1]);
+    const header = [...heads, ...status].sort(newer).at(-1);
+    const colophon = new RegExp(`^\\*Pitch Football ·.*· doc ${doc} · (v\\d+\\.\\d+)`, 'm').exec(raw)?.[1];
+    const body = /\*\*Version:\*\* (\d+\.\d+)/.exec(raw)?.[1];
+    const claims = { header, colophon, ...(body ? { body: `v${body}` } : {}) };
+    if (['20', '21', '22'].includes(doc)) claims.prose = prose?.[{ 20: 1, 21: 2, 22: 3 }[doc]];
+    if (doc === '20') claims.consent = policyVersion?.replace(/^20@/, '');
+    const wrong = Object.entries(claims).filter(([, v]) => v !== version).map(([k, v]) => `${k} says ${v}`);
+    check(`jr2: doc ${doc} names one version everywhere — the register's ${version} (${wrong.join(', ') || 'it does'})`,
+      wrong, []);
+  }
+
+  // Ruling 1: every consent row names the text that was shown — so for doc 20,
+  // the waitlist and the consent path must stamp the SAME hash. Reproduce what
+  // each path actually writes. Today the waitlist writes a typed constant.
+  const shaOf = (s) => createHash('sha256').update(s).digest('hex');
+  const served20 = shaOf(legalDocument(fileFor('20')).markdown);
+  const waitSrc = readFileSync(fileURLToPath(new URL('../app/api/waitlist/route.ts', import.meta.url)), 'utf8');
+  const waitlistHash = /legalStamp\('20'\)/.test(waitSrc) ? served20
+    : /POLICY_STAMP/.test(waitSrc) ? /POLICY_SHA256\s*=\s*'([0-9a-f]{64})'/.exec(consentSrc)?.[1] : 'neither';
+  const stampSrc = readFileSync(fileURLToPath(new URL('../lib/legal-stamp.ts', import.meta.url)), 'utf8');
+  const consentPathHash = /legalDocument\(LEGAL_FILES\[doc\]\)\.markdown/.test(stampSrc) ? served20 : 'not the served text';
+  check(`jr3: the waitlist and the consent path stamp doc 20 with one hash (waitlist ${String(waitlistHash).slice(0, 12)} · consent ${String(consentPathHash).slice(0, 12)})`,
+    waitlistHash, consentPathHash);
+  // And no second answer is left lying around to drift: no hash typed into
+  // lib/ or app/ at all.
+  const typed = [...walk(fileURLToPath(new URL('../lib', import.meta.url))), ...walk(fileURLToPath(new URL('../app', import.meta.url)))]
+    .filter((f) => /\.tsx?$/.test(f) && /['"`][0-9a-f]{64}['"`]/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(f.lastIndexOf('/lib/') + 1 || f.lastIndexOf('/app/') + 1));
+  check(`jr4: no document hash is typed into the code (${typed.join(', ') || 'none is'})`, typed, []);
+
+  // Ruling 2, and the one part of it this commit could NOT carry out.
+  //
+  // John ruled that clauses describing capabilities that are not built come
+  // out. The one clause marked that way, doc 22 §6.5 (suppression), describes
+  // exactly the capability doc 32 calls A1 — and migration 0049 built A1 and
+  // A2 on 17 Sep; g32-p1–p4 pin them. John's own gate, doc 32 B6, says "If A1
+  // and A2 are green, 6.5 may publish. If they are not, it must not", and A1's
+  // box asks that a person has done it once. Whether 6.5 is "not built" is
+  // therefore a question with two of John's answers on it, and the builder was
+  // told: if a clause is ambiguous about its class, leave it served and list
+  // it. So these four lines are still served, pinned by their exact opening,
+  // AWAITING JOHN. The set exists so that nothing joins it quietly and so that
+  // it is emptied, not widened, when he answers.
+  const AWAITING_JOHN = new Set([
+    '22: **[DO NOT PUBLISH UNTIL BUILT] 6.5 Suppression.** A guardian, or a club ',
+    '22: *Status: not built. Today a guardian can pause a profile and disable its',
+    '22: | 4 | **Suppression clause promises a capability that does not exist yet',
+    '22: | 5 | **Guardian-contact gate at 2.3 is not current behaviour — do not p',
+  ]);
+  // The drafting sense only. "Do not publish other people's children" is a
+  // conduct rule (doc 22 Part 9, doc 24 §3), and it is content.
+  const UNBUILT = /\[DO NOT PUBLISH[^\]]*\]|— do not publish\b|must not publish before it is built|^\*Status: not built\./i;
+  const served = [];
+  for (const { doc } of live) {
+    for (const line of legalDocument(fileFor(doc)).markdown.split('\n')) {
+      if (UNBUILT.test(line)) served.push(`${doc}: ${line.slice(0, 72)}`);
+    }
+  }
+  const unexpected = served.filter((l) => !AWAITING_JOHN.has(l));
+  const answered = [...AWAITING_JOHN].filter((l) => !served.includes(l));
+  check(`jr5: nothing "not built" is served beyond the four lines awaiting John (${unexpected.join(' · ') || 'nothing is'})`,
+    unexpected, []);
+  check(`jr6: and when he answers, the set is emptied rather than left stale (${answered.join(' · ') || 'all four still served'})`,
+    answered, []);
+}
+
+// ---------------------------------------------------------------------------
 // QA, 28 Sep — two faults found by pressing things rather than by reading.
 // ---------------------------------------------------------------------------
 
@@ -5639,6 +6007,68 @@ const componentFilesAll = [];
     /insert into/i.test(codeOnly(arrivalSrc)), false);
   check('ret15: nothing about this block sends anything',
     /message_outbox|sendMessage|resend|sms/i.test(retSrc), false);
+}
+
+// ---------------------------------------------------------------------------
+// THE FAILURE PATH, AS SOURCE SHAPE (28 Sep).
+//
+// The rendered proofs are in the render suite (fp1–fp14) and the write suite
+// (p19g, p19h, sr1–sr4). These four are the rules that keep those true a month
+// from now, and they are the same argument E10 makes about the dead-link page:
+// a page that is never handed a reason cannot leak one.
+// ---------------------------------------------------------------------------
+{
+  const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  const nf = read('../app/not-found.tsx');
+  const er = read('../app/error.tsx');
+  const ge = read('../app/global-error.tsx');
+
+  // Next hands not-found.tsx no props at all. If somebody ever gives it a
+  // parameter, a searchParam or a header read, it acquires something to branch
+  // on and the 404 becomes an existence oracle — doc 14's opening rule:
+  // a denial answers "as if it does not exist", never "forbidden".
+  check('fail1: the 404 page takes nothing in, so it has nothing to branch on',
+    /export default function NotFound\(\)/.test(codeOnly(nf))
+      && !/searchParams|params|headers\(|cookies\(/.test(codeOnly(nf)), true);
+  check('fail2: and it names no cause — no "expired", "revoked", "paused", "deleted"',
+    /expired|revoked|paused|withdrawn|deleted|forbidden|not allowed/i.test(codeOnly(nf)), false);
+
+  // D-94 §1: no secret, token or personal datum in any error message or trace.
+  // The error object handed to a client boundary carries the original message
+  // in development, and a digest is an identifier for a log line, not for a
+  // person to read.
+  check('fail3: neither 500 page renders anything off the error — no message, no digest, no stack',
+    [nf, er, ge].some((src) => /error\.(message|digest|stack)|console\.(error|log)\(/.test(codeOnly(src))), false);
+
+  // One place for the words, so approving them is one edit and a changed word
+  // changes every screen that says it. A sentence typed into a page is a
+  // sentence that drifts from the one BUZ said yes to (L17).
+  const copyFile = '/components/FailureState.tsx';
+  const copy = read('..' + copyFile);
+  const sentences = [...copy.matchAll(/: '((?:[^'\\]|\\.){14,})',$/gm)]
+    .map((m) => m[1].replace(/\\u2019/g, '’').replace(/\\'/g, "'"))
+    .filter((t) => / [a-z]/.test(t));
+  check(`fail4: the failure path's copy module holds real sentences (${sentences.length})`,
+    sentences.length >= 10, true);
+  const componentFiles = [];
+  (function walkComponents(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      const full = join(d, e.name);
+      if (e.isDirectory()) walkComponents(full);
+      else if (/\.tsx?$/.test(e.name)) componentFiles.push(full);
+    }
+  })(fileURLToPath(new URL('../components', import.meta.url)));
+  const elsewhere = [];
+  for (const f of [...routeFiles, ...componentFiles]) {
+    if (f.endsWith(copyFile)) continue;
+    const src = readFileSync(f, 'utf8');
+    for (const t of sentences) if (src.includes(t)) elsewhere.push(`${f.slice(f.lastIndexOf('/app/') + 1 || f.lastIndexOf('/components/') + 1)}: "${t.slice(0, 40)}"`);
+  }
+  check(`fail5: and no screen types one of them out again (${[...new Set(elsewhere)].join(' · ') || 'none does'})`,
+    elsewhere.length, 0);
+  check('fail6: every failure screen draws its words from that module',
+    /FAILURE_COPY/.test(nf) && /FAILURE_COPY/.test(er) && /FAILURE_COPY/.test(ge), true);
 }
 
 // -------------------------------------------------------------------------

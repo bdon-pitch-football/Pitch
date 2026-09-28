@@ -3,12 +3,15 @@
 // string alone is an assertion (John, 3 Sep); the hash is what lets a consent
 // row resolve, years later, to the exact text that person read.
 //
-// Read from docs/legal at request time, so a stamp can never describe a file
-// other than the one on the page.
+// "Actually served" is the whole of it, and it is the bytes the PAGE renders —
+// not the file in docs/legal. The two are not the same: the file keeps its
+// drafting preamble and the page does not (lib/legal-doc). Hashing the file
+// would resolve a guardian's row to a document carrying 728 words she was
+// never shown, including the sentence saying the policy is not published —
+// which is the exact failure this hash exists to prevent (safety seat, 28 Sep).
 import 'server-only';
-import fs from 'node:fs';
-import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { legalDocument, registeredVersion } from '@/lib/legal-doc';
 
 export const LEGAL_FILES = {
   '20': '20-Privacy-Policy-Adult.md',
@@ -17,19 +20,11 @@ export const LEGAL_FILES = {
 } as const;
 export type LegalDoc = keyof typeof LEGAL_FILES;
 
-const dir = () => path.join(process.cwd(), 'docs', 'legal');
-
-/** The current version from the legal register's table row, e.g. "v2.5". */
-function registeredVersion(doc: LegalDoc): string {
-  const reg = fs.readFileSync(path.join(dir(), '00-Legal-Register.md'), 'utf8');
-  const row = reg.split('\n').find((l) => l.startsWith(`| **${doc}** |`));
-  const v = row && /\*\*(v\d+\.\d+)\*\*/.exec(row)?.[1];
-  if (!v) throw new Error(`legal register has no version for doc ${doc}`);
-  return v;
-}
-
+// Both halves come from lib/legal-doc: the version it reads out of the
+// register, and the document it renders. Two readings of one table, or two
+// renderings of one document, is two places to be wrong (L23).
 export function legalStamp(doc: LegalDoc): string {
-  const bytes = fs.readFileSync(path.join(dir(), LEGAL_FILES[doc]));
-  const sha = createHash('sha256').update(bytes).digest('hex');
+  const served = legalDocument(LEGAL_FILES[doc]).markdown;
+  const sha = createHash('sha256').update(served).digest('hex');
   return `${doc}@${registeredVersion(doc)}+sha256:${sha}`;
 }

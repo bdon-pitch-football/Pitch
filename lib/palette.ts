@@ -28,12 +28,12 @@ export const T = {
   ink: '#eef5f0',
   secondary: '#b9c8bf',
   muted: '#8a9d92',
-  placeholder: '#6b7d73',
+  placeholder: '#909994',
   accent: '#3ddc84',
   onAccent: '#06130c',
   amber: '#eda100',
-  purple: '#a479e2',
-  red: '#e34948',
+  purple: '#ab87e0',
+  red: '#e37776',
 } as const;
 
 // Which custom property each value mirrors, for the sync check.

@@ -3,7 +3,7 @@
 // placeholders, never pre-filled zeros (D-70): a blank stays blank.
 import { useState } from 'react';
 import { HeaderMark } from '@/components/Wordmark';
-import { POSITIONS, STAT_KEYS, STAT_LABELS, type PositionCode, type StatKey } from '@/lib/football';
+import { POSITIONS, STAT_KEYS, STAT_LABELS, STAT_SETS, positionGroup, type PositionCode, type StatKey } from '@/lib/football';
 import { saveDraft } from './actions';
 import { T } from '@/lib/palette';
 import { card, fieldLabel as label } from '@/lib/ui';
@@ -24,14 +24,37 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
   // was when the page loaded: filling a field should move the bar.
   const [num, setNum] = useState<string>(record.squad_number == null ? '' : String(record.squad_number));
   const [about, setAbout] = useState<string>(record.about ?? '');
+  // A zero is never printed as a value, here least of all: a form showing 0
+  // reads as already-saved and invites people to leave it (D-70, generalised
+  // by D-162). An absent stat and a zero both open as the muted placeholder,
+  // and saving a blank removes the row rather than writing one.
   const [stats, setStats] = useState<Record<string, string>>(
-    Object.fromEntries(STAT_KEYS.map((k) => [k, record.stats?.[k] == null ? '' : String(record.stats[k])])),
+    Object.fromEntries(STAT_KEYS.map((k) => [k, record.stats?.[k] ? String(record.stats[k]) : ''])),
   );
-  const [surfaced, setSurfaced] = useState<string[]>(record.surfaced_stats?.length ? record.surfaced_stats : ['apps', 'goals', 'assists']);
+  // D-105: the form OPENS with this position's set pre-ticked and the player
+  // changes it from there. STAT_SETS is that default and was imported by
+  // nothing — the outfield three were typed in here instead, so a goalkeeper
+  // opened their own page with Goals and Assists lit and Clean sheets dimmed.
+  // It is a default selection, never a renderer: the player still chooses, and
+  // the never-zero rule still decides what a chosen stat does on the page.
+  //
+  // The default follows the positions being PICKED, not only the ones already
+  // stored, because a record is created with no positions at all (join and the
+  // guardian flow both insert bare) — so a keeper's first visit has nothing to
+  // be position-aware about yet, and a default read once at mount would hand
+  // every new keeper the outfield set and never correct itself. A stored
+  // choice wins, and from the first tap the selection is the player's own and
+  // follows nothing.
+  const defaultSurfaced: string[] = [...STAT_SETS[positionGroup(positions)]];
+  const [chosen, setChosen] = useState<string[] | null>(record.surfaced_stats?.length ? record.surfaced_stats : null);
+  const surfaced = chosen ?? defaultSurfaced;
   const toggle = (code: string) =>
     setPositions((p) => (p.includes(code) ? p.filter((c) => c !== code) : p.length < 3 ? [...p, code] : p));
   const toggleStat = (k: string) =>
-    setSurfaced((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
+    setChosen((c) => {
+      const cur = c ?? defaultSurfaced;
+      return cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k];
+    });
   const act = saveDraft;
 
   // Six things make a page worth sending, and they are the same six /home
@@ -115,7 +138,11 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
         </form>
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}><input type="hidden" name="recordId" value={record.id} />
           <input type="hidden" name="positions" value={positions.join(',')} />
-          <input type="hidden" name="surfaced" value={surfaced.join(',')} />
+          {/* Posted only once the player has chosen. Absent means "I have not
+              touched this", and the server then applies the default for the
+              positions it is saving — which is the only way a keeper who has
+              JavaScript switched off gets the keeper's set (D-105). */}
+          {chosen !== null && <input type="hidden" name="surfaced" value={chosen.join(',')} />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={card}>
               <div style={label}>Full name</div>
@@ -185,7 +212,7 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
               {STAT_KEYS.map((k: StatKey) => (
                 <div key={k} style={{ ...card, padding: '0 6px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: surfaced.includes(k) ? 1 : 0.45 }}>
                   <input style={{ ...input, textAlign: 'center', fontSize: 19, fontWeight: 900, minHeight: 44 }} name={`stat_${k}`} aria-label={STAT_LABELS[k]} type="number" min="0" value={stats[k] ?? ''} onChange={(e) => setStats((v) => ({ ...v, [k]: e.target.value }))} placeholder="—" />
-                  <button type="button" onClick={() => toggleStat(k)} style={{ minHeight: 44, width: '100%', margin: '0 0 -10px 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: surfaced.includes(k) ? T.accent : T.muted, fontFamily: 'inherit' }}>{STAT_LABELS[k]}</button>
+                  <button type="button" onClick={() => toggleStat(k)} aria-pressed={surfaced.includes(k)} style={{ minHeight: 44, width: '100%', margin: '0 0 -10px 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: surfaced.includes(k) ? T.accent : T.muted, fontFamily: 'inherit' }}>{STAT_LABELS[k]}</button>
                 </div>
               ))}
             </div>

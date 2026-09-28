@@ -2,6 +2,8 @@
 
 ### The process, the standard we publish, and the one we actually build
 
+> **v1.4, 28 September 2026 — published. No clause changes.** These drafting notes are no longer served, and the footer names this version and no longer calls it a draft or unpublished. It still names the entity, because this footer is the only place the served document does. John, doc 35 ruling 1: removing the preamble from what is served is not material; the version bumps so that a consent row names exactly the text that was shown, and nobody is re-asked. Ruling 3: these versions are the published ones.
+>
 > **v1.1, 1 September 2026 — the entity, and the domain.** This document is published by **EBSD Enterprises Pty Ltd (ACN 701 879 718 · ABN 65 701 879 718), trading as Pitch Football** (D-148). It carried neither the entity nor the right domain until now. **The check that caught it asserts presence rather than agreement** — nothing here contradicted anything; the legal person was simply absent, which is the shape every serious defect in this corpus has taken.
 >
 > **This one mattered more than the other three.** Part 1 is reachable **without an account, from any page** — it is where a stranger, or a child, or a parent who is frightened, tells us something. **A page like that must say who it is addressed to.** A complaint made to a brand is a complaint made to nobody.
@@ -229,4 +231,4 @@ Three things, and they are the reason to do it rather than assert it:
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · complaints, reports and takedown · doc 25 · v1.3 draft · 7 September 2026 · not yet published · Part 1 is public, Parts 2–5 are internal*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · complaints, reports and takedown · doc 25 · v1.4 · 28 September 2026 · Part 1 is public, Parts 2–5 are internal*
