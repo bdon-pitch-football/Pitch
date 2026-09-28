@@ -117,7 +117,11 @@ language sql stable as $$
   where sr.dispatched_at is not null
     and st.revoked_at is null
     and (st.expires_at is null or st.expires_at > now())
-    and lower(sr.destination) like '%' || lower(coalesce(c.contact_email, '~never~')) || '%'
+    -- The address a family sent to is stored as 'Club <address>'. Compare the
+    -- address itself, exactly: a substring LIKE also matched myfootball@ for
+    -- football@, and read any '_' in an address as a wildcard. Telling a parent
+    -- about a suspension at a club they never sent to cannot be taken back.
+    and lower(substring(sr.destination from '<([^<>]+)>\s*$')) = lower(c.contact_email)
     -- The ruling, in the one place every caller has to come through. Ordinary
     -- de-verification tells nobody; a class recorded against a club that is
     -- not suspended tells nobody; no class at all tells nobody.

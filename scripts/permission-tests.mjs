@@ -1383,6 +1383,12 @@ check('M11d: and never revokes on the family’s behalf — it offers the button
   };
   const toldTok = await sent(sRec, 'Suspendable FC <football@suspendable.example.au>');
   await sent(sOtherRec, 'Somewhere Else FC <football@somewhereelse.example.au>');
+  // A near miss: an address that CONTAINS the club's. Exact match or nothing.
+  const sNear = crypto.randomUUID(), sNearRec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'NearMiss',$2)`, [sNear, yearsAgo(13)]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [sNearRec, sNear]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, sNear]);
+  await sent(sNearRec, 'Near Miss FC <myfootball@suspendable.example.au>');
   const tell = async () => (await db.query(`select * from fn_guardians_to_notify_on_suspension($1)`, [sClub])).rows;
 
   // THE CHOICE, IN ONE PLACE. Which classes tell families is BUZ's call, not
@@ -1441,6 +1447,8 @@ check('M11d: and never revokes on the family’s behalf — it offers the button
     told[0]?.club_name, 'Suspendable FC');
   check('susp10: the family whose link went to a DIFFERENT club is not told — the link is not club-bound (L29)',
     told.some((r) => r.child_first_name === 'Untold'), false);
+  check('susp10b: an address that merely CONTAINS the club\'s is a different address — exact match only',
+    told.some((r) => r.child_first_name === 'NearMiss'), false);
   await db.query(`update share_token set revoked_at = now() where id = $1`, [toldTok]);
   check('susp11: a link already switched off is not warned about again', (await tell()).length, 0);
   await db.query(`update share_token set revoked_at = null where id = $1`, [toldTok]);
