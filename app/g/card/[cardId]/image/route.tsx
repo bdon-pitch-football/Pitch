@@ -62,6 +62,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
     .filter((s): s is Stat => s !== undefined && typeof s.value === 'number')
     .slice(0, 3);
   const big = Math.round(size.width / 11);
+  // Padding comes off the SHORTER side. It was width/14 everywhere, which on
+  // the 1200x630 card is 86px top and bottom out of 630: the composition only
+  // just fitted (the badge already touched the numbers) and the source line
+  // beside each number pushed the wordmark into the name. Square and story are
+  // taller than wide, so for them this is exactly the value it was.
+  const pad = Math.min(size.width, size.height) / 14;
   // D-62: never a number without its source — and on this artefact it matters
   // more than anywhere else, because the guardian approves it BECAUSE it
   // cannot be recalled (D-101) and every platform that meets it caches it for
@@ -72,7 +78,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
 
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: size.width / 14, fontFamily: 'Archivo', background: 'radial-gradient(ellipse 120% 80% at 50% -15%, #1a4a34 0%, #123326 38%, #0c1d14 72%, #0a1510 100%)' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: pad, fontFamily: 'Archivo', background: 'radial-gradient(ellipse 120% 80% at 50% -15%, #1a4a34 0%, #123326 38%, #0c1d14 72%, #0a1510 100%)' }}>
         <div style={{ display: 'flex', fontSize: big * 0.32, fontWeight: 700, letterSpacing: big * 0.09, color: T.accent }}>PITCH</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: big * 0.22 }}>
           <div style={{ display: 'flex', fontSize: big * 1.5, fontWeight: 900, color: T.ink, letterSpacing: -big * 0.06, lineHeight: 1 }}>{name}</div>
@@ -83,7 +89,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
             <div style={{ display: 'flex', fontSize: big * 0.42, fontWeight: 700, color: T.secondary }}>{positions.join('  ·  ')}</div>
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: big * 0.18 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: big * 0.22 }}>
+          {/* ABOVE the numbers, as the CV heads its block: drawn underneath, the
+              one caption sat directly below the first tile's label and read as
+              that tile's own tag — "only the appearances are verified". */}
+          {shared ? (
+            <div style={{ display: 'flex', fontSize: big * 0.24, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: big * 0.05 }}>{PROVENANCE_LABELS[shared]}</div>
+          ) : null}
           <div style={{ display: 'flex', gap: big * 0.7 }}>
             {tiles.map((t) => (
               <div key={t.key} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -95,9 +107,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
               </div>
             ))}
           </div>
-          {shared ? (
-            <div style={{ display: 'flex', fontSize: big * 0.24, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: big * 0.05 }}>{PROVENANCE_LABELS[shared]}</div>
-          ) : null}
         </div>
       </div>
     ),

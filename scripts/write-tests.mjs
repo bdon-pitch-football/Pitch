@@ -400,6 +400,21 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const preview = (await get(`/build/${nate.record_id}/preview`, nate.child_id)).html;
   check('gk-w6: and the page a club sees shows Clean sheets and no Goals (D-67, D-70)',
     [/Clean sheets/i.test(preview), /\bGoals\b/.test(preview)], [true, false]);
+
+  // D-162: a zero is never printed as a value. A keeper types 0 clean sheets;
+  // it is absence, so the form opens on the placeholder rather than on a 0
+  // that reads as already-saved, and the page omits the tile. His real number
+  // goes back afterwards so nothing below inherits a changed fixture.
+  const real = saved.fields.stat_clean_sheets;
+  check('gk-w7: typing 0 into a stat saves', await save({ ...saved.fields, stat_clean_sheets: '0' }), 303);
+  const zeroed = await state();
+  const csInput = /<input[^>]*aria-label="Clean sheets"[^>]*>/.exec(zeroed.html)?.[0] ?? '';
+  check('gk-w8: and the form opens on the placeholder, never a printed 0 (D-162)',
+    [/value="0"/.test(csInput), /value=""/.test(csInput)], [false, true]);
+  const zeroPage = (await get(`/build/${nate.record_id}/preview`, nate.child_id)).html;
+  check('gk-w9: and the page shows no clean-sheets tile at all',
+    /Clean sheets/i.test(zeroPage), false);
+  await save({ ...zeroed.fields, stat_clean_sheets: real });
 }
 
 // ---------------------------------------------------------------------------
