@@ -124,14 +124,14 @@ export default async function Invitation({ params, searchParams }: {
               <label style={{ ...card, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>A phone number, if you want to give one</div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>So they can call you about the day. Leave it empty and they get none.</div>
-                <input name="share_phone" type="tel" aria-label="A phone number, if you want to give one" placeholder="04xx xxx xxx" style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', padding: '6px 0 0 0' }} />
+                <input name="share_phone" type="tel" aria-label="A phone number, if you want to give one" placeholder="04xx xxx xxx" style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', padding: '6px 0 0 0' }} />
               </label>
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={label}>Anything you want to say</div>
             <div style={{ ...card, minHeight: 74 }}>
-              <textarea name="note" aria-label="Anything you want to say" rows={3} defaultValue={draft?.note ?? ''} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
+              <textarea name="note" aria-label="Anything you want to say" rows={3} defaultValue={draft?.note ?? ''} style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
             </div>
           </div>
           {!writerIsChild && (

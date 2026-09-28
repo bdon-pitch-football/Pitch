@@ -54,7 +54,7 @@ export default async function ClubRoles({ searchParams }: {
 
   const label = fieldLabel;
   const field: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 };
-  const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+  const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
   return (
     <ClubConsole active="roles">
@@ -101,7 +101,7 @@ export default async function ClubRoles({ searchParams }: {
             <textarea name="detail" aria-label="About the role" rows={4} maxLength={1500} placeholder="What the squad is, what you're after, and what the club offers."
               style={{ ...input, resize: 'vertical', lineHeight: 1.5, fontWeight: 500, fontSize: 14 }} />
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, fontWeight: 700, color: T.secondary, cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 9, minHeight: 44, fontSize: 13.5, fontWeight: 700, color: T.secondary, cursor: 'pointer' }}>
             <input type="checkbox" name="paid" aria-label="Paid role" style={{ width: 18, height: 18, accentColor: T.accent }} />
             This role is paid
           </label>

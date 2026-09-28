@@ -29,7 +29,7 @@ const CONCERN: Record<string, string> = {
 const KIND: Record<string, string> = {
   player_cv: 'A player’s page', coach_cv: 'A coach page', club_page: 'A club page', trial_notice: 'A trial notice', other: 'Not stated',
 };
-const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 const well: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' };
 const when = (d: string) => new Date(d).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');
 const DONE: Record<string, string> = {

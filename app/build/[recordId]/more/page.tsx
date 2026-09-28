@@ -48,7 +48,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
 
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16 };
   const label = fieldLabel;
-  const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
+  const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
   const section: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
 
   return (
@@ -134,10 +134,17 @@ export default async function More({ params }: { params: Promise<{ recordId: str
             <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={label}>Kind</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {/* .chip.pick, the product's own radio chip (globals.css, and
+                    the same idiom as /club/post-trial) rather than a hand-rolled
+                    copy of it. These were 28px tall against the charter's 44px
+                    floor at every width, AND had no checked state at all — six
+                    identical pills where one of them is already selected. The
+                    class carries both. `kinds` (D-161) decides which of them a
+                    band is offered; that is merged in untouched. */}
                 {kinds.map((k, i) => (
-                  <label key={k} style={{ cursor: 'pointer' }}>
-                    <input type="radio" name="kind" value={k} defaultChecked={i === 0} style={{ position: 'absolute', opacity: 0 }} />
-                    <span style={{ display: 'inline-block', borderRadius: 999, padding: '6px 11px', fontSize: 12, fontWeight: 800, background: T.surface2, color: T.secondary, border: `1px solid ${T.line}` }}>{EXPERIENCE_KIND_LABELS[k]}</span>
+                  <label key={k} className="chip pick">
+                    <input type="radio" name="kind" value={k} defaultChecked={i === 0} />
+                    {EXPERIENCE_KIND_LABELS[k]}
                   </label>
                 ))}
               </div>

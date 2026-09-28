@@ -4722,6 +4722,75 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [true, true, false]);
 }
 
+// ---- the focus ring, and the two ways it was taken away (28 Sep) -----------
+// Measured with real Tab keypresses in Chrome, not el.focus(): on /signin,
+// /join, /report, /reset/[token] and the D-77 request-access form, every form
+// control came back with outlineStyle NONE while every button and link on the
+// same page showed the green ring. Two causes, and the second is why fixing
+// the first was not enough: `input:focus, select:focus { outline: none }` at
+// (0,1,1) beat `:focus-visible` at (0,1,0), and twenty-four component files
+// re-asserted `outline: 'none'` inline, which beats every selector there is.
+// A keyboard user typing a password, ticking consent or filing a child-safety
+// report could not see which field they were in.
+// The rendered proof is scripts/layout-check.mjs's chrome pass at 390 and
+// 1280; these three are the static rules that keep it fixed.
+{
+  // Comments stripped first. Both rules this block is about are QUOTED in the
+  // comment above them in globals.css, so a regex over the raw file finds the
+  // explanation and calls it the defect.
+  const css = srcOf('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const ring = /:focus-visible \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  check('ring1: nothing in the stylesheet switches a form control\'s outline off',
+    [/input:focus[^{]*\{[^}]*outline:\s*none/.test(css),
+     /select:focus[^{]*\{[^}]*outline:\s*none/.test(css),
+     /\.field input[^{]*\{[^}]*outline:\s*none/.test(css)],
+    [false, false, false]);
+  check('ring2: the ring is 2px of the accent token, and an inline style cannot take it back',
+    [/outline:\s*2px solid var\(--accent\)/.test(ring), /!important/.test(ring), /outline-offset/.test(ring)],
+    [true, true, true]);
+  // The inline overrides themselves. app/club/billing/page.tsx is the one left
+  // and it is held by another seat this week (28 Sep) — its one line is in the
+  // handoff. The !important above means the ring renders there regardless;
+  // this counts the source so the tidy-up is not forgotten. Take the exemption
+  // out when that branch lands. components/coming-soon is the marketing page's
+  // decorative selection outline, not a focus state.
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const everySrc = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    e.name === 'node_modules' || e.name.startsWith('.') ? []
+      : e.isDirectory() ? everySrc(join(d, e.name))
+        : /\.(ts|tsx)$/.test(e.name) ? [join(d, e.name)] : []);
+  const inlineOff = ['app', 'components', 'lib']
+    .flatMap((d) => everySrc(join(root, d)))
+    .filter((f) => !f.includes('coming-soon') && /outline:\s*'none'/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(root.length)).sort();
+  check(`ring3: no screen re-asserts outline:'none' on a control (${inlineOff.join(', ') || 'none left'})`,
+    inlineOff, ['app/club/billing/page.tsx']);
+}
+
+// ---- the cheapest fix in the product (28 Sep) ------------------------------
+// .field-label was written as `.field > .field-label` — a CHILD selector —
+// and 19 of the 53 elements carrying the class are not children of a .field:
+// /club/billing (5), /club/post-trial (8), /register-interest (4) and
+// /club/invite (2) put the caption above a bare card or on a <legend>. The
+// rule never matched, so nineteen captions rendered as inherited body text.
+// That is why the price on the billing page was set three pixels larger than
+// its own label. The rendered proof — every .field-label on every page
+// computing to 10px — is in scripts/layout-check.mjs's chrome pass.
+{
+  const css = srcOf('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  // The selector list of the rule that styles the caption, read as text.
+  const sel = (/([^};{]*)\{[^}]*font-size: 10px; font-weight: 800; letter-spacing: var\(--ls-label\)/.exec(css)?.[1] ?? '')
+    .split(',').map((x) => x.trim()).filter(Boolean);
+  check(`lbl1: .field-label is a class, not a child of .field, so it matches where it is used (${sel.join(' | ')})`,
+    [sel.includes('.field-label'), sel.some((x) => x.includes('> .field-label'))], [true, false]);
+  // And it is not vacuous: those nineteen captions are still there to fix.
+  const outsideWell = ['app/club/post-trial/page.tsx', 'app/club/billing/page.tsx',
+    'app/register-interest/[recordId]/InterestForm.tsx', 'app/club/invite/[registrationId]/page.tsx']
+    .map((f) => (srcOf(f).match(/className="field-label"/g) ?? []).length);
+  check(`lbl2: and the captions that were dead are still on those four screens (${outsideWell.join('+')})`,
+    [outsideWell.every((n) => n > 0), outsideWell.reduce((a, b) => a + b, 0)], [true, 19]);
+}
+
 // ---- the coach and club doors (BUZ, 21 Sep) ---------------------------------
 // A coach builds their own page; a club person makes an account and then
 // claims the club's page with the code sent to the club's own address. What

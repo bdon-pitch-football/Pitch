@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Post a trial', robots: { index: false, follow: false } };
 
 const section: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
-const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
 export default async function PostATrial({ searchParams }: { searchParams: Promise<{ posted?: string; updated?: string; error?: string; edit?: string }> }) {
   const me = await getSessionPersonId();

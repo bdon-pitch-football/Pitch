@@ -59,7 +59,7 @@ export default async function Squads({ searchParams }: {
 
   const label = fieldLabel;
   const field: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 };
-  const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+  const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
   const stages = [...new Set(ages.map((a) => a.stage))];
   // D-154: only the TD brings coaches in, and only the TD sees who holds
   // register access (doc 34 rule 5). Invites that are still waiting are

@@ -40,7 +40,7 @@ export default async function Clips({ params, searchParams }: {
 
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16 };
   const label = fieldLabel;
-  const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
+  const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
 
   return (
     <PlayerFrame active="cv">
