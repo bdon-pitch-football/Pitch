@@ -44,7 +44,7 @@ function Phone({ src, alt, children, width = 280, tilt = 0, scroll = false }: {
   const inner = width - 20;
   const scale = inner / 390;
   return (
-    <div className="sp-phone" style={{ width, borderRadius: 44, padding: 10, background: 'linear-gradient(160deg,#2a332e,#111714)', boxShadow: '0 40px 80px -30px rgba(0,0,0,.8), 0 0 0 1px #2f3a34 inset', transform: `rotate(${tilt}deg)`, flexShrink: 0 }}>
+    <div className="sp-phone" style={{ width, borderRadius: 44, padding: 10, background: 'var(--hero-grey)', boxShadow: '0 40px 80px -30px rgba(0,0,0,.8), 0 0 0 1px #2f3a34 inset', transform: `rotate(${tilt}deg)`, flexShrink: 0 }}>
       <div style={{ position: 'relative', borderRadius: 34, overflow: 'hidden', height: inner * (844 / 390), background: C.bg }}>
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -64,7 +64,7 @@ function Phone({ src, alt, children, width = 280, tilt = 0, scroll = false }: {
 function Laptop({ src, alt }: { src: string; alt: string }) {
   return (
     <div style={{ width: '100%', maxWidth: 620 }}>
-      <div style={{ borderRadius: '16px 16px 0 0', padding: '10px 10px 0', background: 'linear-gradient(160deg,#2a332e,#111714)', boxShadow: '0 0 0 1px #2f3a34 inset' }}>
+      <div style={{ borderRadius: '16px 16px 0 0', padding: '10px 10px 0', background: 'var(--hero-grey)', boxShadow: '0 0 0 1px #2f3a34 inset' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={alt} width={1280} height={800} style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px 8px 0 0' }} />
       </div>
@@ -368,7 +368,7 @@ export default function SitePreview({ liveCv }: { liveCv: React.ReactNode }) {
       </section>
 
       {/* ---- 4 · families ---- */}
-      <section style={{ padding: '70px 0', background: 'linear-gradient(160deg, #1b1426 0%, #0f0d17 60%, #0b120e 100%)', borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
+      <section style={{ padding: '70px 0', background: 'var(--hero-purple)', borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
         <div style={section}>
           <div className="sp-reveal sp-grid-2" style={{ alignItems: 'start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
