@@ -882,6 +882,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
         <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
           Adding a child, claiming a club page and building a player CV are not on this screen yet — tell us which you came for and we will point you at it.
         </div>
+        {/* This screen is the one home with no shell and therefore no bar, so
+            it carries the way out itself. Every other seat gets it from the
+            console shell's rail and sheet (BUZ, 28 Sep). */}
         <Link href="/signout" className="btn btn-ghost">Sign out</Link>
       </Shell>
     );
