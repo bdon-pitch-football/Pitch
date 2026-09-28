@@ -20,8 +20,12 @@
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { watchForTokens } from './token-in-url.mjs';
 
 const BASE = process.env.RENDER_BASE ?? 'http://localhost:3000';
+// Every response from here on is watched for a share token in what it would
+// put in an address bar (scripts/token-in-url.mjs; brief D). Judged at the end.
+const tokenWatch = watchForTokens(BASE);
 const ids = JSON.parse(readFileSync(fileURLToPath(new URL('../.dev-ids.json', import.meta.url)), 'utf8'));
 
 let pass = 0;
@@ -2206,6 +2210,13 @@ const georgia = ids.children.georgia;
   check(`an-r3: the crawl reached every family with a rendered page (${FAMILY_OF.length} families, ${Object.keys(SEATS).length} seats)`,
     FAMILY_OF.filter(([, re]) => !served.some((r) => re.test(r.path) && r.status === 200)).map(([f]) => f), []);
 }
+
+// ---------------------------------------------------------------------------
+// addr-r1 — no page this crawl was served sends a share token into an address
+// bar: not in a redirect, and not in a link it carries (brief D; L38/L42).
+// ---------------------------------------------------------------------------
+check(`addr-r1: no response in the render crawl carries a share token in a Location or in a link's query string (${tokenWatch.pages} pages, ${tokenWatch.redirects} redirects watched)`,
+  [tokenWatch.leaks, tokenWatch.pages > 500, tokenWatch.redirects > 20], [[], true, true]);
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 process.exit(failures.length ? 1 : 0);

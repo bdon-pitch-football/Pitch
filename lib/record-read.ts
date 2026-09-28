@@ -96,6 +96,48 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
 }
 
 /**
+ * What a request-access notice needs from a token, and nothing more (D-77,
+ * D-80, doc 14 C6/C7; brief D, 29 Sep): the token's id, to count and log the
+ * request against it, and the child's first name and one guardian address, to
+ * write the email. The request-access handler used to ask share_token for
+ * these itself, which made it a second reader of tokens; it asks here now.
+ *
+ * It resolves a token LIVE OR DEAD, because the request exists for the dead
+ * one: that is the one case readCvByToken refuses. So it grants nothing to the
+ * caller. It selects nothing from the record, and the answer never reaches the
+ * requester: the handler redirects every path to the same page, no sooner
+ * than the send floor (lib/send-dispatch answerNoSoonerThan).
+ *
+ * ONE QUERY SHAPE for every token. The statement starts from the hash, not
+ * from share_token, and left-joins the rest, so a token that never existed
+ * makes the same one query as a real one and gets back one row of nulls. An
+ * absurd string is looked up as a hash nothing can match, rather than
+ * answered without a query as readCvByToken does, for the same reason. It is
+ * not counted against TOKEN_READ_LIMITS: nothing here is a read of a record,
+ * and the request has its own limit (fn_access_request_allowed, one a day
+ * per token).
+ */
+export type AccessNotice = { tokenId: string; firstName: string; guardianEmail: string | null };
+
+export async function resolveTokenForNotice(rawToken: string): Promise<AccessNotice | null> {
+  const hash = rawToken && rawToken.length <= 200 ? createHash('sha256').update(rawToken).digest() : randomBytes(32);
+  const { rows } = await db.query(
+    `select st.id as token_id, p.first_name,
+       (select p2.email from guardianship_link g join person p2 on p2.id = g.guardian_id
+        where g.child_id = p.id and g.approved_at is not null and g.revoked_at is null
+          and p2.email is not null limit 1) as guardian_email
+     from (select $1::bytea as token_hash) asked
+     left join share_token st on st.token_hash = asked.token_hash
+     left join development_record dr on dr.id = st.record_id
+     left join person p on p.id = dr.person_id`,
+    [hash],
+  );
+  const row = rows[0];
+  if (!row?.token_id || !row.first_name) return null;
+  return { tokenId: row.token_id, firstName: row.first_name, guardianEmail: row.guardian_email ?? null };
+}
+
+/**
  * Assemble a live record into the shape PlayerCV renders.
  *
  * 16–17 and 18+ have NO approved snapshot — lib/cv-build writes one only for

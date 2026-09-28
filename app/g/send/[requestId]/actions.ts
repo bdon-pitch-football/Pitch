@@ -35,9 +35,12 @@ export async function dispatchSend(formData: FormData) {
   // L38/L42: when the limit bites, NOTHING is transmitted and the answer is
   // the same one a real send gives. No counter, no "sends remaining", no
   // greyed button, no error — any surface that reveals limit state is the
-  // oracle the identical response exists to close. The link parameter is a
-  // development affordance and is not rendered in production, so both paths
-  // are the same page.
+  // oracle the identical response exists to close. Both paths redirect to the
+  // same address, byte for byte. A real send used to add `&link=<the raw
+  // token>` for a development-only panel, so the address bar said whether the
+  // limit bit, and a live share token sat in the browser's history (brief D,
+  // 29 Sep). The link a send made is in the club's email, which development
+  // reads at /dev/outbox.
   const withinLimit = await checkRate(`send:actor:${guardianId}`, SEND_DAILY_CAP, 24 * 60 * 60);
   if (!withinLimit) {
     // U-4 (John): the consent log records what happened, never what was
@@ -53,5 +56,5 @@ export async function dispatchSend(formData: FormData) {
   const done = isUuid(requestId) ? await dispatchShareRequest(requestId, guardianId) : null;
   await answerNoSoonerThan(startedAt);
   if (!done) redirect('/home');
-  redirect(`/g/send/${requestId}?sent=1&link=${done.raw}`);
+  redirect(`/g/send/${requestId}?sent=1`);
 }
