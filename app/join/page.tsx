@@ -60,6 +60,14 @@ export default function Join() {
   // code we email to the club's own address, and verified on a call (D-126).
   const clubOk = role === 'club' && age !== null && age >= 18;
   const canContinue = Boolean(firstName.trim() && dob && agreed && (role === 'player' || coachOk || clubOk));
+  // A door that is closed says why on the screen (the amber notes below), so
+  // Continue stays disabled for it. Anything else that is missing — the name,
+  // the date of birth, the tick — is the browser's own required-field prompt
+  // when Continue is pressed: a disabled button that says nothing was a dead
+  // end for a child or a parent (round E). Words of our own for a missing
+  // field are held for BUZ; until they are approved, the prompt is the
+  // browser's, in the browser's language, and nothing of ours renders.
+  const doorClosed = role === 'parent' || ((role === 'coach' || role === 'club') && age !== null && age < 18);
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -82,13 +90,14 @@ export default function Join() {
           </>
         ) : step === 'elsewhere' ? (
           <>
-            {/* Collects nothing: no input, no form, no request (D-63). */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <button onClick={() => setStep('country')} aria-label="Back" style={{ width: 44, height: 44, margin: -11, background: 'none', border: 'none', cursor: 'pointer' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5 L8 12 L15 19" /></svg>
-              </button>
-              <HeaderMark />
-            </div>
+            {/* Collects nothing: no input, no form, no request (D-63).
+                The way back is the product's own (HeaderMark: an arrow and the
+                word, top left), not a bare arrow: in the rehearsal a
+                mis-tap on Somewhere else read as a dead end. It is a link to
+                /join, which opens on the country question — the one thing
+                this screen was reached from — and works before any script
+                has run. Nothing typed is lost, because nothing was asked. */}
+            <HeaderMark back={{ href: '/join' }} />
             <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.2 }}>Pitch is only in Australia for now.</h1>
           </>
         ) : step === 'signup' ? (
@@ -99,8 +108,11 @@ export default function Join() {
             )}
             <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>What&rsquo;s your position?</h1>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {/* Each chip is named by its title alone ("Player") and described
+                  by its line underneath, so a screen reader says the name a
+                  sighted person reads first (round E). */}
               {ROLES.map(([key, title, sub]) => (
-                <button key={key} onClick={() => setRole(key)} style={{
+                <button key={key} type="button" onClick={() => setRole(key)} aria-labelledby={`role-${key}`} aria-describedby={`role-${key}-sub`} style={{
                   display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
                   background: T.surface, borderRadius: 16, padding: '15px 14px',
                   border: role === key ? `1.5px solid ${T.accent}` : `1px solid ${T.line}`,
@@ -114,64 +126,70 @@ export default function Join() {
                     </svg>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: T.ink }}>{title}</div>
-                    <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{sub}</div>
+                    <div id={`role-${key}`} style={{ fontSize: 15, fontWeight: 800, color: T.ink }}>{title}</div>
+                    <div id={`role-${key}-sub`} style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{sub}</div>
                   </div>
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-              <label className="field">
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>First name</div>
-                <input style={input} value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Your first name" />
+            {/* A form only so the browser checks the fields when Continue is
+                pressed; it posts nowhere. display: contents keeps the column's
+                spacing exactly as it was. */}
+            <form onSubmit={(e) => { e.preventDefault(); if (canContinue) setStep(age !== null && age < 16 ? 'parent' : 'account'); }} style={{ display: 'contents' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                <label className="field">
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>First name</div>
+                  {/* A name of spaces is no name: the pattern asks for one character that is not a space. */}
+                  <input style={input} value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Your first name" required pattern=".*\S.*" />
+                </label>
+                <label className="field">
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Date of birth</div>
+                  <input style={input} type="date" value={dob} onChange={(e) => setDob(e.target.value)} placeholder="DD / MM / YYYY" required />
+                </label>
+                <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>
+                  {role === 'coach'
+                    ? 'Your coaching page is yours. It stays private until you publish it, and it shows no club until a club confirms you.'
+                    : role === 'club'
+                      ? 'You make your own account here. Next you claim your club’s page with a code we email to the club’s own address — and a person from Pitch rings the club to verify it.'
+                      : 'Under 16? A parent will need to approve your profile before it goes live.'}
+                </div>
+              </div>
+              {/* The label wraps the input, so the label is the tap target — and it was
+                  23px tall, because it is one line of 12px text. A person believes
+                  this tick is what writes their consent record (D-147: >=44px at
+                  every width). */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, cursor: 'pointer' }}>
+                <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} required style={{ width: 17, height: 17, accentColor: T.accent }} />
+                <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
+                  I agree to the <a href="/terms" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Terms</a> and <a href="/privacy" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Privacy Policy</a>
+                </span>
               </label>
-              <label className="field">
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Date of birth</div>
-                <input style={input} type="date" value={dob} onChange={(e) => setDob(e.target.value)} placeholder="DD / MM / YYYY" />
-              </label>
-              <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>
-                {role === 'coach'
-                  ? 'Your coaching page is yours. It stays private until you publish it, and it shows no club until a club confirms you.'
-                  : role === 'club'
-                    ? 'You make your own account here. Next you claim your club’s page with a code we email to the club’s own address — and a person from Pitch rings the club to verify it.'
-                    : 'Under 16? A parent will need to approve your profile before it goes live.'}
-              </div>
-            </div>
-            {/* The label wraps the input, so the label is the tap target — and it was
-                23px tall, because it is one line of 12px text. A person believes
-                this tick is what writes their consent record (D-147: >=44px at
-                every width). */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, cursor: 'pointer' }}>
-              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 17, height: 17, accentColor: T.accent }} />
-              <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
-                I agree to the <a href="/terms" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Terms</a> and <a href="/privacy" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Privacy Policy</a>
-              </span>
-            </label>
-            {/* Three of the four role chips are selectable and CANNOT SIGN UP:
-                createAccount is player-shaped (it always makes a development
-                record), so parent, coach and club were gated out — leaving a
-                dead 45%-opacity button and no explanation. A door that is
-                closed has to say so; a door that looks open and does nothing
-                is the worst version. */}
-            {role === 'coach' && age !== null && age < 18 && (
-              <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                <b style={{ color: T.ink }}>A coaching page is for adults.</b> You can still coach — plenty of good coaches are your age — but the page and its link wait until you turn 18. Your club can set you up in the meantime: email {SUPPORT_EMAIL}.
-              </div>
-            )}
-            {role === 'club' && age !== null && age < 18 && (
-              <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                <b style={{ color: T.ink }}>A club page is run by adults.</b> Ask someone on your committee to set it up.
-              </div>
-            )}
-            {role === 'parent' && (
-              <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                <b style={{ color: T.ink }}>This door is not open yet.</b> A parent joins when their child does — the child starts, and the approval comes to you by text and email.
-              </div>
-            )}
-            <button disabled={!canContinue} onClick={() => setStep(age !== null && age < 16 ? 'parent' : 'account')} style={{
-              background: T.accent, color: T.onAccent, borderRadius: 15, padding: 15, fontSize: 15, fontWeight: 900,
-              border: 'none', cursor: canContinue ? 'pointer' : 'default', opacity: canContinue ? 1 : 0.45, fontFamily: 'inherit',
-            }}>Continue</button>
+              {/* Three of the four role chips are selectable and CANNOT SIGN UP:
+                  createAccount is player-shaped (it always makes a development
+                  record), so parent, coach and club were gated out — leaving a
+                  dead 45%-opacity button and no explanation. A door that is
+                  closed has to say so; a door that looks open and does nothing
+                  is the worst version. */}
+              {role === 'coach' && age !== null && age < 18 && (
+                <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                  <b style={{ color: T.ink }}>A coaching page is for adults.</b> You can still coach — plenty of good coaches are your age — but the page and its link wait until you turn 18. Your club can set you up in the meantime: email {SUPPORT_EMAIL}.
+                </div>
+              )}
+              {role === 'club' && age !== null && age < 18 && (
+                <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                  <b style={{ color: T.ink }}>A club page is run by adults.</b> Ask someone on your committee to set it up.
+                </div>
+              )}
+              {role === 'parent' && (
+                <div style={{ background: T.surface, border: `1px solid ${T.amber}`, borderRadius: 14, padding: '13px 14px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                  <b style={{ color: T.ink }}>This door is not open yet.</b> A parent joins when their child does — the child starts, and the approval comes to you by text and email.
+                </div>
+              )}
+              <button type="submit" disabled={doorClosed} style={{
+                background: T.accent, color: T.onAccent, borderRadius: 15, padding: 15, fontSize: 15, fontWeight: 900,
+                border: 'none', cursor: doorClosed ? 'default' : 'pointer', opacity: canContinue ? 1 : 0.45, fontFamily: 'inherit',
+              }}>Continue</button>
+            </form>
           </>
         ) : step === 'account' ? (
           <>

@@ -764,7 +764,7 @@ await db.query(`update club set subscription_status=null where id=$1`, [CLUB.riv
 // ---------------------------------------------------------------------------
 const arTok = (await db.query(`select id from share_token where token_hash = $1`, [t.expired])).rows[0].id;
 check('C6: a first request is allowed', (await db.query('select fn_access_request_allowed($1) as ok', [arTok])).rows[0].ok, true);
-await db.query(`insert into access_request (share_token_id, requester_name, requester_role) values ($1,'M. Harris','TD, Sunbury United')`, [arTok]);
+await db.query(`insert into access_request (share_token_id, requester_name, requester_role) values ($1,'M. Harris','TD, Quarrymead United')`, [arTok]);
 check('C7: a second inside 24 hours is not', (await db.query('select fn_access_request_allowed($1) as ok', [arTok])).rows[0].ok, false);
 
 const arSrc = readFileSync(fileURLToPath(new URL('../app/p/[token]/request/actions.ts', import.meta.url)), 'utf8');
@@ -5676,7 +5676,7 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   // claim, an invitation and a membership can only exist at a verified club.
   const newClub = crypto.randomUUID(), newSq = crypto.randomUUID();
   const newTd = crypto.randomUUID(), newAdmin = crypto.randomUUID();
-  await db.query(`insert into club (id, name, club_state) values ($1,'Sunbury United','claimed')`, [newClub]);
+  await db.query(`insert into club (id, name, club_state) values ($1,'Quarrymead United','claimed')`, [newClub]);
   await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season)
     values ($1,$2,'U16 Girls','U16','girls','2026')`, [newSq, newClub]);
   await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Ruth','Calder',$3), ($2,'Owen','Prendergast',$3)`,
@@ -8283,6 +8283,27 @@ const componentFilesAll = [];
     [ev('https://pitchfootball.com.au/p/abc123'), ev('https://pitchfootball.com.au/g/controls/x?link=abc'),
      ev('https://pitchfootball.com.au/trials?age=U12#top'), ev('https://pitchfootball.com.au/'), ev('not a url')],
     [null, null, 'https://pitchfootball.com.au/trials', 'https://pitchfootball.com.au/', null]);
+}
+
+// --- L15, round E (29 Sep): an invented club is never named after a real
+//     suburb. The seed's claimed-and-unverified club was named after a
+//     Melbourne suburb with real football clubs in it, and the name sat in
+//     the seed, the demo layer, the demo seats and every suite. It is
+//     Quarrymead United now. This fails if the old name comes back into
+//     anything that seeds, demos or tests the product, or into the scripts a
+//     demo is run from. The name is assembled, so this file does not trip
+//     itself. (Historical reports and the signed design screens are not read:
+//     the first are a record of what happened, the second are not ours to edit.)
+{
+  const old = ['sun', 'bury'].join('');
+  const files = [...tsSourceFiles(),
+    ...readdirSync(fileURLToPath(new URL('../scripts', import.meta.url)), { recursive: true }).map((f) => `scripts/${f}`)
+      .filter((f) => /\.(mjs|mts|ts|js|py)$/.test(f)),
+    'docs/WALKTHROUGH.md', 'docs/DEMO.md', 'docs/DEMO-TD.md', 'docs/team/LESSONS.md'];
+  const named = files.filter((f) => new RegExp(old, 'i').test(f === 'docs/team/LESSONS.md'
+    ? srcOf(f).split('*Rule:* use names already in the seed')[1].split('*Amended 29 Sep (round E)')[0] : srcOf(f)));
+  check(`fx1: no seed, demo, suite or demo script names the club after a real suburb (${files.length} files read${named.length ? ' — still there: ' + named.join(', ') : ''})`,
+    [files.length > 60, named], [true, []]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

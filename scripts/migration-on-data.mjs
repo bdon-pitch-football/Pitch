@@ -63,7 +63,7 @@ async function seed(db, dirty) {
     ['Riverside FC', '1974', 'MiniRoos → Juniors → Seniors pathway',
       'Every junior plays, every junior develops. Football that is brave on the ball.'],
     ['Kingsway Rovers FC', '1988', null, null],
-    ['Sunbury United', null, null, null],
+    ['Quarrymead United', null, null, null],
   ];
   if (dirty) clubs.push(
     ['Marchfield City FC', 'Est. 1974', 'x'.repeat(90), 'y'.repeat(450)],   // prose year, long lines

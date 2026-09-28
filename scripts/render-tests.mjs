@@ -394,7 +394,7 @@ const georgia = ids.children.georgia;
   check('r27: the oldest waiting item leads',
     order(html, 'would like Georgia at a trial', 'wants to go on Riverside FC'), true);
   check('r28: and the newest is last',
-    order(html, 'wants to send a CV to Sunbury United', 'changed the page'), true);
+    order(html, 'wants to send a CV to Quarrymead United', 'changed the page'), true);
   check('r29: each one says how long it has waited', has(html, '11 days ago'), true);
   check('r30: the hero counts the links, not nothing', has(html, 'Links active'), true);
 }
@@ -417,7 +417,7 @@ const georgia = ids.children.georgia;
 // ---------------------------------------------------------------------------
 {
   const marina = ids.people.marina;      // Riverside TD, verified club
-  const sunbury = ids.people['m.'];      // claimed club, NOT verified
+  const quarrymead = ids.people['m.'];      // claimed club, NOT verified
   const sam = ids.people.sam;            // coach
   const alex = ids.people.alex;          // parent
 
@@ -428,7 +428,7 @@ const georgia = ids.children.georgia;
 
   // D-126, and the sentence the whole product rests on: paying does not
   // change it and cannot. An unverified club sees a COUNT and no names.
-  const { html: unv } = await get('/club/register', sunbury);
+  const { html: unv } = await get('/club/register', quarrymead);
   check('r33: an unverified club is told how many are waiting', has(unv, 'waiting'), true);
   check('r34: and is shown no name at all',
     text(unv).some((l) => /Deniz|Nate|Georgia/.test(l)), false);
@@ -449,7 +449,7 @@ const georgia = ids.children.georgia;
     opened, links.length);
   // and for nobody else
   check('r38: another club cannot open a row on this register',
-    (await get(`/club/register/cv/${links[0]}`, sunbury)).status, 404);
+    (await get(`/club/register/cv/${links[0]}`, quarrymead)).status, 404);
 }
 
 // ---------------------------------------------------------------------------
@@ -699,6 +699,19 @@ const georgia = ids.children.georgia;
     check(`s4: ${path} carries the operator sidebar`, nav !== null, true);
     const opBar = navOf(opHtml, 'Operator bar');
     check(`s4b: ${path} carries the operator bar, with the same doors`, opBar && nav ? JSON.stringify(hrefs(opBar)) === JSON.stringify(hrefs(nav)) : false, true);
+  }
+  // Round E: the queue's count line said "1 clubs awaiting a call". The seed
+  // has one club awaiting a call, so the singular is what this reads; both
+  // counts on the line must agree with their nouns whatever they are.
+  {
+    // React separates the numbers from the words with <!-- --> markers; a
+    // person sees one line, so this reads one.
+    const line = text((await get('/ops/verification', ids.people.marina)).html.replace(/<!--[\s\S]*?-->/g, ''))
+      .find((l) => /awaiting a call/.test(l)) ?? '';
+    const m = /^(\d+) (clubs?) awaiting a call · (\d+) (registrations?) held$/.exec(line);
+    const agrees = (n, noun, one) => noun === (Number(n) === 1 ? one : one + 's');
+    check(`ops-r1: the verification queue counts in English — "${line}"`,
+      [Boolean(m), m ? agrees(m[1], m[2], 'club') : false, m ? agrees(m[3], m[4], 'registration') : false], [true, true, true]);
   }
   // D-154 — the administrator's frame and walls. The same subset rule, and
   // the register itself is not one of her doors at a verified club.
@@ -1998,6 +2011,25 @@ const georgia = ids.children.georgia;
       }
     }
     check(`fd3: no price renders on the front door, and no line D-163 retired (${retired.join(' | ') || 'none'})`, retired, []);
+
+    // Round E: the one page meant to rank (doc 29 §7) must be words in the
+    // document itself — what a crawler, or a slow phone before its scripts
+    // arrive, is given. Read from the markup with every script removed, so
+    // text that only exists in Next's payload for the browser to build later
+    // does not count. Asked twice: as a browser and as a crawler, because
+    // Next treats the two differently (it streams metadata for one and not
+    // the other).
+    const TITLES = { player: 'A player', parent: 'A parent', coach: 'A coach', club: 'A club' };
+    const crawler = await (await fetch(`${BASE}/`, { headers: { 'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' } })).text();
+    const asHtml = (html) => {
+      const markup = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, '');
+      const h1 = text(/<h1\b[^>]*>([\s\S]*?)<\/h1>/.exec(markup)?.[1] ?? '').join(' ');
+      return [h1, ...Object.entries(TITLES).map(([seat, title]) =>
+        text(new RegExp(`<a\\b[^>]*href="/\\?for=${seat}"[^>]*>([\\s\\S]*?)</a>`).exec(markup)?.[1] ?? '').includes(title))];
+    };
+    const want = ['Somebody should be writing this down.', true, true, true, true];
+    check('fd5: with the switch on, / serves its heading and the four ways in (player, parent, coach, club) as HTML text, to a browser and to a crawler, before any script runs',
+      [asHtml(served['/'].html), asHtml(crawler)], [want, want]);
   } finally {
     await frontDoorSwitch(false);
   }

@@ -595,7 +595,7 @@ if (runs('L40')) {
 // stand differently against the twin's, the club could tell.
 // ---------------------------------------------------------------------------
 if (runs('J61')) {
-  const club = ids.people['m.'];           // Sunbury United's administrator: held, unverified
+  const club = ids.people['m.'];           // Quarrymead United's administrator: held, unverified
   const twinAdmin = ids.people.robin;      // the brand-new seat, who claims Westgate here
   // An eighteen-year-old off the bulk register, not the house adult: the seed
   // already has Jordan on this club's register, and a second registration

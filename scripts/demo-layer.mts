@@ -490,8 +490,8 @@ const ABOUT_OUTFIELD = [...ABOUT_DEF, ...ABOUT_MID, ...ABOUT_FWD];
 // Where they play now, and where before. Seed names only, never a real club
 // (L15) — a player registers interest in the demo club FROM somewhere, and
 // "somewhere" was three clubs for ninety-six children.
-const CURRENT = ['Northern United SC', 'Marchfield City FC', 'Westgate Rangers', 'Kingsway Rovers FC', 'Sunbury United'];
-const PREVIOUS = ['Elderslie Juniors SC', 'Kingsway Rovers FC', 'Sunbury United', 'Northern United SC', 'Marchfield City FC', 'Westgate Rangers'];
+const CURRENT = ['Northern United SC', 'Marchfield City FC', 'Westgate Rangers', 'Kingsway Rovers FC', 'Quarrymead United'];
+const PREVIOUS = ['Elderslie Juniors SC', 'Kingsway Rovers FC', 'Quarrymead United', 'Northern United SC', 'Marchfield City FC', 'Westgate Rangers'];
 const HONOURS = [
   ['Club best and fairest', 'Voted by the coaches'],
   ['League runners-up', 'Played every round'],
@@ -928,14 +928,14 @@ async function waitingOnTheClub(db: PGlite, clubId: string) {
   // This is the answer to the only hard question a technical director asks —
   // "what stops you handing my players' details to anyone who signs up?" — and
   // it could not be shown, because every club seat in the demo belonged to the
-  // verified, paying club. The seed's Sunbury United is claimed and unverified
+  // verified, paying club. The seed's Quarrymead United is claimed and unverified
   // with four held registrations; it gets enough of them to be the real shape
   // of the screen, and a seat on /demo to sit in.
   //
   // Nothing about these children reaches that club: fn_register_rows returns
   // nothing and the page shows a count (D-126). That is the point of it.
   const unverified = (await db.query<{ id: string }>(
-    `select id from club where name = 'Sunbury United' and club_state = 'claimed'`)).rows[0];
+    `select id from club where name = 'Quarrymead United' and club_state = 'claimed'`)).rows[0];
   if (unverified) {
     await db.query(
       `insert into registration (player_id, club_id, positions, note, club_status, disclosed_by, policy_version)
