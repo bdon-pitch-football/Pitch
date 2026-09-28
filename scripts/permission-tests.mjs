@@ -25,6 +25,11 @@ await db.exec(`
 for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
   await db.exec(readFileSync(join(dir, f), 'utf8'));
 }
+// D-163: what the migrations leave the billing switch at, read before any
+// block below touches it — free0 asks THIS, not the value some later block
+// happened to put back.
+const BILLING_AT_BOOT = (await db.query(
+  `select (select value from app_config where key = 'billing_enabled') as value, fn_billing_enabled() as on`)).rows[0];
 
 let pass = 0, fail = 0;
 async function expectFail(label, sql) {
@@ -6663,8 +6668,7 @@ const componentFilesAll = [];
     const active = async (club) => (await q1('select fn_register_active($1) as a', [club])).a;
     const count = async (who, club) => (await q1('select fn_register_count($1,$2) as n', [who, club])).n;
     check('free0: billing is off out of the box — the launch configuration is the default one',
-      [(await q1(`select value from app_config where key = 'billing_enabled'`)).value, (await q1('select fn_billing_enabled() as b')).b],
-      ['false', false]);
+      [BILLING_AT_BOOT.value, BILLING_AT_BOOT.on], ['false', false]);
     for (const typo of ['TRUE', 'yes', '1', 'on', ' true']) {
       await db.query(`update app_config set value = $1 where key = 'billing_enabled'`, [typo]);
       check(`free0b: a config typo does not switch payment on (${JSON.stringify(typo)})`, (await q1('select fn_billing_enabled() as b')).b, false);
