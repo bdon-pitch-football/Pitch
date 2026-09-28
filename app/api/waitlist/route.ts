@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { insertWaitlist } from '@/lib/waitlist-db';
-import { CONSENT_TEXT, POLICY_STAMP, ROLES, EMAIL_RE, type Role } from '@/lib/consent';
+import { CONSENT_TEXT, ROLES, EMAIL_RE, type Role } from '@/lib/consent';
+import { legalStamp } from '@/lib/legal-stamp';
 import { rateLimited } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     consent_text: CONSENT_TEXT,
     // doc@version + the hash of the served text, so the row resolves to bytes
     // and not just to a label (John, 3 Sep). No schema change: this column is text.
-    policy_version: POLICY_STAMP,
+    policy_version: legalStamp('20'),
     source: 'web',
   });
 

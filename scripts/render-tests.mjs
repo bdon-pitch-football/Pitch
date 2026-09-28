@@ -1188,15 +1188,25 @@ const georgia = ids.children.georgia;
     embedded.length > 2000, true);
   check(`leg-r2: nothing in it says the policy is not published (${MARKERS.filter((m) => embedded.includes(m)).join(' · ') || 'none does'})`,
     MARKERS.filter((m) => embedded.includes(m)), []);
-  check('leg-r3: and a parent can still see which version they are accepting',
-    /Version 2\.5 · 15 September 2026/.test(embedded), true);
+  // The version a page must show is the register's, read the way the page
+  // reads it — not typed here, so a bump in the register cannot leave this
+  // suite asserting the old number.
+  const { legalDocument } = await import('../lib/legal-doc.ts');
+  const line = (file) => { const d = legalDocument(file); return `Version ${d.version.replace(/^v/, '')} · ${d.date}`; };
+  check(`leg-r3: and a parent can still see which version they are accepting (${line('21-Privacy-Policy-Child.md')})`,
+    embedded.includes(line('21-Privacy-Policy-Child.md')), true);
+  // John, 28 Sep: these versions are the published ones, so nothing a parent
+  // is shown says otherwise — in the flow or on the page, in any case.
+  check(`leg-r7: nothing in the approval flow's policy says "not yet published" (${/not yet published/i.test(embedded) ? 'it does' : 'nothing does'})`,
+    /not yet published/i.test(embedded), false);
 
-  for (const [path, version] of [['/privacy', '2.7'], ['/privacy/family', '2.5'], ['/terms', '1.8']]) {
+  for (const [path, file] of [['/privacy', '20-Privacy-Policy-Adult.md'], ['/privacy/family', '21-Privacy-Policy-Child.md'], ['/terms', '22-Terms-of-Service.md']]) {
     const { status, html } = await get(path);
     const doc = /<div\s+class="legal-doc"[^>]*>([\s\S]*?)<\/div><style>/.exec(html)?.[1] ?? '';
     check(`leg-r4: ${path} serves the document and no drafting marker (${MARKERS.filter((m) => doc.includes(m)).join(' · ') || 'none'})`,
       [status, doc.length > 2000, MARKERS.filter((m) => doc.includes(m))], [200, true, []]);
-    check(`leg-r5: ${path} carries its version and date`, has(html, `Version ${version} ·`), true);
+    check(`leg-r5: ${path} carries its version and date (${line(file)})`, has(html, line(file)), true);
+    check(`leg-r8: ${path} never calls itself unpublished`, /not yet published/i.test(doc), false);
     // The title is still the first thing on the page: the preamble went, and
     // nothing of the document went with it.
     check(`leg-r6: ${path} opens with the document, not a rule under its title`,

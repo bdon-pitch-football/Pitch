@@ -5440,6 +5440,113 @@ const componentFilesAll = [];
 }
 
 // ---------------------------------------------------------------------------
+// John's rulings of 28 Sep (docs/legal/35, "Rulings — 2026-09-28").
+//
+// 1. Stripping the preamble is not material; the version still bumps, so every
+//    consent row names exactly the text that was shown; nobody is re-asked.
+// 2. Clauses describing capabilities that are not built come out until they
+//    are built. ([DRAFTED], [OUTLINE] and [LEGAL: doc 18 Qn] are a different
+//    class and the ruling does not touch them.)
+// 3. One version per document, everywhere — register table, register prose,
+//    the document's own header and footer — and the "not yet published"
+//    colophons go, because these versions are the published ones.
+// ---------------------------------------------------------------------------
+{
+  const { legalDocument, renderedLegalDocs } = await import('../lib/legal-doc.ts');
+  const legalDir = fileURLToPath(new URL('../docs/legal', import.meta.url));
+  const fileFor = (doc) => readdirSync(legalDir).find((x) => x.startsWith(`${doc}-`) && x.endsWith('.md'));
+  const live = renderedLegalDocs();
+
+  // Ruling 3: no served page calls itself unpublished, in any case.
+  for (const { doc } of live) {
+    const served = legalDocument(fileFor(doc)).markdown;
+    const hit = /not yet published/i.exec(served);
+    check(`jr1: doc ${doc} serves no "not yet published" (${hit ? served.slice(Math.max(0, hit.index - 40), hit.index + 20).replace(/\s+/g, ' ') : 'none'})`,
+      Boolean(hit), false);
+  }
+
+  // Ruling 3: one version per document. The register's table is the answer;
+  // everything else that names the document's version must name the same one.
+  const reg = readFileSync(join(legalDir, '00-Legal-Register.md'), 'utf8');
+  const prose = /currently\s+`20@(v[\d.]+)`,\s*`21@(v[\d.]+)`,\s*`22@(v[\d.]+)`/.exec(reg);
+  const consentSrc = readFileSync(fileURLToPath(new URL('../lib/consent.ts', import.meta.url)), 'utf8');
+  const policyVersion = /POLICY_VERSION\s*=\s*'([^']+)'/.exec(consentSrc)?.[1];
+  const num = (v) => v.replace(/^v/, '').split('.').map(Number);
+  const newer = (a, b) => { const [x, y] = [num(a), num(b)]; return x[0] - y[0] || x[1] - y[1]; };
+  for (const { doc, version } of live) {
+    const raw = readFileSync(join(legalDir, fileFor(doc)), 'utf8');
+    // What the document says about itself: its change-log heads ("v2.7, 15
+    // September…"), its status lines ("Doc 21 · v2.5 …"), its colophon, and —
+    // doc 20 only — the "Version:" line in its body.
+    const heads = [...raw.matchAll(/^>\s*\*\*(?:⚠️\s*)?(v\d+\.\d+),/gm)].map((m) => m[1]);
+    const status = [...raw.matchAll(new RegExp(`[Dd]oc ${doc} · (v\\d+\\.\\d+)`, 'g'))].map((m) => m[1]);
+    const header = [...heads, ...status].sort(newer).at(-1);
+    const colophon = new RegExp(`^\\*Pitch Football ·.*· doc ${doc} · (v\\d+\\.\\d+)`, 'm').exec(raw)?.[1];
+    const body = /\*\*Version:\*\* (\d+\.\d+)/.exec(raw)?.[1];
+    const claims = { header, colophon, ...(body ? { body: `v${body}` } : {}) };
+    if (['20', '21', '22'].includes(doc)) claims.prose = prose?.[{ 20: 1, 21: 2, 22: 3 }[doc]];
+    if (doc === '20') claims.consent = policyVersion?.replace(/^20@/, '');
+    const wrong = Object.entries(claims).filter(([, v]) => v !== version).map(([k, v]) => `${k} says ${v}`);
+    check(`jr2: doc ${doc} names one version everywhere — the register's ${version} (${wrong.join(', ') || 'it does'})`,
+      wrong, []);
+  }
+
+  // Ruling 1: every consent row names the text that was shown — so for doc 20,
+  // the waitlist and the consent path must stamp the SAME hash. Reproduce what
+  // each path actually writes. Today the waitlist writes a typed constant.
+  const shaOf = (s) => createHash('sha256').update(s).digest('hex');
+  const served20 = shaOf(legalDocument(fileFor('20')).markdown);
+  const waitSrc = readFileSync(fileURLToPath(new URL('../app/api/waitlist/route.ts', import.meta.url)), 'utf8');
+  const waitlistHash = /legalStamp\('20'\)/.test(waitSrc) ? served20
+    : /POLICY_STAMP/.test(waitSrc) ? /POLICY_SHA256\s*=\s*'([0-9a-f]{64})'/.exec(consentSrc)?.[1] : 'neither';
+  const stampSrc = readFileSync(fileURLToPath(new URL('../lib/legal-stamp.ts', import.meta.url)), 'utf8');
+  const consentPathHash = /legalDocument\(LEGAL_FILES\[doc\]\)\.markdown/.test(stampSrc) ? served20 : 'not the served text';
+  check(`jr3: the waitlist and the consent path stamp doc 20 with one hash (waitlist ${String(waitlistHash).slice(0, 12)} · consent ${String(consentPathHash).slice(0, 12)})`,
+    waitlistHash, consentPathHash);
+  // And no second answer is left lying around to drift: no hash typed into
+  // lib/ or app/ at all.
+  const typed = [...walk(fileURLToPath(new URL('../lib', import.meta.url))), ...walk(fileURLToPath(new URL('../app', import.meta.url)))]
+    .filter((f) => /\.tsx?$/.test(f) && /['"`][0-9a-f]{64}['"`]/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(f.lastIndexOf('/lib/') + 1 || f.lastIndexOf('/app/') + 1));
+  check(`jr4: no document hash is typed into the code (${typed.join(', ') || 'none is'})`, typed, []);
+
+  // Ruling 2, and the one part of it this commit could NOT carry out.
+  //
+  // John ruled that clauses describing capabilities that are not built come
+  // out. The one clause marked that way, doc 22 §6.5 (suppression), describes
+  // exactly the capability doc 32 calls A1 — and migration 0049 built A1 and
+  // A2 on 17 Sep; g32-p1–p4 pin them. John's own gate, doc 32 B6, says "If A1
+  // and A2 are green, 6.5 may publish. If they are not, it must not", and A1's
+  // box asks that a person has done it once. Whether 6.5 is "not built" is
+  // therefore a question with two of John's answers on it, and the builder was
+  // told: if a clause is ambiguous about its class, leave it served and list
+  // it. So these four lines are still served, pinned by their exact opening,
+  // AWAITING JOHN. The set exists so that nothing joins it quietly and so that
+  // it is emptied, not widened, when he answers.
+  const AWAITING_JOHN = new Set([
+    '22: **[DO NOT PUBLISH UNTIL BUILT] 6.5 Suppression.** A guardian, or a club ',
+    '22: *Status: not built. Today a guardian can pause a profile and disable its',
+    '22: | 4 | **Suppression clause promises a capability that does not exist yet',
+    '22: | 5 | **Guardian-contact gate at 2.3 is not current behaviour — do not p',
+  ]);
+  // The drafting sense only. "Do not publish other people's children" is a
+  // conduct rule (doc 22 Part 9, doc 24 §3), and it is content.
+  const UNBUILT = /\[DO NOT PUBLISH[^\]]*\]|— do not publish\b|must not publish before it is built|^\*Status: not built\./i;
+  const served = [];
+  for (const { doc } of live) {
+    for (const line of legalDocument(fileFor(doc)).markdown.split('\n')) {
+      if (UNBUILT.test(line)) served.push(`${doc}: ${line.slice(0, 72)}`);
+    }
+  }
+  const unexpected = served.filter((l) => !AWAITING_JOHN.has(l));
+  const answered = [...AWAITING_JOHN].filter((l) => !served.includes(l));
+  check(`jr5: nothing "not built" is served beyond the four lines awaiting John (${unexpected.join(' · ') || 'nothing is'})`,
+    unexpected, []);
+  check(`jr6: and when he answers, the set is emptied rather than left stale (${answered.join(' · ') || 'all four still served'})`,
+    answered, []);
+}
+
+// ---------------------------------------------------------------------------
 // QA, 28 Sep — two faults found by pressing things rather than by reading.
 // ---------------------------------------------------------------------------
 
