@@ -12,9 +12,14 @@
 import 'server-only';
 import { isDemo } from './demo';
 
+// `label` is the one-line form the checkout radios use. `numeral` and `per`
+// are the same price set as a display numeral and its caption, because on
+// /club/billing the price is the fact the page exists for and D-140 gives it
+// -0.04em at 56px — it cannot be a numeral and a sentence in the same string.
+// One object, so there is still exactly one place the price is written down.
 export const PRICES = {
-  register_monthly: { label: '$54 a month', amount: 5400, cadence: 'month' as const },
-  register_annual: { label: '$329 for twelve months', amount: 32900, cadence: 'year' as const },
+  register_monthly: { label: '$54 a month', numeral: '$54', per: 'a month, including GST', amount: 5400, cadence: 'month' as const },
+  register_annual: { label: '$329 for twelve months', numeral: '$329', per: 'for twelve months, including GST', amount: 32900, cadence: 'year' as const },
 };
 export type PlanKey = keyof typeof PRICES;
 

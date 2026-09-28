@@ -1043,5 +1043,145 @@ const georgia = ids.children.georgia;
   check('pv8: signed out, the preview asks you to sign in', [anon.status, anon.location], [307, '/signin']);
 }
 
+// ---------------------------------------------------------------------------
+// /club/billing — the screen attached to the money, set as a console surface
+// (D-147), with the price as the display numeral it is (D-140) and the one
+// fact on it that is genuinely ours: who at this club can read the register
+// (D-93, doc 14 N23). 0063.
+// ---------------------------------------------------------------------------
+{
+  const marina = ids.people.marina, pat = ids.people.pat, dana = ids.people.dana, felix = ids.people.felix;
+  const b = await get('/club/billing', marina);
+  check('b1: the price is a display numeral, not body text', /class="numeral numeral-l"/.test(b.html) && has(b.html, '$54'), true);
+  check('b1b: with its own caption under it rather than three pixels from it', has(b.html, 'a month, including GST'), true);
+  check('b2: the next charge date sits beside it at the same rank',
+    has(b.html, 'Next charge') && /class="numeral numeral-m"/.test(b.html) && has(b.html, 'unless you cancel before then'), true);
+  check('b3: it is a console surface, not a 604px reading column (D-147)',
+    /class="console"/.test(b.html) && !/class="reading"/.test(b.html), true);
+  check('b4: the statement descriptor and the state of the subscription are both on it',
+    has(b.html, 'On your statement') && has(b.html, 'PITCH FOOTBALL') && has(b.html, 'Your subscription') && has(b.html, 'Active'), true);
+  check('b5: D-126’s sentence is on the page whichever plan the club is on',
+    has(b.html, 'Paying does not verify your club and cannot.'), true);
+  // The block that is the reason this page is worth opening.
+  check('b6: the page names who reads the register, computed from memberships',
+    has(b.html, 'Who reads it') && has(b.html, 'Marina Petrovic') && has(b.html, 'Technical Director · the whole register'), true);
+  check('b6b: a granted coach carries the team names, never the whole register',
+    has(b.html, 'Sam Kaya') && has(b.html, 'Coach · U14 Boys · U15 Girls'), true);
+  check('b6c: and the administrator is on it reading nothing (D-93)',
+    has(b.html, 'Pat Nguyen') && has(b.html, 'Club administrator — reads no registration'), true);
+  check('b6d: with no lecture attached — one sentence, and it is the one the family already reads',
+    has(b.html, 'Only people a club has named can read its register, and every time they do, it’s recorded.'), true);
+  check('b7: the dunning words are a standing answer, not a banner nobody meets until it is too late',
+    has(b.html, 'If a payment fails') && has(b.html, 'Nothing is deleted.'), true);
+  // D-25: three facts we do not hold, and the page must not imply we do.
+  check('b8: nothing on the page claims to know the card (D-25, D-112)',
+    /last four|••••|Visa|Mastercard|ending in|Receipts go to/i.test(b.html), false);
+
+  const pb = await get('/club/billing', pat);
+  check('b9: the invoicing volunteer reads billing (O11)', pb.status, 200);
+  check('b9b: and is shown her own access and nobody else’s',
+    [has(pb.html, 'Pat Nguyen'), has(pb.html, 'Marina Petrovic'), has(pb.html, 'Sam Kaya')], [true, false, false]);
+
+  const db_ = await get('/club/billing', dana);
+  check('b10: a club with no subscription still gets the checkout, with the D-137 tick',
+    has(db_.html, 'Choose how you pay') && /name="authorised"/.test(db_.html), true);
+  check('b10b: and no plan card claiming a price it is not paying', has(db_.html, 'On your statement'), false);
+
+  // The suspended club. Before 0063 this page offered "Choose how you pay" to
+  // a club that already had a subscription, and never the one control that
+  // replaces a declined card.
+  const fb = await get('/club/billing', felix);
+  check('b11: a club whose payment failed is told so, in the present tense',
+    has(fb.html, 'We couldn’t take your payment') && has(fb.html, 'The register is paused — your coaches stop seeing the list.'), true);
+  check('b11b: and D-135’s promise is on the same card', has(fb.html, 'Nothing is deleted.'), true);
+  check('b11c: it is sent to the portal, where a declined card is replaced — not to a second checkout',
+    [has(fb.html, 'Manage or cancel this subscription'), has(fb.html, 'Choose how you pay')], [true, false]);
+  check('b11d: with no next-charge date, because there is no honest one to print',
+    has(fb.html, 'Next charge'), false);
+  check('b11e: and the state said plainly beside the descriptor', has(fb.html, 'Paused'), true);
+
+  // O4 on the screen it costs something on. A suspended club used to drop
+  // silently to the free tier's own heading with nothing about payment on it.
+  const fr = await get('/club/register', felix);
+  check('b12: a suspended club’s REGISTER says why the list is gone (O4, D-135)',
+    has(fr.html, 'We couldn’t take your payment'), true);
+  check('b12b: above the free tier’s heading, not below it',
+    order(fr.html, 'We couldn’t take your payment', 'Interest in your trials'), true);
+  check('b12c: with the way to sort it out', fr.html.includes('/club/billing'), true);
+  check('b12d: and the list itself is still hidden, not deleted',
+    has(fr.html, 'The families who registered stay registered'), true);
+  const dr = await get('/club/register', dana);
+  check('b13: a club that never subscribed is told nothing about a failed payment',
+    has(dr.html, 'We couldn’t take your payment'), false);
+  check('b13b: its free-tier copy is untouched', has(dr.html, 'Interest in your trials'), true);
+
+  // O1 — no family seat can reach any of it.
+  for (const [who, id] of [['a parent', ids.people.alex], ['an adult player', ids.people.jordan], ['a 16–17', ids.children.nate.child_id]]) {
+    const r = await get('/club/billing', id);
+    check(`b14: ${who} is sent home from the billing page (O1)`, [r.status, r.location], [307, '/home']);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// /home — the return (0064). Rendered on arrival when the last session was
+// sixty days or more ago, never sent, and nothing at all for an under-16.
+// ---------------------------------------------------------------------------
+{
+  const block = (t) => {
+    const i = t.findIndex((l) => /^While you were away$/.test(l));
+    if (i < 0) return null;
+    const j = t.findIndex((l, k) => k > i && /^(Link active|Links active|Your page|Your page is live)$/.test(l));
+    return t.slice(i, j < 0 ? i + 12 : j);
+  };
+  const parent = text((await get('/home', alex)).html);
+  const pb = block(parent);
+  check('ret-r1: a parent eighty days away is told what happened, before being asked for anything',
+    pb !== null, true);
+  check('ret-r1b: above the queue of things waiting on them',
+    order((await get('/home', alex)).html, 'While you were away', 'Waiting on you'), true);
+  // The SHAPE, not the people: this suite loads club registers and opens CVs
+  // as it goes, so whichever read is newest when this runs is whichever page
+  // ran last. The property is that the line is a named person, their role at a
+  // named club, and what they did (LESSONS L32).
+  const READ_LINE = /^.+, (Technical director|Coach|Club administrator|Club staff) at .+, (opened .+\u2019s CV|opened your CV|saw .+ on their register|saw you on their register)\.$/;
+  check(`ret-r2: the read line names the reader, their role at the club, and what they did (${(pb ?? []).find((l) => READ_LINE.test(l)) ?? 'no read line'})`,
+    (pb ?? []).some((l) => READ_LINE.test(l)), true);
+  check('ret-r3: the link line states the date and the consequence, and asks for nothing',
+    (pb ?? []).some((l) => /link expires\./.test(l))
+      && (pb ?? []).some((l) => /Clubs holding it stop being able to open the page that day\./.test(l)), true);
+  check('ret-r4: the trials line is the notice we hold, with the day a human last checked it',
+    (pb ?? []).some((l) => /The next trial we hold a notice for\./.test(l))
+      && (pb ?? []).some((l) => /^Last checked \d{1,2} [A-Z][a-z]{2}\.$/.test(l)), true);
+  check('ret-r5: every line is dated', (pb ?? []).filter((l) => /^\d{1,2} [A-Z][a-z]{2}$/.test(l)).length >= 3, true);
+  // What it is not. Each of these was proposed in the 24 Sep review and killed
+  // in the same review.
+  const words = (pb ?? []).join(' ');
+  check(`ret-r6: no verb aimed at the reader (${/\b(update|renew|complete|check|add|finish|don’t forget)\b/i.exec(words)?.[0] ?? 'none'})`,
+    /\b(update|renew|complete|check your|add|finish|don’t forget)\b/i.test(words), false);
+  check('ret-r7: no count, no score, no streak',
+    /\b(\d+ times|\d+ views|\d+ reads|streak|in a row)\b/i.test(words), false);
+  check('ret-r8: and no button in the block at all',
+    /While you were away[\s\S]{0,900}?<(a|button)\b/.test((await get('/home', alex)).html), false);
+
+  const sixteen = block(text((await get('/home', ids.children.nate.child_id)).html));
+  check('ret-r9: a 16–17 gets it on their own home, about themselves', sixteen !== null, true);
+  check('ret-r9b: in the second person, never their own name read back at them',
+    (sixteen ?? []).some((l) => /Your link expires\./.test(l)) && !(sixteen ?? []).some((l) => /Nate’s/.test(l)), true);
+  check('ret-r9c: and the read line says "you", from the ledger doc 34 rule 6 already gives them',
+    (sixteen ?? []).some((l) => /(opened your CV|saw you on their register)\.$/.test(l)), true);
+
+  // The under-16. fn_note_arrival records nothing for them and fn_return_facts
+  // answers nothing, so there is no block on a fourteen-year-old's home — and
+  // doc 34 rule 6, which is what makes the best line unavailable to them, is
+  // untouched by any of this.
+  check('ret-r10: a fourteen-year-old gets no block at all (D-25, doc 34 rule 6)',
+    block(text((await get('/home', ids.children.deniz.child_id)).html)), null);
+
+  for (const [who, id] of [['a club TD', ids.people.marina], ['a coach', ids.people.sam], ['an adult player just here', ids.people.jordan]]) {
+    check(`ret-r11: ${who} who was here today gets nothing`,
+      block(text((await get('/home', id)).html)), null);
+  }
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 process.exit(failures.length ? 1 : 0);

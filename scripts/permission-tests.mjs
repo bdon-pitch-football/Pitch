@@ -4947,5 +4947,265 @@ const componentFilesAll = [];
   check(`ban1: D-108's words are not on any screen (${found.slice(0, 4).join(' · ') || 'none are'})`, found.length, 0);
 }
 
+// ---------------------------------------------------------------------------
+// 0063 — THE MONEY SAYS ONE THING. Two club screens computed a club's
+// subscription state for themselves and disagreed about a club whose payment
+// failed: /club/billing showed the dunning card and /club/register dropped
+// silently to the free tier's own heading. fn_register_payment_state is the one
+// answer both now read (D-135, D-136, doc 14 O4, O11; LESSONS L23).
+// ---------------------------------------------------------------------------
+{
+  const q1 = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const payState = async (who, club) => (await q1('select fn_register_payment_state($1,$2) as s', [who, club])).s;
+  const rowIds = async (who, club) => (await db.query('select registration_id from fn_register_rows($1,$2)', [who, club])).rows.map((r) => r.registration_id);
+
+  const MON = crypto.randomUUID();
+  const monCall = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Dunning FC','claimed')`, [MON]);
+  await db.query(
+    `insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+     values ($1,$2,now(),'BUZ','03 9000 0003','FV club directory','verified','27@v1.0')`, [monCall, MON]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [monCall, MON]);
+
+  const person = async (name, years = 35) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, last_name, dob) values ($1,$2,'Fixture',$3)`, [id, name, yearsAgo(years)]);
+    return id;
+  };
+  const mTd = await person('Money TD');
+  await recordTd(mTd, MON, 'money.td@fixture.example');
+  const mAdmin = await person('Money Admin');
+  await mem(mAdmin, MON, null, 'club_admin');
+  const mTm = await person('Money Manager');
+  await mem(mTm, MON, null, 'team_manager');
+  const mSq = (await q1(`insert into squad (club_id, name, age_group, competition_gender, season) values ($1,'M-U15','U15','boys','2026') returning id`, [MON])).id;
+  const mSq2 = (await q1(`insert into squad (club_id, name, age_group, competition_gender, season) values ($1,'M-U16','U16','boys','2026') returning id`, [MON])).id;
+  const grantedCoach = await person('Money Coach');
+  await mem(grantedCoach, MON, null, 'coach');
+  await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [grantedCoach, MON, mTd]);
+  const ungrantedCoach = await person('Money Bench');
+  await mem(ungrantedCoach, MON, null, 'coach');
+  await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [ungrantedCoach, MON, mTd]);
+  for (const sq of [mSq, mSq2]) {
+    await db.query(`insert into register_grant (club_id, person_id, squad_id, granted_by) values ($1,$2,$3,$4)`, [MON, grantedCoach, sq, mTd]);
+  }
+  const mReg = (await q1(
+    `insert into registration (player_id, club_id, squad_target, policy_version) values ($1,$2,$3,'20@v2.4') returning id`,
+    [ID.marcus, MON, mSq])).id;
+
+  // The webhook is the only writer of subscription state (D-112), so the state
+  // is driven through fn_apply_subscription exactly as Stripe drives it.
+  const apply = (status, grace, at) => db.query(
+    `select fn_apply_subscription($1,$2,'register_monthly', now() + interval '14 days', $3::timestamptz, 'cus_fixture', $4::timestamptz)`,
+    [MON, status, grace, at]);
+  const clock = (n) => new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString();
+
+  check('money1: a club that never subscribed reads "unsubscribed", not "suspended"', await payState(mTd, MON), 'unsubscribed');
+  await apply('active', null, clock(1));
+  check('money2: a paying club reads "active"', await payState(mTd, MON), 'active');
+  check('money2b: and its register resolves', (await rowIds(mTd, MON)).includes(mReg), true);
+
+  // O4 — 14-day grace, THEN suspended. Registrations hidden, never deleted.
+  await apply('past_due', new Date(Date.now() + 5 * 86400000).toISOString(), clock(2));
+  check('O4: inside the fourteen days a failed payment reads "grace"', await payState(mTd, MON), 'grace');
+  check('O4b: and the register is still readable during the grace (D-135)', (await rowIds(mTd, MON)).includes(mReg), true);
+  await apply('past_due', new Date(Date.now() - 86400000).toISOString(), clock(3));
+  check('O4c: once the grace has run out it reads "suspended"', await payState(mTd, MON), 'suspended');
+  check('O4d: the register is hidden', (await rowIds(mTd, MON)).length, 0);
+  check('O4e: and the registration row is still there — hidden, not deleted',
+    (await q1(`select count(*)::int as n from registration where id = $1`, [mReg])).n, 1);
+  await apply('canceled', null, clock(4));
+  check('money5: a cancelled club reads "cancelled", which is not the same state', await payState(mTd, MON), 'cancelled');
+
+  // O11 — billing is club-internal. The administrator is told exactly as much
+  // as the TD is, and nobody else is told anything at all.
+  await apply('active', null, clock(5));
+  check('O11b: the invoicing volunteer gets the same answer as the TD', await payState(mAdmin, MON), await payState(mTd, MON));
+  check('money7: a team manager is told nothing about the club’s money', await payState(mTm, MON), null);
+  check('money7b: nor a granted coach', await payState(grantedCoach, MON), null);
+  check('money7c: nor a guardian', await payState(ID.guardian, MON), null);
+  check('money7d: nor another club’s technical director', await payState(ID.td, MON), null);
+  check('money7e: nor nobody at all', await payState(null, MON), null);
+
+  // One answer, two callers — the whole point of the migration.
+  const readSrc = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  for (const [rel, what] of [['../app/club/billing/page.tsx', 'the billing page'], ['../app/club/register/page.tsx', 'the register page']]) {
+    check(`money8: ${what} reads fn_register_payment_state rather than working it out`,
+      /fn_register_payment_state/.test(readSrc(rel)), true);
+  }
+  check('money8b: and the register page no longer decides a payment state from the status column',
+    /subscription_status/.test(codeOnly(readSrc('../app/club/register/page.tsx'))), false);
+  check('money9: a suspended club’s register says why the list is gone',
+    /RegisterPaused/.test(readSrc('../app/club/register/page.tsx')), true);
+  // D-25 — three facts we do not hold and must not start holding.
+  const billingSrc = codeOnly(readSrc('../app/club/billing/page.tsx'));
+  check('money10: the billing page asks for no card brand, no last four and no receipt address (D-25)',
+    /last4|last_four|card_brand|brand|receipt_email|receipts_to/i.test(billingSrc), false);
+
+  // ---- N23 as a database answer: who reads this club's register -----------
+  const readers = async (who) => (await db.query(
+    `select reader_name, role_label, scope, squad_names, since is not null as dated from fn_club_register_readers($1,$2)`, [who, MON])).rows;
+  const tdView = await readers(mTd);
+  const byName = Object.fromEntries(tdView.map((r) => [r.reader_name, r]));
+  check('N23c: the TD’s list names every reader of this register',
+    Object.keys(byName).sort(), ['Money Admin Fixture', 'Money Coach Fixture', 'Money Manager Fixture', 'Money TD Fixture']);
+  check('N23d: the technical director reads the whole register', byName['Money TD Fixture']?.scope, 'whole');
+  check('N23e: a granted coach reads their teams, named', [byName['Money Coach Fixture']?.scope, byName['Money Coach Fixture']?.squad_names], ['squads', ['M-U15', 'M-U16']]);
+  check('N23f: and every row is dated — who, which squads, since when', tdView.every((r) => r.dated), true);
+  check('readers1: the administrator is on the list reading no registration (D-93)',
+    [byName['Money Admin Fixture']?.scope, byName['Money Admin Fixture']?.role_label], ['none', 'Club administrator']);
+  check('readers2: so is a team manager (doc 34 rule 4)', byName['Money Manager Fixture']?.scope, 'none');
+  check('readers3: a coach with no grant is not a reader and is not listed',
+    tdView.some((r) => r.reader_name === 'Money Bench Fixture'), false);
+  check('readers4: an administrator asking is shown one row — their own',
+    (await readers(mAdmin)).map((r) => r.reader_name), ['Money Admin Fixture']);
+  for (const [who, what] of [[grantedCoach, 'a granted coach'], [mTm, 'a team manager'], [ID.td, 'another club’s TD'], [ID.guardian, 'a guardian'], [null, 'nobody']]) {
+    check(`readers5: ${what} gets no list at all`, (await readers(who)).length, 0);
+  }
+  await db.query(`update register_grant set revoked_at = now(), revoked_by = $1 where person_id = $2`, [mTd, grantedCoach]);
+  check('N21f: the grant is removed and the coach leaves the list at the next read — nothing stored',
+    (await readers(mTd)).some((r) => r.reader_name === 'Money Coach Fixture'), false);
+}
+
+// ---------------------------------------------------------------------------
+// 0064 — THE RETURN. Sixty days away, three dated facts, and nothing at all
+// for a child (D-25, D-53, D-65/D-81, D-74/D-90, doc 34 rule 6).
+// ---------------------------------------------------------------------------
+{
+  const q1 = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const arrive = async (who) => (await q1('select fn_note_arrival($1) as s', [who])).s;
+  const seen = async (who) => (await q1('select last_seen_at from person where id = $1', [who])).last_seen_at;
+  const facts = async (who, since) => (await db.query(
+    `select kind, to_char(fact_on, 'FMDD Mon') as on_label, subject, club_name, reader_name, reader_role, surface,
+       to_char(checked_on, 'FMDD Mon') as checked_label
+     from fn_return_facts($1, $2::timestamptz)`, [who, since])).rows;
+  const adult = async (name) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`, [id, name, yearsAgo(41)]);
+    return id;
+  };
+
+  // --- when a return opens, and when it does not
+  const fresh = await adult('Return Fresh');
+  check('ret1: a first visit is not a return', await arrive(fresh), null);
+  check('ret1b: and it is recorded, once, as one timestamp', (await seen(fresh)) !== null, true);
+  const recent = await adult('Return Recent');
+  await db.query(`update person set last_seen_at = now() - interval '59 days' where id = $1`, [recent]);
+  check('ret2: fifty-nine days away is not a return', await arrive(recent), null);
+  const away = await adult('Return Away');
+  await db.query(`update person set last_seen_at = now() - interval '61 days' where id = $1`, [away]);
+  const opened = await arrive(away);
+  check('ret2b: sixty-one days away opens one, measured from the last visit', opened !== null, true);
+  check('ret3: a second arrival the same day keeps the same window — the block does not vanish on a Back press',
+    String(await arrive(away)), String(opened));
+  await db.query(`update person set returned_at = now() - interval '2 days' where id = $1`, [away]);
+  check('ret3b: and it closes after a day', await arrive(away), null);
+
+  // --- nothing at all for a child (D-25), and the refusal is the database's
+  check('ret4: an under-16 arriving records nothing', await arrive(ID.deniz), null);
+  check('ret4b: not even the timestamp — a fourteen-year-old’s visits are not held', await seen(ID.deniz), null);
+  await db.query(`update person set last_seen_at = now() - interval '90 days' where id = $1`, [ID.deniz]);
+  check('ret4c: nor does one appear if somebody puts it there by hand', await arrive(ID.deniz), null);
+  check('ret5: and asked directly, an under-16 is told nothing while away',
+    (await facts(ID.deniz, new Date(Date.now() - 90 * 86400000).toISOString())).length, 0);
+  await db.query(`update person set last_seen_at = null where id = $1`, [ID.deniz]);
+  check('ret5b: a 16–17 does get a return — doc 34 rule 6 is where the line is, and this migration did not move it',
+    (await arrive(ID.nate)) === null, true);   // nate has no last_seen yet: a first visit
+
+  // --- the read line: the ledger, through the gate that already exists.
+  // Its own family, because every other section of this file has been reading
+  // Riverside's register and logging as it went. "The only read in the window"
+  // is not true of ID.guardian, and a check that assumed it was would have been
+  // asserting the fixture rather than the function (LESSONS L32).
+  const since = new Date(Date.now() - 70 * 86400000).toISOString();
+  const rParent = await adult('Return Parent');
+  const rChild = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Winona','Fixture','2012-05-05')`, [rChild]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [rParent, rChild]);
+  const rRec = crypto.randomUUID();
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rRec, rChild]);
+  const rReg = (await q1(
+    `insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4') returning id`,
+    [rChild, CLUB.riverside])).id;
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface, read_at)
+     values ($1,$2,'list', now() - interval '20 days')`, [ID.clubAdmin, rReg]);
+  const listOnly = (await facts(rParent, since)).find((f) => f.kind === 'read');
+  check('ret6: a read of the list says so, naming the person and their role at that club',
+    [listOnly?.reader_name, listOnly?.reader_role, listOnly?.club_name, listOnly?.surface, listOnly?.subject],
+    ['clubAdmin', 'Club administrator', 'Riverside FC', 'list', 'Winona']);
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface, read_at)
+     values ($1,$2,'cv', now() - interval '30 days')`, [ID.td, rReg]);
+  const both = (await facts(rParent, since)).find((f) => f.kind === 'read');
+  check('ret6b: a CV opened outranks a list loaded, even when it is the older of the two',
+    [both?.reader_name, both?.surface], ['td', 'cv']);
+  check('ret6c: exactly one read line, whatever the ledger holds — a list of readers is a count with names on',
+    (await facts(rParent, since)).filter((f) => f.kind === 'read').length, 1);
+  check('ret6d: a viewer with no guardianship is told nothing about that child',
+    (await facts(ID.exGuardian, since)).some((f) => f.subject === 'Winona'), false);
+  check('ret6e: and neither is the club that did the reading',
+    (await facts(ID.td, since)).some((f) => f.subject === 'Winona'), false);
+  check('ret7: the same read, with the window starting after it, is not "while you were away"',
+    (await facts(rParent, new Date(Date.now() - 10 * 86400000).toISOString())).some((f) => f.kind === 'read'), false);
+  // M3 — at eighteen a guardianship is visibility only if re-granted (D-49).
+  const marcusReg = (await q1(
+    `insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4') returning id`,
+    [ID.marcus, CLUB.riverside])).id;
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface, read_at)
+     values ($1,$2,'cv', now() - interval '20 days')`, [ID.td, marcusReg]);
+  check('ret8: an adult child’s reads are not their parent’s to see without a re-grant (M3, D-49)',
+    (await facts(ID.guardian, since)).some((f) => f.subject === 'Marcus'), false);
+
+  // --- the link line
+  const tk = crypto.randomUUID();
+  await db.query(
+    `insert into share_token (record_id, token_hash, token_hint, issued_by, expires_at)
+     values ($1,$2,'ret-hint',$3, now() + interval '40 days')`, [rRec, sha(`ret-${tk}`), rParent]);
+  check('ret9: the link line is the live token’s own expiry',
+    (await facts(rParent, since)).some((f) => f.kind === 'link_expiry' && f.subject === 'Winona'), true);
+  await db.query(`update share_token set paused = true where token_hash = $1`, [sha(`ret-${tk}`)]);
+  check('ret9b: a paused link has no expiry to state, so the line is omitted rather than guessed',
+    (await facts(rParent, since)).some((f) => f.kind === 'link_expiry'), false);
+  await db.query(`update share_token set revoked_at = now(), paused = false where token_hash = $1`, [sha(`ret-${tk}`)]);
+  check('ret9c: a revoked link has none either',
+    (await facts(rParent, since)).some((f) => f.kind === 'link_expiry'), false);
+  await db.query(`update share_token set revoked_at = null where token_hash = $1`, [sha(`ret-${tk}`)]);
+
+  // --- the trials line: a stale date CANNOT render (D-74, D-90)
+  await db.query(`update trial_notice set trial_on = current_date + 20, last_checked = current_date - 40`);
+  check('ret10: every notice unchecked for forty days — the trials line is omitted entirely, not guessed',
+    (await facts(rParent, since)).some((f) => f.kind === 'trials'), false);
+  const notice = (await q1(`select id from trial_notice limit 1`));
+  if (notice) {
+    await db.query(`update trial_notice set last_checked = current_date, trial_on = current_date + 9 where id = $1`, [notice.id]);
+    const t = (await facts(rParent, since)).find((f) => f.kind === 'trials');
+    check('ret10b: a notice a human has checked inside thirty days puts it back, with its check stamp',
+      [Boolean(t), Boolean(t?.checked_label)], [true, true]);
+    check('ret10c: the date is the notice’s own, never a season written down somewhere',
+      t?.on_label, (await q1(`select to_char(trial_on, 'FMDD Mon') as d from trial_notice where id = $1`, [notice.id])).d);
+    await db.query(`update trial_notice set trial_on = current_date - 1 where id = $1`, [notice.id]);
+    check('ret10d: and a notice whose date has passed never renders anywhere',
+      (await facts(rParent, since)).some((f) => f.kind === 'trials'), false);
+    await db.query(`update trial_notice set trial_on = current_date + 9 where id = $1`, [notice.id]);
+  }
+  check('ret11: the trials line is the same for every viewer — no recommender, no personalisation (D-74)',
+    (await facts(rParent, since)).find((f) => f.kind === 'trials')?.on_label,
+    (await facts(ID.nate, since)).find((f) => f.kind === 'trials')?.on_label);
+
+  // --- what the block is NOT
+  const retSrc = codeOnly(readFileSync(fileURLToPath(new URL('../components/WhileYouWereAway.tsx', import.meta.url)), 'utf8'));
+  check('ret12: nothing in the block counts anything — no streak, no visit count, no read count',
+    /streak|\btimes\b|count\(|\blength\b\s*[><]|visits/i.test(retSrc), false);
+  check('ret13: and no verb is aimed at the reader',
+    /\b(update your|renew|don.t forget|complete your|come back|you haven)/i.test(retSrc), false);
+  const arrivalSrc = await procSrc('fn_note_arrival');
+  check('ret14: the arrival is one overwritten timestamp, never an appended history',
+    /insert into/i.test(codeOnly(arrivalSrc)), false);
+  check('ret15: nothing about this block sends anything',
+    /message_outbox|sendMessage|resend|sms/i.test(retSrc), false);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

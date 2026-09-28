@@ -1711,6 +1711,49 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     /Technical Director Casey Duarte · active · recorded by BUZ/.test(words((await get('/ops/verification', op)).html)), true);
 }
 
+// ---------------------------------------------------------------------------
+// D-137 at checkout: the name, the role and the tick. The page declared
+// `error` in its searchParams type and never took it out again, so pressing
+// Subscribe without the authority tick — or with a name that is only spaces,
+// which `required` lets through — came back to ?error=1 with the fields
+// emptied and NOT ONE WORD about what had happened. Nothing is charged either
+// way; the difference is whether the treasurer is told why.
+// ---------------------------------------------------------------------------
+{
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const dana = ids.people.dana;                 // the free club: this page shows checkout
+  const page = await get('/club/billing', dana);
+  const form = forms(page.html).find((f) => f.visible.some((v) => v.name === 'authorised'));
+  check('bw1: the checkout form is there, with the D-137 tick on it', Boolean(form), true);
+
+  // A browser with the tick unticked sends no `authorised` field at all.
+  const untick = async (over) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    fd.append('plan', 'register_monthly');
+    fd.append('personName', over.personName ?? 'Dana Kovac');
+    fd.append('roleAtClub', over.roleAtClub ?? 'Treasurer');
+    if (over.authorised) fd.append('authorised', 'on');
+    const r = await fetch(BASE + '/club/billing', { method: 'POST', body: fd, redirect: 'manual',
+      headers: { cookie: cookieFor(dana) } });
+    await r.text();
+    return r.headers.get('location');
+  };
+
+  check('bw2: with the tick unticked it goes nowhere near Stripe', await untick({}), '/club/billing?error=1');
+  check('bw3: a name of nothing but spaces is the same refusal',
+    await untick({ authorised: true, personName: '   ' }), '/club/billing?error=1');
+  check('bw4: and a role of nothing but spaces',
+    await untick({ authorised: true, roleAtClub: '  ' }), '/club/billing?error=1');
+
+  const back = words((await get('/club/billing?error=1', dana)).html);
+  check('bw5: and the page that comes back says what happened and what is needed',
+    /Nothing has been charged\. We need your name, your role at the club, and the tick that says you.re authorised\./.test(back), true);
+  check('bw6: the club is still on no plan — nothing was taken and nothing was agreed',
+    /Choose how you pay/.test(back) && !/On your statement/.test(back), true);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 console.log('NOTE: this mutated the dev database. Restart scripts/dev-db.mts for a clean one.');
 process.exit(failures.length ? 1 : 0);

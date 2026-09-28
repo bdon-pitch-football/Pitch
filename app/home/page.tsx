@@ -11,6 +11,7 @@ import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
 import { PlayerFrame, GuardianFrame } from '@/components/player-shell';
 import RegisterReaders from '@/components/RegisterReaders';
+import WhileYouWereAway from '@/components/WhileYouWereAway';
 import SquadCard from '@/components/SquadCard';
 import { ClubConsole, CoachConsole } from '@/components/console-shell';
 import CopyLink from '@/components/cv/CopyLink';
@@ -515,12 +516,19 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     const todo = steps.filter((x) => !x.done).slice(0, 2);
     const live = Boolean(pg?.link);
 
+    // The return (0064). fn_note_arrival records nothing and answers nothing
+    // for an under-16, so a fourteen-year-old's visits are not timestamped and
+    // this block does not render for them — the refusal is the database's, not
+    // this page's, and doc 34 rule 6 (who may see a read receipt) is untouched.
+    const awaySince = (await db.query('select fn_note_arrival($1) as since', [personId])).rows[0].since as string | null;
+
     return (
       <PlayerFrame active="home">
         <div className="console h-rise" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
           <div className="player-grid">
           <div>
+          {awaySince && <WhileYouWereAway viewerId={personId as string} since={awaySince} />}
           <div className="sheen" style={{ borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
               {me.photo_path ? (
@@ -778,6 +786,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   const expiringSoon = children.filter((c) => c.expiresInDays !== null && c.expiresInDays <= 30).length;
   const clubsHolding = children.reduce((n, c) => n + c.registers, 0);
 
+  // The return (0064). A parent gone from March to September comes back to a
+  // queue of their own omissions, oldest first, and nothing at all about what
+  // happened to their child's record in those months — which is the one
+  // question they came back with. Three dated facts, above the queue, and then
+  // the page is the page. Never sent: it is computed on arrival and read on
+  // arrival, because the moment it becomes a send it is a re-engagement prompt
+  // (D-65 as amended by D-81).
+  const awaySince = (await db.query('select fn_note_arrival($1) as since', [personId])).rows[0].since as string | null;
+
   // Guardian seat — inside the parent's frame (D-147, amended 16 Sep).
   return (
     <GuardianFrame active="home">
@@ -786,6 +803,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
         <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your family</h1>
         <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everything about your children on Pitch, and every control over it, is here.</div>
       </div>
+
+      {awaySince && <WhileYouWereAway viewerId={personId as string} since={awaySince} />}
 
       {/* The state of things, in three numbers. Nothing here is new data —
           it is what the child cards below already say, added up, which is
