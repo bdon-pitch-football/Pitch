@@ -350,7 +350,7 @@ export default function ComingSoon() {
     ...(t[1] === 'Coming soon'
       ? { bg: '#0a0f0c', bd: '1px dashed #24322a', badgeBg: 'rgba(255,255,255,.08)', badgeFg: '#b9c8bf' }
       : t[1] === 'The paid tier'
-        ? { bg: 'linear-gradient(160deg, #2b2415 0%, #14170f 100%)', bd: '1px solid #4a3a12', badgeBg: '#eda100', badgeFg: '#14100a' }
+        ? { bg: 'var(--hero-amber)', bd: '1px solid #4a3a12', badgeBg: '#eda100', badgeFg: '#14100a' }
         : { bg: '#0d1411', bd: '1px solid #1c2822', badgeBg: 'rgba(61,220,132,.14)', badgeFg: '#3ddc84' }),
   }));
 
@@ -625,7 +625,7 @@ export default function ComingSoon() {
                     <div style={{ flex: 1, background: '#121b16', borderRadius: 10, padding: '8px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}><div style={{ fontSize: 12, fontWeight: 900 }}>Seniors</div><div style={{ fontSize: 9, fontWeight: 800, color: '#7d8f85' }}>25 players</div></div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, outlineOffset: 4, transition: 'opacity .3s', ...lk('kreg') }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(160deg, #2b2415, #14170f)', border: '1px solid #4a3a12', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--hero-amber)', border: '1px solid #4a3a12', borderRadius: 10, padding: '9px 11px', fontSize: 12, fontWeight: 700 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}><div>Interest Register · U15 Boys</div><div style={{ fontSize: 10.5, color: '#b9aa7a', fontWeight: 600 }}>16 want in · 4 new this week</div></div>
                       <div style={{ fontSize: 18, fontWeight: 900, color: '#eda100' }}>16</div>
                     </div>
@@ -710,7 +710,7 @@ export default function ComingSoon() {
 
       {/* ===== FOUNDING XI ===== */}
       <div data-reveal="1" style={{ maxWidth: 1100, margin: '0 auto', padding: '90px 24px 20px 24px', ...reveal }}>
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 32, background: 'linear-gradient(160deg, #2b2415 0%, #171409 55%, #0d120e 100%)', border: '1px solid #4a3a12', padding: 'clamp(28px, 4vw, 56px)', display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center' }}>
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 32, background: 'var(--hero-amber)', border: '1px solid #4a3a12', padding: 'clamp(28px, 4vw, 56px)', display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center' }}>
           <div style={{ position: 'relative', flex: '1 1 340px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* ANNA COPY PASS v1 §6 */}
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: '#eda100' }}>For clubs</div>
@@ -1261,7 +1261,7 @@ export default function ComingSoon() {
             { name: 'Players 18+ and coaches', price: 'Free', per: '', desc: 'Your page, your clips, the send link, and a PDF whenever you want one. A paid tier exists later for people who want more — what’s here now stays free.', hi: false },
             { name: 'Clubs — the Interest Register', price: '$54', per: 'a month', desc: 'Or $329 for twelve months. Cancel any time.', hi: true },
           ].map((t) => (
-            <div key={t.name} style={{ position: 'relative', overflow: 'hidden', background: t.hi ? 'linear-gradient(160deg, #2b2415 0%, #14170f 100%)' : '#0d1411', border: t.hi ? '1px solid #4a3a12' : '1px solid #1c2822', borderRadius: 24, padding: 26, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div key={t.name} style={{ position: 'relative', overflow: 'hidden', background: t.hi ? 'var(--hero-amber)' : '#0d1411', border: t.hi ? '1px solid #4a3a12' : '1px solid #1c2822', borderRadius: 24, padding: 26, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: t.hi ? '#eda100' : '#3ddc84' }}>{t.name}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
                 <div style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1 }}>{t.price}</div>
@@ -1286,7 +1286,7 @@ export default function ComingSoon() {
 
       {/* ===== WAITLIST ===== */}
       <div ref={formRef} style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 60px 24px', boxSizing: 'border-box' }}>
-        <div data-reveal="1" style={{ position: 'relative', overflow: 'hidden', borderRadius: 32, background: 'linear-gradient(160deg, #10201a 0%, #0b1410 60%, #080d0a 100%)', border: '1px solid #1c2822', padding: 'clamp(28px, 4vw, 56px)', display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center', ...reveal }}>
+        <div data-reveal="1" style={{ position: 'relative', overflow: 'hidden', borderRadius: 32, background: 'var(--hero)', border: '1px solid #1c2822', padding: 'clamp(28px, 4vw, 56px)', display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center', ...reveal }}>
           <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(60% 70% at 100% 0%, ${accentGlow} 0%, transparent 65%)`, pointerEvents: 'none', transition: 'background .5s' }} />
           <div style={{ position: 'relative', flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* ANNA COPY PASS v1 §8+10 */}

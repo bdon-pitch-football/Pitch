@@ -62,6 +62,37 @@ export const STAT_SETS: Record<PositionGroup, readonly StatKey[]> = {
 export const PROVENANCE = ['self_reported', 'coach_verified', 'official_import'] as const;
 export type Provenance = (typeof PROVENANCE)[number];
 
+// The words the tag is displayed as, one per value in the domain above, so
+// that adding a fourth value cannot compile without a word for it. Every
+// surface that renders a number reads its label from here and never types
+// one: a literal is how a coach-verified number ends up under "Self-reported".
+export const PROVENANCE_LABELS: Record<Provenance, string> = {
+  self_reported: 'Self-reported',
+  coach_verified: 'Coach-verified',
+  official_import: 'Official import',
+};
+
+// An out-of-domain value cannot come from the database — player_stat and
+// record_entry both constrain the column to the three above — so this is the
+// belt behind the braces, and it reads as the WEAKEST claim rather than
+// silently inheriting a stronger one.
+const known = (p: string | null | undefined): Provenance =>
+  (PROVENANCE as readonly string[]).includes(p ?? '') ? (p as Provenance) : 'self_reported';
+
+export const provenanceLabel = (p: string | null | undefined): string => PROVENANCE_LABELS[known(p)];
+
+// The tag belongs to the NUMBER, not to the block. A block may caption itself
+// once only while every number under it came from the same place; the moment
+// two differ there is no sentence that is true of all of them, so the caller
+// tags each number instead — never one averaged label over a mixed block.
+// Returns the shared value, or null for "they differ" and for an empty block
+// (which renders nothing to caption anyway).
+export function sharedProvenance(rows: readonly { provenance?: string | null }[]): Provenance | null {
+  if (rows.length === 0) return null;
+  const first = known(rows[0].provenance);
+  return rows.every((r) => known(r.provenance) === first) ? first : null;
+}
+
 // --- Interest Register club-side status (doc 16 §3d, D-108) -----------------
 // Three values, no fourth, and none of them is a verdict. `declined`,
 // `rejected` and `unsuccessful` cannot be written — the constraint also lives
@@ -102,3 +133,31 @@ export const EXPERIENCE_KIND_LABELS: Record<ExperienceKind, string> = {
   representative: 'Representative', ntc_academy: 'NTC',
   tournament: 'Tournament', other: 'Other',
 };
+
+// D-161 — no school reaches a public page for anybody under 18, not as a
+// field (D-114 took the field away) and not as an "other football" entry. An
+// adult keeps it: a university or a school side is theirs to name.
+//
+// The RULE is the database's (0061) — the write is refused there, so it holds
+// for the next screen somebody builds. These two exist for the two things a
+// refused write cannot do: stop offering a chip nobody may use, and stop an
+// entry written BEFORE the rule from rendering. The second matters because a
+// u16's page is a guardian-approved snapshot (D-119) taken before today, and
+// nothing deletes those rows or that snapshot — they are the family's own
+// words (D-161 leaves what a family is told to BUZ).
+//
+// The band is the one the permission layer derived (fn_age_band), carried and
+// never computed here. An absent band is treated as a minor — the same
+// restrictive default fn_age_band uses for an unknown date of birth.
+const ADULT_ONLY_KINDS: readonly ExperienceKind[] = ['school'];
+const adultOnly = (kind: string) => ADULT_ONLY_KINDS.includes(kind as ExperienceKind);
+
+/** The "other football" chips a record of this band may be offered. */
+export function experienceKindsOffered(band?: string | null): ExperienceKind[] {
+  return OTHER_FOOTBALL_KINDS.filter((k) => band === '18plus' || !adultOnly(k));
+}
+
+/** The experience entries a page of this band may render, whatever it holds. */
+export function renderableExperience<T extends { kind: string }>(entries: T[], band?: string | null): T[] {
+  return entries.filter((e) => band === '18plus' || !adultOnly(e.kind));
+}

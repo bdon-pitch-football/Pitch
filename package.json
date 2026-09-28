@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "build:check": "NEXT_DIST_DIR=.next-check next build",
     "test:render": "node scripts/render-tests.mjs",
-    "test:perms": "node scripts/permission-tests.mjs",
+    "test:perms": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/permission-tests.mjs",
     "test:write": "node scripts/write-tests.mjs",
     "demo": "node scripts/demo.mjs",
     "test:paths": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/safe-path-tests.mts",

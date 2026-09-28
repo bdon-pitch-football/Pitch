@@ -2,6 +2,15 @@
 // ALL PEOPLE AND CLUBS HERE ARE FICTIONAL, deliberately and checkably so —
 // no real minor's data appears in any environment, ever (doc 16 §4).
 // Riverside FC, Northern United SC and Kingsway Rovers FC do not exist;
+// nor do Saltmarsh Rovers, Marchfield City, Elderslie Juniors, Ashvale
+// Lions, Barrowfield Juniors, Crestmoor SC, Halvard City, Marlowe High or
+// Westhaven Senior College. THE RULE IS STRONGER THAN 'PICK A NAME NOBODY
+// USES': an invented club is never named after a real suburb, because that
+// is exactly how real community clubs are named and nobody can verify the
+// non-existence of one. Six real organisations reached a child's page this
+// way and a seventh was only caught because a builder read the file for a
+// different reason (L15, TRAINING §3.1). The localities stay real — a
+// fictional club in a real suburb is intended and is what the demo needs.
 // check before inventing a fourth club.
 //
 // These are built before any screen because they are the test data every
@@ -12,7 +21,13 @@
 // Dates of birth are chosen so the ages hold through 2026 in
 // Australia/Melbourne and exercise the band boundaries in doc 14 §G.
 
-import type { ExperienceKind, PositionCode, Provenance, StatKey } from './football';
+// The stat SET is imported as a value, not as a type: every fixture's
+// selection is the default the product would choose for its positions, asked
+// of the same STAT_SETS the build form asks. The extension is on the specifier
+// because scripts/dev-db.mts loads this file through raw Node, which does not
+// resolve an extensionless TypeScript import (tsconfig allows it).
+import { STAT_SETS, positionGroup } from './football.ts';
+import type { ExperienceKind, PositionCode, Provenance, StatKey } from './football.ts';
 
 export interface FixtureStat {
   season: string;
@@ -53,7 +68,24 @@ export interface PlayerFixture {
   surfacedStats: StatKey[]; // D-105 — the player's selection, position set by default
 }
 
-export const DENIZ: PlayerFixture = {
+/**
+ * Build a fixture, taking the surfaced-stats selection from the same default
+ * the build form applies — STAT_SETS by position group — instead of writing
+ * the answer down here.
+ *
+ * Nate's was hand-set to ['apps','clean_sheets'], which is exactly what a
+ * correct default produces for a keeper, while nothing in the product imported
+ * STAT_SETS at all: so the GK fixture that exists to exercise a keeper's page
+ * demoed perfectly for weeks and the form handed every real keeper the outfield
+ * set. A fixture that supplies the answer cannot find the bug it was built to
+ * find. Pass `surfacedStats` explicitly only to model a player who has CHANGED
+ * their selection, and say in a comment that that is what it is.
+ */
+function player(f: Omit<PlayerFixture, 'surfacedStats'> & { surfacedStats?: StatKey[] }): PlayerFixture {
+  return { ...f, surfacedStats: f.surfacedStats ?? [...STAT_SETS[positionGroup(f.positions)]] };
+}
+
+export const DENIZ: PlayerFixture = player({
   slug: 'deniz',
   firstName: 'Deniz',
   lastName: 'Yılmaz',
@@ -64,7 +96,7 @@ export const DENIZ: PlayerFixture = {
   club: 'Riverside FC',
   locality: 'Brunswick VIC',
   squad: { name: 'U15 Boys', ageGroup: 'U15', competitionGender: 'boys' },
-  previousClubs: [{ orgName: 'Brunswick Juniors SC', period: '2019–2023' }],
+  previousClubs: [{ orgName: 'Elderslie Juniors SC', period: '2019–2023' }],
   about:
     'Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery.',
   stats: [
@@ -85,10 +117,9 @@ export const DENIZ: PlayerFixture = {
     { title: 'Season highlights 2026', url: 'https://www.youtube.com/watch?v=dev-deniz-1' },
     { title: 'vs Northern Utd — full performance', url: 'https://www.youtube.com/watch?v=dev-deniz-2' },
   ],
-  surfacedStats: ['apps', 'goals', 'assists'],
-};
+});
 
-export const NATE: PlayerFixture = {
+export const NATE: PlayerFixture = player({
   slug: 'nate',
   firstName: 'Nate',
   lastName: 'Halloran',
@@ -126,10 +157,9 @@ export const NATE: PlayerFixture = {
     { title: 'Penalty save — Metro League', url: 'https://www.youtube.com/watch?v=dev-nate-2' },
     { title: 'Distribution reel', url: 'https://www.youtube.com/watch?v=dev-nate-3' },
   ],
-  surfacedStats: ['apps', 'clean_sheets'],
-};
+});
 
-export const GEORGIA: PlayerFixture = {
+export const GEORGIA: PlayerFixture = player({
   slug: 'georgia',
   firstName: 'Georgia',
   lastName: 'Whitcombe',
@@ -160,8 +190,7 @@ export const GEORGIA: PlayerFixture = {
   highlights: [
     { title: 'Season highlights 2026', url: 'https://www.youtube.com/watch?v=dev-georgia-1' },
   ],
-  surfacedStats: ['apps', 'goals', 'assists'],
-};
+});
 
 // The adult. There was no 18+ player fixture at all, so the one band whose
 // page is assembled live with NO guardian anywhere in it could only be seen
@@ -169,7 +198,7 @@ export const GEORGIA: PlayerFixture = {
 // looked at: no parent-approved chip, no "there is no way to reply" block,
 // and a record that is the player's own with no approval step between them
 // and their page.
-export const JORDAN: PlayerFixture = {
+export const JORDAN: PlayerFixture = player({
   slug: 'jordan',
   firstName: 'Jordan',
   lastName: 'Abebe',
@@ -177,7 +206,7 @@ export const JORDAN: PlayerFixture = {
   positions: ['ST', 'LW'],
   squadNumber: 9,
   foot: 'Left',
-  club: 'Coburg City FC',
+  club: 'Marchfield City FC',
   locality: 'Coburg VIC',
   squad: { name: 'Seniors Men', ageGroup: 'SEN', competitionGender: 'men' },
   previousClubs: [
@@ -192,19 +221,24 @@ export const JORDAN: PlayerFixture = {
     { season: '2026', key: 'assists', value: 6, provenance: 'self_reported' },
   ],
   achievements: [
-    { title: 'Golden Boot — State League 2', detail: 'Coburg City FC, 2026' },
+    { title: 'Golden Boot — State League 2', detail: 'Marchfield City FC, 2026' },
     { title: 'Promotion winners', detail: '2025 season' },
   ],
   otherFootball: [
     { kind: 'representative', orgName: 'FV State League All-Stars', period: '2026' },
+    // The adult half of D-161: a school or university side still renders on
+    // an 18+ page, and only there. The under-18 half is exercised by Deniz's
+    // and Georgia's school entries, which the database now refuses to write
+    // and no page renders. 'Riverside' is one of the fictional names already
+    // in the seed (L15) — there is no Riverside University.
+    { kind: 'school', orgName: 'Riverside University 1st XI', period: '2023–2025' },
   ],
   highlightsUsed: 2,
   highlights: [
     { title: 'Season highlights 2026', url: 'https://www.youtube.com/watch?v=dev-jordan-1' },
     { title: 'Movement & finishing reel', url: 'https://www.youtube.com/watch?v=dev-jordan-2' },
   ],
-  surfacedStats: ['apps', 'goals', 'assists'],
-};
+});
 
 export const PLAYER_FIXTURES = [DENIZ, NATE, GEORGIA, JORDAN] as const;
 

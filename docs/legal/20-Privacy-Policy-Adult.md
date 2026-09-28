@@ -1,5 +1,7 @@
 # PITCH — Privacy Policy
 
+> **v2.8, 28 September 2026 — published. No clause changes.** What changed is what a reader is shown: these drafting notes are no longer served, the "Last updated" line and the footer name this version, and the footer no longer calls it a draft. John, doc 35 ruling 1: removing the preamble from what is served is not material; the version bumps so that a consent row names exactly the text that was shown, and nobody is re-asked. Ruling 3: these versions are the published ones.
+>
 > **⚠️ v2.3, 3 September 2026 — this restores work that was lost, and the loss was my doing.** On 1 September I filed pack v1.5, then revised it **in place, keeping the same version number**, so as not to create a phantom version. **That made the second set of changes invisible.** The corpus was built from the first copy and swept for the domain (D-150), and the contact work never arrived: the named Privacy Officer, the explanation of the two domains, the reason there is no postal address, and — the one that matters — **clause 8.3's plain statement that an appeal is not independently reviewed.** The live terms went back to promising a parent a second pair of eyes that does not exist.
 >
 > **The lesson is against me, not against the sweep.** A pack that has been filed is something somebody else may already have consumed. **Revising it in place under the same number is not a smaller change than a version bump — it is an invisible one.** From here, a filed pack is immutable and a correction is a new version, whether or not anything has been published.
@@ -45,7 +47,7 @@
 
 **In one paragraph.** Pitch keeps a record of a footballer's development. For anyone under 16, a parent or guardian creates it, approves it, sees all of it, approves every change to it, and can pause or delete it at any time. Clubs can see a player — that is how pathways work — but **nobody can contact a child through Pitch**, and no club ever gets a child's phone number or email address. We do not track anyone's location, we do not profile children, we do not advertise, and we never sell anybody's information. Some clubs pay us. That changes nothing about any child.
 
-**Last updated:** 3 September 2026 · **Version:** 2.4 · **Applies to:** everything at www.pitchfootball.com.au
+**Last updated:** 28 September 2026 · **Version:** 2.8 · **Applies to:** everything at www.pitchfootball.com.au
 
 ---
 
@@ -311,4 +313,4 @@ If we change something that matters we will tell you before it takes effect and,
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · privacy policy · doc 20 · v2.7 draft · 15 September 2026 · supersedes v2.4, which is retained unaltered as the version the first consents were recorded against · entity named per D-148*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · privacy policy · doc 20 · v2.8 · 28 September 2026 · supersedes v2.4, which is retained unaltered as the version the first consents were recorded against · entity named per D-148*

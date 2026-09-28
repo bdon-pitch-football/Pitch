@@ -65,7 +65,7 @@ export default async function ShareCard({ params, searchParams }: {
                 <label key={value} style={{ flex: 1, cursor: 'pointer' }}>
                   <input type="radio" name="shape" value={value} defaultChecked={i === 0} style={{ position: 'absolute', opacity: 0 }} />
                   <div style={{ background: T.surface, border: `${i === 0 ? '1.5px' : '1px'} solid ${i === 0 ? T.accent : T.line}`, borderRadius: 14, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: w, height: h, borderRadius: 6, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${i === 0 ? T.accent : '#2c3a33'}` }} />
+                    <div style={{ width: w, height: h, borderRadius: 6, background: 'var(--hero)', border: `1px solid ${i === 0 ? T.accent : '#2c3a33'}` }} />
                     <div style={{ fontSize: 12, fontWeight: i === 0 ? 900 : 700, color: i === 0 ? T.accent : T.secondary }}>{text}</div>
                   </div>
                 </label>
@@ -79,7 +79,7 @@ export default async function ShareCard({ params, searchParams }: {
             <Row ok={false}>Not your club, not your age group, not where you live, not your face.</Row>
             <Row ok={false}>No link back to your page. Someone who likes it has to come and find Pitch themselves.</Row>
           </div>
-          <div style={{ borderRadius: 16, background: 'linear-gradient(160deg, #123326, #0c1d14)', border: `1px solid ${T.line}`, padding: 16, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ borderRadius: 16, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 16, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(164,121,226,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="2.6" /><circle cx="16.5" cy="9.5" r="2" /><path d="M4.5 20 c0-3 2-5 4.5-5 s4.5 2 4.5 5 M14 20 c0-2.4 1.2-4 2.5-4 s2.5 1.6 2.5 4" /></svg>
             </div>

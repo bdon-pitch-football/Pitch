@@ -280,7 +280,14 @@ def s2():
                 # where the version token follows the date instead of preceding
                 # it ("Current as of 15 September 2026 - register v4.x"). Closed
                 # lead-in list, so "we go live on" is still a failure.
-                if re.search(r'\b(?:current as of|as at|as of|dated)\s+$',
+                # 'last updated:' joined the closed list 28 Sep. Doc 20's own
+                # body line "**Last updated:** 28 September 2026 · **Version:**
+                # 2.8" is the document stating when it was revised — a dateline,
+                # the same class as 'as of' — and the version bump John ruled on
+                # (doc 35 ruling 1) put a new date in it. Markdown bold around the
+                # label is allowed; the list stays closed, so a date after any
+                # other lead-in is still a failure.
+                if re.search(r'\b(?:current as of|as at|as of|dated|last updated:?)(?:\*\*)?\s+$',
                              before, re.I):
                     continue
                 # False positive #11: the date a decision was TAKEN. "BUZ accepted
@@ -435,35 +442,39 @@ def s13_consent_stamp():
 
     A version string is an assertion until it is bound to bytes. On 7 September
     two different files carried doc 23 v1.4, which is what a label alone allows.
-    POLICY_SHA256 in lib/consent.ts is the SHA-256 of the served privacy policy;
-    if the two ever disagree, every row written since is stamped with a hash
-    that resolves to nothing. It cannot be repaired afterwards, so it fails.
-    """
-    import hashlib
-    ts = os.path.join(ROOT, 'lib', 'consent.ts')
-    if not os.path.exists(ts):
-        ts = os.path.join(ROOT, 'repo', 'lib', 'consent.ts')
-    if not os.path.exists(ts):
-        return  # not the app root; nothing to check
-    src = open(ts, encoding='utf-8').read()
-    m = re.search(r"POLICY_SHA256\s*=\s*'([0-9a-f]{64})'", src)
-    if not m:
-        fail('S13', 'lib/consent.ts has no POLICY_SHA256 — consent rows would carry a label with nothing behind it')
-        return
-    doc = None
-    for cand in ('docs/legal/20-Privacy-Policy-Adult.md', 'legal/20-Privacy-Policy-Adult.md'):
-        path = os.path.join(os.path.dirname(os.path.dirname(ts)), cand)
-        if os.path.exists(path):
-            doc = path
-            break
-    if doc is None:
-        fail('S13', 'cannot find the served privacy policy to hash')
-        return
-    actual = hashlib.sha256(open(doc, 'rb').read()).hexdigest()
-    if actual != m.group(1):
-        fail('S13', 'POLICY_SHA256 does not match the served privacy policy — '
-                    'bump it in the SAME commit that changes what /privacy serves')
 
+    Until 28 Sep this checked a TYPED constant, POLICY_SHA256, against the
+    FILE. That was the right rule about the wrong thing: once the drafting
+    preamble stopped rendering, the file and the served text differed, and a
+    second path already stamped the served text — so doc 20 had two hashes in
+    one codebase and this check was green on the one that described nothing a
+    person read. The constant is gone and every stamp is derived at request
+    time by legalStamp() from the SERVED text (doc 35 ruling 1).
+
+    So the rule this checks now is the one that cannot drift: no path stamps a
+    consent row with a hash somebody typed. The permission suite (jr3) proves
+    the waitlist and the consent path produce the SAME hash for doc 20; this
+    is the corpus-side guard that the typed kind never comes back.
+    """
+    root = ROOT if os.path.exists(os.path.join(ROOT, 'lib')) else os.path.join(ROOT, 'repo')
+    if not os.path.exists(os.path.join(root, 'lib', 'consent.ts')):
+        return  # not the app root; nothing to check
+    typed = []
+    for top in ('lib', 'app'):
+        for dp, dn, fns in os.walk(os.path.join(root, top)):
+            dn[:] = [d for d in dn if not d.startswith('.') and d != 'node_modules']
+            for f in fns:
+                if f.endswith(('.ts', '.tsx')):
+                    src = open(os.path.join(dp, f), encoding='utf-8').read()
+                    if re.search(r"['\"`][0-9a-f]{64}['\"`]", src):
+                        typed.append(os.path.relpath(os.path.join(dp, f), root))
+    if typed:
+        fail('S13', 'a consent hash is typed into source rather than derived from the served text: '
+                    + ', '.join(typed))
+    wl = os.path.join(root, 'app', 'api', 'waitlist', 'route.ts')
+    if os.path.exists(wl) and "legalStamp('20')" not in open(wl, encoding='utf-8').read():
+        fail('S13', "the waitlist does not stamp with legalStamp('20') — it would write a different hash "
+                    'for doc 20 than the consent path does')
 
 for fn in (s7, s3, s5, s1, s2, s6, s4, s9_presence, s10_banners, s11_claims, s12_domain, s13_consent_stamp):
     fn()

@@ -9,6 +9,7 @@ import { CoachConsole } from '@/components/console-shell';
 import Link from 'next/link';
 import { addCoachAchievement, addCoachClip, addLicence, addRole, hideCoachPage, publishCoachPage, removeCoachAchievement, removeCoachClip, removeLicence, removeRole, saveCoachProfile } from './actions';
 import CopyLink from '@/components/cv/CopyLink';
+import { FAILURE_COPY } from '@/components/FailureState';
 import { COACH_CLIP_CAP } from '@/lib/football';
 import { T } from '@/lib/palette';
 import { card, fieldLabel as label } from '@/lib/ui';
@@ -16,13 +17,17 @@ import { card, fieldLabel as label } from '@/lib/ui';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Build your coach CV', robots: { index: false, follow: false } };
 
-const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
-export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; banner?: string; removed?: string; published?: string; hidden?: string }> }) {
+export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; banner?: string; removed?: string; published?: string; hidden?: string; needs?: string }> }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
-  const { saved, clip, photo, banner, published, hidden } = await searchParams;
+  // `needs` was declared nowhere and destructured nowhere: actions.ts sends
+  // a coach here as ?needs=profile when a licence or an accomplishment is
+  // saved before the coach page itself exists, and the page added zero words
+  // — the press looked as though it had done nothing.
+  const { saved, clip, photo, banner, published, hidden, needs } = await searchParams;
   const { rows } = await db.query(
     `select p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, cp.public_contact,
        cp.region, cp.philosophy, cp.public_slug, cp.banner_path, cp.hidden_at,
@@ -69,6 +74,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
         {clip === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give it a title, and a YouTube, Veo or Instagram link.</div>}
         {photo === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A PNG or JPEG under 8MB.</div>}
         {banner === 'bad' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That file didn&rsquo;t work. A JPEG or PNG under 12MB, landscape if you have one.</div>}
+        {needs === 'profile' && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>{FAILURE_COPY.coachNeedsProfile}</div>}
 
         {/* Coaches were the only profile in the product with no photo at all
             — players have one, clubs have a crest and a banner, and a coach
@@ -158,7 +164,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
             capped, and authorised against this coach's own profile. */}
         <form action="/coach/edit/banner" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Banner</div>
-          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'linear-gradient(160deg, #123326, #0a1510)' }}>
+          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'var(--hero)' }}>
             {c.banner_path ? (
               <div style={{ position: 'relative', lineHeight: 0 }}>
                 <img src={c.banner_path} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />

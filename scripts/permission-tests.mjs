@@ -5,6 +5,12 @@
 //
 // This file grows until every row of doc 14 is here. Green or we do not go.
 import { PGlite } from '@electric-sql/pglite';
+// The stat catalogue and the provenance vocabulary live in TypeScript, not in
+// Postgres (D-70), so the rules inside them are asked of the module itself
+// rather than copied into this file — a copy is a second answer to the same
+// question and a second place to be wrong (L23).
+import { PROVENANCE, PROVENANCE_LABELS, STAT_SETS, positionGroup, sharedProvenance } from '../lib/football.ts';
+import { PLAYER_FIXTURES } from '../lib/fixtures.ts';
 import { createHash, createHmac } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -346,6 +352,115 @@ const permSqlCode = readFileSync(join(dir, '0003_permissions.sql'), 'utf8')
   .replace(/--[^\n]*/g, '')
   .replace(/\/\*[\s\S]*?\*\//g, '');
 check('D-72 permission engine source never references experience_entry', permSqlCode.includes('experience_entry') ? 'referenced' : 'clean', 'clean');
+
+// ---------------------------------------------------------------------------
+// A19 / D-161 — no school reaches a public page for anybody under 18. The
+// rule is the database's (0061): the write is refused against the date of
+// birth at write time, and the read paths ask the same function at read time,
+// so an eighteenth birthday is nobody's special case.
+//
+// D-72 is untouched and is asserted three lines above: the entry still grants
+// nothing to anybody. This runs the other way round — the record's age band
+// decides what the entry may say.
+// ---------------------------------------------------------------------------
+const schoolRow = (rec) =>
+  `insert into experience_entry (record_id, kind, org_name) values ('${rec}','school','Riverside University 1st XI')`;
+await expectFail('A19: a school entry is refused on an under-16 record', schoolRow(REC.deniz));
+await expectFail('A19: and refused on a 16-17 record', schoolRow(REC.nate));
+await db.exec(schoolRow(REC.marcus));
+const schoolRows = async (rec) =>
+  (await db.query(`select count(*)::int as n from experience_entry where record_id=$1 and kind='school'`, [rec])).rows[0].n;
+check('A19: the same insert succeeds on an adult record', await schoolRows(REC.marcus), 1);
+check('A19: and the child has none', await schoolRows(REC.deniz), 0);
+
+// The read side, asked of the database rather than of a page (D-80): the one
+// function every assembly path calls.
+const kindPublic = async (rec, kind) =>
+  (await db.query(`select fn_experience_public($1,$2) as ok`, [rec, kind])).rows[0].ok;
+const schoolPublic = (rec) => kindPublic(rec, 'school');
+check('A19: the adult\'s school entry may reach a public page', await schoolPublic(REC.marcus), true);
+check('A19: the under-16\'s may not', await schoolPublic(REC.deniz), false);
+check('A19: nor the 16-17\'s', await schoolPublic(REC.nate), false);
+check('A19: and a record that does not exist may not either — restrictive by default',
+  await schoolPublic('00000000-0000-0000-0000-000000000000'), false);
+check('A19: every other kind is unaffected, for every band',
+  [await kindPublic(REC.deniz, 'futsal'), await kindPublic(REC.deniz, 'previous_club'),
+   await kindPublic(REC.deniz, 'representative'), await kindPublic(REC.nate, 'ntc_academy')],
+  [true, true, true, true]);
+
+// Age is DERIVED, never stored (D-49). The same row, the same person, one
+// date of birth apart: nothing anywhere has to remember a birthday.
+await db.query(`update person set dob = $2 where id = $1`, [ID.nate, yearsAgo(19)]);
+check('A19: the refusal follows the date of birth — an 18th birthday needs no job',
+  await schoolPublic(REC.nate), true);
+await db.exec(schoolRow(REC.nate));
+check('A19: and the write the database refused yesterday is accepted today',
+  await schoolRows(REC.nate), 1);
+await db.query(`delete from experience_entry where record_id=$1 and kind='school'`, [REC.nate]);
+await db.query(`update person set dob = $2 where id = $1`, [ID.nate, yearsAgo(17)]);
+check('A19: and the 16-17 fixture is back where it was', await schoolPublic(REC.nate), false);
+
+// The two other ways a school entry could arrive on a child's record.
+const probeEntry = crypto.randomUUID();
+await db.query(`insert into experience_entry (id, record_id, kind, org_name) values ($1,$2,'futsal','Fixture futsal')`,
+  [probeEntry, REC.deniz]);
+await expectFail('A19: an existing entry cannot be edited into a school entry',
+  `update experience_entry set kind='school' where id='${probeEntry}'`);
+await expectFail('A19: nor can an adult\'s school entry be moved onto a child\'s record',
+  `update experience_entry set record_id='${REC.deniz}' where record_id='${REC.marcus}' and kind='school'`);
+
+// An entry that already exists is NOT deleted — it is the family's own words,
+// and what they are told is BUZ's call (D-161). The seed holds one for the
+// same reason; this writes one the only way one can now be written.
+await db.exec(`alter table experience_entry disable trigger no_school_under_18`);
+await db.exec(schoolRow(REC.deniz));
+await db.exec(`alter table experience_entry enable trigger no_school_under_18`);
+check('A19: a row written before the rule is still there', await schoolRows(REC.deniz), 1);
+check('A19: and still reaches no public page', await schoolPublic(REC.deniz), false);
+check('A19: and still grants its reader nothing (D-72 unchanged)',
+  [await level(ID.coachOther, ID.deniz), await level(ID.adminOther, ID.deniz)], ['none', 'none']);
+await db.query(`update experience_entry set org_name='School 1st XI' where record_id=$1 and kind='school'`, [REC.deniz]);
+check('D-161: and can still be corrected in place, which is what the demo layer does to every text column',
+  (await db.query(`select org_name from experience_entry where record_id=$1 and kind='school'`, [REC.deniz])).rows[0].org_name,
+  'School 1st XI');
+
+// The approved snapshot is the one a guardian already approved, so it is
+// filtered where it is SERVED (fn_approved_cv, the single function 0054 made
+// of the four surfaces that read one). The row stays; the page does not get it.
+{
+  // A snapshot as one looked before today: a guardian approved it, a school
+  // entry is in it, and nothing may rewrite it. Restored afterwards, because
+  // the fixture's approved content is what table R reads.
+  const before = (await db.query(
+    `select content from profile_version where record_id=$1 and status='approved'`, [REC.deniz])).rows[0].content;
+  await db.query(
+    `update profile_version set content = $2 where record_id=$1 and status='approved'`,
+    [REC.deniz, JSON.stringify({ ...before, otherFootball: [
+      { kind: 'school', orgName: 'Marlowe High 1st XI' }, { kind: 'futsal', orgName: 'Melbourne Futsal U15' }] })]);
+  const served = (await db.query(`select fn_approved_cv($1) as cv`, [REC.deniz])).rows[0].cv;
+  const stored = (await db.query(
+    `select content from profile_version where record_id=$1 and status='approved'`, [REC.deniz])).rows[0].content;
+  check('A19: the snapshot a guardian approved still holds the school entry',
+    stored.otherFootball.map((e) => e.kind), ['school', 'futsal']);
+  check('A19: and fn_approved_cv — the one function all four snapshot surfaces read — serves it to nobody',
+    served.otherFootball.map((e) => e.kind), ['futsal']);
+  check('A19: and the rest of the snapshot is served unchanged', served.name, before.name);
+  await db.query(`update profile_version set content = $2 where record_id=$1 and status='approved'`,
+    [REC.deniz, JSON.stringify(before)]);
+}
+
+// Both assembly paths ask the database. The render suite proves what the page
+// serves; this is what stops a third assembly appearing without the question.
+for (const [what, rel] of [['the live assembly', 'lib/record-read.ts'], ['the snapshot builder', 'lib/cv-build.ts']]) {
+  check(`A19: ${what} asks fn_experience_public for every entry it returns`,
+    /fn_experience_public\(\$1, kind\)/.test(codeOnly(srcOf(rel))), true);
+}
+// A delete is not a read: stripped first, or the family editor's Remove
+// button makes this pass for the wrong reason.
+const experienceSrc = (f) => codeOnly(readFileSync(f, 'utf8')).replace(/delete from experience_entry/g, '');
+const readsExperience = routeFiles.filter((f) => /from experience_entry/.test(experienceSrc(f)));
+check(`A19: and no page under app/ reads one without the band in the same query (${readsExperience.length} reads them)`,
+  readsExperience.filter((f) => !/fn_experience_public|fn_age_band/.test(experienceSrc(f))).length, 0);
 
 // The 30-day notice query finds a child at the boundary and nobody else.
 const soon16 = crypto.randomUUID();
@@ -1222,7 +1337,7 @@ check('M11d: and never revokes on the family’s behalf — it offers the button
   /we have not switched it off for you/i.test(deverifyMsg), true);
 
 // The rest of John's M11/L29 ruling: the class RECORDED, the function CALLED,
-// and doc 15 §37 actually sent (0063, app/ops/call/[clubId]/actions.ts).
+// and doc 15 §37 actually sent (0065, app/ops/call/[clubId]/actions.ts).
 //
 // Everything below was built in 0025 and had no caller. The suite itself
 // listed clubDeverifiedEmail as a named exemption — "needs the child-safety
@@ -1407,6 +1522,13 @@ check('U-6e: and a stranger cannot',
     /investigation_grant|investigation_access/.test(codeOnly(whoLooked)), false);
   check('U-6n: and it decides for itself who may ask — it does not (the function does)',
     /guardianship_link|fn_read_level|fn_age_band/.test(codeOnly(whoLooked)), false);
+  // The card's words are BUZ's and he has not seen them. Until he does, the
+  // card does not reach a user: development only, the same rule a draft
+  // message follows in lib/messaging. When he approves, this check changes
+  // with the flag — on purpose, so approving is a visible act.
+  check('copy-held1: the who-looked card\u2019s unapproved words render nowhere in production',
+    /WHO_LOOKED_APPROVED = false/.test(whoLooked)
+      && /if \(!WHO_LOOKED_APPROVED && process\.env\.NODE_ENV === 'production'\) return null;/.test(whoLooked), true);
 }
 
 // D-108 carve-out — a club may close a role. It may never record a judgement
@@ -2219,6 +2341,17 @@ const deadPage = readFileSync(fileURLToPath(new URL('../app/p/[token]/page.tsx',
 const deadHalf = deadPage.split('LinkState').slice(1).join('');
 check('E4: the link-state page renders no name, club, age or photo',
   /first_name|last_name|club|age_group|photo/i.test(deadHalf), false);
+// E11, as doc 14 words it: the body carries no name, no club, no photo, no
+// age, NO INITIALS and NO SQUAD NUMBER. This row was counted as covered by a
+// label on a sign-out assertion (L4, a fourth time) — gate-coverage said
+// 261/261 and nothing in the file tested it. The page cannot leak a person
+// because it is handed none: LinkState takes a token and a boolean, and names
+// no field of a record anywhere.
+const linkStateSrc = readFileSync(fileURLToPath(new URL('../components/cv/LinkState.tsx', import.meta.url)), 'utf8');
+check('E11: the link-state page is handed nothing about a person',
+  /export default function LinkState\(\{ token, asked \}: \{ token\?: string; asked\?: boolean \}\)/.test(linkStateSrc), true);
+check('E11b: and names no field of a record — no initials, no squad number',
+  /first_name|last_name|initials|squad_number|shirt|photo_path|age_group|\bdob\b|positions/i.test(codeOnly(linkStateSrc)), false);
 check('E5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
 check('E6: and sends no referrer to an embed host (D-94 §5)',
   /no-referrer/.test(readFileSync(fileURLToPath(new URL('../next.config.mjs', import.meta.url)), 'utf8')), true);
@@ -2633,6 +2766,125 @@ check('Q6: the guardian approves, and only then does a path exist',
   (await db.query('select storage_path from share_card_approval where id = $1', [cardId])).rows[0].storage_path, 'cards/deniz.png');
 
 // ---------------------------------------------------------------------------
+// D-62 — "the UI always displays the tag... never render a number without its
+// source" — and the tag it displays is the one the ROW carries.
+//
+// Deliberately NOT labelled with a doc 14 row id (L4): doc 14 §D7/D8 test who
+// may WRITE a provenance and that it is derived from the actor, and §Q tests
+// who may approve a share card. Nothing in doc 14 says what a rendered number
+// is captioned, so these rows are D-62's and D-105's, not doc 14's.
+//
+// Every one of these was false on 28 Sep: six surfaces printed the word
+// "Self-reported" as a literal whatever the rows said, and the guardian-
+// approved card — the one artefact that cannot be recalled (D-101) and that
+// every platform caches for good (D-89) — printed three numbers in its
+// largest type with no source at all.
+// ---------------------------------------------------------------------------
+const statSurfaces = {
+  'the public CV': 'components/cv/PlayerCV.tsx',
+  'the print sheet': 'app/p/[token]/print/page.tsx',
+  'the public OG card': 'app/p/[token]/opengraph-image.tsx',
+  'the guardian-approved share card': 'app/g/card/[cardId]/image/route.tsx',
+};
+for (const [what, rel] of Object.entries(statSurfaces)) {
+  const src = codeOnly(srcOf(rel));
+  check(`D-62: ${what} labels a number from the row, never from a typed word`,
+    [/PROVENANCE_LABELS|provenanceLabel/.test(src), /['"`]Self-reported/.test(src)], [true, false]);
+  check(`D-62: ${what} captions a mixed block per number, never with one averaged label`,
+    /sharedProvenance/.test(src), true);
+}
+const cardSrc = codeOnly(srcOf('app/g/card/[cardId]/image/route.tsx'));
+check('D-62: the share card reads provenance out of the database beside the value',
+  /'provenance', provenance/.test(cardSrc), true);
+// D-89, restated as a guard on the change above: a tag is a fact about the
+// number. Nothing about the CHILD may ride in beside it.
+check('D-89: and the card still carries no club, age group, region or school',
+  /club|age_group|ageGroup|region|suburb|school/i.test(cardSrc), false);
+
+// The vocabulary itself: the column's domain and the words we display must be
+// the same three, so a fourth value cannot arrive without a word for it.
+const provDef = (await db.query(
+  `select pg_get_constraintdef(oid) as d from pg_constraint
+   where conrelid = 'player_stat'::regclass and pg_get_constraintdef(oid) like '%provenance%'`)).rows[0].d;
+check('D-62: every provenance player_stat permits has a word to display it',
+  PROVENANCE.every((v) => provDef.includes(`'${v}'`))
+    && (provDef.match(/'/g) ?? []).length === PROVENANCE.length * 2, true);
+check('D-62: and they are the three tags the register names',
+  PROVENANCE.map((v) => PROVENANCE_LABELS[v]), ['Self-reported', 'Coach-verified', 'Official import']);
+
+// The mixed-block rule, which is the one product question in this change:
+// a caption is a statement about every number under it.
+check('D-62: a block whose numbers share a source is captioned once',
+  sharedProvenance([{ provenance: 'self_reported' }, { provenance: 'self_reported' }]), 'self_reported');
+check('D-62: a coach-verified number is captioned coach-verified, not self-reported',
+  sharedProvenance([{ provenance: 'coach_verified' }]), 'coach_verified');
+check('D-62: a mixed block gets no block caption at all, so each number carries its own',
+  sharedProvenance([{ provenance: 'self_reported' }, { provenance: 'coach_verified' }]), null);
+check('D-62: an empty block is captioned by nothing', sharedProvenance([]), null);
+check('D-62: a value outside the domain reads as the weakest claim, never a stronger one',
+  sharedProvenance([{ provenance: 'endorsed_by_dad' }, { provenance: 'self_reported' }]), 'self_reported');
+
+// D-105 — STAT_SETS is the DEFAULT PRE-SELECTION. It was exported and imported
+// by nothing, and the build form typed the outfield three in instead, so a
+// goalkeeper opened their own page with Goals and Assists lit and Clean sheets
+// dimmed. It is a default, not a renderer: the player still chooses (D-105) and
+// the never-zero rule still decides what appears (D-70).
+const buildFormSrc = codeOnly(srcOf('app/build/[recordId]/BuildForm.tsx'));
+check('D-105: the build form opens on the position set, not on a list typed into it',
+  [/STAT_SETS\[positionGroup\(/.test(buildFormSrc), /\['apps', 'goals', 'assists'\]/.test(buildFormSrc)],
+  [true, false]);
+check("D-105: a keeper's default is appearances and clean sheets",
+  [...STAT_SETS[positionGroup(['GK'])]], ['apps', 'clean_sheets']);
+check('D-105: a selection already stored is never overridden by a default',
+  /chosen \?\? defaultSurfaced/.test(buildFormSrc), true);
+// And the fixture that hid the bug. Nate's selection was hand-written in
+// lib/fixtures.ts as exactly what a correct default produces, so the keeper's
+// page demoed perfectly for weeks while the form that produces it handed every
+// real keeper the outfield set. It is derived now — and that moves the risk
+// rather than removing it, because a wrong STAT_SETS would quietly change
+// every fixture and still look consistent with itself. So the sets are pinned
+// to the words in doc 16 §2 (CLAUDE.md's schema delta), which is the thing the
+// fixture used to stand in for (L33).
+const DOC16_STAT_SETS = {
+  GK: ['apps', 'clean_sheets'],
+  DEF: ['apps', 'clean_sheets', 'goals', 'assists'],
+  MID: ['apps', 'goals', 'assists'],
+  FWD: ['apps', 'goals', 'assists'],
+  UNSET: ['apps', 'goals', 'assists'],
+};
+for (const [group, set] of Object.entries(DOC16_STAT_SETS)) {
+  check(`D-105: the ${group} default pre-selection is doc 16's set`, [...STAT_SETS[group]], set);
+}
+check('D-105: and STAT_SETS answers for every position group, with no sixth',
+  Object.keys(STAT_SETS).sort(), Object.keys(DOC16_STAT_SETS).sort());
+check('D-105: no house fixture writes a selection down instead of deriving it',
+  /surfacedStats:\s*\[/.test(codeOnly(srcOf('lib/fixtures.ts'))), false);
+for (const f of PLAYER_FIXTURES) {
+  check(`D-105: ${f.slug} opens on the default for ${f.positions.join('/')}`,
+    f.surfacedStats, [...STAT_SETS[positionGroup(f.positions)]]);
+}
+
+// D-162 (28 Sep) — the never-zero rule is a PRODUCT rule: a zero is never
+// rendered as a value, a count or a control that leads nowhere. It bars the
+// digit, not the fact of absence. On the stat surfaces it was already built
+// (every one of them filters value > 0), with one hole: the build form printed
+// a stored 0 back into its own input, which is the pre-filled zero D-70 names.
+check('D-162: the build form never prints a stored zero into a stat input',
+  /record\.stats\?\.\[k\] \?/.test(buildFormSrc), true);
+check('D-162: and a zero typed into it is absence, so nothing stores one',
+  /raw === '' \|\| n === 0 \? null/.test(codeOnly(srcOf('app/build/[recordId]/actions.ts'))), true);
+for (const [what, rel] of Object.entries({
+  ...statSurfaces,
+  'the squad roster': 'app/club/squads/[squadId]/page.tsx',
+  'the record read path': 'lib/record-read.ts',
+  'the approved snapshot': 'lib/cv-build.ts',
+})) {
+  const src = codeOnly(srcOf(rel));
+  check(`D-162: ${what} omits a zero rather than printing one`,
+    /value > 0|\.value > 0|\(v \?\? 0\) > 0|value is not null and value > 0/.test(src), true);
+}
+
+// ---------------------------------------------------------------------------
 // Table F — two guardians, most-restrictive-wins (D-51). Deniz has two.
 // ---------------------------------------------------------------------------
 check('F1: both guardians read in full', await level(ID.guardian2, ID.deniz), 'full');
@@ -2662,8 +2914,23 @@ const resetSrc = readFileSync(fileURLToPath(new URL('../app/reset/actions.ts', i
 check('D-94: passwords are never stored in the clear', /password_hash/.test(authSrc) && !/values \(\$1, *password\)/.test(authSrc), true);
 check('D-94: password comparison is constant-time', authSrc.includes('timingSafeEqual'), true);
 check('D-94: a non-existent account still does the hashing work (no timing oracle)', authSrc.includes('decoy'), true);
-check('D-94: sign-in has exactly one outcome, whatever happened',
-  (signinSrc.match(/redirect\(/g) ?? []).length, 1);
+// WAS: "exactly one outcome, whatever happened" — one redirect() in the file,
+// counted. That was a proxy for "the refusal never says why", and the proxy was
+// doing harm: it pinned redirect('/home') on every path, so a wrong password
+// landed on "Welcome back / One account, whichever seat you hold." and every
+// mistyped password read as an outage. D-94 §2 asks for the response to be
+// IDENTICAL whether or not the account exists; it does not ask for silence.
+// The rule itself, in place of the proxy (L33): two outcomes, in and refused,
+// and every cause of a refusal reaches the same one. Pressed for real in the
+// write suite, sr2–sr4.
+{
+  const code = codeOnly(signinSrc);
+  const targets = [...code.matchAll(/redirect\((['"`])([^'"`]*)\1\)/g)].map((m) => m[2]);
+  check(`D-94: sign-in has two outcomes — in, or refused — and nothing else (${targets.join(', ')})`,
+    targets, ['/home', '/signin?refused=1']);
+  check('D-94: and the refusal never says which of the four causes it was',
+    /refused=(password|nosuch|unknown|rate|locked)|refused=1[^'"`]*&|reason=/.test(code), false);
+}
 check('D-94: reset request has exactly one outcome', resetSrc.includes("redirect('/reset?sent=1')"), true);
 check('§10 amendment: an under-16 reset routes to the guardian', authSrc.includes("band === 'u16' && !p.dobless_guardian ? p.guardian_email"), true);
 // The one exception: a parent created at approval, who has no date of birth
@@ -2681,18 +2948,15 @@ await db.query(`insert into person (id, first_name, dob, email) values ($1,'Rese
 const rawTok = 'test-reset-token';
 const tokHash = sha(rawTok);
 await db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() + interval '1 hour')`, [resetPerson, tokHash]);
-const consume = async () => (await db.query(
-  `update auth_reset set used_at = now()
-   where id = (select id from auth_reset where token_hash = $1 and used_at is null and expires_at > now() limit 1)
-   returning person_id`, [tokHash])).rows[0]?.person_id ?? null;
-check('reset token works once', await consume(), resetPerson);
-check('reset token cannot be reused', await consume(), null);
+// Through the database's own answer, not a copy of its query (L23). These
+// three carried their own hand-written UPDATE, which from 0062 was no longer
+// the statement the product runs — it never looked at revoked_at, so it would
+// have stayed green with supersession completely broken.
+const consume = async (h) => (await db.query('select fn_use_auth_reset($1) as p', [h])).rows[0].p;
+check('reset token works once', await consume(tokHash), resetPerson);
+check('reset token cannot be reused', await consume(tokHash), null);
 await db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`, [resetPerson, sha('expired-token')]);
-const expiredUse = (await db.query(
-  `update auth_reset set used_at = now()
-   where id = (select id from auth_reset where token_hash = $1 and used_at is null and expires_at > now() limit 1)
-   returning person_id`, [sha('expired-token')])).rows[0]?.person_id ?? null;
-check('an expired reset token is refused', expiredUse, null);
+check('an expired reset token is refused', await consume(sha('expired-token')), null);
 
 // ---------------------------------------------------------------------------
 // Route enumeration — absence as a property (doc 14 §N12, §P11, §C1, D-122).
@@ -2717,8 +2981,6 @@ const pageCode = codeOnly(deadPage);
 check('E10: the page branches on one boolean, never on WHY the link is dead',
   /expired|revoked|paused|disabled/i.test(pageCode), false);
 
-check('E11: signing out destroys the session and nothing else',
-  /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
 
 // Club video (0018) is a LINK, never a file — the parked hosting question
 // must not creep in through this door.
@@ -3287,14 +3549,176 @@ check('store4: storage is server-only', /^import 'server-only';/m.test(storeSrc)
 check('store5: the bucket is configurable, not hardcoded to one project',
   /SUPABASE_STORAGE_BUCKET/.test(storeSrc), true);
 
-// A signature proves the cookie was minted here, not that its person still
-// exists. Deletion removes person rows; sessions issued before it stayed
-// valid and every write then hit a foreign key instead of a sign-in screen.
+// ---------------------------------------------------------------------------
+// Sessions can be revoked (0062). The QA bug hunt of 28 Sept measured a
+// captured cookie still opening /home after Sign out, after the password was
+// changed, and after signing back in: the cookie was the person's id plus an
+// HMAC of the person's id, so there was no session to end.
+//
+// These two used to read lib/session.ts for the strings `from person where
+// id = $1` and `isUuid(id)` — proxies for two real rules, and both proxies
+// went false when the implementation changed while the rules got stronger
+// (L33). They are now asked of the database, which is where doc 14 §0 says a
+// permission question is answered.
+// ---------------------------------------------------------------------------
 const sessionSrc = readFileSync(fileURLToPath(new URL('../lib/session.ts', import.meta.url)), 'utf8');
-check('sess1: a session is only a session while its person exists',
-  /from person where id = \$1/.test(sessionSrc), true);
-check('sess2: and a malformed id in a cookie never reaches Postgres',
-  /isUuid\(id\)/.test(sessionSrc), true);
+const authTs = authSrc; // read above, beside the other credential checks
+{
+  const whose = async (token) =>
+    (await db.query('select fn_session_person($1) as p', [sha(token)])).rows[0].p;
+  const issue = async (person, token) =>
+    (await db.query('select fn_session_issue($1,$2) as e', [person, sha(token)])).rows[0].e;
+
+  const pa = crypto.randomUUID(), pb = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Session A',$2), ($3,'Session B',$2)`,
+    [pa, yearsAgo(38), pb]);
+
+  await issue(pa, 'sess-laptop');
+  await issue(pa, 'sess-phone');
+  await issue(pb, 'sess-other-person');
+
+  check('sess1: a live session resolves to the person it was issued to', await whose('sess-laptop'), pa);
+  check('sess2: a token nobody was ever issued resolves to nobody', await whose('sess-never-issued'), null);
+
+  // Sign out. The row, not the browser's copy of the cookie: this is the
+  // property the bug hunt measured false — a cookie captured before Sign out
+  // still opened /home afterwards, for as long as whoever held it liked.
+  await db.query('select fn_session_revoke($1)', [sha('sess-laptop')]);
+  check('sess3: a revoked session resolves to nobody, so a replayed cookie is dead',
+    await whose('sess-laptop'), null);
+  check('sess4: and signing out of one device leaves the other one signed in',
+    await whose('sess-phone'), pa);
+
+  // A new password ends every live session for that person — what makes the
+  // sentence already on the reset screen true rather than something to delete.
+  await issue(pa, 'sess-laptop-2');
+  const killed = (await db.query('select fn_sessions_revoke_all($1) as n', [pa])).rows[0].n;
+  check('sess5: a new password revokes every live session for that person',
+    [Number(killed), await whose('sess-phone'), await whose('sess-laptop-2')], [2, null, null]);
+  check('sess6: and nobody else\u2019s', await whose('sess-other-person'), pb);
+
+  // Expiry is enforced in SQL on every read, never in the cookie alone. Set
+  // directly because fn_session_issue only ever issues a live one.
+  await db.query(
+    `insert into auth_session (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`,
+    [pb, sha('sess-lapsed')]);
+  check('sess7: a lapsed session resolves to nobody, whatever the cookie says',
+    await whose('sess-lapsed'), null);
+  const life = await db.query(
+    `with s as (select fn_session_issue($1,$2) as e)
+     select (e - now()) > interval '29 days 23 hours' and (e - now()) <= interval '30 days' as ok from s`,
+    [pb, sha('sess-lifetime')]);
+  check('sess8: the lifetime is the database\u2019s answer, 30 days from issue', life.rows[0].ok, true);
+
+  // Not new, and it must not be lost in the change: a session outliving a
+  // guardian's deletion used to mean every action wrote a person id into a
+  // foreign key and got a database error instead of a sign-in screen.
+  await issue(pb, 'sess-deleted-person');
+  await db.query('delete from person where id = $1', [pb]);
+  check('sess9: a session is only a session while its person exists',
+    await whose('sess-deleted-person'), null);
+}
+
+// The cookie: an opaque token, ≥128 bits, stored only as a hash — the D-94 §4
+// standard the share token already holds. Nothing in it names the person, so
+// knowing a person id (they are in URLs all over the product) forges nothing.
+check('sess10: the cookie carries a random token, never the person id',
+  /jar\.set\(COOKIE, `\$\{token\}\.\$\{sign\(token\)\}`/.test(sessionSrc), true);
+check('sess11: 192 bits of CSPRNG, and only its hash is stored',
+  /randomBytes\(24\)\.toString\('base64url'\)/.test(sessionSrc)
+  && /createHash\('sha256'\)\.update\(token\)/.test(sessionSrc), true);
+check('sess12: there is no column that could hold a session token in the clear',
+  (await db.query(`select column_name from information_schema.columns
+                   where table_name = 'auth_session' order by column_name`)).rows.map((r) => r.column_name),
+  ['expires_at', 'id', 'issued_at', 'person_id', 'revoked_at', 'token_hash']);
+check('sess13: a cookie that does not verify is refused before Postgres is touched',
+  codeOnly(sessionSrc).indexOf('timingSafeEqual') < codeOnly(sessionSrc).indexOf('fn_session_person'), true);
+check('sess14: signing out revokes the session, not just the browser\u2019s copy of it',
+  /fn_session_revoke/.test(sessionSrc)
+  && /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
+check('sess15: setting a password revokes every live session for that person',
+  /revokeEverySession\(personId\)/.test(authTs.split('export async function setPassword')[1]?.split('export ')[0] ?? ''), true);
+// One question, one answer (L23): no page works out for itself whether a
+// session is live. lib/session.ts is the only file that reads the cookie and
+// the only one that names the table.
+{
+  const readers = files.filter((f) => /\.tsx?$/.test(f) && /pitch_session|auth_session/.test(readFileSync(f, 'utf8')));
+  check(`sess16: no page decides for itself whether a session is live (${readers.map(rel).join(' ') || 'none do'})`,
+    readers.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Reset links: one live at a time, and using one burns it (0062). QA got 24
+// live links to one address and the OLDEST still opened the set-a-password
+// form; a second still worked after the first had been used.
+// ---------------------------------------------------------------------------
+{
+  const rp = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Flood','${yearsAgo(41)}','flood@example.com')`, [rp]);
+  const issueReset = async (token, proves = null) => db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at, proves_person_id)
+     values ($1,$2, now() + interval '1 hour', $3)`, [rp, sha(token), proves]);
+  const use = async (token) =>
+    (await db.query('select fn_use_auth_reset($1) as p', [sha(token)])).rows[0].p;
+
+  for (let i = 0; i < 24; i++) await issueReset(`flood-${i}`);
+  const live = await db.query(
+    `select count(*)::int as n from auth_reset
+     where person_id = $1 and used_at is null and revoked_at is null and expires_at > now()`, [rp]);
+  check('reset1: twenty-four presses leave exactly one live link', live.rows[0].n, 1);
+  check('reset2: and the oldest of them opens nothing', await use('flood-0'), null);
+  check('reset3: the newest one works', await use('flood-23'), rp);
+  check('reset4: and it does not work twice', await use('flood-23'), null);
+
+  // Using one kills the rest, not only the ones issuing killed. Two rows are
+  // forced live here — the state a race, or any future route that writes this
+  // table without the trigger, could leave behind.
+  await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() + interval '1 hour'), ($1,$3, now() + interval '1 hour')`,
+    [rp, sha('pair-a'), sha('pair-b')]);
+  await db.query(`update auth_reset set revoked_at = null where token_hash in ($1,$2)`, [sha('pair-a'), sha('pair-b')]);
+  check('reset5: using one link kills every other live link for that person',
+    [await use('pair-a'), await use('pair-b')], [rp, null]);
+
+  await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at) values ($1,$2, now() - interval '1 minute')`,
+    [rp, sha('reset-lapsed')]);
+  check('reset6: a lapsed link is refused', await use('reset-lapsed'), null);
+
+  // The trap in 0062, asserted so nobody removes the seam later: 0056 reads a
+  // USED auth_reset row as proof that somebody opened a link we sent to that
+  // address. Superseding with used_at would have manufactured that proof out
+  // of links nobody ever opened — L21, the hole 0056 exists to close.
+  const sp = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Superseded','${yearsAgo(35)}','superseded@example.com')`, [sp]);
+  for (const t of ['sup-1', 'sup-2']) await db.query(
+    `insert into auth_reset (person_id, token_hash, expires_at, proves_person_id)
+     values ($1,$2, now() + interval '1 hour', $1)`, [sp, sha(t)]);
+  // Asked the way 0056 asks it: with only SUPERSEDED links on this account,
+  // the database must refuse to record that anybody proved that address. A
+  // check that only read fn_email_proved passed with the bug put back,
+  // because nothing had tried to write the column — the rule is about what
+  // the evidence lets you write, so the check has to try the write (L19).
+  await expectFail('reset7: a superseded link nobody opened is not evidence of a proved address (L21, 0056)',
+    `update person set email_proved_at = now() where id = '${sp}'`);
+  check('reset7b: so the account is still unproved',
+    (await db.query(`select fn_email_proved($1) as p`, [sp])).rows[0].p, false);
+  await use('sup-2');
+  check('reset8: and the one that WAS opened proves it',
+    (await db.query(`select fn_email_proved($1) as p`, [sp])).rows[0].p, true);
+}
+check('reset9: consumeReset asks the database, it does not carry its own SQL',
+  /fn_use_auth_reset/.test(authTs) && !/update auth_reset set used_at/.test(authTs), true);
+// The cap QA measured missing: the IP comes off a header the caller sets, so
+// the only limit that binds is the one on the address. It must be consulted
+// for every address, before anything looks the address up, or it is an
+// enumeration oracle (D-94 §2).
+check('reset10: the reset route caps per address as well as per declared IP',
+  /checkRate\(`reset:addr:\$\{email\}`/.test(resetSrc) && /checkRate\(`reset:ip:\$\{ip\}`/.test(resetSrc), true);
+check('reset11: and the cap is read before anything looks the address up',
+  resetSrc.indexOf('reset:addr:') < resetSrc.indexOf('createReset('), true);
+check('reset12: whatever happened, the answer is the one redirect',
+  (codeOnly(resetSrc).match(/redirect\('\/reset\?sent=1'\)/g) ?? []).length, 1);
 
 // ---------------------------------------------------------------------------
 // The send layer actually sends (0031, D-81, D-78, doc 15 §15). Every message
@@ -4602,6 +5026,85 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [true, true, false]);
 }
 
+// ---- the focus ring, and the two ways it was taken away (28 Sep) -----------
+// Measured with real Tab keypresses in Chrome, not el.focus(): on /signin,
+// /join, /report, /reset/[token] and the D-77 request-access form, every form
+// control came back with outlineStyle NONE while every button and link on the
+// same page showed the green ring. Two causes, and the second is why fixing
+// the first was not enough: `input:focus, select:focus { outline: none }` at
+// (0,1,1) beat `:focus-visible` at (0,1,0), and twenty-four component files
+// re-asserted `outline: 'none'` inline, which beats every selector there is.
+// A keyboard user typing a password, ticking consent or filing a child-safety
+// report could not see which field they were in.
+// The rendered proof is scripts/layout-check.mjs's chrome pass at 390 and
+// 1280; these three are the static rules that keep it fixed.
+{
+  // Comments stripped first. Both rules this block is about are QUOTED in the
+  // comment above them in globals.css, so a regex over the raw file finds the
+  // explanation and calls it the defect.
+  const css = srcOf('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const ring = /:focus-visible \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  check('ring1: nothing in the stylesheet switches a form control\'s outline off',
+    [/input:focus[^{]*\{[^}]*outline:\s*none/.test(css),
+     /select:focus[^{]*\{[^}]*outline:\s*none/.test(css),
+     /\.field input[^{]*\{[^}]*outline:\s*none/.test(css)],
+    [false, false, false]);
+  check('ring2: the ring is 2px of the accent token, and an inline style cannot take it back',
+    [/outline:\s*2px solid var\(--accent\)/.test(ring), /!important/.test(ring), /outline-offset/.test(ring)],
+    [true, true, true]);
+  // The inline overrides themselves. app/club/billing/page.tsx is the one left
+  // and it is held by another seat this week (28 Sep) — its one line is in the
+  // handoff. The !important above means the ring renders there regardless;
+  // this counts the source so the tidy-up is not forgotten. Take the exemption
+  // out when that branch lands. components/coming-soon is the marketing page's
+  // decorative selection outline, not a focus state.
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const everySrc = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    e.name === 'node_modules' || e.name.startsWith('.') ? []
+      : e.isDirectory() ? everySrc(join(d, e.name))
+        : /\.(ts|tsx)$/.test(e.name) ? [join(d, e.name)] : []);
+  const inlineOff = ['app', 'components', 'lib']
+    .flatMap((d) => everySrc(join(root, d)))
+    .filter((f) => !f.includes('coming-soon') && /outline:\s*'none'/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(root.length)).sort();
+  check(`ring3: no screen re-asserts outline:'none' on a control (${inlineOff.join(', ') || 'none left'})`,
+    inlineOff, ['app/club/billing/page.tsx']);
+}
+
+// ---- the cheapest fix in the product (28 Sep) ------------------------------
+// .field-label was written as `.field > .field-label` — a CHILD selector —
+// and 19 of the 53 elements carrying the class are not children of a .field:
+// /club/billing (5), /club/post-trial (8), /register-interest (4) and
+// /club/invite (2) put the caption above a bare card or on a <legend>. The
+// rule never matched, so nineteen captions rendered as inherited body text.
+// That is why the price on the billing page was set three pixels larger than
+// its own label. The rendered proof — every .field-label on every page
+// computing to 10px — is in scripts/layout-check.mjs's chrome pass.
+{
+  const css = srcOf('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  // The selector list of the rule that styles the caption, read as text.
+  const sel = (/([^};{]*)\{[^}]*font-size: 10px; font-weight: 800; letter-spacing: var\(--ls-label\)/.exec(css)?.[1] ?? '')
+    .split(',').map((x) => x.trim()).filter(Boolean);
+  check(`lbl1: .field-label is a class, not a child of .field, so it matches where it is used (${sel.join(' | ')})`,
+    [sel.includes('.field-label'), sel.some((x) => x.includes('> .field-label'))], [true, false]);
+  // And it is not vacuous: those captions are still there, on all four screens.
+  //
+  // The COUNT is deliberately not asserted any more. It was 19 when the
+  // selector was fixed and 15 an hour later, because /club/billing was rebuilt
+  // in a different worktree on the same day and its captions legitimately
+  // changed — so the check went red over a number that was never the point.
+  // What matters is that every one of these screens still uses the class the
+  // fixed selector matches; a screen dropping to zero would mean the captions
+  // had been deleted rather than styled, which is the only way this fix could
+  // be vacuous. (L32: a check coupled to a count of somebody else's markup is
+  // a check that fails when they do their job.)
+  const outsideWell = ['app/club/post-trial/page.tsx', 'app/club/billing/page.tsx',
+    'app/register-interest/[recordId]/InterestForm.tsx', 'app/club/invite/[registrationId]/page.tsx']
+    .map((f) => (srcOf(f).match(/className="field-label"/g) ?? []).length);
+  check(`lbl2: and the captions that were dead are still on those four screens (${outsideWell.join('+')})`,
+    [outsideWell.every((n) => n > 0), outsideWell.reduce((a, b) => a + b, 0) >= 12], [true, true]);
+}
+
 // ---- the coach and club doors (BUZ, 21 Sep) ---------------------------------
 // A coach builds their own page; a club person makes an account and then
 // claims the club's page with the code sent to the club's own address. What
@@ -5102,6 +5605,627 @@ const componentFilesAll = [];
     }
   }
   check(`ban1: D-108's words are not on any screen (${found.slice(0, 4).join(' · ') || 'none are'})`, found.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// The legal pages serve the published document, not our drafting notes (0056).
+//
+// WAS: app/legal/legal-page.tsx rendered the markdown in docs/legal as-is, so
+// every legal surface opened with the author's preamble — 1,294 rendered words
+// on /privacy before the policy spoke, 1,401 on /terms — and the same block sat
+// inside the guardian approval flow, where doc 32 B3 requires doc 21 be SHOWN.
+// The first thing a parent read while deciding whether to trust us with their
+// child was that the policy they were being asked to accept was NOT YET
+// PUBLISHED and that some of our work had been lost. L16 wrote this down on
+// 17 September; it stayed true for eleven days.
+//
+// The checks are over lib/legal-doc — the one answer both /privacy and the
+// approval flow render — for every document the register lists as rendered in
+// the product. Docs 24 and 25 have no route yet (see the report); they are
+// checked anyway, so the day they get one they are already clean.
+{
+  const { legalDocument, renderedLegalDocs, renderedVersions, stripDraftingPreamble, publishedDate, versionLine } =
+    await import('../lib/legal-doc.ts');
+
+  // Every phrase that says "this is not the document you think you are
+  // reading". Matched against the rendered markdown, which is what a page
+  // serves — not against the source file, which keeps all of it on purpose.
+  const MARKERS = ['NOT YET PUBLISHED', 'do-not-publish', 'not to be published', '⚠️',
+    'Nothing here binds', 'working draft', 'the loss was my doing'];
+  const legalDir = fileURLToPath(new URL('../docs/legal', import.meta.url));
+  const fileFor = (doc) => {
+    const f = readdirSync(legalDir).find((x) => x.startsWith(`${doc}-`) && x.endsWith('.md'));
+    if (!f) throw new Error(`the register lists doc ${doc} as rendered and there is no markdown for it`);
+    return f;
+  };
+
+  const live = renderedLegalDocs();
+  check(`leg1: the register's authority table is the list of live documents (${live.map((d) => `${d.doc}@${d.version}`).join(' ')})`,
+    live.length, 5);
+
+  for (const { doc, version } of live) {
+    const file = fileFor(doc);
+    const raw = readFileSync(join(legalDir, file), 'utf8');
+    const served = legalDocument(file);
+    const line = versionLine(served.version, served.date);
+
+    const hits = MARKERS.filter((m) => served.markdown.includes(m));
+    check(`leg2: doc ${doc} serves no drafting marker (${hits.join(' · ') || 'none'})`, hits, []);
+    check(`leg3: doc ${doc} resolves the register's version, and a date out of the document (${served.version} · ${served.date})`,
+      [served.version, /^\d{1,2} (January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/.test(served.date)],
+      [version, true]);
+    check(`leg4: doc ${doc} carries that version on screen, in its first lines`,
+      served.markdown.split('\n').slice(0, 6).includes(line), true);
+    // Nothing below the title has moved: what we serve from the first line of
+    // the document proper to its last is a verbatim substring of the file in
+    // docs/legal. No clause, no heading, no sentence, and no version bump.
+    const lines = served.markdown.split('\n');
+    const tail = lines.slice(lines.indexOf(line) + 1).join('\n').trim();
+    check(`leg5: doc ${doc} is served verbatim below the title — no clause, heading or sentence changed`,
+      [lines[0], raw.split('\n')[0], raw.includes(tail)], [raw.split('\n')[0], raw.split('\n')[0], true]);
+  }
+
+  // Narrow on purpose, and the narrowness is the check. A clean document comes
+  // back byte for byte; a blockquote that is content survives.
+  const clean = '# A clean document\n\n## One\n\nText.\n\n> A quotation that is content.\n\n## Two\n\nMore.\n';
+  check('leg6: a document with no preamble is returned byte for byte', stripDraftingPreamble(clean), clean);
+  check('leg7: a preamble under a subtitle goes, with the rule that closes it; the body blockquote stays',
+    stripDraftingPreamble('# Title\n\n### Subtitle\n\n> **v1.0, 1 May 2026 — NOT YET PUBLISHED.**\n>\n> More notes.\n\n---\n\n## One\n\n> Content.\n'),
+    '# Title\n\n### Subtitle\n\n## One\n\n> Content.\n');
+  check('leg8: a blockquote below a section heading is never a preamble',
+    stripDraftingPreamble('# Title\n\n## One\n\n> Content.\n'), '# Title\n\n## One\n\n> Content.\n');
+  check('leg9: and the two real ones are still served — doc 22 Schedule A, doc 25 Part 4',
+    [legalDocument(fileFor('22')).markdown.includes('> **What is on sale, and what is not.**'),
+     legalDocument(fileFor('25')).markdown.includes('> **Today the investigator is one person')],
+    [true, true]);
+
+  // Fail loudly. A legal page that silently renders no version is the same bug
+  // in different clothes, so every way of not knowing throws.
+  const threw = (f) => { try { f(); return false; } catch { return true; } };
+  check('leg10: a document that dates its current version nowhere fails loudly',
+    threw(() => publishedDate('# Title\n\nNo date in here.\n', 'v9.9', '99')), true);
+  check('leg11: a version the document dates twice, differently, is not chosen between',
+    threw(() => publishedDate('> **v1.0, 1 May 2026.**\n\n*doc 99 · v1.0 draft · 2 May 2026*\n', 'v1.0', '99')), true);
+  check('leg12: a register with no authority table fails loudly',
+    threw(() => renderedVersions('# not the register\n')), true);
+  check('leg13: a register that lists one document at two versions fails loudly (7 September)',
+    threw(() => renderedVersions('**Rendered in the product:**\n| **20** | **P** | **v2.7** | a | b |\n| **20** | **P** | **v2.8** | a | b |\n')), true);
+  check('leg14: a specification\'s version in the internal table is not a published document\'s',
+    renderedVersions('**Rendered in the product:**\n| **20** | **P** | **v2.7** | a | b |\n\n**Internal — specifications, not background:**\n| **20** | **X** | **v9.9** | z |\n').get('20'),
+    'v2.7');
+  check('leg15: a document with no title is left alone rather than guessed at',
+    stripDraftingPreamble('> **v1.0 — notes.**\n\nBody.\n'), '> **v1.0 — notes.**\n\nBody.\n');
+
+  // A consent row must resolve, years later, to the text that person read
+  // (doc 32 B2; John, 3 Sep). The first version of this check asserted that the
+  // stamp hashes the FILE in docs/legal — a proxy for that rule, written when
+  // the file and the page were the same bytes. They are not the same bytes any
+  // more, so the proxy had become the opposite of the rule it stood for: it
+  // would have held a guardian's row against 728 words she was never shown,
+  // including the line saying the policy is not published. Replaced with the
+  // rule (L33), and the first half of it is a fact, not a regex.
+  const stampSrc = readFileSync(fileURLToPath(new URL('../lib/legal-stamp.ts', import.meta.url)), 'utf8');
+  const shaOf = (s) => createHash('sha256').update(s).digest('hex');
+  const bytesDiffer = ['20', '21', '22'].filter((doc) => {
+    const file = fileFor(doc);
+    return shaOf(legalDocument(file).markdown)
+      !== shaOf(readFileSync(join(legalDir, file), 'utf8'));
+  });
+  check('leg16: what a stamped document SERVES and what docs/legal holds are different bytes — one hash cannot describe both',
+    bytesDiffer, ['20', '21', '22']);
+  // The other half can only be structural from here: lib/legal-stamp is
+  // server-only and a plain node script cannot import it.
+  check('leg17: so the stamp is taken from the served document, never from the file',
+    /legalDocument\(LEGAL_FILES\[doc\]\)\.markdown/.test(stampSrc) && !/update\(bytes\)/.test(stampSrc), true);
+  // And the renderer has one door. A page that opened docs/legal for itself
+  // could serve the preamble again without a check here noticing.
+  const readsLegal = (src) => /'docs',\s*'legal'/.test(src) || /readFileSync\([^)]*docs\/legal/.test(src);
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const readers = [...walk(join(root, 'app')), ...walk(join(root, 'lib'))]
+    .filter((f) => /\.tsx?$/.test(f) && readsLegal(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(root.length));
+  check(`leg18: exactly one file opens docs/legal (${readers.join(', ') || 'none'})`,
+    readers, ['lib/legal-doc.ts']);
+}
+
+// ---------------------------------------------------------------------------
+// John's rulings of 28 Sep (docs/legal/35, "Rulings — 2026-09-28").
+//
+// 1. Stripping the preamble is not material; the version still bumps, so every
+//    consent row names exactly the text that was shown; nobody is re-asked.
+// 2. Clauses describing capabilities that are not built come out until they
+//    are built. ([DRAFTED], [OUTLINE] and [LEGAL: doc 18 Qn] are a different
+//    class and the ruling does not touch them.)
+// 3. One version per document, everywhere — register table, register prose,
+//    the document's own header and footer — and the "not yet published"
+//    colophons go, because these versions are the published ones.
+// ---------------------------------------------------------------------------
+{
+  const { legalDocument, renderedLegalDocs } = await import('../lib/legal-doc.ts');
+  const legalDir = fileURLToPath(new URL('../docs/legal', import.meta.url));
+  const fileFor = (doc) => readdirSync(legalDir).find((x) => x.startsWith(`${doc}-`) && x.endsWith('.md'));
+  const live = renderedLegalDocs();
+
+  // Ruling 3: no served page calls itself unpublished, in any case.
+  for (const { doc } of live) {
+    const served = legalDocument(fileFor(doc)).markdown;
+    const hit = /not yet published/i.exec(served);
+    check(`jr1: doc ${doc} serves no "not yet published" (${hit ? served.slice(Math.max(0, hit.index - 40), hit.index + 20).replace(/\s+/g, ' ') : 'none'})`,
+      Boolean(hit), false);
+  }
+
+  // Ruling 3: one version per document. The register's table is the answer;
+  // everything else that names the document's version must name the same one.
+  const reg = readFileSync(join(legalDir, '00-Legal-Register.md'), 'utf8');
+  const prose = /currently\s+`20@(v[\d.]+)`,\s*`21@(v[\d.]+)`,\s*`22@(v[\d.]+)`/.exec(reg);
+  const consentSrc = readFileSync(fileURLToPath(new URL('../lib/consent.ts', import.meta.url)), 'utf8');
+  const policyVersion = /POLICY_VERSION\s*=\s*'([^']+)'/.exec(consentSrc)?.[1];
+  const num = (v) => v.replace(/^v/, '').split('.').map(Number);
+  const newer = (a, b) => { const [x, y] = [num(a), num(b)]; return x[0] - y[0] || x[1] - y[1]; };
+  for (const { doc, version } of live) {
+    const raw = readFileSync(join(legalDir, fileFor(doc)), 'utf8');
+    // What the document says about itself: its change-log heads ("v2.7, 15
+    // September…"), its status lines ("Doc 21 · v2.5 …"), its colophon, and —
+    // doc 20 only — the "Version:" line in its body.
+    const heads = [...raw.matchAll(/^>\s*\*\*(?:⚠️\s*)?(v\d+\.\d+),/gm)].map((m) => m[1]);
+    const status = [...raw.matchAll(new RegExp(`[Dd]oc ${doc} · (v\\d+\\.\\d+)`, 'g'))].map((m) => m[1]);
+    const header = [...heads, ...status].sort(newer).at(-1);
+    const colophon = new RegExp(`^\\*Pitch Football ·.*· doc ${doc} · (v\\d+\\.\\d+)`, 'm').exec(raw)?.[1];
+    const body = /\*\*Version:\*\* (\d+\.\d+)/.exec(raw)?.[1];
+    const claims = { header, colophon, ...(body ? { body: `v${body}` } : {}) };
+    if (['20', '21', '22'].includes(doc)) claims.prose = prose?.[{ 20: 1, 21: 2, 22: 3 }[doc]];
+    if (doc === '20') claims.consent = policyVersion?.replace(/^20@/, '');
+    const wrong = Object.entries(claims).filter(([, v]) => v !== version).map(([k, v]) => `${k} says ${v}`);
+    check(`jr2: doc ${doc} names one version everywhere — the register's ${version} (${wrong.join(', ') || 'it does'})`,
+      wrong, []);
+  }
+
+  // Ruling 1: every consent row names the text that was shown — so for doc 20,
+  // the waitlist and the consent path must stamp the SAME hash. Reproduce what
+  // each path actually writes. Today the waitlist writes a typed constant.
+  const shaOf = (s) => createHash('sha256').update(s).digest('hex');
+  const served20 = shaOf(legalDocument(fileFor('20')).markdown);
+  const waitSrc = readFileSync(fileURLToPath(new URL('../app/api/waitlist/route.ts', import.meta.url)), 'utf8');
+  const waitlistHash = /legalStamp\('20'\)/.test(waitSrc) ? served20
+    : /POLICY_STAMP/.test(waitSrc) ? /POLICY_SHA256\s*=\s*'([0-9a-f]{64})'/.exec(consentSrc)?.[1] : 'neither';
+  const stampSrc = readFileSync(fileURLToPath(new URL('../lib/legal-stamp.ts', import.meta.url)), 'utf8');
+  const consentPathHash = /legalDocument\(LEGAL_FILES\[doc\]\)\.markdown/.test(stampSrc) ? served20 : 'not the served text';
+  check(`jr3: the waitlist and the consent path stamp doc 20 with one hash (waitlist ${String(waitlistHash).slice(0, 12)} · consent ${String(consentPathHash).slice(0, 12)})`,
+    waitlistHash, consentPathHash);
+  // And no second answer is left lying around to drift: no hash typed into
+  // lib/ or app/ at all.
+  const typed = [...walk(fileURLToPath(new URL('../lib', import.meta.url))), ...walk(fileURLToPath(new URL('../app', import.meta.url)))]
+    .filter((f) => /\.tsx?$/.test(f) && /['"`][0-9a-f]{64}['"`]/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(f.lastIndexOf('/lib/') + 1 || f.lastIndexOf('/app/') + 1));
+  check(`jr4: no document hash is typed into the code (${typed.join(', ') || 'none is'})`, typed, []);
+
+  // Ruling 2, and the one part of it this commit could NOT carry out.
+  //
+  // John ruled that clauses describing capabilities that are not built come
+  // out. The one clause marked that way, doc 22 §6.5 (suppression), describes
+  // exactly the capability doc 32 calls A1 — and migration 0049 built A1 and
+  // A2 on 17 Sep; g32-p1–p4 pin them. John's own gate, doc 32 B6, says "If A1
+  // and A2 are green, 6.5 may publish. If they are not, it must not", and A1's
+  // box asks that a person has done it once. Whether 6.5 is "not built" is
+  // therefore a question with two of John's answers on it, and the builder was
+  // told: if a clause is ambiguous about its class, leave it served and list
+  // it. So these four lines are still served, pinned by their exact opening,
+  // AWAITING JOHN. The set exists so that nothing joins it quietly and so that
+  // it is emptied, not widened, when he answers.
+  const AWAITING_JOHN = new Set([
+    '22: **[DO NOT PUBLISH UNTIL BUILT] 6.5 Suppression.** A guardian, or a club ',
+    '22: *Status: not built. Today a guardian can pause a profile and disable its',
+    '22: | 4 | **Suppression clause promises a capability that does not exist yet',
+    '22: | 5 | **Guardian-contact gate at 2.3 is not current behaviour — do not p',
+  ]);
+  // The drafting sense only. "Do not publish other people's children" is a
+  // conduct rule (doc 22 Part 9, doc 24 §3), and it is content.
+  const UNBUILT = /\[DO NOT PUBLISH[^\]]*\]|— do not publish\b|must not publish before it is built|^\*Status: not built\./i;
+  const served = [];
+  for (const { doc } of live) {
+    for (const line of legalDocument(fileFor(doc)).markdown.split('\n')) {
+      if (UNBUILT.test(line)) served.push(`${doc}: ${line.slice(0, 72)}`);
+    }
+  }
+  const unexpected = served.filter((l) => !AWAITING_JOHN.has(l));
+  const answered = [...AWAITING_JOHN].filter((l) => !served.includes(l));
+  check(`jr5: nothing "not built" is served beyond the four lines awaiting John (${unexpected.join(' · ') || 'nothing is'})`,
+    unexpected, []);
+  check(`jr6: and when he answers, the set is emptied rather than left stale (${answered.join(' · ') || 'all four still served'})`,
+    answered, []);
+}
+
+// ---------------------------------------------------------------------------
+// QA, 28 Sep — two faults found by pressing things rather than by reading.
+// ---------------------------------------------------------------------------
+
+// qa-silent1 · A FAILED ACTION MUST SAY SO ON THE PAGE IT LANDS ON.
+//
+// Pressing Subscribe at /club/billing with D-137's authority box unticked
+// answers 303 /club/billing?error=1 — and that page never reads `error`, so
+// the screen comes back with the fields emptied and not one word about what
+// happened. Measured on this tree: the page it lands on adds nothing at all.
+// The person's only rational conclusion is that payments are broken, on the
+// one screen in the product that takes money.
+//
+// The rule, not the instance: if an action can send somebody to a page with a
+// flag that means "that did not work", the page must read that flag. `saved`,
+// `removed` and `done` are excluded — a success is visible in the thing that
+// changed. Naming a flag in the searchParams TYPE is not reading it; that is
+// exactly how this one hid.
+{
+  const FAILURE = /^(error|bad|cannot|needs|expired|short|unconfigured|invalid|refused|failed?)$/i;
+  const actionFiles = [];
+  (function walk(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.name === 'actions.ts') actionFiles.push(full);
+    }
+  })(fileURLToPath(new URL('../app', import.meta.url)));
+  const appRoot = fileURLToPath(new URL('../app', import.meta.url));
+  const silent = [];
+  for (const f of actionFiles) {
+    const src = readFileSync(f, 'utf8');
+    for (const m of src.matchAll(/redirect\(\s*['"`]([^'"`]*\?[^'"`]*)['"`]/g)) {
+      const [path, qs] = [m[1].split('?')[0], m[1].split('?').slice(1).join('?')];
+      if (path.includes('${')) continue;
+      const pagePath = join(appRoot, ...path.split('/').filter(Boolean), 'page.tsx');
+      let page;
+      try { page = readFileSync(pagePath, 'utf8'); } catch { continue; }
+      // A flag named in the searchParams type annotation is not a flag read.
+      const body = page.replace(/searchParams:\s*Promise<\{[^}]*\}>/g, 'searchParams: Promise<{}>');
+      for (const kv of qs.split('&')) {
+        const flag = kv.split('=')[0].split('#')[0].trim();
+        if (!flag || flag.includes('${') || !FAILURE.test(flag)) continue;
+        if (!new RegExp('\\b' + flag + '\\b').test(body)) {
+          silent.push(`${f.slice(f.indexOf('/app/') + 1)} -> ${path}?${flag}`);
+        }
+      }
+    }
+  }
+  check(`qa-silent1: a form that failed says so on the page it lands on (${[...new Set(silent)].join(' · ') || 'all of them do'})`,
+    [...new Set(silent)].length, 0);
+}
+
+// qa-devport1/qa-devport2 lived here and are GONE (QA, 28 Sept, second pass).
+// They asserted that lib/db.ts and scripts/dev-db.mts read the same variable
+// and that dev-db.mts's instructions name the one the APP reads. `db8` above
+// now does both and more: it matches the name WHOLE, across lib/db.ts,
+// scripts/dev-db.mts and .env.example, comments included, and pins both
+// defaults. Two checks for one rule is two places to be wrong — the stronger
+// one stays and mine go (L33: replace a proxy, do not keep a second copy).
+// 0063 — THE MONEY SAYS ONE THING. Two club screens computed a club's
+// subscription state for themselves and disagreed about a club whose payment
+// failed: /club/billing showed the dunning card and /club/register dropped
+// silently to the free tier's own heading. fn_register_payment_state is the one
+// answer both now read (D-135, D-136, doc 14 O4, O11; LESSONS L23).
+// ---------------------------------------------------------------------------
+{
+  const q1 = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const payState = async (who, club) => (await q1('select fn_register_payment_state($1,$2) as s', [who, club])).s;
+  const rowIds = async (who, club) => (await db.query('select registration_id from fn_register_rows($1,$2)', [who, club])).rows.map((r) => r.registration_id);
+
+  const MON = crypto.randomUUID();
+  const monCall = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Dunning FC','claimed')`, [MON]);
+  await db.query(
+    `insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+     values ($1,$2,now(),'BUZ','03 9000 0003','FV club directory','verified','27@v1.0')`, [monCall, MON]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [monCall, MON]);
+
+  const person = async (name, years = 35) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, last_name, dob) values ($1,$2,'Fixture',$3)`, [id, name, yearsAgo(years)]);
+    return id;
+  };
+  const mTd = await person('Money TD');
+  await recordTd(mTd, MON, 'money.td@fixture.example');
+  const mAdmin = await person('Money Admin');
+  await mem(mAdmin, MON, null, 'club_admin');
+  const mTm = await person('Money Manager');
+  await mem(mTm, MON, null, 'team_manager');
+  const mSq = (await q1(`insert into squad (club_id, name, age_group, competition_gender, season) values ($1,'M-U15','U15','boys','2026') returning id`, [MON])).id;
+  const mSq2 = (await q1(`insert into squad (club_id, name, age_group, competition_gender, season) values ($1,'M-U16','U16','boys','2026') returning id`, [MON])).id;
+  const grantedCoach = await person('Money Coach');
+  await mem(grantedCoach, MON, null, 'coach');
+  await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [grantedCoach, MON, mTd]);
+  const ungrantedCoach = await person('Money Bench');
+  await mem(ungrantedCoach, MON, null, 'coach');
+  await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [ungrantedCoach, MON, mTd]);
+  for (const sq of [mSq, mSq2]) {
+    await db.query(`insert into register_grant (club_id, person_id, squad_id, granted_by) values ($1,$2,$3,$4)`, [MON, grantedCoach, sq, mTd]);
+  }
+  const mReg = (await q1(
+    `insert into registration (player_id, club_id, squad_target, policy_version) values ($1,$2,$3,'20@v2.4') returning id`,
+    [ID.marcus, MON, mSq])).id;
+
+  // The webhook is the only writer of subscription state (D-112), so the state
+  // is driven through fn_apply_subscription exactly as Stripe drives it.
+  const apply = (status, grace, at) => db.query(
+    `select fn_apply_subscription($1,$2,'register_monthly', now() + interval '14 days', $3::timestamptz, 'cus_fixture', $4::timestamptz)`,
+    [MON, status, grace, at]);
+  const clock = (n) => new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString();
+
+  check('money1: a club that never subscribed reads "unsubscribed", not "suspended"', await payState(mTd, MON), 'unsubscribed');
+  await apply('active', null, clock(1));
+  check('money2: a paying club reads "active"', await payState(mTd, MON), 'active');
+  check('money2b: and its register resolves', (await rowIds(mTd, MON)).includes(mReg), true);
+
+  // O4 — 14-day grace, THEN suspended. Registrations hidden, never deleted.
+  await apply('past_due', new Date(Date.now() + 5 * 86400000).toISOString(), clock(2));
+  check('O4: inside the fourteen days a failed payment reads "grace"', await payState(mTd, MON), 'grace');
+  check('O4b: and the register is still readable during the grace (D-135)', (await rowIds(mTd, MON)).includes(mReg), true);
+  await apply('past_due', new Date(Date.now() - 86400000).toISOString(), clock(3));
+  check('O4c: once the grace has run out it reads "suspended"', await payState(mTd, MON), 'suspended');
+  check('O4d: the register is hidden', (await rowIds(mTd, MON)).length, 0);
+  check('O4e: and the registration row is still there — hidden, not deleted',
+    (await q1(`select count(*)::int as n from registration where id = $1`, [mReg])).n, 1);
+  await apply('canceled', null, clock(4));
+  check('money5: a cancelled club reads "cancelled", which is not the same state', await payState(mTd, MON), 'cancelled');
+
+  // O11 — billing is club-internal. The administrator is told exactly as much
+  // as the TD is, and nobody else is told anything at all.
+  await apply('active', null, clock(5));
+  check('O11b: the invoicing volunteer gets the same answer as the TD', await payState(mAdmin, MON), await payState(mTd, MON));
+  check('money7: a team manager is told nothing about the club’s money', await payState(mTm, MON), null);
+  check('money7b: nor a granted coach', await payState(grantedCoach, MON), null);
+  check('money7c: nor a guardian', await payState(ID.guardian, MON), null);
+  check('money7d: nor another club’s technical director', await payState(ID.td, MON), null);
+  check('money7e: nor nobody at all', await payState(null, MON), null);
+
+  // One answer, two callers — the whole point of the migration.
+  const readSrc = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  for (const [rel, what] of [['../app/club/billing/page.tsx', 'the billing page'], ['../app/club/register/page.tsx', 'the register page']]) {
+    check(`money8: ${what} reads fn_register_payment_state rather than working it out`,
+      /fn_register_payment_state/.test(readSrc(rel)), true);
+  }
+  check('money8b: and the register page no longer decides a payment state from the status column',
+    /subscription_status/.test(codeOnly(readSrc('../app/club/register/page.tsx'))), false);
+  check('money9: a suspended club’s register says why the list is gone',
+    /RegisterPaused/.test(readSrc('../app/club/register/page.tsx')), true);
+  // D-25 — three facts we do not hold and must not start holding.
+  const billingSrc = codeOnly(readSrc('../app/club/billing/page.tsx'));
+  check('money10: the billing page asks for no card brand, no last four and no receipt address (D-25)',
+    /last4|last_four|card_brand|brand|receipt_email|receipts_to/i.test(billingSrc), false);
+
+  // ---- N23 as a database answer: who reads this club's register -----------
+  const readers = async (who) => (await db.query(
+    `select reader_name, role_label, scope, squad_names, since is not null as dated from fn_club_register_readers($1,$2)`, [who, MON])).rows;
+  const tdView = await readers(mTd);
+  const byName = Object.fromEntries(tdView.map((r) => [r.reader_name, r]));
+  check('N23c: the TD’s list names every reader of this register',
+    Object.keys(byName).sort(), ['Money Admin Fixture', 'Money Coach Fixture', 'Money Manager Fixture', 'Money TD Fixture']);
+  check('N23d: the technical director reads the whole register', byName['Money TD Fixture']?.scope, 'whole');
+  check('N23e: a granted coach reads their teams, named', [byName['Money Coach Fixture']?.scope, byName['Money Coach Fixture']?.squad_names], ['squads', ['M-U15', 'M-U16']]);
+  check('N23f: and every row is dated — who, which squads, since when', tdView.every((r) => r.dated), true);
+  check('readers1: the administrator is on the list reading no registration (D-93)',
+    [byName['Money Admin Fixture']?.scope, byName['Money Admin Fixture']?.role_label], ['none', 'Club administrator']);
+  check('readers2: so is a team manager (doc 34 rule 4)', byName['Money Manager Fixture']?.scope, 'none');
+  check('readers3: a coach with no grant is not a reader and is not listed',
+    tdView.some((r) => r.reader_name === 'Money Bench Fixture'), false);
+  // The administrator gets the SAME list, in full. I built it restricted to
+  // the TD on TRAINING §3.8 and the design settles it the other way:
+  // club-home-admin.html draws this block on the administrator's own home and
+  // argues it is the only place D-93's split is said out loud to the person it
+  // constrains. It widens nothing minor-facing, which is the condition O11
+  // actually sets — no registration, no child, no count of children is in it.
+  check('readers4: the administrator gets the same list, in full — D-93 said out loud to the person it constrains',
+    (await readers(mAdmin)).map((r) => r.reader_name), tdView.map((r) => r.reader_name));
+  check('readers4b: and it still carries no registration, no child and no count of children',
+    (await db.query(`select * from fn_club_register_readers($1,$2)`, [mAdmin, MON]))
+      .fields.map((f) => f.name).sort(),
+    ['reader_id', 'reader_name', 'role_label', 'scope', 'since', 'squad_names'].sort());
+  check('readers4c: and "since when" for a granted coach is when the GRANT was made, not when they joined the club',
+    (await readers(mTd)).find((r) => r.scope === 'squads')?.dated, true);
+  for (const [who, what] of [[grantedCoach, 'a granted coach'], [mTm, 'a team manager'], [ID.td, 'another club’s TD'], [ID.guardian, 'a guardian'], [null, 'nobody']]) {
+    check(`readers5: ${what} gets no list at all`, (await readers(who)).length, 0);
+  }
+  await db.query(`update register_grant set revoked_at = now(), revoked_by = $1 where person_id = $2`, [mTd, grantedCoach]);
+  check('N21f: the grant is removed and the coach leaves the list at the next read — nothing stored',
+    (await readers(mTd)).some((r) => r.reader_name === 'Money Coach Fixture'), false);
+}
+
+// ---------------------------------------------------------------------------
+// 0064 — THE RETURN. Sixty days away, three dated facts, and nothing at all
+// for a child (D-25, D-53, D-65/D-81, D-74/D-90, doc 34 rule 6).
+// ---------------------------------------------------------------------------
+{
+  const q1 = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const arrive = async (who) => (await q1('select fn_note_arrival($1) as s', [who])).s;
+  const seen = async (who) => (await q1('select last_seen_at from person where id = $1', [who])).last_seen_at;
+  const facts = async (who, since) => (await db.query(
+    `select kind, to_char(fact_on, 'FMDD Mon') as on_label, subject, club_name, reader_name, reader_role, surface,
+       to_char(checked_on, 'FMDD Mon') as checked_label
+     from fn_return_facts($1, $2::timestamptz)`, [who, since])).rows;
+  const adult = async (name) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`, [id, name, yearsAgo(41)]);
+    return id;
+  };
+
+  // --- when a return opens, and when it does not
+  const fresh = await adult('Return Fresh');
+  check('ret1: a first visit is not a return', await arrive(fresh), null);
+  check('ret1b: and it is recorded, once, as one timestamp', (await seen(fresh)) !== null, true);
+  const recent = await adult('Return Recent');
+  await db.query(`update person set last_seen_at = now() - interval '59 days' where id = $1`, [recent]);
+  check('ret2: fifty-nine days away is not a return', await arrive(recent), null);
+  const away = await adult('Return Away');
+  await db.query(`update person set last_seen_at = now() - interval '61 days' where id = $1`, [away]);
+  const opened = await arrive(away);
+  check('ret2b: sixty-one days away opens one, measured from the last visit', opened !== null, true);
+  check('ret3: a second arrival the same day keeps the same window — the block does not vanish on a Back press',
+    String(await arrive(away)), String(opened));
+  await db.query(`update person set returned_at = now() - interval '2 days' where id = $1`, [away]);
+  check('ret3b: and it closes after a day', await arrive(away), null);
+
+  // --- nothing at all for a child (D-25), and the refusal is the database's
+  check('ret4: an under-16 arriving records nothing', await arrive(ID.deniz), null);
+  check('ret4b: not even the timestamp — a fourteen-year-old’s visits are not held', await seen(ID.deniz), null);
+  await db.query(`update person set last_seen_at = now() - interval '90 days' where id = $1`, [ID.deniz]);
+  check('ret4c: nor does one appear if somebody puts it there by hand', await arrive(ID.deniz), null);
+  check('ret5: and asked directly, an under-16 is told nothing while away',
+    (await facts(ID.deniz, new Date(Date.now() - 90 * 86400000).toISOString())).length, 0);
+  await db.query(`update person set last_seen_at = null where id = $1`, [ID.deniz]);
+  check('ret5b: a 16–17 does get a return — doc 34 rule 6 is where the line is, and this migration did not move it',
+    (await arrive(ID.nate)) === null, true);   // nate has no last_seen yet: a first visit
+
+  // --- the read line: the ledger, through the gate that already exists.
+  // Its own family, because every other section of this file has been reading
+  // Riverside's register and logging as it went. "The only read in the window"
+  // is not true of ID.guardian, and a check that assumed it was would have been
+  // asserting the fixture rather than the function (LESSONS L32).
+  const since = new Date(Date.now() - 70 * 86400000).toISOString();
+  const rParent = await adult('Return Parent');
+  const rChild = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Winona','Fixture','2012-05-05')`, [rChild]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [rParent, rChild]);
+  const rRec = crypto.randomUUID();
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rRec, rChild]);
+  const rReg = (await q1(
+    `insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4') returning id`,
+    [rChild, CLUB.riverside])).id;
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface, read_at)
+     values ($1,$2,'list', now() - interval '20 days')`, [ID.clubAdmin, rReg]);
+  const listOnly = (await facts(rParent, since)).find((f) => f.kind === 'read');
+  check('ret6: a read of the list says so, naming the person and their role at that club',
+    [listOnly?.reader_name, listOnly?.reader_role, listOnly?.club_name, listOnly?.surface, listOnly?.subject],
+    ['clubAdmin', 'Club administrator', 'Riverside FC', 'list', 'Winona']);
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface, read_at)
+     values ($1,$2,'cv', now() - interval '30 days')`, [ID.td, rReg]);
+  const both = (await facts(rParent, since)).find((f) => f.kind === 'read');
+  check('ret6b: a CV opened outranks a list loaded, even when it is the older of the two',
+    [both?.reader_name, both?.surface], ['td', 'cv']);
+  check('ret6c: exactly one read line, whatever the ledger holds — a list of readers is a count with names on',
+    (await facts(rParent, since)).filter((f) => f.kind === 'read').length, 1);
+  check('ret6d: a viewer with no guardianship is told nothing about that child',
+    (await facts(ID.exGuardian, since)).some((f) => f.subject === 'Winona'), false);
+  check('ret6e: and neither is the club that did the reading',
+    (await facts(ID.td, since)).some((f) => f.subject === 'Winona'), false);
+  check('ret7: the same read, with the window starting after it, is not "while you were away"',
+    (await facts(rParent, new Date(Date.now() - 10 * 86400000).toISOString())).some((f) => f.kind === 'read'), false);
+  // M3 — at eighteen a guardianship is visibility only if re-granted (D-49).
+  const marcusReg = (await q1(
+    `insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4') returning id`,
+    [ID.marcus, CLUB.riverside])).id;
+  await db.query(
+    `insert into register_read_log (person_id, registration_id, surface, read_at)
+     values ($1,$2,'cv', now() - interval '20 days')`, [ID.td, marcusReg]);
+  check('ret8: an adult child’s reads are not their parent’s to see without a re-grant (M3, D-49)',
+    (await facts(ID.guardian, since)).some((f) => f.subject === 'Marcus'), false);
+
+  // --- the link line
+  const tk = crypto.randomUUID();
+  await db.query(
+    `insert into share_token (record_id, token_hash, token_hint, issued_by, expires_at)
+     values ($1,$2,'ret-hint',$3, now() + interval '40 days')`, [rRec, sha(`ret-${tk}`), rParent]);
+  check('ret9: the link line is the live token’s own expiry',
+    (await facts(rParent, since)).some((f) => f.kind === 'link_expiry' && f.subject === 'Winona'), true);
+  await db.query(`update share_token set paused = true where token_hash = $1`, [sha(`ret-${tk}`)]);
+  check('ret9b: a paused link has no expiry to state, so the line is omitted rather than guessed',
+    (await facts(rParent, since)).some((f) => f.kind === 'link_expiry'), false);
+  await db.query(`update share_token set revoked_at = now(), paused = false where token_hash = $1`, [sha(`ret-${tk}`)]);
+  check('ret9c: a revoked link has none either',
+    (await facts(rParent, since)).some((f) => f.kind === 'link_expiry'), false);
+  await db.query(`update share_token set revoked_at = null where token_hash = $1`, [sha(`ret-${tk}`)]);
+
+  // --- the trials line: a stale date CANNOT render (D-74, D-90)
+  await db.query(`update trial_notice set trial_on = current_date + 20, last_checked = current_date - 40`);
+  check('ret10: every notice unchecked for forty days — the trials line is omitted entirely, not guessed',
+    (await facts(rParent, since)).some((f) => f.kind === 'trials'), false);
+  const notice = (await q1(`select id from trial_notice limit 1`));
+  if (notice) {
+    await db.query(`update trial_notice set last_checked = current_date, trial_on = current_date + 9 where id = $1`, [notice.id]);
+    const t = (await facts(rParent, since)).find((f) => f.kind === 'trials');
+    check('ret10b: a notice a human has checked inside thirty days puts it back, with its check stamp',
+      [Boolean(t), Boolean(t?.checked_label)], [true, true]);
+    check('ret10c: the date is the notice’s own, never a season written down somewhere',
+      t?.on_label, (await q1(`select to_char(trial_on, 'FMDD Mon') as d from trial_notice where id = $1`, [notice.id])).d);
+    await db.query(`update trial_notice set trial_on = current_date - 1 where id = $1`, [notice.id]);
+    check('ret10d: and a notice whose date has passed never renders anywhere',
+      (await facts(rParent, since)).some((f) => f.kind === 'trials'), false);
+    await db.query(`update trial_notice set trial_on = current_date + 9 where id = $1`, [notice.id]);
+  }
+  check('ret11: the trials line is the same for every viewer — no recommender, no personalisation (D-74)',
+    (await facts(rParent, since)).find((f) => f.kind === 'trials')?.on_label,
+    (await facts(ID.nate, since)).find((f) => f.kind === 'trials')?.on_label);
+
+  // --- what the block is NOT
+  const retSrc = codeOnly(readFileSync(fileURLToPath(new URL('../components/WhileYouWereAway.tsx', import.meta.url)), 'utf8'));
+  check('ret12: nothing in the block counts anything — no streak, no visit count, no read count',
+    /streak|\btimes\b|count\(|\blength\b\s*[><]|visits/i.test(retSrc), false);
+  check('ret13: and no verb is aimed at the reader',
+    /\b(update your|renew|don.t forget|complete your|come back|you haven)/i.test(retSrc), false);
+  const arrivalSrc = await procSrc('fn_note_arrival');
+  check('ret14: the arrival is one overwritten timestamp, never an appended history',
+    /insert into/i.test(codeOnly(arrivalSrc)), false);
+  check('ret15: nothing about this block sends anything',
+    /message_outbox|sendMessage|resend|sms/i.test(retSrc), false);
+}
+
+// ---------------------------------------------------------------------------
+// THE FAILURE PATH, AS SOURCE SHAPE (28 Sep).
+//
+// The rendered proofs are in the render suite (fp1–fp14) and the write suite
+// (p19g, p19h, sr1–sr4). These four are the rules that keep those true a month
+// from now, and they are the same argument E10 makes about the dead-link page:
+// a page that is never handed a reason cannot leak one.
+// ---------------------------------------------------------------------------
+{
+  const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  const nf = read('../app/not-found.tsx');
+  const er = read('../app/error.tsx');
+  const ge = read('../app/global-error.tsx');
+
+  // Next hands not-found.tsx no props at all. If somebody ever gives it a
+  // parameter, a searchParam or a header read, it acquires something to branch
+  // on and the 404 becomes an existence oracle — doc 14's opening rule:
+  // a denial answers "as if it does not exist", never "forbidden".
+  check('fail1: the 404 page takes nothing in, so it has nothing to branch on',
+    /export default function NotFound\(\)/.test(codeOnly(nf))
+      && !/searchParams|params|headers\(|cookies\(/.test(codeOnly(nf)), true);
+  check('fail2: and it names no cause — no "expired", "revoked", "paused", "deleted"',
+    /expired|revoked|paused|withdrawn|deleted|forbidden|not allowed/i.test(codeOnly(nf)), false);
+
+  // D-94 §1: no secret, token or personal datum in any error message or trace.
+  // The error object handed to a client boundary carries the original message
+  // in development, and a digest is an identifier for a log line, not for a
+  // person to read.
+  check('fail3: neither 500 page renders anything off the error — no message, no digest, no stack',
+    [nf, er, ge].some((src) => /error\.(message|digest|stack)|console\.(error|log)\(/.test(codeOnly(src))), false);
+
+  // One place for the words, so approving them is one edit and a changed word
+  // changes every screen that says it. A sentence typed into a page is a
+  // sentence that drifts from the one BUZ said yes to (L17).
+  const copyFile = '/components/FailureState.tsx';
+  const copy = read('..' + copyFile);
+  const sentences = [...copy.matchAll(/: '((?:[^'\\]|\\.){14,})',$/gm)]
+    .map((m) => m[1].replace(/\\u2019/g, '’').replace(/\\'/g, "'"))
+    .filter((t) => / [a-z]/.test(t));
+  check(`fail4: the failure path's copy module holds real sentences (${sentences.length})`,
+    sentences.length >= 10, true);
+  const componentFiles = [];
+  (function walkComponents(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      const full = join(d, e.name);
+      if (e.isDirectory()) walkComponents(full);
+      else if (/\.tsx?$/.test(e.name)) componentFiles.push(full);
+    }
+  })(fileURLToPath(new URL('../components', import.meta.url)));
+  const elsewhere = [];
+  for (const f of [...routeFiles, ...componentFiles]) {
+    if (f.endsWith(copyFile)) continue;
+    const src = readFileSync(f, 'utf8');
+    for (const t of sentences) if (src.includes(t)) elsewhere.push(`${f.slice(f.lastIndexOf('/app/') + 1 || f.lastIndexOf('/components/') + 1)}: "${t.slice(0, 40)}"`);
+  }
+  check(`fail5: and no screen types one of them out again (${[...new Set(elsewhere)].join(' · ') || 'none does'})`,
+    elsewhere.length, 0);
+  check('fail6: every failure screen draws its words from that module',
+    /FAILURE_COPY/.test(nf) && /FAILURE_COPY/.test(er) && /FAILURE_COPY/.test(ge), true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

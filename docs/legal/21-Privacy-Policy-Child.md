@@ -1,5 +1,7 @@
 # Your privacy on Pitch
 
+> **v2.6, 28 September 2026 — published. No clause changes, and no change a reader could re-measure.** These drafting notes are no longer served — this is the policy shown inside the guardian approval flow (doc 32 B3) — and the footer names this version and no longer says it is a draft or unpublished. John, doc 35 ruling 1: removing the preamble from what is served is not material; the version bumps so that a consent row names exactly the text that was shown, and nobody is re-asked. Ruling 3: these versions are the published ones.
+>
 > **⚠️ v2.2, 3 September 2026 — this restores work that was lost, and the loss was my doing.** On 1 September I filed pack v1.5, then revised it **in place, keeping the same version number**, so as not to create a phantom version. **That made the second set of changes invisible.** The corpus was built from the first copy and swept for the domain (D-150), and the contact work never arrived: the named Privacy Officer, the explanation of the two domains, the reason there is no postal address, and — the one that matters — **clause 8.3's plain statement that an appeal is not independently reviewed.** The live terms went back to promising a parent a second pair of eyes that does not exist.
 >
 > **The lesson is against me, not against the sweep.** A pack that has been filed is something somebody else may already have consumed. **Revising it in place under the same number is not a smaller change than a version bump — it is an invisible one.** From here, a filed pack is immutable and a correction is a new version, whether or not anything has been published.
@@ -176,6 +178,6 @@ If you would rather tell someone outside Pitch, contact the eSafety Commissioner
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · your privacy · doc 21 · v2.5 draft · 15 September 2026 · not yet published*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · your privacy · doc 21 · v2.6 · 28 September 2026*
 
 *Reading level, measured on the body text of this version: **Flesch–Kincaid grade 3.1, 10.3 words a sentence**. The same measurement run against v2.0 gives grade 3.1 — identical, after three added sections, a name and the 16–17 rules. Measured with the counter in `fk.py` rather than the tool used for v1.1's grade 3.8, so compare this figure only against a figure produced the same way. Re-measure after any edit.*

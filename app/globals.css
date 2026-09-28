@@ -3,7 +3,10 @@ html {
 }
 body {
   margin: 0;
-  background: #070b09;
+  /* --bg, not a sixth level. This was #070b09, which is not any token: the
+     page sat 1.044 above it, so --bg was itself a raised surface and the
+     stack had an unnamed floor nobody decided (28 Sep). */
+  background: var(--bg);
   /* Installed on an iPhone home screen, the page runs under the status bar
      (layout.tsx: black-translucent, viewport-fit=cover). These insets are
      zero in an ordinary browser tab, so nothing moves there. The bottom
@@ -13,7 +16,7 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 a {
-  color: #3ddc84;
+  color: var(--accent);
   text-decoration: none;
 }
 a:hover {
@@ -24,27 +27,23 @@ select,
 button {
   font-family: inherit;
 }
-input:focus,
-select:focus {
-  outline: none;
-}
 /* A native select or file picker that sits outside a .field well rendered as
    the browser's white system control on a Night Match page (the CV builder's
    preferred-foot select and photo picker). Dark by default; .field select
    keeps its own transparent style by specificity. */
 select {
-  background: var(--surface-2, #1a2420);
+  background: var(--surface-2, #25332c);
   color: var(--ink, #eef5f0);
-  border: 1px solid var(--line, #24322a);
+  border: 1px solid var(--line, #32463b);
   border-radius: 12px;
   padding: 0 12px;
   font-size: 14.5px;
   font-weight: 700;
 }
 input[type="file"]::file-selector-button {
-  background: var(--surface-2, #1a2420);
+  background: var(--surface-2, #25332c);
   color: var(--ink, #eef5f0);
-  border: 1px solid var(--line, #24322a);
+  border: 1px solid var(--line, #32463b);
   border-radius: 10px;
   padding: 6px 10px;
   font: inherit;
@@ -68,7 +67,7 @@ input[type="file"]::file-selector-button {
 @keyframes buzz { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-3px); } 40% { transform: translateX(3px); } 60% { transform: translateX(-2px); } 80% { transform: translateX(2px); } }
 
 /* Hover states (the prototype's style-hover attributes) */
-.navlink:hover { color: #eef5f0; }
+.navlink:hover { color: var(--ink); }
 .iconbtn:hover { background: rgba(255, 255, 255, 0.1); }
 .hlcard .hlimg { transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1); }
 .hlcard:hover .hlimg { transform: scale(1.05); }
@@ -123,7 +122,21 @@ button, a[href] {
 }
 button:hover, a[href]:hover { filter: brightness(1.06); }
 button:active, a[href]:active { transform: scale(.975); }
-:focus-visible { outline: 2px solid #3ddc84; outline-offset: 2px; border-radius: 6px; }
+/* THE FOCUS RING, and it is the token layer's to give (28 Sep).
+   It was written here in 4 Sep's motion pass at (0,1,0) and then lost twice
+   over: `input:focus, select:focus { outline: none }` at the top of this file
+   is (0,1,1) and beat it, and twenty-four component files re-asserted
+   `outline: 'none'` inline, which beats any selector at all. Measured with
+   real Tab keypresses at 390 and 1280: on /signin, /join, /report,
+   /reset/[token] and the D-77 request-access form every field came back
+   `outlineStyle: none` while every button and link on the same page showed
+   the ring. A keyboard user filling in a password, a consent tick or a
+   child-safety report could not see where they were.
+   Both suppressors are gone and the inline ones with them — and this carries
+   !important so the next inline style cannot do it again. A ring is not
+   decoration a component gets to decline; it is the only thing telling a
+   keyboard user which field they are typing into. */
+:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 2px; border-radius: 6px; }
 
 /* Card depth on hover — attach with className="lift" */
 .lift {
@@ -131,7 +144,7 @@ button:active, a[href]:active { transform: scale(.975); }
 }
 .lift:hover {
   transform: translateY(-2px);
-  border-color: #2e3f36 !important;
+  border-color: var(--line-hover) !important;
   box-shadow: 0 8px 28px rgba(0,0,0,.35);
 }
 
@@ -262,33 +275,88 @@ button:active, a[href]:active { transform: scale(.975); }
    These are the defaults. Components move onto them screen by screen.
    =========================================================================== */
 :root {
-  /* Surfaces */
-  --bg:            #0b120e;
-  --surface:       #121b16;
-  --surface-2:     #1a2420;
-  --line:          #24322a;
+  /* SURFACES — the stack, re-pitched 28 Sep so it can be seen.
+     PROPOSAL, NOT A CHARTER CHANGE YET: four of these values are named in
+     CLAUDE.md's Night Match charter, so they need a D-number before they ship.
+     Nothing here is pushed or deployed.
 
-  /* A THIRD surface level — a stretch on the charter, flagged for a D-number.
-     Two levels forced every card to look identical, which is most of why the
-     app reads flat. This is the SUNKEN one: a well for content you read
-     rather than act on. Raised stays --surface, page stays --bg. */
-  --surface-sunken: #0e1712;
+     THE RULE, which is worth more than the numbers: DISCLOSURE GOES DOWN,
+     ACTION GOES UP. The page is the datum; a well you read is below the card
+     it sits in; a control you act on is above it. The hairline does the
+     elevation work — NO shadow and NO glow is added anywhere, because a real
+     surface step plus a border is the published way to build depth in a dark
+     UI and it costs nothing to render on a phone.
+
+     HOW THE VALUES WERE DERIVED (re-derived here, not copied from the
+     proposal at docs/design/mockups/surface-stack.html — they converged):
+       · A card sat 1.079:1 from the page and a well 1.038:1 from the card,
+         where 1.00 is identical. Our text sits at 17:1. Three surfaces were
+         designed and the eye saw one.
+       · "Sunken" cannot mean darker than the page: #0b120e is 1.107:1 off
+         pure black, so there is no room underneath it. Every level therefore
+         goes UP from the page, and sunken means below the CARD.
+       · The step is the largest one small grey text survives. --muted must
+         hold 4.5:1 (AA, small text) on the topmost surface; solving that for
+         three equal steps gives a ceiling of 1.136 per step, so the step is
+         1.13 — which also lands between Carbon's dark-theme steps (1.20 and
+         1.31 across two rungs).
+       · --line keeps at least the 1.31:1 it has today against a card,
+         measured against the NEW topmost surface, so the hairline does not
+         quietly lose its job as the surfaces come up to meet it.
+     Measured, page upward: 1.132 · 1.135 · 1.117. A card reads 1.285:1
+     against the page (was 1.079) and a well 1.135:1 inside the card (was
+     1.038). scripts/palette-check.mjs now measures all of it. */
+  --bg:            #0b120e;
+  --surface:       #1d2b23;
+  --surface-2:     #25332c;
+  --line:          #32463b;
+
+  /* The SUNKEN level: a well for content you read rather than act on. It was
+     added with the right reasoning and a value 1.038 from the card it sits
+     inside, which is why almost nobody reached for .card-sunken — it looked
+     like nothing. */
+  --surface-sunken: #15201a;
+  /* The hero, re-pitched 28 Sep (BUZ). The charter's stops were #123326 ->
+     #0c1d14 -> #0a1510, and when the surfaces were given values you can
+     actually tell apart, TWO OF THOSE THREE ended up BELOW the plain cards
+     beside them — so a hero panel read as a hole rather than a lift, on the
+     CV, the club page and every home screen. Same 160deg green-to-dark move,
+     lifted so the darkest stop still sits above a card: L 0.0704 -> 0.0383 ->
+     0.0260 against a card at 0.0211, with ink between 7.9:1 and 12.5:1 on it.
+     Referenced, not copied — it was hardcoded in 21 places and used as a
+     token in none. */
+  --hero: linear-gradient(160deg, #24543c 0%, #1f3d2e 60%, #1d3126 100%);
+  /* The same inversion, the same fix, the other three families (BUZ, 28 Sep).
+     Every amber stop, every purple stop and the grey panel's dark stop sat
+     BELOW the cards once the surfaces were real. Matched to the green ladder
+     at the same luminances with the hue preserved, so caution still reads as
+     caution and the guardian surface still reads as itself. */
+  --hero-amber:  linear-gradient(160deg, #5c4923 0%, #45371a 60%, #382d15 100%);
+  --hero-purple: linear-gradient(160deg, #534475 0%, #3d3257 60%, #312845 100%);
+  --hero-grey:   linear-gradient(160deg, #424f49 0%, #313b36 100%);
 
   /* Ink */
   --ink:           #eef5f0;
   --secondary:     #b9c8bf;
-  --muted:         #7d8f85;
-  --placeholder:   #6b7d73;
+  /* --muted moves with the surfaces, and it is not optional: #7d8f85 drops
+     to 4.35:1 on the new top surface, below AA for small text. This is the
+     smallest value on --muted's own tint line that holds 4.5 with margin
+     (4.61 on --surface-2, 5.15 on a card, 6.61 on the page). */
+  --muted:         #8a9d92;
+  /* Lifted 28 Sep (BUZ) so every one of these clears 4.5:1 as TEXT on the
+     lightest surface it lands on — each is used as `color` more often than as
+     an edge (9, 7 and 8 call sites). The old values could not: red topped out
+     at 4.31 and placeholder at 4.81 on pure black, so no change of background
+     could have saved them. Hue preserved; saturation and value searched for
+     the first pair that clears the floor. */
+  --placeholder:   #909994;
 
   /* Accent and states */
   --accent:        #3ddc84;
   --on-accent:     #06130c;
   --amber:         #eda100;
-  --purple:        #a479e2;
-  --red:           #e34948;
-
-  /* Gradients */
-  --hero: linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%);
+  --purple:        #ab87e0;
+  --red:           #e37776;
 
   /* Radii — charter values, named */
   --r-hero:  22px;
@@ -303,6 +371,18 @@ button:active, a[href]:active { transform: scale(.975); }
   --ls-button:   0.02em;
   --ls-title:    -0.015em;
   --ls-numeral:  -0.04em;
+
+  /* THE INTERACTION LAYER, which had no tokens at all and three literals
+     chosen against the OLD surfaces: the focused field and hovered file drop,
+     the hovered secondary and console buttons, and the hovered card border.
+     Every one of them is DARKER than the surface it now sits on — 1.13, 1.10
+     and 1.10 the wrong way — so lifting the stack inverted all three and a
+     hover would have dimmed the thing you were pointing at. A hover goes UP,
+     one step, like everything else.
+     These two have no lib/palette.ts twin on purpose: a hover state is only
+     expressible in CSS, so a T entry for them would be dead weight. */
+  --surface-hover: #2b3c34;
+  --line-hover:    #384e42;
 
   --card-pad: 15px 14px;
   --ease: cubic-bezier(.22, 1, .36, 1);
@@ -336,14 +416,29 @@ button:active, a[href]:active { transform: scale(.975); }
   gap: 3px;
   transition: border-color .18s var(--ease), background .18s var(--ease);
 }
-.field:focus-within { border-color: var(--accent); background: #1d2a24; }
+/* The accent border, and the control inside it now carries its own 2px ring.
+   A third signal — lightening the well — put --muted at 4.07 on the caption
+   inside a focused field once the surfaces came up, so it is gone. */
+.field:focus-within { border-color: var(--accent); }
+/* The caption above a control. lib/ui.ts's fieldLabel is the same three
+   declarations as an inline style, for the screens not yet on the class.
+
+   .field-label WAS WRITTEN AS `.field > .field-label` — a child selector —
+   and 19 of the 53 elements carrying the class are not children of a .field:
+   /club/billing (5), /club/post-trial (8), /register-interest (4) and
+   /club/invite (2) put it on a caption above a bare card or a fieldset
+   legend. The rule never matched, so those nineteen captions rendered as
+   inherited body text — which is why the price on the billing page was set
+   three pixels larger than its own label. One selector (28 Sep). The
+   `.field > label` half stays scoped: a bare <label> inside a well is a
+   caption, a <label> anywhere else is not. */
 .field > label,
-.field > .field-label {
+.field-label {
   font-size: 10px; font-weight: 800; letter-spacing: var(--ls-label);
   text-transform: uppercase; color: var(--muted);
 }
 .field input, .field textarea, .field select {
-  background: transparent; border: none; outline: none;
+  background: transparent; border: none;
   color: var(--ink); font-size: 14.5px; font-weight: 700;
   font-family: inherit; padding: 0; width: 100%;
 }
@@ -380,7 +475,7 @@ select { min-height: 44px; }
   text-align: center; cursor: pointer;
   transition: border-color .18s var(--ease), background .18s var(--ease);
 }
-.filefield:hover { border-color: var(--accent); background: #1d2a24; }
+.filefield:hover { border-color: var(--accent); }
 .filefield input[type="file"] {
   position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
 }
@@ -407,7 +502,7 @@ select { min-height: 44px; }
 .btn-primary   { height: 50px; font-size: 15px; font-weight: 800; background: var(--accent); color: var(--on-accent); border: none; }
 .btn-primary:hover { filter: brightness(1.06); }
 .btn-secondary { height: 46px; font-size: 14px; font-weight: 700; background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
-.btn-secondary:hover { background: #1f2c26; }
+.btn-secondary:hover { background: var(--surface-hover); }
 .btn-ghost     { height: 44px; font-size: 13.5px; font-weight: 700; background: transparent; color: var(--muted); border: none; }
 .btn-ghost:hover { color: var(--secondary); }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
@@ -425,7 +520,7 @@ select { min-height: 44px; }
   border: 1px solid var(--line);
   transition: background .18s var(--ease), filter .18s var(--ease);
 }
-.console-btn:hover { background: #1f2c26; }
+.console-btn:hover { background: var(--surface-hover); }
 .console-btn-primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 800; }
 .console-btn-primary:hover { filter: brightness(1.06); }
 

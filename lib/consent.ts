@@ -7,33 +7,32 @@ export const CONSENT_TEXT =
   'Sent by Pitch Football (EBSD Enterprises Pty Ltd, ABN 65 701 879 718), Melbourne — one email when we open, unsubscribe in it.';
 
 // 'doc@version' per legal/00-Legal-Register.md.
-// Doc 20 is at v2.6 (7 Sep 2026). v2.5 named Vercel and Supabase, the two
-// processors handling visitor and waitlist data; v2.6 carries the doc 31
-// rulings. No placeholders remain in doc 20 or doc 22.
+// Doc 20 is at v2.8 (28 Sep 2026): the drafting preamble no longer renders, so
+// the served bytes changed. John ruled it NOT material and ruled the version
+// still bumps, so every consent row names exactly the text that was shown —
+// and no guardian is re-asked, because nothing in the agreement moved (doc 35
+// ruling 1).
 //
 // Rows already written keep the version they were written with. 20@v2.4 and
 // 20@v2.5 are retained unaltered under legal/_superseded/ and in git history,
 // because a consent row must resolve to the exact text that person read.
 // Bump this in the same commit that changes what /privacy serves — never
 // separately, in either direction.
-export const POLICY_VERSION = '20@v2.7';
+export const POLICY_VERSION = '20@v2.8';
 
 // ---------------------------------------------------------------------------
 // A version string is an assertion until it is bound to bytes (John, 3 Sep).
-// D-144 requires that we can render the EXACT text a given person agreed to,
-// years later. 'doc@version' alone does not guarantee that: two files can
-// carry one version number, and on 7 September two of them did.
+// The binding USED TO live here as a typed constant — POLICY_SHA256, the hash
+// of the policy FILE — and a second path stamped with a hash of the SERVED
+// text. On 28 Sep that meant doc 20 had two different hashes in one codebase:
+// the waitlist wrote e8268292… and the consent path wrote 4de5b506…, for the
+// same document. Only one of them described what a person actually read.
 //
-// POLICY_SHA256 is the SHA-256 of docs/legal/20-Privacy-Policy-Adult.md as
-// served. The corpus check (S13) fails if this constant and that file ever
-// disagree, so it cannot rot silently.
-//
-// POLICY_STAMP is what goes on the consent row. It needs no schema change --
-// policy_version is already text -- which is why it could be done today.
-// THIS CANNOT BE ADDED RETROSPECTIVELY: rows written before it keep
-// '20@v2.4' and resolve through legal/_superseded/ and git instead.
-export const POLICY_SHA256 = 'e8268292a4f5f4739971a39ee553057bef95150e192425ae004fa2ea10d107e9';
-export const POLICY_STAMP = `${POLICY_VERSION}+sha256:${POLICY_SHA256}`;
+// Both constants are gone. Every stamp now comes from legalStamp() in
+// lib/legal-stamp.ts, which hashes the text AS SERVED — one answer, derived
+// rather than typed, so it cannot drift from the page. The suite fails if a
+// 64-hex hash is ever typed into lib/ or app/ again (jr3).
+
 
 export const ROLES = ['player', 'coach', 'club', 'parent'] as const;
 export type Role = (typeof ROLES)[number];

@@ -23,14 +23,14 @@
 // naming someone else records that person; it does not end the first one.
 //
 // THE SUSPENSION ALSO CARRIES ITS CLASS, AND THAT IS WHAT TELLS FAMILIES
-// (doc 31 M11/L29; doc 15 §37; 0063). This was the only path in the product
+// (doc 31 M11/L29; doc 15 §37; 0065). This was the only path in the product
 // that suspends a club and it wrote `club_state='suspended'` and nothing else,
 // so an operator could take a club down for a child-safety reason and every
 // family holding a live link to that club learnt nothing — while the message,
 // the undo token and the page it lands on had all been written for months.
 //
 // The mapping from class to "families are told" is John's ruling and it is a
-// child-safety judgement, so it is NOT in this file: 0063 put it inside
+// child-safety judgement, so it is NOT in this file: 0065 put it inside
 // fn_guardians_to_notify_on_suspension, which returns nobody unless the club
 // is suspended for the child-safety class. This action records the class the
 // operator chose, asks the database who must be told, and sends to exactly
@@ -66,7 +66,7 @@ export async function logCall(formData: FormData) {
   const tdEmail = outcome === 'verified' ? f('td_email').toLowerCase() : '';
   const tdRecorded = tdName !== '' && tdEmail.includes('@');
   // The class of the suspension, recorded at the moment of suspension. A call
-  // that did not suspend has none (0063 refuses one anyway), and a value the
+  // that did not suspend has none (0065 refuses one anyway), and a value the
   // form did not offer is no value: a missing or unrecognised class records
   // nothing and therefore tells nobody, which is the safe direction. It never
   // blocks the suspension — a safety action must not fail on a form field.
@@ -91,7 +91,7 @@ export async function logCall(formData: FormData) {
     if (outcome === 'verified') {
       // The class of the last suspension goes with it. Left behind, it is a
       // stale answer to "why is this club down" sitting on a club that is up
-      // — and 0063 reads it.
+      // — and 0065 reads it.
       await client.query(`update club set club_state='verified', verified_call_id=$2, suspension_reason=null where id=$1`, [clubId, call.rows[0].id]);
     } else if (SUSPENDS.has(outcome)) {
       await client.query(`update club set club_state='suspended', suspension_reason=$2 where id=$1`, [clubId, suspensionClass]);
@@ -111,7 +111,7 @@ export async function logCall(formData: FormData) {
   // The database decides who is told. An ordinary de-verification, a class the
   // operator did not record, and a club that is not actually suspended all
   // come back as an empty list, so nothing here needs to know which class
-  // means what (doc 31 M11/L29, 0063).
+  // means what (doc 31 M11/L29, 0065).
   if (SUSPENDS.has(outcome)) {
     const { rows: toTell } = await db.query(
       `select * from fn_guardians_to_notify_on_suspension($1)`, [clubId]);

@@ -32,11 +32,25 @@ function check(name, actual, expected) {
   else { failures.push(name); console.log(`FAIL ${name} - expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`); }
 }
 
-// The dev session cookie is a signed person id (lib/session.ts). Minting one
-// here is how a test BECOMES a seat; there is no other way in without
+// The dev session cookie is a signed session token (lib/session.ts). Minting
+// one here is how a test BECOMES a seat; there is no other way in without
 // driving a browser.
-const cookieFor = (personId) =>
-  `pitch_session=${personId}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(personId).digest('base64url')}`;
+// A session is a row now (0062), so a cookie is not something a script can
+// compute: it has to name a session the database issued. The seed issues one
+// per fixture person and writes the token beside the ids — this file cannot
+// ask the database itself, because PGlite serves one connection and the app
+// holds it. A missing one is a stale .dev-ids.json against a running database,
+// which is worth saying out loud rather than failing as "signed out" fifty
+// times (F5's failure shape).
+const sessionToken = (p) => {
+  const t = ids.sessions?.[p];
+  if (!t) throw new Error(`no seeded session for ${p} — reseed (node scripts/dev-db.mts) so .dev-ids.json matches the running database`);
+  return t;
+};
+const cookieFor = (personId) => {
+  const t = sessionToken(personId);
+  return `pitch_session=${t}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(t).digest('base64url')}`;
+};
 
 async function get(path, personId) {
   const res = await fetch(BASE + path, {
@@ -98,23 +112,27 @@ const georgia = ids.children.georgia;
 // rendering the page can.
 // ---------------------------------------------------------------------------
 {
+  // The card's words are proposals awaiting BUZ (components/WhoLooked), so
+  // these read its marker and the function's own values — who, what, which
+  // report — never its prose (L32). The card renders in development only
+  // until he approves them, which is where this suite runs.
   const nate = ids.children.nate;
-  const told = (await get(`/g/controls/${nate.child_id}`, alex)).html;
-  check('r5a: the guardian is told WHO at Pitch looked at their child’s record',
-    has(told, 'Priya Raman'), true);
-  check('r5b: and why — the report it was opened against, and what was read',
-    has(told, 'Looking into a report · read the send log'), true);
-  check('r5c: under the heading a parent would look under',
-    has(told, 'Who at Pitch has looked at Nate’s record'), true);
+  const card = (html) => html.slice(Math.max(0, html.indexOf('id="who-looked"')),
+    html.indexOf('id="who-looked"') === -1 ? 0 : html.indexOf('id="who-looked"') + 4000);
+  const told = card((await get(`/g/controls/${nate.child_id}`, alex)).html);
+  check('r5a: the guardian’s controls page carries the who-looked card, answered',
+    /data-who-looked="answered"/.test(told), true);
+  check('r5b: naming WHO at Pitch looked — the investigator fn_who_looked returns',
+    /data-investigator="?"?[^>]*>Priya Raman</.test(told), true);
+  check('r5c: and why — what was read, and the report it was opened against',
+    [told.includes('read the send log'), /data-look="[0-9a-f-]{36}"/.test(told)], [true, true]);
 
   // The other half of the card, and the state almost every real family is in.
-  // An empty card that renders nothing leaves a parent unable to tell "nobody
-  // has" from "we do not keep that".
-  const none = (await get(`/g/controls/${deniz.child_id}`, alex)).html;
-  check('r5d: a child nobody has looked at gets the plain answer, not a blank',
-    has(none, 'Nobody at Pitch has opened Deniz’s record.'), true);
+  const none = card((await get(`/g/controls/${deniz.child_id}`, alex)).html);
+  check('r5d: a child nobody has looked at gets an answer, not a missing card',
+    /data-who-looked="nobody"/.test(none), true);
   check('r5e: and no other family’s answer leaks onto that page',
-    has(none, 'Priya Raman'), false);
+    none.includes('Priya Raman') || none.includes('read the send log'), false);
 }
 
 // ---------------------------------------------------------------------------
@@ -130,7 +148,7 @@ const georgia = ids.children.georgia;
   check('r9: the club crest line carries the locality from the CLUB record',
     has(html, 'Brunswick VIC'), true);
   check('r10: football history names the current club and the one before it',
-    order(html, 'Riverside FC', 'Brunswick Juniors SC'), true);
+    order(html, 'Riverside FC', 'Elderslie Juniors SC'), true);
   check('r11: and says which of the two Pitch stands behind',
     has(html, 'Only the club at the top is one we hold on Pitch.'), true);
   check('r12: one clip subtitle, not one per card',
@@ -141,6 +159,103 @@ const georgia = ids.children.georgia;
   check('r13: an adult CV does NOT claim a parent approved it', has(html, 'Parent-approved'), false);
   check('r14: and carries no guardian-facing no-reply block',
     has(html, 'no way to reply to a family'), false);
+}
+
+// ---------------------------------------------------------------------------
+// D-62 / D-105 — where the words on a number come from.
+//
+// The tag was the literal "Self-reported", printed whatever the row said.
+// Every stat the product can write today IS self-reported (lib/cv-build is the
+// only writer), so what these pages SERVE is unchanged — which is the point:
+// the change is honest about where the word comes from, not about what it
+// says. The coach-verified and mixed renders cannot be reached from any suite,
+// because nothing in the product writes a coach_verified stat and this suite
+// cannot open the database (PGlite serves one connection and next-server holds
+// it); they are pinned as rules in the permission suite and were rendered by
+// hand on 28 Sep — see the handoff.
+// ---------------------------------------------------------------------------
+{
+  const { html } = await get('/p/dev-nate');
+  check('pv-r1: a keeper\u2019s CV serves clean sheets with its source beside it',
+    [has(html, 'Clean sheets'), has(html, 'Self-reported')], [true, true]);
+  const nate = ids.children.nate;
+  const form = (await get(`/build/${nate.record_id}`, nate.child_id)).html;
+  const chosen = (label) => new RegExp(`<button[^>]*aria-pressed="true"[^>]*>${label}</button>`).test(form);
+  check('pv-r2: and his build form opens with the keeper\u2019s set chosen, never goals and assists (D-105)',
+    [chosen('Appearances'), chosen('Clean sheets'), chosen('Goals'), chosen('Assists')],
+    [true, true, false, false]);
+}
+
+// ---------------------------------------------------------------------------
+// A19 / D-161 - no school on an under-18's public page, whoever is reading.
+//
+// Deniz and Georgia each carry a school entry written the only way one can now
+// be written: with the trigger off, in the seed. That is the state a real
+// database is in - the row is there, nothing deleted it, and no page shows it.
+// Deniz's page is the guardian-approved SNAPSHOT (D-119), taken before the
+// rule; the preview of the same record is the LIVE assembly. Both are checked,
+// because they are two different queries and only one of them can be filtered
+// in SQL after the fact.
+// ---------------------------------------------------------------------------
+{
+  const SCHOOLS = ['Marlowe High 1st XI', 'Westhaven Senior College', 'School 1st XI'];
+  const minorPages = [
+    ['A19: the u16 public CV (approved snapshot)', '/p/dev-deniz', null],
+    ['A19: the u16 print view', '/p/dev-deniz/print', null],
+    ['A19: the sparse u16 CV', '/p/dev-georgia', null],
+    // The 16-17 page is the LIVE assembly, not a snapshot — a different query
+    // with its own filter, and the only band that exercises it under 18.
+    ['A19: the 16-17 public CV (live assembly)', '/p/dev-nate', null],
+    ['A19: the 16-17 print view', '/p/dev-nate/print', null],
+    ['A19: the family\'s own preview of what a club sees', `/build/${deniz.record_id}/preview`, alex],
+    // The fixture preview reaches no database at all — it hands PlayerCV a
+    // fixture, and the fixture carries no band, which the component treats as
+    // a minor (the restrictive default). It is also the page BUZ opens.
+    ['A19: the fixture preview of the CV design', '/cv-preview/deniz', null],
+    ['A19: the sparse fixture preview', '/cv-preview/georgia', null],
+  ];
+  for (const [what, path, who] of minorPages) {
+    const { html } = await get(path, who);
+    const found = SCHOOLS.filter((org) => has(html, org));
+    check(`${what} names no school (${found.join(', ') || 'none'})`, found, []);
+    // The KIND as well as the organisation: "school" in the chip above the
+    // name is the disclosure D-114 removed, without the name attached.
+    check(`${what} carries no school chip`,
+      text(html).some((l) => l.toLowerCase() === 'school'), false);
+  }
+  // The other half of the same rule: an adult keeps it, so this cannot pass by
+  // the block having been deleted.
+  for (const path of ['/p/dev-jordan', '/p/dev-jordan/print', '/preview/site']) {
+    const { html } = await get(path);
+    check(`A19: ${path} still names the adult's university side`,
+      has(html, 'Riverside University 1st XI'), true);
+  }
+  check('A19: and the minors\' other football is otherwise untouched',
+    has((await get('/p/dev-deniz')).html, 'Melbourne Futsal U15'), true);
+}
+
+// The chip is not offered - the other half of the same rule, and the half a
+// family actually meets. The LIST is deliberately untouched: an entry written
+// before the rule is their own words, it renders nowhere public any more, and
+// Remove stays theirs to press. Nothing here deletes a row and no page says
+// anything about it (what a family is told is BUZ's call, D-161).
+{
+  // The attribute in between is React's: the first chip carries defaultChecked,
+  // which renders as checked="" between name and value. A regex without it
+  // could not have passed on the adult's page, whatever the code did.
+  const offersSchool = (html) => /name="kind"[^>]*value="school"/.test(html);
+  const { html } = await get(`/build/${deniz.record_id}/more`, alex);
+  check('A19: the u16 football-history editor offers no School chip',
+    offersSchool(html), false);
+  check('A19: and still lists what the family already wrote, with Remove beside it',
+    has(html, 'Marlowe High 1st XI') && has(html, 'Remove'), true);
+
+  // The adult's own editor, reached the way he reaches it. Jordan's record id
+  // is not in .dev-ids.json, so it comes off his own home page.
+  const home = await get('/home', ids.people.jordan);
+  const jordanRecord = /\/build\/([0-9a-f-]{36})/.exec(home.html)?.[1] ?? 'none';
+  const adult = await get(`/build/${jordanRecord}/more`, ids.people.jordan);
+  check('A19: an adult is still offered School', offersSchool(adult.html), true);
 }
 
 // ---------------------------------------------------------------------------
@@ -397,8 +512,15 @@ const georgia = ids.children.georgia;
         unnamed.add(`${P} ${/name="([^"]*)"/.exec(f[0])?.[1] ?? '?'}`);
       }
 
+      // /signout is followed by nobody here. It used to be harmless — it
+      // deleted a cookie this walk does not keep — but signing out now
+      // REVOKES the session (0062), so following it once would end the seat
+      // and report every page after it as signed out. The layout check and
+      // the capture tool have always excluded it for the same reason in
+      // spirit. Pressing it is the write suite's job (sess-w1..w3).
       const links = [...new Set([...r.html.matchAll(/href="(\/[^"#][^"]*)"/g)].map((m) => m[1])
-        .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)))];
+        .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets') && !/\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)
+          && h !== '/signout'))];
       if (who && links.length === 0 && !TERMINAL.some((t) => P.includes(t))) stuck.add(P);
       for (const h of links) if (!seen.has(h)) queue.push(h);
     }
@@ -675,8 +797,18 @@ const georgia = ids.children.georgia;
       if (!rail || !bar) continue;
       const extra = hrefs(rail).filter((h) => !home.has(h));
       check(`s24: ${seat} ${P} frame offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
-      check(`s25: ${seat} ${P} bar and rail are the same doors`, hrefs(bar), hrefs(rail));
-      check(`s25b: ${seat} ${P} bar holds at most four doors`, hrefs(bar).length <= 4, true);
+      check(`s25: ${seat} ${P} bar and rail are the same doors`,
+        hrefs(bar).filter((h) => h !== '/signout'), hrefs(rail).filter((h) => h !== '/signout'));
+      // Sign out is not a DOOR — it is the way out, and it is deliberately in
+      // every seat's sheet and rail from 28 Sep (BUZ), because until then it
+      // was linked from one screen and no seat with anything to protect could
+      // reach it. The "four fit" rule is about navigation destinations, so it
+      // is counted separately: the bar must still offer at most four places to
+      // GO, and must always offer the way out.
+      const barDoors = hrefs(bar).filter((h) => h !== '/signout');
+      check(`s25b: ${seat} ${P} bar holds at most four doors`, barDoors.length <= 4, true);
+      check(`s25c: ${seat} ${P} bar and rail both offer the way out`,
+        [hrefs(bar).includes('/signout'), hrefs(rail).includes('/signout')], [true, true]);
       // Three or more children collapse to one Children tab, which a
       // child's own page marks instead of a per-child tab.
       if (current.startsWith('/g/controls/') && !rail.includes(`href="${current}"`)) current = '/home#children';
@@ -701,9 +833,25 @@ const georgia = ids.children.georgia;
     .filter((h) => !h.startsWith('/_next') && !h.startsWith('/assets')))];
   check(`r42: a new account is offered somewhere to go (${links.join(' ') || 'nowhere'})`,
     links.length >= 3, true);
+  // Every door except Sign out, which is a state change rather than a read:
+  // following it revokes the session (0062), so opening it here would sign
+  // this seat out and send a check four hundred lines later red, which is the
+  // dangerous direction (L34: the answer would have been "the product is
+  // broken"). It is pressed, and its answer checked, in the write suite
+  // (sess-w1..w3), which is where pressing buttons belongs.
+  //
+  // This check USED TO SAY "and it is only on this screen" — and that was
+  // true, and was the defect. Sign out was linked from one branch of one page,
+  // the one that renders for a parent with no children, so every seat with
+  // something to protect had no way out at all. BUZ put it in every shell on
+  // 28 Sep. A check that asserts the shape of a bug will defend the bug, so it
+  // now asserts the decision: the way out is reachable from here too.
+  const doors = links.filter((h) => h !== '/signout');
   check('r43: and every door it offers is one that exists',
-    (await Promise.all(links.map(async (h) => (await get(h, ids.people.robin)).status)))
+    (await Promise.all(doors.map(async (h) => (await get(h, ids.people.robin)).status)))
       .every((st) => st === 200 || st === 307), true);
+  check('r43b: Sign out is reachable from here, as it now is from every seat',
+    links.includes('/signout'), true);
 }
 
 // ---------------------------------------------------------------------------
@@ -787,6 +935,38 @@ const georgia = ids.children.georgia;
   const after = (await get('/club/register', marina)).html;
   check('w11: the register actually changed',
     (after.match(/Shortlisted/g) ?? []).length >= (before.match(/Shortlisted/g) ?? []).length, true);
+
+  // w12 · AND THE REGISTER IS PUT BACK.
+  //
+  // QA, 28 Sep: this suite is documented as read-only (TRAINING §4 names only
+  // the write suite as mutating, and write-tests.mjs says "the render suite
+  // walks by following links, so it only ever GETs"). w10 shortlists a real
+  // registrant and left it that way, so every count, capture and screenshot
+  // taken after a render run was measured on a moved register. Reproduced on
+  // this tree: the New/Shortlisted totals went 82/12 before the suite to
+  // 81/13 after it, which is exactly why the register's NEW count was read as
+  // 78, 79 and 81 in captures hours apart and read as a product bug.
+  //
+  // The counts on the summary tiles are the thing people quote, so they are
+  // the thing this asserts. Nothing here weakens w10 — the move still happens
+  // and is still checked; it is undone afterwards through the product's own
+  // action, which is also the first thing that proves a status can go back.
+  const tiles = (html) =>
+    [...html.matchAll(/numeral numeral-m" style="color:var\(--(accent|amber|purple)\)">(\d+)/g)]
+      .map((m) => Number(m[2]));
+  const back = new FormData();
+  back.append('registrationId', f.registrationId);
+  back.append('status', 'new');
+  for (const [k, v] of Object.entries(f)) if (!['registrationId', 'status'].includes(k)) back.append(k, v);
+  const undone = await fetch(BASE + '/club/register', { method: 'POST', body: back, redirect: 'manual', headers: { cookie: cookieFor(marina) } });
+  check('w12a: a shortlisted registration can be moved back to new', undone.status, 303);
+  const restored = (await get('/club/register', marina)).html;
+  // The tile count is asserted too. Without it this reads a rendered page for
+  // three numbers and compares [] to [] the day that markup moves — green,
+  // and blind, which is the failure L19 is named after. It has already moved
+  // once (58c52ae put the register in a table at 768px).
+  check('w12b: and this suite leaves the register exactly as it found it',
+    [tiles(before).length, tiles(restored)], [3, tiles(before)]);
 }
 
 // Every page in the converted set must render an UNBOUND action carrying its
@@ -1044,6 +1224,54 @@ const georgia = ids.children.georgia;
   check('g32-r5: nothing calls itself "Pitch Football Pty Ltd"', /Pitch Football Pty Ltd/i.test((await get('/signin')).html), false);
 }
 
+// ---------------------------------------------------------------------------
+// What the legal surfaces SERVE (0056). The source markdown keeps its drafting
+// preamble; no page may put it in front of a person. The worst of it was never
+// /privacy: doc 32 B3 puts doc 21 INSIDE the guardian approval flow, so the one
+// screen the whole consent funnel passes through opened by telling a parent
+// that the policy they were being asked to accept was NOT YET PUBLISHED.
+//
+// The permission suite checks the same property against lib/legal-doc. This
+// checks the page, because L16 was written about a renderer that was fine in
+// theory and served the notes in practice.
+// ---------------------------------------------------------------------------
+{
+  const MARKERS = ['NOT YET PUBLISHED', 'do-not-publish', 'not to be published', '⚠️',
+    'Nothing here binds', 'working draft', 'the loss was my doing'];
+  // The embedded document only — a marker anywhere else on the approval page
+  // would be a different bug, and this check should not be the one to find it.
+  const approval = (await get('/a/dev-mila-text')).html;
+  const embedded = /<div class="legal-doc"[^>]*>([\s\S]*?)<\/div><style>/.exec(approval)?.[1] ?? '';
+  check('leg-r1: the approval flow embeds the child policy, and it is not empty',
+    embedded.length > 2000, true);
+  check(`leg-r2: nothing in it says the policy is not published (${MARKERS.filter((m) => embedded.includes(m)).join(' · ') || 'none does'})`,
+    MARKERS.filter((m) => embedded.includes(m)), []);
+  // The version a page must show is the register's, read the way the page
+  // reads it — not typed here, so a bump in the register cannot leave this
+  // suite asserting the old number.
+  const { legalDocument } = await import('../lib/legal-doc.ts');
+  const line = (file) => { const d = legalDocument(file); return `Version ${d.version.replace(/^v/, '')} · ${d.date}`; };
+  check(`leg-r3: and a parent can still see which version they are accepting (${line('21-Privacy-Policy-Child.md')})`,
+    embedded.includes(line('21-Privacy-Policy-Child.md')), true);
+  // John, 28 Sep: these versions are the published ones, so nothing a parent
+  // is shown says otherwise — in the flow or on the page, in any case.
+  check(`leg-r7: nothing in the approval flow's policy says "not yet published" (${/not yet published/i.test(embedded) ? 'it does' : 'nothing does'})`,
+    /not yet published/i.test(embedded), false);
+
+  for (const [path, file] of [['/privacy', '20-Privacy-Policy-Adult.md'], ['/privacy/family', '21-Privacy-Policy-Child.md'], ['/terms', '22-Terms-of-Service.md']]) {
+    const { status, html } = await get(path);
+    const doc = /<div\s+class="legal-doc"[^>]*>([\s\S]*?)<\/div><style>/.exec(html)?.[1] ?? '';
+    check(`leg-r4: ${path} serves the document and no drafting marker (${MARKERS.filter((m) => doc.includes(m)).join(' · ') || 'none'})`,
+      [status, doc.length > 2000, MARKERS.filter((m) => doc.includes(m))], [200, true, []]);
+    check(`leg-r5: ${path} carries its version and date (${line(file)})`, has(html, line(file)), true);
+    check(`leg-r8: ${path} never calls itself unpublished`, /not yet published/i.test(doc), false);
+    // The title is still the first thing on the page: the preamble went, and
+    // nothing of the document went with it.
+    check(`leg-r6: ${path} opens with the document, not a rule under its title`,
+      /<h1[^>]*>[^<]+<\/h1>\s*<p><em>Version/.test(doc), true);
+  }
+}
+
 // "Preview my page" (BUZ, 19 Sep): the family sees the page exactly as a club
 // does — and only the family. An under-16 previews the APPROVED version, never
 // the pending edit no club can see (D-119).
@@ -1070,6 +1298,435 @@ const georgia = ids.children.georgia;
   }
   const anon = await get(`/build/${deniz.record_id}/preview`);
   check('pv8: signed out, the preview asks you to sign in', [anon.status, anon.location], [307, '/signin']);
+}
+
+// ---------------------------------------------------------------------------
+// QA, 28 Sept · NO TWO CLUBS SHARE A NAME ON THE PARENT'S CLUB PICKER.
+//
+// /squad/[personId] is where a parent hands their child's name to a club. It
+// lists every verified club, name over suburb. On 28 Sept the seed made TWO
+// different clubs called "Kingsway Rovers FC" — they sat one above the other
+// with nothing but a suburb between them, and Georgia's CV named a club that
+// was not the one /fc/kingsway-rovers served.
+//
+// FIXED AT THE SOURCE on app (96419d4): every organisation in lib/fixtures.ts
+// is invented now, Georgia plays for Saltmarsh Rovers FC, and that file
+// carries a stricter rule than this check — an invented club is never named
+// after a real suburb, because that is how real clubs are named and nobody
+// can verify a community club does not exist.
+//
+// This check names no club. It asserts the property the picker has to keep:
+// two rows a parent cannot tell apart are a row they can pick wrong.
+{
+  const alex = ids.people.alex, g = ids.children.georgia;
+  const page = await get(`/squad/${g.child_id}?back=controls`, alex);
+  // Each club row is an anchor to ?club=<id>; the name is the first bold line
+  // inside it. Read the rows, not the styling: this is a rendered page and a
+  // rendered page is a test fixture (L32).
+  const rows = [...page.html.matchAll(/<a[^>]*href="\/squad\/[^"]*\?club=[^"]*"[\s\S]*?<\/a>/g)].map((m) => m[0]);
+  const listed = rows.map((r) => (/>([^<>]{2,60})</.exec(r.replace(/<span[^>]*>\s*</g, '<')) ?? [])[1])
+    .filter(Boolean).map((n) => n.trim());
+  const dupes = [...new Set(listed.filter((n, i) => listed.indexOf(n) !== i))];
+  check('clubs1: the club picker rendered for the parent, with clubs on it',
+    [page.status, listed.length > 1], [200, true]);
+  check(`clubs2: no two clubs on it share a name (${dupes.join(' · ') || 'none do'})`, dupes.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// /club/billing — the screen attached to the money, set as a console surface
+// (D-147), with the price as the display numeral it is (D-140) and the one
+// fact on it that is genuinely ours: who at this club can read the register
+// (D-93, doc 14 N23). 0063.
+// ---------------------------------------------------------------------------
+{
+  const marina = ids.people.marina, pat = ids.people.pat, dana = ids.people.dana, felix = ids.people.felix;
+  const b = await get('/club/billing', marina);
+  check('b1: the price is a display numeral, not body text', /class="numeral numeral-l"/.test(b.html) && has(b.html, '$54'), true);
+  check('b1b: with its own caption under it rather than three pixels from it', has(b.html, 'a month, including GST'), true);
+  check('b2: the next charge date sits beside it at the same rank',
+    has(b.html, 'Next charge') && /class="numeral numeral-m"/.test(b.html) && has(b.html, 'unless you cancel before then'), true);
+  check('b3: it is a console surface, not a 604px reading column (D-147)',
+    /class="console"/.test(b.html) && !/class="reading"/.test(b.html), true);
+  check('b4: the statement descriptor and the state of the subscription are both on it',
+    has(b.html, 'On your statement') && has(b.html, 'PITCH FOOTBALL') && has(b.html, 'Your subscription') && has(b.html, 'Active'), true);
+  check('b5: D-126’s sentence is on the page whichever plan the club is on',
+    has(b.html, 'Paying does not verify your club and cannot.'), true);
+  // The block that is the reason this page is worth opening.
+  check('b6: the page names who reads the register, computed from memberships',
+    has(b.html, 'Who reads it') && has(b.html, 'Marina Petrovic') && has(b.html, 'Technical Director · the whole register'), true);
+  check('b6b: a granted coach carries the team names, never the whole register',
+    has(b.html, 'Sam Kaya') && has(b.html, 'Coach · U14 Boys · U15 Girls'), true);
+  check('b6c: and the administrator is on it reading nothing (D-93)',
+    has(b.html, 'Pat Nguyen') && has(b.html, 'Club administrator — reads no registration'), true);
+  check('b6d: with no lecture attached — one sentence, and it is the one the family already reads',
+    has(b.html, 'Only people a club has named can read its register, and every time they do, it’s recorded.'), true);
+  check('b7: the dunning words are a standing answer, not a banner nobody meets until it is too late',
+    has(b.html, 'If a payment fails') && has(b.html, 'Nothing is deleted.'), true);
+  // D-25: three facts we do not hold, and the page must not imply we do.
+  check('b8: nothing on the page claims to know the card (D-25, D-112)',
+    /last four|••••|Visa|Mastercard|ending in|Receipts go to/i.test(b.html), false);
+
+  const pb = await get('/club/billing', pat);
+  check('b9: the invoicing volunteer reads billing (O11)', pb.status, 200);
+  check('b9b: and is shown the same list of readers the TD is — including her own row, reading nothing',
+    [has(pb.html, 'Pat Nguyen'), has(pb.html, 'Marina Petrovic'), has(pb.html, 'Sam Kaya'),
+     has(pb.html, 'Club administrator — reads no registration')], [true, true, true, true]);
+
+  const db_ = await get('/club/billing', dana);
+  check('b10: a club with no subscription still gets the checkout, with the D-137 tick',
+    has(db_.html, 'Choose how you pay') && /name="authorised"/.test(db_.html), true);
+  check('b10b: and no plan card claiming a price it is not paying', has(db_.html, 'On your statement'), false);
+
+  // The suspended club. Before 0063 this page offered "Choose how you pay" to
+  // a club that already had a subscription, and never the one control that
+  // replaces a declined card.
+  const fb = await get('/club/billing', felix);
+  check('b11: a club whose payment failed is told so, in the present tense',
+    has(fb.html, 'We couldn’t take your payment') && has(fb.html, 'The register is paused — your coaches stop seeing the list.'), true);
+  check('b11b: and D-135’s promise is on the same card', has(fb.html, 'Nothing is deleted.'), true);
+  check('b11c: it is sent to the portal, where a declined card is replaced — not to a second checkout',
+    [has(fb.html, 'Manage or cancel this subscription'), has(fb.html, 'Choose how you pay')], [true, false]);
+  check('b11d: with no next-charge date, because there is no honest one to print',
+    has(fb.html, 'Next charge'), false);
+  check('b11e: and the state said plainly beside the descriptor', has(fb.html, 'Paused'), true);
+
+  // O4 on the screen it costs something on. A suspended club used to drop
+  // silently to the free tier's own heading with nothing about payment on it.
+  const fr = await get('/club/register', felix);
+  check('b12: a suspended club’s REGISTER says why the list is gone (O4, D-135)',
+    has(fr.html, 'We couldn’t take your payment'), true);
+  check('b12b: above the free tier’s heading, not below it',
+    order(fr.html, 'We couldn’t take your payment', 'Interest in your trials'), true);
+  check('b12c: with the way to sort it out', fr.html.includes('/club/billing'), true);
+  check('b12d: and the list itself is still hidden, not deleted',
+    has(fr.html, 'The families who registered stay registered'), true);
+  const dr = await get('/club/register', dana);
+  check('b13: a club that never subscribed is told nothing about a failed payment',
+    has(dr.html, 'We couldn’t take your payment'), false);
+  check('b13b: its free-tier copy is untouched', has(dr.html, 'Interest in your trials'), true);
+
+  // O1 — no family seat can reach any of it.
+  for (const [who, id] of [['a parent', ids.people.alex], ['an adult player', ids.people.jordan], ['a 16–17', ids.children.nate.child_id]]) {
+    const r = await get('/club/billing', id);
+    check(`b14: ${who} is sent home from the billing page (O1)`, [r.status, r.location], [307, '/home']);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// /home — the return (0064). Rendered on arrival when the last session was
+// sixty days or more ago, never sent, and nothing at all for an under-16.
+// ---------------------------------------------------------------------------
+{
+  const block = (t) => {
+    const i = t.findIndex((l) => /^While you were away$/.test(l));
+    if (i < 0) return null;
+    const j = t.findIndex((l, k) => k > i && /^(Link active|Links active|Your page|Your page is live)$/.test(l));
+    return t.slice(i, j < 0 ? i + 12 : j);
+  };
+  const parent = text((await get('/home', alex)).html);
+  const pb = block(parent);
+  check('ret-r1: a parent eighty days away is told what happened, before being asked for anything',
+    pb !== null, true);
+  check('ret-r1b: above the queue of things waiting on them',
+    order((await get('/home', alex)).html, 'While you were away', 'Waiting on you'), true);
+  // The SHAPE, not the people: this suite loads club registers and opens CVs
+  // as it goes, so whichever read is newest when this runs is whichever page
+  // ran last. The property is that the line is a named person, their role at a
+  // named club, and what they did (LESSONS L32).
+  const READ_LINE = /^.+, (Technical director|Coach|Club administrator|Club staff) at .+, (opened .+\u2019s CV|opened your CV|saw .+ on their register|saw you on their register)\.$/;
+  check(`ret-r2: the read line names the reader, their role at the club, and what they did (${(pb ?? []).find((l) => READ_LINE.test(l)) ?? 'no read line'})`,
+    (pb ?? []).some((l) => READ_LINE.test(l)), true);
+  check('ret-r3: the link line states the date and the consequence, and asks for nothing',
+    (pb ?? []).some((l) => /link expires\./.test(l))
+      && (pb ?? []).some((l) => /Clubs holding it stop being able to open the page that day\./.test(l)), true);
+  check('ret-r4: the trials line is the notice we hold, with the day a human last checked it',
+    (pb ?? []).some((l) => /The next trial we hold a notice for\./.test(l))
+      && (pb ?? []).some((l) => /^Last checked \d{1,2} [A-Z][a-z]{2}\.$/.test(l)), true);
+  check('ret-r5: every line is dated', (pb ?? []).filter((l) => /^\d{1,2} [A-Z][a-z]{2}$/.test(l)).length >= 3, true);
+  // What it is not. Each of these was proposed in the 24 Sep review and killed
+  // in the same review.
+  const words = (pb ?? []).join(' ');
+  check(`ret-r6: no verb aimed at the reader (${/\b(update|renew|complete|check|add|finish|don’t forget)\b/i.exec(words)?.[0] ?? 'none'})`,
+    /\b(update|renew|complete|check your|add|finish|don’t forget)\b/i.test(words), false);
+  check('ret-r7: no count, no score, no streak',
+    /\b(\d+ times|\d+ views|\d+ reads|streak|in a row)\b/i.test(words), false);
+  check('ret-r8: and no button in the block at all',
+    /While you were away[\s\S]{0,900}?<(a|button)\b/.test((await get('/home', alex)).html), false);
+
+  const sixteen = block(text((await get('/home', ids.children.nate.child_id)).html));
+  check('ret-r9: a 16–17 gets it on their own home, about themselves', sixteen !== null, true);
+  check('ret-r9b: in the second person, never their own name read back at them',
+    (sixteen ?? []).some((l) => /Your link expires\./.test(l)) && !(sixteen ?? []).some((l) => /Nate’s/.test(l)), true);
+  check('ret-r9c: and the read line says "you", from the ledger doc 34 rule 6 already gives them',
+    (sixteen ?? []).some((l) => /(opened your CV|saw you on their register)\.$/.test(l)), true);
+
+  // The under-16. fn_note_arrival records nothing for them and fn_return_facts
+  // answers nothing, so there is no block on a fourteen-year-old's home — and
+  // doc 34 rule 6, which is what makes the best line unavailable to them, is
+  // untouched by any of this.
+  check('ret-r10: a fourteen-year-old gets no block at all (D-25, doc 34 rule 6)',
+    block(text((await get('/home', ids.children.deniz.child_id)).html)), null);
+
+  for (const [who, id] of [['a club TD', ids.people.marina], ['a coach', ids.people.sam], ['an adult player just here', ids.people.jordan]]) {
+    check(`ret-r11: ${who} who was here today gets nothing`,
+      block(text((await get('/home', id)).html)), null);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// A club administrator's /home (club-home-admin.html, 23 Sep; BUZ asked for it
+// 28 Sep). It was the technical director's screen rendered for somebody with
+// none of her access: a hero built around a register row an administrator
+// correctly cannot have, and a rail that was the sidebar again as six identical
+// grey buttons with no primary action anywhere. Often the first Pitch screen
+// anybody at a club opens.
+// ---------------------------------------------------------------------------
+{
+  const pat = ids.people.pat;        // Riverside: verified, paying, crest, philosophy, public page
+  const robyn = ids.people.robyn;    // Tarrowvale City FC: verified, payment failed, no crest, no page
+  const a = await get('/home', pat);
+  const t = text(a.html);
+
+  check('ah1: the hero carries the numbers an administrator IS entitled to',
+    has(a.html, 'Squads you run') && has(a.html, 'Trials live') && has(a.html, 'Coaching roles open'), true);
+  check('ah1b: and not one of them is a registration or a child',
+    /On your register|Shortlisted|Invited|new on the register/.test(a.html), false);
+  check('ah2: it says whose the register is, and what is hers',
+    has(a.html, 'You keep the club’s page, its squads, its notices and its plan.'), true);
+  check('ah3: there is exactly one accent action on the screen',
+    (a.html.match(/class="btn btn-primary"/g) ?? []).length, 1);
+  check('ah3b: and it is Post a trial notice', has(a.html, 'Post a trial notice'), true);
+  // The rail stops being the sidebar. Measured as the thing that was wrong —
+  // full-width centred grey menu cards outside the two navs — rather than by
+  // counting words, because the phone tab bar legitimately carries the same
+  // six labels at the other breakpoint (D-147: same doors at every width).
+  const menuCards = (html) => (html.replace(/<nav[\s\S]*?<\/nav>/g, ' ').match(/text-align:center/g) ?? []).length;
+  check(`ah4: the administrator's rail is not six grey menu cards (${menuCards(a.html)} left)`, menuCards(a.html), 0);
+  check('ah5: the rail holds the club’s public state instead',
+    has(a.html, 'Your club page') && has(a.html, 'pitchfootball.com.au/fc/riverside-fc')
+      && has(a.html, 'Copy the link') && has(a.html, 'Public and live.'), true);
+  check('ah6: and the D-93 wall said out loud to the person it constrains',
+    has(a.html, 'Who can do what here')
+      && has(a.html, 'Technical Director — the register, and the club’s development record')
+      && has(a.html, 'Club administrator — the page, squads, notices, coaching roles and the plan. No registrations.')
+      && has(a.html, 'A treasurer who sends the invoices should not be able to read a child’s development notes. That is on purpose.'), true);
+  check('ah6b: the granted coach’s row names the teams and when the grant was made, from the database',
+    t.some((l) => /^Coach — the registrations for U14 Boys and U15 Girls, since \d{1,2} [A-Z][a-z]{2}$/.test(l)), true);
+  check('ah6c: her own row is marked as hers, not by repeating her name', t.includes('You'), true);
+  check('ah7: the plan is a fact she may see, and it links to the page that holds it',
+    has(a.html, '$54 a month') && has(a.html, 'next charge') && a.html.includes('/club/billing'), true);
+  check('ah8: nothing on the screen names a child or counts one',
+    /Deniz|Georgia|Nate|waiting|registered interest/i.test(t.join(' ')), false);
+
+  const r = await get('/home', robyn);
+  check('ah9: what a family cannot see yet — two things, and it is not a score',
+    has(r.html, 'What a family cannot see yet') && has(r.html, 'Your crest')
+      && has(r.html, 'How the club plays')
+      && has(r.html, 'Two things, not a score. A club page with nothing missing is not a better club.'), true);
+  check('ah9b: it is absent for a club with both of them filled in',
+    has(a.html, 'What a family cannot see yet'), false);
+  check('ah10: an administrator at a club whose payment failed is told so on her home',
+    has(r.html, 'We couldn’t take your payment') && has(r.html, 'Nothing is deleted.'), true);
+  check('ah10b: and Riverside’s administrator is not', has(a.html, 'We couldn’t take your payment'), false);
+  check('ah11: a team manager is on her list reading nothing (doc 34 rule 4)',
+    has(r.html, 'Tomas Villa') && has(r.html, 'Team manager — no registrations.'), true);
+
+  const numerals = [...r.html.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim());
+  check(`ah12: no count on her screen is the digit zero (D-162) (${numerals.join(',') || 'no numerals at all'})`,
+    numerals.filter((n) => n === '0').length, 0);
+  check('ah12b: and the hero is omitted rather than drawn with nothing in it',
+    has(r.html, 'Squads you run'), false);
+  check('ah12c: an empty board says its absence in words, which is the opposite fault',
+    has(r.html, 'No trials coming up. Post one and it goes on your club page and the trials board the same minute.'), true);
+
+  const td = await get('/home', ids.people.marina);
+  check('ah13: the technical director keeps her register row and her rail',
+    [has(td.html, 'On your register'), menuCards(td.html) >= 5], [true, true]);
+  check('ah13b: and does not get the administrator’s blocks',
+    [has(td.html, 'Who can do what here'), has(td.html, 'What a family cannot see yet')], [false, false]);
+}
+
+// D-162 across every count on the two homes and on billing: no rendered
+// numeral is a zero, on any seat.
+{
+  for (const [who, id] of [['a parent', ids.people.alex], ['an adult player', ids.people.jordan],
+                           ['a 16–17', ids.children.nate.child_id], ['a coach', ids.people.sam],
+                           ['a club TD', ids.people.marina], ['an administrator', ids.people.pat],
+                           ['an unverified club', ids.people['m.']]]) {
+    const html = (await get('/home', id)).html;
+    const zeros = [...html.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim())
+      .filter((n) => n === '0');
+    check(`z1: /home for ${who} renders no count as the digit zero (D-162)`, zeros.length, 0);
+  }
+  const bill = (await get('/club/billing', ids.people.marina)).html;
+  const zeros = [...bill.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim()).filter((n) => n === '0');
+  check('z2: and /club/billing renders no count at all, let alone a zero', zeros.length, 0);
+}
+
+// ---------------------------------------------------------------------------
+// THE FAILURE PATH (28 Sep). Until today there was no app/not-found.tsx and no
+// app/error.tsx, so 52 notFound() call sites across 33 route files and every
+// uncaught render error served Next's stock page — white, system font, no
+// Pitch mark, no way back, and the tab still reading "every season on the
+// record." These checks are written against the property, not the words: every
+// string on those pages is a proposal awaiting BUZ, so nothing below asserts a
+// sentence it does not have to.
+//
+// HOW A ROUTE'S 404 ARRIVES, because it changes what a fetch can see. An
+// unmatched URL is server-rendered: the markup is in the HTML. A notFound()
+// thrown INSIDE a route is thrown after the shell has flushed, so React
+// delivers the page as an RSC payload inside <script> and paints it on the
+// client — the HTML body is empty and the words are in the payload. Measured
+// on both the dev server and a production build (`next build && next start`);
+// it is the same either way. So `prose()` below reads the whole document.
+// What a person actually SEES for these is measured in real Chrome by
+// scripts/layout-check.mjs, which is also where "not the stock white" is
+// asserted, because a colour needs a browser to be a fact.
+// ---------------------------------------------------------------------------
+{
+  /**
+   * Every sentence the page BODY carries, wherever it carries it. The head is
+   * dropped: route segments set their own metadata and it survives into their
+   * 404 (/club/register/cv sets robots noindex,nofollow; /c/[slug] has its own
+   * opengraph-image), so two families differ in the head while showing the
+   * same page. That is not an existence oracle — it tells you the route you
+   * typed, not whether anything was there — but it is reported as a finding.
+   */
+  const prose = (html) => {
+    // Dev-only <template> error metadata holds a stack trace that names the
+    // component which threw — different per route, and absent in production.
+    const body = html.replace(/<head[\s\S]*?<\/head>/, ' ').replace(/<template[\s\S]*?<\/template>/g, ' ');
+    const hits = new Set();
+    for (const m of body.matchAll(/[A-Za-z][A-Za-z0-9 ,.'’—–:;()&!?-]{14,}/g)) {
+      const t = m[0].replace(/\s+/g, ' ').trim();
+      if (/node:|_next|self\.__next|function |\.js|http|localhost|[0-9a-f]{12}/.test(t)) continue;
+      if (!/ [a-z]/.test(t)) continue;   // a sentence has a space in it; a nonce, a uuid and a slug do not
+      hits.add(t);
+    }
+    return [...hits].sort();
+  };
+  const HEADING = 'This page isn’t here';
+  const HOME = 'Go to the start';
+  // The four sentences the 404 is made of. Both sides of every pair below must
+  // carry all four, so "identical" cannot be satisfied by two empty pages.
+  const HEADING_SET = [HEADING, HOME,
+    'The address may be wrong, or what was here may have been taken down.',
+    'We don’t say whether something was here and has gone, or was never here at all. The answer is the same either way, so a wrong address can’t be used to find out who is on Pitch.'];
+
+  // ---- a mistyped URL -------------------------------------------------------
+  const typo = await get('/no-such-page');
+  check('fp1: a mistyped URL answers 404 on a page of ours, not Next’s stock one',
+    [typo.status, /next-error-h1|This page could not be found/.test(typo.html)], [404, false]);
+  // The way back is /home, not /: before launch / is the waitlist page and has
+  // no door into the product, so a signed-in person sent there was stranded
+  // with no sign-out. /home carries the console shell, and sign-out with it.
+  check('fp2: it carries a heading, the Pitch mark and a way back to the seat\u2019s home',
+    [/<h1[^>]*>[^<]/.test(typo.html), typo.html.includes('data-failure="not-found"'), has(typo.html, HEADING), /TCH/.test(typo.html), /<a href="\/home" class="btn btn-primary">/.test(typo.html) && has(typo.html, HOME)],
+    [true, true, true, true, true]);
+  check('fp3: and a title of its own — not the landing page’s line',
+    /<title[^>]*>([^<]*)<\/title>/.exec(typo.html)?.[1], 'Page not found · Pitch Football');
+  check('fp4: the dark page is the only page — nothing forces a white body',
+    /<style[^>]*>[^<]*background:\s*#fff/.test(typo.html), false);
+
+  // ---- a notFound() from inside a route ------------------------------------
+  for (const [what, path] of [['a dead club slug', '/fc/no-such-club'], ['a dead coach slug', '/c/no-such-coach'],
+    ['an expired job link', '/jobs/00000000-0000-0000-0000-000000000000']]) {
+    const r = await get(path);
+    check(`fp5: ${what} answers 404 with our page, not Next’s`,
+      [r.status, prose(r.html).includes(HEADING), /next-error-h1|This page could not be found/.test(r.html)],
+      [404, true, false]);
+  }
+
+  // ---- the oracle, which is the one thing here that could make us less safe -
+  // A 404 must not answer differently depending on WHAT was missing. Next
+  // hands not-found.tsx no props, so the page cannot know — and these prove
+  // the property rather than the argument. The paused-registrant half of it
+  // needs somebody to press pause, so it lives in the write suite (p19g).
+  {
+    // The register's CV page sends a stranger to /signin before it looks
+    // anything up, so the pair that matters there is read as the club's own
+    // technical director — the seat that would be doing the probing.
+    const pairs = [
+      ['two dead club slugs', '/fc/no-such-club', '/fc/another-dead-club', null],
+      ['two dead job links', '/jobs/00000000-0000-0000-0000-000000000000', '/jobs/11111111-1111-1111-1111-111111111111', null],
+      ['a dead club slug and a dead job link', '/fc/no-such-club', '/jobs/00000000-0000-0000-0000-000000000000', null],
+      ['a dead club slug and a registration nobody may read', '/fc/no-such-club', '/club/register/cv/00000000-0000-0000-0000-000000000000', ids.people.marina],
+    ];
+    for (const [what, a, b, who] of pairs) {
+      const ra = await get(a, who); const rb = await get(b, who);
+      const title = (h) => /<title[^>]*>([^<]*)<\/title>/.exec(h)?.[1];
+      const pa = prose(ra.html); const pb = prose(rb.html);
+      // A route's own robots directive rides along in its flight payload, so
+      // /club/register/cv's "noindex, nofollow" shows up beside Next's
+      // automatic "noindex" on a 404. It says which route you typed, which you
+      // already know, and nothing about whether anything was there — so it is
+      // allowed through by name rather than by widening the comparison.
+      const METADATA = /^(no)?index[, ]/;
+      const diff = [...pa.filter((x) => !pb.includes(x)), ...pb.filter((x) => !pa.includes(x))].filter((x) => !METADATA.test(x));
+      check(`fp6: ${what} answer identically — same status, same title, same words${diff.length ? ` (differs: ${diff.join(' / ')})` : ''}`,
+        [ra.status === rb.status, title(ra.html) === title(rb.html), diff.length,
+          HEADING_SET.every((x) => pa.includes(x) && pb.includes(x))], [true, true, 0, true]);
+    }
+  }
+  // Timing, on the same terms as doc 14 E10: a test, not a hope. Reported as
+  // numbers either way, because the interesting failure is a slow one.
+  {
+    const ms = async (path) => { const t = process.hrtime.bigint(); await get(path); return Number(process.hrtime.bigint() - t) / 1e6; };
+    const median = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+    const runs = 9;
+    const a = []; const b = [];
+    for (let i = 0; i < runs; i++) { a.push(await ms('/fc/no-such-club')); b.push(await ms('/fc/another-dead-club')); }
+    const [ma, mb] = [median(a), median(b)];
+    check(`fp7: and indistinguishably fast — ${ma.toFixed(0)}ms vs ${mb.toFixed(0)}ms over ${runs} runs`,
+      Math.abs(ma - mb) < Math.max(40, 0.5 * Math.min(ma, mb)), true);
+  }
+
+  // ---- the 500 --------------------------------------------------------------
+  // /dev/boom throws on purpose and is notFound() in production, exactly as
+  // /design and /dev/outbox are. app/error.tsx is a Client Component (Next
+  // requires it), so its markup is in a JS chunk rather than the document —
+  // what a fetch can prove is the status and that the stock page is gone.
+  {
+    const boom = await get('/dev/boom');
+    check('fp8: a route that throws answers 500, and not with Next’s stock page',
+      [boom.status, /next-error-h1|A server error occurred|This page couldn’t load|Application error: a client-side exception/.test(boom.html)], [500, false]);
+  }
+
+  // ---- a refused sign-in ----------------------------------------------------
+  // D-94 §2 wants the response identical whether or not the account exists, not
+  // silent. signIn() used to redirect('/home') on every path, so a wrong
+  // password landed on "Welcome back / One account, whichever seat you hold."
+  // The refusal is DRIVEN for real in the write suite (sr1–sr4); here it is
+  // the page that is checked.
+  {
+    const REFUSED = 'That didn’t work. Check the email address and the password and try again.';
+    const refused = await get('/signin?refused=1');
+    check('fp9: a refused sign-in has one line, the same line for every cause',
+      [refused.status, has(refused.html, REFUSED), /role="alert"/.test(refused.html)], [200, true, true]);
+    check('fp10: and it is on the sign-in page, not on "Welcome back"',
+      has((await get('/home')).html, REFUSED), false);
+  }
+
+  // ---- the screen after reporting a concern about a child -------------------
+  {
+    const done = await get('/report?done=1');
+    const t = text(done.html);
+    const iUrgent = t.findIndex((l) => l.includes('contact your local police first'));
+    const iThanks = t.findIndex((l) => l.includes('a person will look at it'));
+    check('fp11: /report?done=1 has a real heading, so a screen reader announces one',
+      /<h1[^>]*>We’ve received your report<\/h1>/.test(done.html), true);
+    check('fp12: the emergency line is ABOVE the thanks, and not in the faintest style',
+      [iUrgent !== -1, iThanks !== -1, iUrgent < iThanks], [true, true, true]);
+    check('fp13: and the tab no longer says "Report this page"',
+      /<title[^>]*>([^<]*)<\/title>/.exec(done.html)?.[1], 'Report received · Pitch Football');
+  }
+
+  // ---- the page this one was modelled on -----------------------------------
+  {
+    const dead = await get('/p/dev-expired');
+    check('fp14: the D-77 dead-link page carries the Pitch mark and a primary action',
+      [/TCH/.test(dead.html), /class="btn btn-primary"[^>]*>Ask the family/.test(dead.html)], [true, true]);
+  }
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);

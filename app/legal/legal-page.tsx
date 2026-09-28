@@ -1,14 +1,13 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { marked } from 'marked';
 import { PitchWordmark, QuietShell } from '@/components/quiet-shell';
+import { legalDocument } from '@/lib/legal-doc';
 import { T } from '@/lib/palette';
 
 // The privacy policy and terms are served as real pages, not PDFs (doc 29 §7).
-// Content comes straight from docs/legal — the authoritative markdown. Four
-// placeholders (registered office, privacy contact, appeals contact,
-// publication date) remain until the solicitor resolves them; the waitlist
-// form stays gated (WAITLIST_ENABLED) until they do.
+// Content comes from docs/legal — the authoritative markdown — through
+// lib/legal-doc, which takes off the drafting preamble and puts the version and
+// date the register and the document agree on under the title. Every clause,
+// heading and sentence is the published text, unaltered.
 
 const LEGAL_CSS = `
         .legal-doc h1 { font-size: 28px; font-weight: 900; letter-spacing: -.02em; color: var(--ink); line-height: 1.15; }
@@ -25,8 +24,7 @@ const LEGAL_CSS = `
 // A document rendered inside another page (doc 32 B3: doc 21 is SHOWN in the
 // approval flow, not merely linked). Same source, same renderer, same styles.
 export function LegalBody({ file }: { file: string }) {
-  const raw = fs.readFileSync(path.join(process.cwd(), 'docs', 'legal', file), 'utf8');
-  const html = marked.parse(raw, { async: false });
+  const html = marked.parse(legalDocument(file).markdown, { async: false });
   return (
     <>
       <div className="legal-doc" style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: html }} />
@@ -36,8 +34,7 @@ export function LegalBody({ file }: { file: string }) {
 }
 
 export function renderLegal(file: string) {
-  const raw = fs.readFileSync(path.join(process.cwd(), 'docs', 'legal', file), 'utf8');
-  const html = marked.parse(raw, { async: false });
+  const html = marked.parse(legalDocument(file).markdown, { async: false });
 
   return (
     <QuietShell wide>
