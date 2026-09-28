@@ -22,8 +22,10 @@ brings you back to the list at any time.
 
 ## Act 1 · The front door (nobody signed in) — about 5 minutes
 
-1. **The landing page** `/`: what Pitch says to a parent before they have
-   an account.
+1. **The front door** `/`: today it is the coming-soon page. Flip the
+   launch-day switch and it becomes the real front door (D-164), with four
+   ways in: sign up, find a club, trials, and claim your club. Show both,
+   because the flip is the launch.
 2. **The trials index** `/trials`: one chronological noticeboard, filtered by
    age group, region, gender and position. There is no recommender. Filter
    chips with nothing behind them are hidden (D-162).
@@ -32,12 +34,15 @@ brings you back to the list at any time.
    **Report this page** at the foot to show that every public page has it.
 4. **Jobs** `/jobs`: coaching roles, where a coach can "put your name
    forward".
-5. **The legal pages** `/privacy` and `/terms`: the published text only, with
-   no drafting notes. John ruled on these today.
+5. **The legal pages** `/privacy` and `/terms`: the published text, with no
+   drafting preamble. The Terms still carry clause markers and Schedule A's
+   price until John answers doc 36; say so rather than scroll past it.
 
 ## Act 2 · A family arrives — about 8 minutes
 
-6. **Sign up** `/join`: role, date of birth and country. Enter a 14-year-old
+6. **Sign up** `/join`: "Where do you live?" first. Pick *Somewhere else*
+   once to show that Pitch says it is Australia-only and collects nothing
+   (D-63). Then role and date of birth. Enter a 14-year-old
    and see what happens: **the child's profile does not exist yet.** They
    leave first name, date of birth and a parent's contact, and nothing else.
 7. **The parent's approval**: open the message in *What families receive*,
@@ -47,8 +52,9 @@ brings you back to the list at any time.
    guardian's home.
    - **Deniz's CV**: open it the way a club would. Look at the stat tiles
      (never a zero, never a negative), the "Self-reported" tag on every
-     number, the clips (façades until play is pressed) and the birth-quarter
-     marker.
+     number, the clips (façades until play is pressed) and "U14 · born
+     Jan–Mar" under the name (D-84). Open the share card to show the marker
+     is not on it.
    - **An edit waiting for the parent** (D-119): the club still sees the
      approved version. Nothing publishes on silence.
    - **The share card**: the parent sees the exact image before it can leave.
@@ -56,8 +62,9 @@ brings you back to the list at any time.
      club or age.
    - **Send my CV to a club**: the child composes, and the parent checks the
      address and presses send.
-   - **Controls**: the link's expiry, pause, a new link, and who looked
-     (`fn_who_looked`, once the second builder lands).
+   - **Controls**: the link's expiry, pause, a new link, and **who at Pitch
+     has looked** at the record, and why. For every real family it is empty,
+     and it says so.
    - **A trial invitation**: it arrives inside Pitch, not by email. The parent
      chooses field by field what goes back to the club.
 9. **A dead link** `/p/<anything>`: expired, never existed or switched off
@@ -71,7 +78,9 @@ brings you back to the list at any time.
     never goals conceded. There are no paid surfaces, because Nate is under
     18.
 11. **Switch to Jordan (adult).** The same CV spine with two quiet locked
-    "Premium" rows, and three free clips instead of ten.
+    "Premium" rows, and three free clips instead of ten. Tap a row: "Premium is
+    coming. You're first in line." It is counted anonymously, with no price
+    shown (D-163). Nate's page, one step earlier, has none of this.
 
 ## Act 4 · The club side — about 10 minutes
 
@@ -103,7 +112,11 @@ brings you back to the list at any time.
       same address in an hour.
     - **Support**: invitation state and re-send only. There is no way into
       a child's record from here.
-    - **Switches**: the 11pm kill switches.
+    - **Switches**: the 11pm kill switches, now including SMS, which can be
+      switched off from a phone.
+    - **A child-safety suspension**: suspend a club with the child-safety
+      reason and open *What families receive* to see the notice each family
+      gets, with its one-tap switch-off (D-165).
 
 ## Act 6 · Every device — about 3 minutes
 
