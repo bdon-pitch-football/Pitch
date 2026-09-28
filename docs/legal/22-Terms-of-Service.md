@@ -1,14 +1,20 @@
 # PITCH — Terms of Service
 
+> **v2.0, 28 September 2026 — published. No clause changes.** These drafting notes are no longer served, and the footer names this version and no longer says it is unpublished. **Why v2.0 and not v1.10:** v1.9 is already recorded in this document while the register said v1.8, so the next number had to be newer than both — and v1.10 reads as older than v1.9 to anyone comparing decimals. **Clause 6.5 and open items 4 and 5 are unchanged and still served:** ruling 2 removes clauses describing capabilities that are not built, and 6.5 describes doc 32 A1, which migration 0049 built on 17 September; doc 32 B6 says 6.5 may publish if A1 and A2 are green. That question is with John. John, doc 35 ruling 1: removing the preamble from what is served is not material; the version bumps so that a consent row names exactly the text that was shown, and nobody is re-asked. Ruling 3: these versions are the published ones.
+>
 > **⚠️ v1.6, 3 September 2026 — this restores work that was lost, and the loss was my doing.** On 1 September I filed pack v1.5, then revised it **in place, keeping the same version number**, so as not to create a phantom version. **That made the second set of changes invisible.** The corpus was built from the first copy and swept for the domain (D-150), and the contact work never arrived: the named Privacy Officer, the explanation of the two domains, the reason there is no postal address, and — the one that matters — **clause 8.3's plain statement that an appeal is not independently reviewed.** The live terms went back to promising a parent a second pair of eyes that does not exist.
 >
 > **The lesson is against me, not against the sweep.** A pack that has been filed is something somebody else may already have consumed. **Revising it in place under the same number is not a smaller change than a version bump — it is an invisible one.** From here, a filed pack is immutable and a correction is a new version, whether or not anything has been published.
 >
 > **Also in v1.6: A6.2 is corrected against D-149.** It said a tax invoice carries the legal name. **BUZ's call is that the money surfaces carry the trading name**, because the Stripe statement descriptor is `PITCH FOOTBALL` and *an invoice that says something other than the bank statement is an invoice a treasurer cannot reconcile*. The ABN identifies the legal person either way, and clause 0.1 names it. **My drafting was correct in law and wrong in practice, and the practical point is the one that prevents a chargeback.**
 >
+> **⚠️ v1.9, 7 September 2026 — A5.3 reconciled with the live site.** The website publishes four things a founding club receives; A5.3 said founding arrangements carry **no published terms**. **Both were public and they contradicted.** A5.3 was always aimed at price — *no club buys advantage* — and it said something broader than it meant. It now distinguishes **recognition, which we describe, from the commercial arrangement, which we never publish.** **D-83 is untouched, and a new bullet makes a published cap on founding places binding**, because *"a cap of eleven" is a representation under ACL s 18 and not a guideline.*
+>
+> **⚠️ v1.8, 7 September 2026 — the doc 30 rulings.** Two-guardian sending and its 24-hour undo (U-2, against the built default); **no inbound reply route, stated as a term rather than left as an omission** (U-11); and that a club losing verification does not withdraw a family's link (M11/L29). **Nothing binds until BUZ numbers it.**
+>
 > **v1.7, 3 September 2026.** **D-22 is flipped to guardian opt-in.** BUZ's call, 3 September 2026. A 16- or 17-year-old is **not discoverable to anybody until a guardian turns it on**. The player can ask for it in one tap; the guardian grants it in one tap; everything else about the band is unchanged — verified clubs and coaches only, never general search, and no adult may contact a minor at any age. **The cost is recorded rather than argued away: an opt-in that a disengaged guardian never presses removes the product from exactly the players a pathway platform is worth most to.** BUZ took that cost knowingly. Clause 2.3 rewritten. **Nothing is published, so no family has consented against the old default and nobody has to be re-asked — which is the whole reason this was worth deciding today rather than in December** (D-107, D-144).
 >
-> **Doc 22 · v1.7 · published 3 September 2026.**
+> **Doc 22 · v1.7 draft · 3 September 2026 · NOT YET PUBLISHED.**
 >
 > **v1.5 changes — the entity, GST, and three defects found on the sweep.**
 >
@@ -130,10 +136,13 @@ Terms are versioned. Every acceptance writes who accepted, which version, when, 
 **[DRAFTED] 5.9 Registering interest with a club.** Where a club has posted a trial, or is open to interest generally:
 
 - **Under 16, your parent or guardian presses send.** You compose it; they see which club, which trial, exactly what is about to go — including what you wrote — and they send it. **At 16 and 17** you send it and your guardian is notified every time. **At 18** you send it alone.
+- **[DRAFTED] Where two guardians are recorded, either may send.** The other is notified immediately and **may revoke that link, with one action, for 24 hours afterwards.** Revocation ends the club's access to the page and empties the note; **it does not recall the message that was sent, and nothing in this agreement should be read as promising that it does.** *Most-restrictive-wins (D-51) is honoured in substance: the more restrictive guardian's decision prevails, a few minutes later rather than a few minutes earlier, and what was disclosed is a revocable link and not a copy.* Where a suppression or a court order is recorded against a guardian, that guardian cannot send at all.
+- **[DRAFTED] A request that is never actioned lapses after 14 days.** Nothing is transmitted and nothing is queued.
 - **What the club receives** is your name, your age, your current club, the squad you are interested in, your preferred position, one line about yourself, and a link to your page. **Not your record, not a file, not a video, and not your contact details or your family's.**
 - **What you write in that line is read by an adult you have not met.** You do not need to put a phone number, an address or your school in it, and you should not. Clubs reach you through your parent.
 - **You can undo it.** Revoking the link or deleting the profile ends the club's access at that moment, **empties the note**, and shows the registration as withdrawn.
 - **No club can download a list of players.** There is no export from the register, so a family who switches off disappears from it the same minute.
+- **[DRAFTED] There is no way for a club to reply to you through Pitch.** Not at any tier, not for anybody. A club that wants a player at a trial invites them, and the invitation reaches the guardian. **We state this because it is a safety property and not an oversight** — an inbound route to a child is the thing this product does not have.
 - **Clubs never tell you no through Pitch.** There is no rejection, no status, no progress bar. If a club wants you at a trial, you and your parent hear from them together — inside Pitch, never by email or text.
 - **Every send is recorded** — who sent it, about whom, to which club, for which trial, when, and under which version of these terms.
 
@@ -246,13 +255,16 @@ Where a child's safety is involved we may act immediately and without notice, an
 
 **[DRAFTED] A5.2 If a payment fails.** We keep access running for **14 days**, then suspend the register. **Suspension is not deletion.** The families in a suspended register are hidden from the club, not destroyed, and nothing about any child is lost. Deletion runs only on cancellation, thirty days later. **No child's registration is ever destroyed because a club's card expired.**
 
-**[DRAFTED] A5.3 Founding clubs.** A small number of clubs are invited to be founding clubs. **Whatever a founding club and Pitch agree is agreed individually, between them, and there are no published terms for it.**
+**[DRAFTED] A5.3 Founding clubs.** A small number of clubs are invited to be founding clubs. **What a founding place carries by way of recognition, we describe publicly. What it costs is agreed individually, between that club and Pitch, and is never published.**
 
 - **Nothing in this agreement, on any Pitch page, or in any conversation creates an entitlement to a founding arrangement.** Being an early club, an enthusiastic one, or a club that asked, confers nothing.
 - **A founding arrangement confers recognition, never advantage.** A founding club's players get no search preference, no ranking benefit and no discovery edge over any other club's. That rule is not negotiable and it does not vary between arrangements — a player at the fortieth club must never be worse served because their club was not among the first eleven.
 - **The prices in A6.1 are the published prices and they are the same for everyone.** Where a founding arrangement differs, it differs by agreement in that club's own case and creates no precedent, no published rate and no expectation for anybody else.
+- **Where we publish a limit on the number of founding places, that limit binds us.** It is a statement about what we will do, not a description of what we hope to do, and we will not exceed it.
 
 *We say this rather than leave it as an understanding, because every other price we charge is published and identical for everyone, and an individually negotiated arrangement sitting silently outside that is the kind of thing that reads badly later purely because nobody wrote it down at the time.*
+
+*Why the wording changed at v1.9: the earlier version said there were **no published terms** for a founding arrangement, while the website described four things a founding club receives. Both were public and they could not both be read straight. **The clause was always aimed at price — that a club cannot buy advantage — and it said something broader than it meant.** Recognition can be described; the commercial arrangement cannot. D-83 is untouched.*
 
 **[DRAFTED] A5.4 If we ever offer a free period that becomes a charge.** We do not today. If we ever do: the screen will state when it converts and to what, in the same visual weight as the word "free"; the billing contact will get a reminder 30 days before, naming the date and the amount; and one action will cancel it before it converts, with no retention conversation.
 
@@ -297,6 +309,10 @@ Where a child's safety is involved we may act immediately and without notice, an
 **[OUTLINE] A12 Data handling.** The club and Pitch each handle players' personal information for the purposes described in the privacy policy. Counsel to advise whether a separate data processing agreement is required and, if so, in what form.
 
 **[DRAFTED] A13 Suspension.** We may suspend a club account where we reasonably believe a child's safety is at risk. Otherwise we will give notice and an opportunity to remedy.
+
+**[DRAFTED] A13.1 What suspension does, and what it cannot do.** Suspension ends the club's access inside Pitch immediately — the register, every player page, everything. **It does not withdraw links a family has already sent.** A tokenised link is not bound to a club and never was: it is the family's own act of disclosure, it works for whoever holds it, and **only the family can withdraw it.** *Any term promising a club's links can be revoked centrally would be a term we could not perform.*
+
+**[DRAFTED] A13.2 Where a club is suspended because of a concern about children**, we notify every guardian whose child holds an unrevoked link sent to that club, tell them the club is no longer verified, and **give them a one-action revoke in the notification itself.** We do not disclose the reason for the suspension, and we do not revoke on a family's behalf.
 
 ---
 
@@ -352,4 +368,4 @@ Where a child's safety is involved we may act immediately and without notice, an
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v1.7 · published 3 September 2026 · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v2.0 · 28 September 2026 · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*

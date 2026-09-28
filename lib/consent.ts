@@ -32,7 +32,7 @@ export const CONSENT_TEXT =
 // v2.6 versions it supersedes, retained under legal/_superseded/), plus the
 // S13 corpus check that binds POLICY_SHA256 to the served bytes. Until that
 // text is here, this stays where the served policy is.
-export const POLICY_VERSION = '20@v2.4';
+export const POLICY_VERSION = '20@v2.8'; // display only; the stamp is legalStamp('20')
 
 export const ROLES = ['player', 'coach', 'club', 'parent'] as const;
 export type Role = (typeof ROLES)[number];

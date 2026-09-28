@@ -1,5 +1,7 @@
 # Your privacy on Pitch
 
+> **v2.6, 28 September 2026 — published. No clause changes, and no change a reader could re-measure.** These drafting notes are no longer served — this is the policy shown inside the guardian approval flow (doc 32 B3) — and the footer names this version and no longer says it is a draft or unpublished. John, doc 35 ruling 1: removing the preamble from what is served is not material; the version bumps so that a consent row names exactly the text that was shown, and nobody is re-asked. Ruling 3: these versions are the published ones.
+>
 > **⚠️ v2.2, 3 September 2026 — this restores work that was lost, and the loss was my doing.** On 1 September I filed pack v1.5, then revised it **in place, keeping the same version number**, so as not to create a phantom version. **That made the second set of changes invisible.** The corpus was built from the first copy and swept for the domain (D-150), and the contact work never arrived: the named Privacy Officer, the explanation of the two domains, the reason there is no postal address, and — the one that matters — **clause 8.3's plain statement that an appeal is not independently reviewed.** The live terms went back to promising a parent a second pair of eyes that does not exist.
 >
 > **The lesson is against me, not against the sweep.** A pack that has been filed is something somebody else may already have consumed. **Revising it in place under the same number is not a smaller change than a version bump — it is an invisible one.** From here, a filed pack is immutable and a correction is a new version, whether or not anything has been published.
@@ -8,7 +10,13 @@
 >
 > **v2.3, 3 September 2026.** D-22 flipped to guardian opt-in, so this page now tells a 16- or 17-year-old the one thing that changed for them: **they are invisible to clubs until a parent switches it on, and they have to ask.** Written at the page's level; re-measured.
 >
-> **Doc 21 · v2.3 draft · 3 September 2026 · NOT YET PUBLISHED.** The child-directed privacy policy.
+> **⚠️ v2.4, 7 September 2026 — the doc 30 rulings.** Doc 14 left eleven cases unruled and BUZ asked for a ruling on each. The ones that reach this document are below. **Nothing here binds until BUZ numbers it in doc 06**, and where a ruling changed what was already built, that is said.
+>
+> **Three of the rulings are things a child sees**, so they are here in words a child can read: **what you can see of your own sends (U-5)**, **a request that expires (U-1)**, and **that nobody can write back (U-11)**. Re-measured.
+>
+> **Doc 21 · v2.5 draft · 15 September 2026 · NOT YET PUBLISHED.** The child-directed privacy policy.
+>
+> **⚠️ v2.5, 15 September 2026 — D-153.** A club you registered interest with can now send you one invitation, and it reaches you and your parent at the same moment. **v2.4 said "there is no way for anyone to message you here", and after D-153 that sentence was not true** — in the one document on this platform whose whole job is telling a child what cannot happen to them. Three passages rewritten. **Your parent still has to approve anything you write back.**
 >
 > **New in v2.1:** one short section, *Who runs Pitch*, naming **EBSD Enterprises Pty Ltd (ACN 701 879 718), trading as Pitch Football** (D-148). It is written at the reading level of the rest of the page rather than lifted from doc 20, because a child-directed policy that suddenly speaks like a contract has stopped being child-directed. **Re-measured after the addition and the level held — see below.**
 >
@@ -66,9 +74,11 @@ Just the football stuff, and your birthday.
 - **They can turn it off again** any time, and they do not have to tell you why. It is worth talking to them about it.
 - **We start it off on purpose.** Being found is the good part of Pitch, so this is a real choice — but it is your parent's to make, not ours, and not a stranger's.
 
-**Nobody can message you. There are no private messages on Pitch at all** — not from another player, not from a coach at another club, not from us.
+**Almost nobody can message you. There are no private messages on Pitch** — not from another player, not from a coach at another club, not from us.
 
-**A club never gets your phone number or your parent's.** If a club wants you at a trial, the invitation turns up **inside your parent's Pitch account**. We just tell them something is waiting. We do not put your name in that message, or anything about you.
+**One thing is different, and it only happens if you start it.** If you tell a club you want to trial with them, **that club can send you one invitation back**. Your parent gets it at the same moment you do. You can write the answer yourself. **It does not go until your parent says yes.**
+
+**A club never gets your phone number or your parent's.** If a club wants you at a trial, the invitation turns up **in your Pitch account and your parent's, at the same time**. We just tell you both that something is waiting. We do not put your name in that message, or anything about you.
 
 ## Your parent sees everything — and now they check your changes too
 
@@ -99,6 +109,9 @@ Some clubs put their trials on Pitch. If you want to be considered:
 - **What you write in that line is read by an adult you have not met.** You do not need to put your phone number, your address or your school in it. You should not. Clubs reach you through your parent.
 - **You can undo it.** If your parent switches the link off, the club loses your page *and* your line, straight away.
 - **A club cannot download a list of players.** There is no spreadsheet. If your family switches off, you disappear from their list that minute.
+- **You can see where your football went.** Your own page has a list: which club, and what day. **It does not show their email address** — that is the club's, not yours, and knowing the club answers the question anyway. Your parent can see the address.
+- **If your parent does not send it, it does not wait forever.** After two weeks the request expires and is deleted. **That is not a no.** You can write it again whenever you like.
+- **A club cannot just write to you.** A club can only send you something if **you asked them for a trial first**. It is one invitation, not a chat — they cannot send a second one, and they can never reply to a CV you sent. **Anything you write back waits for your parent to say yes.**
 - **No club will ever tell you no on Pitch.** There is no rejection and no status to check. If a club wants you, you and your parent hear from them together. If you do not hear, you were not invited — and that is between you and them, not something we hand you.
 
 ## Money — because you might wonder
@@ -165,6 +178,6 @@ If you would rather tell someone outside Pitch, contact the eSafety Commissioner
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · your privacy · doc 21 · v2.3 draft · 3 September 2026 · not yet published*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · your privacy · doc 21 · v2.6 · 28 September 2026*
 
 *Reading level, measured on the body text of this version: **Flesch–Kincaid grade 3.1, 10.3 words a sentence**. The same measurement run against v2.0 gives grade 3.1 — identical, after three added sections, a name and the 16–17 rules. Measured with the counter in `fk.py` rather than the tool used for v1.1's grade 3.8, so compare this figure only against a figure produced the same way. Re-measure after any edit.*

@@ -8,6 +8,10 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // The waitlist stamps consent with the privacy policy it serves (lib/legal-stamp),
+  // read at request time. Ship the legal files with that function, or a sign-up
+  // fails on Vercel with the file missing.
+  outputFileTracingIncludes: { '/api/waitlist': ['./docs/legal/**/*'] },
   async headers() {
     return [
       { source: '/(.*)', headers: securityHeaders },

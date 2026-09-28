@@ -2,9 +2,13 @@
 
 ### For every adult on the platform
 
+> **v1.4, 28 September 2026 — published. No rule changes.** These drafting notes are no longer served, and the footer names this version and no longer calls it a draft or unpublished. It still names the entity, because this footer is the only place the served document does. John, doc 35 ruling 1: removing the preamble from what is served is not material; the version bumps so that a consent row names exactly the text that was shown, and nobody is re-asked. Ruling 3: these versions are the published ones.
+>
 > **v1.2, 1 September 2026 — the entity, and the domain.** This document is published by **EBSD Enterprises Pty Ltd (ACN 701 879 718 · ABN 65 701 879 718), trading as Pitch Football** (D-148). It carried neither the entity nor the right domain until now. **The check that caught it asserts presence rather than agreement** — nothing here contradicted anything; the legal person was simply absent, which is the shape every serious defect in this corpus has taken.
 >
-> **Doc 24 · v1.2 draft · 1 September 2026 · NOT YET PUBLISHED.**
+> **⚠️ v1.3, 3 September 2026 — the appeal promise, corrected here as well.** I removed the words *"by someone other than whoever made the original decision"* from doc 22 §8.3 on 1 September, because Pitch is one person and the sentence implies a second pair of eyes that does not exist. **It survived in this document.** That is the third time this fortnight I have corrected a thing where it was declared and left it standing where it was used — and the corpus check cannot see it, because a clause that promises too much looks exactly like a clause that promises the right amount. **Found by reading, not by the tool.**
+>
+> **Doc 24 · v1.3 draft · 3 September 2026 · NOT YET PUBLISHED.**
 >
 > **v1.1 change:** rule 8 added — a club never publishes an opinion about a coach. The register settled this on 27 August and the code is where an adult reads what they may and may not write, so it belongs here rather than only in the terms.
 >
@@ -120,7 +124,7 @@ Proportionate, and always with a way back:
 | **Something serious, or repeated** | Suspension or closure. We tell you what we have done. |
 | **A child's safety** | Immediate action, no notice, and where appropriate a report to police and to the eSafety Commissioner. We may not tell you the reason — explaining it can identify who reported, or teach someone what to do differently next time. |
 
-**You can always appeal**, to [appeals contact], answered within five business days by someone other than whoever made the original decision wherever that is possible. Being unable to be told why is bad enough. Being unable to be heard is not something we are prepared to do to anyone.
+**You can always appeal**, to the **Privacy Officer, Burak Donmez**, at **burak.donmez@pitch-football.com**, answered within **five business days**. **We will not tell you the review is independent, because today it is not** — Pitch is one person, so whoever decided is whoever reviews. What we will do is read it again from the beginning, against what you have said rather than against the original reasoning. **The moment there is a second person to hand a review to, they will get it and this line will say so.** Being unable to be told why is bad enough. Being unable to be heard is not something we are prepared to do to anyone.
 
 ---
 
@@ -132,4 +136,4 @@ Pitch is built so that the safe thing is also the easy thing — the contact rou
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · code of conduct · doc 24 · v1.2 draft · 1 September 2026 · not yet published · forms Schedule C of the terms of service*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · code of conduct · doc 24 · v1.4 · 28 September 2026 · forms Schedule C of the terms of service*

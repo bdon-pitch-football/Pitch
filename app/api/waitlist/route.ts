@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { insertWaitlist } from '@/lib/waitlist-db';
-import { CONSENT_TEXT, POLICY_VERSION, ROLES, EMAIL_RE, type Role } from '@/lib/consent';
+import { CONSENT_TEXT, ROLES, EMAIL_RE, type Role } from '@/lib/consent';
+import { legalStamp } from '@/lib/legal-stamp';
 import { rateLimited } from '@/lib/ratelimit';
 import { waitlistSource } from '@/lib/waitlist-source';
 
@@ -67,7 +68,8 @@ export async function POST(req: NextRequest) {
     email,
     role,
     consent_text: CONSENT_TEXT,
-    policy_version: POLICY_VERSION,
+    // The version the register names, bound to the bytes /privacy serves.
+    policy_version: legalStamp('20'),
     source: waitlistSource({ utm_source, utm_campaign, utm_content }),
   });
 

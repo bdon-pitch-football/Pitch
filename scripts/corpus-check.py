@@ -34,8 +34,19 @@ warning because "it always says that" is the day the control stops being one.
 import os, re, sys, html
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else '.'
-SKIP = ('_superseded', '_archive', '13-Board-Room', '_to_delete', 'repo', 'content')
-FALSE_POSITIVES_FIXED = 9   # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
+# docs/team is the tech team's log (lessons, reports, reviews): every date in it
+# is when something happened, never a promise — the same reason the Board Room
+# is skipped. Added 22 Sep after the lessons file tripped S2 on its own dates.
+SKIP = ('_superseded', '_archive', '13-Board-Room', '_to_delete', 'repo', 'content', 'team', 'mockups')
+# 'mockups' is skipped for the same reason 'team' is (L27): a mockup is a
+# PICTURE OF A SCREEN, not a document that makes a claim. The dates inside one
+# are fixture content — a next-charge date, a trial date, the day a report came
+# in — and S2 read four of them as citations of the dead runway. A screenshot
+# of the billing page would carry the identical string and nobody would call it
+# a claim about the launch date. The design *reports* are still checked, and
+# should be: they argue.
+FALSE_POSITIVES_FIXED = 13  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
+                            # +1 S13 scaffolding, +1 S2 flagging a document's own dateline,
                             # 1 in v3 (S2 exempting by filename, so the register stopped being exempt when renamed)
 FALSE_NEGATIVES_FIXED = 1   # v3: S4 joined ROOT to a guessed 'legal/' and skipped the whole pack in the repo.
 # The v3 pair are the same defect wearing two faces: this file identified documents
@@ -209,18 +220,85 @@ DATE_EXEMPT_DOCS = {'06', '07', '12', '15', '27'}
 docnum = lambda p: (base(p).split('-', 1) + [''])[0]
 
 
+# False positive #13: a dated work record citing its own date. A report filed
+# as 2026-09-28-user-value.md and saying "found on 28 Sep" is stating when the
+# work happened, not citing a runway that no longer exists. Recognised
+# STRUCTURALLY -- the date in the prose is the date in the filename -- rather
+# than by skipping another directory, because the design reports ARGUE and a
+# report that said "we ship on 13 Sep" must still fail. Five seats filed on one
+# day and produced eleven of these; the alternative on offer was to stop
+# checking the reports at all.
+FILED_ON = re.compile(r'^(\d{4})-(\d{2})-(\d{2})-')
+MONTHS = ('January', 'February', 'March', 'April', 'May', 'June', 'July',
+          'August', 'September', 'October', 'November', 'December')
+
+
+def own_filing_date(path):
+    """The date in the filename, as the strings a writer would type."""
+    m = FILED_ON.match(base(path))
+    if not m:
+        return ()
+    day, month = str(int(m.group(3))), MONTHS[int(m.group(2)) - 1]
+    return (f'{day} {month}', f'{day} {month[:3]}')
+
+
 def s2():
     for p in live_files():
         r = rel(p)
         if docnum(p) in DATE_EXEMPT_DOCS or 'design-screens' in r.split(os.sep):
             continue
+        filed = own_filing_date(p)
         body = text(p)
         for rx, label in ((DEAD_DATES, 'a date from the dead runway'),
                           (COMMITMENT, 'a launch commitment')):
             for m in rx.finditer(body):
+                # The report's own filing date, however the writer spelled it.
+                if filed and re.sub(r'\s+', ' ', m.group(0)).strip() in filed:
+                    continue
                 ctx = body[max(0, m.start() - 260):m.start() + 260]
                 if re.search(r'no longer|supersed|removed|dead|gone|not a date|undated|'
                              r'D-131|D-47|used to|previously', ctx, re.I):
+                    continue
+                # False positive #10: a document's own dateline. "v1.0 - 9 September
+                # 2026" is when the document was written, not a date promised to
+                # anybody. Recognised STRUCTURALLY -- a version token immediately
+                # before it -- rather than by adding another filename to an
+                # exemption list, because widening an exemption list is how a check
+                # stops checking. John predicted this shape for S10; it arrived at S2.
+                before = body[max(0, m.start() - 40):m.start()]
+                # Widened 15 Sep: the original pattern allowed only punctuation
+                # between the version token and the date, so it passed
+                # "v1.2 - 15 September" and still failed "v1.5 draft - 15
+                # September". Same false-positive class, incompletely fixed --
+                # so the fix is widened rather than counted again. The status
+                # word is a CLOSED list: anything outside it is still a failure.
+                if re.search(r'v\d+\.\d+[^A-Za-z0-9]{0,4}'
+                             r'(?:(?:draft|final|published|adopted|superseded)'
+                             r'[^A-Za-z0-9]{0,6})?$', before, re.I):
+                    continue
+                # Same class again: a dateline introduced by a currency phrase,
+                # where the version token follows the date instead of preceding
+                # it ("Current as of 15 September 2026 - register v4.x"). Closed
+                # lead-in list, so "we go live on" is still a failure.
+                # 'last updated:' joined the closed list 28 Sep. Doc 20's own
+                # body line "**Last updated:** 28 September 2026 · **Version:**
+                # 2.8" is the document stating when it was revised — a dateline,
+                # the same class as 'as of' — and the version bump John ruled on
+                # (doc 35 ruling 1) put a new date in it. Markdown bold around the
+                # label is allowed; the list stays closed, so a date after any
+                # other lead-in is still a failure.
+                if re.search(r'\b(?:current as of|as at|as of|dated|last updated:?)(?:\*\*)?\s+$',
+                             before, re.I):
+                    continue
+                # False positive #11: the date a decision was TAKEN. "BUZ accepted
+                # it on 9 September 2026" records when something happened; it
+                # promises nobody anything. Deliberately restricted to four
+                # backward-looking verbs -- accepted / recorded / acknowledged /
+                # noted -- because 'decided on', 'signed on' and 'agreed on' all
+                # take a FUTURE date in ordinary English and would punch a hole in
+                # exactly the check this is. Negative-tested against those three.
+                if re.search(r'\b(accepted|recorded|acknowledged|noted)\b'
+                             r'(\s+\w+){0,3}\s+on\s+(\*\*)?$', before, re.I):
                     continue
                 fail('S2', f'{r} carries {label}: {m.group(0)!r} (D-131 removed the runway)')
 
@@ -358,7 +436,47 @@ def s12_domain():
                         f'-- it is {DOMAIN}')
 
 
-for fn in (s7, s3, s5, s1, s2, s6, s4, s9_presence, s10_banners, s11_claims, s12_domain):
+
+def s13_consent_stamp():
+    """The hash on a consent row must be the hash of the text that was served.
+
+    A version string is an assertion until it is bound to bytes. On 7 September
+    two different files carried doc 23 v1.4, which is what a label alone allows.
+
+    Until 28 Sep this checked a TYPED constant, POLICY_SHA256, against the
+    FILE. That was the right rule about the wrong thing: once the drafting
+    preamble stopped rendering, the file and the served text differed, and a
+    second path already stamped the served text — so doc 20 had two hashes in
+    one codebase and this check was green on the one that described nothing a
+    person read. The constant is gone and every stamp is derived at request
+    time by legalStamp() from the SERVED text (doc 35 ruling 1).
+
+    So the rule this checks now is the one that cannot drift: no path stamps a
+    consent row with a hash somebody typed. The permission suite (jr3) proves
+    the waitlist and the consent path produce the SAME hash for doc 20; this
+    is the corpus-side guard that the typed kind never comes back.
+    """
+    root = ROOT if os.path.exists(os.path.join(ROOT, 'lib')) else os.path.join(ROOT, 'repo')
+    if not os.path.exists(os.path.join(root, 'lib', 'consent.ts')):
+        return  # not the app root; nothing to check
+    typed = []
+    for top in ('lib', 'app'):
+        for dp, dn, fns in os.walk(os.path.join(root, top)):
+            dn[:] = [d for d in dn if not d.startswith('.') and d != 'node_modules']
+            for f in fns:
+                if f.endswith(('.ts', '.tsx')):
+                    src = open(os.path.join(dp, f), encoding='utf-8').read()
+                    if re.search(r"['\"`][0-9a-f]{64}['\"`]", src):
+                        typed.append(os.path.relpath(os.path.join(dp, f), root))
+    if typed:
+        fail('S13', 'a consent hash is typed into source rather than derived from the served text: '
+                    + ', '.join(typed))
+    wl = os.path.join(root, 'app', 'api', 'waitlist', 'route.ts')
+    if os.path.exists(wl) and "legalStamp('20')" not in open(wl, encoding='utf-8').read():
+        fail('S13', "the waitlist does not stamp with legalStamp('20') — it would write a different hash "
+                    'for doc 20 than the consent path does')
+
+for fn in (s7, s3, s5, s1, s2, s6, s4, s9_presence, s10_banners, s11_claims, s12_domain, s13_consent_stamp):
     fn()
 
 print(f'corpus check v2 — {len(DECISIONS)} decisions, '
