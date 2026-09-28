@@ -267,3 +267,14 @@ request to finish sooner, not a request to start everything at once. Seven
 parallel builders also produced seven overlapping edits to the same handful
 of files, which costs me merge time at the other end. Parallelism has a
 price and it is paid by somebody.
+
+*Amended the same day (L37, second failure).* Three was still too many. With
+three builders rebuilding at once the machine went from 20 GiB to under 400 MB
+free during a single turn — Bash could not create its own output file, a commit
+failed, and deleting build output did not help because the builders refilled
+the space as fast as it was cleared. The only thing that worked was stopping
+all three and killing eleven orphaned `next dev` processes by working
+directory. **Two at a time, and a builder checks free space itself before it
+builds** — because the head of the team checking once at fan-out missed a
+number that moved by 20 GiB inside one turn. A cap on the count is not a cap on
+the disk.

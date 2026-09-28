@@ -181,3 +181,19 @@ anything here.
 The one thing I would ask for first, if you only have time for one: **item 1**,
 because it is the screen a parent reads at the moment she decides whether to
 trust us with her child.
+
+---
+
+## Rulings — 2026-09-28, John, relayed by BUZ
+
+John approved all six items. Where an item was a question with options, BUZ
+gave the specific answer the same day. Recorded here before any code changes.
+
+| # | Item | Ruling |
+|---|---|---|
+| 1 | Stripping the drafting preamble | **Not material. The version still bumps** — so every consent row names exactly the text that was shown — **and no guardian is re-asked**, because nothing in the agreement changed. |
+| 2 | Markers inside the clauses | **Clauses describing capabilities that are not built are removed until they are built**, and each returns in a new version when it ships. The Terms never promise what the product cannot do. |
+| 3 | The register contradicting itself | Reconciled as part of item 1: the bumped versions are written consistently into the table, the prose and each document. The "not yet published" colophons go, because these versions are the published ones. |
+| 4 | The contact address | **Unchanged: `burak.donmez@pitch-football.com` stays** on the privacy policy and the terms. BUZ's decision. |
+| 5a | A child-safety report over the rate limit | **Always saved.** Every report is written to the database and the person sees the same confirmation either way. The limit still slows abuse, but no report about a child is ever lost. |
+| 5b | 16–17 acceptance | Approved as it stands: the guardian-acceptance path is already built so it can extend to 16–17. No change today. |

@@ -1,9 +1,16 @@
 'use server';
-// Sign-in (D-94 §2). Identical outcome whether the account exists, the
-// password is wrong, or the rate limit bit: always the same redirect, and
-// /home renders a signed-out state when there is no session. There is no
-// error message that distinguishes those cases, because any difference is
-// an account-enumeration oracle.
+// Sign-in (D-94 §2). The rule is that the response is IDENTICAL whether or
+// not the account exists — not that it says nothing. This ended in
+// redirect('/home') on every path, success or not, and /home signed out
+// renders "Welcome back / One account, whichever seat you hold." So a
+// mistyped password looked like an outage, and the product had conflated
+// "don't leak existence" with "say nothing".
+//
+// Now every refusal — wrong password, no such account, an address nobody has
+// proved, the rate limit — lands on ONE page with ONE line, the same line for
+// every cause (components/FailureState: signInRefused). There is nothing in
+// the query, the body or the status to tell the four apart, so the oracle is
+// still shut and a person is told the truth.
 //
 // Dev convenience: an account with no password set signs in on email alone,
 // so the fixture logins in the walkthrough keep working. Production requires
@@ -70,6 +77,9 @@ export async function signIn(formData: FormData) {
         await send(newSignInEmail(when), { address: to, personId });
       }
     }
+    redirect('/home');
   }
-  redirect('/home');
+  // One destination for every refusal, reached from four different causes.
+  // Never branch this on WHY (D-94 §2, the D-77 oracle rule).
+  redirect('/signin?refused=1');
 }

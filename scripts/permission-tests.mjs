@@ -2749,8 +2749,23 @@ const resetSrc = readFileSync(fileURLToPath(new URL('../app/reset/actions.ts', i
 check('D-94: passwords are never stored in the clear', /password_hash/.test(authSrc) && !/values \(\$1, *password\)/.test(authSrc), true);
 check('D-94: password comparison is constant-time', authSrc.includes('timingSafeEqual'), true);
 check('D-94: a non-existent account still does the hashing work (no timing oracle)', authSrc.includes('decoy'), true);
-check('D-94: sign-in has exactly one outcome, whatever happened',
-  (signinSrc.match(/redirect\(/g) ?? []).length, 1);
+// WAS: "exactly one outcome, whatever happened" — one redirect() in the file,
+// counted. That was a proxy for "the refusal never says why", and the proxy was
+// doing harm: it pinned redirect('/home') on every path, so a wrong password
+// landed on "Welcome back / One account, whichever seat you hold." and every
+// mistyped password read as an outage. D-94 §2 asks for the response to be
+// IDENTICAL whether or not the account exists; it does not ask for silence.
+// The rule itself, in place of the proxy (L33): two outcomes, in and refused,
+// and every cause of a refusal reaches the same one. Pressed for real in the
+// write suite, sr2–sr4.
+{
+  const code = codeOnly(signinSrc);
+  const targets = [...code.matchAll(/redirect\((['"`])([^'"`]*)\1\)/g)].map((m) => m[2]);
+  check(`D-94: sign-in has two outcomes — in, or refused — and nothing else (${targets.join(', ')})`,
+    targets, ['/home', '/signin?refused=1']);
+  check('D-94: and the refusal never says which of the four causes it was',
+    /refused=(password|nosuch|unknown|rate|locked)|refused=1[^'"`]*&|reason=/.test(code), false);
+}
 check('D-94: reset request has exactly one outcome', resetSrc.includes("redirect('/reset?sent=1')"), true);
 check('§10 amendment: an under-16 reset routes to the guardian', authSrc.includes("band === 'u16' && !p.dobless_guardian ? p.guardian_email"), true);
 // The one exception: a parent created at approval, who has no date of birth
@@ -5757,6 +5772,68 @@ const componentFilesAll = [];
     /insert into/i.test(codeOnly(arrivalSrc)), false);
   check('ret15: nothing about this block sends anything',
     /message_outbox|sendMessage|resend|sms/i.test(retSrc), false);
+}
+
+// ---------------------------------------------------------------------------
+// THE FAILURE PATH, AS SOURCE SHAPE (28 Sep).
+//
+// The rendered proofs are in the render suite (fp1–fp14) and the write suite
+// (p19g, p19h, sr1–sr4). These four are the rules that keep those true a month
+// from now, and they are the same argument E10 makes about the dead-link page:
+// a page that is never handed a reason cannot leak one.
+// ---------------------------------------------------------------------------
+{
+  const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  const nf = read('../app/not-found.tsx');
+  const er = read('../app/error.tsx');
+  const ge = read('../app/global-error.tsx');
+
+  // Next hands not-found.tsx no props at all. If somebody ever gives it a
+  // parameter, a searchParam or a header read, it acquires something to branch
+  // on and the 404 becomes an existence oracle — doc 14's opening rule:
+  // a denial answers "as if it does not exist", never "forbidden".
+  check('fail1: the 404 page takes nothing in, so it has nothing to branch on',
+    /export default function NotFound\(\)/.test(codeOnly(nf))
+      && !/searchParams|params|headers\(|cookies\(/.test(codeOnly(nf)), true);
+  check('fail2: and it names no cause — no "expired", "revoked", "paused", "deleted"',
+    /expired|revoked|paused|withdrawn|deleted|forbidden|not allowed/i.test(codeOnly(nf)), false);
+
+  // D-94 §1: no secret, token or personal datum in any error message or trace.
+  // The error object handed to a client boundary carries the original message
+  // in development, and a digest is an identifier for a log line, not for a
+  // person to read.
+  check('fail3: neither 500 page renders anything off the error — no message, no digest, no stack',
+    [nf, er, ge].some((src) => /error\.(message|digest|stack)|console\.(error|log)\(/.test(codeOnly(src))), false);
+
+  // One place for the words, so approving them is one edit and a changed word
+  // changes every screen that says it. A sentence typed into a page is a
+  // sentence that drifts from the one BUZ said yes to (L17).
+  const copyFile = '/components/FailureState.tsx';
+  const copy = read('..' + copyFile);
+  const sentences = [...copy.matchAll(/: '((?:[^'\\]|\\.){14,})',$/gm)]
+    .map((m) => m[1].replace(/\\u2019/g, '’').replace(/\\'/g, "'"))
+    .filter((t) => / [a-z]/.test(t));
+  check(`fail4: the failure path's copy module holds real sentences (${sentences.length})`,
+    sentences.length >= 10, true);
+  const componentFiles = [];
+  (function walkComponents(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      const full = join(d, e.name);
+      if (e.isDirectory()) walkComponents(full);
+      else if (/\.tsx?$/.test(e.name)) componentFiles.push(full);
+    }
+  })(fileURLToPath(new URL('../components', import.meta.url)));
+  const elsewhere = [];
+  for (const f of [...routeFiles, ...componentFiles]) {
+    if (f.endsWith(copyFile)) continue;
+    const src = readFileSync(f, 'utf8');
+    for (const t of sentences) if (src.includes(t)) elsewhere.push(`${f.slice(f.lastIndexOf('/app/') + 1 || f.lastIndexOf('/components/') + 1)}: "${t.slice(0, 40)}"`);
+  }
+  check(`fail5: and no screen types one of them out again (${[...new Set(elsewhere)].join(' · ') || 'none does'})`,
+    elsewhere.length, 0);
+  check('fail6: every failure screen draws its words from that module',
+    /FAILURE_COPY/.test(nf) && /FAILURE_COPY/.test(er) && /FAILURE_COPY/.test(ge), true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
