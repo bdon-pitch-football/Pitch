@@ -202,19 +202,21 @@ function resolution(baseline, alpha) {
 }
 
 /**
- * Run `round` until the baseline arm resolves TARGET_RESOLUTION_MS (or the cap
- * is reached): N rounds first, then STEP at a time. Stopping looks only at the
- * spread of the baseline arm, never at a difference between arms, so it cannot
+ * Run `round` until EVERY arm resolves TARGET_RESOLUTION_MS (or the cap is
+ * reached): N rounds first, then STEP at a time. The same rule judge() applies
+ * — the noisiest arm decides — or a row stops sampling on its quiet arm and is
+ * then judged inconclusive on its loud one (E10, 28 Sep). Stopping looks only
+ * at each arm's own spread, never at a difference between arms, so it cannot
  * steer a comparison towards a pass. Returns the number of rounds run.
  */
-async function sampleUntilResolved(round, baseline, alpha, minRounds = N) {
+async function sampleUntilResolved(round, armsNow, alpha, minRounds = N) {
   let rounds = 0;
   for (let i = 0; i < WARMUP; i++) await round(false);
   while (rounds < MAX_ROUNDS) {
     const want = rounds < minRounds ? minRounds : rounds + STEP;
     while (rounds < want) { await round(true); rounds++; }
-    const { res } = resolution(baseline(), alpha);
-    if (res !== null && res <= TARGET_RESOLUTION_MS) break;
+    const worst = Math.max(...armsNow().map((a) => resolution(a, alpha).res ?? Infinity));
+    if (worst <= TARGET_RESOLUTION_MS) break;
   }
   return rounds;
 }
@@ -305,7 +307,7 @@ function judge(row, what, baselineName, arms, family) {
       if (keep) arms[k].push(ms);
       if (keep && !bodies[k]) bodies[k] = { status: out.status, html: normalise(out.html, tok) };
     }
-  }, () => arms['E9 never a link'], ALPHA / (Object.keys(STATES).length - 1));
+  }, () => Object.values(arms), ALPHA / (Object.keys(STATES).length - 1));
   const baseBody = bodies['E9 never a link'];
   const differ = Object.entries(bodies).filter(([, b]) => b.status !== baseBody.status || b.html !== baseBody.html).map(([k]) => k);
   check('E10b: every dead state is served the same status and the same bytes as a link that never existed (nonce and the token itself aside)', differ, []);
@@ -426,12 +428,7 @@ function judge(row, what, baselineName, arms, family) {
       if (keep) for (const v of VIEWS) { diffs[v].push(t[`held ${v}`] - t[`twin ${v}`]); raw[`held ${v}`].push(t[`held ${v}`]); raw[`twin ${v}`].push(t[`twin ${v}`]); }
     };
     if (rounds === undefined) {
-      rounds = await sampleUntilResolved(round, () => diffs[VIEWS[0]].length > diffs[VIEWS[1]].length ? diffs[VIEWS[0]] : diffs[VIEWS[1]], ALPHA / VIEWS.length, 2 * N);
-      // Both pages must be resolved, not only the first one checked.
-      while (rounds < MAX_ROUNDS && VIEWS.some((v) => (resolution(diffs[v], ALPHA / VIEWS.length).res ?? Infinity) > TARGET_RESOLUTION_MS)) {
-        for (let i = 0; i < STEP; i++) await round(true);
-        rounds += STEP;
-      }
+      rounds = await sampleUntilResolved(round, () => VIEWS.map((v) => diffs[v]), ALPHA / VIEWS.length, 2 * N);
     } else {
       // The second block runs at least as long as the first, and longer if
       // it is noisier — it is judged by its own resolution too.
