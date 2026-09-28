@@ -27,7 +27,10 @@ const BASE = arg('base', process.env.RENDER_BASE ?? 'http://localhost:3000');
 const OUT = arg('out', fileURLToPath(new URL('../docs/design/screens', import.meta.url)));
 const WIDTHS = arg('widths', '390,820,1280').split(',').map(Number).filter(Boolean);
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const PORT = 9334;
+// A fixed port is a shared resource: two seats capturing at once fight over
+// it exactly as they fought over the dev database (L30). Moves like
+// LAYOUT_CDP_PORT does for the layout check.
+const PORT = Number(process.env.SCREENS_CDP_PORT) || 9334;
 
 const ids = JSON.parse(readFileSync(new URL('../.dev-ids.json', import.meta.url), 'utf8'));
 const cookieFor = (p) => `${p}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(p).digest('base64url')}`;
@@ -91,11 +94,30 @@ await new Promise((r) => ws.addEventListener('open', r, { once: true }));
 let seq = 0; const waiting = new Map(); const events = [];
 ws.addEventListener('message', (m) => {
   const msg = JSON.parse(m.data);
-  if (msg.id && waiting.has(msg.id)) { waiting.get(msg.id)(msg); waiting.delete(msg.id); }
+  if (msg.id && waiting.has(msg.id)) { const w = waiting.get(msg.id); waiting.delete(msg.id); w.resolve(msg); }
   else if (msg.method) events.push(msg);
 });
-const cdp = (method, params = {}) => new Promise((resolve) => {
-  const id = ++seq; waiting.set(id, resolve); ws.send(JSON.stringify({ id, method, params }));
+// A deadline per call — the same defect the layout check carried (QA,
+// 28 Sept). Without it a browser that stops answering hangs this tool
+// forever, silently, and the report reads "it hung on <whatever page it was
+// on>" — which is how /squad/[personId]?back=controls got blamed twice.
+const CDP_TIMEOUT_MS = Number(process.env.SCREENS_CDP_TIMEOUT_MS) || 60000;
+let lastPath = '(startup)';
+const failAll = (why) => {
+  for (const [id, entry] of waiting) { waiting.delete(id); entry.reject(new Error(why)); }
+};
+ws.addEventListener('close', () => failAll('Chrome closed the debugging socket'));
+ws.addEventListener('error', () => failAll('the debugging socket errored'));
+const cdp = (method, params = {}) => new Promise((resolve, reject) => {
+  const id = ++seq;
+  const timer = setTimeout(() => {
+    waiting.delete(id);
+    reject(new Error(`Chrome stopped answering: ${method} got no reply in ${CDP_TIMEOUT_MS}ms, at ${lastPath}`));
+  }, CDP_TIMEOUT_MS);
+  waiting.set(id, { resolve: (msg) => { clearTimeout(timer); resolve(msg); },
+                    reject: (e) => { clearTimeout(timer); reject(e); } });
+  try { ws.send(JSON.stringify({ id, method, params })); }
+  catch (e) { clearTimeout(timer); waiting.delete(id); reject(e); }
 });
 const loaded = () => new Promise((resolve) => {
   const start = Date.now();
@@ -165,6 +187,7 @@ for (const width of WIDTHS) {
       try { await fetch(BASE + p, { headers: who ? { cookie: `pitch_session=${cookieFor(who)}` } : {} }); } catch { /* the capture below reports it */ }
     }
     for (const path of paths) {
+      lastPath = path;
       await cdp('Page.navigate', { url: BASE + path }); await loaded();
       await new Promise((r) => setTimeout(r, 350));
       const m = await evaluate(EMPTINESS(width, height));
