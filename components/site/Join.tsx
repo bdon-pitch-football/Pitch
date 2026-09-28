@@ -72,7 +72,7 @@ const COPY: Record<Role, { kicker: string; head: string; headAccent: string; lea
     ticks: [
       'Every player who registers interest in your club, in one list, by age group and position.',
       'A football CV behind every name, and trial invites sent inside Pitch.',
-      'Your club page, squads and trial notices are free. The Interest Register is $54 a month, or $329 a year.',
+      'Your club page, squads, trial notices and the Interest Register are all free at launch.',
     ],
   },
   player: {

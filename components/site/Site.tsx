@@ -291,7 +291,7 @@ const FAQ: [string, string][] = [
   ['How does it work?', 'You build a page with your football on it: clubs, seasons, positions, stats and clips. You send it to a club with a link, or register your interest in a club’s trial. If a club wants you, they invite you to trial through Pitch. If you’re under 18, a parent approves before anything is sent back.'],
   ['Who is it for?', 'Anyone in football, at any level. Players, parents of players under 18, coaches and clubs. We’re starting in Australia.'],
   ['When does it open?', 'We’re building it now and we’ll open when it’s ready. Join the waitlist and we’ll email you once, when we open.'],
-  ['What does it cost?', 'Players under 18 are free, and that won’t change. Players over 18 and coaches are free too, and we may add paid options for them later. Club pages are free. Clubs can add the Interest Register for $54 a month or $329 a year.'],
+  ['What does it cost?', 'Everything is free at launch: players, coaches, club pages and the Interest Register. Players under 18 are free, and that won’t change. We may add paid options for adults and clubs later, and we’ll tell you before anything changes.'],
   ['How does Pitch treat under-18s?', 'Under 16, a parent sends everything. At 16 and 17, players send their own page, and a parent is told every time and can turn sending off. Clubs can’t message children. A club can send one invitation to trial, which goes to the child and a parent together, and nothing goes back without a parent’s okay. Under-18 pages are kept out of search engines.'],
   ['Is Pitch a social network?', 'No. Pitch is a player development and pathway platform. There’s no feed, likes or followers. It’s a page you choose to send, and a record that builds each season.'],
   ['What happens with my email address?', 'It’s stored in Australia with the exact consent wording you saw when you joined. We use it for one email when we open, and every email we send has an unsubscribe link. The privacy policy has the details.'],
@@ -762,13 +762,13 @@ export default function Site() {
         <div style={section$}>
           <div className="sp-reveal" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 36 }}>
             <Kicker>Pricing</Kicker>
-            <h2 style={h2}>Free for players and coaches.</h2>
+            <h2 style={h2}>Free for everyone at launch.</h2>
           </div>
           <div className="sp-price">
             {[
               { t: 'Players' as const, p: 'Free', s: '', b: 'Under 18, free and staying free. Over 18, free now, with a paid option for extra features later.', c: C.accent },
               { t: 'Coaches' as const, p: 'Free', s: '', b: 'Your coaching page, share link and the coaching roles board. We may add a paid option later.', c: C.orange },
-              { t: 'Clubs' as const, p: '$54', s: 'a month, or $329 a year', b: 'Your club page, squads and trial notices are free. The Interest Register is the paid part. Cancel any time.', c: C.amber },
+              { t: 'Clubs' as const, p: 'Free', s: 'at launch', b: 'Your club page, squads, trial notices and the Interest Register. No card, nothing to cancel.', c: C.amber },
             ].map((x) => {
               const forYou = chosen && PRICE_FOR[who] === x.t;
               return (
