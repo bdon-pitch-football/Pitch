@@ -103,6 +103,39 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// U-6's fourth condition — the same promise, the same screen, the same bug.
+//
+// John: "a guardian may ask who at Pitch has looked at their child's record
+// and why, and get a straight answer. That is the condition that makes the
+// other three real." fn_who_looked answered it from 0025 and no page called
+// it, exactly as fn_send_log above. Reading the source cannot catch that;
+// rendering the page can.
+// ---------------------------------------------------------------------------
+{
+  // The card's words are proposals awaiting BUZ (components/WhoLooked), so
+  // these read its marker and the function's own values — who, what, which
+  // report — never its prose (L32). The card renders in development only
+  // until he approves them, which is where this suite runs.
+  const nate = ids.children.nate;
+  const card = (html) => html.slice(Math.max(0, html.indexOf('id="who-looked"')),
+    html.indexOf('id="who-looked"') === -1 ? 0 : html.indexOf('id="who-looked"') + 4000);
+  const told = card((await get(`/g/controls/${nate.child_id}`, alex)).html);
+  check('r5a: the guardian’s controls page carries the who-looked card, answered',
+    /data-who-looked="answered"/.test(told), true);
+  check('r5b: naming WHO at Pitch looked — the investigator fn_who_looked returns',
+    /data-investigator="?"?[^>]*>Priya Raman</.test(told), true);
+  check('r5c: and why — what was read, and the report it was opened against',
+    [told.includes('read the send log'), /data-look="[0-9a-f-]{36}"/.test(told)], [true, true]);
+
+  // The other half of the card, and the state almost every real family is in.
+  const none = card((await get(`/g/controls/${deniz.child_id}`, alex)).html);
+  check('r5d: a child nobody has looked at gets an answer, not a missing card',
+    /data-who-looked="nobody"/.test(none), true);
+  check('r5e: and no other family’s answer leaks onto that page',
+    none.includes('Priya Raman') || none.includes('read the send log'), false);
+}
+
+// ---------------------------------------------------------------------------
 // The CV, per age band. The stat tiles used to ship zeros in the HTML.
 // ---------------------------------------------------------------------------
 {

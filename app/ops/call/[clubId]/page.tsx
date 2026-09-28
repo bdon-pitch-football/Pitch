@@ -114,6 +114,29 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
               <option value="takedown">takedown</option>
             </select>
           </label>
+          {/* doc 31 M11/L29, doc 15 §37, 0066. The class of the suspension is
+              recorded on the call, and it is what decides whether families
+              holding a live link to this club are told at all. The operator
+              records it; nothing on this page works out what it means — the
+              database does (fn_guardians_to_notify_on_suspension). None
+              chosen records nothing and tells nobody, and the suspension
+              still happens: a safety action must not fail on a form field.
+
+              ⚠ AWAITING BUZ. The label is the field's own name and the options
+              are the values 0025 allows, shown raw exactly as the outcome
+              select above shows its own. The plain-words label and the note
+              explaining who is told are proposals in
+              docs/team/reports/2026-09-28-builder-unwired-promises.md and are
+              not on this screen until he approves them. */}
+          <label style={card}>
+            <div style={label}>suspension_reason</div>
+            <select style={select} name="suspension_reason">
+              <option value="">Choose one</option>
+              <option value="child_safety">child_safety</option>
+              <option value="administrative">administrative</option>
+              <option value="non_payment">non_payment</option>
+            </select>
+          </label>
           <label style={card}><div style={label}>Technical Director — the name they gave you on the call. Recorded only when the outcome is verified.</div><input style={input} name="td_name" placeholder="Full name" /></label>
           <label style={card}><div style={label}>Technical Director — their email address, as the club gave it</div><input style={input} type="email" name="td_email" placeholder="name@club.example.au" /></label>
           <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
