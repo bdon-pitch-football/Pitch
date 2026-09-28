@@ -12,6 +12,11 @@
 //        per link and per address) answers as a link that never existed,
 //        byte for byte and in time, whether the link is live or not. Not a
 //        doc 14 row: CLAUDE.md §2 asks for the limit, D-77 for the answer.
+//   req-t   request-access from the dead-link page answers a string that was
+//        never a link, a dead link and a live one — sent, or already asked
+//        today and held — byte for byte and in time (D-77, D-80; doc 14 C6
+//        and C7 ask for one answer, and this measures it). Not labelled with
+//        a row id: no doc 14 row words the timing of this handler (L4).
 //
 // Until 28 Sep all three were "met" by structural checks in the permission
 // suite — the page branches on one boolean, the limit is checked after the
@@ -23,8 +28,9 @@
 //   npm run test:timing        needs the dev app and the dev database, like
 //                              the render suite. RUN IT LAST: it pauses a
 //                              child, replaces a link, deletes a child, sends
-//                              about 120 CVs and registers and withdraws
-//                              interest. Reseed after it.
+//                              about 120 CVs, registers and withdraws
+//                              interest, and replaces Deniz's link and asks
+//                              for access a few hundred times. Reseed after it.
 //
 // HOW IT DECIDES, and why these numbers.
 //
@@ -424,6 +430,95 @@ if (runs('tok-rl')) {
   const { flagged, conclusive, res } = judge('tok-rl', 'a read refused by the token path’s rate limit, against a link that never existed', 'never a link (E9)', arms);
   if (!conclusive) inconclusive = true;
   check(`tok-rl: a refused read is not distinguishable from a link that never existed by response time, live link or not${conclusive ? ` (resolution ${res?.toFixed(2)}ms)` : ' — INCONCLUSIVE'}`,
+    conclusive ? flagged : 'inconclusive', []);
+  await clearRateLimits();
+}
+
+// ---------------------------------------------------------------------------
+// req-t — request access, in one time and one answer for every token (D-77,
+// D-80; brief D, 29 Sep). The handler used to answer a string that was never
+// a link straight away, and a real one after three more queries and a send:
+// the dead-link page's own form told a stranger whether the link had been a
+// child's. It now resolves the token through lib/record-read and answers
+// every path no sooner than the send floor (lib/send-dispatch).
+//
+// E10's method: the arms in the same rounds, in a fresh order each round,
+// against a string that was never a link, after the row proves its own
+// resolution. Five arms, so every path the handler has is in the race:
+//   · never a link;
+//   · a dead link, first request today — resolved and SENT to the guardian;
+//   · a live link, first request today — resolved and SENT;
+//   · a dead link already asked today — resolved and HELD (C7);
+//   · a live link already asked today — resolved and HELD.
+// "First request today" happens once per link, so the first two arms need a
+// fresh pair every round: the parent replaces Deniz's link twice, untimed —
+// the first new link is renewed away by the second (dead, never asked), and
+// the second is live and never asked. The held arms reuse one link each,
+// asked once in setup: dev-expired (dead) and dev-jordan (live).
+// ---------------------------------------------------------------------------
+if (runs('req-t')) {
+  const parent = ids.people.alex, deniz = ids.children.deniz;
+  const deadPage = (await get(`/p/${randomBytes(32).toString('base64url')}`)).html;
+  const ask = forms(deadPage).find((f) => 'token' in f.fields);
+  const replace = forms((await get(`/g/controls/${deniz.child_id}`, parent)).html).find((f) => f.submit === 'Replace');
+  const fresh = async () => {
+    const r = await post(`/g/controls/${deniz.child_id}`, parent, replace.fields);
+    return /[?&]link=([^&#]+)/.exec(r.location)?.[1] ?? null;
+  };
+  const request = (tok, name = 'Req Timing') => post(`/p/${tok}`, null, { ...ask.fields, token: tok, name, role: 'Coach, Coburg City FC' });
+  // Setup, proved rather than assumed: the held links are asked once, and a
+  // fresh pair is one dead and one live.
+  await clearRateLimits();
+  const deadTitle = title(deadPage);
+  const liveNow = async (tok) => title((await get(`/p/${tok}`)).html) !== deadTitle;
+  await request('dev-expired');
+  await request('dev-jordan');
+  const a = ask && replace ? await fresh() : null, b = a ? await fresh() : null;
+  check('req-t setup: the dead-link page carries the request form, the parent can replace Deniz’s link, and a replaced pair is one dead link and one live one',
+    [Boolean(ask), Boolean(replace), Boolean(a && b), a ? await liveNow(a) : null, b ? await liveNow(b) : null, await liveNow('dev-jordan'), await liveNow('dev-expired')],
+    [true, true, true, false, true, true, false]);
+  await clearRateLimits();
+
+  const arms = Object.fromEntries(['never a link', 'a dead link, sent', 'a live link, sent', 'a dead link, held', 'a live link, held'].map((k) => [k, []]));
+  const shapes = {};
+  let pair = [a, b];
+  let rounds = 0;
+  await sampleUntilResolved(async (keep) => {
+    if (++rounds % 50 === 0) await clearRateLimits();
+    const [dead, live] = pair;
+    const TOK = { 'never a link': randomBytes(24).toString('base64url'), 'a dead link, sent': dead, 'a live link, sent': live,
+      'a dead link, held': 'dev-expired', 'a live link, held': 'dev-jordan' };
+    for (const k of shuffle(Object.keys(arms))) {
+      const tok = TOK[k];
+      const { ms, out } = await timed(() => request(tok));
+      if (keep) arms[k].push(ms);
+      if (keep && !shapes[k]) {
+        shapes[k] = JSON.stringify([out.status, out.location.split(tok).join('<token>').replace(BASE, ''), out.body.split(tok).join('<token>'),
+          out.headers.filter(([h]) => h !== 'date').map(([h, v]) => [h, v.split(tok).join('<token>').replace(/'nonce-[^']+'/g, "'nonce-<per-request>'")])]);
+      }
+    }
+    // The next round's pair, untimed.
+    pair = [await fresh(), null];
+    pair[1] = await fresh();
+  }, () => Object.values(arms), ALPHA / (Object.keys(arms).length - 1));
+  // Which path each arm takes is proved, not assumed, the way the arms are
+  // built: a fresh pair's requests email Deniz's parent (doc 15 §6) and a
+  // second request on the same links does not. Named requesters, so the
+  // outbox (its newest fifty) can be read for exactly these.
+  const pd = await fresh();
+  const pl2 = await fresh();
+  await request(pd, 'Req Proof Dead');
+  await request(pl2, 'Req Proof Live');
+  await request(pd, 'Req Proof Again');
+  await request(pl2, 'Req Proof Again');
+  const box = (await get('/dev/outbox', ids.people.marina)).html;
+  check('req-t setup: a first request on a dead link and on a live one is sent to the guardian, and a second on either is held',
+    [Boolean(pd && pl2), box.includes('Req Proof Dead'), box.includes('Req Proof Live'), box.includes('Req Proof Again')], [true, true, true, false]);
+  check('req-t b: every path answers with the same status, the same Location (the requester’s own token aside), the same body and the same headers',
+    [...new Set(Object.values(shapes))].length, 1);
+  const { flagged, conclusive, res } = judge('req-t', 'request access, against a string that was never a link', 'never a link', arms);
+  if (!conclusive) inconclusive = true;
+  check(`req-t: a request on a dead link or a live one, sent or held, is not distinguishable from one on a string that was never a link by response time${conclusive ? ` (resolution ${res?.toFixed(2)}ms)` : ' — INCONCLUSIVE'}`,
     conclusive ? flagged : 'inconclusive', []);
   await clearRateLimits();
 }

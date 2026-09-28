@@ -768,8 +768,36 @@ await db.query(`insert into access_request (share_token_id, requester_name, requ
 check('C7: a second inside 24 hours is not', (await db.query('select fn_access_request_allowed($1) as ok', [arTok])).rows[0].ok, false);
 
 const arSrc = readFileSync(fileURLToPath(new URL('../app/p/[token]/request/actions.ts', import.meta.url)), 'utf8');
-check('C7b: and the answer is the same either way — one redirect, no branch',
-  (codeOnly(arSrc).match(/redirect\(done\)/g) ?? []).length >= 3, true);
+// Until 29 Sep this counted three `redirect(done)`, one per path. The handler
+// now has ONE redirect, after the floor, and the request itself is a function
+// that returns nothing — so there is nothing for the answer to branch on
+// (brief D). Same rule, asked of the new shape (L33).
+{
+  const code = codeOnly(arSrc);
+  const action = code.slice(code.indexOf('export async function requestAccess('), code.indexOf('async function askOnce('));
+  const ask = code.slice(code.indexOf('async function askOnce('));
+  check('C7b: and the answer is the same either way — one redirect, no branch',
+    [(code.match(/redirect\(/g) ?? []).length, /redirect\(/.test(ask), /async function askOnce\([^)]*\): Promise<void>/.test(ask),
+     /return [^;]/.test(ask)],
+    [1, false, true, false]);
+  // D-77 in time: the clock starts before the first await, and the one
+  // redirect comes straight after the send floor — never existed, dead,
+  // already asked today and sent all answer at the same moment. The timing
+  // suite's req-t row measures it; this pins the shape it cannot see.
+  const floorAt = action.indexOf('await answerNoSoonerThan(startedAt);');
+  check('req-floor1: request-access starts the clock first and answers every path no sooner than the send floor, with nothing awaited between the floor and the redirect',
+    [action.indexOf('const startedAt = performance.now();') >= 0 && action.indexOf('const startedAt = performance.now();') < action.indexOf('await '),
+     floorAt >= 0 && floorAt < action.indexOf('redirect('),
+     /await /.test(action.slice(floorAt + 'await answerNoSoonerThan(startedAt);'.length, action.indexOf('redirect('))),
+     /import \{ answerNoSoonerThan \} from '@\/lib\/send-dispatch';/.test(code)],
+    [true, true, false, true]);
+  // D-80: the handler reads the token through the one read path, and names
+  // neither the table nor the hash itself.
+  check('req-read1: request-access resolves the token through lib/record-read (D-80), and never asks share_token itself',
+    [/import \{ resolveTokenForNotice \} from '@\/lib\/record-read';/.test(code), /await resolveTokenForNotice\(token\)/.test(ask),
+     /share_token\b|token_hash|createHash/.test(code)],
+    [true, true, false]);
+}
 check('C6b: the requester’s own words are what travels', /requester_name|requester_role/.test(arSrc), true);
 check('C8: nothing about the request is observable by the requester',
   /status|seen|answered|declined/.test(codeOnly(arSrc)), false);
@@ -2321,13 +2349,138 @@ commit;`);
 check('M5: verifying releases every held row at once',
   (await db.query('select * from fn_register_rows($1,$2)', [mAdmin, mClub])).rows.length, 2);
 
-// M6 — a withdrawal removes the row and decrements the count, and the club
-// never learns a held registration existed.
+// D-128 — by here Held FC is verified (M5), so mReg is a registration the
+// club could read. Taking it off keeps the row, withdrawn and emptied; it
+// leaves the register and the count. (Labelled M6 until 29 Sep, but M6 is a
+// HELD registration, and this one was released at M5 — L4. M6 is below.)
 await db.query(`select fn_withdraw_registration($1,$2)`, [ID.guardian, mReg]);
-check('M6: a withdrawn registration leaves the register',
+check('D-128: a readable registration taken off leaves the register',
   (await db.query('select * from fn_register_rows($1,$2)', [mAdmin, mClub])).rows.length, 1);
-check('M6b: and the count decrements with it',
+check('D-128b: and the count decrements with it',
   (await db.query('select fn_register_count($1,$2) as n', [mAdmin, mClub])).rows[0].n, 1);
+
+// M6 — a family withdraws while a registration is HELD: the row is removed and
+// the count decrements, and the club can never learn it existed (0095; brief
+// D, round C's option a). Held means the club has never been verified, so it
+// has only ever seen a count. A club of its own, with an administrator (who
+// reads the count, D-126) and no Technical Director: recordTd logs a verified
+// call, which is exactly what makes a club's rows readable once and so keeps
+// them (the rule below). Georgia is a minor and ID.guardian her parent.
+{
+  const hClub = crypto.randomUUID(), hAdmin = crypto.randomUUID();
+  const hReg = crypto.randomUUID(), hKeep = crypto.randomUUID(), hSent = crypto.randomUUID(), hReq = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Held Twice FC','claimed')`, [hClub]);
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Held Twice Admin','${yearsAgo(40)}')`, [hAdmin]);
+  await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [hAdmin, hClub]);
+  for (const [id, note] of [[hReg, 'Keen on Tuesdays'], [hKeep, null], [hSent, 'Sent by my mum']]) {
+    await db.query(`insert into registration (id, player_id, club_id, note, policy_version) values ($1,$2,$3,$4,'20@v2.4')`,
+      [id, id === hKeep ? ID.nate : ID.georgia, hClub, note]);
+  }
+  // hSent came the under-16 way: the child asked and the guardian sent it, so
+  // the child's request points at the registration it made (0005).
+  await db.query(`insert into registration_request (id, record_id, club_id, note, dispatched_by, dispatched_at, registration_id)
+    values ($1,$2,$3,'Sent by my mum',$4,now(),$5)`, [hReq, REC.georgia, hClub, ID.guardian, hSent]);
+  const count = async () => (await db.query('select fn_register_count($1,$2) as n', [hAdmin, hClub])).rows[0].n;
+  // Everything the club side can ask, captured before anything comes or goes.
+  const clubView = async () => JSON.stringify([
+    await count(),
+    (await db.query('select * from fn_register_rows($1,$2)', [hAdmin, hClub])).rows,
+    (await db.query(`select club_state, verified_call_id, subscription_status, current_period_end, grace_until from club where id = $1`, [hClub])).rows,
+  ]);
+  const everywhere = async (id) => {
+    // Every column of every table in the schema that could hold this id —
+    // a uuid, or text/json that might carry it — asked for it.
+    const cols = (await db.query(
+      `select table_name, column_name, data_type from information_schema.columns
+       where table_schema = 'public' and data_type in ('uuid','text','jsonb','json')
+         and table_name in (select table_name from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE')`)).rows;
+    const found = [];
+    for (const c of cols) {
+      const cond = c.data_type === 'uuid' ? `"${c.column_name}" = $1::uuid` : `"${c.column_name}"::text like '%' || $1 || '%'`;
+      const n = (await db.query(`select count(*)::int as n from "${c.table_name}" where ${cond}`, [id])).rows[0].n;
+      if (n) found.push(`${c.table_name}.${c.column_name}`);
+    }
+    return found;
+  };
+
+  check('M6 setup: three held registrations, a count of three, and not one row for the club',
+    [await count(), (await db.query('select * from fn_register_rows($1,$2)', [hAdmin, hClub])).rows.length,
+     (await db.query('select fn_registration_held_unread($1) as h', [hReg])).rows[0].h], [3, 0, true]);
+  const before = await clubView();
+  check('M6: the family takes a held registration off — the answer is yes', (await db.query('select fn_withdraw_registration($1,$2) as ok', [ID.guardian, hReg])).rows[0].ok, true);
+  check('M6: and the row is removed, not marked', (await db.query('select count(*)::int as n from registration where id = $1', [hReg])).rows[0].n, 0);
+  check('M6: the count decrements', await count(), 2);
+  // The family's own action logs the withdrawal on the consent spine, as
+  // app/registers/actions.ts does, and that is the one place left that names
+  // it: the family's log, which no club-side page reads.
+  await db.query(`insert into consent_event (event, actor_id, subject_id, detail)
+    values ('registration_withdrawn', $1, $2, jsonb_build_object('registration_id', $3::uuid))`, [ID.guardian, ID.georgia, hReg]);
+  const clubSide = routeFiles.filter((f) => /\/app\/(club|coach|fc)\//.test(f) && /(from|join)\s+consent_event/.test(codeOnly(readFileSync(f, 'utf8'))));
+  check('M6: and nothing in the database still names it but the family’s own consent log, which no club page reads — no row, no pointer, no audit entry a club can see',
+    [await everywhere(hReg), clubSide, routeFiles.filter((f) => /\/app\/(club|coach|fc)\//.test(f)).length > 20], [['consent_event.detail'], [], true]);
+  // The club-side reads, before and after, less the count, are the same:
+  // no gap, no changed timestamp, nothing that moved on the club.
+  const afterView = JSON.parse(await clubView());
+  const beforeView = JSON.parse(before);
+  check('M6: every other club-side answer is exactly what it was — the club state, its dates, its (empty) rows',
+    JSON.stringify(afterView.slice(1)), JSON.stringify(beforeView.slice(1)));
+  check('M6: one the guardian sent for a child goes the same way, and the child’s own request no longer points at it',
+    [(await db.query('select fn_withdraw_registration($1,$2) as ok', [ID.guardian, hSent])).rows[0].ok,
+     (await db.query('select count(*)::int as n from registration where id = $1', [hSent])).rows[0].n,
+     (await db.query('select registration_id from registration_request where id = $1', [hReq])).rows[0].registration_id,
+     await count()],
+    [true, 0, null, 1]);
+  // Verified afterwards: the club is released the one that stayed, and has
+  // nothing to show for the ones that went.
+  const hCall = crypto.randomUUID();
+  await db.exec(`begin;
+    insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ('${hCall}','${hClub}', now(), 'BUZ', '03 9000 0000', 'FV club directory', 'verified', '27@v1.0');
+    update club set club_state='verified', verified_call_id='${hCall}' where id='${hClub}';
+  commit;`);
+  await recordTd(hAdmin, hClub, 'heldtwice@fixture.example');
+  check('M6: a club verified afterwards is released only the registration that stayed',
+    (await db.query('select * from fn_register_rows($1,$2)', [hAdmin, hClub])).rows.map((r) => r.registration_id), [hKeep]);
+
+  // D-128 — the other half, unchanged: a registration a club could read keeps
+  // its row, withdrawn and emptied, and the family keeps the record of who
+  // read it (doc 34 rule 6, fn_register_readers). Now that this club is
+  // verified, hKeep is one; its reader is on record.
+  await db.query(`insert into register_read_log (person_id, registration_id, surface) values ($1,$2,'list')`, [hAdmin, hKeep]);
+  check('D-128: a readable registration taken off keeps its row, withdrawn, with its note emptied, and its reader on record',
+    [(await db.query('select fn_withdraw_registration($1,$2) as ok', [ID.nate, hKeep])).rows[0].ok,
+     (await db.query('select withdrawn_at is not null as w, note from registration where id = $1', [hKeep])).rows[0],
+     (await db.query('select count(*)::int as n from register_read_log where registration_id = $1', [hKeep])).rows[0].n,
+     (await db.query('select * from fn_register_rows($1,$2)', [hAdmin, hClub])).rows.length],
+    [true, { w: true, note: null }, 1, 0]);
+
+  // Which rows are held, as the database answers it (0095): only a club that
+  // has never been verified. Suspended after a verification is NOT held — it
+  // may have read the row before — and neither is a club whose verified call
+  // was logged and whose state did not follow (the doubt keeps the row).
+  const probe = async (state, calls, readLog) => {
+    const c = crypto.randomUUID(), r = crypto.randomUUID();
+    await db.query(`insert into club (id, name, club_state) values ($1,'Probe FC','claimed')`, [c]);
+    for (const outcome of calls) {
+      const call = crypto.randomUUID();
+      await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+        values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory',$3,'27@v1.0')`, [call, c, outcome]);
+      if (outcome === 'verified') await db.query(`update club set verified_call_id = $1 where id = $2`, [call, c]);
+    }
+    if (state !== 'claimed') await db.query(`update club set club_state = $1 where id = $2`, [state, c]);
+    await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`, [r, ID.nate, c]);
+    if (readLog) await db.query(`insert into register_read_log (person_id, registration_id, surface) values ($1,$2,'list')`, [hAdmin, r]);
+    const held = (await db.query('select fn_registration_held_unread($1) as h', [r])).rows[0].h;
+    await db.query('delete from registration where id = $1', [r]);
+    return held;
+  };
+  check('M6: held means never verified — claimed, unclaimed or refused on the call: yes; verified, suspended after a verification, a verified call logged, or a reader on record: no',
+    [await probe('claimed', [], false), await probe('unclaimed', [], false), await probe('claimed', ['not_verified'], false),
+     await probe('verified', ['verified'], false), await probe('suspended', ['verified', 'suspended'], false),
+     await probe('claimed', ['verified'], false), await probe('claimed', [], true)],
+    [true, true, true, false, false, false, false]);
+  await db.query('delete from registration where id = $1', [hKeep]);
+}
 
 // M10 — suspension is immediate and total.
 check('M10a: a verified club is minor-facing',
@@ -2822,8 +2975,13 @@ check('L39: no Retry-After or rate-limit header is ever set',
 const sendPage = readFileSync(fileURLToPath(new URL('../app/g/send/[requestId]/page.tsx', import.meta.url)), 'utf8');
 check('L42: the sender’s own page shows no counter or remaining-sends state',
   /remaining|sends left|limit/i.test(codeOnly(sendPage)), false);
-check('L38b: the dev link is absent in production, so both paths render alike',
-  /process\.env\.NODE_ENV !== 'production'/.test(sendPage), true);
+// Until 29 Sep this asserted a development-only link panel was switched off
+// in production. The panel and the address that fed it are gone (brief D:
+// the redirect itself differed), so the rule is asked directly: the page reads
+// nothing from the address but whether it was sent, and has no branch by
+// environment — both paths render alike everywhere (L33).
+check('L38b: the page both paths land on reads only `sent` from the address and has no development-only branch, so both render alike',
+  [/searchParams: Promise<\{ sent\?: string \}>;/.test(sendPage), /NODE_ENV|\blink\b\s*&&|\{link\}/.test(codeOnly(sendPage))], [true, false]);
 check('L43: the ceiling is one config value with one definition',
   /SEND_DAILY_CAP = \d+/.test(readFileSync(fileURLToPath(new URL('../lib/football.ts', import.meta.url)), 'utf8')), true);
 
@@ -8019,6 +8177,80 @@ const componentFilesAll = [];
      /const link = await checkRate\([^;]*\);\s*const address = await checkRate\([^;]*\);\s*return link && address;/.test(readSrc),
      /const withinLimits = cache\(/.test(readSrc)],
     [true, 1, false, true, true]);
+}
+
+// --- One reader of share_token by its hash (D-80; brief D, 29 Sep). CLAUDE.md
+//     names the request-access handler as a caller of the one read path, and
+//     until 29 Sep it asked share_token itself. A token's hash is how a
+//     stranger's string becomes a child's record, so everything that turns
+//     one into the other is in lib/record-read.ts — with two named exceptions
+//     that are not a token holder at all:
+//
+//       app/ops/reports/page.tsx, app/ops/reports/actions.ts — the operator's
+//       report desk (doc 32 A1). A report on a player page stores the hex of
+//       the link's hash (never the token); the desk resolves it to a record
+//       id and nothing else, to put a hold on the page — it takes access
+//       away, never grants it. Behind requireOperator, and it selects no field
+//       of the record (D-79).
+{
+  // Every SQL string in the code. For each predicate on a token_hash column,
+  // which table owns it: the alias's table, or for a bare column the nearest
+  // table named before it. share_token's is a hit.
+  const shareTokenByHash = (src) => {
+    const hits = [];
+    const code = codeOnly(src);
+    for (const m of [...code.matchAll(/`([^`]*)`/g), ...code.matchAll(/'([^'\n]*)'/g)]) {
+      const sql = m[1];
+      for (const t of sql.matchAll(/(?:(\w+)\.)?token_hash\s*(?:=|\bin\b)|=\s*(?:(\w+)\.)?token_hash\b/gi)) {
+        const alias = t[1] ?? t[2];
+        const table = alias
+          ? (new RegExp(`\\b(?:from|join|update|into)\\s+(\\w+)\\s+(?:as\\s+)?${alias}\\b`, 'i').exec(sql)?.[1] ?? alias)
+          : [...sql.slice(0, t.index).matchAll(/\b(?:from|join|update|into)\s+(\w+)/gi)].pop()?.[1];
+        if (table === 'share_token') hits.push(sql);
+      }
+    }
+    return hits;
+  };
+  // L19: the scanner catches the shapes it exists for, and passes the one
+  // near miss in the product (the undo page matches undo_token by its hash
+  // and updates share_token by id).
+  const selfTest = [
+    shareTokenByHash('db.query(`select st.id from share_token st join development_record dr on dr.id = st.record_id where st.token_hash = $1`)').length,
+    shareTokenByHash("db.query(`select record_id from share_token where token_hash = decode($1, 'hex')`)").length,
+    shareTokenByHash("db.query('select id from share_token where token_hash = $1')").length,
+    shareTokenByHash('db.query(`update share_token set revoked_at = now() where id = (select share_token_id from undo_token where token_hash = $1)`)').length,
+    shareTokenByHash('db.query(`insert into share_token (record_id, token_hash) values ($1,$2)`)').length,
+  ];
+  const ALLOWED = ['app/ops/reports/actions.ts', 'app/ops/reports/page.tsx'];
+  const readers = tsSourceFiles().concat(['proxy.ts']).filter((f) => shareTokenByHash(srcOf(f)).length > 0).sort();
+  check(`tok-one1: nothing outside lib/record-read.ts selects from share_token by token_hash, but the operator's report desk (${readers.join(', ')})`,
+    [selfTest, readers.filter((f) => f !== 'lib/record-read.ts' && !ALLOWED.includes(f)), ALLOWED.every((f) => readers.includes(f))],
+    [[1, 1, 1, 0, 0], [], true]);
+  // The notice lookup answers every token with the same one query: it starts
+  // from the hash and left-joins, so a string that was never a link gets a row
+  // of nulls from the same statement a real one gets its row from, and an
+  // absurd string is looked up as a hash nothing matches rather than answered
+  // without a query.
+  const readSrc = codeOnly(srcOf('lib/record-read.ts'));
+  const notice = readSrc.slice(readSrc.indexOf('export async function resolveTokenForNotice('), readSrc.indexOf('export async function assembleCv('));
+  check('tok-one2: the notice lookup runs one query of one shape for every token — never existed, dead or live — and selects nothing from the record',
+    [(notice.match(/db\.query\(/g) ?? []).length, /return null/.test(notice.slice(0, notice.indexOf('db.query('))),
+     /from \(select \$1::bytea as token_hash\) asked\s+left join share_token st on st\.token_hash = asked\.token_hash/.test(notice),
+     /: randomBytes\(32\);/.test(notice), /dr\.(?!id\b|person_id\b)\w+/.test(notice), /select st\.id as token_id, p\.first_name,/.test(notice)],
+    [1, false, true, true, false, true]);
+}
+
+// --- The address bar after a send (L38/L42; brief D, 29 Sep). A real send
+//     by a guardian redirected to `?sent=1&link=<the raw token>` and a limited
+//     one to `?sent=1`, so the address said whether the limit bit and a live
+//     share token sat in the browser's history. What the two responses
+//     actually are is the write suite's (addr-w*); these pin the source.
+{
+  const act = codeOnly(dispatchSrc);
+  const redirects = [...act.matchAll(/redirect\(([^)]*)\)/g)].map((m) => m[1]);
+  check('addr1: the guardian’s send door answers a real send and a limited one with exactly the same address, and no redirect carries the link',
+    [redirects.filter((r) => /sent=1/.test(r)), redirects.some((r) => /raw|link|token/.test(r))],
+    [['`/g/send/${requestId}?sent=1`', '`/g/send/${requestId}?sent=1`'], false]);
 }
 
 // --- Vercel Analytics sees four public pages and nothing else (brief C,

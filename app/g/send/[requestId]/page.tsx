@@ -17,10 +17,10 @@ const label = sectionLabel;
 
 export default async function GuardianSend({ params, searchParams }: {
   params: Promise<{ requestId: string }>;
-  searchParams: Promise<{ sent?: string; link?: string }>;
+  searchParams: Promise<{ sent?: string }>;
 }) {
   const { requestId } = await params;
-  const { sent, link } = await searchParams;
+  const { sent } = await searchParams;
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
@@ -52,15 +52,6 @@ export default async function GuardianSend({ params, searchParams }: {
         <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark back={{ href: '/home', label: 'Your family' }} />
           <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>Sent. {clubName} can open {name}&rsquo;s page.</h1>
-          {/* Development only. In production this block is absent, which is
-              what makes a rate-limited send byte-identical to a real one
-              (L38/L39) — there is no link to differ by. */}
-          {link && process.env.NODE_ENV !== 'production' && (
-            <div style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>The link that went — dev only, email sending arrives with Resend</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, wordBreak: 'break-all' }}>pitchfootball.com.au/p/{link}</div>
-            </div>
-          )}
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>You can pause or replace {name}&rsquo;s link any time — the club&rsquo;s access stops when you do.</div>
         </div>
       </div>

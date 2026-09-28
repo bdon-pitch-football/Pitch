@@ -20,6 +20,7 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { watchForTokens } from './token-in-url.mjs';
 
 // A genuine 1x1 PNG. Uploads are re-encoded server-side and type-checked by
 // CONTENT rather than extension (D-94 §7), so a text file pretending to be an
@@ -29,6 +30,9 @@ const PNG = Buffer.from(
   'base64');
 
 const BASE = process.env.RENDER_BASE ?? 'http://localhost:3000';
+// Every response from here on is watched for a share token in what it would
+// put in an address bar (scripts/token-in-url.mjs; brief D). Judged at the end.
+const tokenWatch = watchForTokens(BASE);
 const ids = JSON.parse(readFileSync(new URL('../.dev-ids.json', import.meta.url), 'utf8'));
 // A session is a row now (0062), so a cookie is not something a script can
 // compute: it has to name a session the database issued. The seed issues one
@@ -2120,6 +2124,56 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 }
 
 // ---------------------------------------------------------------------------
+// THE ADDRESS BAR AFTER A GUARDIAN'S SEND (brief D, 29 Sep; doc 14 L38/L42).
+// A real send redirected to `?sent=1&link=<the raw token>` and a limited one
+// to `?sent=1`: the address said whether the limit bit, and a live link to
+// the child's CV sat in the browser's history. Pressed here as the parent
+// presses it, until the daily limit holds one, and the two answers compared
+// whole. Which press went and which was held is read off the outbox (the
+// club's §19 email goes for a real send only), never assumed. Georgia, as the
+// block above; after it, because the limit it reaches is the parent's for
+// the day, and before the sessions block, which signs the parent out.
+// ---------------------------------------------------------------------------
+{
+  const parent = ids.people.alex, kid = ids.children.georgia;
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const box = async () => plain((await get('/dev/outbox', parent)).html);
+  const pressed = [];
+  // The parent's allowance is ten a day (SEND_DAILY_CAP), some of it spent
+  // above; twelve presses reach the limit from anywhere short of it.
+  for (let i = 0; i < 12; i++) {
+    const address = `press-${i}@addressbar.example.au`;
+    const sendForm = forms((await get(`/send/${kid.record_id}`, parent)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+    if (!sendForm) break;
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ ...sendForm.fields, clubName: 'Addressbar FC', address })) fd.append(k, v);
+    await (await fetch(BASE + `/send/${kid.record_id}`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(parent) } })).text();
+    const text = await box();
+    const ask = /\/g\/send\/([0-9a-f-]{36})/.exec(text.slice(text.indexOf(`It goes to: ${address}`)))?.[1];
+    const gSend = ask && forms((await get(`/g/send/${ask}`, parent)).html).find((f) => 'requestId' in f.fields);
+    if (!gSend) break;
+    const gfd = new FormData();
+    for (const [k, v] of Object.entries(gSend.fields)) gfd.append(k, v);
+    const r = await fetch(BASE + `/g/send/${ask}`, { method: 'POST', body: gfd, redirect: 'manual', headers: { cookie: cookieFor(parent) } });
+    const body = await r.text();
+    const at = (s) => s.split(ask).join('<request>').replace(/'nonce-[^']+'/g, "'nonce-<per-request>'");
+    pressed.push({ address, location: r.headers.get('location') ?? '',
+      shape: JSON.stringify([r.status, at(r.headers.get('location') ?? ''), at(body),
+        [...r.headers.entries()].filter(([k]) => k !== 'date').map(([k, v]) => [k, at(v)])]) });
+  }
+  const sent = await box();
+  const real = pressed.filter((p) => sent.includes(`doc15.§19 → ${p.address}`));
+  const held = pressed.filter((p) => !sent.includes(`doc15.§19 → ${p.address}`));
+  check('addr-w1 setup: the parent pressed send until the daily limit held one — some went to the club, the rest did not',
+    [pressed.length, real.length > 0, held.length > 0], [12, true, true]);
+  check('addr-w1: a real send and a limited one answer byte for byte alike — status, Location, body, every header (the request’s own id and the date aside)',
+    [...new Set([real[0]?.shape, held[0]?.shape, ...pressed.map((p) => p.shape)])].length, 1);
+  check('addr-w2: and the address both land on is exactly /g/send/<request>?sent=1 — no link, no token, nothing more',
+    [...new Set(pressed.map((p) => p.location.replace(BASE, '').replace(/\/g\/send\/[0-9a-f-]{36}/, '/g/send/<request>')))], ['/g/send/<request>?sent=1']);
+}
+
+// ---------------------------------------------------------------------------
 // D-137 at checkout: the name, the role and the tick. The page declared
 // `error` in its searchParams type and never took it out again, so pressing
 // Subscribe without the authority tick — or with a name that is only spaces,
@@ -2502,6 +2556,16 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const swLog = (await get('/ops/switches', op)).html;
   check('sms-w12: the switch log names every reason', ['sms drill', 'sms drill over', 'cap drill', 'cap drill over'].every((r) => swLog.includes(r)), true);
 }
+
+// ---------------------------------------------------------------------------
+// addr-w3 — no response in the whole write crawl sends a share token into an
+// address bar: not in a redirect, and not in a link a page carries (brief D;
+// L38/L42). The three pages that show a new link once are named in
+// scripts/token-in-url.mjs and counted here, so the watcher is seen to have
+// met a token in a Location and recognised it (L19).
+// ---------------------------------------------------------------------------
+check(`addr-w3: no response in the write crawl carries a share token in a Location or in a link's query string, but the three that show a new link once (${tokenWatch.pages} pages, ${tokenWatch.redirects} redirects, ${tokenWatch.shownOnce} shown once)`,
+  [tokenWatch.leaks, tokenWatch.redirects > 100, tokenWatch.shownOnce > 0], [[], true, true]);
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
 console.log('NOTE: this mutated the dev database. Restart scripts/dev-db.mts for a clean one.');
