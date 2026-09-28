@@ -1793,7 +1793,11 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     [/1st /.test(adminView), /self-reported/.test(adminView)], [false, false]);
   const tdView = words((await get(`/club/squads/${u15}`, td)).html);
   check('sq8c: the TD\'s list reads like a team sheet: the shape of the squad, then each player\'s own order of positions',
-    [/Goalkeepers/.test(tdView), /1st /.test(tdView), /In the squad since/.test(tdView)], [true, true, true]);
+    // The keeper tile is there whether or not the squad has one — U15 Boys has none,
+    // so it says so in words (D-162), never "0 Goalkeepers".
+    [/Goalkeepers?|No goalkeeper yet/.test(tdView), /1st /.test(tdView), /In the squad since/.test(tdView)], [true, true, true]);
+  check('sq8d: a squad without a keeper says so in words, never with a zero (D-162)',
+    [/No goalkeeper yet/.test(tdView), /\b0\s*Goalkeepers?\b/i.test(tdView)], [true, false]);
   check('sq9: the TD can open a squad player\'s CV', /Open the CV/.test(roster), true);
   const cvHref = /href="(\/club\/squads\/[0-9a-f-]{36}\/cv\/[0-9a-f-]{36})"/.exec((await get(`/club/squads/${u15}`, td)).html)?.[1];
   check('sq10: and it opens for the TD, not for an administrator or a stranger',
