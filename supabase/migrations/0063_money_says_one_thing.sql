@@ -112,20 +112,26 @@ end $$;
 -- coach with no grant is not on it: they are not one of the club's readers,
 -- and a fifteen-coach club would bury the three rows that matter.
 --
--- WHO MAY ASK, and this is the restrictive side of an unclear question
--- (TRAINING §3.8), written down here rather than left in a page. N23 gives
--- the grant list to the TD. It does not give it to the administrator, and
--- O11's permission for the administrator to read billing carries the explicit
--- condition that it must not widen any minor-facing permission. So:
---   · the technical director gets every row;
---   · an administrator gets ONE row — their own — because what a person's own
---     access is is never a disclosure to them, and the administrator on the
---     billing page is exactly the person D-93's sentence is about;
---   · everybody else gets an empty set.
--- The cost belongs to BUZ and not to this migration: an administrator cannot
--- see, on the screen attached to the money, that the club's coaches are named
--- and few. If he wants that, it is one line — the `v_td` branch widens — and
--- it is his call, not mine.
+-- WHO MAY ASK: the club's technical director and its club administrator, both
+-- in full, and nobody else at all.
+--
+-- I built this restricted to the TD first, on TRAINING §3.8 — N23 gives the
+-- grant list to the technical director and does not mention the administrator,
+-- and O11's permission for the administrator to read billing carries the
+-- explicit condition that it must not widen any minor-facing permission. The
+-- design settles it the other way and settles it plainly:
+-- docs/design/mockups/club-home-admin.html (23 Sep) draws this list on the
+-- ADMINISTRATOR's own home, showing her the technical director and the granted
+-- coach by name, and argues that it is "the only place in the product where the
+-- D-93 role split is said out loud to the person it constrains". An
+-- administrator discovering she cannot read the register by pressing something
+-- and getting nothing is what we ship today.
+--
+-- It widens nothing minor-facing, which is the condition O11 actually sets: no
+-- registration, no child's name, no count of children and no development record
+-- is in this answer. It is the club's own staff, their roles and the teams they
+-- were granted — facts the administrator already manages memberships for.
+-- It is still a widening, so it is written down here and it is in the handoff.
 --
 -- `scope` is AUTHORITY, not today's weather. A suspended club's TD still has
 -- whole-register authority and reads nothing until a payment goes through;
@@ -135,7 +141,6 @@ create function fn_club_register_readers(p_person uuid, p_club uuid)
 returns table (reader_id uuid, reader_name text, role_label text,
                scope text, squad_names text[], since timestamptz)
 language plpgsql stable as $$
-declare v_td boolean;
 begin
   if p_person is null or p_club is null then return; end if;
   if not exists (
@@ -145,7 +150,6 @@ begin
   ) then
     return;
   end if;
-  v_td := fn_can_work_register(p_person, p_club);
 
   return query
     with people as (
@@ -182,11 +186,18 @@ begin
         select s.name from squad s
         where s.id in (select fn_register_grant_squads(p.id, p_club))
         order by s.name), '{}'::text[]),
-      (select min(m3.started_at) from membership m3
-        where m3.person_id = p.id and m3.club_id = p_club and m3.ended_at is null)
+      -- "since when" (N23, doc 34 rule 5): for a granted coach that is when
+      -- the GRANT was made, which is the date the access started — not when
+      -- they joined the club, which can be years earlier. For everybody else
+      -- it is the membership the power comes from.
+      coalesce(
+        (select min(g3.granted_at) from register_grant g3
+          where g3.person_id = p.id and g3.club_id = p_club and g3.revoked_at is null
+            and g3.squad_id in (select fn_register_grant_squads(p.id, p_club))),
+        (select min(m3.started_at) from membership m3
+          where m3.person_id = p.id and m3.club_id = p_club and m3.ended_at is null))
     from people
     join person p on p.id = people.person_id
-    where v_td or p.id = p_person
     order by
       case when fn_can_work_register(p.id, p_club) then 1
            when exists (select 1 from fn_register_grant_squads(p.id, p_club)) then 2

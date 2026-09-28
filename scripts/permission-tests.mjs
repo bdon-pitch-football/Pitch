@@ -5334,8 +5334,20 @@ const componentFilesAll = [];
   check('readers2: so is a team manager (doc 34 rule 4)', byName['Money Manager Fixture']?.scope, 'none');
   check('readers3: a coach with no grant is not a reader and is not listed',
     tdView.some((r) => r.reader_name === 'Money Bench Fixture'), false);
-  check('readers4: an administrator asking is shown one row — their own',
-    (await readers(mAdmin)).map((r) => r.reader_name), ['Money Admin Fixture']);
+  // The administrator gets the SAME list, in full. I built it restricted to
+  // the TD on TRAINING §3.8 and the design settles it the other way:
+  // club-home-admin.html draws this block on the administrator's own home and
+  // argues it is the only place D-93's split is said out loud to the person it
+  // constrains. It widens nothing minor-facing, which is the condition O11
+  // actually sets — no registration, no child, no count of children is in it.
+  check('readers4: the administrator gets the same list, in full — D-93 said out loud to the person it constrains',
+    (await readers(mAdmin)).map((r) => r.reader_name), tdView.map((r) => r.reader_name));
+  check('readers4b: and it still carries no registration, no child and no count of children',
+    (await db.query(`select * from fn_club_register_readers($1,$2)`, [mAdmin, MON]))
+      .fields.map((f) => f.name).sort(),
+    ['reader_id', 'reader_name', 'role_label', 'scope', 'since', 'squad_names'].sort());
+  check('readers4c: and "since when" for a granted coach is when the GRANT was made, not when they joined the club',
+    (await readers(mTd)).find((r) => r.scope === 'squads')?.dated, true);
   for (const [who, what] of [[grantedCoach, 'a granted coach'], [mTm, 'a team manager'], [ID.td, 'another club’s TD'], [ID.guardian, 'a guardian'], [null, 'nobody']]) {
     check(`readers5: ${what} gets no list at all`, (await readers(who)).length, 0);
   }

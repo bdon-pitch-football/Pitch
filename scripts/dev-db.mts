@@ -708,6 +708,21 @@ await db.query(
    order by r.created_at limit 2`,
   [coburg, riverside],
 );
+// AND ITS ADMINISTRATOR. The administrator's /home (club-home-admin.html) is
+// the first Pitch screen anybody at a club is likely to open, and until now the
+// only fixture for that seat was Pat at Riverside — a club with a crest, a
+// philosophy, a public slug and a paid plan, so three of the four blocks on
+// that screen had nothing to render. Robyn is an administrator at a verified
+// club with none of those: no crest, nothing written about how the club plays,
+// no public page yet, and a payment that failed.
+const coburgAdmin = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Robyn','Callister','1981-08-22','coburg.admin@example.com')`, [coburgAdmin]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [coburgAdmin, coburg]);
+// A team manager, because doc 34 rule 4 puts them on the same side of D-93's
+// wall as an administrator and no fixture had one at a verified club.
+const coburgTm = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Tomas','Villa','1975-03-09','coburg.tm@example.com')`, [coburgTm]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'team_manager')`, [coburgTm, coburg]);
 
 // Demo mode (npm run demo): rename the club to the one BUZ is meeting, and
 // serve on the demo port so a demo and the dev database never meet.

@@ -1182,8 +1182,9 @@ const georgia = ids.children.georgia;
 
   const pb = await get('/club/billing', pat);
   check('b9: the invoicing volunteer reads billing (O11)', pb.status, 200);
-  check('b9b: and is shown her own access and nobody else’s',
-    [has(pb.html, 'Pat Nguyen'), has(pb.html, 'Marina Petrovic'), has(pb.html, 'Sam Kaya')], [true, false, false]);
+  check('b9b: and is shown the same list of readers the TD is — including her own row, reading nothing',
+    [has(pb.html, 'Pat Nguyen'), has(pb.html, 'Marina Petrovic'), has(pb.html, 'Sam Kaya'),
+     has(pb.html, 'Club administrator — reads no registration')], [true, true, true, true]);
 
   const db_ = await get('/club/billing', dana);
   check('b10: a club with no subscription still gets the checkout, with the D-137 tick',
@@ -1284,6 +1285,96 @@ const georgia = ids.children.georgia;
     check(`ret-r11: ${who} who was here today gets nothing`,
       block(text((await get('/home', id)).html)), null);
   }
+}
+
+// ---------------------------------------------------------------------------
+// A club administrator's /home (club-home-admin.html, 23 Sep; BUZ asked for it
+// 28 Sep). It was the technical director's screen rendered for somebody with
+// none of her access: a hero built around a register row an administrator
+// correctly cannot have, and a rail that was the sidebar again as six identical
+// grey buttons with no primary action anywhere. Often the first Pitch screen
+// anybody at a club opens.
+// ---------------------------------------------------------------------------
+{
+  const pat = ids.people.pat;        // Riverside: verified, paying, crest, philosophy, public page
+  const robyn = ids.people.robyn;    // Coburg City FC: verified, payment failed, no crest, no page
+  const a = await get('/home', pat);
+  const t = text(a.html);
+
+  check('ah1: the hero carries the numbers an administrator IS entitled to',
+    has(a.html, 'Squads you run') && has(a.html, 'Trials live') && has(a.html, 'Coaching roles open'), true);
+  check('ah1b: and not one of them is a registration or a child',
+    /On your register|Shortlisted|Invited|new on the register/.test(a.html), false);
+  check('ah2: it says whose the register is, and what is hers',
+    has(a.html, 'You keep the club’s page, its squads, its notices and its plan.'), true);
+  check('ah3: there is exactly one accent action on the screen',
+    (a.html.match(/class="btn btn-primary"/g) ?? []).length, 1);
+  check('ah3b: and it is Post a trial notice', has(a.html, 'Post a trial notice'), true);
+  // The rail stops being the sidebar. Measured as the thing that was wrong —
+  // full-width centred grey menu cards outside the two navs — rather than by
+  // counting words, because the phone tab bar legitimately carries the same
+  // six labels at the other breakpoint (D-147: same doors at every width).
+  const menuCards = (html) => (html.replace(/<nav[\s\S]*?<\/nav>/g, ' ').match(/text-align:center/g) ?? []).length;
+  check(`ah4: the administrator's rail is not six grey menu cards (${menuCards(a.html)} left)`, menuCards(a.html), 0);
+  check('ah5: the rail holds the club’s public state instead',
+    has(a.html, 'Your club page') && has(a.html, 'pitchfootball.com.au/fc/riverside-fc')
+      && has(a.html, 'Copy the link') && has(a.html, 'Public and live.'), true);
+  check('ah6: and the D-93 wall said out loud to the person it constrains',
+    has(a.html, 'Who can do what here')
+      && has(a.html, 'Technical Director — the register, and the club’s development record')
+      && has(a.html, 'Club administrator — the page, squads, notices, coaching roles and the plan. No registrations.')
+      && has(a.html, 'A treasurer who sends the invoices should not be able to read a child’s development notes. That is on purpose.'), true);
+  check('ah6b: the granted coach’s row names the teams and when the grant was made, from the database',
+    t.some((l) => /^Coach — the registrations for U14 Boys and U15 Girls, since \d{1,2} [A-Z][a-z]{2}$/.test(l)), true);
+  check('ah6c: her own row is marked as hers, not by repeating her name', t.includes('You'), true);
+  check('ah7: the plan is a fact she may see, and it links to the page that holds it',
+    has(a.html, '$54 a month') && has(a.html, 'next charge') && a.html.includes('/club/billing'), true);
+  check('ah8: nothing on the screen names a child or counts one',
+    /Deniz|Georgia|Nate|waiting|registered interest/i.test(t.join(' ')), false);
+
+  const r = await get('/home', robyn);
+  check('ah9: what a family cannot see yet — two things, and it is not a score',
+    has(r.html, 'What a family cannot see yet') && has(r.html, 'Your crest')
+      && has(r.html, 'How the club plays')
+      && has(r.html, 'Two things, not a score. A club page with nothing missing is not a better club.'), true);
+  check('ah9b: it is absent for a club with both of them filled in',
+    has(a.html, 'What a family cannot see yet'), false);
+  check('ah10: an administrator at a club whose payment failed is told so on her home',
+    has(r.html, 'We couldn’t take your payment') && has(r.html, 'Nothing is deleted.'), true);
+  check('ah10b: and Riverside’s administrator is not', has(a.html, 'We couldn’t take your payment'), false);
+  check('ah11: a team manager is on her list reading nothing (doc 34 rule 4)',
+    has(r.html, 'Tomas Villa') && has(r.html, 'Team manager — no registrations.'), true);
+
+  const numerals = [...r.html.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim());
+  check(`ah12: no count on her screen is the digit zero (D-162) (${numerals.join(',') || 'no numerals at all'})`,
+    numerals.filter((n) => n === '0').length, 0);
+  check('ah12b: and the hero is omitted rather than drawn with nothing in it',
+    has(r.html, 'Squads you run'), false);
+  check('ah12c: an empty board says its absence in words, which is the opposite fault',
+    has(r.html, 'No trials coming up. Post one and it goes on your club page and the trials board the same minute.'), true);
+
+  const td = await get('/home', ids.people.marina);
+  check('ah13: the technical director keeps her register row and her rail',
+    [has(td.html, 'On your register'), menuCards(td.html) >= 5], [true, true]);
+  check('ah13b: and does not get the administrator’s blocks',
+    [has(td.html, 'Who can do what here'), has(td.html, 'What a family cannot see yet')], [false, false]);
+}
+
+// D-162 across every count on the two homes and on billing: no rendered
+// numeral is a zero, on any seat.
+{
+  for (const [who, id] of [['a parent', ids.people.alex], ['an adult player', ids.people.jordan],
+                           ['a 16–17', ids.children.nate.child_id], ['a coach', ids.people.sam],
+                           ['a club TD', ids.people.marina], ['an administrator', ids.people.pat],
+                           ['an unverified club', ids.people['m.']]]) {
+    const html = (await get('/home', id)).html;
+    const zeros = [...html.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim())
+      .filter((n) => n === '0');
+    check(`z1: /home for ${who} renders no count as the digit zero (D-162)`, zeros.length, 0);
+  }
+  const bill = (await get('/club/billing', ids.people.marina)).html;
+  const zeros = [...bill.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim()).filter((n) => n === '0');
+  check('z2: and /club/billing renders no count at all, let alone a zero', zeros.length, 0);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);
