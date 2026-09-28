@@ -76,7 +76,7 @@
     <span class="tl"><b>159</b> locked</span>
     <span class="tl"><b>3</b> proposed</span>
     <span class="tl"><b>4</b> open</span>
-    <span class="tl">v4.24 · 28 Sep 2026</span>
+    <span class="tl">v4.25 · 29 Sep 2026</span>
   </div>
 
   <h2>A · Mission &amp; positioning</h2>
@@ -697,7 +697,7 @@
   <div class="dec"><div class="id">D-128</div><div class="st lk">Locked</div><div class="bd">
     <div class="t">Revocation empties the note &mdash; a build invariant, not a description</div>
     <div class="w"><b>John's condition 3, accepted 27 Aug.</b> On revocation or deletion, the registration row renders as withdrawn <b>and the note field is emptied, in the same database transaction</b>.<br><br><b>Why this is a correction and not an addition.</b> Leo wrote the requirement &mdash; <i>&quot;nothing readable survives&quot;</i> &mdash; and it was not true of what he had designed. <b>The structured note (squad, position, free text) sits on the registration row, not behind the token.</b> Revoking the link killed the CV page and left the note exactly where it was: child-authored content a club had already read and could still read.<br><br><b>Two more items John attached to the same area, both accepted:</b><br>&bull; <b>The consent screen must show four things at the moment the guardian presses send:</b> which club, which trial, what actually travels in plain words, and the note itself. <b>Leo's screen showed three &mdash; it never named the trial.</b> Fixing.<br>&bull; <b>The log records a disclosure, not an action.</b> Not <code>applied</code>, but <i>guardian G disclosed link and note about child C to club X for trial T, at time, under policy version V</i>. One row per disclosure, naming the recipient &mdash; because that is what we would produce if a family asked who we gave their child's details to.<br><br><b>Retention (John, doc 23 v1.1):</b> a registration row deletes 90 days after the trial date, on the same clock whether or not the club opened it &mdash; a child is not held longer because a club was inattentive. Register contents deleted within 30 days of cancellation, confirmed in writing. <b>Deleted by a scheduled job, never by a person.</b></div>
-    <div class="src">Source: John's condition 3 &middot; accepted by Leo, 27 Aug &middot; build invariant &middot; corrects a Leo error</div></div></div>
+    <div class="src">Source: John's condition 3 &middot; accepted by Leo, 27 Aug &middot; build invariant &middot; corrects a Leo error &middot; <b>carve-out, 29 Sep (doc 14 M6 as written; built in round D):</b> a withdrawal from a <i>held</i> registration &mdash; a club never verified, no reader on record, no invitation &mdash; deletes the row in the same transaction (0095), because no club ever read it; a registration a club could read is unchanged</div></div></div>
 
   <div class="dec"><div class="id">D-129</div><div class="st lk">Locked</div><div class="bd">
     <div class="t">The child-safety argument belongs to the free send-link, never to the paid register</div>
@@ -893,7 +893,7 @@
     <p style="margin:0;font-size:.87rem;color:var(--ink2)">Two decisions remain open, both club pricing, both deliberately held: <b style="color:var(--ink)">D-36</b> club pricing model and <b style="color:var(--ink)">D-39</b> club free-tier boundary &mdash; <b>narrowed on 20 Sep by D-158</b>, which puts squad lists and player confirmation on the free side for good — <b>held until the TD coffees</b>, and <b>D-87</b> gives us until 31 Jan 2027 to close them, so deciding early would be spending the answer before we have earned it. Every coffee asks the same four questions: what was the last software this club paid for, how much, who signed it off, in what month.<br><br><b>D-34 is now closed</b> ($79/yr or $9.99/mo — see D-82). Everything else is called: Stage 0 design-complete (D-22, D-29, D-48–D-52), the launch locked and re-scoped (D-45–D-47, D-74–D-79), post-launch sequence set (D-54–D-58, D-86), the development framework settled (D-60, D-61, D-71), and the 25 Aug board review recorded in full (D-67–D-87), with the design review that followed it (D-88–D-91) and the football vocabulary closed (D-92), with the club role model corrected (D-93) and security set as a standing build posture (D-94), with the legal pack reconciled (D-95–D-98). <b>The handover set is complete:</b> doc 14 (permission tests, the launch gate), doc 15 (every message that sends), doc 16 (positions, stats, fixtures).</p>
   </div>
 
-  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.24 · 28 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
+  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.25 · 29 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
 </div>
 </body>
 </html>
