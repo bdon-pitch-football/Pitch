@@ -1520,7 +1520,10 @@ const georgia = ids.children.georgia;
     check(`b15: with billing on, ${who}’s sidebar carries Plan & billing as the current page`,
       /href="\/club\/billing"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/club\/billing"/.test(nav), true);
   }
-  check('b15b: and the TD’s /home offers the same door', (await get('/home', marina)).html.includes('href="/club/billing"'), true);
+  // Outside the two navs: the sidebar on /home carries the door too, so a
+  // check that read the whole page passed with the rail's own card missing.
+  check('b15b: and the TD’s /home offers the same door, in its own rail',
+    (await get('/home', marina)).html.replace(/<nav[\s\S]*?<\/nav>/g, ' ').includes('href="/club/billing"'), true);
   await billingSwitch(false);
 }
 
