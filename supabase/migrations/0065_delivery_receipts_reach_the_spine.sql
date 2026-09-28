@@ -50,6 +50,13 @@
 --    those are not always the same day. The band itself is the idempotency
 --    key, so a catch-up run writes nothing twice.
 --
+-- 4. fn_record_guardian_landed — the parent reached the permission page, the
+--    one word in D-78's funnel between "delivered" and "confirmed". It was in
+--    the vocabulary and on the guardian's screen and nothing wrote it. It is
+--    here rather than in lib/guardian-flow so the rule — once per invitation,
+--    never after approval or a hold — is tested on the database like the
+--    other two writers, instead of being trusted.
+--
 -- Read with: D-78 (the spine), doc 14 F8 (what a guardian sees), doc 14 B11
 -- (the delivery receipt gates discovery at sixteen), 0009 (the outbox), 0013
 -- (the notice), 0031 (the columns a receipt lands in).
@@ -152,3 +159,38 @@ end $$;
 
 comment on function fn_record_age_transitions() is
   'One consent-log row per band a person reaches (doc 14 F8). Bands stay computed (D-49); only the fact that one changed is recorded.';
+
+-- ---------------------------------------------------------------------------
+-- The parent reached the permission page (D-78, `guardian_landed`).
+--
+-- Once per invitation, not once per visit: the log is append-only, and a
+-- parent reloading the page four times did not open it four times. Nothing is
+-- written for an invitation that is approved or held (D-155) — the link is
+-- finished and the page 404s. The subject is the child where one exists (a
+-- 16–17 naming their parent); for an under-16 nothing about the child exists
+-- until approval (D-17), so the row carries the invitation and no subject.
+--
+-- It confirms nothing. Confirming is still a press (D-156), and a link
+-- preview bot fetching the page can write this row — see lib/guardian-flow.
+-- ---------------------------------------------------------------------------
+create function fn_record_guardian_landed(p_invitation uuid, p_channel text default null)
+returns boolean
+language plpgsql as $$
+declare n int;
+begin
+  insert into consent_event (event, subject_id, detail)
+  select 'guardian_landed', pi.child_id,
+         jsonb_build_object('invitation_id', pi.id)
+           || case when p_channel in ('sms', 'email') then jsonb_build_object('channel', p_channel) else '{}'::jsonb end
+  from pending_invitation pi
+  where pi.id = p_invitation and pi.approved_at is null and pi.held_at is null
+    and not exists (
+      select 1 from consent_event e
+      where e.event = 'guardian_landed' and e.detail->>'invitation_id' = pi.id::text);
+  get diagnostics n = row_count;
+  return n > 0;
+end $$;
+
+comment on function fn_record_guardian_landed(uuid, text) is
+  'The parent opened the permission page (D-78). Once per open invitation; confirms nothing (D-156).'
+;

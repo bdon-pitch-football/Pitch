@@ -6288,6 +6288,39 @@ const componentFilesAll = [];
       /fn_record_age_transitions/.test(srcOf('app/api/jobs/daily/route.ts')), true);
   }
 
+  // The parent reached the permission page (D-78). Once per invitation, never
+  // after it is finished, and against the child only where a child exists.
+  {
+    const landed = async (inv) => (await db.query(
+      `select subject_id, detail->>'channel' as channel from consent_event
+       where event = 'guardian_landed' and detail->>'invitation_id' = $1`, [inv])).rows;
+    const land = async (inv, ch) => (await db.query('select fn_record_guardian_landed($1, $2) as w', [inv, ch])).rows[0].w;
+    const open = (await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone)
+      values ('Landed Kid', $1, 'Landed Parent', '+61400000001') returning id`, [yearsAgo(11)])).rows[0].id;
+    check('land1: opening the permission page writes guardian_landed once, with the channel it came from',
+      [await land(open, 'sms'), await land(open, 'email'), (await landed(open)).length, (await landed(open))[0]?.channel],
+      [true, false, 1, 'sms']);
+    check('land2: an under-16 invitation has no subject — nothing about the child exists before approval (D-17)',
+      (await landed(open))[0]?.subject_id, null);
+    const done = (await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, approved_at, sms_confirmed_at, email_confirmed_at)
+      values ('Approved Kid', $1, 'P', '+61400000002', now(), now(), now()) returning id`, [yearsAgo(11)])).rows[0].id;
+    const held = (await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, held_at)
+      values ('Held Kid', $1, 'P', '+61400000003', now()) returning id`, [yearsAgo(11)])).rows[0].id;
+    check('land3: an approved or held invitation writes nothing — the link is finished (D-155)',
+      [await land(done, 'sms'), await land(held, 'sms'), (await landed(done)).length, (await landed(held)).length],
+      [false, false, 0, 0]);
+    const teen = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,'Landed Teen',$2)`, [teen, yearsAgo(16, -40)]);
+    const t = (await db.query(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, child_id)
+      values ('Landed Teen', $1, 'P', '+61400000004', $2) returning id`, [yearsAgo(16, -40), teen])).rows[0].id;
+    await land(t, null);
+    check('land4: a 16–17’s invitation lands on their own consent log, and a channel we did not send is not recorded',
+      [(await landed(t))[0]?.subject_id, (await landed(t))[0]?.channel], [teen, null]);
+    check('land5: the approval page is what calls it, after the finished-link 404',
+      (() => { const a = codeOnly(srcOf('app/a/[id]/page.tsx'));
+        return a.indexOf('notFound()') > -1 && a.indexOf('notFound()') < a.indexOf('recordGuardianLanded('); })(), true);
+  }
+
   // --- every label the guardian's log renders has a writer ---------------
   //
   // THE CHECK THAT STOPS THIS RECURRING. Five lines on that screen — "That

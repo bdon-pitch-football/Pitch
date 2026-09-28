@@ -171,17 +171,9 @@ export async function getInvitationForParentPage(id: string) {
  */
 export async function recordGuardianLanded(invitationId: string, channel: 'sms' | 'email' | null): Promise<void> {
   if (!isUuid(invitationId)) return;
-  await db.query(
-    `insert into consent_event (event, subject_id, detail)
-     select 'guardian_landed', pi.child_id,
-            jsonb_build_object('invitation_id', pi.id) || case when $2::text is null then '{}'::jsonb else jsonb_build_object('channel', $2::text) end
-     from pending_invitation pi
-     where pi.id = $1::uuid and pi.approved_at is null and pi.held_at is null
-       and not exists (
-         select 1 from consent_event e
-         where e.event = 'guardian_landed' and e.detail->>'invitation_id' = pi.id::text)`,
-    [invitationId, channel],
-  );
+  // The rule lives in fn_record_guardian_landed (0065), where the permission
+  // suite drives it: once per open invitation, nothing after approval or a hold.
+  await db.query('select fn_record_guardian_landed($1::uuid, $2)', [invitationId, channel]);
 }
 
 /** "Yes, it's me — continue" (D-156). A press, never a page load. */
