@@ -1921,6 +1921,190 @@ const georgia = ids.children.georgia;
   }
 }
 
+// ===========================================================================
+// FINAL ROUND B (28 Sep) — the four launch calls (D-164) and coach-verified
+// stats (D-160), read off what the product serves.
+// ===========================================================================
+
+// ---- D-164 (1): the front door, behind the launch-day switch (0080) ---------
+// "With the switch off, `/` is byte-for-byte today's page." Today's page was
+// measured on the dev server at ec1a03a, before the front door existed:
+// nonces are per-request and every <script>/<link> names a build chunk that
+// moves with any edit anywhere, so those are set aside; every other byte of
+// the document — head, metadata, body — is hashed. If the coming-soon page
+// is ever changed on purpose, this hash is re-pinned in the same commit, and
+// the failure prints the new one.
+{
+  const COMING_SOON_SHA256 = '2babb787d72b63796c7a38b0a3f695f1bb1885483c583bec498aaef2928fd2c6';
+  const { createHash } = await import('node:crypto');
+  const doc = (html) => html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
+    .replace(/<link\b[^>]*\/?>/g, '')
+    .replace(/ nonce="[^"]*"/g, '');
+  const sha = (html) => createHash('sha256').update(doc(html)).digest('hex');
+  async function frontDoorSwitch(on) {
+    const r = await fetch(`${BASE}/dev/front-door?on=${on ? 1 : 0}`, { method: 'POST' });
+    const j = r.ok ? await r.json() : null;
+    if (j?.frontDoor !== on) throw new Error(`the front-door switch did not turn ${on ? 'on' : 'off'} (${r.status})`);
+  }
+  await frontDoorSwitch(false);
+  const off = await get('/');
+  const offSha = sha(off.html);
+  check(`fd0: with the switch off, / is today's coming-soon page byte for byte (nonces and build chunks aside) — ${offSha}`,
+    [off.status, offSha], [200, COMING_SOON_SHA256]);
+  check('fd0b: and a direct request for /front-door is sent back to / (one address)',
+    [(await get('/front-door?for=club')).status, (await get('/front-door?for=club')).location?.replace(BASE, '')], [307, '/?for=club']);
+
+  await frontDoorSwitch(true);
+  try {
+    const pages = { '/': null, '/?for=player': 'For players · 18 and over', '/?for=parent': 'For parents',
+      '/?for=coach': 'For coaches', '/?for=club': 'For clubs & technical directors' };
+    const served = {};
+    for (const [path, kicker] of Object.entries(pages)) served[path] = await get(path);
+    check('fd1: with it on, / is the front door — the chooser and the four landings, each at /',
+      Object.entries(pages).map(([path, kicker]) => [served[path].status,
+        kicker ? has(served[path].html, kicker) : has(served[path].html, 'Who are you?')]),
+      Object.keys(pages).map(() => [200, true]));
+    check('fd1b: and none of them is the coming-soon page any more',
+      Object.values(served).some((r) => sha(r.html) === COMING_SOON_SHA256), false);
+
+    // Every link resolves — the ways in (sign up, trials, claim, sign in) and
+    // the doors between the landings.
+    const hrefs = new Set();
+    for (const r of Object.values(served)) {
+      for (const m of r.html.matchAll(/href="(\/[^"#]*)"/g)) {
+        const h = m[1].replace(/&amp;/g, '&');
+        if (h.startsWith('/_next') || h.startsWith('/assets') || /\.(png|svg|ico|webmanifest)$/.test(h)) continue;
+        hrefs.add(h);
+      }
+    }
+    const dead = [];
+    for (const h of hrefs) { const r = await get(h); if (r.status !== 200) dead.push(`${r.status} ${h}`); }
+    check(`fd2: every link on the front door resolves (${[...hrefs].sort().join(' ')})${dead.length ? ' — DEAD: ' + dead.join(', ') : ''}`,
+      [hrefs.size >= 7, dead], [true, []]);
+    check('fd2b: the ways in are there — sign up, trials without an account, sign in, and each landing',
+      ['/join', '/trials', '/signin', '/?for=player', '/?for=parent', '/?for=coach', '/?for=club'].every((h) => hrefs.has(h)), true);
+
+    // No price, and none of D-163's retired phrases, on any of the five.
+    const retired = [];
+    for (const [path, r] of Object.entries(served)) {
+      for (const line of text(r.html)) {
+        const m = /\$\s?\d|\bfree\b|at launch|for now|\blimited\b|first (eleven|\d+) clubs|Founding XI|December|inc GST|a month|\/yr|\bPro\b/i.exec(line);
+        if (m) retired.push(`${path}: ${line.slice(0, 70)}`);
+      }
+    }
+    check(`fd3: no price renders on the front door, and no line D-163 retired (${retired.join(' | ') || 'none'})`, retired, []);
+  } finally {
+    await frontDoorSwitch(false);
+  }
+  const back = await get('/');
+  check('fd4: turned off again, / is today\'s page again, byte for byte', sha(back.html), COMING_SOON_SHA256);
+}
+
+// ---- D-164 (2) / D-84: the CV states its context ------------------------------
+{
+  const deniz = await get('/p/dev-deniz');
+  const nate = await get('/p/dev-nate');
+  const jordan = await get('/p/dev-jordan');
+  const underName = (html, name, line) => {
+    const t = text(html);
+    const i = t.indexOf(line);
+    // React writes "First Last" as two text nodes, so the line above the
+    // marker is the surname.
+    return i > 0 && name.endsWith(t[i - 1]);
+  };
+  check('ctx-r1: a stranger with the link reads the age group and the birth quarter, directly under the name',
+    [underName(deniz.html, 'Deniz Yılmaz', 'U15 · born Jan–Mar'), underName(nate.html, 'Nate Halloran', 'U18 · born Apr–Jun')], [true, true]);
+  check('ctx-r2: and never a date of birth, a year of birth or an exact age (Deniz 14 Mar 2012, Nate 2 Jun 2009)',
+    [deniz, nate].map((r) => /2012|2009|14 Mar|2 Jun|\b1[4-7] years|\baged? 1\d/.test(text(r.html).join(' '))), [false, false]);
+  check('ctx-r3: an adult in a senior side gets no marker — "U" and a number, or nothing (no guess)',
+    has(jordan.html, 'born '), false);
+  // D-89: the social card and the unfurl carry neither the band nor the quarter.
+  const meta = (html) => [...html.matchAll(/<meta (?:name|property)="(?:og|twitter):[^"]*" content="([^"]*)"/g)].map((m) => m[1]).join(' | ');
+  check('ctx-r4: the link preview a platform caches (og:/twitter: tags) carries no age group and no quarter',
+    [deniz, nate].map((r) => /born|U1\d|Jan–Mar|Apr–Jun/.test(meta(r.html))), [false, false]);
+  const og = await fetch(`${BASE}/p/dev-deniz/opengraph-image`);
+  check('ctx-r5: and the Open Graph image still renders (its source reads no quarter — permission suite ctx4)',
+    [og.status, (og.headers.get('content-type') ?? '').startsWith('image/')], [200, true]);
+}
+
+// ---- D-160: a stat opens to where it came from; the CLUB, never the coach ---
+{
+  const deniz = await get('/p/dev-deniz');
+  const sam = ids.people.sam;
+  check('prov-r1: a link-holder opening a coach-verified number reads the club and the date',
+    /^Verified by Riverside FC · \d{1,2} [A-Z][a-z]{2} \d{4}$/.test(text(deniz.html).find((l) => l.startsWith('Verified by')) ?? ''), true);
+  check('prov-r2: and no person — the verifying coach is named nowhere in what the page serves, not even in the flight data',
+    [/Kaya/.test(deniz.html), /\bSam\b/.test(text(deniz.html).join(' ')), deniz.html.includes(sam)], [false, false, false]);
+  check('prov-r3: a self-reported number opens to the date it was entered',
+    text(deniz.html).some((l) => /^Self-reported · entered \d{1,2} [A-Z][a-z]{2} \d{4}$/.test(l)), true);
+  check('prov-r4: it opens in place, pushing the page — a checkbox and a well under the row, no dialog and no script to run',
+    [/type="checkbox" id="drill-goals"/.test(deniz.html), /id="drill-well-goals"/.test(deniz.html), /role="dialog"|aria-modal/.test(deniz.html)],
+    [true, true, false]);
+  // A snapshot approved before 0083 has no dates, so its numbers do not open:
+  // nothing is drawn rather than a guess.
+  const georgia = await get('/p/dev-georgia');
+  check('prov-r5: a number with nothing to say does not open (Georgia\'s approved snapshot predates the dates)',
+    [/id="drill-/.test(georgia.html), has(georgia.html, 'Self-reported ·')], [false, false]);
+}
+
+// ---- D-164 (3) / D-63: the country step, before the date of birth ----------
+{
+  const join = await get('/join');
+  const t = text(join.html);
+  check('ctry-r1: /join opens on "Where do you live?" with Australia and Somewhere else',
+    [t.includes('Where do you live?'), t.includes('Australia'), t.includes('Somewhere else')], [true, true, true]);
+  check('ctry-r2: and asks nothing else first — no name, no date of birth, no email, no form, in what the page serves',
+    [/type="date"/.test(join.html), /type="email"/.test(join.html), /<form/.test(join.html), /Date of birth|First name/.test(t.join(' '))],
+    [false, false, false, false]);
+}
+
+// ---- D-164 (4) / D-82: two Premium rows on an adult's page, never under 18 --
+{
+  const jordanHome = await get('/home', ids.people.jordan);
+  const clipsPath = /href="(\/build\/[0-9a-f-]{36}\/clips)"/.exec(jordanHome.html)?.[1];
+  const adultClips = clipsPath ? await get(clipsPath, ids.people.jordan) : { html: '' };
+  const coachEdit = await get('/coach/edit', ids.people.sam);
+  const rows = (html) => ['Unlimited clips', 'See who viewed your CV', 'Tap a locked feature to be first in line.'].map((s) => has(html, s));
+  check('prem-r1: an adult player\'s Highlights carries the two locked rows, each tagged and "Coming soon"',
+    [...rows(adultClips.html), (adultClips.html.match(/>Premium</g) ?? []).length, (adultClips.html.match(/>Coming soon</g) ?? []).length],
+    [true, true, true, 2, 2]);
+  check('prem-r2: and so does an adult coach\'s page', rows(coachEdit.html), [true, true, true]);
+  check('prem-r3: at most two rows on a screen, and no price on either', [
+    (adultClips.html.match(/name="feature"/g) ?? []).length <= 2,
+    (coachEdit.html.match(/name="feature"/g) ?? []).length <= 2,
+    [adultClips, coachEdit].some((r) => /\$\s?\d/.test(text(r.html).join(' ')))], [true, true, false]);
+  const tapped = clipsPath ? await get(`${clipsPath}?first=1`, ids.people.jordan) : { html: '' };
+  check('prem-r4: after a tap the line reads "Premium is coming. You’re first in line."',
+    has(tapped.html, 'Premium is coming. You’re first in line.'), true);
+
+  // NEVER UNDER 18. Nate is 16–17: his own Highlights, and the coach page a
+  // 16–17 who coaches MiniRoos would open (D-82 names exactly that person).
+  const nate = ids.children.nate;
+  const minorClips = await get(`/build/${nate.record_id}/clips`, nate.child_id);
+  const minorCoach = await get('/coach/edit', nate.child_id);
+  const guardianView = await get(`/build/${ids.children.deniz.record_id}/clips`, ids.people.alex);
+  const premiumOn = (r) => /Premium|first in line/.test(text(r.html).join(' ')) || /name="feature"/.test(r.html);
+  check('prem-r5: a 16–17\'s Highlights, a 16–17 on the coach page, and an under-16\'s Highlights opened by their parent carry none of it',
+    [minorClips.status, minorCoach.status, guardianView.status, premiumOn(minorClips), premiumOn(minorCoach), premiumOn(guardianView)],
+    [200, 200, 200, false, false, false]);
+}
+
+// ---- links that had no page pointing at them (D-164) -------------------------
+{
+  const westgate = await get('/fc/westgate-rangers');
+  check('link-r1: an unclaimed club page carries "Claim your club", to /claim/<slug>',
+    /href="\/claim\/westgate-rangers"[^>]*>Claim your club</.test(westgate.html), true);
+  const riverside = await get('/fc/riverside-fc');
+  check('link-r1b: and a verified one does not', /href="\/claim\//.test(riverside.html), false);
+  const nate = ids.children.nate;
+  const home = await get('/home', nate.child_id);
+  check('link-r2: a 16–17 with a confirmed parent is offered "Share my CV" on their home, to /share-card/<record>',
+    new RegExp(`href="/share-card/${nate.record_id}"[^>]*>Share my CV<`).test(home.html), true);
+  check('link-r2b: an adult is not — a share card is an under-18\'s, approved by a parent (D-101)',
+    /href="\/share-card\//.test((await get('/home', ids.people.jordan)).html), false);
+}
+
 // ---- the sitemap (D-95, doc 32 A6; builder, 28 Sep) -------------------------
 // What search engines are told to crawl. Club pages that are on Pitch —
 // claimed OR verified, the same test the club page uses — published adult

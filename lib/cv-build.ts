@@ -138,8 +138,10 @@ async function buildSnapshot(client: Client, recordId: string, season: string) {
                dr.positions, dr.squad_number as "squadNumber", dr.foot, coalesce(dr.about,'') as about,
                dr.surfaced_stats as "surfacedStats"
         from development_record dr join person p on p.id = dr.person_id where dr.id = $1) x) as core,
-      (select coalesce(json_agg(json_build_object('season', season, 'key', stat_key, 'value', value, 'provenance', provenance)), '[]'::json)
-        from player_stat where record_id = $1 and value > 0) as stats,
+      -- D-160: the stats as a page may show them — source, dates, the
+      -- verifying CLUB, never the coach — so the version a guardian approves
+      -- carries a verification the same way the live page does (0083).
+      fn_stat_public($1) as stats,
       (select coalesce(json_agg(json_build_object('title', title, 'detail', detail) order by sort), '[]'::json)
         from achievement where record_id = $1) as achievements,
       -- No school on an under-18's page (D-161, 0061). Asked of the database

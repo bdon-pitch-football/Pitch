@@ -36,12 +36,23 @@ async function doorIsOpen(email: string): Promise<boolean> {
 // The words are a DRAFT — doc 15 does not carry them, BUZ has not approved
 // them — so lib/messaging queues this in development and refuses it in
 // production. That is deliberate: this door cannot ship before the copy does.
+// D-63, D-164 (3): an account is for somebody who said they live in
+// Australia. The page asks before anything else and offers nothing to anyone
+// who says otherwise; this is the same rule where a script cannot skip it.
+// Asked FIRST in every door, before the rate limit writes a row or anything
+// else is read: a sign-up that did not come through the country step leaves
+// no trace at all. The answer is not stored.
+function inAustralia(formData: FormData): boolean {
+  return String(formData.get('country') ?? '') === 'AU';
+}
+
 async function askThemToConfirm(personId: string, email: string): Promise<void> {
   const token = await createAddressProof(personId);
   await send(confirmAddressEmail(token), { address: email, personId });
 }
 
 export async function startPendingInvitation(formData: FormData) {
+  if (!inAustralia(formData)) redirect('/join');
   const firstName = String(formData.get('firstName') ?? '').trim();
   const dob = String(formData.get('dob') ?? '').trim();
   const guardianName = String(formData.get('guardianName') ?? '').trim();
@@ -69,6 +80,7 @@ export async function startPendingInvitation(formData: FormData) {
 // and routed contact are unbuildable without one. Adults walk straight in.
 // Both accept the ToS themselves (logged, version-stamped).
 export async function createAccount(formData: FormData) {
+  if (!inAustralia(formData)) redirect('/join');
   const { db } = await import('@/lib/db');
   const firstName = String(formData.get('firstName') ?? '').trim();
   const dob = String(formData.get('dob') ?? '').trim();
@@ -157,6 +169,7 @@ export async function createAccount(formData: FormData) {
 // name them AND attest their Working With Children Check (D-98, D-154), which
 // is a club's act and cannot be self-asserted.
 export async function createCoachAccount(formData: FormData) {
+  if (!inAustralia(formData)) redirect('/join');
   const { db } = await import('@/lib/db');
   const firstName = String(formData.get('firstName') ?? '').trim();
   const lastName = String(formData.get('lastName') ?? '').trim();
@@ -220,6 +233,7 @@ export async function createCoachAccount(formData: FormData) {
 // the authority question answered on a phone call (D-126), and no form can
 // set it. Adults only: a club's page is run by adults.
 export async function createClubAccount(formData: FormData) {
+  if (!inAustralia(formData)) redirect('/join');
   const { db } = await import('@/lib/db');
   const firstName = String(formData.get('firstName') ?? '').trim();
   const lastName = String(formData.get('lastName') ?? '').trim();

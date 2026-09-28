@@ -499,6 +499,33 @@ try {
         }
       }
     }
+
+    // builder-final-b. Two things the walk above cannot land on. The front
+    // door (D-164) is behind the launch-day switch, so it is switched on
+    // through the app for these five views and off again whatever happens —
+    // the render suite's fd0 then proves `/` is the coming-soon page again.
+    // And a stat tile (D-160) is closed until it is pressed, so Deniz's CV is
+    // measured with every well open, which is its widest state.
+    await fetch(`${BASE}/dev/front-door?on=1`, { method: 'POST' });
+    try {
+      await cdp('Network.clearBrowserCookies');
+      for (const path of ['/', '/?for=player', '/?for=parent', '/?for=coach', '/?for=club']) {
+        await visit(path);
+        const m = await eval_(MEASURE(width));
+        checked++;
+        if (m.doc > m.vw + 1) failures.push({ width, seat: 'front door', path, ...m });
+        await chromePass(width, 'front door', path);
+      }
+    } finally {
+      await fetch(`${BASE}/dev/front-door?on=0`, { method: 'POST' });
+    }
+    await visit('/p/dev-deniz');
+    const opened = await eval_(`JSON.stringify([...document.querySelectorAll('label.drill-tile')].map((l) => { l.click(); return 1; }).length)`);
+    const wells = await eval_(`JSON.stringify([...document.querySelectorAll('.drill-well')].filter((w) => getComputedStyle(w).display !== 'none').length)`);
+    const mDrill = await eval_(MEASURE(width));
+    checked++;
+    if (!opened || wells !== opened) failures.push({ width, seat: 'signed out', path: '/p/dev-deniz', unrendered: `opened ${opened} stat tiles, ${wells} wells showed` });
+    if (mDrill.doc > mDrill.vw + 1) failures.push({ width, seat: 'signed out', path: '/p/dev-deniz (every stat opened)', ...mDrill });
   }
 
 } catch (e) {
@@ -526,6 +553,12 @@ for (const width of [390, 1280]) {
   await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
   for (const path of RING_PAGES) {
     await visit(path);
+    // /join opens on the country question (D-63, builder-final-b), whose two
+    // answers are buttons; the fields this pass measures appear once
+    // Australia is chosen — so choose it, as a person would.
+    if (path === '/join') {
+      await eval_(`JSON.stringify(([...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Australia')?.click(), true))`);
+    }
     const controls = await tabThrough();
     await cspDrain(width, 'signed out', path);
     const bare = ringless(controls);

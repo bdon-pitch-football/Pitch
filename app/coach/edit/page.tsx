@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { addCoachAchievement, addCoachClip, addLicence, addRole, hideCoachPage, publishCoachPage, removeCoachAchievement, removeCoachClip, removeLicence, removeRole, saveCoachProfile } from './actions';
 import CopyLink from '@/components/cv/CopyLink';
 import { FAILURE_COPY } from '@/components/FailureState';
+import PremiumRows from '@/components/PremiumRows';
 import { COACH_CLIP_CAP } from '@/lib/football';
 import { T } from '@/lib/palette';
 import { card, fieldLabel as label } from '@/lib/ui';
@@ -19,7 +20,7 @@ export const metadata = { title: 'Build your coach CV', robots: { index: false, 
 
 const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
-export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; banner?: string; removed?: string; published?: string; hidden?: string; needs?: string }> }) {
+export default async function CoachEdit({ searchParams }: { searchParams: Promise<{ saved?: string; clip?: string; photo?: string; banner?: string; removed?: string; published?: string; hidden?: string; needs?: string; first?: string }> }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
@@ -27,7 +28,7 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
   // a coach here as ?needs=profile when a licence or an accomplishment is
   // saved before the coach page itself exists, and the page added zero words
   // — the press looked as though it had done nothing.
-  const { saved, clip, photo, banner, published, hidden, needs } = await searchParams;
+  const { saved, clip, photo, banner, published, hidden, needs, first } = await searchParams;
   const { rows } = await db.query(
     `select p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, cp.public_contact,
        cp.region, cp.philosophy, cp.public_slug, cp.banner_path, cp.hidden_at,
@@ -300,6 +301,9 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
               </div>
             </form>
           )}
+          {/* D-164 (4): two locked Premium rows, an adult's page only. A
+              16–17 who coaches MiniRoos never sees a paid surface (D-82). */}
+          {c.adult && <PremiumRows on="coach" tapped={first === '1'} />}
         </div>
 
         {/* Publishing (D-75, D-100; 0043). The link card used to sit on the

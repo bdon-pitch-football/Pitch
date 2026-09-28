@@ -20,9 +20,18 @@ const ROLES = [
   ['club', 'Club', "Your club's home ground"],
 ] as const;
 
+// D-63, D-164 (3): accounts are Australia-only. The country is asked FIRST,
+// before a name or a date of birth, in every door on this page. Somewhere
+// else is told plainly and collects nothing, at any age: no field is drawn,
+// no form exists on that screen, and nothing is sent anywhere. Nothing about
+// the answer is stored either way — Australia is simply what lets the rest
+// of the page appear, and the server refuses a sign-up that did not come
+// through it (actions.ts, inAustralia).
+const COUNTRIES = [['AU', 'Australia'], ['elsewhere', 'Somewhere else']] as const;
+
 export default function Join() {
   const [role, setRole] = useState('player');
-  const [step, setStep] = useState<'signup' | 'parent' | 'account'>('signup');
+  const [step, setStep] = useState<'country' | 'elsewhere' | 'signup' | 'parent' | 'account'>('country');
   const [firstName, setFirstName] = useState('');
   const [dob, setDob] = useState('');
   const [agreed, setAgreed] = useState(false);
@@ -32,6 +41,9 @@ export default function Join() {
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
+    // A refusal comes back to a person who already said Australia: show it
+    // where they were, not behind the country question again.
+    if (q.get('clubAge') || q.get('coachAge') || q.get('error')) setStep('signup');
     if (q.get('clubAge')) setNotice('A club page is run by adults, so we could not set that one up. Ask someone on your committee to do it.');
     else if (q.get('coachAge')) setNotice(`A coaching page is for adults, so we could not set that one up. Your club can bring you in in the meantime — email ${SUPPORT_EMAIL}.`);
     else if (q.get('error')) setNotice('That did not go through. Check the email address and that your password is at least ten characters.');
@@ -52,7 +64,34 @@ export default function Join() {
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        {step === 'signup' ? (
+        {step === 'country' ? (
+          <>
+            <HeaderMark />
+            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Where do you live?</h1>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {COUNTRIES.map(([key, title]) => (
+                <button key={key} onClick={() => setStep(key === 'AU' ? 'signup' : 'elsewhere')} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                  background: T.surface, borderRadius: 16, padding: '15px 14px', minHeight: 44, border: `1px solid ${T.line}`,
+                }}>
+                  <div style={{ flex: 1, fontSize: 15, fontWeight: 800, color: T.ink }}>{title}</div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 6 l6 6 l-6 6" /></svg>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : step === 'elsewhere' ? (
+          <>
+            {/* Collects nothing: no input, no form, no request (D-63). */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button onClick={() => setStep('country')} aria-label="Back" style={{ width: 44, height: 44, margin: -11, background: 'none', border: 'none', cursor: 'pointer' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5 L8 12 L15 19" /></svg>
+              </button>
+              <HeaderMark />
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.2 }}>Pitch is only in Australia for now.</h1>
+          </>
+        ) : step === 'signup' ? (
           <>
             <HeaderMark />
             {notice && (
@@ -147,6 +186,7 @@ export default function Join() {
               <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your account</h1>
             </div>
             <form action={role === 'coach' ? createCoachAccount : role === 'club' ? createClubAccount : createAccount} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <input type="hidden" name="country" value="AU" />
               <input type="hidden" name="firstName" value={firstName} />
               <input type="hidden" name="dob" value={dob} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -193,6 +233,7 @@ export default function Join() {
               </div>
             </div>
             <form action={startPendingInvitation} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <input type="hidden" name="country" value="AU" />
               <input type="hidden" name="firstName" value={firstName} />
               <input type="hidden" name="dob" value={dob} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
