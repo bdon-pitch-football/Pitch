@@ -2294,7 +2294,10 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 {
   const op = ids.people.marina;
   const PHONE = '0400 707 070', EMAIL = 'sms-drill@example.com';
-  const texts = async () => (((await get('/dev/outbox', op)).html).match(/0400 707 070/g) ?? []).length;
+  // The rendered "→ number" line of each SMS row, and nothing else: the same
+  // number appears again in the page's own payload, and counting both read
+  // every text twice (found when this block was proved red, 28 Sep).
+  const texts = async () => (((await get('/dev/outbox', op)).html).match(/>sms<\/span>[\s\S]{0,300}?→ (?:<!-- -->)?0400 707 070</g) ?? []).length;
   const pressSwitch = async (label, extra) => {
     const form = forms((await get('/ops/switches', op)).html).find((f) => f.submit.startsWith(label));
     if (!form) return 'no form';
