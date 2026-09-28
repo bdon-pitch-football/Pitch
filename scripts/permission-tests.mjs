@@ -5444,6 +5444,234 @@ const componentFilesAll = [];
 }
 
 // ---------------------------------------------------------------------------
+// The legal pages serve the published document, not our drafting notes (0056).
+//
+// WAS: app/legal/legal-page.tsx rendered the markdown in docs/legal as-is, so
+// every legal surface opened with the author's preamble — 1,294 rendered words
+// on /privacy before the policy spoke, 1,401 on /terms — and the same block sat
+// inside the guardian approval flow, where doc 32 B3 requires doc 21 be SHOWN.
+// The first thing a parent read while deciding whether to trust us with their
+// child was that the policy they were being asked to accept was NOT YET
+// PUBLISHED and that some of our work had been lost. L16 wrote this down on
+// 17 September; it stayed true for eleven days.
+//
+// The checks are over lib/legal-doc — the one answer both /privacy and the
+// approval flow render — for every document the register lists as rendered in
+// the product. Docs 24 and 25 have no route yet (see the report); they are
+// checked anyway, so the day they get one they are already clean.
+{
+  const { legalDocument, renderedLegalDocs, renderedVersions, stripDraftingPreamble, publishedDate, versionLine } =
+    await import('../lib/legal-doc.ts');
+
+  // Every phrase that says "this is not the document you think you are
+  // reading". Matched against the rendered markdown, which is what a page
+  // serves — not against the source file, which keeps all of it on purpose.
+  const MARKERS = ['NOT YET PUBLISHED', 'do-not-publish', 'not to be published', '⚠️',
+    'Nothing here binds', 'working draft', 'the loss was my doing'];
+  const legalDir = fileURLToPath(new URL('../docs/legal', import.meta.url));
+  const fileFor = (doc) => {
+    const f = readdirSync(legalDir).find((x) => x.startsWith(`${doc}-`) && x.endsWith('.md'));
+    if (!f) throw new Error(`the register lists doc ${doc} as rendered and there is no markdown for it`);
+    return f;
+  };
+
+  const live = renderedLegalDocs();
+  check(`leg1: the register's authority table is the list of live documents (${live.map((d) => `${d.doc}@${d.version}`).join(' ')})`,
+    live.length, 5);
+
+  for (const { doc, version } of live) {
+    const file = fileFor(doc);
+    const raw = readFileSync(join(legalDir, file), 'utf8');
+    const served = legalDocument(file);
+    const line = versionLine(served.version, served.date);
+
+    const hits = MARKERS.filter((m) => served.markdown.includes(m));
+    check(`leg2: doc ${doc} serves no drafting marker (${hits.join(' · ') || 'none'})`, hits, []);
+    check(`leg3: doc ${doc} resolves the register's version, and a date out of the document (${served.version} · ${served.date})`,
+      [served.version, /^\d{1,2} (January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/.test(served.date)],
+      [version, true]);
+    check(`leg4: doc ${doc} carries that version on screen, in its first lines`,
+      served.markdown.split('\n').slice(0, 6).includes(line), true);
+    // Nothing below the title has moved: what we serve from the first line of
+    // the document proper to its last is a verbatim substring of the file in
+    // docs/legal. No clause, no heading, no sentence, and no version bump.
+    const lines = served.markdown.split('\n');
+    const tail = lines.slice(lines.indexOf(line) + 1).join('\n').trim();
+    check(`leg5: doc ${doc} is served verbatim below the title — no clause, heading or sentence changed`,
+      [lines[0], raw.split('\n')[0], raw.includes(tail)], [raw.split('\n')[0], raw.split('\n')[0], true]);
+  }
+
+  // Narrow on purpose, and the narrowness is the check. A clean document comes
+  // back byte for byte; a blockquote that is content survives.
+  const clean = '# A clean document\n\n## One\n\nText.\n\n> A quotation that is content.\n\n## Two\n\nMore.\n';
+  check('leg6: a document with no preamble is returned byte for byte', stripDraftingPreamble(clean), clean);
+  check('leg7: a preamble under a subtitle goes, with the rule that closes it; the body blockquote stays',
+    stripDraftingPreamble('# Title\n\n### Subtitle\n\n> **v1.0, 1 May 2026 — NOT YET PUBLISHED.**\n>\n> More notes.\n\n---\n\n## One\n\n> Content.\n'),
+    '# Title\n\n### Subtitle\n\n## One\n\n> Content.\n');
+  check('leg8: a blockquote below a section heading is never a preamble',
+    stripDraftingPreamble('# Title\n\n## One\n\n> Content.\n'), '# Title\n\n## One\n\n> Content.\n');
+  check('leg9: and the two real ones are still served — doc 22 Schedule A, doc 25 Part 4',
+    [legalDocument(fileFor('22')).markdown.includes('> **What is on sale, and what is not.**'),
+     legalDocument(fileFor('25')).markdown.includes('> **Today the investigator is one person')],
+    [true, true]);
+
+  // Fail loudly. A legal page that silently renders no version is the same bug
+  // in different clothes, so every way of not knowing throws.
+  const threw = (f) => { try { f(); return false; } catch { return true; } };
+  check('leg10: a document that dates its current version nowhere fails loudly',
+    threw(() => publishedDate('# Title\n\nNo date in here.\n', 'v9.9', '99')), true);
+  check('leg11: a version the document dates twice, differently, is not chosen between',
+    threw(() => publishedDate('> **v1.0, 1 May 2026.**\n\n*doc 99 · v1.0 draft · 2 May 2026*\n', 'v1.0', '99')), true);
+  check('leg12: a register with no authority table fails loudly',
+    threw(() => renderedVersions('# not the register\n')), true);
+  check('leg13: a register that lists one document at two versions fails loudly (7 September)',
+    threw(() => renderedVersions('**Rendered in the product:**\n| **20** | **P** | **v2.7** | a | b |\n| **20** | **P** | **v2.8** | a | b |\n')), true);
+  check('leg14: a specification\'s version in the internal table is not a published document\'s',
+    renderedVersions('**Rendered in the product:**\n| **20** | **P** | **v2.7** | a | b |\n\n**Internal — specifications, not background:**\n| **20** | **X** | **v9.9** | z |\n').get('20'),
+    'v2.7');
+  check('leg15: a document with no title is left alone rather than guessed at',
+    stripDraftingPreamble('> **v1.0 — notes.**\n\nBody.\n'), '> **v1.0 — notes.**\n\nBody.\n');
+
+  // A consent row must resolve, years later, to the text that person read
+  // (doc 32 B2; John, 3 Sep). The first version of this check asserted that the
+  // stamp hashes the FILE in docs/legal — a proxy for that rule, written when
+  // the file and the page were the same bytes. They are not the same bytes any
+  // more, so the proxy had become the opposite of the rule it stood for: it
+  // would have held a guardian's row against 728 words she was never shown,
+  // including the line saying the policy is not published. Replaced with the
+  // rule (L33), and the first half of it is a fact, not a regex.
+  const stampSrc = readFileSync(fileURLToPath(new URL('../lib/legal-stamp.ts', import.meta.url)), 'utf8');
+  const shaOf = (s) => createHash('sha256').update(s).digest('hex');
+  const bytesDiffer = ['20', '21', '22'].filter((doc) => {
+    const file = fileFor(doc);
+    return shaOf(legalDocument(file).markdown)
+      !== shaOf(readFileSync(join(legalDir, file), 'utf8'));
+  });
+  check('leg16: what a stamped document SERVES and what docs/legal holds are different bytes — one hash cannot describe both',
+    bytesDiffer, ['20', '21', '22']);
+  // The other half can only be structural from here: lib/legal-stamp is
+  // server-only and a plain node script cannot import it.
+  check('leg17: so the stamp is taken from the served document, never from the file',
+    /legalDocument\(LEGAL_FILES\[doc\]\)\.markdown/.test(stampSrc) && !/update\(bytes\)/.test(stampSrc), true);
+  // And the renderer has one door. A page that opened docs/legal for itself
+  // could serve the preamble again without a check here noticing.
+  const readsLegal = (src) => /'docs',\s*'legal'/.test(src) || /readFileSync\([^)]*docs\/legal/.test(src);
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const readers = [...walk(join(root, 'app')), ...walk(join(root, 'lib'))]
+    .filter((f) => /\.tsx?$/.test(f) && readsLegal(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(root.length));
+  check(`leg18: exactly one file opens docs/legal (${readers.join(', ') || 'none'})`,
+    readers, ['lib/legal-doc.ts']);
+}
+
+// ---------------------------------------------------------------------------
+// John's rulings of 28 Sep (docs/legal/35, "Rulings — 2026-09-28").
+//
+// 1. Stripping the preamble is not material; the version still bumps, so every
+//    consent row names exactly the text that was shown; nobody is re-asked.
+// 2. Clauses describing capabilities that are not built come out until they
+//    are built. ([DRAFTED], [OUTLINE] and [LEGAL: doc 18 Qn] are a different
+//    class and the ruling does not touch them.)
+// 3. One version per document, everywhere — register table, register prose,
+//    the document's own header and footer — and the "not yet published"
+//    colophons go, because these versions are the published ones.
+// ---------------------------------------------------------------------------
+{
+  const { legalDocument, renderedLegalDocs } = await import('../lib/legal-doc.ts');
+  const legalDir = fileURLToPath(new URL('../docs/legal', import.meta.url));
+  const fileFor = (doc) => readdirSync(legalDir).find((x) => x.startsWith(`${doc}-`) && x.endsWith('.md'));
+  const live = renderedLegalDocs();
+
+  // Ruling 3: no served page calls itself unpublished, in any case.
+  for (const { doc } of live) {
+    const served = legalDocument(fileFor(doc)).markdown;
+    const hit = /not yet published/i.exec(served);
+    check(`jr1: doc ${doc} serves no "not yet published" (${hit ? served.slice(Math.max(0, hit.index - 40), hit.index + 20).replace(/\s+/g, ' ') : 'none'})`,
+      Boolean(hit), false);
+  }
+
+  // Ruling 3: one version per document. The register's table is the answer;
+  // everything else that names the document's version must name the same one.
+  const reg = readFileSync(join(legalDir, '00-Legal-Register.md'), 'utf8');
+  const prose = /currently\s+`20@(v[\d.]+)`,\s*`21@(v[\d.]+)`,\s*`22@(v[\d.]+)`/.exec(reg);
+  const consentSrc = readFileSync(fileURLToPath(new URL('../lib/consent.ts', import.meta.url)), 'utf8');
+  const policyVersion = /POLICY_VERSION\s*=\s*'([^']+)'/.exec(consentSrc)?.[1];
+  const num = (v) => v.replace(/^v/, '').split('.').map(Number);
+  const newer = (a, b) => { const [x, y] = [num(a), num(b)]; return x[0] - y[0] || x[1] - y[1]; };
+  for (const { doc, version } of live) {
+    const raw = readFileSync(join(legalDir, fileFor(doc)), 'utf8');
+    // What the document says about itself: its change-log heads ("v2.7, 15
+    // September…"), its status lines ("Doc 21 · v2.5 …"), its colophon, and —
+    // doc 20 only — the "Version:" line in its body.
+    const heads = [...raw.matchAll(/^>\s*\*\*(?:⚠️\s*)?(v\d+\.\d+),/gm)].map((m) => m[1]);
+    const status = [...raw.matchAll(new RegExp(`[Dd]oc ${doc} · (v\\d+\\.\\d+)`, 'g'))].map((m) => m[1]);
+    const header = [...heads, ...status].sort(newer).at(-1);
+    const colophon = new RegExp(`^\\*Pitch Football ·.*· doc ${doc} · (v\\d+\\.\\d+)`, 'm').exec(raw)?.[1];
+    const body = /\*\*Version:\*\* (\d+\.\d+)/.exec(raw)?.[1];
+    const claims = { header, colophon, ...(body ? { body: `v${body}` } : {}) };
+    if (['20', '21', '22'].includes(doc)) claims.prose = prose?.[{ 20: 1, 21: 2, 22: 3 }[doc]];
+    if (doc === '20') claims.consent = policyVersion?.replace(/^20@/, '');
+    const wrong = Object.entries(claims).filter(([, v]) => v !== version).map(([k, v]) => `${k} says ${v}`);
+    check(`jr2: doc ${doc} names one version everywhere — the register's ${version} (${wrong.join(', ') || 'it does'})`,
+      wrong, []);
+  }
+
+  // Ruling 1: every consent row names the text that was shown — so for doc 20,
+  // the waitlist and the consent path must stamp the SAME hash. Reproduce what
+  // each path actually writes. Today the waitlist writes a typed constant.
+  const shaOf = (s) => createHash('sha256').update(s).digest('hex');
+  const served20 = shaOf(legalDocument(fileFor('20')).markdown);
+  const waitSrc = readFileSync(fileURLToPath(new URL('../app/api/waitlist/route.ts', import.meta.url)), 'utf8');
+  const waitlistHash = /legalStamp\('20'\)/.test(waitSrc) ? served20
+    : /POLICY_STAMP/.test(waitSrc) ? /POLICY_SHA256\s*=\s*'([0-9a-f]{64})'/.exec(consentSrc)?.[1] : 'neither';
+  const stampSrc = readFileSync(fileURLToPath(new URL('../lib/legal-stamp.ts', import.meta.url)), 'utf8');
+  const consentPathHash = /legalDocument\(LEGAL_FILES\[doc\]\)\.markdown/.test(stampSrc) ? served20 : 'not the served text';
+  check(`jr3: the waitlist and the consent path stamp doc 20 with one hash (waitlist ${String(waitlistHash).slice(0, 12)} · consent ${String(consentPathHash).slice(0, 12)})`,
+    waitlistHash, consentPathHash);
+  // And no second answer is left lying around to drift: no hash typed into
+  // lib/ or app/ at all.
+  const typed = [...walk(fileURLToPath(new URL('../lib', import.meta.url))), ...walk(fileURLToPath(new URL('../app', import.meta.url)))]
+    .filter((f) => /\.tsx?$/.test(f) && /['"`][0-9a-f]{64}['"`]/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.slice(f.lastIndexOf('/lib/') + 1 || f.lastIndexOf('/app/') + 1));
+  check(`jr4: no document hash is typed into the code (${typed.join(', ') || 'none is'})`, typed, []);
+
+  // Ruling 2, and the one part of it this commit could NOT carry out.
+  //
+  // John ruled that clauses describing capabilities that are not built come
+  // out. The one clause marked that way, doc 22 §6.5 (suppression), describes
+  // exactly the capability doc 32 calls A1 — and migration 0049 built A1 and
+  // A2 on 17 Sep; g32-p1–p4 pin them. John's own gate, doc 32 B6, says "If A1
+  // and A2 are green, 6.5 may publish. If they are not, it must not", and A1's
+  // box asks that a person has done it once. Whether 6.5 is "not built" is
+  // therefore a question with two of John's answers on it, and the builder was
+  // told: if a clause is ambiguous about its class, leave it served and list
+  // it. So these four lines are still served, pinned by their exact opening,
+  // AWAITING JOHN. The set exists so that nothing joins it quietly and so that
+  // it is emptied, not widened, when he answers.
+  const AWAITING_JOHN = new Set([
+    '22: **[DO NOT PUBLISH UNTIL BUILT] 6.5 Suppression.** A guardian, or a club ',
+    '22: *Status: not built. Today a guardian can pause a profile and disable its',
+    '22: | 4 | **Suppression clause promises a capability that does not exist yet',
+    '22: | 5 | **Guardian-contact gate at 2.3 is not current behaviour — do not p',
+  ]);
+  // The drafting sense only. "Do not publish other people's children" is a
+  // conduct rule (doc 22 Part 9, doc 24 §3), and it is content.
+  const UNBUILT = /\[DO NOT PUBLISH[^\]]*\]|— do not publish\b|must not publish before it is built|^\*Status: not built\./i;
+  const served = [];
+  for (const { doc } of live) {
+    for (const line of legalDocument(fileFor(doc)).markdown.split('\n')) {
+      if (UNBUILT.test(line)) served.push(`${doc}: ${line.slice(0, 72)}`);
+    }
+  }
+  const unexpected = served.filter((l) => !AWAITING_JOHN.has(l));
+  const answered = [...AWAITING_JOHN].filter((l) => !served.includes(l));
+  check(`jr5: nothing "not built" is served beyond the four lines awaiting John (${unexpected.join(' · ') || 'nothing is'})`,
+    unexpected, []);
+  check(`jr6: and when he answers, the set is emptied rather than left stale (${answered.join(' · ') || 'all four still served'})`,
+    answered, []);
+}
+
+// ---------------------------------------------------------------------------
 // QA, 28 Sep — two faults found by pressing things rather than by reading.
 // ---------------------------------------------------------------------------
 

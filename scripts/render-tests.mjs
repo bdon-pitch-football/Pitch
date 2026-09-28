@@ -1191,6 +1191,54 @@ const georgia = ids.children.georgia;
   check('g32-r5: nothing calls itself "Pitch Football Pty Ltd"', /Pitch Football Pty Ltd/i.test((await get('/signin')).html), false);
 }
 
+// ---------------------------------------------------------------------------
+// What the legal surfaces SERVE (0056). The source markdown keeps its drafting
+// preamble; no page may put it in front of a person. The worst of it was never
+// /privacy: doc 32 B3 puts doc 21 INSIDE the guardian approval flow, so the one
+// screen the whole consent funnel passes through opened by telling a parent
+// that the policy they were being asked to accept was NOT YET PUBLISHED.
+//
+// The permission suite checks the same property against lib/legal-doc. This
+// checks the page, because L16 was written about a renderer that was fine in
+// theory and served the notes in practice.
+// ---------------------------------------------------------------------------
+{
+  const MARKERS = ['NOT YET PUBLISHED', 'do-not-publish', 'not to be published', '⚠️',
+    'Nothing here binds', 'working draft', 'the loss was my doing'];
+  // The embedded document only — a marker anywhere else on the approval page
+  // would be a different bug, and this check should not be the one to find it.
+  const approval = (await get('/a/dev-mila-text')).html;
+  const embedded = /<div class="legal-doc"[^>]*>([\s\S]*?)<\/div><style>/.exec(approval)?.[1] ?? '';
+  check('leg-r1: the approval flow embeds the child policy, and it is not empty',
+    embedded.length > 2000, true);
+  check(`leg-r2: nothing in it says the policy is not published (${MARKERS.filter((m) => embedded.includes(m)).join(' · ') || 'none does'})`,
+    MARKERS.filter((m) => embedded.includes(m)), []);
+  // The version a page must show is the register's, read the way the page
+  // reads it — not typed here, so a bump in the register cannot leave this
+  // suite asserting the old number.
+  const { legalDocument } = await import('../lib/legal-doc.ts');
+  const line = (file) => { const d = legalDocument(file); return `Version ${d.version.replace(/^v/, '')} · ${d.date}`; };
+  check(`leg-r3: and a parent can still see which version they are accepting (${line('21-Privacy-Policy-Child.md')})`,
+    embedded.includes(line('21-Privacy-Policy-Child.md')), true);
+  // John, 28 Sep: these versions are the published ones, so nothing a parent
+  // is shown says otherwise — in the flow or on the page, in any case.
+  check(`leg-r7: nothing in the approval flow's policy says "not yet published" (${/not yet published/i.test(embedded) ? 'it does' : 'nothing does'})`,
+    /not yet published/i.test(embedded), false);
+
+  for (const [path, file] of [['/privacy', '20-Privacy-Policy-Adult.md'], ['/privacy/family', '21-Privacy-Policy-Child.md'], ['/terms', '22-Terms-of-Service.md']]) {
+    const { status, html } = await get(path);
+    const doc = /<div\s+class="legal-doc"[^>]*>([\s\S]*?)<\/div><style>/.exec(html)?.[1] ?? '';
+    check(`leg-r4: ${path} serves the document and no drafting marker (${MARKERS.filter((m) => doc.includes(m)).join(' · ') || 'none'})`,
+      [status, doc.length > 2000, MARKERS.filter((m) => doc.includes(m))], [200, true, []]);
+    check(`leg-r5: ${path} carries its version and date (${line(file)})`, has(html, line(file)), true);
+    check(`leg-r8: ${path} never calls itself unpublished`, /not yet published/i.test(doc), false);
+    // The title is still the first thing on the page: the preamble went, and
+    // nothing of the document went with it.
+    check(`leg-r6: ${path} opens with the document, not a rule under its title`,
+      /<h1[^>]*>[^<]+<\/h1>\s*<p><em>Version/.test(doc), true);
+  }
+}
+
 // "Preview my page" (BUZ, 19 Sep): the family sees the page exactly as a club
 // does — and only the family. An under-16 previews the APPROVED version, never
 // the pending edit no club can see (D-119).
