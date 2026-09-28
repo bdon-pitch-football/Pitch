@@ -1540,16 +1540,16 @@ check('U-2d: it is single-purpose — one share token, and an expiry',
 // revoked verification revokes every link that club holds, and John ruled that
 // clause unbuildable. These test the ruling that replaced it, which the
 // register has not adopted — so M11 is honestly open until BUZ decides.
-check('deverify1: de-verification carries a reason class',
+check('M11/deverify1: de-verification carries a reason class',
   (await db.query(`select string_agg(column_name,',') as c from information_schema.columns
     where table_name='club' and column_name='suspension_reason'`)).rows[0].c, 'suspension_reason');
-await expectFail('deverify1b: and the class is constrained, not free text',
+await expectFail('M11/deverify1b: and the class is constrained, not free text',
   `update club set suspension_reason = 'because i felt like it' where id = '${CLUB.riverside}'`);
 const deverifyMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
   .split('clubDeverifiedEmail')[1].split('export const')[0];
-check('deverify1c: the notice never says WHY the club was de-verified',
+check('M11/deverify1c: the notice never says WHY the club was de-verified',
   /allegation|investigat|report|complaint|safety concern/i.test(deverifyMsg), false);
-check('deverify1d: and never revokes on the family’s behalf — it offers the button',
+check('M11/deverify1d: and never revokes on the family’s behalf — it offers the button',
   /we have not switched it off for you/i.test(deverifyMsg), true);
 
 // The rest of John's M11/L29 ruling: the class RECORDED, the function CALLED,

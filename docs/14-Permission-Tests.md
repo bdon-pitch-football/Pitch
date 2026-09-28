@@ -358,7 +358,7 @@ D-126, D-137, D-139. **The rule the whole section tests: no fact about a person 
 | M8 | `club_unverified` adds a coach or an administrator | **Permitted.** Club-internal, no minor involved |
 | M9 | A player's `register interest` targeting a `claimed` club | **Permitted and held.** Assert the family is told the registration is with the club, and is **never** told the club is unverified — that is our problem, not a fact about a child's prospects |
 | M10 | `club_state` moves `verified` → `suspended` | Every minor-facing permission ends **immediately**, in the same transaction. Assert held-view semantics resume and no cached read survives |
-| M11 | Verification is revoked while a club holds a live token | The token stops resolving. Assert revocation of `verified` is equivalent to revocation of every link that club holds |
+| M11 | Verification is revoked while a club holds a live token | **Amended by D-165 (John's ruling, doc 31):** the token keeps resolving (L29), because a link is not club-bound and killing it would kill links sent to other clubs. Assert instead: a revocation carries a reason class from a closed list; a **child-safety** revocation sends every guardian whose live link went to that club a notice with a one-tap switch-off; the notice never says why; nothing is revoked on the family's behalf |
 | M12 | `sys_admin` sets `verified` | One audit row: operator identity, timestamp, club id, **and the answer to the authority question** (D-137). Assert the row cannot be written without the authority field |
 | M13 | Onboarding pause (D-139) | Assert a config flag exists that refuses new `claimed` → `verified` transitions **without** lowering any check, and that it is a separate flag from anything payment-related |
 
