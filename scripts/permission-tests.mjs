@@ -7228,7 +7228,23 @@ const componentFilesAll = [];
     await refusedSms(`update alumni_entry set line = 'Named Junior → NPL' where id = $1`, [alumniOld]), true);
   check('al-u4: but it can be confirmed, which is an edit that satisfies the guard',
     await refusedSms(`update alumni_entry set adults_confirmed_by = $2, adults_confirmed_at = now() where id = $1`, [alumniOld, ID.td]), false);
-  await db.query('delete from alumni_entry where id in ($1,$2)', [alumniOk, alumniOld]);
+  check('al-u5: outside an erasure, taking the confirmer\u2019s name off is refused, even with the time kept',
+    await refusedSms(`update alumni_entry set adults_confirmed_by = null where id = $1`, [alumniOk]), true);
+  // 0067's erasure takes an erased person's name off anything they signed,
+  // alumni confirmations included. The guard must let exactly that through,
+  // or a guardian's one-tap deletion fails on an alumni line.
+  const erased = crypto.randomUUID(), alumniErased = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Erasedconfirmer',$2)`, [erased, yearsAgo(15)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now())`, [ID.guardian, erased]);
+  await db.query(`insert into alumni_entry (id, club_id, line, sort, added_by, adults_confirmed_by, adults_confirmed_at)
+    values ($1,$2,'B. Senior → State League',92,$3,$3, now() - interval '1 day')`, [alumniErased, CLUB.riverside, erased]);
+  let eraseErr = null;
+  try { await db.query('select fn_erase_child($1,$2)', [ID.guardian, erased]); } catch (e) { eraseErr = e.message; }
+  const after = (await db.query(`select added_by, adults_confirmed_by, adults_confirmed_at is not null as confirmed_at, line
+    from alumni_entry where id = $1`, [alumniErased])).rows[0];
+  check('al-u6: an erasure still completes for someone who confirmed an entry — the name goes, the time and the line stay (0067)',
+    [eraseErr, after], [null, { added_by: null, adults_confirmed_by: null, confirmed_at: true, line: 'B. Senior → State League' }]);
+  await db.query('delete from alumni_entry where id in ($1,$2,$3)', [alumniOk, alumniOld, alumniErased]);
 
   // --- The service-role key (D-80). CI's check (.github/workflows/ci.yml),
   //     run here so it runs on every suite and not only on a push this branch
