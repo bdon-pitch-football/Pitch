@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Verification call', robots: { index: false, follow: false } };
 
 const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 4 };
-const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
+const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
 const select: React.CSSProperties = { ...input, appearance: 'none' as const };
 // 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
 const day = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');

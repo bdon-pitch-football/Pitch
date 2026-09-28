@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: the return</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--hero:linear-gradient(160deg,#123326 0%,#0c1d14 60%,#0a1510 100%);--r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--r-pill:999px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px;--ease:cubic-bezier(.22,1,.36,1)}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h3{font-size:14px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:22px 0 6px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code,code.m{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink)}
+.board{padding:0 22px 60px;overflow-x:auto}
+.bh{max-width:900px;margin:30px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.bh .t{font-size:18px;font-weight:900;letter-spacing:var(--ls-title)}
+.bh .s{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin:0 auto}
+.w1280{width:1280px}.w390{width:390px}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.numeral{font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums}
+.numeral-l{font-size:56px}.numeral-m{font-size:34px}.numeral-s{font-size:22px}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);font-family:inherit;border:none;text-decoration:none;width:100%}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.nav{border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:2px}
+.nl{min-height:44px;display:flex;align-items:center;gap:11px;padding:0 12px;border-radius:var(--r-well);font-size:14px;font-weight:700;color:var(--secondary);text-decoration:none}
+.nl.on{background:var(--surface-2);color:var(--ink);box-shadow:inset 3px 0 0 var(--accent)}
+.sug{border-bottom:1px dotted rgba(237,161,0,.6)}
+.note{max-width:900px;margin:12px auto 0;font-size:12.5px;color:var(--muted);line-height:1.6;font-weight:500}
+.note b{color:var(--secondary)}
+.floodlight{background:radial-gradient(ellipse 130% 85% at 50% -25%,#17422e 0%,#10281c 42%,#0b120e 78%)}
+.hero{border-radius:var(--r-hero);background:var(--hero);padding:20px 20px 18px;display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap}
+/* The return block. Sunken, because you read it — you do not act on it. */
+.away{display:flex;flex-direction:column;gap:0;padding:17px 16px}
+.away .h{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted);margin-bottom:13px}
+.away .ln{display:flex;gap:12px;align-items:baseline;padding:10px 0;border-top:1px solid var(--line)}
+.away .ln:first-of-type{border-top:none;padding-top:0}
+.away .when{font-size:11.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);width:86px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.away .what{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.5}
+.away .what .q{font-weight:500;color:var(--secondary)}
+.wait{border-radius:18px;padding:17px;display:flex;flex-direction:column;gap:12px;background:var(--surface);border:1px solid var(--line)}
+.wait.first{background:linear-gradient(160deg,#123326,#0c1d14);border-color:var(--accent)}
+.wk{display:flex;align-items:center;gap:7px}
+.wk .dot{width:8px;height:8px;border-radius:999px;background:var(--accent)}
+.wk .t{font-size:10.5px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--accent)}
+.wk .ago{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 24 Sep 2026 · mockup 3 of 5</div>
+<h1>The return</h1>
+<p class="lead">Our user is gone from March to September and that is normal, not failure. The screen a
+returning family lands on should lead with what happened while they were away — facts, dated, with
+no verb aimed at the reader — and then get out of the way.</p>
+
+<h3>What is wrong now</h3>
+<p>Nothing on <code>/home</code> knows how long you have been gone. A parent who last opened Pitch in
+July gets the identical page to one who opened it yesterday: three numerals, then a queue of things
+waiting on <i>them</i>, the oldest of which has been waiting since July and says so in grey 11px
+type. The first thing a returning parent reads is a list of their own omissions. <b>Nothing on the
+page tells them what happened to their child's record in the eleven weeks they were away</b> — even
+though we hold all of it: an append-only read ledger (D-78), the share-token expiry (D-53), the
+consent timeline, and a curated trials board.</p>
+
+<h3>What the change does for the person on this screen</h3>
+<p>It answers the question a parent actually returns with — <b>"did anything happen?"</b> — before it
+asks them for anything. Four dated lines, three of which are reassurance and one of which is a
+calendar fact. The read line is the strongest thing we own: a named person at a named club opened
+your child's CV on a date, and we can prove it. No competitor can print that sentence honestly.</p>
+<p>The last line is the seasonality move, and it is stated as <b>a limit, not an opportunity</b>.
+Football Victoria's trial windows exist so that adults cannot approach children out of season. We
+display the window. We never say "clubs are looking — update your CV now".</p>
+
+<h3>What it costs to build</h3>
+<p><b>The cheapest thing in this set. Half a day.</b> One comparison —
+<code class="m">last_seen_at</code> against 60 days — and four queries the product already runs
+somewhere: <code class="m">fn_register_readers</code> (the ledger on this page's own child cards),
+the live <code class="m">share_token</code> expiry (already rendered as "expires 12 October"), a
+<code class="m">count</code> of outside-approach events on the consent spine, and the next trial
+window from the curated index. No new table, no new permission, no new screen.</p>
+
+<h3>What it does NOT change</h3>
+<p>It is <b>rendered on arrival and never pushed</b>. No email, no SMS, no push, no badge — the moment
+this becomes a send it is a re-engagement prompt, which is banned outright over a minor (D-65 as
+amended by D-81) and is a marketing send to a guardian, which launch does not have. There is no
+streak, no count of visits, no "you haven't updated in six months", no completeness score, no
+comparison to another family, and <b>nothing on it is aimed at bringing a child back</b>. It
+disappears entirely for anyone who was here last week. The rest of the page — the hero numerals, the
+waiting queue, oldest first, the children cards — is untouched and in the same order.</p>
+
+<div class="note"><b>Copy rule:</b> <span class="sug">underlined</span> = suggested, not approved.
+Everything else is verbatim from <code>app/home/page.tsx</code> or
+<code>components/RegisterReaders.tsx</code>. The guardian’s own name is underlined because <b>there is no guardian in <code>lib/fixtures.ts</code></b> — the one seat with no house fixture is the one that holds every consent decision in the product. That is worth fixing before it is worth drawing.</div>
+</div>
+
+<div class="board">
+
+<div class="bh"><span class="tag tag-now">now · 1280</span><div><div class="t">Eleven weeks away, and the page opens on what you have not done</div><div class="s">Deniz's parent. Last signed in 12 July; today is 24 September. This is the page exactly as built.</div></div></div>
+
+<div class="stage w1280">
+<div class="floodlight">
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:560px">
+    <div style="padding:4px 10px 18px"><div style="font-size:14.5px;font-weight:900"><span class="sug">Ayla</span></div><div style="font-size:12px;color:var(--muted);margin-top:2px">Your family</div></div>
+    <div class="nl on">Home</div><div class="nl">Deniz</div><div class="nl">Trials</div>
+  </div>
+  <div style="padding:22px 18px 30px">
+  <div style="max-width:640px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:flex-end"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Your family</div>
+      <div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:6px">Everything about your children on Pitch, and every control over it, is here.</div>
+    </div>
+    <div class="hero">
+      <div><div class="numeral numeral-m">1</div><div class="kicker" style="margin-top:4px;color:rgba(255,255,255,.55)">Link active</div></div>
+      <div><div class="numeral numeral-m" style="color:var(--amber)">1</div><div class="kicker" style="margin-top:4px;color:rgba(255,255,255,.55)">Expiring in 30 days</div></div>
+      <div><div class="numeral numeral-m" style="color:var(--accent)">1</div><div class="kicker" style="margin-top:4px;color:rgba(255,255,255,.55)">Club register</div></div>
+    </div>
+    <div class="wait first">
+      <div class="wk"><div class="dot"></div><div class="t">Waiting on you</div><div class="ago">2 months ago</div></div>
+      <div style="font-size:17px;font-weight:900;line-height:1.2">Deniz changed the page</div>
+      <div style="font-size:13px;color:var(--secondary);line-height:1.5">Until you approve it, every club holding the link still reads the old version.</div>
+      <a href="#" class="btn btn-primary">Review it</a>
+    </div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div><div style="font-size:14.5px;font-weight:900">Trials near you</div><div style="font-size:12.5px;color:var(--muted)">Every notice we hold, newest first</div></div>
+      <div style="font-size:12.5px;font-weight:800;color:var(--accent)">Open</div>
+    </div>
+  </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="note"><b>"2 months ago"</b> is the only acknowledgement on the page that anyone has been
+away, and it is attached to a reproach. Everything else that happened in those two months — a
+technical director opening the CV, a link approaching expiry, a trial window opening — is held in the
+database and is not on this screen.</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 1280</span><div><div class="t">Four dated facts, above the queue, and then the page is the page</div><div class="s">Renders only when the last session was more than 60 days ago. Sunken, because you read it — the raised card below it is the one you act on.</div></div></div>
+
+<div class="stage w1280">
+<div class="floodlight">
+<div style="display:grid;grid-template-columns:232px minmax(0,1fr)">
+  <div class="nav" style="min-height:700px">
+    <div style="padding:4px 10px 18px"><div style="font-size:14.5px;font-weight:900"><span class="sug">Ayla</span></div><div style="font-size:12px;color:var(--muted);margin-top:2px">Your family</div></div>
+    <div class="nl on">Home</div><div class="nl">Deniz</div><div class="nl">Trials</div>
+  </div>
+  <div style="padding:22px 18px 30px">
+  <div style="max-width:640px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:flex-end"><span class="wm">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Your family</div>
+      <div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:6px">Everything about your children on Pitch, and every control over it, is here.</div>
+    </div>
+
+    <div class="card-sunken away">
+      <div class="h"><span class="sug">While you were away</span></div>
+      <div class="ln"><div class="when"><span class="sug">2 Aug</span></div><div class="what"><span class="sug">Marina Petrovic, Technical Director at Riverside FC, opened Deniz&rsquo;s CV.</span></div></div>
+      <div class="ln"><div class="when"><span class="sug">12 Oct</span></div><div class="what"><span class="sug">Deniz&rsquo;s link expires.</span> <span class="q"><span class="sug">Clubs holding it stop being able to open the page that day.</span></span></div></div>
+      <div class="ln"><div class="when"><span class="sug">Since July</span></div><div class="what"><span class="q"><span class="sug">Nobody outside Riverside FC asked to reach Deniz.</span></span></div></div>
+      <div class="ln"><div class="when"><span class="sug">14 Oct</span></div><div class="what"><span class="sug">The NPL trial window opens.</span> <span class="q"><span class="sug">Community trials are on now.</span></span></div></div>
+    </div>
+
+    <div class="hero">
+      <div><div class="numeral numeral-m">1</div><div class="kicker" style="margin-top:4px;color:rgba(255,255,255,.55)">Link active</div></div>
+      <div><div class="numeral numeral-m" style="color:var(--amber)">1</div><div class="kicker" style="margin-top:4px;color:rgba(255,255,255,.55)">Expiring in 30 days</div></div>
+      <div><div class="numeral numeral-m" style="color:var(--accent)">1</div><div class="kicker" style="margin-top:4px;color:rgba(255,255,255,.55)">Club register</div></div>
+    </div>
+
+    <div class="wait first">
+      <div class="wk"><div class="dot"></div><div class="t">Waiting on you</div><div class="ago">2 months ago</div></div>
+      <div style="font-size:17px;font-weight:900;line-height:1.2">Deniz changed the page</div>
+      <div style="font-size:13px;color:var(--secondary);line-height:1.5">Until you approve it, every club holding the link still reads the old version.</div>
+      <a href="#" class="btn btn-primary">Review it</a>
+    </div>
+
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div><div style="font-size:14.5px;font-weight:900">Trials near you</div><div style="font-size:12.5px;color:var(--muted)">Every notice we hold, newest first</div></div>
+      <div style="font-size:12.5px;font-weight:800;color:var(--accent)">Open</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:9px">
+      <div class="kicker">Your children</div>
+      <div class="card" style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:52px;height:52px;border-radius:16px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:var(--secondary)">D</div>
+          <div style="font-size:16px;font-weight:800">Deniz</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--secondary);font-weight:500"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round"><path d="M5 12.5 l4.5 4.5 L19 7"/></svg>Approved by you on 02 March</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--secondary);font-weight:500"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round"><path d="M10 13 a4 4 0 0 1 0-6 l3-3 a4 4 0 0 1 6 6 l-1.5 1.5 M14 11 a4 4 0 0 1 0 6 l-3 3 a4 4 0 0 1-6-6 l1.5-1.5"/></svg>Link active · expires 12 October</div>
+          <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--secondary);font-weight:500"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7d8f85" stroke-width="2.2" stroke-linecap="round"><path d="M4 6 h16 M4 12 h16 M4 18 h10"/></svg>On 1 club register</div>
+        </div>
+        <a href="#" class="btn btn-secondary">Manage</a>
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="note"><b>Read the four lines again and count the verbs aimed at the reader.</b> There are
+none. Nothing says update, renew, check, complete or act. Two of the four are the absence of
+something happening, which is the answer a parent wants most and the one no engagement-shaped product
+would ever print. The expiry line states a date and a consequence, not an instruction — the renewal
+control is where it has always been, on the child's card below.</div>
+
+<div class="bh"><span class="tag tag-new">proposed · 390</span><div><div class="t">Same block, same order, one column</div><div class="s">The dated column narrows to 74px and the lines wrap. Nothing is dropped for the phone.</div></div></div>
+
+<div class="stage w390">
+<div class="floodlight" style="padding:0 18px 24px">
+  <div style="display:flex;align-items:center;justify-content:flex-end;height:56px"><span class="wm" style="font-size:17px">P<svg viewBox="0 0 74 97"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:var(--ls-title)">Your family</div>
+      <div style="font-size:14px;color:var(--secondary);line-height:1.55;margin-top:6px">Everything about your children on Pitch, and every control over it, is here.</div>
+    </div>
+
+    <div class="card-sunken away">
+      <div class="h"><span class="sug">While you were away</span></div>
+      <div class="ln"><div class="when" style="width:74px"><span class="sug">2 Aug</span></div><div class="what"><span class="sug">Marina Petrovic, Technical Director at Riverside FC, opened Deniz&rsquo;s CV.</span></div></div>
+      <div class="ln"><div class="when" style="width:74px"><span class="sug">12 Oct</span></div><div class="what"><span class="sug">Deniz&rsquo;s link expires.</span> <span class="q"><span class="sug">Clubs holding it stop being able to open the page that day.</span></span></div></div>
+      <div class="ln"><div class="when" style="width:74px"><span class="sug">Since July</span></div><div class="what"><span class="q"><span class="sug">Nobody outside Riverside FC asked to reach Deniz.</span></span></div></div>
+      <div class="ln"><div class="when" style="width:74px"><span class="sug">14 Oct</span></div><div class="what"><span class="sug">The NPL trial window opens.</span> <span class="q"><span class="sug">Community trials are on now.</span></span></div></div>
+    </div>
+
+    <div class="hero" style="padding:18px 16px;gap:20px">
+      <div><div class="numeral numeral-m">1</div><div class="kicker" style="margin-top:4px;color:rgba(255,255,255,.55)">Link active</div></div>
+      <div><div class="numeral numeral-m" style="color:var(--amber)">1</div><div class="kicker" style="margin-top:4px;color:rgba(255,255,255,.55)">Expiring in 30 days</div></div>
+      <div><div class="numeral numeral-m" style="color:var(--accent)">1</div><div class="kicker" style="margin-top:4px;color:rgba(255,255,255,.55)">Club register</div></div>
+    </div>
+
+    <div class="wait first">
+      <div class="wk"><div class="dot"></div><div class="t">Waiting on you</div><div class="ago">2 months ago</div></div>
+      <div style="font-size:17px;font-weight:900;line-height:1.2">Deniz changed the page</div>
+      <div style="font-size:13px;color:var(--secondary);line-height:1.5">Until you approve it, every club holding the link still reads the old version.</div>
+      <a href="#" class="btn btn-primary">Review it</a>
+    </div>
+
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div><div style="font-size:14.5px;font-weight:900">Trials near you</div><div style="font-size:12.5px;color:var(--muted)">Every notice we hold, newest first</div></div>
+      <div style="font-size:12.5px;font-weight:800;color:var(--accent)">Open</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="note" style="margin-top:22px"><b>Two things I deliberately did not put in this block.</b>
+A count of how many times the CV has been read — a number that only goes up is a score, and a quiet
+month then reads as a bad month. And anything at all on the <i>player's</i> home: a fourteen-year-old
+coming back after the off-season gets no ledger of who looked at him, because that is the mechanic
+that would make him check. The read ledger stays where it is today — on the guardian's screens, and
+on a player's own home only from 16, which is where doc 34 already puts it.</div>
+
+</div>
+</body>
+</html>

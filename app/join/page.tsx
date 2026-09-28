@@ -10,7 +10,7 @@ import { T } from '@/lib/palette';
 
 const field: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 };
 const fieldLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
-const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0 };
+const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0 };
 
 const ROLES = [
   ['player', 'Player', 'Build your football CV'],
@@ -97,7 +97,11 @@ export default function Join() {
                     : 'Under 16? A parent will need to approve your profile before it goes live.'}
               </div>
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+            {/* The label wraps the input, so the label is the tap target — and it was
+                23px tall, because it is one line of 12px text. A person believes
+                this tick is what writes their consent record (D-147: >=44px at
+                every width). */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, cursor: 'pointer' }}>
               <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 17, height: 17, accentColor: T.accent }} />
               <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
                 I agree to the <a href="/terms" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Terms</a> and <a href="/privacy" style={{ color: T.accent, fontWeight: 700, textDecoration: 'none' }}>Privacy Policy</a>

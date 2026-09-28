@@ -15,7 +15,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   return { title: done ? FAILURE_COPY.reportDone.title : 'Report this page', robots: { index: false, follow: false } };
 }
 
-const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
+const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
 
 export default async function Report({ searchParams }: { searchParams: Promise<{ page?: string; kind?: string; done?: string }> }) {
   const { page, kind, done } = await searchParams;
@@ -75,7 +75,7 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
             ))}
           </fieldset>
           <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-            <b style={{ color: T.ink }}>If you or your child aren&rsquo;t safe at home,</b> you can talk to 1800RESPECT any time on <a href="tel:1800737732" style={{ color: T.accent, fontWeight: 700 }}>1800 737 732</a>. We can stop another parent seeing your child&rsquo;s page while we look, without deleting anything. In an emergency, call 000.
+            <b style={{ color: T.ink }}>If you or your child aren&rsquo;t safe at home,</b> you can talk to 1800RESPECT any time on <a href="tel:1800737732" style={{ color: T.accent, fontWeight: 700, display: 'inline-flex', alignItems: 'center', minHeight: 44, margin: '-11px 0', whiteSpace: 'nowrap' }}>1800 737 732</a>. We can stop another parent seeing your child&rsquo;s page while we look, without deleting anything. In an emergency, call 000.
           </div>
           <label style={card}>
             <div style={label}>What&rsquo;s wrong — optional</div>

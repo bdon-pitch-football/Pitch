@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Pitch — proposal: the surface stack, made perceptible</title>
+<style>
+:root{--bg:#0b120e;--surface:#121b16;--surface-2:#1a2420;--surface-sunken:#0e1712;--line:#24322a;--ink:#eef5f0;--secondary:#b9c8bf;--muted:#7d8f85;--placeholder:#6b7d73;--accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#a479e2;--red:#e34948;--hero:linear-gradient(160deg,#123326 0%,#0c1d14 60%,#0a1510 100%);--r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--r-pill:999px;--ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;--card-pad:15px 14px;--ease:cubic-bezier(.22,1,.36,1)}
+/* THE PROPOSAL. Same names, new values, scoped to .next so both ladders can
+   sit on one page. Nothing else in this file changes between the two. */
+.next{--surface-sunken:#152019;--surface:#1e2a23;--surface-2:#23342b;--line:#2f4638;--muted:#8a9d92}
+*{box-sizing:border-box}
+body{margin:0;background:#070b09;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:900px;margin:0 auto;padding:36px 22px 10px}
+.doc h1{font-size:30px;font-weight:900;letter-spacing:var(--ls-title);margin:0 0 6px}
+.doc h3{font-size:14px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:22px 0 6px}
+.doc p{font-size:14.5px;line-height:1.62;color:var(--secondary);margin:0 0 10px}
+.doc b{color:var(--ink)}
+.doc code,code.m{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.doc table{border-collapse:collapse;margin:8px 0 14px;font-size:13px;width:100%}
+.doc td,.doc th{border-bottom:1px solid var(--line);padding:8px 14px 8px 0;text-align:left;color:var(--secondary);font-weight:500}
+.doc th{font-size:10.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.doc td b{color:var(--ink)}
+.kicker{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.lead{font-size:16px;line-height:1.6;color:var(--ink)}
+.board{padding:0 22px 60px}
+.bh{max-width:1100px;margin:30px auto 10px;display:flex;align-items:baseline;gap:12px}
+.bh .tag{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tag-now{background:rgba(227,73,72,.14);color:var(--red)}
+.tag-new{background:rgba(61,220,132,.14);color:var(--accent)}
+.bh .t{font-size:18px;font-weight:900;letter-spacing:var(--ls-title)}
+.bh .s{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px}
+.pair{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+.stage{border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
+.ladder{background:var(--bg);padding:0}
+.rung{padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.rung .nm{font-size:13px;font-weight:800;font-family:ui-monospace,Menlo,monospace}
+.rung .hx{font-size:12px;font-weight:700;color:var(--muted);font-family:ui-monospace,Menlo,monospace}
+.rung .cr{font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.rung .crl{font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin-top:2px}
+.bad{color:var(--red)}.ok{color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.rule{height:1px;background:var(--line);border:none;margin:0}
+.numeral{font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums}
+.numeral-l{font-size:56px}.numeral-m{font-size:34px}.numeral-s{font-size:22px}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);font-family:inherit;border:none;text-decoration:none;width:100%}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.chip{height:44px;border-radius:var(--r-pill);padding:0 14px;display:inline-flex;align-items:center;font-size:12.5px;font-weight:700;background:var(--surface-2);border:1px solid var(--line);color:var(--secondary)}
+.dl{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:11px 0}
+.dl + .dl{border-top:1px solid var(--line)}
+.dt{font-size:12.5px;font-weight:700;color:var(--muted)}
+.dd{font-size:13.5px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.page{background:var(--bg);padding:20px 18px;display:flex;flex-direction:column;gap:14px}
+.note{max-width:1100px;margin:12px auto 0;font-size:12.5px;color:var(--muted);line-height:1.6;font-weight:500}
+.note b{color:var(--secondary)}
+.w390{width:390px}
+.sug{border-bottom:1px dotted rgba(237,161,0,.6)}
+</style>
+</head>
+<body>
+
+<div class="doc">
+<div class="kicker">Pitch · design proposal · 24 Sep 2026 · mockup 5 of 5 · the one that changes every screen at once</div>
+<h1>The surface stack, made perceptible</h1>
+<p class="lead">Five named surface levels ship. A card sits on the page at <b>1.079 : 1</b> and a
+sunken well sits inside a card at <b>1.038 : 1</b>, where 1.00 is identical. The whole system — page,
+sunken, card, control, border — lives between green channel 11 and 36 out of 255. This page shows the
+figures under the swatches, and then the same real screen drawn on both ladders, so the ratio is
+something you can see rather than something you have to believe.</p>
+
+<h3>What is wrong now</h3>
+<p>The product reads as a wireframe that got coloured in. The 1px border is doing all the separating,
+because there is nothing else: 12 <code class="m">box-shadow</code> declarations in the whole of
+<code>app/</code> and not one is a resting elevation on a card — the only real depth in the product
+is <code class="m">.lift:hover</code>, <b>a shadow that exists only under a mouse pointer</b> and
+therefore never renders on a phone at all.</p>
+<p><code class="m">--surface-sunken</code> is the sharpest version of the problem. It was added
+deliberately, with a comment saying two levels forced every card to look identical — and then given a
+value <b>1.038 from the thing it is meant to sit below</b>. The diagnosis was right and the number
+cannot be seen. That is also why <code class="m">.card-sunken</code> has barely been adopted: it
+looks like nothing, so nobody reaches for it.</p>
+<p>And <code>globals.css:6</code> sets <code class="m">body</code> to <code class="m">#070b09</code>,
+which is not <code class="m">--bg</code>. There is an unnamed sixth level under everything and
+<code class="m">--bg</code> is itself a raised surface. Nobody decided that.</p>
+
+<h3>What the change does</h3>
+<p>Four values move. The page colour does not. Every step becomes <b>1.13 : 1</b>, which puts a card
+at <b>1.27 : 1</b> against the page — inside the band Carbon ships for its dark themes (Gray100 →
+Gray90 is 1.20, Gray90 → Gray80 is 1.31) and far enough apart to read as an object without becoming
+grey. <code class="m">--line</code> moves with them so the hairline keeps its job.</p>
+<table>
+<tr><th>Token</th><th>Now</th><th>Proposed</th><th>Step</th></tr>
+<tr><td><code class="m">--bg</code></td><td>#0b120e</td><td><b>#0b120e — unchanged</b></td><td>the page</td></tr>
+<tr><td><code class="m">--surface-sunken</code></td><td>#0e1712</td><td><b>#152019</b></td><td>1.13 above the page</td></tr>
+<tr><td><code class="m">--surface</code></td><td>#121b16</td><td><b>#1e2a23</b></td><td>1.13 above sunken · <b>1.27 above the page</b></td></tr>
+<tr><td><code class="m">--surface-2</code></td><td>#1a2420</td><td><b>#23342b</b></td><td>1.13 above the card</td></tr>
+<tr><td><code class="m">--line</code></td><td>#24322a</td><td><b>#2f4638</b></td><td>1.46 above the card</td></tr>
+</table>
+<p>And <b>the rule that comes with it, which is worth more than the values</b>: <i>depth into the
+record goes down, action goes up</i>. Raised is where you act; sunken is what you read; every level of
+disclosure renders sunken inside its parent. That is what makes the provenance drill (mockup 1) read
+as being <i>inside</i> the stat block without a single shadow, and it is why this mockup is last in
+the set but first in dependency order.</p>
+
+<h3>Three consequences, stated plainly because they are the cost</h3>
+<p><b>1 · <code class="m">--muted</code> has to move too.</b> Lifting the card lowers the contrast of
+grey text on it: <code class="m">#7d8f85</code> drops from 5.14 to <b>4.35 : 1</b> on the new card,
+which is below AA for small text. <code class="m">#8a9d92</code> restores it — 5.19 on the card,
+4.58 on <code class="m">--surface-2</code>, 6.61 on the page. That is a fifth token, and it is not
+optional; a contrast failure in exchange for a nicer-looking card is not a trade we take.</p>
+<p><b>2 · <code class="m">body</code> and <code class="m">--bg</code> must be reconciled</b>
+(<code>globals.css:6</code>). One line, and it removes the phantom level.</p>
+<p><b>3 · <code class="m">--hero</code> will sit below the card and look wrong.</b> The gradient's
+middle stop <code class="m">#0c1d14</code> is 1.09 against the page; the new card is 1.27. A hero
+that is darker than the cards under it inverts the whole stack. The hero is named in the charter, so
+I have not touched it — but this change forces the question, and the honest answer is that
+<code class="m">--hero</code> needs re-pitching in the same pass. <b>That is a decision for BUZ, and
+it is the reason this is a proposal and not a patch.</b></p>
+
+<h3>What it does NOT change</h3>
+<p>Dark only. The accent, on-accent, amber, purple and red are untouched. The type scale, the five
+letter-spacings, the four weights, the radii, the two button heights, the 44px minimum, the logo
+placement: all untouched. <b>No shadow is added anywhere</b> — the hairline plus a real surface step
+is the elevation, which is the published guidance for dark UI and costs nothing to render. And it
+adds no level: still five, with the same names, so every component that already says
+<code class="m">var(--surface)</code> gets the change for free and every component still carrying its
+own hex does not — which is the adoption argument all over again.</p>
+</div>
+
+<div class="board">
+
+<div class="bh"><span class="tag tag-now">the ladder, with the figures under it</span><div><div class="t">Left: what ships. Right: what is proposed.</div><div class="s">Each ratio is the WCAG contrast of that rung against the rung directly below it, computed from the token hexes. 1.00 is identical.</div></div></div>
+
+<div class="pair">
+  <div class="stage ladder">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--line)"><div class="kicker">Now</div></div>
+    <div class="rung" style="background:#070b09"><div><div class="nm" style="color:#eef5f0">body</div><div class="hx">#070b09</div></div><div><div class="cr bad">—</div><div class="crl">unnamed</div></div></div>
+    <div class="rung" style="background:#0b120e"><div><div class="nm" style="color:#eef5f0">--bg</div><div class="hx">#0b120e</div></div><div><div class="cr bad">1.04</div><div class="crl">vs body</div></div></div>
+    <div class="rung" style="background:#0e1712"><div><div class="nm" style="color:#eef5f0">--surface-sunken</div><div class="hx">#0e1712</div></div><div><div class="cr bad">1.04</div><div class="crl">vs bg</div></div></div>
+    <div class="rung" style="background:#121b16"><div><div class="nm" style="color:#eef5f0">--surface</div><div class="hx">#121b16</div></div><div><div class="cr bad">1.04</div><div class="crl">vs sunken</div></div></div>
+    <div class="rung" style="background:#1a2420"><div><div class="nm" style="color:#eef5f0">--surface-2</div><div class="hx">#1a2420</div></div><div><div class="cr bad">1.10</div><div class="crl">vs surface</div></div></div>
+    <div class="rung" style="background:#24322a"><div><div class="nm" style="color:#eef5f0">--line</div><div class="hx">#24322a</div></div><div><div class="cr">1.31</div><div class="crl">vs surface</div></div></div>
+    <div style="padding:14px 18px;background:#0b120e;font-size:12.5px;color:#7d8f85;line-height:1.6">A card against the page is <b style="color:#e34948">1.079 : 1</b>. A sunken well inside a card is <b style="color:#e34948">1.038 : 1</b>. Five named levels inside 10% of one channel, in steps of 5, 5, 4 and 9 out of 255.</div>
+  </div>
+
+  <div class="stage ladder next">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--line)"><div class="kicker">Proposed</div></div>
+    <div class="rung" style="background:#0b120e"><div><div class="nm" style="color:#eef5f0">body = --bg</div><div class="hx">#0b120e</div></div><div><div class="cr ok">1.00</div><div class="crl">reconciled</div></div></div>
+    <div class="rung" style="background:#152019"><div><div class="nm" style="color:#eef5f0">--surface-sunken</div><div class="hx">#152019</div></div><div><div class="cr ok">1.13</div><div class="crl">vs bg</div></div></div>
+    <div class="rung" style="background:#1e2a23"><div><div class="nm" style="color:#eef5f0">--surface</div><div class="hx">#1e2a23</div></div><div><div class="cr ok">1.13</div><div class="crl">vs sunken</div></div></div>
+    <div class="rung" style="background:#23342b"><div><div class="nm" style="color:#eef5f0">--surface-2</div><div class="hx">#23342b</div></div><div><div class="cr ok">1.13</div><div class="crl">vs surface</div></div></div>
+    <div class="rung" style="background:#2f4638"><div><div class="nm" style="color:#eef5f0">--line</div><div class="hx">#2f4638</div></div><div><div class="cr ok">1.46</div><div class="crl">vs surface</div></div></div>
+    <div class="rung" style="background:#1e2a23;border-top:1px solid #2f4638"><div><div class="nm" style="color:#8a9d92">--muted</div><div class="hx" style="color:#8a9d92">#7d8f85 &rarr; #8a9d92</div></div><div><div class="cr ok">5.19</div><div class="crl" style="color:#8a9d92">text on card · AA</div></div></div>
+    <div style="padding:14px 18px;background:#0b120e;font-size:12.5px;color:#8a9d92;line-height:1.6">A card against the page is <b style="color:#3ddc84">1.27 : 1</b>. A sunken well inside a card is <b style="color:#3ddc84">1.13 : 1</b>. Carbon's dark ladder steps are 1.20 and 1.31; this sits between them.</div>
+  </div>
+</div>
+
+<div class="bh"><span class="tag tag-now">the same real screen · 1280</span><div><div class="t">Plan &amp; billing, drawn twice. Nothing changes but four hex values.</div><div class="s">Left is the built page's surfaces. Right is the proposed ladder. Identical markup, identical type, identical content.</div></div></div>
+
+<div class="pair">
+  <div class="stage">
+    <div class="page">
+      <div class="kicker">Now</div>
+      <div class="card" style="padding:18px 16px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
+          <div><div class="kicker">Your plan</div><div class="numeral numeral-l" style="margin-top:10px">$54</div><div style="font-size:13.5px;font-weight:800;color:var(--secondary);margin-top:8px">a month, including GST</div></div>
+          <div style="text-align:right"><div class="kicker">Next charge</div><div class="numeral numeral-m" style="margin-top:10px">14 Oct</div></div>
+        </div>
+        <div class="btn btn-primary">Manage or cancel this subscription</div>
+      </div>
+      <div class="card-sunken" style="padding:4px 16px">
+        <div class="dl"><span class="dt">On your statement</span><span class="dd">PITCH FOOTBALL</span></div>
+        <div class="dl"><span class="dt">Receipts go to</span><span class="dd" style="font-size:12.5px">office@riversidefc.org.au</span></div>
+        <div class="dl"><span class="dt">Agreed by</span><span class="dd" style="font-size:12.5px">Marina Petrovic · 4 Sep 2026</span></div>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap"><span class="chip">All ages · 100</span><span class="chip">U15 · 22</span><span class="chip">New · 81</span></div>
+      <div class="card-sunken" style="font-size:12.5px;color:var(--muted);line-height:1.6">Paying does not verify your club and cannot. Nothing about a player under 18 reaches you until we have spoken to someone at the club by phone.</div>
+    </div>
+  </div>
+
+  <div class="stage next">
+    <div class="page">
+      <div class="kicker">Proposed</div>
+      <div class="card" style="padding:18px 16px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
+          <div><div class="kicker">Your plan</div><div class="numeral numeral-l" style="margin-top:10px">$54</div><div style="font-size:13.5px;font-weight:800;color:var(--secondary);margin-top:8px">a month, including GST</div></div>
+          <div style="text-align:right"><div class="kicker">Next charge</div><div class="numeral numeral-m" style="margin-top:10px">14 Oct</div></div>
+        </div>
+        <div class="btn btn-primary">Manage or cancel this subscription</div>
+      </div>
+      <div class="card-sunken" style="padding:4px 16px">
+        <div class="dl"><span class="dt">On your statement</span><span class="dd">PITCH FOOTBALL</span></div>
+        <div class="dl"><span class="dt">Receipts go to</span><span class="dd" style="font-size:12.5px">office@riversidefc.org.au</span></div>
+        <div class="dl"><span class="dt">Agreed by</span><span class="dd" style="font-size:12.5px">Marina Petrovic · 4 Sep 2026</span></div>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap"><span class="chip">All ages · 100</span><span class="chip">U15 · 22</span><span class="chip">New · 81</span></div>
+      <div class="card-sunken" style="font-size:12.5px;color:var(--muted);line-height:1.6">Paying does not verify your club and cannot. Nothing about a player under 18 reaches you until we have spoken to someone at the club by phone.</div>
+    </div>
+  </div>
+</div>
+
+<div class="note"><b>The thing to look at is not the card — it is the two sunken blocks.</b> On the
+left they are the same colour as the card and the page, so the composition is four rectangles of one
+grey held apart by hairlines. On the right the ladder does the work and "read this" and "act here"
+are two different materials. That is the whole of what BUZ has been describing as "flat".</div>
+
+<div class="bh"><span class="tag tag-new">the same real screen · 390</span><div><div class="t">And on a phone, where it matters least — which is worth knowing</div><div class="s">At 390 the cards tile nearly edge to edge and the hairline already carries the separation. The change is real here but small. This is overwhelmingly a desktop fix.</div></div></div>
+
+<div class="pair" style="max-width:820px;grid-template-columns:390px 390px">
+  <div class="stage w390">
+    <div class="page">
+      <div class="kicker">Now</div>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px">
+        <div><div class="kicker">Your plan</div><div class="numeral numeral-l" style="margin-top:10px">$54</div></div>
+        <div class="btn btn-primary">Manage or cancel</div>
+      </div>
+      <div class="card-sunken" style="padding:4px 14px">
+        <div class="dl"><span class="dt">On your statement</span><span class="dd">PITCH FOOTBALL</span></div>
+        <div class="dl"><span class="dt">Next charge</span><span class="dd">14 Oct 2026</span></div>
+      </div>
+      <div class="card-sunken" style="font-size:12.5px;color:var(--muted);line-height:1.6">Paying does not verify your club and cannot.</div>
+    </div>
+  </div>
+  <div class="stage w390 next">
+    <div class="page">
+      <div class="kicker">Proposed</div>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px">
+        <div><div class="kicker">Your plan</div><div class="numeral numeral-l" style="margin-top:10px">$54</div></div>
+        <div class="btn btn-primary">Manage or cancel</div>
+      </div>
+      <div class="card-sunken" style="padding:4px 14px">
+        <div class="dl"><span class="dt">On your statement</span><span class="dd">PITCH FOOTBALL</span></div>
+        <div class="dl"><span class="dt">Next charge</span><span class="dd">14 Oct 2026</span></div>
+      </div>
+      <div class="card-sunken" style="font-size:12.5px;color:var(--muted);line-height:1.6">Paying does not verify your club and cannot.</div>
+    </div>
+  </div>
+</div>
+
+<div class="note" style="margin-top:22px"><b>The honest limit of this proposal.</b> Moving the tokens
+only changes the screens that use the tokens. Token adoption across the product is roughly one in
+eight — most components still carry <code class="m">T.surface</code> from
+<code class="m">lib/palette.ts</code> as an inline hex, and <code class="m">palette-check.mjs</code>
+asserts the two sets are <i>identical</i>, so changing one without the other fails CI. <b>This change
+is therefore a two-part job:</b> move both sets in the same commit, then keep moving components onto
+<code class="m">var(--token)</code> screen by screen. The second half is where the real work is, and
+it is worth doing whether or not the values change — a token set copied into two dozen files is a
+fork that has not happened yet.</div>
+
+</div>
+</body>
+</html>

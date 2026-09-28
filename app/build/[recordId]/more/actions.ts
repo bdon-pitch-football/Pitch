@@ -50,7 +50,13 @@ export async function addExperience(formData: FormData) {
   // not create a membership, and does not let them read anything.
   const orgName = String(formData.get('orgName') ?? '').trim();
   const period = String(formData.get('period') ?? '').trim();
-  if ((EXPERIENCE_KINDS as readonly string[]).includes(kind) && orgName) {
+  // Which kinds this record may write is the DATABASE's answer, not this
+  // action's: no school on an under-18 (D-161, 0061 refuses the insert
+  // outright). Asked here so a kind that is not on offer is treated exactly
+  // like any other kind that is not on the list — nothing is written, nothing
+  // is said — rather than surfacing as an error page on a crafted post.
+  const allowed = (await db.query(`select fn_experience_public($1,$2) as ok`, [recordId, kind])).rows[0]?.ok === true;
+  if ((EXPERIENCE_KINDS as readonly string[]).includes(kind) && allowed && orgName) {
     await db.query(
       `insert into experience_entry (record_id, kind, org_name, season_label) values ($1,$2,$3,$4)`,
       [recordId, kind, orgName, period || null],

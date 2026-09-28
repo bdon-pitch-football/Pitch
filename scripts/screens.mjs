@@ -27,10 +27,25 @@ const BASE = arg('base', process.env.RENDER_BASE ?? 'http://localhost:3000');
 const OUT = arg('out', fileURLToPath(new URL('../docs/design/screens', import.meta.url)));
 const WIDTHS = arg('widths', '390,820,1280').split(',').map(Number).filter(Boolean);
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const PORT = 9334;
+// A fixed port is a shared resource: two seats capturing at once fight over
+// it exactly as they fought over the dev database (L30). Moves like
+// LAYOUT_CDP_PORT does for the layout check.
+const PORT = Number(process.env.SCREENS_CDP_PORT) || 9334;
 
 const ids = JSON.parse(readFileSync(new URL('../.dev-ids.json', import.meta.url), 'utf8'));
-const cookieFor = (p) => `${p}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(p).digest('base64url')}`;
+// A session is a row now (0062), so a cookie is not something a script can
+// compute: it has to name a session the database issued. The seed issues one
+// per fixture person and writes the token beside the ids — this file cannot
+// ask the database itself, because PGlite serves one connection and the app
+// holds it. A missing one is a stale .dev-ids.json against a running database,
+// which is worth saying out loud rather than failing as "signed out" fifty
+// times (F5's failure shape).
+const sessionToken = (p) => {
+  const t = ids.sessions?.[p];
+  if (!t) throw new Error(`no seeded session for ${p} — reseed (node scripts/dev-db.mts) so .dev-ids.json matches the running database`);
+  return t;
+};
+const cookieFor = (p) => { const t = sessionToken(p); return `${t}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(t).digest('base64url')}`; };
 const SEATS = {
   'signed-out': null,
   player: ids.people.jordan,
@@ -42,6 +57,25 @@ const SEATS = {
   'brand-new': ids.people.robin,
 };
 const PUBLIC_PATHS = ['/signin', '/join', '/trials', '/p/dev-deniz', '/fc/riverside-fc', '/c/sam-kaya', '/jobs', '/report', '/privacy', '/terms'];
+// Pages more than one step from home. This tool walks /home and follows what
+// it finds, so anything two clicks deep was photographed by nothing — which is
+// the whole reason /squad/[personId]?back=controls has no screenshot at any
+// width, reported twice and never explained (QA, 28 Sep). The layout check has
+// carried this list since 22 Sep; the capture tool never did.
+//
+// A cold route is the other half of that report: the first request to /squad
+// in a dev server measured 28.07s on this machine against loaded()'s 30s cap,
+// so a capture of an uncompiled page looks exactly like a hang. Each of these
+// is fetched once before Chrome is pointed at it, which takes the compile off
+// the clock.
+const g = ids.children.georgia, riverside = ids.clubs['riverside-fc'];
+const DEEP = {
+  parent: [`/squad/${g.child_id}?back=controls`, `/squad/${g.child_id}?club=${riverside}&back=controls`,
+    `/g/controls/${g.child_id}`, `/build/${ids.children.deniz.record_id}/preview`,
+    `/g/pending/${ids.children.deniz.record_id}`],
+  player: [`/squad/${ids.people.jordan}`],
+  'club-td': ['/ops/verification', `/ops/call/${riverside}`],
+};
 
 // The profile directory is REMOVED on the way out. Chrome writes 60–160MB of
 // cache into it per run, and this script used to leak one every time it was
@@ -56,9 +90,20 @@ const chrome = spawn(CHROME, [
 ], { stdio: 'ignore' });
 const stop = () => {
   try { chrome.kill(); } catch { /* gone */ }
-  try { rmSync(PROFILE, { recursive: true, force: true }); } catch { /* already gone */ }
+  // Chrome's helper processes outlive the parent's kill by a moment and hold
+  // files in the profile, so a single rmSync can throw and leave the whole
+  // thing behind. Measured today: an interrupted run leaked 146MB, which is
+  // L36 — the fault that took this machine to zero disk twice — arriving
+  // through the error path instead of the happy one. Retry briefly.
+  for (let i = 0; i < 40; i++) {
+    try { rmSync(PROFILE, { recursive: true, force: true }); return; } catch { /* still held */ }
+    const until = Date.now() + 50; while (Date.now() < until) { /* sync wait: this runs on exit */ }
+  }
 };
 process.on('exit', stop);
+// A signalled process does not run its 'exit' handlers, and a headless run is
+// exactly the kind of thing somebody stops with a keystroke.
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { stop(); process.exit(130); });
 
 let target;
 for (let i = 0; i < 50 && !target; i++) {
@@ -72,11 +117,30 @@ await new Promise((r) => ws.addEventListener('open', r, { once: true }));
 let seq = 0; const waiting = new Map(); const events = [];
 ws.addEventListener('message', (m) => {
   const msg = JSON.parse(m.data);
-  if (msg.id && waiting.has(msg.id)) { waiting.get(msg.id)(msg); waiting.delete(msg.id); }
+  if (msg.id && waiting.has(msg.id)) { const w = waiting.get(msg.id); waiting.delete(msg.id); w.resolve(msg); }
   else if (msg.method) events.push(msg);
 });
-const cdp = (method, params = {}) => new Promise((resolve) => {
-  const id = ++seq; waiting.set(id, resolve); ws.send(JSON.stringify({ id, method, params }));
+// A deadline per call — the same defect the layout check carried (QA,
+// 28 Sept). Without it a browser that stops answering hangs this tool
+// forever, silently, and the report reads "it hung on <whatever page it was
+// on>" — which is how /squad/[personId]?back=controls got blamed twice.
+const CDP_TIMEOUT_MS = Number(process.env.SCREENS_CDP_TIMEOUT_MS) || 60000;
+let lastPath = '(startup)';
+const failAll = (why) => {
+  for (const [id, entry] of waiting) { waiting.delete(id); entry.reject(new Error(why)); }
+};
+ws.addEventListener('close', () => failAll('Chrome closed the debugging socket'));
+ws.addEventListener('error', () => failAll('the debugging socket errored'));
+const cdp = (method, params = {}) => new Promise((resolve, reject) => {
+  const id = ++seq;
+  const timer = setTimeout(() => {
+    waiting.delete(id);
+    reject(new Error(`Chrome stopped answering: ${method} got no reply in ${CDP_TIMEOUT_MS}ms, at ${lastPath}`));
+  }, CDP_TIMEOUT_MS);
+  waiting.set(id, { resolve: (msg) => { clearTimeout(timer); resolve(msg); },
+                    reject: (e) => { clearTimeout(timer); reject(e); } });
+  try { ws.send(JSON.stringify({ id, method, params })); }
+  catch (e) { clearTimeout(timer); waiting.delete(id); reject(e); }
 });
 const loaded = () => new Promise((resolve) => {
   const start = Date.now();
@@ -139,7 +203,14 @@ for (const width of WIDTHS) {
       const links = await evaluate(`JSON.stringify([...new Set([...document.querySelectorAll('a[href^="/"]')].map(a => a.getAttribute('href').split('#')[0]))])`);
       paths = ['/home', ...links.filter((p) => !/^\/(signout|api\/)/.test(p))].slice(0, 25);
     }
+    for (const p of DEEP[seat] ?? []) if (!paths.includes(p)) paths.push(p);
+    // Warm every route first: a cold compile is not a hang, but it reads as
+    // one (see DEEP above).
+    for (const p of paths) {
+      try { await fetch(BASE + p, { headers: who ? { cookie: `pitch_session=${cookieFor(who)}` } : {} }); } catch { /* the capture below reports it */ }
+    }
     for (const path of paths) {
+      lastPath = path;
       await cdp('Page.navigate', { url: BASE + path }); await loaded();
       await new Promise((r) => setTimeout(r, 350));
       const m = await evaluate(EMPTINESS(width, height));

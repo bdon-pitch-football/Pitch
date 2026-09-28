@@ -48,11 +48,11 @@ export default function LinkState({ token, asked }: { token?: string; asked?: bo
             </div>
             <label style={{ display: 'block', background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your name</div>
-              <input name="name" required maxLength={80} style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
+              <input name="name" required maxLength={80} style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
             </label>
             <label style={{ display: 'block', background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px' }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Your role and club</div>
-              <input name="role" required maxLength={120} placeholder="Technical Director, Riverside FC" style={{ background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
+              <input name="role" required maxLength={120} placeholder="Technical Director, Riverside FC" style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
             </label>
             {/* LinkState.dc.html draws this as the primary button (#3ddc84,
                 50px) and the build had drifted to the secondary well. It is
