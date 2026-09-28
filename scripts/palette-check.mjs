@@ -175,5 +175,27 @@ for (const r of rows) console.log(r);
 
 const top = [...inlineFiles.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([f, n]) => `${relative('.', f)} ${n}`);
 console.log(`info ${inline} token colours still written as raw hex (next layer): ${top.join(' · ')}`);
+// ---- no token is declared twice in one block -------------------------------
+// On 28 Sep --hero was re-pitched (BUZ) and this check stayed green while the
+// OLD value kept rendering everywhere: the new declaration sat at the top of
+// :root and the charter's original was still twenty lines further down in the
+// same block, and in CSS the LATER declaration wins. Every colour measurement
+// above read the new value and was right about it; the page was drawing the
+// other one. A value that is correct and not the one in force is the worst
+// kind of green, so declaring a custom property twice in one rule is a failure.
+{
+  const cssSrc = read('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const m of cssSrc.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = m[1].trim().split('\n').pop().trim();
+    const seen = new Map();
+    for (const d of m[2].matchAll(/(--[\w-]+)\s*:/g)) {
+      seen.set(d[1], (seen.get(d[1]) ?? 0) + 1);
+    }
+    for (const [name, n] of seen) {
+      if (n > 1) fail(`${name} is declared ${n} times in \`${sel}\` — only the last one renders, whatever this check measured above`);
+    }
+  }
+}
+
 console.log(failures ? `\n${failures} failed` : '\nALL GREEN');
 process.exit(failures ? 1 : 0);

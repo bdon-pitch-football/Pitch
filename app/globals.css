@@ -358,9 +358,6 @@ button:active, a[href]:active { transform: scale(.975); }
   --purple:        #ab87e0;
   --red:           #e37776;
 
-  /* Gradients */
-  --hero: linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%);
-
   /* Radii — charter values, named */
   --r-hero:  22px;
   --r-card:  16px;
