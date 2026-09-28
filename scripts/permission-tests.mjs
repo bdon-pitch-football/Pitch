@@ -510,7 +510,10 @@ await db.query(`update club set subscription_status='active' where id=$1`, [CLUB
 check('M: active subscription + verified + TD = rows', (await rows(ID.td, CLUB.riverside)).length, 1);
 check('M: a coach cannot work the register', (await rows(ID.coachV, CLUB.riverside)).length, 0);
 check('M: an outsider cannot work the register', (await rows(ID.coachOther, CLUB.riverside)).length, 0);
-check('J61: unverified club admin gets NO rows, whatever it pays', ((await db.query(`update club set subscription_status='active' where id=$1`, [CLUB.unverified])), (await rows(adminUnv, CLUB.unverified)).length), 0);
+// D-126, not J61: this is who reads rows, not whether a withdrawn one can be
+// inferred. (It was labelled J61 until 28 Sep; the row is measured by
+// scripts/timing-tests.mjs now, and a label is a claim — L4.)
+check('held1: unverified club admin gets NO rows, whatever it pays', ((await db.query(`update club set subscription_status='active' where id=$1`, [CLUB.unverified])), (await rows(adminUnv, CLUB.unverified)).length), 0);
 check('D-126: but the held COUNT is visible', await count(adminUnv, CLUB.unverified), 1);
 check('N11: status move authorised for the TD', (await db.query('select fn_set_club_status($1,$2,$3) as ok', [ID.td, regRiverside, 'shortlisted'])).rows[0].ok, true);
 check('N11: status move refused for an outsider', (await db.query('select fn_set_club_status($1,$2,$3) as ok', [ID.coachOther, regRiverside, 'invited'])).rows[0].ok, false);
@@ -884,12 +887,14 @@ check('L37: the band was recorded AT SEND, so a later birthday does not rewrite 
   (await db.query(`select detail->>'band_at_send' as b from consent_event
     where event='share_dispatched' and subject_id=$1`, [l36Child])).rows[0].b, '16_17');
 
-// L40 — the limited path and the real path do the same work before they
-// diverge, so there is no timing tell. Asserted structurally: the limit is
-// checked AFTER the session lookup and the redirect target is identical.
-check('L40: the rate check happens after the session work, not instead of it',
+// The structural belt under L40: the limit is checked AFTER the session
+// lookup and both paths end on the same URL. It is NOT L40 — doc 14 asks for
+// the timing itself, "a test, not a hope", and scripts/timing-tests.mjs
+// measures it (28 Sep). These stay because the measurement cannot see a
+// branch that differs only in database round trips as production would.
+check('lim-struct1: the rate check happens after the session work, not instead of it',
   dispatchSrc.indexOf('getSessionPersonId') < dispatchSrc.indexOf('checkRate'), true);
-check('L40b: and both paths end on the same URL',
+check('lim-struct2: and both paths end on the same URL',
   (dispatchSrc.match(/\/g\/send\/\$\{requestId\}\?sent=1/g) ?? []).length >= 2, true);
 
 // L44/L45/L54 — the coach's link is COPIED, never sent.
@@ -1988,14 +1993,15 @@ const j60Src = readFileSync(fileURLToPath(new URL('../app/p/[token]/opengraph-im
 check('J60: the under-18 card body contains no record URL',
   /pitchfootball\.com\.au\/p\/|href=/.test(codeOnly(j60Src)), false);
 
-// J61 — a withdrawn registration is indistinguishable from one that never
-// existed: the club sees a count and a list, and neither carries a gap.
+// The count half of M6/J61: a withdrawn registration leaves the club's count
+// as if it had never existed. Relabelled 28 Sep — J61 is "same terms as E10
+// and L40", timing included, and scripts/timing-tests.mjs measures that.
 const j61Before = (await db.query('select fn_register_count($1,$2) as n', [ID.td, CLUB.riverside])).rows[0].n;
 const j61Reg = crypto.randomUUID();
 await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`,
   [j61Reg, ID.marcus, CLUB.riverside]);
 await db.query(`select fn_withdraw_registration($1,$2)`, [ID.marcus, j61Reg]);
-check('J61: a withdrawn registration leaves the count exactly as it was',
+check('held-count1: a withdrawn registration leaves the count exactly as it was',
   (await db.query('select fn_register_count($1,$2) as n', [ID.td, CLUB.riverside])).rows[0].n, j61Before);
 
 // ---------------------------------------------------------------------------
@@ -7403,6 +7409,209 @@ const componentFilesAll = [];
     check('F8h: and nothing is excused that the screen no longer renders',
       Object.keys(NO_WRITER_BY_DECISION).filter((w) => !labels.includes(w)), []);
   }
+}
+
+// ---------------------------------------------------------------------------
+// LAUNCH GAPS (builder, 28 Sep) — one block, so it merges beside the clean-up
+// round's edits rather than through them. The Content-Security-Policy as the
+// production build will send it; the SMS switch on /ops/switches (0070); the
+// alumni guard on an edit (0071); and the service-role key's enumerated files.
+// ---------------------------------------------------------------------------
+{
+  // --- The Content-Security-Policy (D-94 §8). lib/csp.ts is a plain function,
+  //     so the policy a PRODUCTION build sends is readable here without one.
+  //     scripts/csp-prod-check.mjs asks the built app itself, after
+  //     build:check; layout-check reads every page in a real browser.
+  const { contentSecurityPolicy } = await import('../lib/csp.ts');
+  const prodCsp = contentSecurityPolicy('N0NCE', { dev: false, storageOrigin: 'https://store.example.supabase.co' });
+  const devCsp = contentSecurityPolicy('N0NCE', { dev: true });
+  const directive = (p, name) => p.split(';').map((d) => d.trim()).find((d) => d === name || d.startsWith(name + ' ')) ?? '';
+  check('csp-p1: in production, scripts run from this site with this request’s nonce and nothing else',
+    directive(prodCsp, 'script-src'), "script-src 'self' 'nonce-N0NCE' 'strict-dynamic'");
+  check('csp-p2: the production policy carries no eval, no websocket, and inline only for STYLE',
+    [/unsafe-eval/.test(prodCsp), /\bwss?:/.test(prodCsp), prodCsp.split(';').filter((d) => /unsafe-inline/.test(d)).map((d) => d.trim().split(' ')[0])],
+    [false, false, ['style-src']]);
+  // The other direction, or p1 and p2 could pass on a function that ignores
+  // its flag: development really does add eval and the hot-reload socket.
+  check('csp-p3: and development adds exactly eval and the hot-reload socket',
+    [directive(devCsp, 'script-src'), directive(devCsp, 'connect-src')],
+    ["script-src 'self' 'nonce-N0NCE' 'strict-dynamic' 'unsafe-eval'", "connect-src 'self' ws: wss:"]);
+  const proxySrc = codeOnly(srcOf('proxy.ts'));
+  check('csp-p4: "development" is NODE_ENV === \'development\' and nothing else, and the proxy writes no policy of its own',
+    [/dev: process\.env\.NODE_ENV === 'development'/.test(proxySrc), /script-src|unsafe-/.test(proxySrc)], [true, false]);
+  check('csp-p5: nobody may frame a page, no plugin may load, and <base> cannot move the site',
+    [directive(prodCsp, 'frame-ancestors'), directive(prodCsp, 'object-src'), directive(prodCsp, 'base-uri')],
+    ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'"]);
+  // D-97: the only frame the product makes is the click-to-play clip, and it
+  // points at the privacy host. Every <iframe> in the product is found, and
+  // each one's host must be in frame-src.
+  const frameHosts = [];
+  (function walk(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (/\.tsx$/.test(e.name)) {
+        for (const m of readFileSync(full, 'utf8').matchAll(/<iframe[\s\S]*?src=\{?[`'"](https:\/\/[^/`'"$]+)/g)) frameHosts.push(m[1]);
+      }
+    }
+  })(fileURLToPath(new URL('../components', import.meta.url)));
+  for (const f of routeFiles.filter((x) => x.endsWith('.tsx'))) {
+    for (const m of readFileSync(f, 'utf8').matchAll(/<iframe[\s\S]*?src=\{?[`'"](https:\/\/[^/`'"$]+)/g)) frameHosts.push(m[1]);
+  }
+  check(`csp-p6: frame-src is the privacy YouTube host alone, and every frame in the product points there (${frameHosts.length})`,
+    [directive(prodCsp, 'frame-src'), frameHosts.length > 0 && frameHosts.every((h) => h === 'https://www.youtube-nocookie.com')],
+    ['frame-src https://www.youtube-nocookie.com', true]);
+  check('csp-p7: Stripe is a place a form lands (D-112), never a script, a frame or a connection',
+    prodCsp.split(';').filter((d) => /stripe/.test(d)).map((d) => d.trim().split(' ')[0]), ['form-action']);
+  check('csp-p8: images may come from the storage host, and from no other outside host',
+    directive(prodCsp, 'img-src'), "img-src 'self' data: blob: https://store.example.supabase.co");
+  const nextCfg = srcOf('next.config.mjs');
+  check('csp-p9: the tokenised pages still send no referrer (D-94 §5), beside the policy',
+    /source: '\/p\/:token\*',\s*headers: \[\s*\{ key: 'Referrer-Policy', value: 'no-referrer' \}/.test(nextCfg), true);
+
+  // --- The SMS switch (0070, D-81, D-94 §10).
+  const sw = async () => (await db.query('select sms_off, sms_cap_cents from fn_sms_switch()')).rows[0];
+  const refusedSms = async (sql, args = []) => { try { await db.query(sql, args); return false; } catch { return true; } };
+  check('sms1: SMS starts on, with no lower cap of its own', await sw(), { sms_off: false, sms_cap_cents: null });
+  const setOff = async (off, reason = 'sms drill') =>
+    (await db.query('select fn_ops_set_sms_off($1,$2,$3,$4) as c', [off, ID.guardian, 'op@example.com', reason])).rows[0].c;
+  check('sms2: switching SMS off changes the switch, and pressing it again writes nothing',
+    [await setOff(true), (await sw()).sms_off, await setOff(true)], [true, true, false]);
+  check('sms3: a switch with no reason is refused',
+    await refusedSms('select fn_ops_set_sms_off(false,$1,$2,$3)', [ID.guardian, 'op@example.com', '  ']), true);
+  check('sms4: back on', [await setOff(false, 'drill over'), (await sw()).sms_off], [true, false]);
+  const setCap = async (cents, reason = 'lower it') =>
+    (await db.query('select fn_ops_set_sms_cap($1,$2,$3,$4) as c', [cents, ID.guardian, 'op@example.com', reason])).rows[0].c;
+  check('sms5: an operator can set a cap, and setting the same one again writes nothing',
+    [await setCap(500), (await sw()).sms_cap_cents, await setCap(500)], [true, 500, false]);
+  check('sms6: a cap of nothing or less is refused — zero is the off switch, and it has one of those',
+    [await refusedSms('select fn_ops_set_sms_cap(0,$1,$2,$3)', [ID.guardian, 'op@example.com', 'zero']),
+      await refusedSms('select fn_ops_set_sms_cap(-5,$1,$2,$3)', [ID.guardian, 'op@example.com', 'negative'])], [true, true]);
+  check('sms7: and clearing it goes back to the environment’s', [await setCap(null, 'back to Vercel'), (await sw()).sms_cap_cents], [true, null]);
+  const smsLog = (await db.query(
+    `select action, operator_email, reason, sms_cap_cents from ops_switch_event where action like 'sms%' order by id`)).rows;
+  check('sms8: every SMS change is in the switch log with the operator, the reason and the cap, and only changes are',
+    smsLog.map((r) => `${r.action}|${r.operator_email}|${r.reason}|${r.sms_cap_cents}`),
+    ['sms_off|op@example.com|sms drill|null', 'sms_on|op@example.com|drill over|null',
+      'sms_cap_set|op@example.com|lower it|500', 'sms_cap_cleared|op@example.com|back to Vercel|null']);
+  check('sms9: the new rows are as append-only as the old ones',
+    [await refusedSms(`update ops_switch_event set reason = 'nothing happened' where action = 'sms_off'`),
+      await refusedSms(`delete from ops_switch_event where action like 'sms%'`)], [true, true]);
+  check('sms10: and the log still refuses a word it does not know (L5)',
+    await refusedSms(`insert into ops_switch_event (action, operator_id, operator_email, reason) values ('sms_forever', $1, 'op@example.com', 'nope')`, [ID.guardian]), true);
+
+  const { smsSwitchedOff, effectiveSmsCapCents, operatorCapCents } = await import('../lib/sms-policy.ts');
+  check('sms-p1: SMS is off if EITHER the environment or the operator says so — the database cannot undo SMS_KILL_SWITCH',
+    [smsSwitchedOff('true', false), smsSwitchedOff(undefined, true), smsSwitchedOff('true', true), smsSwitchedOff('false', false), smsSwitchedOff(undefined, null)],
+    [true, true, true, false, false]);
+  check('sms-p2: the cap in force is the lower of the two, so an operator can lower it and never raise it',
+    [effectiveSmsCapCents(2000, null), effectiveSmsCapCents(2000, 500), effectiveSmsCapCents(2000, 5000), effectiveSmsCapCents(null, 500), effectiveSmsCapCents(null, null)],
+    [2000, 500, 2000, 500, null]);
+  check('sms-p3: a typed cap is dollars into cents, and anything above the environment’s is refused',
+    [operatorCapCents('5', 2000), operatorCapCents('5.50', 2000), operatorCapCents('$20', 2000), operatorCapCents('20.01', 2000),
+      operatorCapCents('0', 2000), operatorCapCents('-1', null), operatorCapCents('lots', null), operatorCapCents('5.555', null)],
+    [500, 550, 2000, null, null, null, null, null]);
+  const sendCode = codeOnly(srcOf('lib/messaging.ts'));
+  const switchAt = sendCode.indexOf('fn_sms_switch()');
+  check('sms-p4: the send layer reads the operator’s switch on every SMS, before the meter is charged and before an outbox row exists',
+    switchAt > 0 && switchAt < sendCode.indexOf('insert into sms_meter') && switchAt < sendCode.indexOf('insert into message_outbox')
+      && /smsSwitchedOff\(process\.env\.SMS_KILL_SWITCH, sw\[0\]\?\.sms_off\)\) return \{ queued: false, reason: 'sms_killed' \}/.test(sendCode)
+      && /spend\[0\]\.c \+ DEFAULT_SMS_COST_CENTS > limit\)/.test(sendCode), true);
+  const swActions = codeOnly(srcOf('app/ops/switches/actions.ts'));
+  check('sms-p5: the SMS actions are operator-only and need a reason, like the other two',
+    [...swActions.matchAll(/export async function (setSmsOff|setSmsCap)\(formData: FormData\) \{\s*const op = await requireOperator\(\);\s*[\s\S]*?if \(reason\.length < 3\) redirect/g)].length, 2);
+  check('sms-p6: a cap above the environment’s is refused before the database is asked to record it',
+    swActions.indexOf('cents > envCap') > 0 && swActions.indexOf('cents > envCap') < swActions.indexOf('fn_ops_set_sms_cap'), true);
+  // Every word the switch log can hold has a line on the page, so no operator
+  // reads a raw key at the worst possible moment.
+  const logWords = [...(await db.query(`select pg_get_constraintdef(oid) d from pg_constraint where conname = 'ops_switch_event_action_check'`)).rows[0].d
+    .matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]);
+  const swPage = srcOf('app/ops/switches/page.tsx');
+  const pageWords = [...swPage.matchAll(/^\s{2}([a-z_]+): '/gm)].map((m) => m[1]);
+  check(`sms-p7: every word the switch log can hold has a line on the page (${logWords.length})`,
+    logWords.filter((w) => !pageWords.includes(w)), []);
+  // The words are a proposal (builder report, 28 Sep). Held: the card renders
+  // in development only until BUZ says yes, and production is unchanged.
+  check('sms-p8: the SMS card’s words are held — it renders outside production only, until BUZ approves them',
+    [/const SMS_WORDS_APPROVED = false;/.test(swPage), /const SMS_SHOWN = SMS_WORDS_APPROVED \|\| process\.env\.NODE_ENV !== 'production';/.test(swPage),
+      [...swPage.matchAll(/\{SMS_SHOWN && /g)].length >= 7], [true, true, true]);
+
+  // --- The alumni wall's "18 or over" guard holds on an edit too (0071).
+  const alumniOk = crypto.randomUUID();
+  await db.query(`insert into alumni_entry (id, club_id, line, sort, adults_confirmed_by, adults_confirmed_at)
+    values ($1,$2,'A. Senior → NPL Victoria',90,$3,now())`, [alumniOk, CLUB.riverside, ID.td]);
+  check('al-u1: a confirmed entry can still be edited',
+    await refusedSms(`update alumni_entry set line = 'A. Senior → A-League Youth' where id = $1`, [alumniOk]), false);
+  check('al-u2: an edit that strips the confirmation is refused',
+    await refusedSms(`update alumni_entry set adults_confirmed_by = null, adults_confirmed_at = null where id = $1`, [alumniOk]), true);
+  // An entry from before 0051, which nobody ever confirmed. The trigger is
+  // stepped around for the insert only, to make a row the old schema allowed.
+  const alumniOld = crypto.randomUUID();
+  await db.query('alter table alumni_entry disable trigger alumni_entry_adults_confirmed');
+  await db.query(`insert into alumni_entry (id, club_id, line, sort) values ($1,$2,'An old line',91)`, [alumniOld, CLUB.riverside]);
+  await db.query('alter table alumni_entry enable trigger alumni_entry_adults_confirmed');
+  check('al-u3: an entry from before the guard cannot be rewritten without someone confirming it',
+    await refusedSms(`update alumni_entry set line = 'Named Junior → NPL' where id = $1`, [alumniOld]), true);
+  check('al-u4: but it can be confirmed, which is an edit that satisfies the guard',
+    await refusedSms(`update alumni_entry set adults_confirmed_by = $2, adults_confirmed_at = now() where id = $1`, [alumniOld, ID.td]), false);
+  check('al-u5: outside an erasure, taking the confirmer\u2019s name off is refused, even with the time kept',
+    await refusedSms(`update alumni_entry set adults_confirmed_by = null where id = $1`, [alumniOk]), true);
+  // 0067's erasure takes an erased person's name off anything they signed,
+  // alumni confirmations included. The guard must let exactly that through,
+  // or a guardian's one-tap deletion fails on an alumni line.
+  const erased = crypto.randomUUID(), alumniErased = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Erasedconfirmer',$2)`, [erased, yearsAgo(15)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now())`, [ID.guardian, erased]);
+  await db.query(`insert into alumni_entry (id, club_id, line, sort, added_by, adults_confirmed_by, adults_confirmed_at)
+    values ($1,$2,'B. Senior → State League',92,$3,$3, now() - interval '1 day')`, [alumniErased, CLUB.riverside, erased]);
+  let eraseErr = null;
+  try { await db.query('select fn_erase_child($1,$2)', [ID.guardian, erased]); } catch (e) { eraseErr = e.message; }
+  const after = (await db.query(`select added_by, adults_confirmed_by, adults_confirmed_at is not null as confirmed_at, line
+    from alumni_entry where id = $1`, [alumniErased])).rows[0];
+  check('al-u6: an erasure still completes for someone who confirmed an entry — the name goes, the time and the line stay (0067)',
+    [eraseErr, after], [null, { added_by: null, adults_confirmed_by: null, confirmed_at: true, line: 'B. Senior → State League' }]);
+  await db.query('delete from alumni_entry where id in ($1,$2,$3)', [alumniOk, alumniOld, alumniErased]);
+
+  // --- The service-role key (D-80). CI's check (.github/workflows/ci.yml),
+  //     run here so it runs on every suite and not only on a push this branch
+  //     has never made. It is NOT doc 14 J3: J3 says one server route, the
+  //     key is read in two files, and widening D-80 to two was flagged in
+  //     lib/storage.ts for BUZ and John rather than decided. This pins the
+  //     list so a third file fails; the row stays theirs to rule on.
+  const keyFiles = [];
+  (function walk(d, rel) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      const full = join(d, e.name);
+      if (e.isDirectory()) walk(full, `${rel}/${e.name}`);
+      else if (/\.(ts|tsx|js|mjs)$/.test(e.name) && /SUPABASE_SERVICE_ROLE_KEY/.test(readFileSync(full, 'utf8'))) keyFiles.push(`${rel}/${e.name}`);
+    }
+  })(fileURLToPath(new URL('../app', import.meta.url)), 'app');
+  for (const top of ['components', 'lib']) {
+    (function walk(d, rel) {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const full = join(d, e.name);
+        if (e.isDirectory()) walk(full, `${rel}/${e.name}`);
+        else if (/\.(ts|tsx|js|mjs)$/.test(e.name) && /SUPABASE_SERVICE_ROLE_KEY/.test(readFileSync(full, 'utf8'))) keyFiles.push(`${rel}/${e.name}`);
+      }
+    })(fileURLToPath(new URL(`../${top}`, import.meta.url)), top);
+  }
+  if (/SUPABASE_SERVICE_ROLE_KEY/.test(srcOf('proxy.ts'))) keyFiles.push('proxy.ts');
+  check(`srk1: the service-role key is read in its two enumerated server-only files and nowhere else (${keyFiles.sort().join(', ')})`,
+    [keyFiles.sort(), keyFiles.every((f) => /^import 'server-only';/m.test(srcOf(f)))],
+    [['lib/storage.ts', 'lib/waitlist-db.ts'], true]);
+  check('srk2: and the tokenised read path is not one of them (D-80)',
+    /SUPABASE_SERVICE_ROLE_KEY/.test(srcOf('lib/record-read.ts')), false);
+
+  // --- The 0051 pre-flight, written down for whoever deploys it. The queries
+  //     are the script's (scripts/migration-on-data.mjs PREFLIGHT); the doc
+  //     must carry every one of them word for word, under its constraint's
+  //     name, or the person at the SQL editor runs a stale list.
+  const preflight = [...srcOf('scripts/migration-on-data.mjs').matchAll(/\['([a-z_]+)', `([^`]+)`\]/g)].map((m) => [m[1], m[2]]);
+  const pfDoc = srcOf('docs/team/RELEASE-PREFLIGHT.md');
+  const pfMissing = preflight.filter(([c, q]) => !new RegExp('`' + c + '`\\*\\*\\n```sql\\n' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ';\\n```').test(pfDoc));
+  check(`pf1: every pre-flight query the migration script prints is in docs/team/RELEASE-PREFLIGHT.md, word for word (${preflight.length})`,
+    [preflight.length, pfMissing.map(([c]) => c)], [7, []]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

@@ -984,6 +984,16 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
         (await db.query(`select public_slug, id from club where public_slug is not null`)).rows
           .map((r) => [r.public_slug, r.id]),
       ),
+      // For the timing suite (scripts/timing-tests.mjs, doc 14 E10/L40/J61),
+      // and read by nothing else. The club whose registrations are held (it
+      // has no public slug, so it is not in `clubs`), and every adult who can
+      // send their own CV — the house adult and the eighteen-year-olds on the
+      // bulk register. L40 compares a real send with a limited one, and each
+      // sender has ten real sends a day, so it needs more than one of them.
+      heldClub: sunbury,
+      adultPlayers: (await db.query(
+        `select p.id as person_id, dr.id as record_id from person p join development_record dr on dr.person_id = p.id
+         where p.dob is not null and fn_age_band(p.dob) = '18plus' order by p.first_name, p.id`)).rows,
     }, null, 2) + '\n',
   );
 }

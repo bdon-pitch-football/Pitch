@@ -12,6 +12,8 @@
     "test:render": "node scripts/render-tests.mjs",
     "test:perms": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/permission-tests.mjs",
     "test:write": "node scripts/write-tests.mjs",
+    "test:timing": "node scripts/timing-tests.mjs",
+    "test:csp-prod": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/csp-prod-check.mjs",
     "demo": "node scripts/demo.mjs",
     "test:paths": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/safe-path-tests.mts",
     "test:layout": "node scripts/layout-check.mjs 375 1280",
