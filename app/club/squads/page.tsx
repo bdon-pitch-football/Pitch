@@ -62,18 +62,15 @@ export default async function Squads({ searchParams }: {
   const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
   const stages = [...new Set(ages.map((a) => a.stage))];
   // D-154: only the TD brings coaches in, and only the TD sees who holds
-  // register access (doc 34 rule 5). Invites that are still waiting are
-  // never listed — a list would tell the TD which emails have accounts.
+  // register access (doc 34 rule 5) — the database decides that, not this
+  // page (fn_club_register_grants, 0069), so an administrator asking gets no
+  // rows. Invites that are still waiting are never listed — a list would tell
+  // the TD which emails have accounts.
   const isTd = c.role === 'technical_director';
-  const grants = isTd ? (await db.query(
-    `select p.id, trim(p.first_name || ' ' || coalesce(p.last_name, '')) as name,
-       array_agg(s.name order by s.name) as teams,
-       to_char(min(g.granted_at) at time zone 'Australia/Melbourne', 'FMDD Mon') as since
-     from register_grant g join person p on p.id = g.person_id join squad s on s.id = g.squad_id
-     where g.club_id = $1 and g.revoked_at is null
-     group by p.id, p.first_name, p.last_name order by name`,
-    [c.id],
-  )).rows as { id: string; name: string; teams: string[]; since: string }[] : [];
+  const grants = (await db.query(
+    `select person_id as id, name, teams, since from fn_club_register_grants($1, $2)`,
+    [me, c.id],
+  )).rows as { id: string; name: string; teams: string[]; since: string }[];
 
   return (
     <ClubConsole active="squads">

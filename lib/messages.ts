@@ -164,6 +164,13 @@ If you want ${childFirstName} at a trial, post it on Pitch. Families register th
   const why = self
     ? `You received this because a player sent you their CV. We did not add you to a list and there is nothing to unsubscribe from.`
     : `You received this because a family sent you their child's CV. We did not add you to a list and there is nothing to unsubscribe from.`;
+  // A player with no current club — which is most players sending a CV, since
+  // finding one is why they send it — read "currently at ." (28 Sep). The
+  // clause goes when there is no club, and the line goes when there are no
+  // positions either. Both are removals: nothing new is said in their place.
+  const plays = positions
+    ? `${childFirstName} plays ${positions}${clubOfPlayer ? `, currently at ${clubOfPlayer}` : ''}.`
+    : null;
   return {
     key: 'doc15.§19',
     channel: 'email',
@@ -173,9 +180,7 @@ If you want ${childFirstName} at a trial, post it on Pitch. Families register th
 
 Open ${childFirstName}'s CV: ${SITE}/p/${token}
 
-${childFirstName} plays ${positions}, currently at ${clubOfPlayer}.
-
-${control}
+${plays ? `${plays}\n\n` : ''}${control}
 
 ${contact}
 

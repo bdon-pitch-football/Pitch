@@ -1167,6 +1167,218 @@ check('I4: and its token now reads like every other dead state',
 check('I5b/I3: the consent log survives the deletion',
   (await db.query(`select count(*)::int as n from consent_event where subject_id=$1`, [delChild])).rows[0].n, 1);
 
+// ---------------------------------------------------------------------------
+// ERASURE AS A PROPERTY (D-26, doc 14 I1/I4/I5, U-6; 0067).
+//
+// The one-tap deletion failed for any child an investigator had looked at
+// (investigation_access cannot be deleted and pinned the grant), and from
+// 28 Sep for any 16–17 who signed up (message_outbox.subject_id). Both were a
+// table the deletion's author did not know about. The checks above build a
+// child with a record and a token and nothing else, so they could not see it.
+//
+// This one does not list the tables. It reads every foreign key onto
+// person(id) from pg_constraint, puts the child in EVERY one of those columns
+// — including the ones a child cannot reach today, because the property is
+// "no row names the child", not "no row a child can reach today names the
+// child" — runs fn_erase_child, the function the button calls, and asks each
+// column again. A table added tomorrow that references a person fails the
+// first check below by name until somebody decides what erasure does to it.
+// ---------------------------------------------------------------------------
+{
+  const q = (sql, args) => db.query(sql, args);
+  const fkCols = (await q(
+    `select c.conrelid::regclass::text as tbl, a.attname as col
+     from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+     where c.contype = 'f' and c.confrelid = 'person'::regclass order by 1, 2`)).rows.map((r) => `${r.tbl}.${r.col}`);
+
+  // The world: a club of its own, so nothing here moves another table's counts.
+  const E = {};
+  for (const k of ['child', 'guardian', 'other', 'otherGuardian', 'adult', 'investigator', 'club', 'squad', 'rec', 'otherRec',
+    'report', 'comp', 'role', 'reg', 'otherReg', 'otherReg2', 'inv', 'otherInv', 'tok', 'otherTok', 'outAbout', 'grant', 'otherGrant']) {
+    E[k] = crypto.randomUUID();
+  }
+  const P = E.child;
+  const person = (id, name, dob) => q(`insert into person (id, first_name, last_name, dob) values ($1,$2,'Erasure',$3)`, [id, name, dob]);
+  await person(P, 'Erin', yearsAgo(16, -100));          // 16–17: the band that can reach the most tables
+  await person(E.guardian, 'Gale', yearsAgo(44));
+  await person(E.other, 'Oli', yearsAgo(12));
+  await person(E.otherGuardian, 'Ona', yearsAgo(41));
+  await person(E.adult, 'Ade', yearsAgo(38));
+  await person(E.investigator, 'Ivy', yearsAgo(33));
+  await q(`insert into club (id, name, club_state) values ($1,'Erasure Park FC','claimed')`, [E.club]);
+  await q(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,'E-U17','U17','boys','2026')`, [E.squad, E.club]);
+  await q(`insert into competency (id, framework_version, code) values ($1,'erasure-fixture','ERASE-1')`, [E.comp]);
+  await q(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'player_cv','erasure-fixture','fixture')`, [E.report]);
+
+  // Every column gets the child, whatever the product's own rules would say:
+  // the triggers that keep a minor out of adult roles are switched off for the
+  // fixture only, and switched back on before anything is asserted.
+  const FIXTURE = {
+    'abuse_signal.actor_id': `insert into abuse_signal (actor_id, reason, surface) values ($P,'blocked','send')`,
+    'age_transition_notice.child_id': `insert into age_transition_notice (child_id) values ($P)`,
+    'alumni_entry.added_by': `insert into alumni_entry (club_id, line, added_by) values ('${E.club}','A former player',$P)`,
+    'alumni_entry.adults_confirmed_by': `insert into alumni_entry (club_id, line, adults_confirmed_by, adults_confirmed_at) values ('${E.club}','Another former player',$P, now())`,
+    'assessment_entry.author_id': `insert into assessment_entry (record_id, competency_id, band, author_id) values ('${E.otherRec}','${E.comp}','developing',$P)`,
+    'assessment_session.author_id': `insert into assessment_session (author_id) values ($P)`,
+    'auth_credential.person_id': `insert into auth_credential (person_id, password_hash) values ($P,'fixture')`,
+    'auth_device.person_id': `insert into auth_device (person_id, device_hash) values ($P,'\\x01')`,
+    'auth_reset.person_id': `insert into auth_reset (person_id, token_hash, expires_at) values ($P, decode(md5('e-reset'),'hex'), now() + interval '1 day')`,
+    'auth_reset.proves_person_id': `insert into auth_reset (person_id, proves_person_id, token_hash, expires_at) values ('${E.adult}',$P, decode(md5('e-reset2'),'hex'), now() + interval '1 day')`,
+    'auth_session.person_id': `insert into auth_session (person_id, token_hash, expires_at) values ($P, decode(md5('e-sess'),'hex'), now() + interval '1 day')`,
+    'club_video.added_by': `insert into club_video (club_id, url, title, added_by) values ('${E.club}','https://www.youtube-nocookie.com/embed/erasure','Training',$P)`,
+    'coach_authorship.author_id': `insert into coach_authorship (author_id, entries) values ($P, 3)`,
+    'coach_invite.invited_by': `insert into coach_invite (club_id, person_id, invited_by, squad_ids, wwcc_checked) values ('${E.club}','${E.adult}',$P, array['${E.squad}']::uuid[], true)`,
+    'coach_invite.person_id': `insert into coach_invite (club_id, person_id, invited_by, squad_ids, wwcc_checked) values ('${E.club}',$P,'${E.adult}', array['${E.squad}']::uuid[], true)`,
+    'coach_profile.person_id': `insert into coach_profile (person_id) values ($P)`,
+    'coaching_role.posted_by': `insert into coaching_role (club_id, title, posted_by) values ('${E.club}','Assistant coach',$P)`,
+    'development_record.person_id': `insert into development_record (id, person_id) values ('${E.rec}',$P)`,
+    'email_proof.person_id': `insert into email_proof (person_id, token_hash, expires_at) values ($P, decode(md5('e-proof'),'hex'), now() + interval '1 day')`,
+    'growth_note.entered_by': `insert into growth_note (record_id, entered_by, height_cm, measured_on) values ('${E.otherRec}',$P, 150, current_date)`,
+    'guardian_setting.child_id': `insert into guardian_setting (child_id, profile_paused) values ($P, false)`,
+    'guardian_setting.updated_by': `insert into guardian_setting (child_id, profile_paused, updated_by) values ('${E.other}', true, $P)`,
+    'guardianship_link.child_id': `insert into guardianship_link (guardian_id, child_id, approved_at) values ('${E.guardian}',$P, now())`,
+    'guardianship_link.guardian_id': `insert into guardianship_link (guardian_id, child_id, approved_at) values ($P,'${E.other}', now())`,
+    'investigation_grant.investigator_id': `insert into investigation_grant (id, report_id, investigator_id, subject_id, expires_at) values ('${E.otherGrant}','${E.report}',$P,'${E.other}', now() + interval '7 days')`,
+    'investigation_grant.subject_id': `insert into investigation_grant (id, report_id, investigator_id, subject_id, expires_at) values ('${E.grant}','${E.report}','${E.investigator}',$P, now() + interval '7 days')`,
+    'invitation_reply.approved_by': `insert into invitation_reply (invitation_id, replied_by, approved_by, approved_at) values ('${E.otherInv}','${E.other}',$P, now())`,
+    'invitation_reply.replied_by': `insert into invitation_reply (invitation_id, replied_by) values ('${E.inv}',$P)`,
+    'membership.person_id': `insert into membership (person_id, club_id, squad_id, role) values ($P,'${E.club}','${E.squad}','player')`,
+    'message_outbox.subject_id': `insert into message_outbox (id, message_key, channel, to_address, body, subject_id) values ('${E.outAbout}','guardian_confirm_16','email','gale@example.com','fixture',$P)`,
+    'message_outbox.to_person': `insert into message_outbox (message_key, channel, to_address, body, to_person) values ('fixture','email','erin@example.com','fixture',$P)`,
+    'pending_invitation.child_id': `insert into pending_invitation (first_name, dob, child_id) values ('Erin','${yearsAgo(16, -100)}',$P)`,
+    'players_wanted_notice.added_by': `insert into players_wanted_notice (club_id, title, added_by) values ('${E.club}','Keepers wanted',$P)`,
+    'profile_version.approved_by': `insert into profile_version (record_id, content, status, approved_by, approved_at) values ('${E.otherRec}','{}','approved',$P, now())`,
+    'profile_version.created_by': `insert into profile_version (record_id, content, status, created_by) values ('${E.otherRec}','{}','pending',$P)`,
+    'record_entry.author_id': `insert into record_entry (record_id, entry_type, author_id, provenance) values ('${E.otherRec}','coach_note',$P,'coach_verified')`,
+    'register_grant.granted_by': `insert into register_grant (club_id, person_id, squad_id, granted_by) values ('${E.club}','${E.adult}','${E.squad}',$P)`,
+    'register_grant.person_id': `insert into register_grant (club_id, person_id, squad_id, granted_by) values ('${E.club}',$P,'${E.squad}','${E.adult}')`,
+    'register_grant.revoked_by': `insert into register_grant (club_id, person_id, squad_id, granted_by, revoked_at, revoked_by) values ('${E.club}','${E.adult}','${E.squad}','${E.adult}', now(), $P)`,
+    'register_read_log.person_id': `insert into register_read_log (person_id, registration_id, surface) values ($P,'${E.otherReg}','list')`,
+    'registration.disclosed_by': `insert into registration (id, player_id, club_id, policy_version, disclosed_by) values ('${E.otherReg2}','${E.other}','${E.club}','20@v2.4',$P)`,
+    'registration.player_id': `insert into registration (id, player_id, club_id, policy_version) values ('${E.reg}',$P,'${E.club}','20@v2.4')`,
+    'registration_request.dispatched_by': `insert into registration_request (record_id, club_id, dispatched_by, dispatched_at) values ('${E.rec}','${E.club}',$P, now())`,
+    'role_application.coach_id': `insert into role_application (role_id, coach_id) values ('${E.role}',$P)`,
+    'send_held.person_id': `insert into send_held (person_id, club_name) values ($P,'Erasure Park FC')`,
+    'share_card_approval.approved_by': `insert into share_card_approval (record_id, requested_by, card_kind, approved_by, approved_at) values ('${E.rec}','${E.guardian}','og',$P, now())`,
+    'share_card_approval.requested_by': `insert into share_card_approval (record_id, requested_by, card_kind) values ('${E.rec}',$P,'og')`,
+    'share_request.dispatched_by': `insert into share_request (record_id, requested_by, dispatched_by, dispatched_at) values ('${E.rec}','${E.guardian}',$P, now())`,
+    'share_request.requested_by': `insert into share_request (record_id, requested_by) values ('${E.rec}',$P)`,
+    'share_token.issued_by': `insert into share_token (id, record_id, token_hash, issued_by) values ('${E.tok}','${E.rec}', decode(md5('e-tok'),'hex'),$P)`,
+    'squad_claim.answered_by': `insert into squad_claim (person_id, club_id, squad_id, asked_by, answered_by, answered_at) values ('${E.other}','${E.club}','${E.squad}','${E.otherGuardian}',$P, now())`,
+    'squad_claim.asked_by': `insert into squad_claim (person_id, club_id, squad_id, asked_by) values ('${E.other}','${E.club}','${E.squad}',$P)`,
+    'squad_claim.person_id': `insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($P,'${E.club}','${E.squad}','${E.guardian}')`,
+    'squad_invitation.answered_by': `insert into squad_invitation (person_id, club_id, squad_id, invited_by, answered_by, answered_at) values ('${E.other}','${E.club}','${E.squad}','${E.adult}',$P, now())`,
+    'squad_invitation.invited_by': `insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ('${E.other}','${E.club}','${E.squad}',$P)`,
+    'squad_invitation.person_id': `insert into squad_invitation (person_id, club_id, squad_id, invited_by) values ($P,'${E.club}','${E.squad}','${E.adult}')`,
+    'undo_token.issued_to': `insert into undo_token (token_hash, share_token_id, issued_to, expires_at) values (decode(md5('e-undo'),'hex'),'${E.otherTok}',$P, now() + interval '1 day')`,
+    'verification_challenge.person_id': `insert into verification_challenge (person_id, channel, token_hash, expires_at) values ($P,'email', decode(md5('e-vc'),'hex'), now() + interval '1 day')`,
+    'wwcc_attestation.attested_by': `insert into wwcc_attestation (person_id, club_id, attested_by) values ('${E.adult}','${E.club}',$P)`,
+    'wwcc_attestation.person_id': `insert into wwcc_attestation (person_id, club_id, attested_by) values ($P,'${E.club}','${E.adult}')`,
+  };
+
+  const missing = fkCols.filter((k) => !(k in FIXTURE));
+  check(`erase0: every column that references a person has an erasure fixture${missing.length ? ` — NOT HANDLED: ${missing.join(', ')}` : ''}`, missing, []);
+  check('erase0b: and the fixture names no column that no longer exists',
+    Object.keys(FIXTURE).filter((k) => !fkCols.includes(k)), []);
+
+  let fixtureErr = null;
+  await db.exec(`set session_replication_role = replica`);
+  try {
+    // The other child's side of the world, which must come through intact.
+    await q(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now())`, [E.otherGuardian, E.other]);
+    await q(`insert into development_record (id, person_id) values ($1,$2)`, [E.otherRec, E.other]);
+    await q(`insert into share_token (id, record_id, token_hash, issued_by) values ($1,$2, decode(md5('e-otok'),'hex'),$3)`, [E.otherTok, E.otherRec, E.otherGuardian]);
+    await q(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`, [E.otherReg, E.other, E.club]);
+    await q(`insert into invitation (id, registration_id, club_id, body) values ($1,$2,$3,'Come and train')`, [E.otherInv, E.otherReg, E.club]);
+    await q(`insert into coaching_role (id, club_id, title, posted_by) values ($1,$2,'Head coach',$3)`, [E.role, E.club, E.adult]);
+    await q(`insert into record_entry (record_id, entry_type, author_id, provenance) values ($1,'attendance',$2,'coach_verified')`, [E.otherRec, E.adult]);
+    // Order matters only where one fixture row points at another — and with
+    // the triggers off, so is the foreign key, so the order is the check.
+    const first = ['development_record.person_id', 'registration.player_id', 'share_token.issued_by', 'message_outbox.subject_id'];
+    for (const k of first) await db.exec(FIXTURE[k].replaceAll('$P', `'${P}'`));
+    await q(`insert into invitation (id, registration_id, club_id, body) values ($1,$2,$3,'Come and train')`, [E.inv, E.reg, E.club]);
+    for (const k of Object.keys(FIXTURE).filter((x) => !first.includes(x))) {
+      await db.exec(FIXTURE[k].replaceAll('$P', `'${P}'`));
+    }
+    // A LOGGED LOOK at the child, and one by them, which is what pinned the grant.
+    await q(`insert into investigation_access (grant_id, what) values ($1,'send rows'), ($2,'send rows')`, [E.grant, E.otherGrant]);
+    // Rows elsewhere that point at a message about the child.
+    await q(`insert into access_request (share_token_id, requester_name, requester_role, notified_outbox_id) values ($1,'Riley','coach',$2)`, [E.otherTok, E.outAbout]);
+    await q(`insert into age_transition_notice (child_id, outbox_id) values ($1,$2)`, [E.other, E.outAbout]);
+  } catch (e) { fixtureErr = e.message; }
+  await db.exec(`set session_replication_role = origin`);
+  check('erase1: the fixture builds', fixtureErr, null);
+
+  const namedIn = async () => {
+    const out = [];
+    for (const k of fkCols) {
+      const [t, c] = k.split('.');
+      const n = (await q(`select count(*)::int as n from ${t} where ${c} = $1`, [P])).rows[0].n;
+      if (n > 0) out.push(k);
+    }
+    return out;
+  };
+  const before = await namedIn();
+  check('erase2: before the deletion the child is named in every one of those columns',
+    fkCols.filter((k) => !before.includes(k)), []);
+
+  // The door: only an approved guardian erases, and a refusal changes nothing.
+  await expectFail('erase3: a stranger cannot erase a child — the function asks, not only the page',
+    `select fn_erase_child('${E.adult}','${P}')`);
+  await expectFail('erase3b: nor can a guardian of a different child',
+    `select fn_erase_child('${E.otherGuardian}','${P}')`);
+  check('erase3c: and the refusal deleted nothing', (await namedIn()).length, before.length);
+  await expectFail('erase4: outside an erasure an entry’s author is still immutable (D-50)',
+    `update record_entry set author_id = null where record_id = '${E.otherRec}' and author_id = '${E.adult}'`);
+  await expectFail('erase4b: and a new investigation grant must still name whose record it opens',
+    `insert into investigation_grant (report_id, investigator_id, subject_id, expires_at) values ('${E.report}','${E.investigator}', null, now() + interval '1 day')`);
+
+  let eraseErr = null;
+  try { await q('select fn_erase_child($1,$2)', [E.guardian, P]); } catch (e) { eraseErr = e.message; }
+  check('I1: the one-tap deletion commits for a child who is named in every table that references a person, including one an investigator looked at',
+    eraseErr, null);
+  const left = await namedIn();
+  check(`I1b: and afterwards no row, in any table that references a person, names the child${left.length ? ` — STILL NAMED IN: ${left.join(', ')}` : ''}`,
+    left, []);
+  check('I1c: nothing is readable by any actor — their guardian, a coach, nobody',
+    [await level(E.guardian, P), await level(E.adult, P), await level(null, P)], ['none', 'none', 'none']);
+  check('I4c/E8: and the child’s own link reads like every other dead state',
+    (await q(`select fn_token_read(decode(md5('e-tok'),'hex')) as r`)).rows[0].r, null);
+  check('I5c: the consent log records the request and the completion, and survives',
+    (await q(`select array_agg(event order by id)::text[] as e from consent_event
+              where (subject_id = $1 and event = 'deletion_requested') or (actor_id = $2 and event = 'deletion_completed')`, [P, E.guardian])).rows[0].e,
+    ['deletion_requested', 'deletion_completed']);
+
+  // U-6 after erasure (Leo, 28 Sep): the trail survives, unlinked.
+  const trail = (await q(`select ig.subject_id, ig.report_id, count(ia.id)::int as looks
+    from investigation_grant ig left join investigation_access ia on ia.grant_id = ig.id where ig.id = $1 group by 1, 2`, [E.grant])).rows[0];
+  check('U-6o: the investigation trail survives the erasure — the grant, its report and the logged look',
+    [trail?.report_id, trail?.looks], [E.report, 1]);
+  check('U-6p: with no link to the child', trail?.subject_id ?? null, null);
+  check('U-6q: and who-looked answers nothing about a person who no longer exists',
+    (await q('select * from fn_who_looked($1,$2)', [E.guardian, P])).rows.length, 0);
+
+  // Someone else's record is theirs (D-48, D-10): the entries the child wrote
+  // on it stay, unsigned; the other child's own entries and link are untouched.
+  const otherRow = (await q(`select
+      (select count(*)::int from record_entry where record_id = $1) as entries,
+      (select count(*)::int from record_entry where record_id = $1 and author_id is null) as unsigned,
+      (select count(*)::int from assessment_entry where record_id = $1) as assessed,
+      (select count(*)::int from growth_note where record_id = $1) as growth,
+      (select revoked_at is null from share_token where id = $2) as live,
+      (select count(*)::int from guardianship_link where child_id = $3 and guardian_id = $4) as parent,
+      (select profile_paused from guardian_setting where child_id = $3) as paused,
+      (select count(*)::int from age_transition_notice where child_id = $3) as notice`,
+    [E.otherRec, E.otherTok, E.other, E.otherGuardian])).rows[0];
+  check('erase5: another child’s record keeps what the erased child wrote on it, unsigned, and loses nothing of its own',
+    otherRow, { entries: 2, unsigned: 1, assessed: 1, growth: 1, live: true, parent: 1, paused: true, notice: 1 });
+
+  // The button runs this function and nothing of its own.
+  const del = codeOnly(srcOf('app/g/controls/[childId]/actions.ts')).split('export async function deleteEverything')[1]?.split('export async function')[0] ?? '';
+  check('erase6: "Delete everything" runs fn_erase_child and deletes nothing itself',
+    [/select fn_erase_child\(\$1, \$2\)/.test(del), /delete from|client\.query/i.test(del)], [true, false]);
+}
+
 // J51 — a revoked note is empty EVERYWHERE, as a property of the data.
 check('J51: no row anywhere retains a note for a withdrawn registration',
   (await db.query(`select count(*)::int as n from registration where withdrawn_at is not null and note is not null`)).rows[0].n, 0);
@@ -1323,17 +1535,21 @@ check('U-2c: the undo token is stored hashed, never raw', /token_hash/.test(undo
 check('U-2d: it is single-purpose — one share token, and an expiry',
   /share_token_id/.test(undoCols) && /expires_at/.test(undoCols) && /used_at/.test(undoCols), true);
 
-// M11 — L29 stands, and only the CHILD-SAFETY class notifies families.
-check('M11: de-verification carries a reason class',
+// John's M11/L29 ruling (doc 31, 0025) — L29 stands, and only the CHILD-SAFETY
+// class notifies families. NOT labelled M11 (L4, 28 Sep): doc 14's M11 says a
+// revoked verification revokes every link that club holds, and John ruled that
+// clause unbuildable. These test the ruling that replaced it, which the
+// register has not adopted — so M11 is honestly open until BUZ decides.
+check('deverify1: de-verification carries a reason class',
   (await db.query(`select string_agg(column_name,',') as c from information_schema.columns
     where table_name='club' and column_name='suspension_reason'`)).rows[0].c, 'suspension_reason');
-await expectFail('M11b: and the class is constrained, not free text',
+await expectFail('deverify1b: and the class is constrained, not free text',
   `update club set suspension_reason = 'because i felt like it' where id = '${CLUB.riverside}'`);
 const deverifyMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
   .split('clubDeverifiedEmail')[1].split('export const')[0];
-check('M11c: the notice never says WHY the club was de-verified',
+check('deverify1c: the notice never says WHY the club was de-verified',
   /allegation|investigat|report|complaint|safety concern/i.test(deverifyMsg), false);
-check('M11d: and never revokes on the family’s behalf — it offers the button',
+check('deverify1d: and never revokes on the family’s behalf — it offers the button',
   /we have not switched it off for you/i.test(deverifyMsg), true);
 
 // The rest of John's M11/L29 ruling: the class RECORDED, the function CALLED,
@@ -1492,6 +1708,32 @@ check('U-11: the CV email tells the club replies do not reach the family',
 check('U-11b: and tells them what to do instead', /invitation|post it on Pitch/i.test(cvMsg), true);
 check('U-11c: the old promise of a routed reply is gone',
   /just reply to this email/i.test(cvMsg), false);
+// And the guardian's send screen, which still promised the opposite of the
+// email it sends: "If they reply, it comes to you and <name> together" (L25).
+check('U-11d: the guardian\u2019s send screen promises no reply route either',
+  /if they reply, it comes to you/i.test(codeOnly(srcOf('app/g/send/[requestId]/page.tsx'))), false);
+
+// §19's player line with no club (28 Sep): it read "currently at ." for a
+// player who has none — most of the players sending a CV to find one. The
+// message is composed for real, under the react-server condition Next uses.
+{
+  const { execFileSync } = await import('node:child_process');
+  const at = fileURLToPath(new URL('../lib/messages.ts', import.meta.url));
+  const cv = (args) => JSON.parse(execFileSync(process.execPath, [
+    '--conditions=react-server', '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--input-type=module', '-e',
+    `const m = await import(${JSON.stringify(at)}); process.stdout.write(JSON.stringify(m.cvToClubEmail(...${JSON.stringify(args)})));`,
+  ], { encoding: 'utf8' })).body;
+  const withClub = cv(['Deniz', 14, 'AM, LW', 'Riverside FC', 'tok']);
+  const noClub = cv(['Deniz', 14, 'AM, LW', '', 'tok']);
+  const nothing = cv(['Deniz', 14, '', '', 'tok']);
+  check('msg19a: §19 names the club when the player has one, word for word as before',
+    withClub.includes('Deniz plays AM, LW, currently at Riverside FC.'), true);
+  check('msg19b: and with no club the clause goes — no "currently at ." — and nothing new is said in its place',
+    [noClub.includes('Deniz plays AM, LW.'), /currently at|\s\.\n| ,/.test(noClub),
+     noClub.replace('Deniz plays AM, LW.', 'Deniz plays AM, LW, currently at Riverside FC.') === withClub], [true, false, true]);
+  check('msg19c: with no positions either, the line goes and the paragraphs close up',
+    [/plays/.test(nothing), /\n\n\n/.test(nothing)], [false, false]);
+}
 
 // U-6 — complaints access: purpose-bound, time-boxed, logged, disclosed.
 const grantCols = (await db.query(
@@ -2162,7 +2404,11 @@ check('P9: a reply can carry no identifiers at all', JSON.stringify(reply.shared
 
   // N23 / N24 — the TD sees the list; the request never tells who is on Pitch.
   const squadsSrc = srcOf('../app/club/squads/page.tsx'), actSrc = srcOf('../app/club/squads/actions.ts');
-  check('N23: the TD’s squads screen lists who holds register access', /from register_grant g/.test(squadsSrc) && /isTd/.test(squadsSrc), true);
+  // Until 0069 this asked for the page's own `from register_grant g` query —
+  // a proxy for the row, and it went false when the list moved into
+  // Postgres. It now asks for what N23 says: the TD's screen renders the
+  // database's list (grants1/grants2 prove what that list holds, and for whom).
+  check('N23: the TD’s squads screen lists who holds register access', /fn_club_register_grants\(/.test(squadsSrc) && /\{isTd && \(/.test(squadsSrc), true);
   check('N23b: and never lists requests still waiting — that would reveal which emails have accounts', /from coach_invite/.test(squadsSrc), false);
   const inviteFn = actSrc.slice(actSrc.indexOf('export async function inviteCoach'), actSrc.indexOf('export async function revokeCoach'));
   check('N24: bringing a coach in ends in one answer, account or not', (inviteFn.match(/redirect\('\/club\/squads\?coachAsked=1'\)/g) ?? []).length, 1);
@@ -2356,18 +2602,18 @@ const deadShapes = [
   ['absurdly long', sha('x'.repeat(400))],
 ];
 for (const [name, h] of deadShapes) {
-  check(`E1 ${name}: identical null shape, no state leaks through`, await readTok(h), null);
+  check(`dead1 (${name}): identical null shape, no state leaks through`, await readTok(h), null);
 }
-check('E2: and the live one is the only thing that reads', (await readTok(t.live)) === null, false);
+check('dead2: and the live one is the only thing that reads', (await readTok(t.live)) === null, false);
 
-// E3: the dead answer carries nothing at all — not a name, not a club, not
+// The dead answer carries nothing at all — not a name, not a club, not
 // an age. The single read path is the only place that could leak one.
 const readSrc = readFileSync(fileURLToPath(new URL('../lib/record-read.ts', import.meta.url)), 'utf8');
-check('E3: the read path returns a bare null for every dead state',
+check('dead3: the read path returns a bare null for every dead state',
   /if \(!bundle\) return null;/.test(readSrc), true);
 const deadPage = readFileSync(fileURLToPath(new URL('../app/p/[token]/page.tsx', import.meta.url)), 'utf8');
 const deadHalf = deadPage.split('LinkState').slice(1).join('');
-check('E4: the link-state page renders no name, club, age or photo',
+check('E11c: the link-state page renders no name, club, age or photo',
   /first_name|last_name|club|age_group|photo/i.test(deadHalf), false);
 // E11, as doc 14 words it: the body carries no name, no club, no photo, no
 // age, NO INITIALS and NO SQUAD NUMBER. This row was counted as covered by a
@@ -2380,23 +2626,23 @@ check('E11: the link-state page is handed nothing about a person',
   /export default function LinkState\(\{ token, asked \}: \{ token\?: string; asked\?: boolean \}\)/.test(linkStateSrc), true);
 check('E11b: and names no field of a record — no initials, no squad number',
   /first_name|last_name|initials|squad_number|shirt|photo_path|age_group|\bdob\b|positions/i.test(codeOnly(linkStateSrc)), false);
-check('E5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
-check('E6: and sends no referrer to an embed host (D-94 §5)',
+check('dead5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
+check('dead6: and sends no referrer to an embed host (D-94 §5)',
   /no-referrer/.test(readFileSync(fileURLToPath(new URL('../next.config.mjs', import.meta.url)), 'utf8')), true);
 
-// E7: the OG endpoint outlives revocation in every social platform's cache,
+// E14: the OG endpoint outlives revocation in every social platform's cache,
 // so it must re-check on every request and never render an identity for a
 // token that is not live (D-89, D-94 §5).
 const ogSrc = readFileSync(fileURLToPath(new URL('../app/p/[token]/opengraph-image.tsx', import.meta.url)), 'utf8');
-check('E7: the OG route re-reads the token through the one path',
+check('E14c: the OG route re-reads the token through the one path',
   /readCvByToken/.test(ogSrc), true);
-check('E8: and falls back to a generic card rather than an identity',
+check('E14d: and falls back to a generic card rather than an identity',
   /if \(!cv\)|cv \?\?|!cv/.test(ogSrc), true);
 // Strip the comments first: the rule is written down at the top of that file
 // in the very words being searched for, and a check that matches its own
 // documentation passes forever without testing anything.
 const ogCode = codeOnly(ogSrc);
-check('E9: a minor\u2019s card carries no club, age group or region (D-89)',
+check('E12f: a minor\u2019s card carries no club, age group or region (D-89)',
   /club|age_group|region|ageGroup/i.test(ogCode), false);
 
 // ---------------------------------------------------------------------------
@@ -2783,9 +3029,9 @@ await db.query(
    values ($1,$2,$3,'og',$4)`, [cardId, REC.deniz, ID.deniz, sha('card-bytes')]);
 check('Q2: an unapproved card exists with no path at all',
   (await db.query('select storage_path from share_card_approval where id = $1', [cardId])).rows[0].storage_path, null);
-await expectFail('Q3: the club cannot approve a child\u2019s card',
+await expectFail('Q10b: the club cannot approve a child\u2019s card — denied at the query layer',
   `update share_card_approval set approved_by = '${ID.td}', approved_at = now() where id = '${cardId}'`);
-await expectFail('Q4: the u16 cannot approve her own card',
+await expectFail('Q10c: nor can the u16 approve her own',
   `update share_card_approval set approved_by = '${ID.deniz}', approved_at = now() where id = '${cardId}'`);
 await expectFail('Q5: the artefact approved must be the one that was shown',
   `update share_card_approval set image_hash = '\\x99'::bytea, approved_by = '${ID.guardian}', approved_at = now() where id = '${cardId}'`);
@@ -3006,8 +3252,79 @@ const rel = (p) => p.slice(appDir.length);
 // browser too — the only bytes that differ between a revoked and an expired
 // link are the dev cache-buster and the token the requester already holds.
 const pageCode = codeOnly(deadPage);
-check('E10: the page branches on one boolean, never on WHY the link is dead',
+check('dead4: the page branches on one boolean, never on WHY the link is dead',
   /expired|revoked|paused|disabled/i.test(pageCode), false);
+
+// Table E as doc 14 words it (28 Sep). The labels above claimed E1–E10 and
+// tested other things — the read path's shape, noindex, the OG route — so
+// rows were counted and not tested (L4). These test the rows. E9 and E10
+// (identical timing) are not claimed here: nothing in this suite times a
+// response, and render-tests fp7 times club pages, not links.
+{
+  const eChild = crypto.randomUUID(), eRec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Etable',$2)`, [eChild, yearsAgo(13)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now())`, [ID.guardian, eChild]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [eRec, eChild]);
+  // An under-16 page reads only once it has approved content (D-119).
+  await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,'{"name":"Etable"}','approved',$2, now())`, [eRec, ID.guardian]);
+  const mint = (rec, by, tag, issued = '0 days', life = '90 days') => db.query(
+    `insert into share_token (record_id, token_hash, issued_by, issued_at, expires_at)
+     values ($1,$2,$3, now() - ($4)::interval, now() - ($4)::interval + ($5)::interval)`, [rec, sha(tag), by, issued, life]);
+  const live = async (tag) => (await readTok(sha(tag))) !== null;
+
+  await expectFail('E1: an under-16 cannot generate their own link — the token exists only on the guardian’s action (D-91)',
+    `insert into share_token (record_id, token_hash, issued_by) values ('${eRec}', decode(md5('e1-child'),'hex'), '${eChild}')`);
+  await mint(eRec, ID.guardian, 'e2-guardian');
+  const replaceSrc = codeOnly(srcOf('app/g/controls/[childId]/actions.ts')).split('export async function replaceLink')[1]?.split('export async function')[0] ?? '';
+  check('E2: the guardian generates one, and the product mints it with a 90-day expiry (D-53)',
+    [await live('e2-guardian'), /insert into share_token[\s\S]*now\(\) \+ interval '90 days'/.test(replaceSrc)], [true, true]);
+  await mint(REC.nate, ID.nate, 'e3-teen');
+  await db.query(`insert into consent_event (event, actor_id, subject_id, detail)
+    values ('share_dispatched',$1,$1, jsonb_build_object('club_name','Etable FC','recipient','club@etable.example','band_at_send','16_17'))`, [ID.nate]);
+  check('E3: a 16–17 generates their own, and it is visible to their guardian in the consent log',
+    [await live('e3-teen'), (await db.query('select * from fn_send_log($1,$2)', [ID.guardian, ID.nate])).rows
+      .some((r) => r.club_name === 'Etable FC' && r.sending_actor === ID.nate)], [true, true]);
+  // E4: regenerate is replaceLink's two statements, in its one transaction.
+  const regen = /update share_token set revoked_at=now\(\) where record_id=\$1 and revoked_at is null[\s\S]*insert into share_token/.test(replaceSrc)
+    && replaceSrc.indexOf("'begin'") < replaceSrc.indexOf('update share_token') && replaceSrc.indexOf("'commit'") > replaceSrc.indexOf('insert into share_token');
+  await db.query(`update share_token set revoked_at=now() where record_id=$1 and revoked_at is null`, [eRec]);
+  await mint(eRec, ID.guardian, 'e4-new');
+  let e4err = null; let old = 'unread';
+  try { old = await readTok(sha('e2-guardian')); } catch (e) { e4err = e.message; }
+  check('E4: the guardian regenerates and the old token is the link-state page at once — the same null as a token that never existed, not an error',
+    [regen, e4err, old, await readTok(sha('never-a-token-e4')), await live('e4-new')], [true, null, null, null, true]);
+  const liveBefore = await live('e4-new');
+  await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1, true, $2)`, [eChild, ID.guardian]);
+  check('E5: the guardian disables the profile, and every live token goes to the link-state page', [liveBefore, await live('e4-new')], [true, false]);
+  await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [eChild]);
+  await mint(eRec, ID.guardian, 'e6-89', '89 days');
+  await mint(eRec, ID.guardian, 'e6-week', '83 days 12 hours');
+  const reminding = (await db.query('select child_id, token_ids from fn_links_to_remind()')).rows.find((r) => r.child_id === eChild);
+  check('E6: at 89 days a token is still live, and its renewal reminder is queued (a week before, doc 15 §5)',
+    [await live('e6-89'), (reminding?.token_ids ?? []).length], [true, 1]);
+  await mint(eRec, ID.guardian, 'e7-91', '91 days');
+  check('E7: at 91 days it is the link-state page — no grace period', await live('e7-91'), false);
+  await db.query(`delete from share_token where record_id = $1`, [eRec]);
+  await db.query(`delete from share_token where token_hash = $1`, [sha('e3-teen')]);
+}
+
+// Table Q, rows 3 and 4, as doc 14 words them: what an approved under-18
+// card carries, and that any address on it is the marketing site's. The
+// labels Q3/Q4 were on two approval refusals, which are Q10's.
+{
+  const cardSrc = codeOnly(srcOf('app/g/card/[cardId]/image/route.tsx'));
+  const drawn = cardSrc.slice(cardSrc.indexOf('new ImageResponse('));
+  check('Q3: an approved card carries first name, surname initial, positions, number, stats — and no surname, club, age group, region, school, face or record URL',
+    [/const name = `\$\{c\.first_name\}\$\{c\.last_name \? ` \$\{c\.last_name\[0\]\}\.` : ''\}`;/.test(cardSrc),
+     /\{name\}/.test(drawn), /positions\.join/.test(drawn), /squad_number/.test(drawn), /tiles\.map/.test(drawn),
+     /last_name(?!\[0\])|club|age_?group|region|school|photo|avatar|<img|src=|\/p\/|token|https?:/i.test(drawn)],
+    [true, true, true, true, true, false]);
+  const og = codeOnly(eOg);
+  const urls = (src) => [...src.matchAll(/['"`]([^'"`]*pitchfootball\.com\.au[^'"`]*)['"`]/g)].map((m) => m[1]);
+  const found = [...urls(drawn), ...urls(og)];
+  check('Q4: any address on a card is the marketing site — no token and no path',
+    [found.length > 0, found.filter((u) => !/(^|[\s·])pitchfootball\.com\.au$/.test(u))], [true, []]);
+}
 
 
 // Club video (0018) is a LINK, never a file — the parked hosting question
@@ -3666,6 +3983,34 @@ check('sess14: signing out revokes the session, not just the browser\u2019s copy
   && /clearSession/.test(readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8')), true);
 check('sess15: setting a password revokes every live session for that person',
   /revokeEverySession\(personId\)/.test(authTs.split('export async function setPassword')[1]?.split('export ')[0] ?? ''), true);
+// 0069: nothing ever deleted a session row. The daily job now removes the
+// ones that expired or were revoked more than thirty days ago, and nothing
+// that could still open a page.
+{
+  const sp = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Session Purge',$2)`, [sp, yearsAgo(40)]);
+  const add = (tag, exp, rev) => db.query(
+    `insert into auth_session (person_id, token_hash, issued_at, expires_at, revoked_at)
+     values ($1, $2, now() - interval '90 days', now() + ($3)::interval, case when $4::text is null then null else now() + ($4)::interval end)`,
+    [sp, sha(`purge-${tag}`), exp, rev]);
+  await add('live', '10 days', null);
+  await add('expired-recently', '-5 days', null);
+  await add('revoked-recently', '10 days', '-5 days');
+  await add('expired-long-ago', '-31 days', null);
+  await add('revoked-long-ago', '10 days', '-31 days');
+  const consentBefore = (await db.query('select count(*)::int as n from consent_event')).rows[0].n;
+  const purged = (await db.query('select fn_purge_sessions() as n')).rows[0].n;
+  const left = (await db.query(`select encode(token_hash,'hex') as h from auth_session where person_id = $1`, [sp])).rows.map((r) => r.h);
+  check('purge-sess1: the purge removes sessions expired or revoked more than thirty days ago, and nothing live or recent',
+    [purged >= 2, ['live', 'expired-recently', 'revoked-recently'].every((t) => left.includes(sha(`purge-${t}`).toString('hex'))),
+     ['expired-long-ago', 'revoked-long-ago'].some((t) => left.includes(sha(`purge-${t}`).toString('hex')))],
+    [true, true, false]);
+  check('purge-sess1b: and it is the daily job that runs it — the consent log is not the session table, and is untouched',
+    [/select fn_purge_sessions\(\)/.test(codeOnly(srcOf('app/api/jobs/daily/route.ts'))),
+     /consent_event/.test(await procSrc('fn_purge_sessions')),
+     (await db.query('select count(*)::int as n from consent_event')).rows[0].n === consentBefore],
+    [true, false, true]);
+}
 // One question, one answer (L23): no page works out for itself whether a
 // session is live. lib/session.ts is the only file that reads the cookie and
 // the only one that names the table.
@@ -4612,6 +4957,31 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
      (await db.query(`select fn_can_read_squad_player($1,$2,$3) as ok`, [ID.coachOther, askSq, kid])).rows[0].ok],
     [true, false, false]);
 
+  // --- D-62 on the squad list (0069): every number carries its source ------
+  {
+    const kidRec = (await db.query(`select id from development_record where person_id = $1`, [kid])).rows[0].id;
+    await db.query(`insert into player_stat (record_id, season, stat_key, value, provenance)
+      values ($1,'2026','apps',9,'self_reported'), ($1,'2026','goals',4,'coach_verified')`, [kidRec]);
+    const row = async (who) => (await gated(who)).find((x) => x.player_id === kid);
+    const td = await row(ID.td);
+    check('prov-sq1: every stat the squad list returns carries the provenance of the row it came from',
+      [td?.apps, td?.apps_provenance, td?.goals, td?.goals_provenance], [9, 'self_reported', 4, 'coach_verified']);
+    check('prov-sq1b: and a stat nobody has comes back with no source either — nothing to describe',
+      [td?.assists, td?.assists_provenance, td?.clean_sheets_provenance], [null, null, null]);
+    const admin = await row(ID.clubAdmin);
+    check('prov-sq1c: an administrator gets no provenance — it is gated with the number it describes (L2)',
+      [admin?.apps, admin?.apps_provenance, admin?.goals_provenance], [null, null, null]);
+    await db.query(`delete from player_stat where record_id = $1 and season = '2026' and stat_key in ('apps','goals')`, [kidRec]);
+    const squadPage = codeOnly(srcOf('app/club/squads/[squadId]/page.tsx'));
+    check('prov-sq1d: the squad screen reads each source from lib/football, as the CV does, and types none of its own',
+      [/sharedProvenance\(stats\)/.test(squadPage), /provenanceLabel\(provenance\)/.test(squadPage),
+       /self-reported|coach-verified|official import/i.test(squadPage)], [true, true, false]);
+    // Leo, 28 Sep: "Self-reported" is approved and the other two await BUZ.
+    // When he approves one, this changes with the set, on purpose.
+    check('copy-held2: the squad screen names only the approved source — "Coach-verified" and "Official import" wait for BUZ',
+      /const SOURCES_SAID_HERE = new Set<string>\(\[PROVENANCE_LABELS\.self_reported\]\);/.test(squadPage), true);
+  }
+
   // --- BUZ's decision 2: the club on an under-16's approved page ----------
   {
     const snapRec = (await db.query(`select id from development_record where person_id = $1`, [kid])).rows[0].id;
@@ -5327,6 +5697,29 @@ const componentFilesAll = [];
   check('db7: lib/db takes its whole shape from the policy and invents nothing',
     [/new Pool\(poolConfig\(/.test(dbSrc2), /max:\s*\d/.test(dbSrc2), /idleTimeoutMillis/.test(dbSrc2)],
     [true, false, false]);
+  // A startup failure served 21 bytes of text/plain (28 Sep): lib/db threw at
+  // IMPORT when SUPABASE_DB_URL was missing, and a throw while Next loads a
+  // route module is answered by its top-level handler, never by our error
+  // pages. Nothing in this module may throw at the top level; the failure
+  // belongs to the first query, inside a render. Comments and strings are
+  // removed in one pass (a URL literal contains //), then braces are counted.
+  {
+    const raw = srcOf('lib/db.ts').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|`(?:\\.|[^`\\])*`|'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, '');
+    let depth = 0, atTop = 0;
+    for (const m of raw.matchAll(/[{}]|\bthrow\b/g)) {
+      if (m[0] === '{') depth++; else if (m[0] === '}') depth--; else if (depth === 0) atTop++;
+    }
+    check('boot1: nothing in lib/db throws while the module loads — Next answers that with 21 bytes of plain text, not a page',
+      [atTop, depth], [0, 0]);
+    check('boot1b: without a URL there is no pool at all — every use fails with the same error, and nothing connects to a default host',
+      [/const unconfigured = new Proxy\(/.test(dbSrc2), /!url \? unconfigured :/.test(dbSrc2)], [true, true]);
+  }
+  // `npm run build:check` rewrote next-env.d.ts to point at .next-check and
+  // left the tree dirty after every run, so every seat's handoff carried a
+  // change nobody made. The file is Next's, generated by every next command;
+  // Next's docs say to ignore it and stop tracking it.
+  check('tree1: next-env.d.ts is ignored — it is Next\u2019s, and a build must leave the tree as it found it',
+    /^\/next-env\.d\.ts$/m.test(srcOf('.gitignore')), true);
   // L30: a seat can run its own dev database. Unset is the shared 54322, so
   // nobody who does not set it notices anything.
   // Read raw: the dev URL is a postgres:// literal, and codeOnly would take the
@@ -5991,8 +6384,13 @@ const componentFilesAll = [];
   await apply('past_due', new Date(Date.now() + 5 * 86400000).toISOString(), clock(2));
   check('O4: inside the fourteen days a failed payment reads "grace"', await payState(mTd, MON), 'grace');
   check('O4b: and the register is still readable during the grace (D-135)', (await rowIds(mTd, MON)).includes(mReg), true);
-  await apply('past_due', new Date(Date.now() - 86400000).toISOString(), clock(3));
-  check('O4c: once the grace has run out it reads "suspended"', await payState(mTd, MON), 'suspended');
+  // The fortnight runs out. The suite cannot move the clock, so it moves the
+  // one date the clock is compared with — which is also the one thing no
+  // Stripe event may now do (0068). A retry arriving after that, carrying a
+  // fresh fortnight, must not revive the register.
+  await db.query(`update club set grace_until = now() - interval '1 day' where id = $1`, [MON]);
+  await apply('past_due', new Date(Date.now() + 14 * 86400000).toISOString(), clock(3));
+  check('O4c: once the grace has run out it reads "suspended" — and a later retry does not revive it', await payState(mTd, MON), 'suspended');
   check('O4d: the register is hidden', (await rowIds(mTd, MON)).length, 0);
   check('O4e: and the registration row is still there — hidden, not deleted',
     (await q1(`select count(*)::int as n from registration where id = $1`, [mReg])).n, 1);
@@ -6008,6 +6406,41 @@ const componentFilesAll = [];
   check('money7c: nor a guardian', await payState(ID.guardian, MON), null);
   check('money7d: nor another club’s technical director', await payState(ID.td, MON), null);
   check('money7e: nor nobody at all', await payState(null, MON), null);
+
+  // 0068 — THE GRACE DOES NOT SLIDE (Leo, 28 Sep; D-135, doc 14 O4). Every
+  // past_due event used to write a fresh fortnight, and Stripe sends one on
+  // each retry, so a club whose card had failed never paused. Asked of the
+  // function directly, because that is the only writer (D-112) and the rule
+  // has to hold whichever webhook branch calls it.
+  {
+    const G = crypto.randomUUID();
+    await db.query(`insert into club (id, name, club_state) values ($1,'Grace Fixture FC','claimed')`, [G]);
+    const at = (n) => new Date(Date.UTC(2026, 0, 2, 0, 0, n)).toISOString();
+    const inDays = (d) => new Date(Date.now() + d * 86400000).toISOString();
+    const give = (status, grace, n) => db.query(
+      `select fn_apply_subscription($1,$2,null,null,$3::timestamptz,null,$4::timestamptz)`, [G, status, grace, at(n)]);
+    const grace = async () => (await q1('select grace_until from club where id = $1', [G])).grace_until?.toISOString() ?? null;
+    const open = async () => (await q1('select fn_register_active($1) as a', [G])).a;
+
+    await give('active', null, 1);
+    await give('past_due', inDays(14), 2);
+    const first = await grace();
+    await give('past_due', inDays(30), 3);
+    check('O4g: a second past_due event does not move the grace — fourteen days from the FIRST failure',
+      [first !== null, await grace()], [true, first]);
+    await give('unpaid', null, 4);
+    await give('past_due', inDays(30), 5);
+    check('O4h: nor does a detour through another unpaid status — only a payment clears it',
+      await grace(), first);
+    await give('active', null, 6);
+    check('O4i: a successful payment clears it', await grace(), null);
+    await give('past_due', inDays(14), 7);
+    check('O4j: and the next failure after a payment starts a fortnight of its own',
+      (await grace()) !== null && (await grace()) !== first, true);
+    await give('canceled', null, 8);
+    check('O4k: a date left behind by an earlier status grants nothing — the gate reads the grace only while past_due',
+      [(await grace()) !== null, await open()], [true, false]);
+  }
 
   // One answer, two callers — the whole point of the migration.
   const readSrc = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -6055,6 +6488,31 @@ const componentFilesAll = [];
     (await readers(mTd)).find((r) => r.scope === 'squads')?.dated, true);
   for (const [who, what] of [[grantedCoach, 'a granted coach'], [mTm, 'a team manager'], [ID.td, 'another club’s TD'], [ID.guardian, 'a guardian'], [null, 'nobody']]) {
     check(`readers5: ${what} gets no list at all`, (await readers(who)).length, 0);
+  }
+  // /club/squads read register_grant with a query of its own and decided for
+  // itself who may see it. The database answers now (0069), and it must give
+  // the TD exactly what the page's own query gave.
+  {
+    const oldPageQuery = (await db.query(
+      `select p.id, trim(p.first_name || ' ' || coalesce(p.last_name, '')) as name,
+         array_agg(s.name order by s.name) as teams,
+         to_char(min(g.granted_at) at time zone 'Australia/Melbourne', 'FMDD Mon') as since
+       from register_grant g join person p on p.id = g.person_id join squad s on s.id = g.squad_id
+       where g.club_id = $1 and g.revoked_at is null
+       group by p.id, p.first_name, p.last_name order by name`, [MON])).rows;
+    const asked = async (who) => (await db.query(
+      `select person_id as id, name, teams, since from fn_club_register_grants($1,$2)`, [who, MON])).rows;
+    check('grants1: the technical director gets exactly the rows the squads page used to query for itself',
+      [oldPageQuery.length > 0, await asked(mTd)], [true, oldPageQuery]);
+    const others = [];
+    for (const [who, what] of [[mAdmin, 'the administrator'], [grantedCoach, 'a granted coach'], [mTm, 'a team manager'],
+                               [ID.td, 'another club’s TD'], [ID.guardian, 'a guardian'], [null, 'nobody']]) {
+      if ((await asked(who)).length > 0) others.push(what);
+    }
+    check('grants2: and nobody else gets a row — the rule is the database’s, not the page’s (doc 34 rule 5)', others, []);
+    const squadsPage = codeOnly(srcOf('app/club/squads/page.tsx'));
+    check('grants3: /club/squads reads no register_grant of its own and asks the function with the session person',
+      [/\bregister_grant\b/.test(squadsPage), /fn_club_register_grants\(\$1, \$2\)`,\s*\[me, c\.id\]/.test(squadsPage)], [false, true]);
   }
   await db.query(`update register_grant set revoked_at = now(), revoked_by = $1 where person_id = $2`, [mTd, grantedCoach]);
   check('N21f: the grant is removed and the coach leaves the list at the next read — nothing stored',
@@ -6525,6 +6983,55 @@ const componentFilesAll = [];
     check('land5: the approval page is what calls it, after the finished-link 404',
       (() => { const a = codeOnly(srcOf('app/a/[id]/page.tsx'));
         return a.indexOf('notFound()') > -1 && a.indexOf('notFound()') < a.indexOf('recordGuardianLanded('); })(), true);
+  }
+
+  // A LINK PREVIEW IS NOT A PARENT (Leo, 28 Sep). A forwarded approval link is
+  // fetched by the messaging app to draw its preview card, and that fetch was
+  // a page load like any other — so "You opened the permission page" could be
+  // WhatsApp's server. The rule is a heuristic in one module; asked of the
+  // module itself, with real user-agent strings, and of the page that uses it.
+  {
+    const { isLinkPreviewFetch, LINK_PREVIEW_AGENTS, PITCH_METHOD_HEADER } = await import('../lib/link-preview.ts');
+    const BOTS = {
+      facebookexternalhit: 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+      WhatsApp: 'WhatsApp/2.23.20.0 A',
+      Twitterbot: 'Twitterbot/1.0',
+      Slackbot: 'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)',
+      TelegramBot: 'TelegramBot (like TwitterBot)',
+      Discordbot: 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)',
+      LinkedInBot: 'LinkedInBot/1.0 (compatible; Mozilla/5.0; Apache-HttpClient +http://www.linkedin.com)',
+      SkypeUriPreview: 'Mozilla/5.0 (Windows NT 6.1; WOW64) SkypeUriPreview Preview/0.5',
+      Googlebot: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+      bingbot: 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+      Applebot: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15 (Applebot/0.1)',
+      'an unnamed crawler': 'SomeNewChatApp-LinkPreview/3.1',
+    };
+    const PEOPLE = {
+      'iPhone Safari': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+      'Android Chrome': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+      'Facebook in-app browser': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/470.0.0.35.110;FBBV/600000000]',
+      'Instagram in-app browser': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 340.0.2.17.109',
+      'desktop Firefox': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Gecko/20100101 Firefox/127.0',
+    };
+    check('lp1: every named link-preview fetcher, and an unnamed one, is not a parent',
+      Object.entries(BOTS).filter(([, ua]) => !isLinkPreviewFetch('GET', ua)).map(([k]) => k), []);
+    check('lp2: a parent in a browser — including one inside Facebook or Instagram — is',
+      Object.entries(PEOPLE).filter(([, ua]) => isLinkPreviewFetch('GET', ua)).map(([k]) => k), []);
+    check('lp3: a HEAD is never a parent, whatever it claims to be',
+      [isLinkPreviewFetch('HEAD', PEOPLE['iPhone Safari']), isLinkPreviewFetch('head', null)], [true, true]);
+    check('lp4: the list is named — each fetcher Leo named has its own entry, and the catch-all is last',
+      [LINK_PREVIEW_AGENTS.length >= 12, String(LINK_PREVIEW_AGENTS.at(-1)) === '/bot|crawler|spider|preview/i'], [true, true]);
+    const approval = codeOnly(srcOf('app/a/[id]/page.tsx'));
+    check('lp5: the approval page writes the landing only when the request is not a preview',
+      /if \(!isLinkPreviewFetch\(h\.get\(PITCH_METHOD_HEADER\), h\.get\('user-agent'\)\)\) \{\s*await recordGuardianLanded\(/.test(approval)
+        && (approval.match(/recordGuardianLanded\(/g) ?? []).length === 1, true);
+    const proxy = codeOnly(srcOf('proxy.ts'));
+    check('lp6: and the method it reads is stamped by the proxy on every request, never taken from the caller',
+      [PITCH_METHOD_HEADER, /headers\.set\(PITCH_METHOD_HEADER, req\.method\)/.test(proxy)], ['x-pitch-request-method', true]);
+    check('lp7: the heuristic lives in one module — no other file keeps its own list',
+      routeFiles.concat(readdirSync(fileURLToPath(new URL('../lib', import.meta.url))).map((f) => fileURLToPath(new URL('../lib/' + f, import.meta.url))))
+        .filter((f) => /\.tsx?$/.test(f) && !/lib\/link-preview\.ts$/.test(f))
+        .filter((f) => /facebookexternalhit|Twitterbot|Slackbot|Discordbot/i.test(readFileSync(f, 'utf8'))), []);
   }
 
   // --- every label the guardian's log renders has a writer ---------------

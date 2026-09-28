@@ -273,6 +273,24 @@ const georgia = ids.children.georgia;
     new Set(pages.map((p) => p.body)).size, 1);
 }
 
+// doc 14 E9/E10: a string that was never a token, and every dead state, answer
+// in indistinguishable time as well as with the identical body (r16) — "this
+// is a test, not a hope". Same tolerance as fp7; the numbers are printed so a
+// slow outlier is visible even when it passes.
+{
+  const ms = async (path) => { const t0 = process.hrtime.bigint(); await get(path); return Number(process.hrtime.bigint() - t0) / 1e6; };
+  const median = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+  const kinds = ['dev-expired', 'dev-revoked', 'nonsense-never-existed'];
+  for (const k of kinds) await get(`/p/${k}`); // warm each route once
+  const times = {};
+  for (const k of kinds) times[k] = [];
+  for (let i = 0; i < 9; i++) for (const k of kinds) times[k].push(await ms(`/p/${k}`));
+  const med = kinds.map((k) => median(times[k]));
+  const lo = Math.min(...med), hi = Math.max(...med);
+  check(`E9/E10: expired, revoked and never-a-token answer in indistinguishable time — ${med.map((m) => m.toFixed(0) + 'ms').join(' / ')} over 9 runs`,
+    hi - lo < Math.max(40, 0.5 * lo), true);
+}
+
 // ---------------------------------------------------------------------------
 // A record that is not yours is indistinguishable from one that is not there.
 // ---------------------------------------------------------------------------

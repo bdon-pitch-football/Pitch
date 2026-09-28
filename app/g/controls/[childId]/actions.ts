@@ -2,8 +2,9 @@
 // Guardian controls (D-53, D-26). Renew extends life on a fresh token;
 // Replace kills the old one in the same transaction — anyone holding it
 // stops being able to open the page immediately. Pause stops everything
-// outward-facing (A16). Deletion cascades the record and keeps exactly one
-// thing: the consent-log proof that permission was given and withdrawn.
+// outward-facing (A16). Deletion cascades the record and keeps two things:
+// the consent-log proof that permission was given and withdrawn, and the
+// complaints investigation trail with no link to the child (0067, U-6).
 import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from '@/lib/db';
@@ -158,61 +159,16 @@ export async function deleteEverything(formData: FormData) {
              select c.email where c.email is not null and fn_age_band(c.dob) <> 'u16') as emails
      from person c where c.id = $1`, [childId],
   )).rows[0] as { first_name: string; emails: string[] } | undefined;
-  const client = await db.connect();
-  try {
-    await client.query('begin');
-    await client.query(
-      `insert into consent_event (event, actor_id, subject_id, detail) values ('deletion_requested',$1,$2,'{}')`,
-      [guardianId, childId],
-    );
-    // D-26, one tap, cascading correctly through the record. This had NEVER
-    // completed: the guardianship link was REVOKED rather than deleted, and
-    // then the person delete hit that surviving row's foreign key. Every
-    // press rolled back and returned a 500, for all three fixtures, and
-    // nothing had ever driven this button to notice.
-    //
-    // The child is the subject of far more tables than the four that were
-    // here. Everything below is a row ABOUT the child; each one goes.
-    // Deliberately NOT here: consent_event, which carries no foreign key to
-    // person precisely so the audit of an erasure survives the erasure, and
-    // anything authored by someone else, which is theirs (D-48).
-    //
-    // the record cascades: stats, entries, clips, versions, tokens, requests
-    await client.query(`delete from development_record where person_id=$1`, [childId]);
-    await client.query(`delete from membership where person_id=$1`, [childId]);
-    // A club's invitation, and any reply, reference the registration with no
-    // cascade — so deleting a child a club had invited would roll back.
-    await client.query(`delete from invitation_reply where invitation_id in (
-      select i.id from invitation i join registration r on r.id = i.registration_id where r.player_id=$1)`, [childId]);
-    await client.query(`delete from invitation where registration_id in (select id from registration where player_id=$1)`, [childId]);
-    await client.query(`delete from registration where player_id=$1`, [childId]);
-    await client.query(`delete from share_request where requested_by=$1 or dispatched_by=$1`, [childId]);
-    await client.query(`delete from share_card_approval where requested_by=$1 or approved_by=$1`, [childId]);
-    await client.query(`delete from registration_request where dispatched_by=$1`, [childId]);
-    await client.query(`delete from invitation_reply where replied_by=$1`, [childId]);
-    await client.query(`delete from verification_challenge where person_id=$1`, [childId]);
-    await client.query(`delete from message_outbox where to_person=$1`, [childId]);
-    await client.query(`delete from undo_token where issued_to=$1`, [childId]);
-    await client.query(`delete from abuse_signal where actor_id=$1`, [childId]);
-    await client.query(`delete from investigation_grant where subject_id=$1 or investigator_id=$1`, [childId]);
-    // A 16-17 may coach MiniRoos (D-82), so these can exist for a minor.
-    await client.query(`delete from role_application where coach_id=$1`, [childId]);
-    await client.query(`delete from coach_profile where person_id=$1`, [childId]);
-    await client.query(`delete from wwcc_attestation where person_id=$1 or attested_by=$1`, [childId]);
-    await client.query(`delete from guardian_setting where child_id=$1 or updated_by=$1`, [childId]);
-    await client.query(`delete from guardianship_link where child_id=$1 or guardian_id=$1`, [childId]);
-    await client.query(`delete from person where id=$1`, [childId]);
-    await client.query(
-      `insert into consent_event (event, actor_id, detail) values ('deletion_completed',$1,'{}')`,
-      [guardianId],
-    );
-    await client.query('commit');
-  } catch (e) {
-    await client.query('rollback');
-    throw e;
-  } finally {
-    client.release();
-  }
+  // D-26, one tap, cascading correctly through the record. The deletion
+  // lives in Postgres (fn_erase_child, 0067) so that the permission suite
+  // runs the same code this button runs, against every table that names a
+  // person. It had failed twice as a list of statements here: first on the
+  // guardianship link (a revoke, not a delete), then on the investigation
+  // log and the outbox's subject column, which the list never knew about —
+  // and each time the family's press rolled back and they kept the record
+  // they asked us to destroy. One statement, one transaction, both consent
+  // rows inside it.
+  await db.query('select fn_erase_child($1, $2)', [guardianId, childId]);
   if (told) {
     const msg = deletionConfirmedEmail(told.first_name);
     for (const address of told.emails) await send(msg, { address });

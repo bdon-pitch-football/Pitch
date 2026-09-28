@@ -19,6 +19,7 @@
 // Development adds what `next dev` needs and production must never have:
 // eval for fast refresh, and the hot-reload websocket.
 import { NextResponse, type NextRequest } from 'next/server';
+import { PITCH_METHOD_HEADER } from '@/lib/link-preview';
 
 function policy(nonce: string): string {
   const dev = process.env.NODE_ENV !== 'production';
@@ -47,6 +48,10 @@ export function proxy(req: NextRequest) {
   const csp = policy(nonce);
   const headers = new Headers(req.headers);
   headers.set('content-security-policy', csp);
+  // A page cannot see the request method, and the approval page must not
+  // count a HEAD as a parent opening it (lib/link-preview). Always set, so a
+  // caller cannot supply their own.
+  headers.set(PITCH_METHOD_HEADER, req.method);
   const res = NextResponse.next({ request: { headers } });
   res.headers.set('Content-Security-Policy', csp);
   return res;
