@@ -7,7 +7,7 @@
 // Server component, zero JS shipped: every animation is CSS. Must be fast
 // on a phone on 4G at a football ground.
 import type { PlayerFixture } from '@/lib/fixtures';
-import { POSITIONS, STAT_LABELS, positionGroup, type PositionCode, type StatKey } from '@/lib/football';
+import { POSITIONS, STAT_LABELS, positionGroup, renderableExperience, type PositionCode, type StatKey } from '@/lib/football';
 import { HeaderMark } from '@/components/Wordmark';
 import ClipCard from '@/components/cv/ClipCard';
 import StatTile from '@/components/cv/StatTile';
@@ -99,6 +99,11 @@ export default function PlayerCV({ p, reportRef }: { p: PlayerFixture; reportRef
   // Absent band is treated as a minor — the restrictive default, the same
   // rule fn_age_band uses for an unknown DOB.
   const isMinor = p.band !== '18plus';
+  // No school on an under-18's page, whoever is reading (D-161). The database
+  // refuses the write and filters the read (0061); this is the last surface,
+  // and it is the one that catches an entry written before the rule — a u16's
+  // page is a snapshot approved before today, and nothing rewrites it.
+  const otherFootball = renderableExperience(p.otherFootball, p.band);
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -114,7 +119,7 @@ export default function PlayerCV({ p, reportRef }: { p: PlayerFixture; reportRef
         <HeaderMark />
 
         {/* hero */}
-        <div className="cv-rise sheen" style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(160deg, #123326 0%, #0c1d14 60%, #0a1510 100%)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="cv-rise sheen" style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'var(--hero)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ position: 'absolute', right: -14, top: -30, fontSize: 170, fontWeight: 900, letterSpacing: '-0.04em', color: 'rgba(61,220,132,.08)', lineHeight: 1 }}>{p.squadNumber}</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
             {p.photoPath ? (
@@ -250,10 +255,10 @@ export default function PlayerCV({ p, reportRef }: { p: PlayerFixture; reportRef
         )}
 
         {/* other football — experience entries; free text shown, grants nothing */}
-        {p.otherFootball.length > 0 && (
+        {otherFootball.length > 0 && (
         <div className="cv-rise" style={{ animationDelay: '.28s', display: 'flex', flexDirection: 'column', gap: 9 }}>
           <h2 style={kicker}>Other football</h2>
-          {p.otherFootball.map((e) => (
+          {otherFootball.map((e) => (
             <div key={e.orgName} className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
               <div style={{ background: 'rgba(61,220,132,.12)', color: T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>{e.kind === 'ntc_academy' ? 'NTC' : e.kind}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

@@ -103,8 +103,33 @@ for (const p of PLAYER_FIXTURES) {
     await db.query(`insert into achievement (record_id, title, detail, sort) values ($1,$2,$3,$4)`, [recordId, a.title, a.detail, i]);
   }
   for (const e of p.otherFootball) {
+    // A school entry on a child's record is the one row the product can no
+    // longer write (D-161, 0061). It exists in a real database only because it
+    // was written before the rule, and D-161 leaves it there: nothing deletes
+    // it, nothing renders it, and whether the family is told is BUZ's call.
+    // The seed needs one so every check about it has a subject, so it writes
+    // it the only way it can be written — with the trigger off for that
+    // insert, and back on immediately. If this ever stops being necessary,
+    // the database stopped refusing and that is the bug.
+    const legacy = e.kind === 'school' && !isAdult;
+    if (legacy) await db.query(`alter table experience_entry disable trigger no_school_under_18`);
     await db.query(`insert into experience_entry (record_id, kind, org_name, season_label, notes) values ($1,$2,$3,$4,$5)`,
       [recordId, e.kind, e.orgName, e.period, e.note ?? null]);
+    if (legacy) await db.query(`alter table experience_entry enable trigger no_school_under_18`);
+  }
+  // A 16-17 is the ONLY under-18 band whose public page is assembled live:
+  // a u16's is the guardian-approved snapshot (D-119), so Deniz's and
+  // Georgia's school entries exercise fn_approved_cv and nothing else. Nate
+  // gets one so the live assembly's own filter is exercised by a real rendered
+  // page rather than by reading the query (D-161, 0061). It names no
+  // organisation: 'School 1st XI' is the wording the demo layer already uses
+  // in place of a real school (L15), and it is seeded here rather than added
+  // to lib/fixtures because doc 16 is where his CV data is specified.
+  if (p.slug === 'nate') {
+    await db.query(`alter table experience_entry disable trigger no_school_under_18`);
+    await db.query(`insert into experience_entry (record_id, kind, org_name, season_label) values ($1,'school','School 1st XI','2026')`,
+      [recordId]);
+    await db.query(`alter table experience_entry enable trigger no_school_under_18`);
   }
   // Clubs before this one (0028). Same table, same free text, grants nothing.
   for (const e of p.previousClubs ?? []) {
@@ -191,7 +216,15 @@ for (const p of PLAYER_FIXTURES) {
 // subscription, TD login) and a claimed-but-unverified club with held
 // registrations for the ops console. All fictional.
 const riverside = (await db.query(`select id from club where name='Riverside FC'`)).rows[0].id as string;
-await db.query(`update club set subscription_status='active' where id=$1`, [riverside]);
+// The webhook writes plan and current_period_end in production (0012/0032);
+// the seed set only the status, so /club/billing's "Next charge" had nothing to
+// print and the one pair of numerals the screen exists for could not be judged
+// or measured (LESSONS L13).
+await db.query(
+  `update club set subscription_status='active', plan='register_monthly',
+     current_period_end = now() + interval '16 days' where id=$1`,
+  [riverside],
+);
 const td = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Marina','Petrovic','1980-04-12','td@example.com')`, [td]);
 // 0058: a club's technical director comes off its verification call and from
@@ -637,6 +670,60 @@ await db.query(
   [await personOf('Georgia'), kingsway, guardian, kingswayTrial],
 );
 
+// A SUSPENDED club (D-135, doc 14 O4): verified by call, a subscription whose
+// payment failed and whose fourteen days of grace have run out. No fixture
+// walked this, and the path no fixture walks is the one that turns out broken —
+// this one dropped the club silently to the free tier's "Interest in your
+// trials" heading with nothing about payment anywhere near it, while
+// /club/billing was the only screen that said so.
+//
+// Deliberately minimal: no public slug, no trial notice, no squads, so it
+// appears on no public board and in no other suite's counts. Two registrations
+// copied off Riverside's bulk register, so "the list is hidden, nothing is
+// deleted" has something to be true about.
+const tarrowvale = randomUUID();
+const tarrowvaleCall = randomUUID();
+await db.query(`insert into club (id, name, suburb, state, club_state, contact_email)
+  values ($1,'Tarrowvale City FC','Tarrowvale','VIC','claimed','football@tarrowvalecity.example.au')`, [tarrowvale]);
+await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+  values ($1,$2,now(),'BUZ','03 9000 0002','FV club directory','verified','27@v1.0')`, [tarrowvaleCall, tarrowvale]);
+await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [tarrowvaleCall, tarrowvale]);
+const tarrowvaleTd = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Felix','Moreau','1977-11-03','tarrowvale@example.com')`, [tarrowvaleTd]);
+await db.query(`update verification_call set td_name='Felix Moreau', td_email='tarrowvale@example.com' where club_id=$1`, [tarrowvale]);
+await proveAddress(tarrowvaleTd);
+await tdOrThrow(tarrowvaleTd, tarrowvale, 'Tarrowvale City FC');
+// Only the webhook writes subscription state in production (D-112), and this
+// is the state it writes when invoice.payment_failed arrives and the grace it
+// opened has since lapsed.
+await db.query(
+  `select fn_apply_subscription($1,'past_due','register_monthly', now() - interval '20 days',
+     now() - interval '6 days', 'cus_dev_tarrowvale', now() - interval '20 days')`,
+  [tarrowvale],
+);
+await db.query(
+  `insert into registration (player_id, club_id, positions, club_status, disclosed_by, policy_version)
+   select r.player_id, $1, r.positions, 'new', r.disclosed_by, '20@v2.4'
+   from registration r where r.club_id = $2 and r.squad_target is not null
+   order by r.created_at limit 2`,
+  [tarrowvale, riverside],
+);
+// AND ITS ADMINISTRATOR. The administrator's /home (club-home-admin.html) is
+// the first Pitch screen anybody at a club is likely to open, and until now the
+// only fixture for that seat was Pat at Riverside — a club with a crest, a
+// philosophy, a public slug and a paid plan, so three of the four blocks on
+// that screen had nothing to render. Robyn is an administrator at a verified
+// club with none of those: no crest, nothing written about how the club plays,
+// no public page yet, and a payment that failed.
+const tarrowvaleAdmin = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Robyn','Callister','1981-08-22','tarrowvale.admin@example.com')`, [tarrowvaleAdmin]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [tarrowvaleAdmin, tarrowvale]);
+// A team manager, because doc 34 rule 4 puts them on the same side of D-93's
+// wall as an administrator and no fixture had one at a verified club.
+const tarrowvaleTm = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Tomas','Villa','1975-03-09','tarrowvale.tm@example.com')`, [tarrowvaleTm]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'team_manager')`, [tarrowvaleTm, tarrowvale]);
+
 // Demo mode (npm run demo): rename the club to the one BUZ is meeting, and
 // serve on the demo port so a demo and the dev database never meet.
 const DEMO = process.env.DEMO_CLUB?.trim();
@@ -664,7 +751,7 @@ if (DEMO) {
 // two things. The merge is the first place anyone could see that. Fixing L30 by
 // isolating builders is what made it possible: nobody was reading anybody
 // else's tree. One name — the namespaced one, because PITCH_DEMO already sets
-// that pattern and a bare DEV_DB_PORT in a shell is a surprise — and the
+// that pattern and an un-namespaced one in a shell is a surprise — and the
 // validation the third seat wrote, which is the part worth keeping (L35).
 //
 // The demo keeps its own port and ignores this: a demo must never land on the
@@ -769,6 +856,46 @@ for (const r of (await db.query(`select id from person where email is not null a
     `insert into auth_credential (person_id, password_hash) values ($1,$2)`, [parked, `${salt}:${derived}`]);
 }
 
+// --- THE RETURN (0064). A family gone from March to September, which is the
+// football year rather than a failure. Two fixtures, because "while you were
+// away" cannot be judged — or measured — against a database where nobody has
+// ever been away:
+//   · Alex last opened Pitch 80 days ago, and Nate 70, so both the guardian
+//     seat and the 16-17 player seat render the block on a fresh seed.
+//   · Deniz stays null: an under-16's arrivals are never recorded (D-25), and
+//     a fixture that set one would hide that.
+//   · Marina opened Deniz's CV 40 days ago and saw Nate in the list 50 days
+//     ago, both INSIDE the away windows, so the read line has something true
+//     to say on both seats. Nothing else in the seed writes register_read_log,
+//     so before this the ledger only existed once a suite had happened to load
+//     the club's register first (LESSONS L32).
+// NOTE FOR THE NEXT SEAT: the guardian and 16-17 home pages now carry this
+// block on every fresh seed. Any check that reads either page is reading this
+// fixture.
+{
+  const alexId = (await db.query(`select id from person where email = 'guardian@example.com'`)).rows[0].id as string;
+  const nateId = (await db.query(`select id from person where email = 'nate@example.com'`)).rows[0].id as string;
+  await db.query(`update person set last_seen_at = now() - interval '80 days' where id = $1`, [alexId]);
+  await db.query(`update person set last_seen_at = now() - interval '70 days' where id = $1`, [nateId]);
+  // Two reads, two surfaces, so both halves of the line are exercised: the CV
+  // opened (the strongest thing we own) and seen in the list.
+  for (const [name, surface, days] of [['Deniz', 'cv', 40], ['Nate', 'list', 50]] as const) {
+    const reg = await db.query(
+      `select r.id from registration r
+       join person p on p.id = r.player_id
+       where p.first_name = $2 and r.club_id = $1 and r.withdrawn_at is null
+       limit 1`,
+      [riverside, name],
+    );
+    if (reg.rows.length === 0) continue;
+    await db.query(
+      `insert into register_read_log (person_id, registration_id, surface, read_at)
+       values ($1,$2,$3, now() - ($4 || ' days')::interval)`,
+      [td, reg.rows[0].id, surface, String(days)],
+    );
+  }
+}
+
 console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')} dev-expired dev-revoked`);
 // Person ids, because the signed-in surfaces are the ones you cannot reach
 // with a plain URL and every reseed mints fresh uuids.
@@ -777,6 +904,27 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     `select first_name, id from person where email is not null order by first_name`,
   );
   console.log(`  ids    : ${who.rows.map((r) => `${r.first_name}=${r.id}`).join(' ')}`);
+
+  // A LIVE SESSION FOR EVERY FIXTURE PERSON, and its token written out with
+  // the ids (0062). A session is now a row, so a suite cannot become a seat by
+  // signing a person id any more — it needs a session the database issued, and
+  // it cannot ask for one itself: PGlite serves one connection and next-server
+  // holds it, so no script can reach this database while the app is up. The
+  // seed is the only place that can mint these, which is also the honest
+  // place: a session token in a gitignored file beside a throwaway database is
+  // the same kind of handle the dev share tokens already are.
+  //
+  // Issued through fn_session_issue rather than an insert, so the fixtures
+  // carry exactly the lifetime the product issues.
+  // A demo signs its seats in by pressing a button (app/demo), so it needs
+  // none of these and gets none.
+  const sessions: Record<string, string> = {};
+  for (const r of (DEMO ? [] : (await db.query(`select id from person`)).rows)) {
+    const personId = (r as { id: string }).id;
+    const token = randomBytes(24).toString('base64url');
+    await db.query(`select fn_session_issue($1,$2)`, [personId, sha(token)]);
+    sessions[personId] = token;
+  }
 
   // Written to disk as well, because the render tests need to BE these people
   // and every reseed mints fresh uuids. Gitignored: it is a handle on a local
@@ -793,6 +941,7 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
     fileURLToPath(new URL('../.dev-ids.json', import.meta.url)),
     JSON.stringify({
       people: Object.fromEntries(who.rows.map((r) => [String(r.first_name).toLowerCase(), r.id])),
+      sessions,
       children: Object.fromEntries(kids.rows.map((r) => [String(r.first_name).toLowerCase(), r])),
       pendingInvitation: pendingInvitationId,
       clubs: Object.fromEntries(

@@ -13,21 +13,27 @@
 // Reach for var(--token) in stylesheets and classes. Use T where a literal
 // colour is required: inline SVG attributes, image routes (ImageResponse has
 // no CSS variables), and inline styles not yet moved onto classes.
+// THE SURFACE STACK moved on 28 Sep — surface, surface2, sunken, line and
+// muted. Both copies move in the same commit or scripts/palette-check.mjs
+// fails, which is the point of it. The derivation and the rule (disclosure
+// goes down, action goes up; the hairline does the elevation work; no shadows)
+// are written out in app/globals.css :root. Four of these are charter values,
+// so this is a proposal awaiting a D-number, not a settled token set.
 export const T = {
   bg: '#0b120e',
-  surface: '#121b16',
-  surface2: '#1a2420',
-  sunken: '#0e1712',
-  line: '#24322a',
+  surface: '#1d2b23',
+  surface2: '#25332c',
+  sunken: '#15201a',
+  line: '#32463b',
   ink: '#eef5f0',
   secondary: '#b9c8bf',
-  muted: '#7d8f85',
-  placeholder: '#6b7d73',
+  muted: '#8a9d92',
+  placeholder: '#909994',
   accent: '#3ddc84',
   onAccent: '#06130c',
   amber: '#eda100',
-  purple: '#a479e2',
-  red: '#e34948',
+  purple: '#ab87e0',
+  red: '#e37776',
 } as const;
 
 // Which custom property each value mirrors, for the sync check.

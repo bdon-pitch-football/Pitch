@@ -30,7 +30,20 @@ const PNG = Buffer.from(
 
 const BASE = process.env.RENDER_BASE ?? 'http://localhost:3000';
 const ids = JSON.parse(readFileSync(new URL('../.dev-ids.json', import.meta.url), 'utf8'));
-const cookieFor = (p) => `pitch_session=${p}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(p).digest('base64url')}`;
+// A session is a row now (0062), so a cookie is not something a script can
+// compute: it has to name a session the database issued. The seed issues one
+// per fixture person and writes the token beside the ids — this file cannot
+// ask the database itself, because PGlite serves one connection and the app
+// holds it. A missing one is a stale .dev-ids.json against a running database,
+// which is worth saying out loud rather than failing as "signed out" fifty
+// times (F5's failure shape).
+const sessionToken = (p) => {
+  const t = ids.sessions?.[p];
+  if (!t) throw new Error(`no seeded session for ${p} — reseed (node scripts/dev-db.mts) so .dev-ids.json matches the running database`);
+  return t;
+};
+const signed = (t) => `${t}.${createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(t).digest('base64url')}`;
+const cookieFor = (p) => `pitch_session=${signed(sessionToken(p))}`;
 
 const get = async (path, who) => {
   const r = await fetch(BASE + path, { redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
@@ -105,6 +118,15 @@ async function reach(who, extra = []) {
     for (const m of r.html.matchAll(/href="(\/[^"#][^"]*)"/g)) {
       const h = m[1];
       if (h.startsWith('/_next') || h.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)) continue;
+      // Never /signout. This walk follows every link it finds, and signing out
+      // now REVOKES the session rather than deleting the browser's copy of a
+      // cookie (0062) — so following it once ended the seat and every check
+      // after it saw a signed-out product. It cost an hour to find as
+      // "cp1: an adult with no page is offered Publish my page" going red,
+      // because the only Sign out link in the product is on the home screen
+      // of an account with no children, and Robin is the only seat that has
+      // one. Pressing it is sess-w1..w3's job, on a session opened for it.
+      if (h === '/signout') continue;
       if (!seen.has(h)) queue.push(h);
     }
   }
@@ -193,6 +215,46 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 // Runs FIRST, on the fresh database: the generic sweep below pauses profiles
 // and flips switches, and x3 deletes a child.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// A19 / D-161 - the chip that is not there, pressed anyway.
+//
+// A server action stays callable whether or not its page renders the control,
+// so a crafted post is the only way left to ask for a school entry on a
+// child's record. It must write nothing and look exactly like every other kind
+// that is not on the list - and the SAME post with a kind that IS on the list
+// must write, or this check passes on a post that never worked.
+// ---------------------------------------------------------------------------
+{
+  const parent = SEATS.parent;
+  const more = `/build/${ids.children.deniz.record_id}/more`;
+  const add = async (kind, orgName) => {
+    // The page carries TWO addExperience forms. The previous-club one has a
+    // HIDDEN kind, and a duplicate key sends the first value (L10) - so
+    // picking it would have posted previous_club and passed on nothing.
+    const form = forms((await get(more, parent)).html)
+      .find((f) => f.visible.some((v) => v.name === 'kind' && v.type === 'radio'));
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    fd.append('kind', kind); fd.append('orgName', orgName); fd.append('period', '2026');
+    const r = await fetch(BASE + more, { method: 'POST', body: fd, redirect: 'manual',
+      headers: { cookie: cookieFor(parent) } });
+    await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '' };
+  };
+  const listed = async (org) => (await get(more, parent)).html.includes(org);
+  check('A19: the u16 editor offers a kind chip at all, so the post below is real',
+    (await get(more, parent)).html.includes('name="kind"'), true);
+
+  const refused = await add('school', 'Sweep School 1st XI');
+  check('A19: a crafted school entry writes nothing on an under-16 record',
+    await listed('Sweep School 1st XI'), false);
+  const written = await add('futsal', 'Sweep futsal summer');
+  check('A19: while the same post with a kind on the list does write',
+    await listed('Sweep futsal summer'), true);
+  check('A19: and the refused one answered exactly as the written one did',
+    [refused.status, refused.location], [written.status, written.location]);
+}
+
 {
   const parent = SEATS.parent;
   const nate = ids.children.nate;
@@ -432,6 +494,46 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('p19d: and her invite page is not found — not an error, not "paused"',
     (await get(`/club/invite/${gReg}`, club)).status, 404);
   check('p19e: nor is her CV page', (await get(`/club/register/cv/${gReg}`, club)).status, 404);
+  // p19g — THE ONE THING IN THE 404 WORK THAT COULD MAKE US LESS SAFE.
+  // Until 28 Sep both of these served Next's stock page, so they matched by
+  // accident. Now they serve app/not-found.tsx, and they have to match on
+  // purpose: a club that probes a URL must not be able to tell "there is a
+  // child here whose parent has just switched her off" from "there is no such
+  // club". Same status, same title, same words, same speed. The render suite
+  // holds the pairs that need no mutation (fp6, fp7); this is the pair that
+  // needs somebody to press pause, which is why it lives here.
+  {
+    const prose = (html) => {
+      const body = html.replace(/<template[\s\S]*?<\/template>/g, ' ');
+      const hits = new Set();
+      for (const m of body.matchAll(/[A-Za-z][A-Za-z0-9 ,.'\u2019\u2014\u2013:;()&!?-]{14,}/g)) {
+        const t = m[0].replace(/\s+/g, ' ').trim();
+        if (/node:|_next|self\.__next|function |\.js|http|localhost|[0-9a-f]{12}/.test(t)) continue;
+        if (!/ [a-z]/.test(t)) continue;
+        hits.add(t);
+      }
+      return [...hits].sort();
+    };
+    const title = (h) => /<title[^>]*>([^<]*)<\/title>/.exec(h)?.[1];
+    // A route's own robots directive rides along in its payload and says which
+    // route was typed, not whether anything was there (render suite fp6).
+    const METADATA = /^(no)?index[, ]/;
+    const paused = await get(`/club/register/cv/${gReg}`, club);
+    const nosuch = await get('/fc/no-such-club', club);
+    const pa = prose(paused.html); const pn = prose(nosuch.html);
+    const diff = [...pa.filter((x) => !pn.includes(x)), ...pn.filter((x) => !pa.includes(x))].filter((x) => !METADATA.test(x));
+    check(`p19g: a paused child's registration and a club that never existed answer identically${diff.length ? ` (differs: ${diff.join(' / ')})` : ''}`,
+      [paused.status, nosuch.status, title(paused.html) === title(nosuch.html), diff.length,
+        pa.includes('This page isn\u2019t here')], [404, 404, true, 0, true]);
+    const ms = async (path) => { const t = process.hrtime.bigint(); await get(path, club); return Number(process.hrtime.bigint() - t) / 1e6; };
+    const median = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+    const a = []; const b = [];
+    for (let i = 0; i < 9; i++) { a.push(await ms(`/club/register/cv/${gReg}`)); b.push(await ms('/fc/no-such-club')); }
+    const [ma, mb] = [median(a), median(b)];
+    check(`p19h: and indistinguishably fast \u2014 ${ma.toFixed(0)}ms vs ${mb.toFixed(0)}ms over 9 runs`,
+      Math.abs(ma - mb) < Math.max(40, 0.5 * Math.min(ma, mb)), true);
+  }
+
   await postTo(`/g/controls/${georgia}`, parent, await (pauseForm('false'))());
   check('p19f: switched back on, the links return',
     doorsTo((await get('/club/register', club)).html)?.includes(`/club/register/cv/${gReg}`), true);
@@ -1034,6 +1136,33 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   let d = txt(await desk());
   check('g32-3: the operator sees it, labelled, with the reason', /Says this account belongs to a child/.test(d) && /This looks like a 12-year-old/.test(d), true);
 
+  // --- rep1: A REPORT OVER THE LIMIT IS STILL SAVED (doc 35 5a) --------------
+  // Until 28 Sep the rate limit gated the INSERT: the eleventh report from one
+  // address in an hour was never written, and the person was still told it had
+  // been received. For a report about a child that meant a real concern could
+  // vanish silently. John ruled, BUZ chose: every report is saved, and only the
+  // confirmation email is limited, because it goes to an address the reporter
+  // typed. Twelve reports from one address; all twelve must reach the desk.
+  {
+    const burstIp = '203.0.113.77';               // TEST-NET-3, reaches nobody
+    const burstMail = 'burst-reporter@example.com';
+    for (let i = 1; i <= 12; i++) {
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(reportForm.fields)) fd.append(k, v);
+      fd.set('concern', 'child_account');
+      fd.set('reason', `Burst report ${i} of 12`);
+      fd.set('reporterEmail', burstMail);
+      const r = await fetch(BASE + '/report', { method: 'POST', body: fd, redirect: 'manual',
+        headers: { 'x-forwarded-for': burstIp } });
+      await r.text();
+    }
+    const onDesk = (txt(await desk()).match(/Burst report \d+ of 12/g) ?? []).length;
+    check('rep1: twelve reports from one address in an hour — all twelve reach the desk', onDesk, 12);
+    const mailed = (txt((await get('/dev/outbox', op)).html).match(/burst-reporter@example\.com/g) ?? []).length;
+    check('rep2: and the confirmation email is still limited, so the form cannot mail anybody without end',
+      mailed > 0 && mailed <= 10, true);
+  }
+
   // --- A1/C1: hide the page without deleting it -----------------------------
   check('g32-4: before: the page opens and Riverside lists Nate',
     [title((await get('/p/dev-nate', null)).html) !== dead, /Nate/.test(txt((await get('/club/register', op)).html))], [true, true]);
@@ -1189,8 +1318,13 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const squadLinks = async (who) => [...new Set([...(await get('/club/squads', who)).html
     .matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)].map((m) => m[1]))];
 
+  // The club NAME is the assertion here, not decoration. Georgia's club was
+  // renamed on 28 Sep because the seed held two clubs called Kingsway Rovers
+  // FC — hers in Altona and the verified one in Brunswick West — adjacent on a
+  // parent's club picker. If this ever passes against a name that also exists
+  // elsewhere in the seed, it has stopped testing what it says it tests.
   check('sqf0: Georgia is her parent\'s here, and her page shows the club she plays for',
-    [words((await get('/home', alex)).html).includes(g.first_name), await clubLine('Kingsway Rovers FC')], [true, true]);
+    [words((await get('/home', alex)).html).includes(g.first_name), await clubLine('Saltmarsh Rovers FC')], [true, true]);
 
   // The club door.
   let squadId = null, askForm = null;
@@ -1226,23 +1360,30 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   // origin assertion scores a 500 with no Location as a pass — the answer
   // would be `new URL('', site)`, which is the site — so it would go green
   // whether the guard worked or the action fell over (L19).
+  // The value is `no`, not `declined`. These checks were written on 23 Sep
+  // against a product that said `declined`, and the product was corrected —
+  // D-108 bars that word on every surface and the permission suite's own
+  // url1 (F8) forbids it in an address bar. So for some days this suite
+  // asserted, as the expected answer, the exact string another suite exists
+  // to forbid: two suites contradicting each other, and the older one wrong
+  // (L22). A banned word belongs in a test only as the thing being refused.
   const missing = () => ({ ...inviteForm.fields, invitationId: randomUUID(), answer: 'no' });
   const back = async (value) =>
     (await postTo(`/g/controls/${g.child_id}`, alex, { ...missing(), back: value })).location;
   check('sqf4b: N2 — an absolute `back` is not followed off Pitch',
-    await back('https://evil.example/phish'), '/home?squad=declined');
-  check('sqf4c: nor a protocol-relative one', await back('//evil.example/phish'), '/home?squad=declined');
-  check('sqf4d: nor a backslash one', await back('/\\evil.example/phish'), '/home?squad=declined');
+    await back('https://evil.example/phish'), '/home?squad=no');
+  check('sqf4c: nor a protocol-relative one', await back('//evil.example/phish'), '/home?squad=no');
+  check('sqf4d: nor a backslash one', await back('/\\evil.example/phish'), '/home?squad=no');
   // A browser strips tabs and newlines before it parses a Location, so this
   // one reached the parser as `//evil.example` under the 23 Sep guard.
   check('sqf4e: nor one behind a tab a browser strips before it parses',
-    await back('/\t/evil.example/phish'), '/home?squad=declined');
+    await back('/\t/evil.example/phish'), '/home?squad=no');
   // Same origin after one parse, off Pitch after the two Next performs when
   // JavaScript is on — which is every real parent.
   check('sqf4f: nor one that only escapes on the second parse',
-    await back('/..//evil.example'), '/home?squad=declined');
+    await back('/..//evil.example'), '/home?squad=no');
   check('sqf4g: and an honest `back` still takes the parent back',
-    await back(`/g/controls/${g.child_id}`), `/g/controls/${g.child_id}?squad=declined`);
+    await back(`/g/controls/${g.child_id}`), `/g/controls/${g.child_id}?squad=no`);
   check('sqf4h: none of that touched the open invitation',
     forms(await controls()).some((f) => f.fields.invitationId === inviteForm.fields.invitationId), true);
 
@@ -1250,7 +1391,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('sqf5: her parent says yes from her controls, and she is in the squad',
     [/squad=joined/.test(yes.location), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Riverside FC/.test(await card())],
     [true, true, true]);
-  check('sqf6: D-158 — her page no longer shows the club she has left', await clubLine('Kingsway Rovers FC'), false);
+  check('sqf6: D-158 — her page no longer shows the club she has left', await clubLine('Saltmarsh Rovers FC'), false);
 
   // The club takes her out.
   const out = forms((await get(`/club/squads/${squadId}`, td)).html).find((f) => f.fields.personId === g.child_id && f.fields.squadId === squadId && !('invitationId' in f.fields));
@@ -1702,6 +1843,241 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     [/Active\./.test(live), /Waiting on their account/.test(live)], [true, false]);
   check('td-w6b: and the queue agrees',
     /Technical Director Casey Duarte · active · recorded by BUZ/.test(words((await get('/ops/verification', op)).html)), true);
+}
+
+// ---------------------------------------------------------------------------
+// D-137 at checkout: the name, the role and the tick. The page declared
+// `error` in its searchParams type and never took it out again, so pressing
+// Subscribe without the authority tick — or with a name that is only spaces,
+// which `required` lets through — came back to ?error=1 with the fields
+// emptied and NOT ONE WORD about what had happened. Nothing is charged either
+// way; the difference is whether the treasurer is told why.
+// ---------------------------------------------------------------------------
+{
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const dana = ids.people.dana;                 // the free club: this page shows checkout
+  const page = await get('/club/billing', dana);
+  const form = forms(page.html).find((f) => f.visible.some((v) => v.name === 'authorised'));
+  check('bw1: the checkout form is there, with the D-137 tick on it', Boolean(form), true);
+
+  // A browser with the tick unticked sends no `authorised` field at all.
+  const untick = async (over) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    fd.append('plan', 'register_monthly');
+    fd.append('personName', over.personName ?? 'Dana Kovac');
+    fd.append('roleAtClub', over.roleAtClub ?? 'Treasurer');
+    if (over.authorised) fd.append('authorised', 'on');
+    const r = await fetch(BASE + '/club/billing', { method: 'POST', body: fd, redirect: 'manual',
+      headers: { cookie: cookieFor(dana) } });
+    await r.text();
+    return r.headers.get('location');
+  };
+
+  check('bw2: with the tick unticked it goes nowhere near Stripe', await untick({}), '/club/billing?error=1');
+  check('bw3: a name of nothing but spaces is the same refusal',
+    await untick({ authorised: true, personName: '   ' }), '/club/billing?error=1');
+  check('bw4: and a role of nothing but spaces',
+    await untick({ authorised: true, roleAtClub: '  ' }), '/club/billing?error=1');
+
+  const back = words((await get('/club/billing?error=1', dana)).html);
+  check('bw5: and the page that comes back says what happened and what is needed',
+    /Nothing has been charged\. We need your name, your role at the club, and the tick that says you.re authorised\./.test(back), true);
+  check('bw6: the club is still on no plan — nothing was taken and nothing was agreed',
+    /Choose how you pay/.test(back) && !/On your statement/.test(back), true);
+}
+
+// ---------------------------------------------------------------------------
+// A parent gets the other person out (0062; QA's F1 and F2, 28 Sept).
+//
+// The four properties the bug hunt measured false, pressed through the product
+// rather than asked of the database: a cookie captured beforehand still opened
+// /home after Sign out, after the password was changed, and after signing back
+// in; and 28 presses of /reset put 24 live links to one named person's address
+// in one inbox, the oldest of which still opened the set-a-password form.
+//
+// LAST in this file on purpose. It signs people out, changes two passwords,
+// fills a rate-limit bucket and reads /dev/outbox — which earlier checks
+// scrape for "the newest messages" (L32). Nothing above it may depend on it.
+// ---------------------------------------------------------------------------
+{
+  const raw = async (path, cookie, init = {}) => {
+    const r = await fetch(BASE + path, { redirect: 'manual', ...init,
+      headers: { ...(cookie ? { cookie } : {}), ...(init.headers ?? {}) } });
+    return { status: r.status, location: r.headers.get('location') ?? '',
+             setCookie: r.headers.get('set-cookie') ?? '', html: await r.text() };
+  };
+  // Every press here declares its own address unless the test says otherwise.
+  // Sign-in and /reset are both capped per declared IP, and those buckets are
+  // shared with every press earlier in this file — a block that fills one
+  // would fail the checks after it for a reason that is not a defect.
+  let presses = 0;
+  const send = async (path, form, extra = {}, init = {}) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ ...form.fields, ...extra })) fd.append(k, v);
+    return raw(path, init.cookie, { method: 'POST', body: fd,
+      headers: { 'x-forwarded-for': `198.51.100.${(presses++ % 200) + 1}`, ...(init.headers ?? {}) } });
+  };
+  const flat = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
+  const submit = (html, re) => forms(html).find((f) => re.test(f.submit));
+  const signInAs = async (email) => {
+    const f = submit((await raw('/signin', null)).html, /^Sign in$/);
+    const r = await send('/signin', f, { email });
+    return r.setCookie.split(';')[0];
+  };
+  // One message per box on /dev/outbox, newest first, with its address — so a
+  // link can be tied to the inbox it went to rather than to whatever the page
+  // happens to render first (L32).
+  const messages = async () => (await raw('/dev/outbox', cookieFor(ids.people.marina))).html
+    .split('class="lift"').slice(1)
+    .map((chunk) => ({
+      to: (/→ ([^<\s]+@[^<\s]+)/.exec(flat(chunk)) ?? [])[1] ?? '',
+      subject: (/<div style="font-size:14px;font-weight:800">([^<]*)</.exec(chunk) ?? [])[1] ?? '',
+      resetToken: (/\/reset\/([A-Za-z0-9_-]{20,})/.exec(chunk) ?? [])[1] ?? '',
+    }));
+  const resetsTo = async (addr) => (await messages()).filter((m) => m.to === addr && m.resetToken);
+
+  // A child's own controls screen, not /home: by the time this block runs the
+  // sweep above has published a coach page for this parent, so their home is
+  // the coach surface and no longer names any child — and Deniz has been
+  // deleted by the deletion test, which is what that test is for. Georgia
+  // survives the suite. The property is "is this cookie still a way into a
+  // child's record", and this is the screen that answers it: signed out it
+  // redirects to /signin, signed in it names her (L32 — a check that reads a
+  // screen is coupled to that screen, and L13 — ask what the state is by the
+  // time you read it).
+  const childPage = '/g/controls/' + ids.children.georgia.child_id;
+  const opensTheChild = async (cookie) => {
+    const r = await raw(childPage, cookie);
+    return r.status === 200 && /Georgia/.test(r.html);
+  };
+
+  // --- Sign out, then replay the cookie -------------------------------------
+  const cookieA = await signInAs('guardian@example.com');
+  check('sess-w1: signing in through the front door opens their child\'s controls, naming her',
+    [/pitch_session=[^;]+\./.test(cookieA), await opensTheChild(cookieA)], [true, true]);
+  const out = await raw('/signout', cookieA);
+  check('sess-w2: press Sign out, replay the same cookie, and it opens nothing of hers',
+    [/\/signin\?out=1/.test(out.location), await opensTheChild(cookieA)], [true, false]);
+  check('sess-w3: the replayed cookie is served the signed-out product, not a session',
+    /whichever seat you hold/.test(flat((await raw('/home', cookieA)).html)), true);
+
+  // --- A new password ends every session that was already open ---------------
+  // Two of them: one this script just opened, and the one the seed issued —
+  // "everywhere else" has to mean every device, not the browser that asked.
+  const cookieB = await signInAs('guardian@example.com');
+  const seeded = cookieFor(ids.people.alex);
+  check('sess-w4: two sessions are open for that parent, on two devices',
+    [await opensTheChild(cookieB), await opensTheChild(seeded)], [true, true]);
+  await send('/reset', submit((await raw('/reset', null)).html, /reset link/), { email: 'guardian@example.com' });
+  const parentLink = (await resetsTo('guardian@example.com'))[0]?.resetToken ?? '';
+  const pwForm = submit((await raw(`/reset/${parentLink}`, null)).html, /Save it/);
+  const saved = await send(`/reset/${parentLink}`, pwForm, { password: 'parent-new-password-13579' });
+  check('sess-w5: the new password is set, and the screen sends them to sign in',
+    /\/signin\?reset=1/.test(saved.location), true);
+  check('sess-w6: and BOTH sessions are over — the sentence on that screen is now true',
+    [await opensTheChild(cookieB), await opensTheChild(seeded)], [false, false]);
+  const backIn = await send('/signin', submit((await raw('/signin', null)).html, /^Sign in$/),
+    { email: 'guardian@example.com', password: 'parent-new-password-13579' });
+  check('sess-w7: the password they just chose is the way back in',
+    await opensTheChild(backIn.setCookie.split(';')[0]), true);
+
+  // --- The reset flood, and the link it leaves live --------------------------
+  // Six presses for one address, each declaring a DIFFERENT x-forwarded-for,
+  // which is what defeated the only limit this route had.
+  const resetForm = submit((await raw('/reset', null)).html, /reset link/);
+  const before = (await resetsTo('coach@example.com')).length;
+  const answers = [];
+  for (let i = 0; i < 6; i++) {
+    answers.push(await send('/reset', resetForm, { email: 'coach@example.com' },
+      { headers: { 'x-forwarded-for': `203.0.113.${10 + i}` } }));
+  }
+  const delivered = (await resetsTo('coach@example.com')).length - before;
+  check('sess-w8: six presses from six declared addresses deliver three emails, not six', delivered, 3);
+  check('sess-w9: and the press that was capped answers exactly as the first one did',
+    [answers[5].status, answers[5].location, answers[5].html.length],
+    [answers[0].status, answers[0].location, answers[0].html.length]);
+  const noAccount = await send('/reset', resetForm, { email: 'nobody-has-this-address@example.com' });
+  check('sess-w10: an address with no account gets that same answer, so the cap tells a stranger nothing',
+    [noAccount.status, noAccount.location], [answers[0].status, answers[0].location]);
+  check('sess-w11: and nothing was queued to it',
+    (await resetsTo('nobody-has-this-address@example.com')).length, 0);
+
+  // --- The oldest link in an inbox full of them -----------------------------
+  const linksBefore = (await resetsTo('admin@example.com')).length;
+  await send('/reset', resetForm, { email: 'admin@example.com' });
+  await send('/reset', resetForm, { email: 'admin@example.com' });
+  const two = await resetsTo('admin@example.com');
+  check('sess-w12: two presses put two links in the inbox', two.length - linksBefore, 2);
+  const older = two[1].resetToken, newer = two[0].resetToken;
+  const oldTry = await send(`/reset/${older}`, submit((await raw(`/reset/${older}`, null)).html, /Save it/),
+    { password: 'attacker-chosen-password-1' });
+  check('sess-w13: the OLDER of them sets no password — issuing the second one killed it',
+    /\/reset\?expired=1/.test(oldTry.location), true);
+  const newTry = await send(`/reset/${newer}`, submit((await raw(`/reset/${newer}`, null)).html, /Save it/),
+    { password: 'admin-new-password-24680' });
+  check('sess-w14: the newest one works', /\/signin\?reset=1/.test(newTry.location), true);
+  const reuse = await send(`/reset/${newer}`, submit((await raw(`/reset/${newer}`, null)).html, /Save it/),
+    { password: 'attacker-chosen-password-2' });
+  check('sess-w15: and once used it is spent, so a second press sets nothing',
+    /\/reset\?expired=1/.test(reuse.location), true);
+  check('sess-w16: the password the real person set is the one that works',
+    /pitch_session=[^;]+\./.test((await send('/signin', submit((await raw('/signin', null)).html, /^Sign in$/),
+      { email: 'admin@example.com', password: 'admin-new-password-24680' })).setCookie), true);
+  check('sess-w17: and neither password an old link tried to set opens anything',
+    [/pitch_session=[^;]+\./.test((await send('/signin', submit((await raw('/signin', null)).html, /^Sign in$/),
+      { email: 'admin@example.com', password: 'attacker-chosen-password-1' })).setCookie),
+     /pitch_session=[^;]+\./.test((await send('/signin', submit((await raw('/signin', null)).html, /^Sign in$/),
+      { email: 'admin@example.com', password: 'attacker-chosen-password-2' })).setCookie)], [false, false]);
+}
+
+// ---------------------------------------------------------------------------
+// A REFUSED SIGN-IN, PRESSED FOR REAL (28 Sep).
+//
+// signIn() ended in redirect('/home') on every path — success, wrong password,
+// no such account, rate-limited — and /home signed out renders "Welcome back /
+// One account, whichever seat you hold." So every mistyped password looked
+// like an outage, and the code's comment cited D-94 §2 for it. D-94 §2 asks
+// for the response to be IDENTICAL whether or not the account exists; it does
+// not ask for silence. One line, the same line for every cause, satisfies it.
+//
+// These press the button rather than read the handler, because the property is
+// about what four different causes produce.
+// ---------------------------------------------------------------------------
+{
+  const signInForm = forms((await get('/signin', null)).html).find((f) => 'email' in Object.fromEntries(f.visible.map((v) => [v.name, v])));
+  const press = async (email, password) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(signInForm.fields)) fd.append(k, v);
+    fd.append('email', email);
+    fd.append('password', password);
+    const r = await fetch(BASE + '/signin', { method: 'POST', body: fd, redirect: 'manual' });
+    const body = await r.text();
+    return { status: r.status, location: r.headers.get('location') ?? '', setCookie: Boolean(r.headers.get('set-cookie')), body };
+  };
+  check('sr1: the sign-in form is reachable with no JavaScript', Boolean(signInForm), true);
+
+  // The account is new@example.com, which no other check in any suite signs in
+  // as. It was guardian@example.com, and the sessions block above (0062) gives
+  // that parent a password partway through the run, so by the time this block
+  // pressed anything the seed's email-only sign-in no longer applied and sr4
+  // reported a wall that was not there (L32, L13: ask what the state is by the
+  // time you read it, not what the seed wrote).
+  const WHO = 'new@example.com';
+  // An account that exists, with the wrong password.
+  const wrong = await press(WHO, 'not-the-password');
+  // An address no account holds.
+  const nobody = await press('nobody-at-all@example.com', 'not-the-password');
+  check('sr2: a wrong password is refused, and says so — it does not land on "Welcome back"',
+    [wrong.location, wrong.setCookie], ['/signin?refused=1', false]);
+  check('sr3: and an address no account holds answers IDENTICALLY (D-94 §2 — no enumeration oracle)',
+    [nobody.status === wrong.status, nobody.location === wrong.location, nobody.body === wrong.body], [true, true, true]);
+
+  // The refusal is not a wall: the same account still gets in.
+  const ok = await press(WHO, '');
+  check('sr4: the same account still signs in, so the refusal is real and not a wall',
+    [ok.location, ok.setCookie], ['/home', true]);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);

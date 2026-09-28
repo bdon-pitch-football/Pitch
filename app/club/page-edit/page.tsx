@@ -102,7 +102,7 @@ export default async function ClubPageEdit({ searchParams }: {
           {/* Shown the way the public page composes it — photo behind, crest
               over the bottom-left — so a club can see what its own crop is
               about to cover before it saves. */}
-          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'linear-gradient(160deg, #123326, #0a1510)' }}>
+          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'var(--hero)' }}>
             {c.banner_path ? (
               <div style={{ position: 'relative', lineHeight: 0 }}>
                 <img src={c.banner_path} alt="" style={{ width: '100%', height: 118, objectFit: 'cover', display: 'block' }} />

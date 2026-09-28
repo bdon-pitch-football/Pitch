@@ -64,6 +64,11 @@ node scripts/dev-db.mts                      # 127.0.0.1:54322, writes .dev-ids.
 
 npm run test:perms        # permission + static checks, against Postgres. No server needed.
 npm run test:render       # every page as every seat. Needs db + app.
+                          # NOT READ-ONLY (QA, 28 Sep): it shortlists a real
+                          # registrant and leaves it, and renews a share token
+                          # by 90 days. Three reports read the resulting
+                          # "wandering" register count as a product bug, twice.
+                          # Run it BEFORE anything you measure, never after.
 node scripts/write-tests.mjs    # presses every button. MUTATES the db — reseed after.
 node scripts/layout-check.mjs 375 1280   # real Chrome, every page, every seat
 node scripts/gate-coverage.mjs  # doc 14 rows pinned by the suite
@@ -72,12 +77,23 @@ npx tsc --noEmit
 SUPABASE_DB_URL=postgres://ci@127.0.0.1:5432/ci npm run build:check
 ```
 
-**Order matters:** reseed → perms → render → write → reseed → layout. Never run
+**Order matters:** reseed → perms → render → write → reseed → layout. **Every suite in that line writes, including render** — the order is not a preference. Never run
 the write suite twice without a reseed in between (LESSONS L7).
 
 The club demo runs separately (`npm run demo -- "Club FC"`, app on 3030, its
 own database on 54323). Never stop the dev database by name; stop it by port
 (LESSONS L8).
+
+**Worktree hygiene, and it is not optional (L37).** A builder's tree holds a
+full Next build — 1.2 to 2.4 GB. **At most two builders run at once**, and a
+builder reads `df -h /` before it starts `next dev` or a browser suite and
+**stops and reports if free space is under 6 GiB** rather than building into
+the last of it. When
+a branch merges, its worktree is removed in the same breath: the branch keeps
+the work and the tree is residue. Delete `.next`, `.next-check` and
+`.next-demo` whenever a tree goes idle, and read `df -h /` when you fan out
+rather than when something breaks. Seven at once took this machine from 20 GiB
+free to 11 and put a memory error in front of BUZ.
 
 ## 5. Definition of done
 

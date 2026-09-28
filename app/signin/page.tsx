@@ -5,16 +5,17 @@
 import OpenInBrowser from '@/components/OpenInBrowser';
 import { HeaderMark } from '@/components/Wordmark';
 import { signIn } from './actions';
+import { FAILURE_COPY } from '@/components/FailureState';
 import { T } from '@/lib/palette';
 import { fieldLabel } from '@/lib/ui';
 
 export const metadata = { title: 'Sign in', robots: { index: false, follow: false } };
 
-export default async function SignIn({ searchParams }: { searchParams: Promise<{ out?: string; reset?: string; joined?: string; confirmed?: string }> }) {
-  const { out, reset, joined, confirmed } = await searchParams;
+export default async function SignIn({ searchParams }: { searchParams: Promise<{ out?: string; reset?: string; joined?: string; confirmed?: string; refused?: string }> }) {
+  const { out, reset, joined, confirmed, refused } = await searchParams;
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 };
   const label = fieldLabel;
-  const input: React.CSSProperties = { background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+  const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -41,6 +42,15 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
               : 'One account, whichever seat you hold.'}
           </div>
         </div>
+        {/* Every refusal lands here with this one line, whatever caused it
+            (app/signin/actions.ts). role=alert, because a person who has just
+            pressed Sign in and been sent back needs telling, and a screen
+            reader was previously told nothing at all. */}
+        {refused && (
+          <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13.5, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>
+            {FAILURE_COPY.signInRefused}
+          </div>
+        )}
         <form action={signIn} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {/* The visible label is a LABEL, not a div beside the input. It

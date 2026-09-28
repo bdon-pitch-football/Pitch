@@ -20,6 +20,7 @@ import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { ClubConsole } from '@/components/console-shell';
 import { POSITIONS } from '@/lib/football';
+import RegisterPaused from '@/components/RegisterPaused';
 import { setStatus } from './actions';
 import { T } from '@/lib/palette';
 import { card } from '@/lib/ui';
@@ -88,6 +89,14 @@ export default async function Register({ searchParams }: {
   // who registered interest in a trial it posted, and nobody else.
   const active = c.club_state === 'verified'
     && Boolean((await db.query('select fn_register_active($1) as a', [c.id])).rows[0]?.a);
+  // D-135 / O4: a club whose payment failed dropped to the free tier's own
+  // heading here with nothing about payment anywhere near it — the register it
+  // pays for gone, and the one screen that would have said so was
+  // /club/billing. fn_register_payment_state is the same answer that screen
+  // reads, so the two cannot disagree (0063, LESSONS L23). A club that never
+  // subscribed is 'unsubscribed' and its free-tier copy is untouched.
+  const payState = (await db.query('select fn_register_payment_state($1, $2) as s', [me, c.id])).rows[0].s as
+    'unsubscribed' | 'active' | 'grace' | 'suspended' | 'cancelled' | null;
   type TrialRow = { registration_id: string; player_first_name: string; positions: string[]; note: string | null;
                     club_status: string; trial_title: string; trial_on: string; has_clips: boolean };
   const trialRows = c.club_state === 'verified' && !active
@@ -219,6 +228,7 @@ export default async function Register({ searchParams }: {
           </div>
         ) : !active ? (
           <>
+            {payState === 'suspended' && <RegisterPaused state="suspended" billingLink />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <h2 style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.015em' }}>Interest in your trials</h2>
               <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Players who registered interest in a trial you posted. Invite any of them — it&rsquo;s free.</div>

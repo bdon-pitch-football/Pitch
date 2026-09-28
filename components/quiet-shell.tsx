@@ -6,7 +6,7 @@ import { T } from '@/lib/palette';
 
 export function QuietShell({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#070b09', color: T.ink, display: 'flex', justifyContent: 'center', padding: '64px 24px' }}>
+    <div style={{ minHeight: '100vh', background: T.bg, color: T.ink, display: 'flex', justifyContent: 'center', padding: '64px 24px' }}>
       <div style={{ width: '100%', maxWidth: wide ? 640 : 460, display: 'flex', flexDirection: 'column', gap: 16 }}>
         {children}
       </div>
