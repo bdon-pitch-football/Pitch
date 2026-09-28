@@ -119,17 +119,33 @@ export async function POST(request: Request) {
       break;
     }
     case 'invoice.payment_failed': {
-      const grace = graceWindow();
+      // Stripe retries a failed card several times over the fortnight and
+      // sends this event on EVERY attempt. Two things follow, and both were
+      // wrong when this branch first became reachable (28 Sep):
+      //
+      //  · The grace is fourteen days from the FIRST failure (D-135, doc 14
+      //    O4). fn_apply_subscription writes whatever grace it is given, so a
+      //    fresh window on each retry would push the pause out another
+      //    fortnight every time and the register would never pause. A grace
+      //    already running is kept.
+      //  · doc 15 §32 is one email, not one per retry — and the date in it is
+      //    the date the database will actually act on.
+      const { rows: [before] } = await db.query(
+        'select subscription_status, grace_until from club where id = $1', [clubId]);
+      const already = before?.subscription_status === 'past_due' && before?.grace_until != null;
+      const grace = already ? new Date(before.grace_until).toISOString() : graceWindow();
       await apply('past_due', grace);
       // doc 15 §32 — D-135 in message form: nothing has changed yet, nothing
       // is deleted, and the register pauses at the end of the fortnight. It
       // goes to the club's own address; no message goes to any family, ever,
       // about a club's failed payment.
-      const club = await billingClub(clubId);
-      if (club?.contactEmail) {
-        const attemptedAt = eventAt ? new Date(eventAt) : new Date();
-        await send(paymentFailedEmail(club.name, melbourneDay(attemptedAt), melbourneDay(new Date(grace))),
-          { address: club.contactEmail });
+      if (!already) {
+        const club = await billingClub(clubId);
+        if (club?.contactEmail) {
+          const attemptedAt = eventAt ? new Date(eventAt) : new Date();
+          await send(paymentFailedEmail(club.name, melbourneDay(attemptedAt), melbourneDay(new Date(grace))),
+            { address: club.contactEmail });
+        }
       }
       break;
     }

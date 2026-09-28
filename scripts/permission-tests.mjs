@@ -6185,6 +6185,16 @@ const componentFilesAll = [];
       .filter((f) => /paymentTakenEmail|paymentFailedEmail/.test(readFileSync(f, 'utf8')))
       .map((f) => f.slice(f.lastIndexOf('/app/') + 1 || f.lastIndexOf('/lib/') + 1)),
     ['app/api/stripe/webhook/route.ts']);
+  // doc 15 §32 and D-135 on Stripe's retries: invoice.payment_failed arrives
+  // once per attempt. The grace runs from the first failure and the email
+  // goes once — a fresh window per retry would mean a register that never
+  // pauses, and a treasurer told four different dates.
+  const failed = hookCode.split("case 'invoice.payment_failed'")[1]?.split('case ')[0] ?? '';
+  check('O4f: a retried failure keeps the grace already running rather than starting a new fortnight',
+    /grace_until from club/.test(failed) && failed.indexOf('grace_until from club') < failed.indexOf('apply(')
+      && /already \? new Date\(before\.grace_until\)/.test(failed), true);
+  check('dun1: doc 15 §32 is sent once, when dunning starts — never on a retry',
+    /if \(!already\)[\s\S]{0,300}paymentFailedEmail/.test(failed) && (failed.match(/paymentFailedEmail/g) ?? []).length, 1);
   check('D-136g: every charge produces one receipt — a replayed event sends no second tax invoice',
     hookCode.indexOf('from stripe_event where id') < hookCode.indexOf("case 'invoice.payment_succeeded'"), true);
 
