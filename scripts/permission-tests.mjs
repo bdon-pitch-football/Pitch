@@ -6779,6 +6779,55 @@ const componentFilesAll = [];
         return a.indexOf('notFound()') > -1 && a.indexOf('notFound()') < a.indexOf('recordGuardianLanded('); })(), true);
   }
 
+  // A LINK PREVIEW IS NOT A PARENT (Leo, 28 Sep). A forwarded approval link is
+  // fetched by the messaging app to draw its preview card, and that fetch was
+  // a page load like any other — so "You opened the permission page" could be
+  // WhatsApp's server. The rule is a heuristic in one module; asked of the
+  // module itself, with real user-agent strings, and of the page that uses it.
+  {
+    const { isLinkPreviewFetch, LINK_PREVIEW_AGENTS, PITCH_METHOD_HEADER } = await import('../lib/link-preview.ts');
+    const BOTS = {
+      facebookexternalhit: 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+      WhatsApp: 'WhatsApp/2.23.20.0 A',
+      Twitterbot: 'Twitterbot/1.0',
+      Slackbot: 'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)',
+      TelegramBot: 'TelegramBot (like TwitterBot)',
+      Discordbot: 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)',
+      LinkedInBot: 'LinkedInBot/1.0 (compatible; Mozilla/5.0; Apache-HttpClient +http://www.linkedin.com)',
+      SkypeUriPreview: 'Mozilla/5.0 (Windows NT 6.1; WOW64) SkypeUriPreview Preview/0.5',
+      Googlebot: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+      bingbot: 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+      Applebot: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15 (Applebot/0.1)',
+      'an unnamed crawler': 'SomeNewChatApp-LinkPreview/3.1',
+    };
+    const PEOPLE = {
+      'iPhone Safari': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+      'Android Chrome': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+      'Facebook in-app browser': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/470.0.0.35.110;FBBV/600000000]',
+      'Instagram in-app browser': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 340.0.2.17.109',
+      'desktop Firefox': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Gecko/20100101 Firefox/127.0',
+    };
+    check('lp1: every named link-preview fetcher, and an unnamed one, is not a parent',
+      Object.entries(BOTS).filter(([, ua]) => !isLinkPreviewFetch('GET', ua)).map(([k]) => k), []);
+    check('lp2: a parent in a browser — including one inside Facebook or Instagram — is',
+      Object.entries(PEOPLE).filter(([, ua]) => isLinkPreviewFetch('GET', ua)).map(([k]) => k), []);
+    check('lp3: a HEAD is never a parent, whatever it claims to be',
+      [isLinkPreviewFetch('HEAD', PEOPLE['iPhone Safari']), isLinkPreviewFetch('head', null)], [true, true]);
+    check('lp4: the list is named — each fetcher Leo named has its own entry, and the catch-all is last',
+      [LINK_PREVIEW_AGENTS.length >= 12, String(LINK_PREVIEW_AGENTS.at(-1)) === '/bot|crawler|spider|preview/i'], [true, true]);
+    const approval = codeOnly(srcOf('app/a/[id]/page.tsx'));
+    check('lp5: the approval page writes the landing only when the request is not a preview',
+      /if \(!isLinkPreviewFetch\(h\.get\(PITCH_METHOD_HEADER\), h\.get\('user-agent'\)\)\) \{\s*await recordGuardianLanded\(/.test(approval)
+        && (approval.match(/recordGuardianLanded\(/g) ?? []).length === 1, true);
+    const proxy = codeOnly(srcOf('proxy.ts'));
+    check('lp6: and the method it reads is stamped by the proxy on every request, never taken from the caller',
+      [PITCH_METHOD_HEADER, /headers\.set\(PITCH_METHOD_HEADER, req\.method\)/.test(proxy)], ['x-pitch-request-method', true]);
+    check('lp7: the heuristic lives in one module — no other file keeps its own list',
+      routeFiles.concat(readdirSync(fileURLToPath(new URL('../lib', import.meta.url))).map((f) => fileURLToPath(new URL('../lib/' + f, import.meta.url))))
+        .filter((f) => /\.tsx?$/.test(f) && !/lib\/link-preview\.ts$/.test(f))
+        .filter((f) => /facebookexternalhit|Twitterbot|Slackbot|Discordbot/i.test(readFileSync(f, 'utf8'))), []);
+  }
+
   // --- every label the guardian's log renders has a writer ---------------
   //
   // THE CHECK THAT STOPS THIS RECURRING. Five lines on that screen — "That
