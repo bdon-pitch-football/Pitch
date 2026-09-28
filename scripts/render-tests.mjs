@@ -2185,6 +2185,24 @@ const georgia = ids.children.georgia;
   const FAMILY_OF = [['a share link', /^\/p\//], ['a guardian page', /^\/g\//], ['an approval link', /^\/a\//],
     ['a CV being built', /^\/build\//], ['a coach CV', /^\/c\//], ['a player’s pages', /^\/(home|send|registers|squad)\b/],
     ['the club console', /^\/club\//], ['the coach console', /^\/coach\//], ['the operator console', /^\/ops\//]];
+  // After the launch-day switch (D-164, 0080) `/` is the product's front
+  // door, a different page at the same address. It is the front door either
+  // way, so it counts either way — and still not for anyone signed in.
+  const flip = async (on) => {
+    const r = await fetch(`${BASE}/dev/front-door?on=${on ? 1 : 0}`, { method: 'POST' });
+    if ((r.ok ? await r.json() : null)?.frontDoor !== on) throw new Error(`the front-door switch did not turn ${on ? 'on' : 'off'}`);
+  };
+  await flip(true);
+  let open;
+  try {
+    open = [];
+    for (const [path, who] of [['/', null], ['/?for=parent', null], ['/', ids.people.alex], ['/?for=club', ids.people.marina]]) {
+      const r = await get(path, who);
+      open.push([r.status, /Who are you\?|For parents|For clubs/.test(r.html), ANALYTICS_MARK.test(r.html)]);
+    }
+  } finally { await flip(false); }
+  check('an-r4: with the launch-day switch on, the front door at / carries it too — signed out, and not for anyone signed in',
+    open, [[200, true, true], [200, true, true], [200, true, false], [200, true, false]]);
   check(`an-r3: the crawl reached every family with a rendered page (${FAMILY_OF.length} families, ${Object.keys(SEATS).length} seats)`,
     FAMILY_OF.filter(([, re]) => !served.some((r) => re.test(r.path) && r.status === 200)).map(([f]) => f), []);
 }

@@ -6,8 +6,9 @@
 // log — and every guardian, CV and signed-in page with it. Pillar zero 5 allows
 // no analytics on minors (D-25), and D-94 §1 allows no token in any log.
 //
-// So it runs on four public, token-free marketing surfaces: the front door,
-// the trials board, the jobs board and a club's public page. Not a coach CV
+// So it runs on four public, token-free marketing surfaces: the front door
+// (the coming-soon page, and after the launch-day switch the product's front
+// door, which proxy.ts serves at `/`), the trials board, the jobs board and a club's public page. Not a coach CV
 // (a CV), not one job (a signed-in coach's form), not a club page's print view.
 // components/PublicAnalytics mounts it on those four pages only, and only for
 // a visitor with no session: a signed-in visitor may be a child we know is a

@@ -13,6 +13,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import FrontDoor, { FRONT_DOOR_SEATS, type FrontDoorSeat } from '@/components/front-door/FrontDoor';
 import { frontDoorOpen } from '@/lib/front-door';
+import PublicAnalytics from '@/components/PublicAnalytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,5 +27,6 @@ export const metadata: Metadata = {
 export default async function FrontDoorPage({ searchParams }: { searchParams: Promise<{ for?: string }> }) {
   if (!(await frontDoorOpen())) notFound();
   const seat = (await searchParams).for ?? '';
-  return <FrontDoor seat={(FRONT_DOOR_SEATS as readonly string[]).includes(seat) ? seat as FrontDoorSeat : null} />;
+  // Served at `/`, so it is the front door analytics may count (lib/analytics-scope).
+  return <><FrontDoor seat={(FRONT_DOOR_SEATS as readonly string[]).includes(seat) ? seat as FrontDoorSeat : null} /><PublicAnalytics /></>;
 }

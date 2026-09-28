@@ -8032,10 +8032,13 @@ const componentFilesAll = [];
   check('an-p2: @vercel/analytics is imported in one file, and that file hands it the allowlist as beforeSend',
     [importing(/from '@vercel\/analytics/), /<Analytics beforeSend=\{analyticsBeforeSend\} \/>/.test(srcOf('components/PublicAnalyticsScript.tsx'))],
     [['components/PublicAnalyticsScript.tsx'], true]);
-  check('an-p3: which is mounted by one component, and that component by the four public pages only',
+  // The front door is two files and one address: the coming-soon page, and
+  // the product's front door that proxy.ts serves at `/` once the launch-day
+  // switch is on (D-164, 0080).
+  check('an-p3: which is mounted by one component, and that component by the four public pages only (the front door is two files at one address)',
     [importing(/from '\.\/PublicAnalyticsScript'|from '@\/components\/PublicAnalyticsScript'/),
      importing(/from '@\/components\/PublicAnalytics'/)],
-    [['components/PublicAnalytics.tsx'], ['app/fc/[slug]/page.tsx', 'app/jobs/page.tsx', 'app/page.tsx', 'app/trials/page.tsx']]);
+    [['components/PublicAnalytics.tsx'], ['app/fc/[slug]/page.tsx', 'app/front-door/page.tsx', 'app/jobs/page.tsx', 'app/page.tsx', 'app/trials/page.tsx']]);
   check('an-p4: and mounts nothing at all for a visitor with a session (who may be a child we know is one)',
     /if \(await getSessionPersonId\(\)\) return null;\s*return <PublicAnalyticsScript \/>;/.test(codeOnly(srcOf('components/PublicAnalytics.tsx'))), true);
   const allowed = ['/', '/trials', '/jobs', '/fc/riverside-fc'];
