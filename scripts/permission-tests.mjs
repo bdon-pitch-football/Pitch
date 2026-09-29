@@ -8701,7 +8701,10 @@ const componentFilesAll = [];
     [1, '42501', '42501']);
 
   // ---- the wall ----------------------------------------------------------------
-  const clubNotice = (await one(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,'Club own trials',$2,'Sun 9:00 AM · Riverside Park','club') returning id`, [CLUB.riverside, soon])).id;
+  // Asked through state() rather than assumed, so a wall that caught a club's
+  // own notice fails cur-10 by name instead of stopping the suite.
+  const clubInsert = await state(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,'Club own trials',$2,'Sun 9:00 AM · Riverside Park','club')`, [CLUB.riverside, soon]);
+  const clubNotice = (await one(`select id from trial_notice where club_id = $1 and title = 'Club own trials'`, [CLUB.riverside]))?.id ?? crypto.randomUUID();
   check('cur-9: the wall — no writer but the operator\'s functions inserts, edits, re-stamps, deletes or re-labels a compiled notice, or touches its age groups',
     [await state(`insert into trial_notice (club_id, title, trial_on, time_venue, source, source_url, added_by_email) values ($1,'Tip-off trials',$2,'Sat · Somewhere','compiled','https://x.example.au/t','someone@fixture.example')`, [lark, soon]),
      await state(`update trial_notice set title = 'Edited by hand' where id = $1`, [n1]),
@@ -8712,9 +8715,10 @@ const componentFilesAll = [];
      await state(`delete from trial_notice_age_group where trial_notice_id = $1`, [n1]),
      (await one(`select title, source from trial_notice where id = $1`, [n1]))],
     ['42501', '42501', '42501', '42501', '42501', '42501', '42501', { title: 'U12 & U13 Girls trials', source: 'compiled' }]);
-  check('cur-10: and a club\'s own notice is untouched by it — the club still edits and deletes its own',
-    [await state(`update trial_notice set title = 'Club own trials, changed' where id = $1`, [clubNotice]),
-     await state(`delete from trial_notice where id = $1`, [clubNotice])], ['ok', 'ok']);
+  const clubOwn = async () => (await one(`select count(*)::int as n from trial_notice where id = $1`, [clubNotice])).n;
+  check('cur-10: and a club\'s own notice is untouched by it — the club still posts, edits and deletes its own',
+    [clubInsert, await clubOwn(), await state(`update trial_notice set title = 'Club own trials, changed' where id = $1`, [clubNotice]),
+     await state(`delete from trial_notice where id = $1`, [clubNotice]), await clubOwn()], ['ok', 1, 'ok', 'ok', 0]);
   check('cur-11: every function shuts the wall behind it — after each one, the session can write nothing compiled',
     [await curating(), await state(`update trial_notice set title = 'After the function' where id = $1`, [n1])], ['', '42501']);
 
@@ -8722,15 +8726,15 @@ const componentFilesAll = [];
   await db.query(`select set_config('pitch.curating', 'test', false)`);
   await db.query(`update trial_notice set last_checked = current_date - 20 where id = $1`, [n1]);
   await db.query(`select set_config('pitch.curating', '', false)`);
-  await db.query('select fn_ops_check_notice($1,$2,$3)', [...OP, n1]);
+  await state('select fn_ops_check_notice($1,$2,$3)', [...OP, n1]);
   check('cur-12: "last checked" is re-stamped to today with one call, and the stamp is logged with who pressed it',
-    [(await one(`select last_checked::text as c from trial_notice where id = $1`, [n1])).c,
+    [(await one(`select last_checked::text as c from trial_notice where id = $1`, [n1]))?.c,
      (await events(lark)).at(-1)], [today, { action: 'notice_checked', operator_email: 'curator@fixture.example' }]);
 
   // Somebody has registered for the trial: its date is fixed from then on.
-  const hollowNotice = (await one(`select id from trial_notice where club_id = $1`, [claimedClub])).id;
+  const hollowNotice = (await one(`select id from trial_notice where club_id = $1`, [claimedClub]))?.id ?? crypto.randomUUID();
   await db.query(`insert into registration (player_id, club_id, policy_version, trial_notice_id) values ($1,$2,'20@v2.4',$3)`, [ID.marcus, claimedClub, hollowNotice]);
-  await db.query('select fn_ops_edit_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+  await state('select fn_ops_edit_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
     [...OP, hollowNotice, 'Hollowmere U14 & U15 Boys trials', ['U14', 'U15'], 'boys', '2099-01-01', 'Sat 10:00 AM', 'Hollowmere Park', ['ST'], 'https://hollowmere.example.au/trials']);
   check('cur-13: a change is saved and moves "last checked", but once somebody has registered for the trial its date stays where it was',
     [await one(`select title, trial_on::text as on, time_venue, position_needs, last_checked::text as checked from trial_notice where id = $1`, [hollowNotice]),
@@ -8755,7 +8759,7 @@ const componentFilesAll = [];
     [await state('select fn_ops_check_notice($1,$2,$3)', [...OP, ownNotice]),
      await state('select fn_ops_edit_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, ownNotice, 'Changed', ['U14'], null, soon, '9:00 AM', 'A ground', [], 'https://x.example.au/t']),
      await state('select fn_ops_remove_notice($1,$2,$3)', [...OP, ownNotice]),
-     (await one(`select title from trial_notice where id = $1`, [ownNotice])).title],
+     (await one(`select title from trial_notice where id = $1`, [ownNotice]))?.title],
     ['42501', '42501', '42501', 'Riverside own trials']);
   await db.query(`delete from trial_notice where id = $1`, [ownNotice]);
 
@@ -8763,8 +8767,8 @@ const componentFilesAll = [];
   check('cur-16: a listing somebody has claimed is the club\'s to run — the operator cannot edit it or remove it',
     [await state('select fn_ops_edit_club($1,$2,$3,$4,$5,$6,$7,$8)', [...OP, claimedClub, 'Renamed by Pitch', 'Hollowmere', 'VIC', null, 'FV club directory']),
      await state('select fn_ops_remove_club($1,$2,$3)', [...OP, claimedClub]),
-     (await one(`select name from club where id = $1`, [claimedClub])).name], ['42501', '42501', 'Hollowmere Athletic']);
-  await db.query('select fn_ops_remove_club($1,$2,$3)', [...OP, lark]);
+     (await one(`select name from club where id = $1`, [claimedClub]))?.name], ['42501', '42501', 'Hollowmere Athletic']);
+  await state('select fn_ops_remove_club($1,$2,$3)', [...OP, lark]);
   check('cur-17: removing an unclaimed listing takes its page and its notices with it, and the log keeps what it said and who removed it',
     [(await one(`select count(*)::int as n from club where id = $1`, [lark])).n,
      (await one(`select count(*)::int as n from trial_notice where club_id = $1`, [lark])).n,
