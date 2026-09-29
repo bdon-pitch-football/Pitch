@@ -263,6 +263,85 @@ button:active, a[href]:active { transform: scale(.975); }
   .console-main { flex-direction: row; justify-content: flex-start; align-items: stretch; }
 }
 
+/* ---------------------------------------------------------------------------
+   THE OPERATOR CONSOLE (brief G, 29 Sep; OpsToday, OpsVerification,
+   OpsReports and OpsCall .dc.html). The signed designs are laptop-only; the
+   phone layout is ours, in the charter, and says the same things in the same
+   order. BUZ works the 11pm switches from his phone.
+   --------------------------------------------------------------------------- */
+/* A door's count in the rail: "Verification 3". */
+.console-nav-count { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--muted); }
+/* The signed top bar: title and line on the left, one action on the right. */
+.ops-title { display: flex; align-items: flex-start; gap: 12px; }
+.ops-title-action { margin-left: auto; flex-shrink: 0; }
+
+/* THE QUEUE. Below the table width a row is two lines: the club's details
+   full width on top, and the count, the status and the button in one row
+   beneath (brief G). It used to be one flex row of four things, and the chip
+   and the button refused to shrink, so the details were squeezed to a column
+   one word wide ("claimed / by / M. / Harris") — the layout check's squeeze
+   rule now fails that by name. From 768 (D-147 as amended 28 Sep: the table
+   renders wherever there is room for one, the rail from 1024) it is the
+   signed table: Club · Claimed · Held · status · action. */
+.ops-table { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); display: flex; flex-direction: column; }
+.ops-head { display: none; }
+.ops-row {
+  display: grid; align-items: center; gap: 8px 12px; padding: 13px 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "club club club" "when when when" "held status action";
+}
+.ops-row + .ops-row { border-top: 1px solid var(--line); }
+.ops-club { grid-area: club; min-width: 0; }
+.ops-when { grid-area: when; }
+.ops-when:empty { display: none; }
+.ops-held { grid-area: held; }
+.ops-status { grid-area: status; min-width: 0; }
+.ops-action { grid-area: action; justify-self: end; }
+.ops-head > * { font-size: 10.5px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); }
+/* The held count says what it is counting on a phone; in the table the
+   column head says it. */
+.ops-held-word { font-weight: 700; color: var(--muted); }
+@media (min-width: 768px) {
+  .ops-head, .ops-row {
+    grid-template-columns: minmax(0, 1fr) 118px 52px 124px 142px;
+    grid-template-areas: "club when held status action";
+    gap: 14px;
+  }
+  .ops-head { display: grid; padding: 13px 14px 9px 14px; }
+  .ops-head + .ops-row { border-top: 1px solid var(--line); }
+  .ops-held-word { display: none; }
+  .ops-when:empty { display: block; }
+}
+
+/* A report's facts (OpsReports.dc.html): a label over a 44px well, as many
+   across as fit, one per line on a phone. */
+.ops-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 14px; }
+.ops-fact { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+/* TODAY'S TILES. Two across on a phone, four at the table width, the
+   signed laptop row. */
+.ops-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 768px) { .ops-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; } }
+
+/* A delivery failure: channel, time and what the provider said on one line,
+   and the way to the lookup beside it, or beneath it on a phone. */
+.ops-fail {
+  display: grid; align-items: center; gap: 8px 14px; padding: 13px 14px;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-areas: "channel when said" "action action action";
+}
+.ops-fail + .ops-fail { border-top: 1px solid var(--line); }
+.ops-fail > :nth-child(1) { grid-area: channel; }
+.ops-fail > :nth-child(2) { grid-area: when; }
+.ops-fail > :nth-child(3) { grid-area: said; min-width: 0; }
+.ops-fail > :nth-child(4) { grid-area: action; }
+.ops-fail.ops-head { display: none; }
+@media (min-width: 768px) {
+  .ops-fail { grid-template-columns: 90px 90px minmax(0, 1fr) 160px; grid-template-areas: "channel when said action"; }
+  .ops-fail > :nth-child(4) { justify-self: end; }
+  .ops-fail.ops-head { display: grid; padding-bottom: 9px; }
+}
+
 /* ===========================================================================
    THE TOKEN LAYER — Night Match as custom properties.
    
