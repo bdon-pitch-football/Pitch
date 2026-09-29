@@ -49,6 +49,29 @@ nothing else.
 - **Doc 15 §4 stays unwired (D-167).** Mark it held in doc 15, with the
   reason.
 
+## D-168: the under-18 door on launch day (the most important item in this round)
+
+Until SMS can send, which means the provider is configured AND not switched off
+through `/ops/switches` or `SMS_KILL_SWITCH`, **any sign-up whose date of birth
+makes them under 18 stops at a closed door and nothing is collected**: no
+invitation row, no name, no birth date kept, no parent contact.
+
+- **The rule is computed** from the same source `lib/sms-policy.ts` uses to
+  refuse a send, in one function. It is not a separate flag somebody must
+  remember to flip. When SMS works, the door opens by itself.
+- The server action refuses too, not only the page.
+- **Proposed words, held until BUZ approves** (Leo is asking him now):
+  - heading: "Under 18? Not yet."
+  - body: "Pitch opens for players under 18 as soon as we can text your
+    parent. A parent approves your page on their phone and by email. There's
+    nothing to fill in until then."
+- **Checks:**
+  - With SMS unconfigured, an under-16 and a 16–17 sign-up each write zero
+    rows anywhere.
+  - An adult sign-up is unaffected.
+  - With SMS configured (dev fake), the full two-channel flow works as today.
+  - Prove each red.
+
 ## Machine and method
 
 - **Tree:** `.claude/worktrees/builder-final-h`.
