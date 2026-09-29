@@ -241,8 +241,11 @@ const riversideAdmin = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Pat','Nguyen','1983-06-14','admin@example.com')`, [riversideAdmin]);
 await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [riversideAdmin, riverside]);
 
+// Localities stay real (L15; brief H): an invented club sits in a real
+// suburb that is not its own name. Round E's rename had made this club's
+// suburb "Quarrymead" too, a place that does not exist.
 const quarrymead = randomUUID();
-await db.query(`insert into club (id, name, suburb, state, club_state, contact_email) values ($1,'Quarrymead United','Quarrymead','VIC','claimed','football@quarrymeadunited.example.au')`, [quarrymead]);
+await db.query(`insert into club (id, name, suburb, state, club_state, contact_email) values ($1,'Quarrymead United','Diggers Rest','VIC','claimed','football@quarrymeadunited.example.au')`, [quarrymead]);
 const quarrymeadAdmin = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'M.','Harris','1979-01-20','quarrymead@example.com')`, [quarrymeadAdmin]);
 await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [quarrymeadAdmin, quarrymead]);
@@ -760,7 +763,7 @@ await db.query(
 const tarrowvale = randomUUID();
 const tarrowvaleCall = randomUUID();
 await db.query(`insert into club (id, name, suburb, state, club_state, contact_email)
-  values ($1,'Tarrowvale City FC','Tarrowvale','VIC','claimed','football@tarrowvalecity.example.au')`, [tarrowvale]);
+  values ($1,'Tarrowvale City FC','Hoppers Crossing','VIC','claimed','football@tarrowvalecity.example.au')`, [tarrowvale]);
 await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
   values ($1,$2,now(),'BUZ','03 9000 0002','FV club directory','verified','27@v1.0')`, [tarrowvaleCall, tarrowvale]);
 await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [tarrowvaleCall, tarrowvale]);

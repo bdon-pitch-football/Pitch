@@ -4,12 +4,19 @@
 // in development the approval link is surfaced on-screen instead.
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getPendingInvitation } from '@/lib/guardian-flow';
+import { getPendingInvitation, invitationTextWaiting } from '@/lib/guardian-flow';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Check your email', robots: { index: false, follow: false } };
+
+// D-168 (0120): while SMS is not live, the parent's email goes at once and
+// their text waits. BUZ has NOT approved this line yet (Leo is asking), so it
+// renders in development only, the same way the held words on the operator
+// console do; in production the card simply stops claiming a text went.
+const HELD_TEXT_WAITING = process.env.NODE_ENV !== 'production'
+  ? 'We\u2019ve emailed your parent. Their text follows shortly.' : null;
 
 const maskPhone = (p: string) => {
   const d = p.replace(/\s/g, '');
@@ -22,6 +29,9 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
   if (!inv || inv.approved_at) notFound();
 
   const channels = 'Text and email sent'; // both are required now (D-157)
+  // "Text and email sent" is false while the text waits for SMS, so it is not
+  // said then (L25): the number alone, and the held line in development.
+  const textWaiting = await invitationTextWaiting(inv.id);
   const initials = (inv.first_name as string).slice(0, 1).toUpperCase();
 
   return (
@@ -48,9 +58,12 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <div style={{ fontSize: 15, fontWeight: 800 }}>{inv.guardian_name}</div>
-              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{channels} · {maskPhone(inv.guardian_phone ?? '')}</div>
+              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{textWaiting ? maskPhone(inv.guardian_phone ?? '') : `${channels} · ${maskPhone(inv.guardian_phone ?? '')}`}</div>
             </div>
           </div>
+          {textWaiting && HELD_TEXT_WAITING && (
+            <div role="status" style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{HELD_TEXT_WAITING}</div>
+          )}
         </div>
 
         <div style={{ borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.accent}`, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>

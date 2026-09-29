@@ -110,6 +110,17 @@ export async function getPendingInvitation(id: string) {
   return rows[0] ?? null;
 }
 
+/**
+ * Is this invitation's text to the parent still waiting for SMS (D-168,
+ * 0120)? The child's waiting screen asks, so it never says a text went that
+ * has not.
+ */
+export async function invitationTextWaiting(id: string): Promise<boolean> {
+  if (!isUuid(id)) return false;
+  const { rows } = await db.query('select fn_invitation_sms_queued($1) as q', [id]);
+  return rows[0]?.q === true;
+}
+
 // The parent's page (/a/[code]) is reached three ways: the texted link, the
 // emailed link, or the invitation id (the child's "Show them my page"). Only
 // the first two carry a channel. The page shows the child's first name and

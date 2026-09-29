@@ -284,9 +284,14 @@ function Club() {
 
 // ---- the chooser (Home.dc.html) ---------------------------------------------
 
+// The parent's row (BUZ, 29 Sep, "recommended on all"): a parent does not set
+// a profile up — the child starts it and the parent approves it (D-17) — so
+// the row says what a parent actually does, in /join's own approved chip
+// words, and it goes straight to /join, whose parent door explains the rest
+// in approved words. Every other row opens its landing.
 const DOORS: [FrontDoorSeat, string, string, Icon, string][] = [
   ['player', 'A player', 'Your complete player passport', I.runner, T.accent],
-  ['parent', 'A parent', 'Set up and control your child’s profile', I.family, T.purple],
+  ['parent', 'A parent', 'Approve and see their record', I.family, T.purple],
   ['coach', 'A coach', 'Six years of coaching on one page', I.clipboard, T.secondary],
   ['club', 'A club', 'Create your digital home ground', I.flag, T.amber],
 ];
@@ -304,7 +309,7 @@ function Chooser() {
         {DOORS.map(([seat, title, sub, icon, tint]) => (
           // A plain link, not <Link>: a prefetch skips proxy.ts, so it would
           // fetch `/` as the coming-soon page and navigate to that.
-          <a key={seat} href={`/?for=${seat}`} className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none' }}>
+          <a key={seat} href={seat === 'parent' ? '/join' : `/?for=${seat}`} className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none' }}>
             <div style={{ width: 42, height: 42, borderRadius: 13, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Glyph d={icon} color={tint} size={20} />
             </div>

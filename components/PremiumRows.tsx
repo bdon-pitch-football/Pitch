@@ -18,7 +18,10 @@ const ROWS = [
 
 export default function PremiumRows({ on, tapped }: { on: 'clips' | 'coach'; tapped: boolean }) {
   return (
-    <form action={tapPremium} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    // id="premium": where a tap lands (premium-actions), so the answer to it
+    // is on screen rather than above the fold. scroll-margin keeps it clear of
+    // the top edge.
+    <form id="premium" action={tapPremium} style={{ display: 'flex', flexDirection: 'column', gap: 8, scrollMarginTop: 24 }}>
       <input type="hidden" name="on" value={on} />
       {ROWS.map(([feature, title]) => (
         <button key={feature} type="submit" name="feature" value={feature} style={{

@@ -213,8 +213,11 @@ async function post(path, who, form) {
     const r = await fetch(BASE + clipsPath, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(jordan) } });
     await r.text();
     const to = (r.headers.get('location') ?? '').replace(BASE, '');
-    check('prem-w2: pressing "Unlimited clips" lands back on the same Highlights, saying so', to, `${clipsPath}?first=1`);
-    const landed = await get(to, jordan);
+    // At the rows (#premium), not the top of the page (brief H): the answer
+    // to the tap is on screen. The browser half is the layout check's pr1.
+    check('prem-w2: pressing "Unlimited clips" lands back on the same Highlights, at the rows, saying so', to, `${clipsPath}?first=1#premium`);
+    const landed = await get(to.split('#')[0], jordan);
+    check('prem-w2b: and the rows are the anchor it lands on', /<form[^>]*id="premium"/.test(landed.html), true);
     check('prem-w3: "Premium is coming. You’re first in line." — and nothing asks for a card or a price',
       [/Premium is coming\. You(’|&#x27;|&rsquo;)re first in line\./.test(landed.html), /\$\s?\d|card number|checkout/i.test(landed.html.replace(/<script[\s\S]*?<\/script>/g, ''))],
       [true, false]);
@@ -225,6 +228,40 @@ async function post(path, who, form) {
   check('prem-w4: a 16–17 on the coach page is never given the form to press',
     [coachPage.status, forms(coachPage.html).some((f) => f.fields.on === 'coach')], [200, false]);
 }
+
+// ---------------------------------------------------------------------------
+// "Verify for {club}" pressed (D-160; 0122). The squad's coach confirms one of
+// Deniz's numbers from the squad CV. The button for that number goes, because
+// it is no longer self-reported; Deniz's page is the parent's approved
+// snapshot, so the number on it does not move until the next approval
+// (BUZ, 29 Sep: "as built"). The same form posted by the administrator, by
+// Deniz's parent and by a stranger changes nothing (asserted on the state, L12).
+// ---------------------------------------------------------------------------
+{
+  const sam = ids.people.sam, deniz = ids.children.deniz.child_id;
+  let denizCv = null;
+  for (const m of new Set([...(await get('/club/squads', ids.people.marina)).html.matchAll(/href="(\/club\/squads\/[0-9a-f-]{36})"/g)].map((x) => x[1]))) {
+    if ((await get(m, ids.people.marina)).html.includes(`/cv/${deniz}`)) { denizCv = `${m}/cv/${deniz}`; break; }
+  }
+  const offered = async () => denizCv ? forms((await get(denizCv, sam)).html).filter((f) => /^Verify for /.test(f.submit)) : [];
+  const before = await offered();
+  const post = async (who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + denizCv, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return r;
+  };
+  check('vfy-w1: the squad\u2019s coach is offered the button on Deniz\u2019s numbers', [Boolean(denizCv), before.length > 0], [true, true]);
+  if (before.length) {
+    for (const who of [ids.people.pat, ids.people.alex, null]) await post(who, before[0].fields);
+    check('vfy-w2: the administrator, the parent and a stranger posting the same form verify nothing', (await offered()).length, before.length);
+    const r = await post(sam, before[0].fields);
+    check('vfy-w3: the coach\u2019s press verifies it, with no JavaScript, and lands back on the CV',
+      [r.status, (r.headers.get('location') ?? '').replace(BASE, ''), (await offered()).length], [303, denizCv, before.length - 1]);
+  }
+}
+
 
 
 // ---------------------------------------------------------------------------
@@ -387,6 +424,29 @@ async function post(path, who, form) {
     answered_by: 'Committee', club_confirmed: 'yes', person_confirmed: 'yes', incorporated: 'yes', authority_confirmed: 'yes',
     notes: 'handover drill', outcome: 'verified', td_name: 'Dana Kovac', td_email: 'kingsway@example.com' });
   check('tde-w16: and a call naming Dana gives Kingsway its TD back', await danaReads(), 200);
+
+  // ---- 0121: a name that is not hers is held for a human (approved default 5) ----
+  await call('M. Petrovic', 'td@example.com');
+  check('tdn-w0: a call naming her by initial and surname is her — still active, nobody asked', await reads(marina), [200, 200, 200, 200]);
+  await call('Marina Petrovich', 'td@example.com');
+  const heldSheet = await get(riverside, op);
+  const heldWords = words(heldSheet.html);
+  check('tdn-w1: a call recording her address under a name that is not hers holds the role — she reads nothing, and the sheet shows the mismatch',
+    [await reads(marina), /This is not the name recorded on the call\./.test(heldWords), /On hold\. The role stays off until you confirm/.test(heldWords),
+     /The role goes to this account/.test(heldWords), /Waiting on their account/.test(heldWords)],
+    [[307, 404, 404, 404], true, true, false, false]);
+  const confirmForm = forms(heldSheet.html).find((f) => f.submit === 'This is the person the club named');
+  // Asserted on the state, not the answer (L12). (Not a signed-in seat: in
+  // development every signed-in person with an address is an operator,
+  // lib/ops-policy, so the stranger is the one refusal a dev server can show.)
+  if (confirmForm) await press(riverside, null, confirmForm.fields);
+  check('tdn-w2: the held state offers the confirmation, and a stranger pressing it changes nothing',
+    [Boolean(confirmForm), await reads(marina)], [true, [307, 404, 404, 404]]);
+  if (confirmForm) await press(riverside, op, confirmForm.fields);
+  check('tdn-w3: an operator confirming it is her puts the role back at once, and the sheet says active',
+    [await reads(marina), /Active\. Recorded by BUZ/.test(words((await get(riverside, op)).html)),
+     forms((await get(riverside, op)).html).some((f) => f.submit === 'This is the person the club named')],
+    [[200, 200, 200, 200], true, false]);
 }
 
 
@@ -2709,20 +2769,36 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   for (const [k, v] of Object.entries({ [`$ACTION_ID_${joinId}`]: '', country: 'AU', firstName: 'Ivy', dob: '2014-05-05', guardianName: 'Drill Parent', guardianPhone: PHONE, guardianEmail: EMAIL })) jfd.append(k, v);
   const joined = await fetch(BASE + '/join', { method: 'POST', body: jfd, redirect: 'manual' });
   await joined.text();
-  check('sms-w3: the sign-up goes through while SMS is off', /\/join\/waiting\//.test(joined.headers.get('location') ?? ''), true);
+  const waitingAt = joined.headers.get('location') ?? '';
+  check('sms-w3: the sign-up goes through while SMS is off (D-168: under-18s register at launch)', /\/join\/waiting\//.test(waitingAt), true);
   const boxOff = (await get('/dev/outbox', op)).html;
-  check('sms-w4: the parent’s email is queued and the text is not', [boxOff.includes(EMAIL), await texts()], [true, 0]);
+  // D-168 (0120): the email goes at once and the text WAITS — written down,
+  // not refused and not sent, so it is not in the inbox yet.
+  check('sms-w4: the parent’s email goes at once, and the text waits rather than arriving', [boxOff.includes(EMAIL), await texts()], [true, 0]);
+  const plainOf = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
+  const waitingPage = async () => plainOf((await get(waitingAt.replace(BASE, ''), null)).html);
+  const w0 = await waitingPage();
+  check('sms-w4b: the child’s waiting screen says the email went and the text follows — and not that a text was sent (held line, development only)',
+    [w0.includes('We’ve emailed your parent. Their text follows shortly.'), w0.includes('Text and email sent')], [true, false]);
+  const job = async () => { const r = await fetch(BASE + '/api/jobs/outbox'); return r.ok ? (await r.json()).released : null; };
+  check('sms-w4c: an outbox run while SMS is off sends nothing', [await job(), await texts()], [0, 0]);
 
   check('sms-w5: SMS back on', /done=sms-on/.test(await pressSwitch('Switch SMS back on', { reason: 'sms drill over' })), true);
-  check('sms-w6: and the support console’s resend now queues the text', [/\/ops\/support/.test(await resend()), await texts()], [true, 1]);
+  // "With SMS then configured (the dev fake), one dispatcher run sends it."
+  check('sms-w5b: one outbox run, with SMS able to send, sends the waiting text — it is in the inbox now',
+    [(await job()) >= 1, await texts()], [true, 1]);
+  const w1 = await waitingPage();
+  check('sms-w5c: and the waiting screen stops saying the text is on its way, and says both went',
+    [w1.includes('Their text follows shortly.'), w1.includes('Text and email sent')], [false, true]);
+  check('sms-w6: and the support console’s resend now sends a text straight away', [/\/ops\/support/.test(await resend()), await texts()], [true, 2]);
 
   check('sms-w7: a limit that is not an amount is refused', /error=cap/.test(await pressSwitch('Set this limit', { dollars: 'lots', reason: 'cap drill' })), true);
   check('sms-w8: a limit of one cent, below this month’s spend, is set', /done=cap-set/.test(await pressSwitch('Set this limit', { dollars: '0.01', reason: 'cap drill' })), true);
   await resend();
-  check('sms-w9: and under it, the resend queues no text', await texts(), 1);
+  check('sms-w9: and under it, the resend queues no text', await texts(), 2);
   check('sms-w10: going back to the environment’s limit', /done=cap-cleared/.test(await pressSwitch('Go back to the limit set in Vercel', { reason: 'cap drill over' })), true);
   await resend();
-  check('sms-w11: and texts go again', await texts(), 2);
+  check('sms-w11: and texts go again', await texts(), 3);
   const swLog = (await get('/ops/switches', op)).html;
   check('sms-w12: the switch log names every reason', ['sms drill', 'sms drill over', 'cap drill', 'cap drill over'].every((r) => swLog.includes(r)), true);
 }

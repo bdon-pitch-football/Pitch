@@ -7,6 +7,11 @@
 //
 // Where the press lands is decided here from what the form says it was on,
 // never from a path the client supplies (lib/safe-path's reason, D-94 §3).
+//
+// It lands AT THE ROWS (#premium), not at the top of the page (brief H): the
+// reload to ?first=1 used to scroll the viewer away from the one line that
+// answers their tap, so "Premium is coming. You're first in line." was never
+// seen. The anchor is the rows' own form, so the answer is in view.
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
@@ -19,7 +24,7 @@ export async function tapPremium(formData: FormData) {
   await db.query('select fn_premium_interest($1, $2)', [me, feature]);
   if (on === 'clips') {
     const rec = (await db.query('select id from development_record where person_id = $1', [me])).rows[0]?.id as string | undefined;
-    redirect(rec ? `/build/${rec}/clips?first=1` : '/home');
+    redirect(rec ? `/build/${rec}/clips?first=1#premium` : '/home');
   }
-  redirect(on === 'coach' ? '/coach/edit?first=1' : '/home');
+  redirect(on === 'coach' ? '/coach/edit?first=1#premium' : '/home');
 }

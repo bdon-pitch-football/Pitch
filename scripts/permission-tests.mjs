@@ -201,17 +201,21 @@ const mem = (p, c, sq, role) =>
 // the unverified club) is put back where it was afterwards, verified_call_id
 // included — a club that was verified, named its TD, and later lost
 // verification is a real shape, and it is the one H5/M10 are about.
-let tdCallSeq = 0;
 const recordTd = async (person, club, email) => {
   await db.query(`update person set email = $2 where id = $1`, [person, email]);
   await proveAddress(person);
+  // The call records the name the club gives, and since 0121 that name has to
+  // be the account's own (or an operator has to confirm it): approved default
+  // 5, a mismatch is held for a human. The fixture records the person's name,
+  // as an operator on a real call would.
+  const who = (await db.query(`select trim(first_name || ' ' || coalesce(last_name, '')) as n from person where id = $1`, [person])).rows[0].n;
   const before = (await db.query(`select club_state, verified_call_id from club where id = $1`, [club])).rows[0];
   const call = crypto.randomUUID();
   await db.query(
     `insert into verification_call (id, club_id, called_at, operator, number_called, number_source,
        outcome, td_name, td_email, policy_version)
      values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified',$3,$4,'27@v1.0')`,
-    [call, club, `Fixture TD ${++tdCallSeq}`, email]);
+    [call, club, who, email]);
   await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [call, club]);
   if (before.club_state !== 'verified') {
     await db.query(`update club set club_state=$2, verified_call_id=$3 where id=$1`,
@@ -368,7 +372,9 @@ await db.query(`update profile_version set status='approved' where record_id=$1 
 // D-72 — the test that is not optional: experience_entry grants NOTHING.
 // ---------------------------------------------------------------------------
 await db.query(`insert into experience_entry (record_id, kind, org_name) values ($1,'other','Bayview SC')`, [REC.deniz]);
-check('D-72 org_name naming a real club grants its coach nothing', await level(ID.coachOther, ID.deniz), 'none');
+// doc 14 H8, as it is worded: "Bayview SC" is exactly the name of a real,
+// verified club in this fixture, and its coach and administrator get nothing.
+check('H8: an experience_entry whose org_name is exactly a real club\u2019s name ("Bayview SC") grants that club\u2019s coach nothing (D-72)', await level(ID.coachOther, ID.deniz), 'none');
 check('D-72 and grants its admin nothing', await level(ID.adminOther, ID.deniz), 'none');
 // strip comments first, so a mention in a comment neither fails nor masks
 const permSqlCode = readFileSync(join(dir, '0003_permissions.sql'), 'utf8')
@@ -655,6 +661,22 @@ const smsBlocks = msgSrc.split(/export const /).filter((b) => /channel: 'sms'/.t
     [...declared].filter((k) => !used.includes(k)).length, 0);
   check('doc15: the catalogue is not empty, so neither check above is vacuous',
     declared.size > 20 && used.length > 20, true);
+}
+
+// Doc 15 §9 is RETIRED and §4 is HELD (BUZ, 29 Sep; D-167). Neither may send:
+// neither has a key, the waitlist route sends nothing, and doc 15 says why
+// above each one's words.
+{
+  const doc15 = srcOf('docs/15-Message-Copy.md');
+  const waitlistRoute = codeOnly(srcOf('app/api/waitlist/route.ts'));
+  const sec = (n) => doc15.split(new RegExp(`\\n## ${n} · `))[1]?.split('\n## ')[0] ?? '';
+  check('doc15-9: §9 (the waitlist confirmation) is marked retired in doc 15, with the reason, and nothing can send it',
+    [/^\*\*RETIRED 29 Sep 2026/.test(sec(9).split('\n').slice(1).join('\n').trim()), /promise one email, when we open/.test(sec(9)),
+     /doc15\.§9['.]/.test(msgSrc), /from '@\/lib\/messaging'|sendEmail|api\.resend\.com/.test(waitlistRoute)],
+    [true, true, false, false]);
+  check('doc15-4: §4 (the other parent told) is marked held in doc 15 under D-167, and has no key to send it by',
+    [/^\*\*HELD 29 Sep 2026 \(BUZ, D-167\)/.test(sec(4).split('\n').slice(1).join('\n').trim()), /doc15\.§4['.]/.test(msgSrc)],
+    [true, false]);
 }
 
 check('doc15 §A5: no link shortener in any message',
@@ -3107,10 +3129,11 @@ check('H5: an unattested coach at the right squad still gets nothing', await lev
 check('H4: a verified coach on a squad they do not hold gets nothing', await level(ID.coachUnassigned, ID.deniz), 'none');
 check('H7: a departed coach keeps only what they authored (D-48)', await level(ID.coachFormer, ID.deniz), 'authored_only');
 
-// H8: a departing technical director loses club-wide access immediately —
-// the same read, one UPDATE later.
+// H9: a departing technical director loses club-wide access immediately —
+// the same read, one UPDATE later. (Labelled H8 until brief H: doc 14 H8 is
+// "experience_entry naming a real club exactly", which D-72's block pins.)
 await db.query(`update membership set ended_at = now() where person_id = $1 and role = 'technical_director'`, [ID.td]);
-check('H8: a departed technical director loses club-wide access at once', await level(ID.td, ID.deniz), 'none');
+check('H9: a departed technical director loses club-wide access at once', await level(ID.td, ID.deniz), 'none');
 check('H9: and cannot write to the record either', await prov(ID.td, REC.deniz), null);
 // Not H10 — doc 14 H10 is "a person self-declares technical_director", and a
 // label starting with a row id is a claim to test that row (L4). Reinstating
@@ -3137,9 +3160,11 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
   const firstCall = crypto.randomUUID(), tdCall = crypto.randomUUID();
   const reg = crypto.randomUUID();
   await db.query(`insert into club (id, name, club_state, subscription_status) values ($1,'Callsheet FC','claimed','active')`, [club]);
-  await db.query(`insert into person (id, first_name, dob, email) values
-    ($1,'Recorded',$2,'recorded@fixture.example'), ($3,'Outsider',$2,'outsider@fixture.example'),
-    ($4,'Minor',$5,'minortd@fixture.example'), ($6,'Callsheet Admin',$2,null)`,
+  // The recorded person's account carries the name the call records (0121:
+  // a name mismatch is held for a human, which is its own block below).
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values
+    ($1,'Robin','Recorded',$2,'recorded@fixture.example'), ($3,'Outsider',null,$2,'outsider@fixture.example'),
+    ($4,'Minor',null,$5,'minortd@fixture.example'), ($6,'Callsheet Admin',null,$2,null)`,
     [recorded, yearsAgo(44), outsider, minor, yearsAgo(16), admin]);
   await mem(admin, club, null, 'club_admin');
   await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`,
@@ -3568,6 +3593,110 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
   });
   check('tdx28: nothing else in app/ ends a Technical Director — no UPDATE of its own, no call to the worker, no operator door outside /ops',
     endsByHand.map((f) => f.slice(f.indexOf('app/'))), []);
+}
+
+// ---------------------------------------------------------------------------
+// 0121 — a Technical Director name mismatch is held for a human, and never
+// auto-passes (BUZ's approved default 5, 28 Sep; brief H). Round F found the
+// call's recorded name was compared to nothing: the role attached to
+// whichever proved account held the address, whatever it was called.
+// ---------------------------------------------------------------------------
+{
+  const club = crypto.randomUUID(), firstCall = crypto.randomUUID();
+  const dana = crypto.randomUUID(), op = crypto.randomUUID(), admin = crypto.randomUUID();
+  const one = async (sql, params) => (await db.query(sql, params)).rows[0];
+  const refusedQ = async (sql, params) => { try { await db.query(sql, params); return false; } catch { return true; } };
+  const liveTds = async () => (await db.query(
+    `select person_id from membership where club_id = $1 and role = 'technical_director' and ended_at is null`, [club])).rows.map((r) => r.person_id);
+  const sheet = async () => one(`select td_name, account_name, name_matches, name_confirmed, active, ended_at is not null as ended from fn_club_td($1)`, [club]);
+  const call = async (name, email) => db.query(
+    `insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, td_name, td_email, policy_version)
+     values ($1, now(), 'BUZ', '03 9000 0000', 'FV club directory', 'verified', $2, $3, '27@v1.0')`, [club, name, email]);
+  const confirm = async (who, email) => (await one('select fn_ops_confirm_td_name($1,$2,$3) as p', [who, email, club])).p;
+
+  const m = async (a, f, l) => (await one('select fn_td_name_matches($1,$2,$3) as m', [a, f, l])).m;
+  check('tdn1: the same name is the same name whatever the case and spacing, and a first-name initial is allowed',
+    [await m('Dana Kowalski', 'Dana', 'Kowalski'), await m('  dana   KOWALSKI ', 'Dana', 'Kowalski'), await m('D. Kowalski', 'Dana', 'Kowalski'),
+     await m('D Kowalski', 'Dana', 'Kowalski'), await m('Dana Kowalski', 'D.', 'Kowalski')], [true, true, true, true, true]);
+  check('tdn1b: and nothing else is — another first name, a different surname, a middle name, a surname alone, no name, a wrong initial',
+    [await m('Jordan Kowalski', 'Dana', 'Kowalski'), await m('Dana Kowalsky', 'Dana', 'Kowalski'), await m('Dana Maria Kowalski', 'Dana', 'Kowalski'),
+     await m('Kowalski', 'Dana', 'Kowalski'), await m('', 'Dana', 'Kowalski'), await m('J. Kowalski', 'Dana', 'Kowalski'), await m('Dana Kowalski', 'Dana', null)],
+    [false, false, false, false, false, false, false]);
+
+  await db.query(`insert into club (id, name, suburb, state, contact_email, club_state) values ($1,'Namecheck FC',null,'VIC','secretary@namecheck.example','claimed')`, [club]);
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values
+    ($1,'Dana','Kowalski',$4,'dana@namecheck-staff.example'), ($2,'Olive','Operator',$4,'olive@pitch.example'), ($3,'Nadia','Admin',$4,null)`,
+    [dana, op, admin, yearsAgo(41)]);
+  await mem(admin, club, null, 'club_admin');
+  await proveAddress(dana);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now() - interval '1 hour','BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [firstCall, club]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [firstCall, club]);
+
+  // The call records the address Dana proved, under a name that is not hers.
+  await call('Jordan Kowalski', 'dana@namecheck-staff.example');
+  check('tdn2: a proved account whose name is not the name on the call does NOT get the role — held, not attached',
+    [await liveTds(), (await one('select fn_td_on_call($1,$2) as c', [dana, club])).c, (await one('select fn_can_work_register($1,$2) as c', [dana, club])).c],
+    [[], false, false]);
+  check('tdn2b: the call sheet shows the mismatch — the recorded name beside the account’s own, not confirmed, not active',
+    await sheet(), { td_name: 'Jordan Kowalski', account_name: 'Dana Kowalski', name_matches: false, name_confirmed: false, active: false, ended: false });
+  await expectFail('tdn2c: and nobody can write the role for her by hand while it is held (the wall asks the same question)',
+    `insert into membership (person_id, club_id, role) values ('${dana}','${club}','technical_director')`);
+
+  // The human: named, logged, and it attaches.
+  check('tdn3: the confirmation is an operator’s — a person named by their own address; anyone else is refused',
+    [await refusedQ('select fn_ops_confirm_td_name($1,$2,$3)', [op, 'someone.else@pitch.example', club]),
+     await refusedQ('select fn_ops_confirm_td_name($1,$2,$3)', [null, 'olive@pitch.example', club]), await liveTds()],
+    [true, true, []]);
+  check('tdn3b: an operator who confirms it switches the role on in the same transaction',
+    [await confirm(op, 'olive@pitch.example'), await liveTds()], [dana, [dana]]);
+  check('tdn3c: and it is logged — which operator, which call, which account, and both names as they stood',
+    await one(`select t.operator_id, t.operator_email, t.recorded_name, t.account_name, t.person_id,
+      t.call_id = fn_td_call($1) as this_call from td_name_confirmation t where club_id = $1`, [club]),
+    { operator_id: op, operator_email: 'olive@pitch.example', recorded_name: 'Jordan Kowalski', account_name: 'Dana Kowalski', person_id: dana, this_call: true });
+  check('tdn3d: the sheet now says confirmed and active',
+    [(await sheet()).name_confirmed, (await sheet()).active], [true, true]);
+  check('tdn3e: a second press writes nothing new',
+    [await confirm(op, 'olive@pitch.example'), (await one('select count(*)::int as n from td_name_confirmation where club_id = $1', [club])).n], [dana, 1]);
+  check('tdn4: the confirmation is append-only',
+    [await refusedQ(`update td_name_confirmation set recorded_name = 'Dana Kowalski' where club_id = $1`, [club]),
+     await refusedQ(`delete from td_name_confirmation where club_id = $1`, [club])], [true, true]);
+  check('tdn4b: and has row-level security like every table (L26)',
+    (await one(`select relrowsecurity as r from pg_class where relname = 'td_name_confirmation'`)).r, true);
+
+  // A new call is a new question: the confirmation belonged to the last one.
+  await call('J. Kowalski', 'dana@namecheck-staff.example');
+  check('tdn5: a later call recording her address under a name that is not hers ends the role at once — held again, not carried over',
+    [await liveTds(), (await one(`select cause from td_ending where club_id = $1 order by id desc limit 1`, [club])).cause,
+     (await sheet()).name_confirmed, (await sheet()).ended],
+    [[], 'replaced_on_call', false, false]);
+  check('tdn5b: and a human can resolve that hold on the new call, without a third one',
+    [await confirm(op, 'olive@pitch.example'), await liveTds()], [dana, [dana]]);
+
+  // A call with a matching name — the initial form — attaches on its own.
+  await call('D. Kowalski', 'dana@namecheck-staff.example');
+  check('tdn6: a call naming her by initial and surname is her, and needs nobody', [await liveTds(), (await sheet()).name_matches], [[dana], true]);
+
+  // The mailbox is never a person, whoever confirms it (0060).
+  const tessa = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Tessa','Treasurer',$2,'secretary@namecheck.example')`, [tessa, yearsAgo(50)]);
+  await proveAddress(tessa);
+  await call('Jordan Kowalski', 'secretary@namecheck.example');
+  check('tdn7: an operator cannot confirm the club’s own mailbox into the role — nothing attached, nothing recorded as confirmed',
+    [await confirm(op, 'olive@pitch.example'), (await liveTds()).includes(tessa),
+     (await one('select count(*)::int as n from td_name_confirmation where person_id = $1', [tessa])).n], [null, false, 0]);
+
+  const callSheet = codeOnly(srcOf('app/ops/call/[clubId]/page.tsx'));
+  const callActs = codeOnly(srcOf('app/ops/call/[clubId]/actions.ts'));
+  const confirmBody = /export async function confirmTdName\([\s\S]*?\n\}/.exec(callActs)?.[0] ?? '';
+  check('tdn8: the call sheet’s confirmation checks the operator first and asks the database, and nothing else in app/ writes a confirmation',
+    [confirmBody.indexOf('requireOperator()') > -1 && confirmBody.indexOf('requireOperator()') < confirmBody.indexOf('fn_ops_confirm_td_name'),
+     routeFiles.filter((f) => /td_name_confirmation/.test(codeOnly(readFileSync(f, 'utf8')))).length],
+    [true, 0]);
+  check('tdn8b: its words are held — the held state and the button render outside production only, and the approved sentence that said the role goes to the account is gone (L25)',
+    [/const HELD_NAME_STATE = process\.env\.NODE_ENV !== 'production'/.test(callSheet), /const HELD_NAME_CONFIRM = process\.env\.NODE_ENV !== 'production'/.test(callSheet),
+     /heldForName && HELD_NAME_CONFIRM \?/.test(callSheet), srcOf('app/ops/call/[clubId]/page.tsx').includes('The role goes to this account, not to the name above.')],
+    [true, true, true, false]);
 }
 
 // J: the union rule (A12c) — a person wearing two hats gets the higher of
@@ -4359,13 +4488,19 @@ check('hist11: the CV states there is no way to reply to a family (U-11)',
 
 // D-70 says a zero never appears on this page. The stat tile initialised its
 // counter to 0, so the SERVER-RENDERED HTML said 0 — what a stalled bundle,
-// a browser with scripting off, and anything reading the markup all saw. The
-// truth ships in the HTML and the animation resets before paint.
-const tileSrc = readFileSync(fileURLToPath(new URL('../components/cv/StatTile.tsx', import.meta.url)), 'utf8');
-check('hist12: a stat tile ships its real value in the markup, never a zero',
-  /useState\(value\)/.test(tileSrc), true);
-check('hist13: and the count-up resets before paint, so nobody sees the flash',
-  /useBeforePaint/.test(tileSrc), true);
+// a browser with scripting off, and anything reading the markup all saw. Then
+// (22 Sep) the truth shipped in the HTML and a layout effect reset it to 0
+// and counted up — and BUZ's walkthrough still saw "0 appearances" (brief H,
+// D-162). Every frame of a count-up is a number that is not true, so there is
+// no count now: the tile renders its value and nothing else, and the motion
+// is a rise and a settle on the real number. The first painted frame is read
+// in a real browser by the layout check (st1); this is the source half.
+const tileSrc = codeOnly(readFileSync(fileURLToPath(new URL('../components/cv/StatTile.tsx', import.meta.url)), 'utf8'));
+check('hist12: a stat tile renders its own value and holds no other — no state, no timer, no frame loop (D-162)',
+  [/>\{value\}</.test(tileSrc), /useState|useEffect|useLayoutEffect|requestAnimationFrame|setInterval|setTimeout/.test(tileSrc)], [true, false]);
+check('hist13: and under prefers-reduced-motion neither the rise nor the settle moves',
+  [/prefers-reduced-motion: reduce\)[\s\S]{0,200}\.settle[\s\S]{0,40}animation: none/.test(srcOf('app/globals.css')),
+    /prefers-reduced-motion: reduce\) \{ \.cv-rise[^}]*animation: none/.test(srcOf('components/cv/PlayerCV.tsx'))], [true, true]);
 
 // A coach's licences and results are SELF-DECLARED (0029) and must stay
 // visibly apart from the WWCC, which is the one credential on that page a
@@ -8100,7 +8235,7 @@ const componentFilesAll = [];
   const elsewhere = joinPage.split("step === 'elsewhere' ? (")[1]?.split(") : step === 'signup' ? (")[0] ?? '';
   check('ctry2: Somewhere else collects nothing — no field, no form, no action, no request, at any age',
     [elsewhere.length > 0, /<input|<form|action=|fetch\(|FormData|startPendingInvitation|create\w*Account/.test(elsewhere),
-     elsewhere.includes('Pitch is only in Australia for now.')], [true, false, true]);
+     elsewhere.includes('Pitch is only open in Australia.')], [true, false, true]);
   check('ctry3: it is the first thing asked — the page opens on the country, before the name or the date of birth',
     [/useState<'country' \| 'elsewhere' \| 'signup' \| 'parent' \| 'account'>\('country'\)/.test(joinPage),
      joinPage.indexOf('Where do you live?') < joinPage.indexOf('type="date"')], [true, true]);
@@ -8160,6 +8295,31 @@ const componentFilesAll = [];
   const writers = routeFiles.concat(readdirSync(fileURLToPath(new URL('../lib', import.meta.url))).map((f) => fileURLToPath(new URL('../lib/' + f, import.meta.url))))
     .filter((f) => /\.tsx?$/.test(f)).filter((f) => /player_stat[\s\S]{0,200}'coach_verified'|coach_verified'[\s\S]{0,80}player_stat/.test(codeOnly(readFileSync(f, 'utf8'))));
   check(`cv9: no page and no library writes coach_verified onto a stat — fn_verify_stat is the one writer (${writers.join(', ') || 'none'})`, writers, []);
+
+  // "Verify for {club}" (BUZ, 29 Sep; 0122). The button is offered from the
+  // database's answer and names the club the write will name — one answer.
+  const offered = async (who, rec) => (await db.query('select stat_key, value, club_name from fn_verifiable_stats($1,$2)', [who, rec])).rows;
+  const wClub = (await q1('select name from club where id = $1', [W.club])).name;
+  const kidApps2 = await stat(W.kidRec, 'assists', 6);
+  check('cv10: the squad coach is offered the player\u2019s own self-reported numbers above zero, each with the club the verification will name',
+    (await offered(W.coachV, W.kidRec)).filter((o) => o.stat_key === 'assists'), [{ stat_key: 'assists', value: 6, club_name: wClub }]);
+  const offeredOut = [];
+  for (const [who, id] of Object.entries(refused)) if ((await offered(id, W.kidRec)).length) offeredOut.push(who);
+  check(`cv10b: nobody without the pen is offered anything — the values come off the record and are gated with it (L2) (${offeredOut.join(', ') || 'nobody was'})`, offeredOut, []);
+  await verify(W.coachV, kidApps2);
+  check('cv10c: a verified number is not offered again, and a zero never is',
+    [(await offered(W.coachV, W.kidRec)).some((o) => o.stat_key === 'assists'), (await offered(W.coachSide, W.teenRec)).some((o) => o.value === 0)], [false, false]);
+  check('cv10d: the button\u2019s club and the written club are one answer — fn_verify_stat and fn_verifiable_stats both ask fn_verify_club',
+    [/fn_verify_club/.test(await procSrc('fn_verify_stat')), /fn_verify_club/.test(await procSrc('fn_verifiable_stats'))], [true, true]);
+  const sqCvPage = codeOnly(srcOf('app/club/squads/[squadId]/cv/[playerId]/page.tsx'));
+  const sqCvAct = codeOnly(srcOf('app/club/squads/[squadId]/cv/[playerId]/actions.ts'));
+  check('cv11: the squad CV offers "Verify for {club}" from fn_verifiable_stats, only for a number on the page as shown (an under-16\u2019s approved snapshot, D-119)',
+    [/fn_verifiable_stats\(\$1, \$2\)/.test(sqCvPage), />\{`Verify for \$\{v\.club_name\}`\}</.test(sqCvPage),
+     /cv!\.stats\.some\(\(s\) => s\.season === v\.season && s\.key === v\.stat_key && s\.value === v\.value && s\.provenance === 'self_reported'\)/.test(sqCvPage)],
+    [true, true, true]);
+  check('cv11b: its press asks the squad the page asked, then fn_verify_stat — which takes the club, the coach and the time from the actor, never the form',
+    [sqCvAct.indexOf('fn_can_read_squad_player') > -1 && sqCvAct.indexOf('fn_can_read_squad_player') < sqCvAct.indexOf('fn_verify_stat'),
+     /select fn_verify_stat\(\$1, \$2\)', \[me, statId\]/.test(sqCvAct), /verified_club|provenance/.test(sqCvAct)], [true, true, false]);
 
   // doc 14 A20 — the row D-160 adds: a link-holder reading a coach-verified
   // stat learns the club and the date, and no person. What every page reads
@@ -8318,6 +8478,164 @@ const componentFilesAll = [];
   check('sms-p8: the SMS card’s words are held — it renders outside production only, until BUZ approves them',
     [/const SMS_WORDS_APPROVED = false;/.test(swPage), /const SMS_SHOWN = SMS_WORDS_APPROVED \|\| process\.env\.NODE_ENV !== 'production';/.test(swPage),
       [...swPage.matchAll(/\{SMS_SHOWN && /g)].length >= 7], [true, true, true]);
+
+  // --- D-168 (0120): under-18s register at launch, and the parent's text
+  //     waits for SMS. Proved on the database the release runs against, with
+  //     the policy module the send path asks, and the send path's source.
+  {
+    const q1 = async (sql, p = []) => (await db.query(sql, p)).rows[0];
+    const numHash = (n) => createHash('sha256').update(n.replace(/\s/g, '')).digest();
+    const invite = async (phone, ageDays = 0) => (await q1(
+      `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, sms_token_hash, email_token_hash, created_at)
+       values ('Ivy','2014-06-06','Queue Parent',$1,'queue.parent@example.com',$2,$3, now() - make_interval(days => $4)) returning id`,
+      [phone, sha(crypto.randomUUID()), sha(crypto.randomUUID()), ageDays])).id;
+    const queue = async (inv, phone, body = 'Pitch: approve Ivy', key = 'doc15.§1') => (await q1(
+      'select fn_sms_queue($1,null,$2,$3,null,$4,$5,3) as id', [key, phone, body, inv, numHash(phone)])).id;
+    const release = async (cap = null) => (await db.query('select id from fn_sms_release($1, 8, 3, 50)', [cap])).rows.map((r) => r.id);
+    const rowOf = async (id) => q1(`select queued_for_sms_at is not null as queued, released_at is not null as released,
+      failed_at is not null as closed, failure_reason, body, attempts from message_outbox where id = $1`, [id]);
+    const meter = async (phone) => (await q1('select fn_sms_count_24h($1) as n', [numHash(phone)])).n;
+    const sentEvents = async (inv) => (await q1(`select count(*)::int as n from consent_event where event = 'sms_sent' and detail->>'invitation_id' = $1`, [inv])).n;
+    const setOff = async (off) => db.query('select fn_ops_set_sms_off($1,$2,$3,$4)', [off, ID.guardian, 'op@example.com', off ? 'queue drill' : 'queue drill over']);
+    // Whatever the switch block above left, this block starts with SMS on.
+    await setOff(false);
+
+    const { smsCanSend, smsProviderConfigured } = await import('../lib/sms-policy.ts');
+    const all = { sid: 'AC1', key: 'k', from: '+61400000000' };
+    check('q1: SMS cannot send in production with no provider configured, no cap, or either switch off — and a development server always can unless it is switched off (D-168)',
+      [smsCanSend({ production: true, envKill: undefined, dbOff: false, envCap: 2000, providerConfigured: false }),
+       smsCanSend({ production: true, envKill: undefined, dbOff: false, envCap: null, providerConfigured: true }),
+       smsCanSend({ production: true, envKill: 'true', dbOff: false, envCap: 2000, providerConfigured: true }),
+       smsCanSend({ production: true, envKill: undefined, dbOff: true, envCap: 2000, providerConfigured: true }),
+       smsCanSend({ production: true, envKill: undefined, dbOff: false, envCap: 2000, providerConfigured: true }),
+       smsCanSend({ production: false, envKill: undefined, dbOff: false, envCap: null, providerConfigured: false }),
+       smsCanSend({ production: false, envKill: undefined, dbOff: true, envCap: null, providerConfigured: false })],
+      [false, false, false, false, true, true, false]);
+    check('q1b: a provider is configured only with all three Twilio values, and never in a demo',
+      [smsProviderConfigured(all, false), smsProviderConfigured({ ...all, from: '' }, false), smsProviderConfigured({ ...all, sid: undefined }, false), smsProviderConfigured(all, true)],
+      [true, false, false, false]);
+
+    // The send path: while SMS cannot send, the parent's approval text — and
+    // only that — is queued instead of refused, and the spine is not told a
+    // text went.
+    const sendCode = codeOnly(srcOf('lib/messaging.ts'));
+    const queueAt = sendCode.indexOf('fn_sms_queue(');
+    check('q2: send() queues the parent’s approval text (§1, §1b) when SMS cannot send, before any refusal for the switch or the cap — and nothing else queues',
+      [/const QUEUE_UNTIL_SMS_SENDS = new Set<string>\(\['doc15\.§1', 'doc15\.§1b'\]\);/.test(sendCode),
+       /if \(!canSend && QUEUE_UNTIL_SMS_SENDS\.has\(msg\.key\) && to\.invitationId\) \{/.test(sendCode),
+       queueAt > 0 && queueAt < sendCode.indexOf("reason: 'sms_killed'") && queueAt < sendCode.indexOf("reason: 'sms_no_cap'"),
+       sendCode.indexOf("reason: 'sms_opted_out'") < queueAt],
+      [true, true, true, true]);
+    check('q2b: a waiting text writes no sms_sent on the spine — sendAndLog skips it, and the release writes it when a text goes',
+      [/if \(result\.queued && !result\.waiting\) \{/.test(sendCode), /'sms_sent'/.test(await procSrc('fn_sms_release'))], [true, true]);
+    const guardianFlow = codeOnly(srcOf('lib/guardian-flow.ts'));
+    check('q2c: both of the sign-up’s texts carry their invitation, so both can wait (the child’s door and a 16–17 naming a parent)',
+      (guardianFlow.match(/sendAndLog\(sms\(.*?\), \{ address: input\.guardianPhone\.trim\(\), invitationId \}, 'sms_sent'/g) ?? []).length, 1);
+
+    const PHONE = '0400 616 161';
+    const inv = await invite(PHONE);
+    const id = await queue(inv, PHONE);
+    const r0 = await rowOf(id);
+    check('q3: with SMS unable to send, the text is written as queued — not refused, not failed, not metered, not on the spine',
+      [Boolean(id), r0.queued, r0.released, r0.closed, r0.attempts, await meter(PHONE), await sentEvents(inv)],
+      [true, true, false, false, 0, 0, 0]);
+    check('q3b: the backlog counts it, and the child’s waiting screen can see its own',
+      [(await q1('select fn_sms_queued_count() as n')).n >= 1, (await q1('select fn_invitation_sms_queued($1) as w', [inv])).w], [true, true]);
+
+    await setOff(true);
+    check('q4: the operator’s kill switch holds the queue: a release run while it is off sends nothing', [(await release()).includes(id), (await rowOf(id)).released], [false, false]);
+    await setOff(false);
+    const spend = (await q1('select fn_sms_spend_month() as c')).c;
+    check('q5: the monthly cap holds the queue: a cap the next text would cross releases nothing', (await release(spend + 7)).includes(id), false);
+
+    const out = await release();
+    const r1 = await rowOf(id);
+    check('q6: with SMS able to send, one release run sends it — metered once, released, and the spine told once, with its invitation',
+      [out.includes(id), r1.released, r1.attempts, await meter(PHONE), await sentEvents(inv), (await q1('select fn_invitation_sms_queued($1) as w', [inv])).w],
+      [true, true, 1, 1, 1, false]);
+    check('q6b: and a second run does not send it again', (await release()).includes(id), false);
+    const sweepSrc = codeOnly(srcOf('app/api/jobs/outbox/route.ts'));
+    check('q6c: the retry sweep never claims a waiting text (it would send it unmetered), and the job releases the queue before it sweeps',
+      [/and \(queued_for_sms_at is null or released_at is not null\)/.test(sweepSrc),
+       sweepSrc.indexOf('releaseWaitingTexts(') > 0 && sweepSrc.indexOf('releaseWaitingTexts(') < sweepSrc.indexOf('update message_outbox set attempts')],
+      [true, true]);
+
+    // The 14-day purge (D-17): an invitation purged before its text went sends nothing.
+    const PURGE_PHONE = '0400 626 262';
+    const oldInv = await invite(PURGE_PHONE, 15);
+    const oldId = await queue(oldInv, PURGE_PHONE, 'Pitch: approve Ivy, purged');
+    await db.query('select fn_purge_pending()');
+    const rp = await rowOf(oldId);
+    check('q7: a purged invitation’s queued text is closed and emptied by the purge, and no release ever sends it',
+      [rp.closed, rp.failure_reason, rp.body, (await release()).includes(oldId), await meter(PURGE_PHONE), (await rowOf(oldId)).released],
+      [true, 'purged', '', false, 0, false]);
+    // An invitation that stops being open any other way (approved, held,
+    // deleted by a cascade) is closed at release, not sent.
+    const HELD_PHONE = '0400 636 363';
+    const heldInv = await invite(HELD_PHONE);
+    const heldId = await queue(heldInv, HELD_PHONE);
+    await db.query('update pending_invitation set held_at = now() where id = $1', [heldInv]);
+    check('q7b: a held invitation’s text is closed at release, never sent (D-155)',
+      [(await release()).includes(heldId), (await rowOf(heldId)).failure_reason, await meter(HELD_PHONE)], [false, 'invitation_closed', 0]);
+
+    // Three a day per number, on the backlog.
+    const LIMIT_PHONE = '0400 646 464';
+    const lim = [];
+    for (let i = 0; i < 5; i++) lim.push(await queue(await invite(LIMIT_PHONE), LIMIT_PHONE));
+    check('q8: at queue time, three a day per number: a fourth and fifth text to one number inside a day are refused, not saved up',
+      lim.map(Boolean), [true, true, true, false, false]);
+    // A backlog older than a day is bigger than three: two days of three.
+    await db.query(`update message_outbox set queued_for_sms_at = now() - interval '2 days', created_at = now() - interval '2 days' where id = any($1)`, [lim.filter(Boolean)]);
+    for (let i = 0; i < 3; i++) lim.push(await queue(await invite(LIMIT_PHONE), LIMIT_PHONE));
+    const waiting = lim.filter(Boolean);
+    const sent1 = (await release()).filter((x) => waiting.includes(x));
+    check('q8b: the per-number limit holds on a backlog of six: one run sends three, oldest first, and leaves three queued',
+      [waiting.length, sent1.length, await meter(LIMIT_PHONE), JSON.stringify(sent1.sort()) === JSON.stringify(waiting.slice(0, 3).sort()),
+       (await db.query('select count(*)::int as n from message_outbox where id = any($1) and released_at is null and failed_at is null', [waiting])).rows[0].n],
+      [6, 3, 3, true, 3]);
+    check('q8c: and the next run inside the day sends none of the rest', (await release()).filter((x) => waiting.includes(x)).length, 0);
+
+    // STOP means stop, even for a text written before it was said.
+    const STOP_PHONE = '0400 656 565';
+    const stopId = await queue(await invite(STOP_PHONE), STOP_PHONE);
+    await db.query('insert into sms_opt_out (number_hash, opted_out_at) values ($1, now())', [numHash(STOP_PHONE)]);
+    check('q9: a number that opted out after its text was queued is never sent it',
+      [(await release()).includes(stopId), (await rowOf(stopId)).failure_reason, await meter(STOP_PHONE)], [false, 'opted_out', 0]);
+
+    // A resend mints a new link (D-156): the older queued text is retired.
+    const RESEND_PHONE = '0400 666 767';
+    const rInv = await invite(RESEND_PHONE);
+    const first = await queue(rInv, RESEND_PHONE, 'old link');
+    const second = await queue(rInv, RESEND_PHONE, 'new link');
+    check('q10: a newer text for the same invitation retires the older queued one, whose link no longer works',
+      [(await rowOf(first)).failure_reason, (await rowOf(first)).body, (await rowOf(second)).queued, (await rowOf(second)).closed],
+      ['superseded', '', true, false]);
+
+    // The day-10 nudge (doc 15 §3) re-mints the texted link; it must not do
+    // that to a text still waiting in the queue, whose link would die unsent.
+    const NUDGE_PHONE = '0400 676 868';
+    const nInv = await invite(NUDGE_PHONE, 11);
+    const nId = await queue(nInv, NUDGE_PHONE);
+    const nudgeable = async () => (await db.query('select invitation_id from fn_pending_nudges()')).rows.map((r) => r.invitation_id);
+    check('q12: an invitation whose approval text is still waiting is not nudged on day ten (the nudge would kill the waiting text\u2019s link)',
+      (await nudgeable()).includes(nInv), false);
+    await db.query('select fn_sms_release(null, 8, 3, 50)');
+    check('q12b: once the text has gone, the day-ten nudge is due as before', [(await rowOf(nId)).released, (await nudgeable()).includes(nInv)], [true, true]);
+
+    // The 7am digest.
+    const { digestMessage } = await import('../lib/digest.ts');
+    const wl = { newByRole: { player: 1 }, newTotal: 1, total: 9, unsubscribed: 0 };
+    check('q11: the digest carries the queued-text count only while its words are shown, and nothing happening still sends nothing',
+      [digestMessage(null, 0, true), digestMessage(null, 4, false), /waiting for SMS: 4$/m.test(digestMessage(null, 4, true)?.text ?? ''),
+       /waiting for SMS/.test(digestMessage(wl, 4, false)?.text ?? ''), /waiting for SMS: 4$/m.test(digestMessage(wl, 4, true)?.text ?? '')],
+      [null, null, true, false, true]);
+    const digestRoute = codeOnly(srcOf('app/api/digest/route.ts'));
+    check('q11b: and its words are held: the route shows the count outside production only, and sends nothing from development',
+      [/const showQueued = process\.env\.NODE_ENV !== 'production';/.test(digestRoute),
+       digestRoute.search(/if \(process\.env\.NODE_ENV !== 'production'\) \{\s*return NextResponse\.json\(\{ ok: true, sent: false/) > 0
+         && digestRoute.search(/if \(process\.env\.NODE_ENV !== 'production'\) \{\s*return NextResponse\.json\(\{ ok: true, sent: false/) < digestRoute.indexOf('await fetch(')],
+      [true, true]);
+  }
 
   // --- The alumni wall's "18 or over" guard holds on an edit too (0071).
   const alumniOk = crypto.randomUUID();
@@ -8542,6 +8860,25 @@ const componentFilesAll = [];
     ? srcOf(f).split('*Rule:* use names already in the seed')[1].split('*Amended 29 Sep (round E)')[0] : srcOf(f)));
   check(`fx1: no seed, demo, suite or demo script names the club after a real suburb (${files.length} files read${named.length ? ' — still there: ' + named.join(', ') : ''})`,
     [files.length > 60, named], [true, []]);
+}
+
+// --- L15, brief H (29 Sep): localities stay real. Round E's rename made
+//     "Quarrymead" the club's suburb as well as its name — a place that does
+//     not exist — and "Tarrowvale City FC" sat in "Tarrowvale". Every
+//     locality the seed gives a club, and every fixture's, is on this list of
+//     real Victorian suburbs, and none is the club's own name. A new
+//     locality has to be added here by somebody who checked it exists, which
+//     is the point: the list is the claim, and it is read by a person.
+{
+  const REAL_VIC = new Set(['Brunswick', 'Brunswick West', 'Preston', 'Altona', 'Coburg', 'Diggers Rest', 'Hoppers Crossing']);
+  const seed = srcOf('scripts/dev-db.mts');
+  const seeded = [...seed.matchAll(/insert into club \(id, name, suburb, state[^)]*\)\s*values \(\$1,'([^']+)','([^']+)','(?:VIC|NSW)'/g)].map((m) => [m[1], m[2]]);
+  const fixtures = PLAYER_FIXTURES.filter((p) => p.locality).map((p) => [p.club, p.locality.replace(/ (VIC|NSW)$/, '')]);
+  const all = [...seeded, ...fixtures];
+  const invented = all.filter(([, sub]) => !REAL_VIC.has(sub)).map(([c, sub]) => `${c} in ${sub}`);
+  const ownName = all.filter(([club, sub]) => sub.split(' ').some((w) => club.split(' ').includes(w))).map(([c, sub]) => `${c} in ${sub}`);
+  check(`fx2: every club the seed and the fixtures place is in a real Victorian suburb that is not its own name (${all.length} read${invented.length + ownName.length ? ' — ' + [...invented, ...ownName].join(', ') : ''})`,
+    [all.length >= 7, invented, ownName], [true, [], []]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

@@ -61,3 +61,33 @@ export function operatorCapCents(dollars: string, envCap: number | null): number
   if (envCap !== null && cents > envCap) return null;
   return cents;
 }
+
+// D-168 (0120): can a text leave right now? The parent's approval text is
+// queued rather than refused when the answer is no, and the outbox job
+// releases the queue the first time it is yes. Every reason SMS cannot send
+// is here, in one place, so the queue and the release ask the same question:
+//   · the environment's kill switch, or the operator's (0070);
+//   · in production, no monthly cap configured (BUZ decision 5: no cap
+//     admits nothing, exactly as the kill switch does);
+//   · in production, no provider configured (Twilio's business review can
+//     outlast launch day, D-168). In development the outbox IS the provider
+//     — /dev/outbox is the inbox — so a development server can always send,
+//     and "switched off" is the one way to see the queue there.
+
+/** Are Twilio's three values all present? The demo never is (lib/demo). */
+export function smsProviderConfigured(env: { sid?: string | null; key?: string | null; from?: string | null }, demo: boolean): boolean {
+  return !demo && Boolean(env.sid?.trim() && env.key?.trim() && env.from?.trim());
+}
+
+/** Can an SMS leave now? False queues the approval text (lib/messaging). */
+export function smsCanSend(o: {
+  production: boolean;
+  envKill: string | undefined | null;
+  dbOff: boolean | null | undefined;
+  envCap: number | null;
+  providerConfigured: boolean;
+}): boolean {
+  if (smsSwitchedOff(o.envKill, o.dbOff)) return false;
+  if (!o.production) return true;
+  return o.envCap !== null && o.providerConfigured;
+}

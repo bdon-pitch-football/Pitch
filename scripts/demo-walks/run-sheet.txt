@@ -39,7 +39,7 @@ at /home
 expect Awaiting verification
 click Register
 expect waiting
-expect Paying doesn’t change it and can’t
+expect Registrations are held until your club is verified
 note 7 · coach and administrator
 go /demo
 click Sam Kaya

@@ -98,7 +98,7 @@ export default function Join() {
                 this screen was reached from — and works before any script
                 has run. Nothing typed is lost, because nothing was asked. */}
             <HeaderMark back={{ href: '/join' }} />
-            <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.2 }}>Pitch is only in Australia for now.</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.2 }}>Pitch is only open in Australia.</h1>
           </>
         ) : step === 'signup' ? (
           <>
@@ -247,7 +247,7 @@ export default function Join() {
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>Last step</div>
               <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Who should we ask?</h1>
               <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                You&rsquo;re {age}, so a parent has to approve your page before anyone can see it. Give us one way to reach them.
+                You&rsquo;re {age}, so a parent has to approve your page before anyone can see it. Give us their mobile and email.
               </div>
             </div>
             <form action={startPendingInvitation} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>

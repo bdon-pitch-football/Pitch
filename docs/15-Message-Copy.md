@@ -120,6 +120,8 @@ Sent once. Never twice.
 
 ## 4 · Second-guardian notification
 
+**HELD 29 Sep 2026 (BUZ, D-167) — this message is not wired and does not send.** At launch a child has one parent on Pitch: D-51's two-guardian model stays in the schema and the permission engine, but no product path creates a second guardian, so there is nobody for this message to reach. Wiring a branch nothing can reach would add a path nobody tests. It turns on when "Invite a second parent" is built. The words below stay as approved; §36 is held with it for the same reason. In the code it is not in `CATALOGUE_KEYS` (`lib/messages.ts`), so nothing can send it.
+
 Sent to guardian 2 whenever guardian 1 acts (D-51).
 
 **Subject:** `Sam approved Deniz's Pitch profile`
@@ -199,6 +201,8 @@ Triggered when someone with a dead link asks for access.
 ---
 
 ## 9 · Waitlist confirmation
+
+**RETIRED 29 Sep 2026 (BUZ, "recommended on all") — this message is never sent.** The waitlist page and the consent stored with every address promise one email, when we open, and nothing before it; a confirmation on sign-up would be a second. The words below are kept as the record of what was written, and are not to be revived. In the code it has no key and no builder in `lib/messages.ts`, and `/api/waitlist` sends nothing (doc 29 §4), so nothing can send it.
 
 The highest open-rate message we will ever send. Sent once, on signup.
 

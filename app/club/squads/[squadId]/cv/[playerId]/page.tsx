@@ -19,7 +19,10 @@ import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
 import { assembleCv, type CvData } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
+import { STAT_LABELS, type StatKey } from '@/lib/football';
 import { T } from '@/lib/palette';
+import { card } from '@/lib/ui';
+import { verifyStat } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Player CV', robots: { index: false, follow: false } };
@@ -65,6 +68,20 @@ export default async function SquadCv({ params }: { params: Promise<{ squadId: s
     [me, playerId, squadId],
   );
 
+  // "Verify for {club}" (D-160; BUZ's words, 29 Sep). What may be verified
+  // and which club it would name are the database's answers (0122,
+  // fn_verifiable_stats — empty for anyone without the pen). The page adds
+  // one rule of its own: it offers only a number that is ON this page, as
+  // shown. For an under-16 the page is the parent's approved snapshot
+  // (D-119), so a live number the parent has not approved is never shown to
+  // the club here, and a coach never confirms a number they cannot see. The
+  // tiles are the 2026 season's surfaced stats, as PlayerCV draws them.
+  const offered = (await db.query(
+    `select stat_id, season, stat_key, value, club_name from fn_verifiable_stats($1, $2)`, [me, recordId],
+  )).rows as { stat_id: string; season: string; stat_key: StatKey; value: number; club_name: string }[];
+  const onPage = offered.filter((v) => v.season === '2026' && cv!.surfacedStats.includes(v.stat_key)
+    && cv!.stats.some((s) => s.season === v.season && s.key === v.stat_key && s.value === v.value && s.provenance === 'self_reported'));
+
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'center', background: T.bg }}>
@@ -73,6 +90,22 @@ export default async function SquadCv({ params }: { params: Promise<{ squadId: s
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
             The squad
           </a>
+          {onPage.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '6px 0 14px 0' }}>
+              {onPage.map((v) => (
+                <form key={v.stat_id} action={verifyStat} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <input type="hidden" name="squadId" value={squadId} />
+                  <input type="hidden" name="playerId" value={playerId} />
+                  <input type="hidden" name="statId" value={v.stat_id} />
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: T.secondary }}>{STAT_LABELS[v.stat_key]}</span>
+                    <span className="tnum" style={{ fontSize: 15, fontWeight: 900, color: T.ink }}>{v.value}</span>
+                  </div>
+                  <button type="submit" className="btn btn-secondary">{`Verify for ${v.club_name}`}</button>
+                </form>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <PlayerCV p={cv} />

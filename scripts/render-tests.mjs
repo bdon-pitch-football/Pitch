@@ -445,14 +445,14 @@ const georgia = ids.children.georgia;
     check(`r32: ${who} cannot open a club register`, r.status, 307);
   }
 
-  // D-126, and the sentence the whole product rests on: paying does not
-  // change it and cannot. An unverified club sees a COUNT and no names.
+  // D-126: an unverified club sees a COUNT and no names. (The sentence about
+  // paying was removed with BUZ's yes on 29 Sep — D-163, nothing is paid.)
   const { html: unv } = await get('/club/register', quarrymead);
   check('r33: an unverified club is told how many are waiting', has(unv, 'waiting'), true);
   check('r34: and is shown no name at all',
     text(unv).some((l) => /Deniz|Nate|Georgia/.test(l)), false);
-  check('r35: and is told plainly that paying will not change it',
-    has(unv, 'Paying doesn’t change it and can’t.'), true);
+  check('r35: and is told plainly that the call is what releases them, with no sentence about paying left behind (BUZ, 29 Sep)',
+    [has(unv, 'Registrations are held until your club is verified'), /Paying doesn|Payment does/.test(unv)], [true, false]);
 
   // Every row's primary action has to work. Ninety-seven of a hundred used to
   // 404 for the club's own TD: the page read the u16 approved snapshot for
@@ -1620,7 +1620,32 @@ const georgia = ids.children.georgia;
   check('ret-r8: and no button in the block at all',
     /While you were away[\s\S]{0,900}?<(a|button)\b/.test((await get('/home', alex)).html), false);
 
+  // ONE ORDER (brief H: the walkthrough saw 20 Aug, 28 Dec, 25 Oct). What has
+  // happened first, newest first; then what is coming, soonest first. Each
+  // "DD Mon" is placed in the year that puts it nearest today, in Melbourne.
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const todayMel = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
+  todayMel.setHours(0, 0, 0, 0);
+  const dated = (lines) => (lines ?? []).filter((l) => /^\d{1,2} [A-Z][a-z]{2}$/.test(l)).map((l) => {
+    const [d, m] = l.split(' ');
+    const at = [-1, 0, 1].map((dy) => new Date(todayMel.getFullYear() + dy, MON.indexOf(m), Number(d)))
+      .sort((a, b) => Math.abs(a - todayMel) - Math.abs(b - todayMel))[0];
+    return { l, t: at.getTime(), past: at <= todayMel };
+  });
+  const inOrder = (ds) => {
+    const past = ds.filter((x) => x.past), next = ds.filter((x) => !x.past);
+    return ds.slice(0, past.length).every((x) => x.past)
+      && past.every((x, i) => i === 0 || past[i - 1].t >= x.t)
+      && next.every((x, i) => i === 0 || next[i - 1].t <= x.t);
+  };
+  const pDates = dated(pb);
+  check(`ret-r12: the parent\u2019s lines read in one order — what happened, newest first, then what is coming, soonest first (${pDates.map((x) => x.l).join(', ')})`,
+    [pDates.length >= 3, pDates.some((x) => x.past) && pDates.some((x) => !x.past), inOrder(pDates)], [true, true, true]);
+
   const sixteen = block(text((await get('/home', ids.children.nate.child_id)).html));
+  const sDates = dated(sixteen);
+  check(`ret-r12b: and the same order on a 16\u201317\u2019s own card (${sDates.map((x) => x.l).join(', ')})`,
+    [sDates.length >= 2, inOrder(sDates)], [true, true]);
   check('ret-r9: a 16–17 gets it on their own home, about themselves', sixteen !== null, true);
   check('ret-r9b: in the second person, never their own name read back at them',
     (sixteen ?? []).some((l) => /Your link expires\./.test(l)) && !(sixteen ?? []).some((l) => /Nate’s/.test(l)), true);
@@ -1670,7 +1695,7 @@ const georgia = ids.children.georgia;
   check('ah1b: and not one of them is a registration or a child',
     /On your register|Shortlisted|Invited|new on the register/.test(a.html), false);
   check('ah2: it says whose the register is, and what is hers',
-    has(a.html, 'You keep the club’s page, its squads, its notices and its plan.'), true);
+    [has(a.html, 'You keep the club’s page, its squads, its notices.'), /its plan/.test(a.html)], [true, false]);
   check('ah3: there is exactly one accent action on the screen',
     (a.html.match(/class="btn btn-primary"/g) ?? []).length, 1);
   check('ah3b: and it is Post a trial notice', has(a.html, 'Post a trial notice'), true);
@@ -1789,6 +1814,38 @@ const georgia = ids.children.georgia;
     [digitOnlyWhenPopulated, tileZeros], [true, 0]);
   check('z5b: and an empty group is still SAID — the fact of absence stays, in words',
     absenceInWords, true);
+}
+
+// ---------------------------------------------------------------------------
+// "Verify for {club}" (D-160; BUZ's words, 29 Sep; 0122). Deniz's CV opened
+// from the U15 squad: the squad's coach and the TD are offered the button on
+// each self-reported number the page shows, naming the club; the number on
+// the button is a number on the page; and the administrator, who reads no
+// record at all (D-93), has no page to be offered it on.
+// ---------------------------------------------------------------------------
+{
+  const deniz = ids.children.deniz.child_id;
+  let denizCv = null;
+  for (const id of new Set([...(await get('/club/squads', ids.people.marina)).html.matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)].map((m) => m[1]))) {
+    if ((await get(`/club/squads/${id}`, ids.people.marina)).html.includes(`/cv/${deniz}`)) { denizCv = `/club/squads/${id}/cv/${deniz}`; break; }
+  }
+  const offers = (html) => [...html.matchAll(/<form[^>]*>(?:(?!<\/form>)[\s\S])*?<\/form>/g)].map((m) => m[0])
+    .filter((f) => />Verify for /.test(f))
+    .map((f) => ({ club: text(f).find((l) => l.startsWith('Verify for ')), value: text(f).find((l) => /^\d+$/.test(l)) }));
+  const samPage = denizCv ? await get(denizCv, ids.people.sam) : { status: 0, html: '' };
+  const got = offers(samPage.html);
+  const tiles = text(samPage.html.split('>Verify for ').at(-1) ?? '');
+  check(`vfy-r1: the squad\u2019s WWCC-attested coach opening Deniz\u2019s CV from the squad is offered "Verify for Riverside FC" on numbers the page shows (${got.map((o) => o.value).join(', ') || 'none'})`,
+    [samPage.status, got.length > 0, got.every((o) => o.club === 'Verify for Riverside FC'), got.every((o) => tiles.includes(o.value))],
+    [200, true, true, true]);
+  // The TD reads the page (D-93) but holds the pen only with a Working With
+  // Children Check a club attested (0015, fn_is_verified_adult) — the seed
+  // attests Sam's and not Marina's, so she is offered nothing. The button is
+  // the database's answer, not the role's name.
+  const tdPage = denizCv ? await get(denizCv, ids.people.marina) : { status: 0, html: '' };
+  check('vfy-r1b: the technical director, with no attested check in the seed, reads the CV and is offered no button', [tdPage.status, offers(tdPage.html).length], [200, 0]);
+  const admin = denizCv ? await get(denizCv, ids.people.pat) : { status: 0, html: '' };
+  check('vfy-r2: the club\u2019s administrator has no such page, so no button (D-93)', [admin.status, /Verify for /.test(admin.html)], [404, false]);
 }
 
 // ---------------------------------------------------------------------------
@@ -2018,8 +2075,15 @@ const georgia = ids.children.georgia;
     for (const h of hrefs) { const r = await get(h); if (r.status !== 200) dead.push(`${r.status} ${h}`); }
     check(`fd2: every link on the front door resolves (${[...hrefs].sort().join(' ')})${dead.length ? ' — DEAD: ' + dead.join(', ') : ''}`,
       [hrefs.size >= 7, dead], [true, []]);
-    check('fd2b: the ways in are there — sign up, trials without an account, sign in, and each landing',
-      ['/join', '/trials', '/signin', '/?for=player', '/?for=parent', '/?for=coach', '/?for=club'].every((h) => hrefs.has(h)), true);
+    check('fd2b: the ways in are there — sign up, trials without an account, sign in, and the player, coach and club landings',
+      ['/join', '/trials', '/signin', '/?for=player', '/?for=coach', '/?for=club'].every((h) => hrefs.has(h)), true);
+    // BUZ, 29 Sep ("recommended on all"): the parent's row says what a parent
+    // does, in /join's approved chip words, and goes to /join — whose parent
+    // door explains that the child starts and the parent approves.
+    const parentRow = /<a[^>]*href="([^"]*)"[^>]*>(?:(?!<\/a>)[\s\S])*?A parent(?:(?!<\/a>)[\s\S])*?<\/a>/.exec(served['/'].html);
+    check('fd2c: the chooser\u2019s parent row reads "Approve and see their record" and leads to /join',
+      [parentRow?.[1] ?? null, parentRow ? text(parentRow[0]).includes('Approve and see their record') : false,
+       has(served['/'].html, 'Set up and control your child’s profile')], ['/join', true, false]);
 
     // No price, and none of D-163's retired phrases, on any of the five.
     const retired = [];
@@ -2044,7 +2108,8 @@ const georgia = ids.children.georgia;
       const markup = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, '');
       const h1 = text(/<h1\b[^>]*>([\s\S]*?)<\/h1>/.exec(markup)?.[1] ?? '').join(' ');
       return [h1, ...Object.entries(TITLES).map(([seat, title]) =>
-        text(new RegExp(`<a\\b[^>]*href="/\\?for=${seat}"[^>]*>([\\s\\S]*?)</a>`).exec(markup)?.[1] ?? '').includes(title))];
+        // The parent's row goes to /join (BUZ, 29 Sep), the others to their landing.
+        text(new RegExp(`<a\\b[^>]*href="${seat === 'parent' ? '/join' : `/\\?for=${seat}`}"[^>]*>([\\s\\S]*?)</a>`).exec(markup)?.[1] ?? '').includes(title))];
     };
     const want = ['Somebody should be writing this down.', true, true, true, true];
     check('fd5: with the switch on, / serves its heading and the four ways in (player, parent, coach, club) as HTML text, to a browser and to a crawler, before any script runs',

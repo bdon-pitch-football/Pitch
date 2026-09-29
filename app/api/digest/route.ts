@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cronAllowed } from '@/lib/cron-policy';
+import { db } from '@/lib/db';
+import { digestMessage } from '@/lib/digest';
 import { digestCounts } from '@/lib/waitlist-db';
 
 export const runtime = 'nodejs';
@@ -20,13 +22,25 @@ export async function GET(req: NextRequest) {
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const counts = await digestCounts(since);
-  if (!counts) {
+  // D-168 (0120): how many parents' approval texts are still waiting for SMS,
+  // so the backlog is watched clearing. Counts only. The words are held until
+  // BUZ approves them (lib/digest), so in production this adds nothing yet.
+  const queued = (await db.query('select fn_sms_queued_count() as n')).rows[0]?.n ?? 0;
+  const showQueued = process.env.NODE_ENV !== 'production';
+  if (!counts && !(showQueued && queued > 0)) {
     return NextResponse.json({ ok: false, reason: 'unconfigured' }, { status: 503 });
   }
 
   // If nothing happened, send nothing (doc 29 §6).
-  if (counts.newTotal === 0) {
-    return NextResponse.json({ ok: true, sent: false, ...counts });
+  const message = digestMessage(counts, queued, showQueued);
+  if (!message) {
+    return NextResponse.json({ ok: true, sent: false, ...(counts ?? {}) });
+  }
+
+  // In development nothing leaves the machine (lib/messaging's rule): the
+  // digest is composed and answered as JSON, counts only, and not sent.
+  if (process.env.NODE_ENV !== 'production') {
+    return NextResponse.json({ ok: true, sent: false, subject: message.subject, text: message.text });
   }
 
   const to = process.env.DIGEST_TO || 'burak.donmez@pitch-football.com';
@@ -37,20 +51,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'no-resend-key' }, { status: 503 });
   }
 
-  const roleLine = (['player', 'coach', 'club', 'parent'] as const)
-    .map((r) => `${r[0].toUpperCase() + r.slice(1)}: ${counts.newByRole[r] ?? 0}`)
-    .join(' · ');
-
-  const text = [
-    `New signups in the last 24 hours: ${counts.newTotal}`,
-    roleLine,
-    '',
-    `Running total: ${counts.total}`,
-    `Unsubscribed: ${counts.unsubscribed}`,
-    '',
-    'Addresses live in Supabase — no emails in this digest by design.',
-  ].join('\n');
-
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -58,10 +58,10 @@ export async function GET(req: NextRequest) {
       from,
       to,
       reply_to: replyTo,
-      subject: `Pitch waitlist — ${counts.newTotal} new (${counts.total} total)`,
-      text,
+      subject: message.subject,
+      text: message.text,
     }),
   });
 
-  return NextResponse.json({ ok: res.ok, sent: res.ok, newTotal: counts.newTotal });
+  return NextResponse.json({ ok: res.ok, sent: res.ok, newTotal: counts?.newTotal ?? 0, queued });
 }
