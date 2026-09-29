@@ -1,7 +1,7 @@
 # builder: final F — the TD handover, and the crest a verified TD has earned (29 Sept 2026)
 
 **Tree:** `.claude/worktrees/builder-final-f`, branch `builder-final-f`, cut from `app` at `0959721`. `app` moved twice. First to `dd3bdfd` (BUZ's approval of the handover words), which I merged (a fast-forward) before building on it. Then to `72d0a47` (docs only: the register, briefs G/H/I, approvals, the go-live runbook), which I merged after committing; the doc-reading checks were re-run after that merge (see Ran). No rebase.
-**Measured on:** the working tree committed as the "TD handover" commit on `builder-final-f` (parent `dd3bdfd`). Every suite ran from a fresh seed in TRAINING §4 order after the last code change.
+**Measured on:** the working tree committed as `d275522` (parent `dd3bdfd`). Every suite ran from a fresh seed in TRAINING §4 order after the last code change. The merge of `app` (`57f46ab`) brought docs only.
 **Ports:** database 54432, app 3230, Chrome CDP 9433. Everything stopped by port only. Logs in `.builder-logs/` inside my tree (untracked).
 **Migrations:** `0100_td_handover.sql`.
 **Machine:**
@@ -73,7 +73,7 @@ All from a fresh seed, TRAINING §4 order, on the final tree:
   * **J61**, rerun twice alone on a fresh seed and a fresh app, is **still INCONCLUSIVE**. The first rerun resolved 1.13 ms and 1.25 ms against the 1 ms bar. The second used `TIMING_MAX_ROUNDS=3000` and resolved 1.05 ms and 1.72 ms, while the load rose to 11.6 around it.
   * In every J61 run, both arms showed no shift: p = 0.22 to 0.78, and shifts of −0.31 to +0.14 ms. J61 times `/home` and `/club/register` for a held club's administrator, and neither page changed in this round.
   * I did not try a fourth time. It needs a fresh dev build of about 1.4 GB, and free disk was 6.5 GiB. **Leo: J61 needs a rerun on a quiet machine before this merges.** A partial run is never a gate result (`timing-tests.mjs`).
-* **After merging `app` at `72d0a47`** (docs only), I re-ran the checks that read docs: perms __PERMS2__ · corpus __CORPUS2__ · gate-coverage __GATE2__.
+* **After merging `app` at `72d0a47`** (docs only), I re-ran the checks that read docs: perms **1682/1682** · corpus **0 failures, 0 warnings** · gate-coverage **263/263**.
 (Baseline at `0959721`: perms 1650 · render 573 · write 397.)
 
 **Red proofs (L19/L20).** Each bug was put back, the suite was run, and the file was restored (`cmp`-checked).
