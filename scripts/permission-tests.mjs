@@ -380,7 +380,10 @@ await db.query(`insert into experience_entry (record_id, kind, org_name) values 
 // verified club in this fixture, and its coach and administrator get nothing.
 check('H8: an experience_entry whose org_name is exactly a real club\u2019s name ("Bayview SC") grants that club\u2019s coach nothing (D-72)', await level(ID.coachOther, ID.deniz), 'none');
 check('D-72 and grants its admin nothing', await level(ID.adminOther, ID.deniz), 'none');
-// strip comments first, so a mention in a comment neither fails nor masks
+// strip comments first, so a mention in a comment neither fails nor masks.
+// This reads ONE migration file, not the functions later migrations left
+// behind (round K), so it pins nothing on its own: doc 14 H7 is pinned in
+// table H below, on the engine read from pg_proc as it exists now.
 const permSqlCode = readFileSync(join(dir, '0003_permissions.sql'), 'utf8')
   .replace(/--[^\n]*/g, '')
   .replace(/\/\*[\s\S]*?\*\//g, '');
@@ -2532,23 +2535,46 @@ await db.query(`insert into club (id, name, club_state) values ($1,'Notice FC','
 // rules between doc 14 and the register.
 //
 // Brief L: both versions are written, and scripts/rulings.mjs says which one
-// runs. While it says 'pending' the D-90 version runs under D-90's name and
-// gate-coverage leaves M7 open; a ruling is that one line.
+// runs. BUZ ruled on 29 Sep that D-90 stands, and doc 14 M7 now reads
+// "Refused"; the switch says 'D-90'.
 {
   const postPage = codeOnly(srcOf('app/club/post-trial/page.tsx')), postAct = codeOnly(srcOf('app/club/post-trial/actions.ts'));
   const writers = tsSourceFiles().filter((f) => /insert into trial_notice\b(?!_)/.test(codeOnly(srcOf(f))));
   const asksVerified = (src) => /membership m on m\.club_id = c\.id[\s\S]{0,160}where c\.club_state = 'verified'/.test(src);
   // D-90's version: the page and the action both ask for a verified club, a
-  // club they do not find is sent home, and there is no other writer.
-  const d90 = [asksVerified(postPage), asksVerified(postAct), /if \(club\.rows\.length === 0\) redirect\('\/home'\);/.test(postAct), writers];
-  const d90Expected = [true, true, true, ['app/club/post-trial/actions.ts']];
+  // club they do not find is sent home, and there is no other writer — and,
+  // since BUZ ruled, the database says the same (0152, doc 14's first rule:
+  // its tests run against the database): a club's own notice is refused for
+  // a club that is not verified, whether written for it or moved onto it,
+  // and accepted for one that is; and a club that fails its call (0150) takes
+  // its own notices off the board with it until it is verified again.
+  const accepted = async (sql, params) => { try { await db.query(sql, params); return true; } catch { return false; } };
+  const soonDay = (await db.query(`select ((now() at time zone 'Australia/Melbourne')::date + 20)::text as d`)).rows[0].d;
+  const own = (club, title) => accepted(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,$2,$3,'Sat 9:00 AM · Oval','club')`,
+    [club, title, soonDay]);
+  const postedHere = await own(CLUB.riverside, 'M7 verified club posts');
+  const postedClaimed = await own(m7Club, 'M7 claimed club posts');
+  const movedOnto = await accepted(`update trial_notice set club_id = $1 where club_id = $2 and title = 'M7 verified club posts'`, [m7Club, CLUB.riverside]);
+  const onBoard = async () => (await db.query(`select count(*)::int as n from fn_trial_notices_advertised() where title = 'M7 verified club posts'`)).rows[0].n;
+  const boardVerified = await onBoard();
+  const failed = crypto.randomUUID();
+  await db.query('begin');
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','not_verified','27@v1.0')`, [failed, CLUB.riverside]);
+  const boardFailed = await onBoard();
+  await db.query('rollback');
+  const boardBack = await onBoard();
+  await db.query(`delete from trial_notice where title = 'M7 verified club posts'`);
+  const d90 = [asksVerified(postPage), asksVerified(postAct), /if \(club\.rows\.length === 0\) redirect\('\/home'\);/.test(postAct), writers,
+    postedHere, postedClaimed, movedOnto, [boardVerified, boardFailed, boardBack]];
+  const d90Expected = [true, true, true, ['app/club/post-trial/actions.ts'], true, false, false, [1, 0, 1]];
   // Doc 14's version: neither asks for verification — a claimed club's own
   // contact gets the form and the post — and it is still the only writer.
   // Behaviour is pressed in the write suite (m7-w, d90-w1).
   const doc14 = [asksVerified(postPage), asksVerified(postAct), writers];
   const doc14Expected = [false, false, ['app/club/post-trial/actions.ts']];
   if (RULINGS.M7 === 'D-90') {
-    check('M7: an unverified club does not post a trial notice — /club/post-trial asks for a verified club on the page and again in the action, and it is the only writer of a notice (D-90, as BUZ ruled)', d90, d90Expected);
+    check('M7: an unverified club does not post a trial notice — refused at the database (0152) as well as at /club/post-trial, the only writer, which asks for a verified club on the page and again in the action; and a club that fails its call takes its own notices off the board until it is verified again (D-90, as BUZ ruled 29 Sep)', d90, d90Expected);
   } else if (RULINGS.M7 === 'doc 14') {
     check('M7: an unverified club posts a trial notice — /club/post-trial asks the club to be on Pitch, not verified, and it is still the only writer of a notice (doc 14 M7, as BUZ ruled)', doc14, doc14Expected);
   } else {
@@ -2727,7 +2753,15 @@ await billingOn(true);
   const unvAdmin = crypto.randomUUID();
   await db.query(`insert into person (id, first_name, dob) values ($1,'Unverified Admin',$2)`, [unvAdmin, yearsAgo(40)]);
   await mem(unvAdmin, CLUB.unverified, null, 'club_admin');
-  const unvReg = await newReg(ID.marcus, CLUB.unverified, await trialAt(CLUB.unverified));
+  // A trial of its own is something an unverified club can only have from
+  // before it lost its verification: since 0152 (BUZ on doc 14 M7) no club
+  // posts one while it is not verified. So the fixture writes it the way the
+  // seed writes a row from before a rule — with the rule off for that one
+  // insert, and back on at once.
+  await db.exec('alter table trial_notice disable trigger trial_notice_club_source_verified');
+  const unvTrial = await trialAt(CLUB.unverified);
+  await db.exec('alter table trial_notice enable trigger trial_notice_club_source_verified');
+  const unvReg = await newReg(ID.marcus, CLUB.unverified, unvTrial);
   check('P13e: an unverified club may invite nobody, even from its own trial (D-126)',
     await canInvite(unvAdmin, unvReg), false);
 
@@ -9959,12 +9993,18 @@ const componentFilesAll = [];
     await db.query('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
       [...OP, club, 'U13 Boys trials', ['U13'], 'boys', soon, 'Sat 9:00 AM', 'Dunmore Oval', [], 'https://dunmore.example.au/trials']);
     await db.query(`update club set club_state = 'claimed' where id = $1`, [club]);
+    // A club posts its own notice only once it is verified (0152, BUZ on
+    // M7), so the club is verified by a call before it posts.
+    const posted = crypto.randomUUID();
+    await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ($1,$2,now(),'BUZ','03 9000 0700','FV club directory','verified','27@v1.0')`, [posted, club]);
+    await db.query(`update club set club_state = 'verified', verified_call_id = $1 where id = $2`, [posted, club]);
     await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,'U15 Girls trials',$2,'Sun 10:00 AM · Dunmore Oval','club')`, [club, soon]);
     await db.query(`insert into players_wanted_notice (club_id, title) values ($1,'U13 Boys — Goalkeeper')`, [club]);
     const before = [await advertised(club), await wanted(club)];
     await db.query(`update club set club_state = 'suspended', suspension_reason = $2 where id = $1`, [club, cls]);
     const during = [await advertised(club), await wanted(club), await kept(club)];
-    await db.query(`update club set club_state = 'claimed', suspension_reason = null where id = $1`, [club]);
+    await db.query(`update club set club_state = 'verified', suspension_reason = null where id = $1`, [club]);
     const after = [await advertised(club), await wanted(club)];
     check(`susp-ad1: suspended ${cls ? `for the ${cls} class` : 'with no class recorded'}, a club advertises nothing — not its own trial notice, not Pitch's compiled one, not a players-wanted notice — nothing is deleted, and lifted, all of it is back`,
       [before, during, after], [[['club', 'compiled'], 1], [[], 0, 3], [['club', 'compiled'], 1]]);

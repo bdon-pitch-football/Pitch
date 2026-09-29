@@ -8,7 +8,7 @@
 // rules for the version the product does not do yet, that version's checks
 // go red until the product is changed to match, which is the point.
 //
-//   M7  `club_unverified` posts a trial notice.
+//   M7  `club_unverified` posts a trial notice. RULED 29 Sep: D-90.
 //       'doc 14' — permitted: the notice is public and carries no minor's
 //                  data (doc 14 M7 as written).
 //       'D-90'   — refused: the board's sources are a VERIFIED club posting
@@ -24,6 +24,7 @@
 //                  an administrator at any club — so a club that has not been
 //                  verified adds nobody. Which is what the product does.
 export const RULINGS = {
-  M7: 'pending',
+  // BUZ, 29 Sep: "D-90 stands". Doc 14 M7 amended to "Refused" on app (6ce29a6).
+  M7: 'D-90',
   M8: 'pending',
 };

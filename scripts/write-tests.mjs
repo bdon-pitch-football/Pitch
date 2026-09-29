@@ -1230,7 +1230,8 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   await door.text();
   const forged = await submit(postPath, unverified, { ...action, ...base, title: 'Quarrymead posts its own trial', trial_on: '2026-11-30', ages: ['U12'] });
   // Brief L: both versions are written, and scripts/rulings.mjs says which
-  // one runs. Pending, it is D-90's, under D-90's name, and M7 stays open.
+  // one runs. BUZ ruled on 29 Sep that D-90 stands, so this is M7 now; since
+  // 0152 the database refuses the forged post as well as the action.
   const d90Facts = [door.status, door.headers.get('location'), forged, (await board('')).includes('Quarrymead posts its own trial')];
   if (RULINGS.M7 === 'doc 14') {
     // Doc 14's version: the door opens for her, and the form she is given
