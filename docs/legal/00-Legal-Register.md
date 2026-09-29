@@ -43,7 +43,7 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 | **21** | **Privacy Policy — child** | **v2.6** | `/privacy/family` · **shown inside the guardian approval flow, not merely linked** | A child, and a parent at the moment they decide |
 | **22** | **Terms of Service** | **v2.1** | `/terms` · **live** · Schedule A at club checkout, before Stripe (D-136) | Everyone; Schedule A by clubs |
 | **24** | **Code of Conduct** | **v1.4** | `/conduct` | Adults who can write about others |
-| **25** | **Complaints and Takedown** | **v1.4** | `/report` · **reachable without an account, from any page** | Anyone, including a stranger |
+| **25** | **Complaints and Takedown** | **v1.4** | `/report/policy` (Part 1), linked from the `/report` form · **reachable without an account, from any page** | Anyone, including a stranger |
 
 **Internal — specifications, not background:**
 

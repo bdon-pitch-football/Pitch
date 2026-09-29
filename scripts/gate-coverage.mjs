@@ -12,6 +12,7 @@
 //     those are what pin the rows doc 14 left unruled
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { RULINGS } from './rulings.mjs';
 
 // The repo carries its own copy of doc 14 (docs/), which is what CI has. The
 // working folder's copy is the fallback.
@@ -55,8 +56,16 @@ for (const label of labels) {
   }
 }
 
+// A row waiting on BUZ has both versions of its check written, and the
+// suites run whichever scripts/rulings.mjs names (brief L). Until it names
+// one, the row is open whatever labels exist for it: a check written for a
+// ruling nobody has made pins nothing.
+const awaiting = Object.entries(RULINGS).filter(([row, r]) => r === 'pending' && ids.has(row)).map(([row]) => row);
+for (const row of awaiting) pinned.delete(row);
+
 const open = [...ids].filter((r) => !pinned.has(r)).sort();
 console.log(`doc 14 enumerated rows: ${ids.size}`);
 console.log(`pinned by the suite:    ${pinned.size}`);
 console.log(`open:                   ${open.length}${open.length ? '  ' + open.join(' ') : ''}`);
+if (awaiting.length) console.log(`awaiting BUZ's ruling:  ${awaiting.sort().join(' ')} (scripts/rulings.mjs)`);
 process.exit(open.length === 0 ? 0 : 1);

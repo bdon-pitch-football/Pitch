@@ -228,9 +228,10 @@ export async function applyForRole(formData: FormData) {
   if (!ok.rows[0].ok) redirect(`/jobs/${roleId}?cannot=1`);
 
   const message = String(formData.get('message') ?? '').trim().slice(0, 1200);
+  // On the board, or not open (0151): closed, past its day, or its club
+  // suspended. A role nobody can see is not one anybody can be sent to.
   const open = await db.query(
-    `select 1 from coaching_role where id = $1 and closed_at is null
-       and (closes_on is null or closes_on >= (now() at time zone 'Australia/Melbourne')::date)`,
+    `select 1 from fn_coaching_roles_advertised() where id = $1`,
     [roleId],
   );
   if (open.rows.length === 0) redirect(`/jobs/${roleId}?closed=1`);

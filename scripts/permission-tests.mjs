@@ -15,6 +15,7 @@ import { demoDbPort } from '../lib/demo.ts';
 import { analyticsAllowed, analyticsBeforeSend } from '../lib/analytics-scope.ts';
 import { POSITIONS as POSITIONS_TS } from '../lib/football.ts';
 import { CLUBS_WORDS_APPROVED as CLUBS_WORDS_APPROVED_TS, clubsScreensShown as clubsScreensShownTS } from '../lib/ops-policy.ts';
+import { RULINGS } from './rulings.mjs';
 import { createHash, createHmac } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -379,7 +380,10 @@ await db.query(`insert into experience_entry (record_id, kind, org_name) values 
 // verified club in this fixture, and its coach and administrator get nothing.
 check('H8: an experience_entry whose org_name is exactly a real club\u2019s name ("Bayview SC") grants that club\u2019s coach nothing (D-72)', await level(ID.coachOther, ID.deniz), 'none');
 check('D-72 and grants its admin nothing', await level(ID.adminOther, ID.deniz), 'none');
-// strip comments first, so a mention in a comment neither fails nor masks
+// strip comments first, so a mention in a comment neither fails nor masks.
+// This reads ONE migration file, not the functions later migrations left
+// behind (round K), so it pins nothing on its own: doc 14 H7 is pinned in
+// table H below, on the engine read from pg_proc as it exists now.
 const permSqlCode = readFileSync(join(dir, '0003_permissions.sql'), 'utf8')
   .replace(/--[^\n]*/g, '')
   .replace(/\/\*[\s\S]*?\*\//g, '');
@@ -2529,17 +2533,105 @@ await db.query(`insert into club (id, name, club_state) values ($1,'Notice FC','
 // and asserted the opposite of the register (L4, L22). Brief K: behaviour is
 // unchanged, the check tests what D-90 decides, and M7 is open until BUZ
 // rules between doc 14 and the register.
+//
+// Brief L: both versions are written, and scripts/rulings.mjs says which one
+// runs. BUZ ruled on 29 Sep that D-90 stands, and doc 14 M7 now reads
+// "Refused"; the switch says 'D-90'.
 {
   const postPage = codeOnly(srcOf('app/club/post-trial/page.tsx')), postAct = codeOnly(srcOf('app/club/post-trial/actions.ts'));
   const writers = tsSourceFiles().filter((f) => /insert into trial_notice\b(?!_)/.test(codeOnly(srcOf(f))));
-  check('D-90: a club posts its own trial notice only once it is verified — /club/post-trial asks for a verified club on the page and again in the action, and it is the only writer of a notice in the product (doc 14 M7 says an unverified club may; for BUZ)',
-    [/membership m on m\.club_id = c\.id[\s\S]{0,160}where c\.club_state = 'verified'/.test(postPage),
-     /membership m on m\.club_id = c\.id[\s\S]{0,160}where c\.club_state = 'verified'/.test(postAct),
-     /if \(club\.rows\.length === 0\) redirect\('\/home'\);/.test(postAct), writers],
-    [true, true, true, ['app/club/post-trial/actions.ts']]);
+  const asksVerified = (src) => /membership m on m\.club_id = c\.id[\s\S]{0,160}where c\.club_state = 'verified'/.test(src);
+  // D-90's version: the page and the action both ask for a verified club, a
+  // club they do not find is sent home, and there is no other writer — and,
+  // since BUZ ruled, the database says the same (0152, doc 14's first rule:
+  // its tests run against the database): a club's own notice is refused for
+  // a club that is not verified, whether written for it or moved onto it,
+  // and accepted for one that is; and a club that fails its call (0150) takes
+  // its own notices off the board with it until it is verified again.
+  const accepted = async (sql, params) => { try { await db.query(sql, params); return true; } catch { return false; } };
+  const soonDay = (await db.query(`select ((now() at time zone 'Australia/Melbourne')::date + 20)::text as d`)).rows[0].d;
+  const own = (club, title) => accepted(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,$2,$3,'Sat 9:00 AM · Oval','club')`,
+    [club, title, soonDay]);
+  const postedHere = await own(CLUB.riverside, 'M7 verified club posts');
+  const postedClaimed = await own(m7Club, 'M7 claimed club posts');
+  const movedOnto = await accepted(`update trial_notice set club_id = $1 where club_id = $2 and title = 'M7 verified club posts'`, [m7Club, CLUB.riverside]);
+  const onBoard = async () => (await db.query(`select count(*)::int as n from fn_trial_notices_advertised() where title = 'M7 verified club posts'`)).rows[0].n;
+  const boardVerified = await onBoard();
+  const failed = crypto.randomUUID();
+  await db.query('begin');
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','not_verified','27@v1.0')`, [failed, CLUB.riverside]);
+  const boardFailed = await onBoard();
+  await db.query('rollback');
+  const boardBack = await onBoard();
+  await db.query(`delete from trial_notice where title = 'M7 verified club posts'`);
+  const d90 = [asksVerified(postPage), asksVerified(postAct), /if \(club\.rows\.length === 0\) redirect\('\/home'\);/.test(postAct), writers,
+    postedHere, postedClaimed, movedOnto, [boardVerified, boardFailed, boardBack]];
+  const d90Expected = [true, true, true, ['app/club/post-trial/actions.ts'], true, false, false, [1, 0, 1]];
+  // Doc 14's version: neither asks for verification — a claimed club's own
+  // contact gets the form and the post — and it is still the only writer.
+  // Behaviour is pressed in the write suite (m7-w, d90-w1).
+  const doc14 = [asksVerified(postPage), asksVerified(postAct), writers];
+  const doc14Expected = [false, false, ['app/club/post-trial/actions.ts']];
+  if (RULINGS.M7 === 'D-90') {
+    check('M7: an unverified club does not post a trial notice — refused at the database (0152) as well as at /club/post-trial, the only writer, which asks for a verified club on the page and again in the action; and a club that fails its call takes its own notices off the board until it is verified again (D-90, as BUZ ruled 29 Sep)', d90, d90Expected);
+  } else if (RULINGS.M7 === 'doc 14') {
+    check('M7: an unverified club posts a trial notice — /club/post-trial asks the club to be on Pitch, not verified, and it is still the only writer of a notice (doc 14 M7, as BUZ ruled)', doc14, doc14Expected);
+  } else {
+    check('D-90: a club posts its own trial notice only once it is verified — /club/post-trial asks for a verified club on the page and again in the action, and it is the only writer of a notice in the product (doc 14 M7 says an unverified club may; awaiting BUZ, scripts/rulings.mjs)',
+      d90, d90Expected);
+  }
 }
-await db.query(`insert into person (id, first_name, dob) values ($1,'New Coach','${yearsAgo(30)}')`, [crypto.randomUUID()]);
-check('M8: and may add its own people', true, true);
+
+// M8 — `club_unverified` adds a coach or an administrator. Doc 14 says
+// permitted. The product never has: the only way a club brings a coach in is
+// the Technical Director's invitation (coach_invite_rules, 0037 — D-154's
+// restrictive reading, "only the TD brings a coach in"), a TD exists only
+// once a verification call has named one (0058, D-93), and no screen adds an
+// administrator at any club — the claim makes the first one, and nothing
+// makes a second. So an unverified club adds nobody. The check that stood
+// here was check('M8: …', true, true), which cannot fail (L19, round K).
+// Brief L: M8 is doc 14 against D-154/D-93, the same shape as M7, and waits on
+// BUZ with both versions written. Notice FC is claimed; its administrator is
+// the club_unverified of doc 14 §M(0).
+{
+  const m8Admin = crypto.randomUUID(), m8Coach = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Notice Admin','${yearsAgo(41)}'), ($2,'New Coach','${yearsAgo(30)}')`,
+    [m8Admin, m8Coach]);
+  await mem(m8Admin, m7Club, null, 'club_admin');
+  const m8Squad = crypto.randomUUID();
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,'Notice U12','U12','boys','2026')`, [m8Squad, m7Club]);
+  // What the club's contact would do to add a coach: the one door there is.
+  const accepted = async (sql, params) => {
+    try { await db.query(sql, params); return true; } catch { return false; }
+  };
+  const invited = await accepted(
+    `insert into coach_invite (club_id, person_id, invited_by, squad_ids, wwcc_checked) values ($1,$2,$3,array[$4::uuid],true)`,
+    [m7Club, m8Coach, m8Admin, m8Squad]);
+  const tdWritten = await accepted(`insert into membership (person_id, club_id, role) values ($1,$2,'technical_director')`, [m8Admin, m7Club]);
+  // Who writes an administrator in the product: the claim, once, for the club
+  // it takes from unclaimed — the first administrator, never an added one.
+  const adminWriters = tsSourceFiles().filter((f) => /insert into membership/.test(codeOnly(srcOf(f)))
+    && /'club_admin'/.test(codeOnly(srcOf(f))));
+  const worksRegister = (await db.query('select fn_can_work_register($1,$2) as ok', [m8Admin, m7Club])).rows[0].ok;
+  // D-154's version: refused at the only door, no TD to open it, no second
+  // administrator anywhere.
+  const d154 = [invited, tdWritten, worksRegister, adminWriters];
+  const d154Expected = [false, false, false, ['app/claim/[slug]/actions.ts']];
+  // Doc 14's version: the club's own contact brings a coach in, and the coach
+  // it adds reads no child (A14) — which needs a door the product does not
+  // have, so today it is red by design.
+  const doc14 = [invited, await level(m8Coach, ID.deniz), await level(m8Coach, unvPlayer)];
+  const doc14Expected = [true, 'none', 'none'];
+  if (RULINGS.M8 === 'D-154') {
+    check('M8: an unverified club adds no coach and no administrator — the TD\u2019s invitation is the only door, a TD comes only from a verification call, and nothing adds an administrator (D-154, D-93, as BUZ ruled)', d154, d154Expected);
+  } else if (RULINGS.M8 === 'doc 14') {
+    check('M8: an unverified club\u2019s own contact brings a coach in, and the coach it adds reads no child (doc 14 M8, as BUZ ruled)', doc14, doc14Expected);
+  } else {
+    check('D-154: an unverified club adds no coach and no administrator — the TD\u2019s invitation is the only door, a TD comes only from a verification call, and nothing adds an administrator (doc 14 M8 says it may; awaiting BUZ, scripts/rulings.mjs)',
+      d154, d154Expected);
+  }
+}
 
 // ---- Table P: the invitation wall --------------------------------------
 // P5 — an unverified club cannot invite at all.
@@ -2661,7 +2753,15 @@ await billingOn(true);
   const unvAdmin = crypto.randomUUID();
   await db.query(`insert into person (id, first_name, dob) values ($1,'Unverified Admin',$2)`, [unvAdmin, yearsAgo(40)]);
   await mem(unvAdmin, CLUB.unverified, null, 'club_admin');
-  const unvReg = await newReg(ID.marcus, CLUB.unverified, await trialAt(CLUB.unverified));
+  // A trial of its own is something an unverified club can only have from
+  // before it lost its verification: since 0152 (BUZ on doc 14 M7) no club
+  // posts one while it is not verified. So the fixture writes it the way the
+  // seed writes a row from before a rule — with the rule off for that one
+  // insert, and back on at once.
+  await db.exec('alter table trial_notice disable trigger trial_notice_club_source_verified');
+  const unvTrial = await trialAt(CLUB.unverified);
+  await db.exec('alter table trial_notice enable trigger trial_notice_club_source_verified');
+  const unvReg = await newReg(ID.marcus, CLUB.unverified, unvTrial);
   check('P13e: an unverified club may invite nobody, even from its own trial (D-126)',
     await canInvite(unvAdmin, unvReg), false);
 
@@ -3170,6 +3270,328 @@ await expectFail('td21: an ended Technical Director cannot be revived by hand of
   `update membership set ended_at = null where person_id = '${ID.td}' and role = 'technical_director'`);
 await recordTd(ID.td, CLUB.riverside, 'td@fixture.example');
 check('H9c: reinstating the role on a new call restores it, still without a stored flag', await level(ID.td, ID.deniz), 'full');
+
+// ---------------------------------------------------------------------------
+// Table H as doc 14 words it (brief L, 29 Sep). Round K took the table-H ids
+// off six checks that tested table-A rows and left H1, H2, H4, H5 and H7
+// open. Each is pinned here on the TRANSITION the row describes: the reads
+// before, the event, and the same reads inside the event's own transaction,
+// through the functions the pages call — fn_read_level, fn_can_read_squad_
+// player (the squad CV), fn_squad_roster (the squad screen), fn_can_read_
+// registration and fn_register_rows (the register and a CV opened from it),
+// fn_write_provenance and fn_verify_club (the pen), fn_approved_cv (what an
+// under-16's CV page serves). The write suite presses the same events through
+// the product's own screens (h1-w, h2-w, h4-w, h5-w).
+//
+// A world of its own, so nothing above or below leans on it: the club a child
+// leaves (Previous FC) and the club they sign for (Signing FC), both verified
+// by a call; a TD and two coaches at Signing FC; and three children with one
+// parent.
+// ---------------------------------------------------------------------------
+{
+  const P = {};
+  for (const k of ['oldTd', 'oldCoach', 'td', 'coach1', 'coach2', 'admin', 'parent', 'stranger', 'kid', 'kid2', 'teen']) P[k] = crypto.randomUUID();
+  const C = { old: crypto.randomUUID(), club: crypto.randomUUID() };
+  const S = { old: crypto.randomUUID(), s1: crypto.randomUUID(), s2: crypto.randomUUID() };
+  const R = { kid: crypto.randomUUID(), kid2: crypto.randomUUID(), teen: crypto.randomUUID() };
+  const adults = [['oldTd', 'Previous TD'], ['oldCoach', 'Previous Coach'], ['td', 'Signing TD'], ['coach1', 'Signing Coach'],
+    ['coach2', 'Second Coach'], ['admin', 'Signing Admin'], ['parent', 'Signing Parent'], ['stranger', 'Signing Stranger']];
+  for (const [k, name] of adults) {
+    await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`, [P[k], name, yearsAgo(40)]);
+  }
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Signing Kid',$2), ($3,'Second Kid',$4), ($5,'Signing Teen',$6)`,
+    [P.kid, yearsAgo(13), P.kid2, yearsAgo(14), P.teen, yearsAgo(17)]);
+  for (const k of ['kid', 'kid2', 'teen']) {
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [P.parent, P[k]]);
+  }
+  // The 16-17 is discoverable to verified viewers (B3), so "drops to the
+  // floor" has a floor that is not simply nothing.
+  await db.query(`insert into age_transition_notice (child_id, sent_at, delivered_at) values ($1, now(), now())`, [P.teen]);
+
+  await db.query(`insert into club (id, name, club_state) values ($1,'Previous FC','claimed'), ($2,'Signing FC','claimed')`, [C.old, C.club]);
+  for (const c of [C.old, C.club]) {
+    const call = crypto.randomUUID();
+    await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [call, c]);
+    await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [call, c]);
+  }
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values
+    ($1,$2,'Previous U15','U15','boys','2026'), ($3,$4,'Signing U15','U15','boys','2026'), ($5,$4,'Signing U16','U16','boys','2026')`,
+    [S.old, C.old, S.s1, C.club, S.s2]);
+  await recordTd(P.oldTd, C.old, 'previous.td@fixture.example');
+  await recordTd(P.td, C.club, 'signing.td@fixture.example');
+  await mem(P.oldCoach, C.old, S.old, 'coach');
+  await mem(P.coach1, C.club, S.s1, 'coach');
+  // The second coach holds both squads, both ways the database knows a coach
+  // is on a squad: a coach membership per squad (A7) and a register grant per
+  // squad (D-154).
+  await mem(P.coach2, C.club, S.s1, 'coach');
+  await mem(P.coach2, C.club, S.s2, 'coach');
+  await mem(P.admin, C.club, null, 'club_admin');
+  for (const [p, c] of [[P.oldTd, C.old], [P.oldCoach, C.old], [P.td, C.club], [P.coach1, C.club], [P.coach2, C.club]]) {
+    await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [p, c, c === C.old ? P.oldTd : P.td]);
+  }
+  for (const sq of [S.s1, S.s2]) {
+    await db.query(`insert into register_grant (club_id, person_id, squad_id, granted_by) values ($1,$2,$3,$4)`, [C.club, P.coach2, sq, P.td]);
+  }
+
+  // The history the signing brings: two seasons at Previous FC, a note the
+  // coach there wrote, a number from last season and the clubs before.
+  await mem(P.kid, C.old, S.old, 'player');
+  for (const [rec, who] of [[R.kid, P.kid], [R.kid2, P.kid2], [R.teen, P.teen]]) {
+    await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CM'])`, [rec, who]);
+  }
+  await db.query(`insert into record_entry (record_id, entry_type, author_id, provenance) values ($1,'coach_note',$2,'coach_verified')`, [R.kid, P.oldCoach]);
+  await db.query(`insert into player_stat (record_id, season, stat_key, value, provenance) values
+    ($1,'2025','goals',9,'self_reported'), ($1,'2026','goals',4,'self_reported')`, [R.kid]);
+  await db.query(`insert into experience_entry (record_id, kind, org_name, season_label) values ($1,'previous_club','Previous FC','2022–2025')`, [R.kid]);
+  const snapshot = (name) => JSON.stringify({ name, previousClubs: [{ orgName: 'Previous FC', period: '2022–2025' }],
+    stats: [{ season: '2025', key: 'goals', value: 9, provenance: 'self_reported' }], otherFootball: [{ kind: 'futsal', orgName: 'Winter futsal' }] });
+  for (const [rec, name] of [[R.kid, 'Signing K.'], [R.kid2, 'Second K.']]) {
+    await db.query(`insert into profile_version (record_id, content, status) values ($1,$2,'approved')`, [rec, snapshot(name)]);
+  }
+  await mem(P.kid2, C.club, S.s2, 'player');
+  // Both children's families put them on Signing FC's register, each for a squad.
+  const REG = { kid: crypto.randomUUID(), kid2: crypto.randomUUID() };
+  await db.query(`insert into registration (id, player_id, club_id, squad_target, policy_version, disclosed_by) values
+    ($1,$2,$3,$4,'20@v2.4',$5), ($6,$7,$3,$8,'20@v2.4',$5)`, [REG.kid, P.kid, C.club, S.s1, P.parent, REG.kid2, P.kid2, S.s2]);
+
+  const sqRead = async (v, sq, p) => (await db.query('select fn_can_read_squad_player($1,$2,$3) as ok', [v, sq, p])).rows[0].ok;
+  const roster = async (v, sq) => (await db.query('select player_id, record_id from fn_squad_roster($1,$2)', [v, sq])).rows;
+  const onRoster = async (v, sq, p) => (await roster(v, sq)).find((r) => r.player_id === p) ?? null;
+  const regRead = async (v, r) => (await db.query('select fn_can_read_registration($1,$2) as ok', [v, r])).rows[0].ok;
+  const regRows = async (v, c) => (await db.query('select registration_id from fn_register_rows($1,$2)', [v, c])).rows.map((x) => x.registration_id);
+  const verifyClub = async (v, rec) => (await db.query('select fn_verify_club($1,$2) as c', [v, rec])).rows[0].c;
+  const servedCv = async (rec) => (await db.query('select fn_approved_cv($1) as cv', [rec])).rows[0].cv;
+  const joinSquad = async (who, sq, actor, asker) =>
+    (await db.query(`select fn_join_squad($1,$2,$3,'claim',$4) as ok`, [who, sq, actor, asker])).rows[0].ok;
+
+  // ---- H1 · a player joins a club ----------------------------------------------
+  check('H1: before the signing, Signing FC reads nothing of the child — not the TD, not the coach, not the squad CV, not the roster',
+    [await level(P.td, P.kid), await level(P.coach1, P.kid), await sqRead(P.td, S.s1, P.kid), await onRoster(P.td, S.s1, P.kid)],
+    ['none', 'none', false, null]);
+  // Consented at joining: the only way into a squad is a door the family
+  // opens (a claim) that the club answers, or the club's ask the family
+  // answers. The claim door, pressed as the product presses it.
+  const claimBy = (asker) => `insert into squad_claim (person_id, club_id, squad_id, asked_by) values ('${P.kid}','${C.club}','${S.s1}','${asker}')`;
+  await expectFail('H1: consented at joining — a claim from someone who is not the child’s parent is refused', claimBy(P.stranger));
+  await expectFail('H1: and so is the under-16’s own, alone (D-91)', claimBy(P.kid));
+  const claim = crypto.randomUUID();
+  await db.query(`insert into squad_claim (id, person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4,$5)`, [claim, P.kid, C.club, S.s1, P.parent]);
+  check('H1: the parent’s claim changes nothing until the club answers it — no membership, no read',
+    [await level(P.td, P.kid), (await db.query(`select count(*)::int as n from membership where person_id = $1 and club_id = $2`, [P.kid, C.club])).rows[0].n],
+    ['none', 0]);
+  check('H1: the join asks for the family’s consent again — a confirm carrying an asker who may not act for the child signs nobody',
+    await joinSquad(P.kid, S.s1, P.td, P.stranger), false);
+  // The club's confirm, as app/club/squads/[squadId]/actions.ts makes it.
+  await db.query(`update squad_claim set answered_at = now(), answered_by = $2, confirmed = true where id = $1`, [claim, P.td]);
+  const signed = await joinSquad(P.kid, S.s1, P.td, P.parent);
+  const moves = (await db.query(
+    `select event, actor_id, detail->>'club_id' as club, detail->>'source' as source from consent_event
+     where subject_id = $1 and event in ('squad_joined','squad_left')`, [P.kid])).rows
+    .map((e) => `${e.event}:${e.club === C.club ? 'Signing FC' : e.club === C.old ? 'Previous FC' : e.club}:${e.source}:${e.actor_id === P.td ? 'TD' : e.actor_id}`).sort();
+  check('H1: consented at joining — the parent asked, the club confirmed, and the log says so: Previous FC’s squad_left and Signing FC’s squad_joined, by the TD who confirmed a claim (D-78)',
+    [signed, moves], [true, ['squad_joined:Signing FC:claim:TD', 'squad_left:Previous FC:claim:TD']]);
+  // Nothing else writes a player into a squad: the two doors end at
+  // fn_join_squad, and no page writes a membership for a player.
+  const playerWriters = [
+    ...tsSourceFiles().filter((f) => /insert into membership[\s\S]{0,200}'player'/.test(codeOnly(srcOf(f)))),
+    ...(await db.query(`select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and prosrc ~* 'insert into membership' and prosrc ~* '''player'''`)).rows.map((r) => r.proname)].sort();
+  check('H1: fn_join_squad is the one writer of a player into a squad, anywhere in the product or the database',
+    playerWriters, ['fn_join_squad']);
+  const cvNow = await servedCv(R.kid);
+  check('H1: the club sees the history the signing brings (D-48) — the TD and the squad’s coach read the whole record, the squad screen hands them the record, and the CV it opens carries the clubs and the season before this one, under Signing FC’s name',
+    [await level(P.td, P.kid), await level(P.coach1, P.kid), await sqRead(P.td, S.s1, P.kid), await sqRead(P.coach1, S.s1, P.kid),
+     (await onRoster(P.td, S.s1, P.kid))?.record_id ?? null,
+     cvNow.club, cvNow.squad?.name, (cvNow.previousClubs ?? []).map((c) => c.orgName), (cvNow.stats ?? []).map((x) => x.season)],
+    ['full', 'full', true, true, R.kid, 'Signing FC', 'Signing U15', ['Previous FC'], ['2025']]);
+
+  // ---- H2, the transfer half: the club the child left drops at once -------------
+  check('H2: a transfer is a departure — from the moment the child signs elsewhere, Previous FC’s TD reads nothing, and the coach who wrote about them keeps only what they wrote (D-48)',
+    [await level(P.oldTd, P.kid), await level(P.oldCoach, P.kid), await sqRead(P.oldTd, S.old, P.kid), await onRoster(P.oldTd, S.old, P.kid),
+     await prov(P.oldTd, R.kid), await prov(P.oldCoach, R.kid)],
+    ['none', 'authored_only', false, null, null, null]);
+
+  // The 16-17 signs too, the same way, so H5 and H2 have both bands.
+  const teenClaim = crypto.randomUUID();
+  await db.query(`insert into squad_claim (id, person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4,$5)`, [teenClaim, P.teen, C.club, S.s1, P.parent]);
+  await db.query(`update squad_claim set answered_at = now(), answered_by = $2, confirmed = true where id = $1`, [teenClaim, P.td]);
+  await joinSquad(P.teen, S.s1, P.td, P.parent);
+
+  // ---- H4 · a coach is unassigned from a squad mid-season --------------------------
+  check('H4: before — the second coach, on both squads, reads the Signing U15 child (record, squad CV, the pen, the registration) and the Signing U16 child',
+    [await level(P.coach2, P.kid), await sqRead(P.coach2, S.s1, P.kid), await prov(P.coach2, R.kid), await regRead(P.coach2, REG.kid),
+     await level(P.coach2, P.kid2), await regRead(P.coach2, REG.kid2)],
+    ['full', true, 'coach_verified', true, 'full', true]);
+  // The squad assignment ends, and the reads are asked inside the same
+  // transaction: "immediately" is the next statement, not the next request.
+  await db.query('begin');
+  await db.query(`update membership set ended_at = now() where person_id = $1 and squad_id = $2 and role = 'coach' and ended_at is null`, [P.coach2, S.s1]);
+  const offS1 = [await level(P.coach2, P.kid), await sqRead(P.coach2, S.s1, P.kid), (await onRoster(P.coach2, S.s1, P.kid))?.record_id ?? null,
+    await prov(P.coach2, R.kid), await verifyClub(P.coach2, R.kid), await level(P.coach2, P.kid2), await sqRead(P.coach2, S.s2, P.kid2)];
+  await db.query('commit');
+  check('H4: a coach taken off a squad mid-season loses read on its players in the same transaction — the record, the squad CV, the record on the squad screen, the pen — and keeps the squad they still hold',
+    offS1, ['none', false, null, null, null, 'full', true]);
+  await db.query('begin');
+  await db.query(`update register_grant set revoked_at = now(), revoked_by = $3 where person_id = $1 and squad_id = $2 and revoked_at is null`,
+    [P.coach2, S.s1, P.td]);
+  const grantOff = [await regRead(P.coach2, REG.kid), (await regRows(P.coach2, C.club)).includes(REG.kid), (await roster(P.coach2, S.s1)).length,
+    await regRead(P.coach2, REG.kid2), (await regRows(P.coach2, C.club)).includes(REG.kid2), (await roster(P.coach2, S.s2)).length > 0];
+  await db.query('commit');
+  check('H4: and the register grant for that squad, removed, ends its registrations, the CV opened from them and the squad screen in the same transaction — the other squad’s stay',
+    grantOff, [false, false, 0, true, true, true]);
+
+  // ---- H5 · the club loses verified status, every way it can ---------------------
+  // Every read a TD or a coach assigned now makes of a child at the club.
+  const h5 = async () => [
+    await level(P.td, P.kid), await level(P.coach1, P.kid), await level(P.td, P.teen), await level(P.coach1, P.teen),
+    await sqRead(P.td, S.s1, P.kid), await sqRead(P.coach1, S.s1, P.kid),
+    (await roster(P.td, S.s1)).length, (await roster(P.coach2, S.s2)).length,
+    await regRead(P.td, REG.kid), (await regRows(P.td, C.club)).length, await regRead(P.coach2, REG.kid2),
+    await prov(P.td, R.kid), await prov(P.coach1, R.kid),
+    (await db.query('select count(*)::int as n from fn_verifiable_stats($1,$2)', [P.coach1, R.kid])).rows[0].n,
+    (await db.query('select fn_club_minor_facing($1) as v', [C.club])).rows[0].v];
+  const LIVE = ['full', 'full', 'full', 'full', true, true, 2, 1, true, 2, true, 'coach_verified', 'coach_verified', 2, true];
+  const DOWN = ['none', 'none', 'none', 'none', false, false, 0, 0, false, 0, false, null, null, 0, false];
+  check('H5: while Signing FC is verified, its TD and its assigned coaches read its children — every read below is live, so none can pass by being empty',
+    await h5(), LIVE);
+  // The ways a club leaves verified: the call sheet's four outcomes, each
+  // suspension class and none (app/ops/call; 0025/0066), and 0150's failed
+  // call. For the two that suspend, what the call sheet's action writes; for
+  // a failed call, nothing but the call — the database does the rest.
+  const ways = [['suspended', 'child_safety'], ['suspended', 'administrative'], ['suspended', 'non_payment'], ['suspended', null],
+    ['takedown', null], ['not_verified', null]];
+  for (const [outcome, cls] of ways) {
+    await db.query('begin');
+    await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, suspension_reason, policy_version)
+      values ($1, now(), 'BUZ', '03 9000 0000', 'FV club directory', $2, $3, '27@v1.0')`, [C.club, outcome, cls]);
+    if (outcome !== 'not_verified') {
+      await db.query(`update club set club_state = 'suspended', suspension_reason = $2 where id = $1`, [C.club, cls]);
+    }
+    const state = (await db.query('select club_state from club where id = $1', [C.club])).rows[0].club_state;
+    const down = await h5();
+    await db.query('commit');
+    const back = crypto.randomUUID();
+    await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [back, C.club]);
+    await db.query(`update club set club_state = 'verified', verified_call_id = $2, suspension_reason = null where id = $1`, [C.club, back]);
+    const how = outcome === 'not_verified' ? 'a re-verification call that does not verify it (0150)'
+      : outcome === 'takedown' ? 'a takedown' : `a suspension ${cls ? `for the ${cls} class` : 'with no class recorded'}`;
+    check(`H5: ${how} — every minor-facing read ends in the call's own transaction, for the TD and for the coaches assigned now: the record, the squad CV, the squad screen, the register and a CV from it, the pen; and a verified call brings them back`,
+      [state, down, await h5()], [outcome === 'not_verified' ? 'claimed' : 'suspended', DOWN, LIVE]);
+  }
+
+  // ---- H2 · a player leaves a club ------------------------------------------------
+  // The squad's coach writes about the child while they are in the squad (the
+  // database insists on the order), so the D-48 exception is exercised.
+  await db.query(`insert into record_entry (record_id, entry_type, author_id, provenance) values ($1,'coach_note',$2,'coach_verified')`, [R.kid, P.coach1]);
+  const rosterBefore = (await roster(P.td, S.s1)).length;
+  const otherClubLevel = await level(ID.coachOther, P.teen);   // a verified coach at another club, for the 16-17's floor
+  await db.query('begin');
+  // The family's Leave, word for word the statement app/squad/actions.ts runs.
+  await db.query(`with gone as (
+       update membership set ended_at = now()
+       where person_id = $1 and role = 'player' and ended_at is null
+       returning squad_id, club_id)
+     insert into consent_event (event, actor_id, subject_id, detail)
+     select 'squad_left', $2, $1, jsonb_build_object('squad_id', g.squad_id, 'club_id', g.club_id, 'source','family')
+     from gone g`, [P.kid, P.parent]);
+  const left = [await level(P.td, P.kid), await level(P.coach1, P.kid), await sqRead(P.td, S.s1, P.kid), await sqRead(P.coach1, S.s1, P.kid),
+    await onRoster(P.td, S.s1, P.kid), (await roster(P.td, S.s1)).length, await prov(P.td, R.kid), await prov(P.coach1, R.kid),
+    await verifyClub(P.td, R.kid)];
+  await db.query('commit');
+  check('H2: a player leaves — from that moment no td_own or coach_own_v reads the full record: the TD reads nothing, the squad’s coach only what they wrote (D-48), neither opens the squad CV, the squad screen drops the child and keeps the count, and the pen is gone',
+    left, ['none', 'authored_only', false, false, null, rosterBefore - 1, null, null, null]);
+  const cvAfter = await servedCv(R.kid);
+  check('H2: and the register gives back nothing the membership gave — the CV it opens no longer names Signing FC or the squad (the club line follows the membership, D-158)',
+    [cvAfter.club, cvAfter.squad?.name ?? ''], ['', '']);
+  await db.query('begin');
+  await db.query(`update membership set ended_at = now() where person_id = $1 and role = 'player' and ended_at is null`, [P.teen]);
+  const teenLeft = [await level(P.td, P.teen), await level(P.coach1, P.teen), await sqRead(P.coach1, S.s1, P.teen)];
+  await db.query('commit');
+  check('H2: a 16-17 who leaves drops to exactly what a verified coach at another club gets — the B3 floor, public — never the full record, and the squad CV is closed',
+    [otherClubLevel, teenLeft], ['public', ['public', 'public', false]]);
+
+  // ---- H7 · experience_entry grants nothing to anyone, ever ---------------------
+  // Round K: the old check read one migration file, 0003, and nothing a later
+  // migration wrote. This reads the permission engine as it exists NOW, from
+  // pg_proc: every function that decides access, found by starting from the
+  // functions the product asks "who may" and following every function each of
+  // them calls, plus every trigger function on a table that carries access,
+  // plus every policy and view. None may name experience_entry.
+  const fns = (await db.query(`select p.proname as name, p.prosrc as src from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'`)).rows;
+  const body = (src) => src.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '').toLowerCase();
+  const srcByName = new Map();
+  for (const f of fns) srcByName.set(f.name, (srcByName.get(f.name) ?? '') + '\n' + body(f.src));
+  const ROOT = /^fn_(read_level|searchable|token_read|record_actor|write_provenance|verify_club|verifiable_stats|verify_stat|club_minor_facing|is_verified_adult|has_approved_guardian|person_hidden|approved_cv|cv_club|stat_public|experience_public)$|^fn_can_|^fn_register_|^fn_squad_|^fn_td_|^fn_club_td|^fn_invitation_|^fn_registration_|^fn_join_|^fn_attach_|^fn_leave_/;
+  const ACCESS_TABLES = ['membership', 'guardianship_link', 'wwcc_attestation', 'register_grant', 'club', 'verification_call', 'squad_claim',
+    'squad_invitation', 'invitation', 'invitation_reply', 'registration', 'share_token', 'coach_invite', 'guardian_setting', 'record_entry', 'player_stat'];
+  const triggerFns = (await db.query(`select distinct p.proname as name from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+    where not t.tgisinternal and t.tgrelid::regclass::text = any($1)`, [ACCESS_TABLES])).rows.map((r) => r.name);
+  const engine = new Set([...srcByName.keys()].filter((n) => ROOT.test(n)).concat(triggerFns));
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const n of [...engine]) {
+      for (const m of srcByName.get(n).matchAll(/\b([a-z_][a-z0-9_]*)\s*\(/g)) {
+        if (srcByName.has(m[1]) && !engine.has(m[1])) { engine.add(m[1]); grew = true; }
+      }
+    }
+  }
+  const named = [...engine].filter((n) => /experience_entry/.test(srcByName.get(n))).sort();
+  const MUST = ['fn_read_level', 'fn_is_verified_adult', 'fn_searchable', 'fn_token_read', 'fn_can_read_squad_player', 'fn_squad_roster',
+    'fn_can_read_registration', 'fn_register_rows', 'fn_register_grant_squads', 'fn_write_provenance', 'fn_club_minor_facing', 'fn_join_squad'];
+  check(`H7: experience_entry cannot appear in the "inside the club" computation — no function of the permission engine as it exists now names it, read from pg_proc (${engine.size} functions, reached from the "who may" questions, every function they call and every trigger on a table that carries access)`,
+    [MUST.filter((n) => !engine.has(n)), named], [[], []]);
+  // Outside the engine too: a function that names the table is only allowed
+  // if nothing in the engine can reach it, and today there is none at all.
+  const anywhere = fns.filter((f) => /experience_entry/.test(body(f.src))).map((f) => f.name).sort();
+  const policies = (await db.query(`select polname from pg_policy
+    where coalesce(pg_get_expr(polqual, polrelid), '') ~* 'experience' or coalesce(pg_get_expr(polwithcheck, polrelid), '') ~* 'experience'`)).rows;
+  const views = (await db.query(`select viewname from pg_views where schemaname = 'public' and definition ~* 'experience_entry'`)).rows;
+  check('H7: and nothing else in the database names it either — no function, no row-level policy, no view — so there is nothing for the engine to reach',
+    [anywhere, policies, views], [[], [], []]);
+  // Its shape, read from the catalogue rather than the migration text: one
+  // foreign key, to the record it sits on, and one thing pointing at it (a
+  // stat may say which entry it came from). No club, no squad, no person.
+  const shape = (await db.query(`select conname, conrelid::regclass::text as t, confrelid::regclass::text as f from pg_constraint
+    where contype = 'f' and (conrelid = 'experience_entry'::regclass or confrelid = 'experience_entry'::regclass) order by conname`)).rows
+    .map((r) => `${r.t}→${r.f}`);
+  const cols = (await db.query(`select column_name from information_schema.columns where table_name = 'experience_entry'
+    and (column_name ~ 'club|squad|membership|person|coach|author' or data_type = 'uuid') order by column_name`)).rows.map((r) => r.column_name);
+  check('H7: it has no foreign key to a club, a squad or a person — its only link is to the record it sits on, and the only link into it is a stat’s source',
+    [shape, cols], [['experience_entry→development_record', 'player_stat→experience_entry'], ['id', 'record_id']]);
+
+  // Behaviourally: an entry naming a club grants that club nothing. The
+  // answers the engine gives about the child, asked of every person in the
+  // database, before and after the family's record names Signing FC — by its
+  // exact name, its id and its slug-shape, in every kind a child's record may
+  // hold — must be identical. Kit has left Signing FC by now; Kai is still in
+  // it, so a named club that already holds a child is covered too.
+  const answers = async () => (await db.query(
+    `select v.id, fn_read_level(v.id, c.child) as l, fn_searchable(v.id, c.child) as s, fn_record_actor(v.id, c.rec) as a,
+            fn_write_provenance(v.id, c.rec) as w, fn_verify_club(v.id, c.rec) as vc, fn_can_act_on_squad(v.id, c.child) as act,
+            fn_can_read_squad_player(v.id, $3, c.child) as sq1, fn_can_read_squad_player(v.id, $4, c.child) as sq2,
+            (select count(*) from fn_register_rows(v.id, $5))::int as regs,
+            (select count(*) from fn_squad_roster(v.id, $3) r where r.record_id is not null)::int as ros
+     from person v, (values ($1::uuid, $2::uuid), ($6::uuid, $7::uuid), ($8::uuid, $9::uuid)) as c(child, rec)
+     order by v.id, c.child`,
+    [P.kid, R.kid, S.s1, S.s2, C.club, P.kid2, R.kid2, P.teen, R.teen])).rows;
+  const beforeNaming = await answers();
+  for (const [rec, who] of [[R.kid, 'kid'], [R.kid2, 'kid2'], [R.teen, 'teen']]) {
+    for (const kind of ['other', 'previous_club', 'representative', 'futsal', 'tournament', 'ntc_academy']) {
+      for (const name of ['Signing FC', C.club, 'signing-fc']) {
+        await db.query(`insert into experience_entry (record_id, kind, org_name, competition) values ($1,$2,$3,$3)`, [rec, kind, name]);
+      }
+    }
+    void who;
+  }
+  const afterNaming = await answers();
+  const differ = afterNaming.filter((r, i) => JSON.stringify(r) !== JSON.stringify(beforeNaming[i]));
+  check(`H7: an experience_entry naming a club grants that club nothing, and nobody anything — ${afterNaming.length} answers (every person in the database, three children, eleven questions each) are identical before and after 54 entries naming Signing FC by name, id and slug in every kind`,
+    [beforeNaming.length === afterNaming.length && beforeNaming.length > 0, differ.length], [true, 0]);
+}
 
 // ---------------------------------------------------------------------------
 // 0058 — a club gets its technical director on the verification call, and
@@ -9571,12 +9993,18 @@ const componentFilesAll = [];
     await db.query('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
       [...OP, club, 'U13 Boys trials', ['U13'], 'boys', soon, 'Sat 9:00 AM', 'Dunmore Oval', [], 'https://dunmore.example.au/trials']);
     await db.query(`update club set club_state = 'claimed' where id = $1`, [club]);
+    // A club posts its own notice only once it is verified (0152, BUZ on
+    // M7), so the club is verified by a call before it posts.
+    const posted = crypto.randomUUID();
+    await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ($1,$2,now(),'BUZ','03 9000 0700','FV club directory','verified','27@v1.0')`, [posted, club]);
+    await db.query(`update club set club_state = 'verified', verified_call_id = $1 where id = $2`, [posted, club]);
     await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,'U15 Girls trials',$2,'Sun 10:00 AM · Dunmore Oval','club')`, [club, soon]);
     await db.query(`insert into players_wanted_notice (club_id, title) values ($1,'U13 Boys — Goalkeeper')`, [club]);
     const before = [await advertised(club), await wanted(club)];
     await db.query(`update club set club_state = 'suspended', suspension_reason = $2 where id = $1`, [club, cls]);
     const during = [await advertised(club), await wanted(club), await kept(club)];
-    await db.query(`update club set club_state = 'claimed', suspension_reason = null where id = $1`, [club]);
+    await db.query(`update club set club_state = 'verified', suspension_reason = null where id = $1`, [club]);
     const after = [await advertised(club), await wanted(club)];
     check(`susp-ad1: suspended ${cls ? `for the ${cls} class` : 'with no class recorded'}, a club advertises nothing — not its own trial notice, not Pitch's compiled one, not a players-wanted notice — nothing is deleted, and lifted, all of it is back`,
       [before, during, after], [[['club', 'compiled'], 1], [[], 0, 3], [['club', 'compiled'], 1]]);
@@ -9645,6 +10073,111 @@ const componentFilesAll = [];
     [['app/trials/page.tsx', 'app/fc/[slug]/page.tsx', 'app/home/page.tsx', 'app/register-interest/[recordId]/page.tsx', 'app/register-interest/[recordId]/actions.ts'].map(through),
      /from fn_players_wanted_advertised\(\) w where w\.club_id = c\.id/.test(codeOnly(srcOf('app/fc/[slug]/page.tsx')))],
     [[1, 1, 3, 1, 1], true]);
+}
+
+// --- Brief L's follow-ups (29 Sep): a suspended club hires nobody (0151), its
+//     own page offers no way in, a failed call ends verification at every edge
+//     (0150), and the legal register says where doc 25 is served.
+{
+  const one = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const roles = async (club) => (await db.query(
+    `select title from fn_coaching_roles_advertised() where club_id = $1 order by title`, [club])).rows.map((r) => r.title);
+  const kept = async (club) => (await one(`select count(*)::int as n from coaching_role where club_id = $1`, [club])).n;
+  const poster = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Hiring Poster',$2)`, [poster, yearsAgo(45)]);
+  // A verified club with an open role, one closed, and one whose day passed.
+  const hire = crypto.randomUUID(), hireCall = crypto.randomUUID();
+  await db.query(`insert into club (id, name, club_state) values ($1,'Hiring FC','claimed')`, [hire]);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0800','FV club directory','verified','27@v1.0')`, [hireCall, hire]);
+  await db.query(`update club set club_state = 'verified', verified_call_id = $1 where id = $2`, [hireCall, hire]);
+  await db.query(`insert into coaching_role (club_id, title, posted_by) values ($1,'Open role',$2)`, [hire, poster]);
+  await db.query(`insert into coaching_role (club_id, title, posted_by, closed_at) values ($1,'Closed role',$2, now())`, [hire, poster]);
+  await db.query(`insert into coaching_role (club_id, title, posted_by, closes_on) values ($1,'Past role',$2,
+    (now() at time zone 'Australia/Melbourne')::date - 1)`, [hire, poster]);
+  const lifted = async () => {
+    const back = crypto.randomUUID();
+    await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ($1,$2,now(),'BUZ','03 9000 0800','FV club directory','verified','27@v1.0')`, [back, hire]);
+    await db.query(`update club set club_state = 'verified', verified_call_id = $2, suspension_reason = null where id = $1`, [hire, back]);
+    return roles(hire);
+  };
+  for (const [outcome, cls] of [['suspended', 'child_safety'], ['suspended', 'administrative'], ['suspended', 'non_payment'], ['suspended', null], ['takedown', null]]) {
+    const before = await roles(hire);
+    await db.query('begin');
+    await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, suspension_reason, policy_version)
+      values ($1, now(), 'BUZ', '03 9000 0800', 'FV club directory', $2, $3, '27@v1.0')`, [hire, outcome, cls]);
+    await db.query(`update club set club_state = 'suspended', suspension_reason = $2 where id = $1`, [hire, cls]);
+    const inside = [await roles(hire), await kept(hire)];
+    await db.query('commit');
+    check(`susp-ad5: ${outcome === 'takedown' ? 'taken down' : `suspended ${cls ? `for the ${cls} class` : 'with no class recorded'}`}, a club's open coaching role leaves the jobs board in the same transaction — nothing is deleted, and verified again it is back (0151)`,
+      [before, inside, await lifted()], [['Open role'], [[], 3], ['Open role']]);
+  }
+  check('susp-ad5b: the board keeps 0019’s own rules — a closed role and a role past its closing day are not on it — and the answer runs as the caller (L26)',
+    [await roles(hire), (await one(`select prosecdef from pg_proc where proname = 'fn_coaching_roles_advertised'`)).prosecdef], [['Open role'], false]);
+
+  // Every read of coaching_role in the product. Direct reads are a club's own
+  // management of its own roles, and a role's own page — which asks
+  // fn_club_advertises, so a suspended club's role is the same not-found as a
+  // role that is not there. Everything that LISTS or COUNTS roles, and the
+  // apply action, reads the answer.
+  const ROLE_READS = /\b(?:from|join)\s+coaching_role\b/;
+  const ROLE_DIRECT = {
+    'app/club/roles/page.tsx': "the club's own roles, to close them",
+    'app/jobs/[roleId]/page.tsx': 'one role, asked with fn_club_advertises',
+  };
+  const roleDirect = tsSourceFiles().filter((f) => ROLE_READS.test(codeOnly(srcOf(f))));
+  const roleThrough = (f) => (codeOnly(srcOf(f)).match(/\bfn_coaching_roles_advertised\(\)/g) ?? []).length;
+  check(`susp-ad-s3: no page lists or counts coaching roles from the table — the board, the club page, /home’s two counts and the apply action read fn_coaching_roles_advertised, and a role’s own page asks fn_club_advertises (${roleDirect.filter((f) => !(f in ROLE_DIRECT)).join(', ') || 'no other direct read'})`,
+    [roleDirect.filter((f) => !(f in ROLE_DIRECT)), Object.keys(ROLE_DIRECT).filter((f) => !roleDirect.includes(f)),
+     ['app/jobs/page.tsx', 'app/fc/[slug]/page.tsx', 'app/home/page.tsx', 'app/coach/edit/actions.ts'].map(roleThrough),
+     /where r\.id = \$1 and fn_club_advertises\(r\.club_id\)/.test(codeOnly(srcOf('app/jobs/[roleId]/page.tsx')))],
+    [[], [], [1, 1, 2, 1], true]);
+
+  // The club page's way in. For a suspended club the "Want to play here?"
+  // panel — which fell through to the unclaimed branch and offered "Send my
+  // CV to {club}" — is not drawn, and a squad chip names the team without
+  // being a door. What the page SERVES is the write suite's (susp-ad-w1).
+  const fcPage = codeOnly(srcOf('app/fc/[slug]/page.tsx'));
+  check('susp-ad-s4: a suspended club’s page draws no way in — the panel with the send and register doors is behind !suspended, the squad chips are plain names, and the chip hint goes with them',
+    [/const suspended = c\.club_state === 'suspended';/.test(fcPage), /\{!suspended && \(\s*<div id="play"/.test(fcPage),
+     /if \(suspended\) \{\s*return \(\s*<span key=\{s\.id\}/.test(fcPage), /\{!suspended && \(\s*<div[^>]*>\s*\{picked \? `The register will say/.test(fcPage)],
+    [true, true, true, true]);
+
+  // 0150 at its edges. The rule is "a verified club whose call fails is not
+  // verified" — nothing more restrictive and nothing less.
+  const nvClub = async (state) => {
+    const id = crypto.randomUUID(), call = crypto.randomUUID();
+    await db.query(`insert into club (id, name, club_state) values ($1,$2,'claimed')`, [id, `Failed Call ${state} FC`]);
+    await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ($1,$2,now(),'BUZ','03 9000 0900','FV club directory','verified','27@v1.0')`, [call, id]);
+    if (state !== 'claimed') await db.query(`update club set club_state = 'verified', verified_call_id = $1 where id = $2`, [call, id]);
+    if (state === 'suspended') await db.query(`update club set club_state = 'suspended', suspension_reason = 'child_safety' where id = $1`, [id]);
+    return { id, call };
+  };
+  const failCall = (club) => db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1, now(), 'BUZ', '03 9000 0900', 'FV club directory', 'not_verified', '27@v1.0')`, [club]);
+  const stateOf = async (club) => (await one(`select club_state, verified_call_id, suspension_reason from club where id = $1`, [club]));
+  const [claimedNv, suspendedNv, verifiedNv] = [await nvClub('claimed'), await nvClub('suspended'), await nvClub('verified')];
+  for (const c of [claimedNv, suspendedNv, verifiedNv]) await failCall(c.id);
+  check('nv1: a failed call ends a verified club’s verification, keeps the call that last verified it on the record (M6 reads the history), and records no class',
+    await stateOf(verifiedNv.id), { club_state: 'claimed', verified_call_id: verifiedNv.call, suspension_reason: null });
+  check('nv2: and touches nothing else — a claimed club stays claimed, and a suspended club stays suspended, its class kept (the more restrictive state stands)',
+    [(await stateOf(claimedNv.id)).club_state, await stateOf(suspendedNv.id)],
+    ['claimed', { club_state: 'suspended', verified_call_id: suspendedNv.call, suspension_reason: 'child_safety' }]);
+  check('nv3: it is not a suspension, so it tells no family (0066 tells only of a child-safety suspension)',
+    (await db.query('select * from fn_guardians_to_notify_on_suspension($1)', [verifiedNv.id])).rows.length, 0);
+  const edited = await nvClub('verified');
+  await db.query(`update verification_call set outcome = 'not_verified' where id = $1`, [edited.call]);
+  check('nv4: a call whose outcome is edited to "not verified" counts the same as a failed call arriving — the record and the club agree',
+    (await stateOf(edited.id)).club_state, 'claimed');
+
+  // The legal register's "Where" for doc 25 names the page that serves it.
+  const legalReg = srcOf('docs/legal/00-Legal-Register.md');
+  const row25 = legalReg.split('\n').find((l) => l.startsWith('| **25** |')) ?? '';
+  const where25 = /`(\/[a-z/]+)`/.exec(row25.split('|')[4] ?? '')?.[1];
+  check(`legl1: the legal register says doc 25 is served at /report/policy, and that page exists (${where25})`,
+    [where25, readdirSync(fileURLToPath(new URL('../app/report/policy', import.meta.url))).includes('page.tsx')], ['/report/policy', true]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
