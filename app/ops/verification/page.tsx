@@ -38,11 +38,12 @@ const ago = (days: number) => days <= 0 ? 'today' : days === 1 ? '1 day ago' : `
 // one, and the call sheet says what happened in BUZ's approved words.
 const HELD_ENDED_STATE = process.env.NODE_ENV !== 'production' ? 'access ended' : null;
 // A sixth since 0121 (brief H): a proved account under another name is HELD
-// for a human, and "waiting on their account" would be false. Held words too.
-const HELD_NAME_STATE = process.env.NODE_ENV !== 'production' ? 'on hold: not the name on the call' : null;
+// for a human, and "waiting on their account" would be false. Round H's
+// name-mismatch words, approved in advance by BUZ with Leo's review (29 Sep).
+const NAME_HELD_STATE = 'on hold: not the name on the call';
 const tdState = (r: { active: boolean; club_mailbox: boolean; name_matches: boolean | null; account_name: string | null; ended_at: string | null; name_confirmed: boolean | null }) =>
   !r.club_mailbox && r.ended_at ? HELD_ENDED_STATE :
-  !r.club_mailbox && !r.active && r.name_matches === false && !r.name_confirmed ? HELD_NAME_STATE :
+  !r.club_mailbox && !r.active && r.name_matches === false && !r.name_confirmed ? NAME_HELD_STATE :
   r.club_mailbox ? 'the club\u2019s own address, so nobody holds the role'
     : r.active && r.name_matches === false ? `active on ${r.account_name}\u2019s account`
     : r.active ? 'active'

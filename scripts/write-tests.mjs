@@ -436,7 +436,7 @@ async function post(path, who, form) {
      /The role goes to this account/.test(heldWords), /Waiting on their account/.test(heldWords)],
     [[307, 404, 404, 404], true, true, false, false]);
   const queueLine = words((await get('/ops/verification', op)).html);
-  check('tdn-w1b: and the queue says the role is on hold, not that it is waiting on her account (held words, development only)',
+  check('tdn-w1b: and the queue says the role is on hold, not that it is waiting on her account',
     [/Technical Director Marina Petrovich · on hold: not the name on the call/.test(queueLine),
      /Technical Director Marina Petrovich · waiting on their account/.test(queueLine)], [true, false]);
   const confirmForm = forms(heldSheet.html).find((f) => f.submit === 'This is the person the club named');
@@ -2782,7 +2782,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const plainOf = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/\s+/g, ' ');
   const waitingPage = async () => plainOf((await get(waitingAt.replace(BASE, ''), null)).html);
   const w0 = await waitingPage();
-  check('sms-w4b: the child’s waiting screen says the email went and the text follows — and not that a text was sent (held line, development only)',
+  check('sms-w4b: the child’s waiting screen says the email went and the text follows — and not that a text was sent (BUZ, 29 Sep)',
     [w0.includes('We’ve emailed your parent. Their text follows shortly.'), w0.includes('Text and email sent')], [true, false]);
   const job = async () => { const r = await fetch(BASE + '/api/jobs/outbox'); return r.ok ? (await r.json()).released : null; };
   // Today (brief G's /ops, brief H's tile): the backlog as a count.

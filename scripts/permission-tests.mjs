@@ -3694,18 +3694,18 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
      routeFiles.filter((f) => /td_name_confirmation/.test(codeOnly(readFileSync(f, 'utf8')))).length],
     [true, 0]);
   const queueSrc = codeOnly(srcOf('app/ops/verification/page.tsx'));
-  check('tdn9: the verification queue says a held name is held — never "waiting on their account" — in held words, and reads the confirmation from fn_club_td',
-    [/const HELD_NAME_STATE = process\.env\.NODE_ENV !== 'production'/.test(queueSrc),
-     queueSrc.search(/r\.name_matches === false && !r\.name_confirmed \? HELD_NAME_STATE/) > 0
-       && queueSrc.search(/r\.name_matches === false && !r\.name_confirmed \? HELD_NAME_STATE/) < queueSrc.indexOf("'waiting on their account'"),
+  check('tdn9: the verification queue says a held name is held — never "waiting on their account" — and reads the confirmation from fn_club_td',
+    [/const NAME_HELD_STATE = 'on hold: not the name on the call';/.test(queueSrc),
+     queueSrc.search(/r\.name_matches === false && !r\.name_confirmed \? NAME_HELD_STATE/) > 0
+       && queueSrc.search(/r\.name_matches === false && !r\.name_confirmed \? NAME_HELD_STATE/) < queueSrc.indexOf("'waiting on their account'"),
      /td\.name_confirmed/.test(queueSrc)], [true, true, true]);
   const todaySrc = codeOnly(srcOf('app/ops/page.tsx'));
   check('tdn9b: Today\u2019s waiting-texts tile is a count in held words, development only (D-168)',
     [/const HELD_WAITING_TEXTS = process\.env\.NODE_ENV !== 'production'/.test(todaySrc), /HELD_WAITING_TEXTS && waitingTexts > 0 &&/.test(todaySrc)], [true, true]);
-  check('tdn8b: its words are held — the held state and the button render outside production only, and the approved sentence that said the role goes to the account is gone (L25)',
-    [/const HELD_NAME_STATE = process\.env\.NODE_ENV !== 'production'/.test(callSheet), /const HELD_NAME_CONFIRM = process\.env\.NODE_ENV !== 'production'/.test(callSheet),
-     /heldForName && HELD_NAME_CONFIRM \?/.test(callSheet), srcOf('app/ops/call/[clubId]/page.tsx').includes('The role goes to this account, not to the name above.')],
-    [true, true, true, false]);
+  check('tdn8b: the held state and its button show whenever the role is held (words approved in advance, 29 Sep), and the sentence that said the role goes to the account is gone (L25)',
+    [/: heldForName\s*\? NAME_HELD_STATE/.test(callSheet), /\{heldForName \? \(\s*<form action=\{confirmTdName\}/.test(callSheet),
+     srcOf('app/ops/call/[clubId]/page.tsx').includes('The role goes to this account, not to the name above.')],
+    [true, true, false]);
 }
 
 // J: the union rule (A12c) — a person wearing two hats gets the higher of

@@ -71,15 +71,12 @@ function Choice({ name, label: text, note, options }: { name: string; label: str
   );
 }
 // A name mismatch is held for a human (BUZ's approved default 5, 0121). The
-// words for the held state and the confirm button are NOT approved yet, so
-// they render in development only, as /ops/verification's held state does;
-// in production the sheet says the approved "This is not the name recorded
-// on the call." and carries no state rather than a wrong one — and the way
-// forward there is a new call with the right name.
-const HELD_NAME_STATE = process.env.NODE_ENV !== 'production'
-  ? 'On hold. The role stays off until you confirm this is the person the club named, or record a new call with the right name.' : null;
-const HELD_NAME_CONFIRM = process.env.NODE_ENV !== 'production'
-  ? 'This is the person the club named' : null;
+// held state's sentence and the confirm button's words were approved in
+// advance by BUZ on 29 Sep, with the review delegated to Leo
+// (docs/team/APPROVALS-28-SEP.md, "Approved in advance"): live, and listed in
+// the round H report for that review.
+const NAME_HELD_STATE = 'On hold. The role stays off until you confirm this is the person the club named, or record a new call with the right name.';
+const NAME_HELD_CONFIRM = 'This is the person the club named';
 
 // 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
 const longDay = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', timeZone: 'Australia/Melbourne' });
@@ -164,7 +161,6 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                   ) : null}
                 </>
               ) : null}
-              {heldForName && !HELD_NAME_STATE ? null : (
               <div style={{ fontSize: 12.5, color: td.club_mailbox ? T.red : td.ended_at ? T.secondary : td.active ? T.accent : T.amber, fontWeight: 700, lineHeight: 1.5, marginTop: 6 }}>
                 {td.club_mailbox
                   ? `This is the club's own contact address, not a person's, so nobody holds the role. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}. Ring the club back and record the Technical Director's own address.`
@@ -177,16 +173,15 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                   : td.active
                     ? `Active. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}.`
                   : heldForName
-                    ? HELD_NAME_STATE
+                    ? NAME_HELD_STATE
                     : `Waiting on their account. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}. The role switches on the moment that address is confirmed on Pitch.`}
               </div>
-              )}
               {/* The human's door (0121): a named, logged confirmation that
-                  attaches the role. Held words, so development only. */}
-              {heldForName && HELD_NAME_CONFIRM ? (
+                  attaches the role. */}
+              {heldForName ? (
                 <form action={confirmTdName} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                   <input type="hidden" name="clubId" value={clubId} />
-                  <button type="submit" className="btn btn-secondary">{HELD_NAME_CONFIRM}</button>
+                  <button type="submit" className="btn btn-secondary">{NAME_HELD_CONFIRM}</button>
                 </form>
               ) : null}
               {/* The operator's door for ending a TD's access (D-48, 0100).

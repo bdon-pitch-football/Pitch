@@ -1856,6 +1856,30 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// The child's waiting screen (BUZ, 29 Sep: "approve 1 and 2"). Under D-17 an
+// under-16 has a first name, a date of birth and a parent's contact until the
+// parent says yes; the CV is built after approval, never before. The design's
+// words promised a built page, a photo and clips that do not exist, and a
+// "What you made" card to keep editing. wait-r1 fails if any of that comes
+// back, in the text a person reads and in the tab title.
+// ---------------------------------------------------------------------------
+{
+  const w = await get(`/join/waiting/${ids.pendingInvitation}`, null);
+  const lines = text(w.html);
+  const all = lines.join(' ');
+  const PROMISE = /\b(photo|photos|clip|clips|built|build it|keep editing|what you made|everything you(’|')ve made|is saved)\b|your page is/i;
+  check(`wait-r1: the waiting screen promises no page, photo or clips before a parent approves (${PROMISE.exec(all)?.[0] ?? 'none'})`,
+    [w.status, PROMISE.test(all)], [200, false]);
+  check('wait-r2: and says what BUZ approved — the title, the heading, the body and the fourteen days',
+    [/<title>Waiting for your parent · Pitch Football<\/title>/.test(w.html), lines.includes('One person to go.'),
+     all.includes('We’ve asked your parent to approve your page. Until they say yes, nothing about you is on Pitch — not for clubs, not for coaches, not for us.'),
+     all.includes('If nobody approves within 14 days , we delete what you told us. You can start again any time.')
+       || all.includes('If nobody approves within 14 days, we delete what you told us. You can start again any time.'),
+     lines.includes('Honestly? Just go and ask them.')],
+    [true, true, true, true, true]);
+}
+
+// ---------------------------------------------------------------------------
 // "Verify for {club}" (D-160; BUZ's words, 29 Sep; 0122). Deniz's CV opened
 // from the U15 squad: the squad's coach and the TD are offered the button on
 // each self-reported number the page shows, naming the club; the number on
