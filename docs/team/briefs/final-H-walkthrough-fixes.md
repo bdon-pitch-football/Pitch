@@ -83,6 +83,26 @@ five business days). Under-18s still register.
   - The per-number limit still holds on the backlog.
   - Prove each red.
 
+## Approved default 5: a TD name mismatch is held for a human
+
+BUZ approved on 28 Sep that a Technical Director name mismatch at verification
+is held for a human and never auto-passes. Round F found it is not built: the
+call's recorded TD name need not match the account's name, and the role still
+attaches.
+
+When the account holding the recorded TD email has a name that does not match
+the name recorded on the call (normalised: case, whitespace, and a first-name
+initial allowed), the role does NOT attach. The call sheet then shows the
+mismatch to the operator, who confirms it with a named, logged action or
+records a new call. Put it in Postgres, beside 0058, 0060 and 0100, and
+prove it red.
+
+The operator's confirm button needs words that are not approved yet. Reuse
+approved words if any fit. Otherwise hold them and list them.
+
+**Also:** relabel the permission check "H8: a departed technical director…" to
+H9, the row it actually tests (L4).
+
 ## Machine and method
 
 - **Tree:** `.claude/worktrees/builder-final-h`.
