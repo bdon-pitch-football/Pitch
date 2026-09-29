@@ -32,3 +32,15 @@ export function operatorAllowed(
 // Typed in full before every live link is switched off (0044). It cannot be
 // undone, so a click is not enough.
 export const REVOKE_ALL_PHRASE = 'SWITCH OFF EVERY LINK';
+
+// ⚠ AWAITING BUZ. The clubs directory and the notices Pitch compiles (brief I,
+// 0130) are built, and their words are new: every string on /ops/clubs that is
+// not already on a signed screen is listed verbatim in the brief I report.
+// Until BUZ approves them the screens and their rail door exist in
+// development only, where the suites drive them; in production /ops/clubs is
+// a 404 and every action under it refuses. Flip this to true in the same
+// commit that records his yes (docs/team/APPROVALS-28-SEP.md).
+export const CLUBS_WORDS_APPROVED = false;
+export function clubsScreensShown(isProduction: boolean): boolean {
+  return CLUBS_WORDS_APPROVED || !isProduction;
+}

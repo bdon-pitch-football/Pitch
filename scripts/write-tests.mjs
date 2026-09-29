@@ -451,6 +451,121 @@ async function post(path, who, form) {
     [await reads(marina), /Active\. Recorded by BUZ/.test(words((await get(riverside, op)).html)),
      forms((await get(riverside, op)).html).some((f) => f.submit === 'This is the person the club named')],
     [[200, 200, 200, 200], true, false]);
+  // BUZ, 29 Sep ("yes to the four"): the first two questions start with no
+  // answer and a call is not recorded without both. Posted as a browser that
+  // skipped the form's `required` would post it, naming somebody else as TD —
+  // so a call that WAS recorded would hand Riverside over (tde-w14), and the
+  // state says whether it was (L12).
+  const sheetForm = forms((await get(riverside, op)).html).find((f) => f.visible.some((v) => v.name === 'outcome'));
+  const handover = { operator: 'BUZ', number_called: '03 9000 0000', number_source: 'FV club directory', answered_by: 'Committee',
+    incorporated: 'yes', authority_confirmed: 'yes', notes: 'unanswered drill', outcome: 'verified', td_name: 'Sam Kaya', td_email: 'coach@example.com' };
+  const noAnswer = await press(riverside, op, { ...sheetForm.fields, ...handover });
+  const halfAnswer = await press(riverside, op, { ...sheetForm.fields, ...handover, club_confirmed: 'yes' });
+  const nonsense = await press(riverside, op, { ...sheetForm.fields, ...handover, club_confirmed: 'maybe', person_confirmed: 'yes' });
+  check('ops-w1: a call with the first two questions unanswered, half answered or answered with nonsense records nothing — the sheet comes back and the TD it names does not take over',
+    [[noAnswer, halfAnswer, nonsense].map((r) => `${r.status} ${r.location}`), await reads(marina), (await get('/club/register', sam)).status],
+    [[`303 ${riverside}`, `303 ${riverside}`, `303 ${riverside}`], [200, 200, 200, 200], 307]);
+}
+
+
+// ---------------------------------------------------------------------------
+// BRIEF I (29 Sep): Pitch curates the board (0130; D-64, D-74, D-90). Pressed
+// through the operator's own screens, and every outcome read off the product
+// where a family would meet it: the club's public page and its disclaimer,
+// /claim, the trials board under its filters, and the club page's trials. It
+// adds one listing and one notice, changes, re-stamps and removes them, and
+// takes the listing down again at the end, so every block after it sees the
+// seed's board.
+// ---------------------------------------------------------------------------
+{
+  const op = ids.people.jordan;   // any signed-in address is an operator in development (lib/ops-policy)
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const press = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) for (const x of [].concat(v)) fd.append(k, x);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
+  };
+  const rowsNamed = async (name) => (words((await get('/ops/clubs', op)).html).match(new RegExp(name, 'g')) ?? []).length;
+
+  // ---- a listing -------------------------------------------------------------
+  const newForm = forms((await get('/ops/clubs/new', op)).html).find((f) => f.visible.some((v) => v.name === 'source'));
+  check('cur-w0: the operator is given the add-a-club form, and a person signed out is sent to sign in',
+    [Boolean(newForm), (await get('/ops/clubs/new', null)).status], [true, 307]);
+  const listing = { name: 'Brackenfold Rovers', suburb: 'Brackenfold', state: 'VIC', contact: 'secretary@brackenfold.example.au', source: 'club website /contact' };
+  await press('/ops/clubs/new', null, { ...newForm.fields, ...listing });
+  const added = await press('/ops/clubs/new', op, { ...newForm.fields, ...listing });
+  const clubPath = added.location;
+  check('cur-w1: it is added with no JavaScript, once — signed out wrote nothing — and it is an unclaimed listing in the directory',
+    [added.status, /^\/ops\/clubs\/[0-9a-f-]{36}$/.test(clubPath), await rowsNamed('Brackenfold Rovers'),
+     /Brackenfold Rovers Brackenfold VIC — Unclaimed/.test(words((await get('/ops/clubs?q=brackenfold', op)).html))],
+    [303, true, 1, true]);
+  const pub = words((await get('/fc/brackenfold-rovers', null)).html);
+  check('cur-w2: its public page is up at once, with the D-64 disclaimer and the door to claim it',
+    [/Compiled from public information — not affiliated until claimed/.test(pub), /Claim your club/.test(pub)], [true, true]);
+  check('cur-w3: and /claim, unchanged, would send its code to the address the listing was compiled with, and nowhere else',
+    /secretary@brackenfold\.example\.au/.test(words((await get('/claim/brackenfold-rovers', ids.people.robin)).html)), true);
+  const dup = await press('/ops/clubs/new', op, { ...newForm.fields, ...listing, name: 'BRACKENFOLD  rovers', suburb: ' brackenfold ' });
+  const blank = await press('/ops/clubs/new', op, { ...newForm.fields, ...listing, name: 'Sourceless Rovers', source: ' ' });
+  check('cur-w4: the same club again is refused by name and suburb, and a listing with no source is refused — the page says which, and nothing more is listed',
+    [dup.location, /A club with that name and suburb is already listed\./.test(words((await get(dup.location, op)).html)),
+     blank.location, await rowsNamed('Brackenfold Rovers'), await rowsNamed('Sourceless Rovers')],
+    ['/ops/clubs/new?error=dup', true, '/ops/clubs/new?error=fields', 1, 0]);
+
+  // ---- a notice compiled from the club's own public notice ---------------------
+  const trialPath = `${clubPath}/trial`;
+  const tForm = forms((await get(trialPath, op)).html).find((f) => f.visible.some((v) => v.name === 'source_url'));
+  const soon = new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' });
+  const trial = { title: 'U11 Girls trials', ages: ['U11'], gender: 'girls', trial_on: soon, time: 'Sat 9:00 AM',
+    ground: 'Brackenfold Reserve', positions: ['GK'], source_url: 'https://brackenfold.example.au/trials' };
+  const boardHtml = async () => (await get('/trials?age=U11&gender=girls', null)).html;
+  const noSource = await press(trialPath, op, { ...tForm.fields, ...trial, source_url: '' });
+  check('cur-w5: a notice with no link to the club\'s own notice is refused and the form says so; nothing reaches the board',
+    [noSource.location, /Paste the address of the club.s own notice, starting https:\/\//.test(words((await get(noSource.location, op)).html)),
+     /Brackenfold Rovers/.test(words(await boardHtml()))],
+    [`${trialPath}?error=source`, true, false]);
+  const posted = await press(trialPath, op, { ...tForm.fields, ...trial });
+  const board = await boardHtml();
+  check('cur-w6: with the link it is posted with no JavaScript, and it is on the board under its age group and competition, as an unclaimed listing with "Send my CV" to the club page',
+    [posted.status, posted.location, /Brackenfold Rovers · U11 Girls/.test(words(board)), /Unclaimed listing · register via club/.test(words(board)),
+     /href="\/fc\/brackenfold-rovers#play"[^>]*>Send my CV/.test(board)],
+    [303, clubPath, true, true, true]);
+  check('cur-w7: and on the club\'s own page', /U11 Girls trials/.test(words((await get('/fc/brackenfold-rovers', null)).html)), true);
+  const screen = async () => (await get(clubPath, op)).html;
+  const noticeId = /data-notice="([0-9a-f-]{36})"/.exec(await screen())?.[1];
+  check('cur-w8: the operator\'s screen lists it with who added it, both stamps and the link it came from',
+    [Boolean(noticeId), /Listed \d{1,2} [A-Z][a-z]{2} by player@example\.com · checked \d{1,2} [A-Z][a-z]{2}/.test(words(await screen())),
+     (await screen()).includes('href="https://brackenfold.example.au/trials"')], [true, true, true]);
+
+  const eForm = forms((await get(`${trialPath}?edit=${noticeId}`, op)).html).find((f) => f.fields.notice_id === noticeId);
+  const changed = await press(trialPath, op, { ...eForm.fields, ...trial, title: 'U11 & U12 Girls trials', ages: ['U11', 'U12'] });
+  check('cur-w9: a change is saved and shows on the board at once, under both age groups',
+    [changed.location, /Brackenfold Rovers · U11 & U12 Girls/.test(words(await boardHtml())),
+     /Brackenfold Rovers · U11 & U12 Girls/.test(words((await get('/trials?age=U12', null)).html))], [clubPath, true, true]);
+  const stamp = forms(await screen()).find((f) => f.fields.notice_id === noticeId && f.submit === 'Checked today');
+  const stamped = await press(clubPath, op, stamp.fields);
+  check('cur-w10: "Checked today" re-stamps it with one press and comes back to the club', [stamped.status, stamped.location], [303, clubPath]);
+  const rm = forms(await screen()).find((f) => f.fields.notice_id === noticeId && f.submit === 'Remove');
+  await press(clubPath, null, rm.fields);
+  await press(clubPath, ids.people.alex, { ...rm.fields, clubId: 'not-a-club' });
+  check('cur-w11: signed out, or posted with a club id that is not one, the remove button takes nothing down (the notice is still on the board)',
+    /Brackenfold Rovers · U11 & U12 Girls/.test(words(await boardHtml())), true);
+  const removed = await press(clubPath, op, rm.fields);
+  check('cur-w12: the operator takes it down with one press, and it is gone from the board and the club page',
+    [removed.location, /Brackenfold Rovers/.test(words(await boardHtml())), /U11 & U12 Girls trials/.test(words((await get('/fc/brackenfold-rovers', null)).html))],
+    [clubPath, false, false]);
+
+  // ---- the listing changed, then removed --------------------------------------------
+  const lForm = forms(await screen()).find((f) => f.visible.some((v) => v.name === 'source'));
+  const renamed = await press(clubPath, op, { ...lForm.fields, ...listing, name: 'Brackenfold Rovers FC' });
+  check('cur-w13: renamed, the listing\'s page moves with its name',
+    [renamed.location, (await get('/fc/brackenfold-rovers-fc', null)).status, (await get('/fc/brackenfold-rovers', null)).status], [clubPath, 200, 404]);
+  const drop = forms(await screen()).find((f) => 'clubId' in f.fields && !('notice_id' in f.fields) && f.submit === 'Remove');
+  const dropped = await press(clubPath, op, drop.fields);
+  check('cur-w14: removing the listing takes its page down and it leaves the directory',
+    [dropped.location, (await get('/fc/brackenfold-rovers-fc', null)).status, await rowsNamed('Brackenfold Rovers')], ['/ops/clubs', 404, 0]);
 }
 
 

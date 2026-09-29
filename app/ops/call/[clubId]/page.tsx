@@ -54,14 +54,18 @@ function Field({ name, label: text, required, placeholder, type, note }: {
 }
 // One of the four questions: a compact segmented choice. The first option is
 // checked, exactly as the select it replaces defaulted to its first option.
-function Choice({ name, label: text, note, options }: { name: string; label: string; note: string; options: string[] }) {
+// UNSET (BUZ, 29 Sep, "yes to the four"): the first two questions start with
+// no answer at all, and must be answered — a pre-ticked "yes" is an answer
+// nobody gave. The action refuses the call without them (logCall), so this
+// `required` is the courtesy, not the check.
+function Choice({ name, label: text, note, options, unset }: { name: string; label: string; note: string; options: string[]; unset?: boolean }) {
   return (
     <fieldset className="ops-choice">
       <legend style={sectionLabel}>{text}</legend>
       <div className="ops-seg">
         {options.map((o, i) => (
           <label key={o}>
-            <input type="radio" name={name} value={o} defaultChecked={i === 0} />
+            <input type="radio" name={name} value={o} defaultChecked={!unset && i === 0} required={unset} />
             <span>{o[0].toUpperCase() + o.slice(1)}</span>
           </label>
         ))}
@@ -227,8 +231,8 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
           <div style={section}>
             <div style={sectionLabel}>The four questions</div>
             <div className="ops-pair">
-              <Choice name="club_confirmed" label="Club confirmed" note="Is this the club?" options={['yes', 'no']} />
-              <Choice name="person_confirmed" label="Person confirmed" note="Did they independently name the claimant?" options={['yes', 'no']} />
+              <Choice name="club_confirmed" label="Club confirmed" note="Is this the club?" options={['yes', 'no']} unset />
+              <Choice name="person_confirmed" label="Person confirmed" note="Did they independently name the claimant?" options={['yes', 'no']} unset />
               <Choice name="incorporated" label="Incorporated" note="As answered." options={['unknown', 'yes', 'no']} />
               <Choice name="authority_confirmed" label="Authority confirmed" note="As answered." options={['unknown', 'yes', 'no']} />
             </div>
@@ -237,9 +241,9 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                 Ask <i>&ldquo;who would that be?&rdquo;</i> — never <i>&ldquo;is it {c.claimant}?&rdquo;</i>. Offering the name leaves them nothing to do but agree.
               </div>
             ) : null}
-            <div style={hint}>
-              &ldquo;Incorporated&rdquo; and &ldquo;authority&rdquo; answered no or unknown do not fail verification — they flag the subscription, not the safety check.
-            </div>
+            {/* The line that said a no or unknown here would "flag the
+                subscription" is gone (BUZ, 29 Sep, "yes to the four"): billing
+                is off (D-163), so it promised a flag nothing raises. */}
           </div>
 
           <div style={section}>

@@ -5,6 +5,10 @@
 //
 // Brief G (29 Sep): the signed title row and pill, and the charter's console
 // button in place of three hand-drawn outlines. Nothing it shows changed.
+//
+// Called "Lookup" on screen, as in OpsLookup.dc.html (BUZ, 29 Sep, "yes to
+// the four"), so the rail, this title and Today's "Open in lookup" agree. The
+// address stays /ops/support: every link and bookmark to it keeps working.
 import { db } from '@/lib/db';
 import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { resendApproval } from './actions';
@@ -12,7 +16,7 @@ import { requireOperator } from '@/lib/ops-guard';
 import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Support', robots: { index: false, follow: false } };
+export const metadata = { title: 'Lookup', robots: { index: false, follow: false } };
 
 export default async function Support({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requireOperator();
@@ -40,7 +44,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
   return (
     <OpsConsole active="support">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
-        <OpsHeader title="Support" sub="Invitation state and resend. That is the whole console." />
+        <OpsHeader title="Lookup" sub="Invitation state and resend. That is the whole console." />
         <div style={{ background: T.surface, border: `1px solid ${T.red}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 3 L22 20 H2 Z" /><path d="M12 9.5 v4.5" /><circle cx="12" cy="16.8" r="0.6" fill={T.red} /></svg>
           <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>

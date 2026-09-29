@@ -135,7 +135,10 @@ export default async function Switches({ searchParams }: { searchParams: Promise
                       {smsOff ? 'Off' : 'On'}
                     </div>
                     <div style={{ fontSize: 13, color: T.secondary, fontWeight: 700 }}>
-                      {smsLimit !== null ? `${money(state.sms_spent)} of ${money(smsLimit)} spent this month` : `${money(state.sms_spent)} spent this month`}
+                      {/* D-162: the absence is said in words, not as $0.00 (BUZ,
+                          29 Sep, "yes to the four"). Any other amount as it is. */}
+                      {state.sms_spent <= 0 ? 'Nothing spent this month'
+                        : smsLimit !== null ? `${money(state.sms_spent)} of ${money(smsLimit)} spent this month` : `${money(state.sms_spent)} spent this month`}
                     </div>
                   </div>
                   <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>

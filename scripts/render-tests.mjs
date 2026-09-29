@@ -544,7 +544,7 @@ const georgia = ids.children.georgia;
     const queue = ['/', '/home', '/trials', '/jobs', '/signin', '/join'];
     // Nothing in the product links to the operator console, so it has to be
     // seeded or it is never seen.
-    if (seat === 'operator') queue.push('/ops/verification', '/ops/support', '/ops/switches');
+    if (seat === 'operator') queue.push('/ops/verification', '/ops/support', '/ops/switches', '/ops/clubs');
     const per = new Map();
     const broken = []; const stuck = new Set();
     while (queue.length) {
@@ -712,7 +712,7 @@ const georgia = ids.children.georgia;
       }
     }
   }
-  for (const path of ['/ops', '/ops/verification', '/ops/reports', '/ops/support', '/ops/switches']) {
+  for (const path of ['/ops', '/ops/verification', '/ops/reports', '/ops/support', '/ops/switches', '/ops/clubs']) {
     const opHtml = (await get(path, ids.people.marina)).html;
     const nav = navOf(opHtml, 'Operator');
     check(`s4: ${path} carries the operator sidebar`, nav !== null, true);
@@ -770,6 +770,72 @@ const georgia = ids.children.georgia;
       [radios('club_confirmed'), radios('person_confirmed'), radios('incorporated'), radios('authority_confirmed'),
        /<select[^>]*name="(club_confirmed|person_confirmed|incorporated|authority_confirmed)"/.test(main)],
       [['yes', 'no'], ['yes', 'no'], ['unknown', 'yes', 'no'], ['unknown', 'yes', 'no'], false]);
+  }
+  // BUZ, 29 Sep ("yes to the four"): three of the operator-console calls, as
+  // the pages serve them. The fourth — a call is not recorded until the first
+  // two questions are answered — is pressed by the write suite (ops-w1).
+  {
+    const main = (h) => h.replace(/<!--[\s\S]*?-->/g, '').replace(/<nav[\s\S]*?<\/nav>/g, ' ');
+    const sheet = main((await get(`/ops/call/${ids.clubs['riverside-fc']}`, ids.people.marina)).html);
+    const radio = (name, value) => new RegExp(`<input[^>]*type="radio"[^>]*name="${name}"[^>]*value="${value}"[^>]*>`).exec(sheet)?.[0] ?? '';
+    check('ops-r8: the call sheet’s first two questions start with nothing chosen and must be answered; "incorporated" and "authority" still start at unknown',
+      [['club_confirmed', 'person_confirmed'].flatMap((q) => ['yes', 'no'].map((v) => /checked/.test(radio(q, v)))),
+       ['club_confirmed', 'person_confirmed'].map((q) => /required/.test(radio(q, 'yes'))),
+       ['incorporated', 'authority_confirmed'].map((q) => /checked/.test(radio(q, 'unknown')))],
+      [[false, false, false, false], [true, true], [true, true]]);
+    check('ops-r9: and it no longer says a no or unknown answer will "flag the subscription" (billing is off, D-163)',
+      /flag the subscription/.test(text(sheet).join(' ')), false);
+    const sw = text(main((await get('/ops/switches', ids.people.marina)).html));
+    const spend = sw.find((l) => /spent this month$/.test(l)) ?? '';
+    check(`ops-r10: the SMS spend says the absence in words, never $0.00 (D-162) — "${spend}"`,
+      [spend !== '', /\$0\.00/.test(spend), spend === 'Nothing spent this month' || /^\$(?!0\.00)\d+\.\d\d (of \$\d+\.\d\d )?spent this month$/.test(spend)],
+      [true, false, true]);
+    const look = (await get('/ops/support', ids.people.marina)).html;
+    const rail = text(navOf(look, 'Operator') ?? '');
+    check('ops-r11: the door is "Lookup" — the rail, the page’s own title and its tab agree, and nothing is called "Support" any more',
+      [rail.includes('Lookup'), rail.includes('Support'), /<h1[^>]*>Lookup<\/h1>/.test(look), /<title>Lookup · Pitch Football<\/title>/.test(look)],
+      [true, false, true, true]);
+  }
+  // Brief I (29 Sep; 0130): every club in every state, from the operator's
+  // side. No person's data on the directory; the doors each state earns; the
+  // search; one unclaimed listing's own screen, with the notice Pitch
+  // compiled for it and its stamps; and the doors a verified club does not
+  // get from here.
+  {
+    const op = ids.people.marina;
+    const westgate = ids.clubs['westgate-rangers'], riverside = ids.clubs['riverside-fc'];
+    const strip = (h) => h.replace(/<!--[\s\S]*?-->/g, '').replace(/<nav[\s\S]*?<\/nav>/g, ' ');
+    const dir = strip((await get('/ops/clubs', op)).html);
+    const rows = [...dir.matchAll(/data-club-row="([a-z]+)"([\s\S]*?)(?=data-club-row=|<\/main>|$)/g)].map((m) => ({ state: m[1], html: m[2] }));
+    const rowOf = (name) => rows.find((r) => text(r.html).includes(name))?.html ?? '';
+    check(`cur-r1: the directory lists every club in every state the seed holds (${[...new Set(rows.map((r) => r.state))].sort().join(', ')})`,
+      [rows.length >= 4, ['claimed', 'unclaimed', 'verified'].every((st) => rows.some((r) => r.state === st))], [true, true]);
+    check('cur-r2: each row opens its public page, and only a club somebody has claimed opens a call sheet',
+      [new RegExp('href="/fc/westgate-rangers"').test(rowOf('Westgate Rangers')), /href="\/ops\/call\//.test(rowOf('Westgate Rangers')),
+       new RegExp(`href="/ops/call/${riverside}"`).test(rowOf('Riverside FC')), new RegExp(`href="/ops/clubs/${westgate}"`).test(rowOf('Westgate Rangers'))],
+      [true, false, true, true]);
+    const people = ['Marina', 'Petrovic', 'Dana', 'Kovac', 'Sam Kaya', 'Alex', 'Robin'];
+    check('cur-r3: and it carries no person’s data — no name, no address, nobody who claimed or runs a club',
+      [people.filter((n) => text(dir).some((l) => l.includes(n))), text(dir).filter((l) => l.includes('@'))], [[], []]);
+    const found = text(strip((await get('/ops/clubs?q=preston', op)).html)).filter((l) => /^(Northern United SC|Riverside FC|Westgate Rangers)$/.test(l));
+    check('cur-r4: the search finds a club by its suburb, and says so when nothing matches',
+      [found, text(strip((await get('/ops/clubs?q=nowhere-at-all', op)).html)).includes('Nothing matches that.')], [['Northern United SC'], true]);
+    const wg = strip((await get(`/ops/clubs/${westgate}`, op)).html);
+    check('cur-r5: an unclaimed listing’s own screen offers its listing to change, says who listed it, and the notice Pitch compiled, stamped, with the link it came from',
+      [/<input[^>]*name="name"[^>]*value="Westgate Rangers"/.test(wg) || /value="Westgate Rangers"[^>]*name="name"/.test(wg),
+       text(wg).some((l) => /^Listed \d{1,2} [A-Z][a-z]{2} \d{4} by td@example\.com$/.test(l)),
+       text(wg).includes('U13 Boys trials'),
+       text(wg).some((l) => /^Listed \d{1,2} [A-Z][a-z]{2} by td@example\.com · checked \d{1,2} [A-Z][a-z]{2}$/.test(l)),
+       /href="https:\/\/westgaterangers\.example\.au\/trials"/.test(wg),
+       /href="\/ops\/clubs\/[0-9a-f-]{36}\/trial"/.test(wg)],
+      [true, true, true, true, true, true]);
+    const rv = strip((await get(`/ops/clubs/${riverside}`, op)).html);
+    check('cur-r6: a verified club’s screen has no listing to change and no "Post a trial" — it posts its own (D-90) — and its trial form is not found',
+      [/name="name"/.test(rv), /\/trial"/.test(rv), /href="\/ops\/call\//.test(rv),
+       (await get(`/ops/clubs/${riverside}/trial`, op)).status, (await get('/ops/clubs/not-a-club', op)).status],
+      [false, false, true, 404, 404]);
+    const out = await get('/ops/clubs', null);
+    check('cur-r7: signed out, the directory is not there to read', [out.status, out.location?.endsWith('/signin')], [307, true]);
   }
   // D-154 — the administrator's frame and walls. The same subset rule, and
   // the register itself is not one of her doors at a verified club.

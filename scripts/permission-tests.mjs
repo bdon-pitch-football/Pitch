@@ -12,6 +12,8 @@ import { PGlite } from '@electric-sql/pglite';
 import { PROVENANCE, PROVENANCE_LABELS, STAT_SETS, positionGroup, sharedProvenance } from '../lib/football.ts';
 import { PLAYER_FIXTURES } from '../lib/fixtures.ts';
 import { analyticsAllowed, analyticsBeforeSend } from '../lib/analytics-scope.ts';
+import { POSITIONS as POSITIONS_TS } from '../lib/football.ts';
+import { CLUBS_WORDS_APPROVED as CLUBS_WORDS_APPROVED_TS, clubsScreensShown as clubsScreensShownTS } from '../lib/ops-policy.ts';
 import { createHash, createHmac } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -8950,6 +8952,232 @@ const componentFilesAll = [];
     [after.approved - before.approved, after.approvals_sent - before.approvals_sent, after.approved <= after.approvals_sent], [1, 1, true]);
   check('ops-t8: the failed text is listed by channel and provider word, and neither its number nor its message is anywhere in the answer',
     [fails.some((f) => f.channel === 'sms' && f.provider_said === 'undelivered'), /\+61400000999|ops fixture body|ops-fixture/.test(JSON.stringify([after, fails]))], [true, false]);
+}
+
+// --- Pitch curates the board (brief I, 29 Sep; 0130; D-64, D-74, D-90). The
+//     operator adds an unclaimed club listing and a notice compiled from the
+//     club's own public notice. Every write is a function naming the
+//     operator; a compiled notice is behind a wall no other writer passes; the
+//     reads carry club facts and counts, never a person. What the screens
+//     serve is the render suite's (cur-r*) and what the buttons do is the
+//     write suite's (cur-w*); these are the rules underneath both.
+{
+  const one = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const state = async (sql, args) => { try { await db.query(sql, args); return 'ok'; } catch (e) { return e.code ?? 'error'; } };
+  const curator = crypto.randomUUID(), stranger = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, email) values ($1,'Curator','curator@fixture.example'), ($2,'Stranger','stranger@fixture.example')`, [curator, stranger]);
+  const OP = [curator, 'Curator@Fixture.Example'];
+  const add = (name, suburb, source = 'club website /contact', st = 'VIC', contact = 'secretary@fixture-club.example.au') =>
+    db.query('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7) as id', [...OP, name, suburb, st, contact, source]);
+  const events = async (club) => (await db.query(`select action, operator_email from curation_event where club_id = $1 order by id`, [club])).rows;
+  const curating = async () => (await one(`select coalesce(current_setting('pitch.curating', true), '') as v`)).v;
+
+  // ---- who may write --------------------------------------------------------
+  check('cur-1: the functions refuse anyone who is not a person named by their own address — a stranger giving the operator\'s address, nobody, a made-up id',
+    [await state('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7)', [stranger, 'curator@fixture.example', 'Stranger FC', 'Nowhere', 'VIC', null, 'a website']),
+     await state('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7)', [null, 'curator@fixture.example', 'Stranger FC', 'Nowhere', 'VIC', null, 'a website']),
+     await state('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7)', [crypto.randomUUID(), 'curator@fixture.example', 'Stranger FC', 'Nowhere', 'VIC', null, 'a website']),
+     (await one(`select count(*)::int as n from club where name = 'Stranger FC'`)).n],
+    ['42501', '42501', '42501', 0]);
+
+  // ---- a club listing ---------------------------------------------------------
+  const lark = (await add('  Larkfield   Wanderers ', 'Tarrowvale Heights')).rows[0].id;
+  check('cur-2: a listing is unclaimed, tidy, has a page address, says where it came from and who listed it, and is logged with the operator\'s address',
+    [await one(`select name, suburb, state, club_state, public_slug, contact_email, listing_source, listed_by, listed_by_email, listed_at is not null as stamped from club where id = $1`, [lark]),
+     await events(lark)],
+    [{ name: 'Larkfield Wanderers', suburb: 'Tarrowvale Heights', state: 'VIC', club_state: 'unclaimed', public_slug: 'larkfield-wanderers',
+       contact_email: 'secretary@fixture-club.example.au', listing_source: 'club website /contact', listed_by: curator,
+       listed_by_email: 'curator@fixture.example', stamped: true },
+     [{ action: 'club_added', operator_email: 'curator@fixture.example' }]]);
+  check('cur-3: a duplicate by name and suburb is refused, whatever the case and the spacing — and the same name in another suburb is a different club',
+    [await state('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7)', [...OP, 'LARKFIELD wanderers', ' tarrowvale  heights', 'VIC', null, 'FV club directory']),
+     await state('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7)', [...OP, 'Larkfield Wanderers', 'Quarrymead', 'VIC', null, 'FV club directory']),
+     (await one(`select public_slug from club where name = 'Larkfield Wanderers' and suburb = 'Quarrymead'`)).public_slug],
+    ['23505', 'ok', 'larkfield-wanderers-2']);
+  check('cur-4: a listing with no source, a state outside Victoria and New South Wales, or a contact that is not an address is refused, and nothing is written',
+    [await state('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7)', [...OP, 'Sourceless FC', 'Nowhere', 'VIC', null, '  ']),
+     await state('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7)', [...OP, 'Sourceless FC', 'Nowhere', 'QLD', null, 'FV club directory']),
+     await state('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7)', [...OP, 'Sourceless FC', 'Nowhere', 'VIC', 'not an address', 'FV club directory']),
+     (await one(`select count(*)::int as n from club where name = 'Sourceless FC'`)).n],
+    ['23514', '23514', '23514', 0]);
+
+  // A claim code is in flight to the listing's address when the address is
+  // corrected: the code stops working (it proves nothing about the club now).
+  const claimant = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, email) values ($1,'Claimant','claimant@fixture.example')`, [claimant]);
+  await db.query(`insert into verification_challenge (person_id, club_id, channel, token_hash, expires_at) values ($1,$2,'email',$3, now() + interval '30 minutes')`, [claimant, lark, sha('code-lark')]);
+  await db.query('select fn_ops_edit_club($1,$2,$3,$4,$5,$6,$7,$8)', [...OP, lark, 'Larkfield Wanderers SC', 'Tarrowvale Heights', 'VIC', 'football@fixture-club.example.au', 'club website /contact, rechecked']);
+  check('cur-5: an edit renames the listing and moves its page address with it, voids a claim code sent to the old address, and logs before and after',
+    [await one(`select name, public_slug, contact_email, listing_source from club where id = $1`, [lark]),
+     (await one(`select count(*)::int as n from verification_challenge where club_id = $1`, [lark])).n,
+     (await one(`select detail->'before'->>'contact' as b, detail->'after'->>'contact' as a from curation_event where club_id = $1 and action = 'club_edited'`, [lark]))],
+    [{ name: 'Larkfield Wanderers SC', public_slug: 'larkfield-wanderers-sc', contact_email: 'football@fixture-club.example.au', listing_source: 'club website /contact, rechecked' },
+     0, { b: 'secretary@fixture-club.example.au', a: 'football@fixture-club.example.au' }]);
+
+  // ---- a compiled notice --------------------------------------------------------
+  const today = (await one(`select (now() at time zone 'Australia/Melbourne')::date::text as d`)).d;
+  const soon = (await one(`select ((now() at time zone 'Australia/Melbourne')::date + 10)::text as d`)).d;
+  const notice = (club, extra = {}) => {
+    const a = { title: 'U12 & U13 Girls trials', ages: ['U12', 'U13'], gender: 'girls', on: soon, time: 'Sat 9:00 AM', ground: 'Larkfield Reserve',
+      pos: ['GK', 'CB'], url: 'https://larkfield.example.au/trials', ...extra };
+    return db.query('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as id', [...OP, club, a.title, a.ages, a.gender, a.on, a.time, a.ground, a.pos, a.url]);
+  };
+  const n1 = (await notice(lark)).rows[0].id;
+  check('cur-6: a compiled notice is compiled, links to the club\'s own notice, names who added it, carries both stamps at today, is findable under each age group, and is logged',
+    [await one(`select source, source_url, added_by, added_by_email, added_on::text as added, last_checked::text as checked, time_venue, competition_gender, position_needs from trial_notice where id = $1`, [n1]),
+     (await db.query(`select age_group from trial_notice_age_group where trial_notice_id = $1 order by age_group`, [n1])).rows.map((r) => r.age_group),
+     (await events(lark)).map((e) => e.action)],
+    [{ source: 'compiled', source_url: 'https://larkfield.example.au/trials', added_by: curator, added_by_email: 'curator@fixture.example',
+       added: today, checked: today, time_venue: 'Sat 9:00 AM · Larkfield Reserve', competition_gender: 'girls', position_needs: ['GK', 'CB'] },
+     ['U12', 'U13'], ['club_added', 'club_edited', 'notice_added']]);
+  check('cur-7: a notice with no link to the club\'s own notice, a link that is not one, no age group, an age group not in the lookup, a position outside the ten, or a date already gone is refused',
+    [await state('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, lark, 'No link trials', ['U12'], null, soon, '9:00 AM', 'A ground', [], '']),
+     await state('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, lark, 'Bad link trials', ['U12'], null, soon, '9:00 AM', 'A ground', [], 'the club website']),
+     await state('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, lark, 'No age trials', [], null, soon, '9:00 AM', 'A ground', [], 'https://x.example.au/t']),
+     await state('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, lark, 'Odd age trials', ['U99'], null, soon, '9:00 AM', 'A ground', [], 'https://x.example.au/t']),
+     await state('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, lark, 'Sweeper trials', ['U12'], null, soon, '9:00 AM', 'A ground', ['SW'], 'https://x.example.au/t']),
+     await state('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, lark, 'Yesterday trials', ['U12'], null, '2020-01-01', '9:00 AM', 'A ground', [], 'https://x.example.au/t']),
+     (await one(`select count(*)::int as n from trial_notice where club_id = $1`, [lark])).n],
+    ['23514', '23514', '23514', '23514', '23514', '23514', 1]);
+
+  // Which clubs may carry one (D-90): unclaimed and claimed-unverified, and
+  // no other. A verified club posts its own; a suspended club gets nothing.
+  const claimedClub = (await add('Hollowmere Athletic', 'Hollowmere')).rows[0].id;
+  await db.query(`update club set club_state = 'claimed' where id = $1`, [claimedClub]);
+  const suspendedClub = crypto.randomUUID();
+  await db.query(`insert into club (id, name, suburb, state, club_state) values ($1,'Dunmore Park SC','Dunmore','VIC','suspended')`, [suspendedClub]);
+  check('cur-8: a compiled notice goes on an unclaimed or a claimed-unverified club, never on a verified club or a suspended one',
+    [(await notice(claimedClub, { title: 'Hollowmere U14 Boys trials', ages: ['U14'], gender: 'boys' })).rows.length,
+     await state('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, CLUB.riverside, 'Riverside by Pitch', ['U14'], 'boys', soon, '9:00 AM', 'Riverside Park', [], 'https://riverside.example.au/t']),
+     await state('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, suspendedClub, 'Dunmore by Pitch', ['U14'], 'boys', soon, '9:00 AM', 'Dunmore Oval', [], 'https://dunmore.example.au/t'])],
+    [1, '42501', '42501']);
+
+  // ---- the wall ----------------------------------------------------------------
+  // Asked through state() rather than assumed, so a wall that caught a club's
+  // own notice fails cur-10 by name instead of stopping the suite.
+  const clubInsert = await state(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,'Club own trials',$2,'Sun 9:00 AM · Riverside Park','club')`, [CLUB.riverside, soon]);
+  const clubNotice = (await one(`select id from trial_notice where club_id = $1 and title = 'Club own trials'`, [CLUB.riverside]))?.id ?? crypto.randomUUID();
+  check('cur-9: the wall — no writer but the operator\'s functions inserts, edits, re-stamps, deletes or re-labels a compiled notice, or touches its age groups',
+    [await state(`insert into trial_notice (club_id, title, trial_on, time_venue, source, source_url, added_by_email) values ($1,'Tip-off trials',$2,'Sat · Somewhere','compiled','https://x.example.au/t','someone@fixture.example')`, [lark, soon]),
+     await state(`update trial_notice set title = 'Edited by hand' where id = $1`, [n1]),
+     await state(`update trial_notice set last_checked = current_date where id = $1`, [n1]),
+     await state(`delete from trial_notice where id = $1`, [n1]),
+     await state(`update trial_notice set source = 'compiled', source_url = 'https://x.example.au/t', added_by_email = 'someone@fixture.example' where id = $1`, [clubNotice]),
+     await state(`insert into trial_notice_age_group (trial_notice_id, age_group) values ($1, 'U15')`, [n1]),
+     await state(`delete from trial_notice_age_group where trial_notice_id = $1`, [n1]),
+     (await one(`select title, source from trial_notice where id = $1`, [n1]))],
+    ['42501', '42501', '42501', '42501', '42501', '42501', '42501', { title: 'U12 & U13 Girls trials', source: 'compiled' }]);
+  const clubOwn = async () => (await one(`select count(*)::int as n from trial_notice where id = $1`, [clubNotice])).n;
+  check('cur-10: and a club\'s own notice is untouched by it — the club still posts, edits and deletes its own',
+    [clubInsert, await clubOwn(), await state(`update trial_notice set title = 'Club own trials, changed' where id = $1`, [clubNotice]),
+     await state(`delete from trial_notice where id = $1`, [clubNotice]), await clubOwn()], ['ok', 1, 'ok', 'ok', 0]);
+  check('cur-11: every function shuts the wall behind it — after each one, the session can write nothing compiled',
+    [await curating(), await state(`update trial_notice set title = 'After the function' where id = $1`, [n1])], ['', '42501']);
+
+  // ---- re-stamp, change, remove ---------------------------------------------------
+  await db.query(`select set_config('pitch.curating', 'test', false)`);
+  await db.query(`update trial_notice set last_checked = current_date - 20 where id = $1`, [n1]);
+  await db.query(`select set_config('pitch.curating', '', false)`);
+  await state('select fn_ops_check_notice($1,$2,$3)', [...OP, n1]);
+  check('cur-12: "last checked" is re-stamped to today with one call, and the stamp is logged with who pressed it',
+    [(await one(`select last_checked::text as c from trial_notice where id = $1`, [n1]))?.c,
+     (await events(lark)).at(-1)], [today, { action: 'notice_checked', operator_email: 'curator@fixture.example' }]);
+
+  // Somebody has registered for the trial: its date is fixed from then on.
+  const hollowNotice = (await one(`select id from trial_notice where club_id = $1`, [claimedClub]))?.id ?? crypto.randomUUID();
+  await db.query(`insert into registration (player_id, club_id, policy_version, trial_notice_id) values ($1,$2,'20@v2.4',$3)`, [ID.marcus, claimedClub, hollowNotice]);
+  await state('select fn_ops_edit_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+    [...OP, hollowNotice, 'Hollowmere U14 & U15 Boys trials', ['U14', 'U15'], 'boys', '2099-01-01', 'Sat 10:00 AM', 'Hollowmere Park', ['ST'], 'https://hollowmere.example.au/trials']);
+  check('cur-13: a change is saved and moves "last checked", but once somebody has registered for the trial its date stays where it was',
+    [await one(`select title, trial_on::text as on, time_venue, position_needs, last_checked::text as checked from trial_notice where id = $1`, [hollowNotice]),
+     (await db.query(`select age_group from trial_notice_age_group where trial_notice_id = $1 order by age_group`, [hollowNotice])).rows.map((r) => r.age_group)],
+    [{ title: 'Hollowmere U14 & U15 Boys trials', on: soon, time_venue: 'Sat 10:00 AM · Hollowmere Park', position_needs: ['ST'], checked: today }, ['U14', 'U15']]);
+
+  // The club is verified later. Pitch's notice can no longer be changed or
+  // re-stamped there — the club posts its own — but it can always come down.
+  const hCall = crypto.randomUUID();
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [hCall, claimedClub]);
+  await db.query(`update club set club_state = 'verified', verified_call_id = $1 where id = $2`, [hCall, claimedClub]);
+  check('cur-14: at a club verified since, a compiled notice cannot be changed or re-stamped by Pitch, and can still be taken down — the registration stays, no longer tagged to it',
+    [await state('select fn_ops_check_notice($1,$2,$3)', [...OP, hollowNotice]),
+     await state('select fn_ops_edit_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, hollowNotice, 'Changed', ['U14'], null, soon, '9:00 AM', 'A ground', [], 'https://x.example.au/t']),
+     await state('select fn_ops_remove_notice($1,$2,$3)', [...OP, hollowNotice]),
+     (await one(`select count(*)::int as n from trial_notice where id = $1`, [hollowNotice])).n,
+     (await one(`select trial_notice_id, trial_on::text as on from registration where club_id = $1`, [claimedClub]))],
+    ['42501', '42501', 'ok', 0, { trial_notice_id: null, on: null }]);
+  const ownNotice = (await one(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,'Riverside own trials',$2,'Sun 9:00 AM · Riverside Park','club') returning id`, [CLUB.riverside, soon])).id;
+  check('cur-15: the operator\'s doors never change, re-stamp or remove a club\'s own notice',
+    [await state('select fn_ops_check_notice($1,$2,$3)', [...OP, ownNotice]),
+     await state('select fn_ops_edit_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [...OP, ownNotice, 'Changed', ['U14'], null, soon, '9:00 AM', 'A ground', [], 'https://x.example.au/t']),
+     await state('select fn_ops_remove_notice($1,$2,$3)', [...OP, ownNotice]),
+     (await one(`select title from trial_notice where id = $1`, [ownNotice]))?.title],
+    ['42501', '42501', '42501', 'Riverside own trials']);
+  await db.query(`delete from trial_notice where id = $1`, [ownNotice]);
+
+  // ---- a claimed club is the club's, and removing a listing ------------------------
+  check('cur-16: a listing somebody has claimed is the club\'s to run — the operator cannot edit it or remove it',
+    [await state('select fn_ops_edit_club($1,$2,$3,$4,$5,$6,$7,$8)', [...OP, claimedClub, 'Renamed by Pitch', 'Hollowmere', 'VIC', null, 'FV club directory']),
+     await state('select fn_ops_remove_club($1,$2,$3)', [...OP, claimedClub]),
+     (await one(`select name from club where id = $1`, [claimedClub]))?.name], ['42501', '42501', 'Hollowmere Athletic']);
+  await state('select fn_ops_remove_club($1,$2,$3)', [...OP, lark]);
+  check('cur-17: removing an unclaimed listing takes its page and its notices with it, and the log keeps what it said and who removed it',
+    [(await one(`select count(*)::int as n from club where id = $1`, [lark])).n,
+     (await one(`select count(*)::int as n from trial_notice where club_id = $1`, [lark])).n,
+     await one(`select action, operator_email, detail->>'name' as name, (detail->>'notices')::int as notices from curation_event where club_id = $1 order by id desc limit 1`, [lark]),
+     await curating()],
+    [0, 0, { action: 'club_removed', operator_email: 'curator@fixture.example', name: 'Larkfield Wanderers SC', notices: 1 }, '']);
+  check('cur-18: the log is append-only, and has row-level security like every table (L26)',
+    [await state(`update curation_event set operator_email = 'someone-else@fixture.example' where club_id = $1`, [lark]),
+     await state(`delete from curation_event where club_id = $1`, [lark]),
+     (await one(`select relrowsecurity as r from pg_class where relname = 'curation_event'`)).r], ['P0001', 'P0001', true]);
+
+  // ---- the reads carry no person ---------------------------------------------------
+  const result = async (sig) => (await one(`select pg_get_function_result($1::regprocedure) as r`, [sig])).r;
+  const PERSON = /\b(first_name|last_name|dob|person_id|player_id|child_id|guardian\w*|membership\w*|role|td_\w+|claimant\w*|admin\w*|phone\w*)\b/;
+  const listCols = await result('fn_ops_clubs(text)');
+  check(`cur-19: the directory's one read returns club facts and a count — no person, no address of anyone's (${listCols})`,
+    [PERSON.test(listCols), /email/.test(listCols)], [false, false]);
+  check('cur-20: nor do the club and notice reads name any person — the only addresses in them are the club\'s own and the operator\'s',
+    [PERSON.test(await result('fn_ops_club(uuid)')), PERSON.test(await result('fn_ops_club_notices(uuid)')),
+     [...(await result('fn_ops_club(uuid)') + await result('fn_ops_club_notices(uuid)')).matchAll(/(\w*email\w*)/g)].map((m) => m[1])],
+    [false, false, ['contact_email', 'listed_by_email', 'added_by_email']]);
+  const dir = (await db.query(`select name from fn_ops_clubs($1)`, ['hollow'])).rows.map((r) => r.name);
+  const all = (await one(`select count(*)::int as n from fn_ops_clubs('')`)).n;
+  check('cur-21: the search finds a club by a piece of its name or its suburb, in every state, and takes % and _ as typed',
+    [dir, (await db.query(`select club_state from fn_ops_clubs('Dunmore')`)).rows.map((r) => r.club_state),
+     all === (await one(`select count(*)::int as n from club`)).n, (await db.query(`select 1 from fn_ops_clubs('%')`)).rows.length],
+    [['Hollowmere Athletic'], ['suspended'], true, 0]);
+
+  // ---- the ten, and the doors in the product ---------------------------------------
+  check('cur-22: the database\'s copy of the ten positions is the football module\'s own list (D-92), so neither can drift',
+    (await one('select fn_positions_ten() as p')).p, Object.keys(POSITIONS_TS));
+  const opsClubs = routeFiles.filter((f) => /\/app\/ops\/clubs\//.test(f));
+  const actions = codeOnly(srcOf('app/ops/clubs/actions.ts'));
+  const exported = [...actions.matchAll(/export async function (\w+)\([\s\S]*?\n\}/g)].map((m) => [m[1], m[0]]);
+  check(`cur-s1: every door on /ops/clubs checks the operator before it asks the database anything (${exported.map(([n]) => n).join(', ')})`,
+    [exported.length, exported.filter(([, body]) => !(body.indexOf('await operator()') > -1 && body.indexOf('await operator()') < body.indexOf('db.query'))).map(([n]) => n),
+     /async function operator\(\) \{\s*const op = await requireOperator\(\);\s*if \(!clubsScreensShown\(process\.env\.NODE_ENV === 'production'\)\) notFound\(\);/.test(actions)],
+    [6, [], true]);
+  const writers = routeFiles.filter((f) => {
+    const src = codeOnly(readFileSync(f, 'utf8'));
+    return /fn_ops_(add|edit|remove)_club|fn_ops_(add|edit|check|remove)_notice/.test(src) && !/\/app\/ops\/clubs\/actions\.ts$/.test(f);
+  });
+  const byHand = tsSourceFiles().filter((f) => {
+    const src = codeOnly(srcOf(f));
+    return /pitch\.curating/.test(src) || /insert into club\b/i.test(src) || /'compiled'/.test(src);
+  });
+  check('cur-s2: nothing else in the product writes a listing or a compiled notice — no other caller of the functions, no insert into club, no opening of the wall, no "compiled" written anywhere (D-90: no public submission route)',
+    [writers.map((f) => f.slice(f.indexOf('app/'))), byHand],
+    [[], []]);
+  const pageQueries = opsClubs.filter((f) => /page\.tsx$/.test(f)).flatMap((f) =>
+    [...codeOnly(readFileSync(f, 'utf8')).matchAll(/db\.query\(\s*`([^`]*)`/g)].map((m) => m[1].replace(/\s+/g, ' ').trim()));
+  check(`cur-s3: the clubs screens ask the database only through the operator's reads and the age-group lookup (${pageQueries.length} queries)`,
+    [pageQueries.length >= 5, pageQueries.filter((q) => !/from (fn_ops_clubs|fn_ops_club|fn_ops_club_notices)\(\$1\)|from age_group order by sort/.test(q))], [true, []]);
+  const shownGate = opsClubs.filter((f) => /page\.tsx$/.test(f)).filter((f) =>
+    !/await requireOperator\(\);\s*if \(!clubsScreensShown\(process\.env\.NODE_ENV === 'production'\)\) notFound\(\);/.test(codeOnly(readFileSync(f, 'utf8'))));
+  check(`cur-s4: every clubs screen is the operator's and is held until BUZ approves its words — a 404 in production until then (${opsClubs.filter((f) => /page\.tsx$/.test(f)).length} screens)`,
+    [shownGate.map((f) => f.slice(f.indexOf('app/'))), clubsScreensShownTS(true) === CLUBS_WORDS_APPROVED_TS, clubsScreensShownTS(false)], [[], true, true]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

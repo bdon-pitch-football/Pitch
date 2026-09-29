@@ -81,7 +81,7 @@ const START = { 'signed out': ['/signin', '/join', '/trials', '/p/dev-deniz', '/
 // checked to have actually RENDERED for that seat: a redirect home or a 404 is
 // a failure here, because a page that was never shown was never measured.
 // '@squad' is replaced by the first squad the TD's squads list links to.
-const g = ids.children.georgia, riverside = ids.clubs['riverside-fc'];
+const g = ids.children.georgia, riverside = ids.clubs['riverside-fc'], westgate = ids.clubs['westgate-rangers'];
 const DEEP = {
   // The confirm-your-address page (0056) is reached only from an email, so
   // the walk above never lands on it. /confirm/dev-unproved is the seed's
@@ -98,7 +98,12 @@ const DEEP = {
   // Brief G (29 Sep) adds the rest of the console: the report desk, support
   // and the switches were measured by nothing either.
   'club TD': ['@squad', '@squad?pos=GK', '/ops', '/ops/verification', `/ops/call/${riverside}`,
-    '/ops/reports', '/ops/support', '/ops/support?q=guardian@example.com', '/ops/switches'],
+    '/ops/reports', '/ops/support', '/ops/support?q=guardian@example.com', '/ops/switches',
+    // Brief I (29 Sep): the clubs directory, one club of each kind, adding a
+    // listing and adding a compiled notice — the rows stack under 768 and must
+    // pass the squeeze rule like the queue's.
+    '/ops/clubs', '/ops/clubs?q=altona', '/ops/clubs/new', `/ops/clubs/${westgate}`, `/ops/clubs/${westgate}/trial`,
+    `/ops/clubs/${riverside}`],
   'club admin': ['@squad'],
 };
 
