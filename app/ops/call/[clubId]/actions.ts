@@ -18,9 +18,9 @@
 // "granted by the club and confirmed at club verification"; D-137's named,
 // timestamped human). Recording is all this action does: 0058 decides when
 // the role attaches, and refuses a `technical_director` membership written by
-// any other route. HANDOVER — changing a club's TD, or taking one off — is
-// NOT here and is not anywhere yet: BUZ has it as a fast-follow. A later call
-// naming someone else records that person; it does not end the first one.
+// any other route. HANDOVER lives in the database too (0100): a verified call
+// naming somebody else ends the live TD in this same transaction, from the
+// call's own trigger, so this action does nothing extra for it.
 //
 // THE SUSPENSION ALSO CARRIES ITS CLASS, AND THAT IS WHAT TELLS FAMILIES
 // (doc 31 M11/L29; doc 15 §37; 0066). This was the only path in the product
@@ -44,6 +44,7 @@ import { db } from '@/lib/db';
 import { clubDeverifiedEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 import { requireOperator } from '@/lib/ops-guard';
+import { isUuid } from '@/lib/ids';
 
 // Doc 27's four outcomes, and the two of them that take a club down.
 const SUSPENDS = new Set(['suspended', 'takedown']);
@@ -144,4 +145,23 @@ export async function logCall(formData: FormData) {
     }
   }
   redirect('/ops/verification');
+}
+
+// Ending a Technical Director's access (D-48, D-93; 0100). The operator's
+// door; the club's administrator has the other one, on /club/roles. The
+// operator is checked here, first, because the schema holds no operator
+// identity (lib/ops-guard) — the same as every fn_ops_* function. The
+// database then ends the live role, requires the reason, and writes the
+// audit row naming the operator; it leaves everything the TD wrote alone.
+// A missing reason goes nowhere: the field is required on the form, and a
+// post without one is refused in the database and changes nothing.
+export async function endTd(formData: FormData) {
+  const op = await requireOperator();
+  const clubId = String(formData.get('clubId') ?? '');
+  if (!isUuid(clubId)) redirect('/ops/verification');
+  const reason = String(formData.get('reason') ?? '').trim().slice(0, 500);
+  if (reason.length >= 3) {
+    await db.query('select fn_ops_end_td($1, $2, $3, $4)', [op.personId, op.email, clubId, reason]);
+  }
+  redirect(`/ops/call/${clubId}`);
 }

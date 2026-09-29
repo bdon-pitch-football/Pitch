@@ -387,6 +387,25 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// Brief F: the crest a verified Technical Director has earned. Marina's role at
+// Riverside is the one Riverside's verification call confirmed (0058); before
+// this the page earned the crest from a coach's membership only, so her line
+// read as plain text, exactly like a claim anybody could type. The other half
+// — a typed "Technical Director, <another club>" wears no crest — needs the
+// line changed, so the write suite presses it (crest-w1).
+// ---------------------------------------------------------------------------
+{
+  const crest = `src="/dev-uploads/crest-${ids.clubs['riverside-fc']}.png"`;
+  const hero = (h) => h.slice(0, h.indexOf('Coaching now'));
+  const td = await get('/c/marina-petrovic');
+  check('crest-r1: a Technical Director the call confirmed wears the club crest on the role line naming that club',
+    [td.status, hero(td.html).includes(crest), has(hero(td.html), 'Riverside FC · Melbourne VIC'), has(td.html, 'Technical Director')],
+    [200, true, true, true]);
+  const coach = await get('/c/sam-kaya');
+  check('crest-r2: and a coach still does, on the same rule', hero(coach.html).includes(crest), true);
+}
+
+// ---------------------------------------------------------------------------
 // /home - the waiting list is ordered by how long it has waited.
 // ---------------------------------------------------------------------------
 {
