@@ -8,7 +8,7 @@ never been pushed.
 
 | # | What | Where | State |
 |---|---|---|---|
-| 1a | **SMS sender registration** with the provider, plus an Australian long number for STOP/HELP (D-81) | provider console | **Not started. Days to weeks.** Without it, no under-18 can be approved (D-156 needs both channels). |
+| 1a | **SMS: Twilio account plus an Australian mobile number** (D-81). The account was upgraded 29 Sep with US$50 prepaid and auto-recharge off. The Regulatory Bundle (EBSD ENTERPRISES PTY LTD, AU mobile, business) was **sent for review 29 Sep**, which takes up to 5 business days. **After approval:** BUZ buys the AU mobile number and attaches the bundle, then pastes `SMS_*` into Vercel. Leo points the number's inbound webhook at `/api/webhooks/sms` and sends a test text. | Twilio console | **In review.** Under-18s still register from launch day, with their texts queued (D-168). |
 | 1b | Email records on `send.pitchfootball.com.au`: DKIM, return path, DMARC `p=none` | DNS host | **Live** (checked 29 Sep with `dig`) |
 | 1c | **Supabase project in Sydney, on Pro**, with point-in-time recovery | supabase.com | Not started. The region cannot be changed later. |
 | 1d | **`help@pitchfootball.com.au` forwards to BUZ's inbox.** It is the Reply-To on every email (U-11). | email host | Not started |

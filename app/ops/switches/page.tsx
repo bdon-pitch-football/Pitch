@@ -4,8 +4,7 @@
 // reads a child's record (D-79) — the page shows counts and the switch log,
 // and nothing else.
 import { db } from '@/lib/db';
-import { HeaderMark } from '@/components/Wordmark';
-import { OpsConsole } from '@/components/console-shell';
+import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { requireOperator } from '@/lib/ops-guard';
 import { REVOKE_ALL_PHRASE } from '@/lib/ops-policy';
 import { revokeAllLinks, setLinksPaused, setSmsCap, setSmsOff } from './actions';
@@ -65,11 +64,9 @@ export default async function Switches({ searchParams }: { searchParams: Promise
   return (
     <OpsConsole active="switches">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark back={{ href: '/home' }} />
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Emergency switches</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>For the night something has gone wrong. Every switch is logged with your name and your reason.</div>
-        </div>
+        {/* The operator's title row (brief G). The switches below are as
+            they were: they read well at 375, and BUZ uses them there. */}
+        <OpsHeader title="Emergency switches" sub="For the night something has gone wrong. Every switch is logged with your name and your reason." />
 
         {done === 'paused' && <div role="status" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Every shared link is paused.</div>}
         {done === 'resumed' && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Shared links are back on.</div>}

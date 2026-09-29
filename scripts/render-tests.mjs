@@ -712,7 +712,7 @@ const georgia = ids.children.georgia;
       }
     }
   }
-  for (const path of ['/ops/verification', '/ops/support', '/ops/switches']) {
+  for (const path of ['/ops', '/ops/verification', '/ops/reports', '/ops/support', '/ops/switches']) {
     const opHtml = (await get(path, ids.people.marina)).html;
     const nav = navOf(opHtml, 'Operator');
     check(`s4: ${path} carries the operator sidebar`, nav !== null, true);
@@ -731,6 +731,45 @@ const georgia = ids.children.georgia;
     const agrees = (n, noun, one) => noun === (Number(n) === 1 ? one : one + 's');
     check(`ops-r1: the verification queue counts in English — "${line}"`,
       [Boolean(m), m ? agrees(m[1], m[2], 'club') : false, m ? agrees(m[3], m[4], 'registration') : false], [true, true, true]);
+  }
+  // Brief G (29 Sep): the operator's Today screen. Counts only, never a zero
+  // (D-162), the footer's promise on the page, and no door off it but the
+  // lookup. Read from the page outside its two navs, so the rail's own doors
+  // are not mistaken for the page's.
+  {
+    const html = (await get('/ops', ids.people.marina)).html.replace(/<!--[\s\S]*?-->/g, '');
+    const main = html.replace(/<nav[\s\S]*?<\/nav>/g, ' ');
+    const tiles = [...main.matchAll(/data-ops-tile="([^"]+)"[^>]*>[\s\S]*?<div[^>]*>[^<]*<\/div><div[^>]*>([^<]*)<\/div>/g)].map((m) => [m[1], m[2].trim()]);
+    check(`ops-r2: Today shows its counts, and none of them is a zero (D-162) (${tiles.map(([l, v]) => `${l} ${v}`).join(', ') || 'no tiles'})`,
+      [tiles.length >= 3, tiles.filter(([, v]) => !/^[1-9]\d*$/.test(v)).map(([l]) => l)], [true, []]);
+    check('ops-r3: the seed\u2019s own figures reach the page (Held and Clubs awaiting a call)',
+      ['Held', 'Clubs awaiting a call'].every((l) => tiles.some(([t]) => t === l)), true);
+    check('ops-r4: the footer says what the page will not do',
+      text(html).some((l) => l.startsWith('Everything on this page is a count. No name, no record, and no way to get to one from here')), true);
+    const doors = hrefs(main).filter((h) => !['/home', '/signout', '/privacy', '/terms', '/report'].includes(h) && !h.startsWith('/report?'));
+    check(`ops-r5: the page itself links nowhere but the lookup (${doors.join(' ') || 'nowhere'})`,
+      doors.every((h) => h === '/ops/support'), true);
+  }
+  // Brief G (29 Sep): the call sheet as BUZ asked for it. The guidance used to
+  // be written INTO the field labels in tracked capitals ("OPERATOR — THE
+  // HUMAN. NAMED, EVERY TIME…"), and each yes/unknown answer was its own tall
+  // select. Read from the served page: every tracked-caps caption is short,
+  // and the four questions are radio groups posting the values they always
+  // posted (0025's columns, write-tests td-w*).
+  {
+    const riv = ids.clubs['riverside-fc'];
+    const html = (await get(`/ops/call/${riv}`, ids.people.marina)).html.replace(/<!--[\s\S]*?-->/g, '');
+    const main = html.replace(/<nav[\s\S]*?<\/nav>/g, ' ');
+    const caps = [...main.matchAll(/<(?:span|div|legend)[^>]*text-transform:uppercase[^>]*>([\s\S]*?)<\/(?:span|div|legend)>/g)]
+      .map((m) => m[1].replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/g, "'").trim()).filter(Boolean);
+    const long = caps.filter((c) => c.length > 32);
+    check(`ops-r6: the call sheet's captions are short, the guidance is not in them (${caps.length} captions${long.length ? ' — too long: ' + long.join(' | ') : ''})`,
+      [caps.length >= 8, long], [true, []]);
+    const radios = (name) => [...main.matchAll(new RegExp(`<input[^>]*type="radio"[^>]*name="${name}"[^>]*value="([a-z]+)"`, 'g'))].map((m) => m[1]);
+    check('ops-r7: the four questions are one-tap choices posting the values they always did',
+      [radios('club_confirmed'), radios('person_confirmed'), radios('incorporated'), radios('authority_confirmed'),
+       /<select[^>]*name="(club_confirmed|person_confirmed|incorporated|authority_confirmed)"/.test(main)],
+      [['yes', 'no'], ['yes', 'no'], ['unknown', 'yes', 'no'], ['unknown', 'yes', 'no'], false]);
   }
   // D-154 — the administrator's frame and walls. The same subset rule, and
   // the register itself is not one of her doors at a verified club.

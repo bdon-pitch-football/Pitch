@@ -3693,6 +3693,15 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
     [confirmBody.indexOf('requireOperator()') > -1 && confirmBody.indexOf('requireOperator()') < confirmBody.indexOf('fn_ops_confirm_td_name'),
      routeFiles.filter((f) => /td_name_confirmation/.test(codeOnly(readFileSync(f, 'utf8')))).length],
     [true, 0]);
+  const queueSrc = codeOnly(srcOf('app/ops/verification/page.tsx'));
+  check('tdn9: the verification queue says a held name is held — never "waiting on their account" — in held words, and reads the confirmation from fn_club_td',
+    [/const HELD_NAME_STATE = process\.env\.NODE_ENV !== 'production'/.test(queueSrc),
+     queueSrc.search(/r\.name_matches === false && !r\.name_confirmed \? HELD_NAME_STATE/) > 0
+       && queueSrc.search(/r\.name_matches === false && !r\.name_confirmed \? HELD_NAME_STATE/) < queueSrc.indexOf("'waiting on their account'"),
+     /td\.name_confirmed/.test(queueSrc)], [true, true, true]);
+  const todaySrc = codeOnly(srcOf('app/ops/page.tsx'));
+  check('tdn9b: Today\u2019s waiting-texts tile is a count in held words, development only (D-168)',
+    [/const HELD_WAITING_TEXTS = process\.env\.NODE_ENV !== 'production'/.test(todaySrc), /HELD_WAITING_TEXTS && waitingTexts > 0 &&/.test(todaySrc)], [true, true]);
   check('tdn8b: its words are held — the held state and the button render outside production only, and the approved sentence that said the role goes to the account is gone (L25)',
     [/const HELD_NAME_STATE = process\.env\.NODE_ENV !== 'production'/.test(callSheet), /const HELD_NAME_CONFIRM = process\.env\.NODE_ENV !== 'production'/.test(callSheet),
      /heldForName && HELD_NAME_CONFIRM \?/.test(callSheet), srcOf('app/ops/call/[clubId]/page.tsx').includes('The role goes to this account, not to the name above.')],
@@ -8879,6 +8888,64 @@ const componentFilesAll = [];
   const ownName = all.filter(([club, sub]) => sub.split(' ').some((w) => club.split(' ').includes(w))).map(([c, sub]) => `${c} in ${sub}`);
   check(`fx2: every club the seed and the fixtures place is in a real Victorian suburb that is not its own name (${all.length} read${invented.length + ownName.length ? ' — ' + [...invented, ...ownName].join(', ') : ''})`,
     [all.length >= 7, invented, ownName], [true, [], []]);
+}
+
+// --- The operator's Today screen (brief G, 29 Sep; 0110; D-79, D-162). Every
+//     figure on it is a count, and the promise in its own footer — "no name,
+//     no record, and no way to get to one from here" — is held in four
+//     places, each read here rather than trusted: the two functions' result
+//     columns (the catalogue), the functions' bodies, the page's own query
+//     text, and what the page links to. Then the functions are driven.
+{
+  const result = async (sig) => (await db.query(`select pg_get_function_result($1::regprocedure) as r`, [sig])).rows[0].r;
+  const todayCols = [...(await result('fn_ops_today()')).matchAll(/(\w+) (\w[\w ]*?)(?:,|\)$)/g)].map((m) => [m[1], m[2]]);
+  check(`ops-t1: fn_ops_today returns integers and nothing else (${todayCols.length} columns)`,
+    [todayCols.length >= 10, todayCols.filter(([, t]) => t !== 'integer').map(([c]) => c)], [true, []]);
+  check('ops-t2: fn_ops_delivery_failures returns the channel, the time and the provider’s word — never an address or a message',
+    await result('fn_ops_delivery_failures()'), 'TABLE(channel text, failed_at timestamp with time zone, provider_said text)');
+  const PERSONAL = /\b(first_name|last_name|email|dob|to_address|to_person|body|guardian_name|guardian_phone|guardian_email|note|photo_path|reporter_email|reason|subject_id|player_id|child_id|person_id)\b/;
+  const bodies = (await db.query(`select proname, prosrc from pg_proc where proname in ('fn_ops_today','fn_ops_delivery_failures')`)).rows;
+  // person_id and friends are allowed in a WHERE that joins, never in a
+  // select list, so the bodies are read with their WHERE/ON/EXISTS clauses
+  // taken out: what is left is what the function hands back.
+  const selected = (src) => src.replace(/--[^\n]*/g, '')
+    .replace(/\bexists\s*\((?:[^()]|\([^()]*\))*\)/gi, 'exists(…)')
+    .replace(/\b(where|on)\b[^\n]*/gi, '');
+  check(`ops-t3: neither function selects a personal field (${bodies.map((b) => b.proname).join(', ')})`,
+    [bodies.length, bodies.filter((b) => PERSONAL.test(selected(b.prosrc))).map((b) => b.proname)], [2, []]);
+  const page = srcOf('app/ops/page.tsx');
+  const queries = [...codeOnly(page).matchAll(/db\.query\(\s*`([^`]*)`/g)].map((m) => m[1].replace(/\s+/g, ' ').trim());
+  // Brief H (D-168, 0120): a third, the count of parents' texts waiting for
+  // SMS, so BUZ watches the backlog clear. A count, like the other two.
+  check(`ops-t4: the Today page asks the database exactly three things, all counts (${queries.length} queries)`,
+    queries, ['select * from fn_ops_today()', 'select channel, failed_at, provider_said from fn_ops_delivery_failures()', 'select fn_sms_queued_count() as n']);
+  const hrefs = [...codeOnly(page).matchAll(/href=\{?["'`]([^"'`]*)["'`]\}?/g)].map((m) => m[1]);
+  check('ops-t5: and it links to one place, the lookup, with nothing of anybody’s in the address',
+    [hrefs, /href=\{[^"'`]/.test(codeOnly(page))], [['/ops/support'], false]);
+
+  // Driven: a person who joined now, a sent approval request that was
+  // approved, and a failed text. The counts move; the address and the
+  // message never come out.
+  const before = (await db.query('select * from fn_ops_today()')).rows[0];
+  const opsKid = crypto.randomUUID(), opsInv = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, email) values ($1, 'Opsfixture', 'ops-fixture@example.com')`, [opsKid]);
+  await db.query(`insert into development_record (person_id) values ($1)`, [opsKid]);
+  await db.query(`insert into consent_event (event, detail) values ('sms_sent', jsonb_build_object('invitation_id', $1::text)), ('email_sent', jsonb_build_object('invitation_id', $1::text)), ('approved', jsonb_build_object('invitation_id', $1::text))`, [opsInv]);
+  // And one asked for three days ago and approved today: an approval, but not
+  // of anything sent today, so it is in neither figure.
+  const opsOld = crypto.randomUUID();
+  await db.query(`insert into consent_event (event, at, detail) values ('email_sent', now() - interval '3 days', jsonb_build_object('invitation_id', $1::text)), ('approved', now(), jsonb_build_object('invitation_id', $1::text))`, [opsOld]);
+  await db.query(`insert into message_outbox (message_key, channel, to_address, body, sent_at, failed_at, failure_reason)
+    values ('doc15.§1', 'sms', '+61400000999', 'ops fixture body', now(), now(), 'undelivered')`);
+  const after = (await db.query('select * from fn_ops_today()')).rows[0];
+  const fails = (await db.query('select * from fn_ops_delivery_failures()')).rows;
+  check('ops-t6: a person joining today, one invitation sent on two channels and approved, move the counts by one each',
+    [after.signups_total - before.signups_total, after.signups_player - before.signups_player,
+     after.approvals_sent - before.approvals_sent, after.approved - before.approved], [1, 1, 1, 1]);
+  check('ops-t7: approved counts only what was sent today, so "% of sent" can never pass 100 — an approval of an older request is in neither figure',
+    [after.approved - before.approved, after.approvals_sent - before.approvals_sent, after.approved <= after.approvals_sent], [1, 1, true]);
+  check('ops-t8: the failed text is listed by channel and provider word, and neither its number nor its message is anywhere in the answer',
+    [fails.some((f) => f.channel === 'sms' && f.provider_said === 'undelivered'), /\+61400000999|ops fixture body|ops-fixture/.test(JSON.stringify([after, fails]))], [true, false]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

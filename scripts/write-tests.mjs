@@ -435,6 +435,10 @@ async function post(path, who, form) {
     [await reads(marina), /This is not the name recorded on the call\./.test(heldWords), /On hold\. The role stays off until you confirm/.test(heldWords),
      /The role goes to this account/.test(heldWords), /Waiting on their account/.test(heldWords)],
     [[307, 404, 404, 404], true, true, false, false]);
+  const queueLine = words((await get('/ops/verification', op)).html);
+  check('tdn-w1b: and the queue says the role is on hold, not that it is waiting on her account (held words, development only)',
+    [/Technical Director Marina Petrovich · on hold: not the name on the call/.test(queueLine),
+     /Technical Director Marina Petrovich · waiting on their account/.test(queueLine)], [true, false]);
   const confirmForm = forms(heldSheet.html).find((f) => f.submit === 'This is the person the club named');
   // Asserted on the state, not the answer (L12). (Not a signed-in seat: in
   // development every signed-in person with an address is an operator,
@@ -2781,12 +2785,21 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('sms-w4b: the child’s waiting screen says the email went and the text follows — and not that a text was sent (held line, development only)',
     [w0.includes('We’ve emailed your parent. Their text follows shortly.'), w0.includes('Text and email sent')], [true, false]);
   const job = async () => { const r = await fetch(BASE + '/api/jobs/outbox'); return r.ok ? (await r.json()).released : null; };
+  // Today (brief G's /ops, brief H's tile): the backlog as a count.
+  const todayWaiting = async () => {
+    const h = (await get('/ops', op)).html;
+    const tile = /data-ops-tile="Texts waiting for SMS"[\s\S]*?<\/div>\s*<div[^>]*>(\d+)<\/div>/.exec(h);
+    return tile ? Number(tile[1]) : 0;
+  };
+  const waitingNow = await todayWaiting();
+  check('sms-w4d: Today shows the waiting text as a count (held words, development only)', waitingNow >= 1, true);
   check('sms-w4c: an outbox run while SMS is off sends nothing', [await job(), await texts()], [0, 0]);
 
   check('sms-w5: SMS back on', /done=sms-on/.test(await pressSwitch('Switch SMS back on', { reason: 'sms drill over' })), true);
   // "With SMS then configured (the dev fake), one dispatcher run sends it."
   check('sms-w5b: one outbox run, with SMS able to send, sends the waiting text — it is in the inbox now',
     [(await job()) >= 1, await texts()], [true, 1]);
+  check('sms-w5d: and once it has gone, Today\u2019s count has gone down by it', await todayWaiting(), waitingNow - 1);
   const w1 = await waitingPage();
   check('sms-w5c: and the waiting screen stops saying the text is on its way, and says both went',
     [w1.includes('Their text follows shortly.'), w1.includes('Text and email sent')], [false, true]);
@@ -2801,6 +2814,30 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('sms-w11: and texts go again', await texts(), 3);
   const swLog = (await get('/ops/switches', op)).html;
   check('sms-w12: the switch log names every reason', ['sms drill', 'sms drill over', 'cap drill', 'cap drill over'].every((r) => swLog.includes(r)), true);
+}
+
+// ---------------------------------------------------------------------------
+// today-w1–w3 — the operator's Today screen after a day of pressing buttons
+// (brief G, 29 Sep; 0110). The seed sends no approval request, so the render
+// suite can only see the tiles a fresh database fills; by this point the
+// suite has asked guardians to approve children on both channels, and the
+// Approvals sent and Approved tiles must have found that on the consent spine
+// (D-78) — as counts, with "% of sent" a share that cannot pass 100, and with
+// no zero printed anywhere (D-162).
+// ---------------------------------------------------------------------------
+{
+  const html = (await get('/ops', ids.people.marina)).html.replace(/<!--[\s\S]*?-->/g, '');
+  const tile = (label) => {
+    const m = new RegExp(`data-ops-tile="${label}"[^>]*>[\\s\\S]*?<div[^>]*>[^<]*</div><div[^>]*>([^<]*)</div>(?:<div[^>]*>([^<]*)</div>)?`).exec(html);
+    return m ? { value: Number(m[1]), sub: m[2] ?? '' } : null;
+  };
+  const sent = tile('Approvals sent'), approved = tile('Approved');
+  check(`today-w1: the approval requests this suite sent today are counted (${sent ? sent.value : 'no tile'})`, Boolean(sent) && sent.value >= 1, true);
+  const pct = approved ? Number(/^(\d+)% of sent$/.exec(approved.sub)?.[1]) : null;
+  check(`today-w2: approved is a share of sent — never more, and its percentage agrees (${approved ? `${approved.value}, ${approved.sub}` : 'no approvals yet'})`,
+    !approved ? [true, true] : sent ? [approved.value <= sent.value, pct === Math.round((100 * approved.value) / sent.value)] : [false, false], [true, true]);
+  const values = [...html.matchAll(/data-ops-tile="([^"]+)"[^>]*>[\s\S]*?<div[^>]*>[^<]*<\/div><div[^>]*>([^<]*)<\/div>/g)].map((m) => m[2].trim());
+  check(`today-w3: after all that, still no tile says zero (D-162) (${values.join(', ')})`, values.filter((v) => !/^[1-9]\d*$/.test(v)), []);
 }
 
 // ---------------------------------------------------------------------------
