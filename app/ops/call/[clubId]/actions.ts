@@ -75,6 +75,16 @@ export async function logCall(formData: FormData) {
   // blocks the suspension — a safety action must not fail on a form field.
   const rawClass = SUSPENDS.has(outcome) ? f('suspension_reason') : '';
   const suspensionClass = SUSPENSION_CLASSES.includes(rawClass) ? rawClass : null;
+  // The first two questions must be ANSWERED (BUZ, 29 Sep, "yes to the
+  // four"). They start with nothing selected, and a post that carries neither
+  // yes nor no for either records no call at all: it used to read a missing
+  // answer as "no" for these two, which is an answer nobody gave. Checked
+  // here, not only by the form's `required`, because this action is a public
+  // endpoint whatever the page renders.
+  const answered = (k: string) => f(k) === 'yes' || f(k) === 'no';
+  if (!answered('club_confirmed') || !answered('person_confirmed')) {
+    redirect(isUuid(clubId) ? `/ops/call/${clubId}` : '/ops/verification');
+  }
   const client = await db.connect();
   try {
     await client.query('begin');

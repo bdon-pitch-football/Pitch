@@ -313,6 +313,27 @@ button:active, a[href]:active { transform: scale(.975); }
   .ops-when:empty { display: block; }
 }
 
+/* THE CLUBS DIRECTORY (brief I). The queue's pattern: below 768 a club is
+   its details full width, then its live count and chip, then its doors on a
+   line of their own (two buttons and a chip do not fit beside anything at
+   375); from 768 the table — Club · Trials live · state · doors. */
+.ops-clubrow {
+  display: grid; align-items: center; gap: 8px 12px; padding: 13px 14px;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "club club" "live status" "doors doors";
+}
+.ops-clubrow + .ops-clubrow { border-top: 1px solid var(--line); }
+.ops-head.ops-clubrow { display: none; }
+.ops-live { grid-area: live; }
+.ops-doors { grid-area: doors; display: flex; flex-wrap: wrap; gap: 8px; }
+.ops-doors:empty { display: none; }
+@media (min-width: 768px) {
+  .ops-clubrow { grid-template-columns: minmax(0, 1fr) 84px 124px 260px; grid-template-areas: "club live status doors"; gap: 14px; }
+  .ops-head.ops-clubrow { display: grid; padding: 13px 14px 9px 14px; }
+  .ops-doors { justify-content: flex-end; flex-wrap: nowrap; }
+  .ops-doors:empty { display: flex; }
+}
+
 /* A report's facts (OpsReports.dc.html): a label over a 44px well, as many
    across as fit, one per line on a phone. */
 .ops-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 14px; }

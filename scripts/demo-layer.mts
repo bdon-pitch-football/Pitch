@@ -36,6 +36,21 @@ const initials = (s: string) =>
 const xml = (s: string) => s.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export async function applyDemo(db: PGlite, o: DemoOptions): Promise<{ slug: string; clubId: string }> {
+  // 0130's wall: a notice Pitch compiled is written only by the operator's
+  // functions, which open it for their own transaction. The demo moves every
+  // trial's date (below) and, with --unclaimed, turns the club's notices into
+  // compiled ones — a dev script rewriting the seed, not a route — so it opens
+  // the wall for its own run and shuts it again before the app connects. PGlite
+  // is one session, so leaving it open would open it for the app as well.
+  await db.query(`select set_config('pitch.curating', 'demo', false)`);
+  try {
+    return await applyDemoLayer(db, o);
+  } finally {
+    await db.query(`select set_config('pitch.curating', '', false)`);
+  }
+}
+
+async function applyDemoLayer(db: PGlite, o: DemoOptions): Promise<{ slug: string; clubId: string }> {
   const club = o.club.trim();
   const short = shortName(club);
   const slug = slugify(club);
@@ -225,7 +240,11 @@ async function unclaimListing(db: PGlite, clubId: string, mailSlug: string) {
   // The trials stay, and they say where they came from: a listing Pitch
   // compiled from the club's own public notice is the whole reason the page
   // exists before the club does (D-90).
-  await db.query(`update trial_notice set source = 'compiled', cv_email = $2 where club_id = $1`, [clubId, publicAddress]);
+  // A compiled notice says where it came from and who added it (0130).
+  await db.query(
+    `update trial_notice set source = 'compiled', cv_email = $2, source_url = $3, added_by_email = 'operator@example.com'
+     where club_id = $1`,
+    [clubId, publicAddress, `https://${mailSlug}.example.au/trials`]);
 }
 
 // ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { requireOperator } from '@/lib/ops-guard';
+import { clubsScreensShown } from '@/lib/ops-policy';
 import { HeaderMark } from '@/components/Wordmark';
 
 export type IconKey = 'home' | 'cv' | 'trials' | 'send' | 'roles' | 'register' | 'child' | 'children'
@@ -249,7 +250,7 @@ export async function CoachConsole({ active, children }: {
 // "Money" is in the signed rail and is NOT here: billing is off (D-163), and
 // a door to nothing is a door nobody tested. Held for BUZ in brief G's report.
 export async function OpsConsole({ active, children }: {
-  active: 'today' | 'verification' | 'support' | 'switches' | 'reports'; children: React.ReactNode;
+  active: 'today' | 'verification' | 'support' | 'switches' | 'reports' | 'clubs'; children: React.ReactNode;
 }) {
   const { email } = await requireOperator();
   const n = (await db.query(
@@ -260,7 +261,13 @@ export async function OpsConsole({ active, children }: {
     { key: 'today', href: '/ops', label: 'Today', icon: 'trials' },
     { key: 'verification', href: '/ops/verification', label: 'Verification', icon: 'shield', count: n.awaiting },
     { key: 'reports', href: '/ops/reports', label: 'Reports', icon: 'flag', count: n.reports },
-    { key: 'support', href: '/ops/support', label: 'Support', icon: 'help' },
+    // Every club and the notices Pitch compiles (brief I, 0130). After
+    // Reports, so the phone bar's three tabs are the ones they were. Held with
+    // its words (lib/ops-policy): development only until BUZ approves them.
+    ...(clubsScreensShown(process.env.NODE_ENV === 'production')
+      ? [{ key: 'clubs', href: '/ops/clubs', label: 'Clubs', icon: 'crest' as const }] : []),
+    // "Lookup", the signed design's word (BUZ, 29 Sep); the address is unchanged.
+    { key: 'support', href: '/ops/support', label: 'Lookup', icon: 'help' },
     { key: 'switches', href: '/ops/switches', label: 'Emergency switches', short: 'Switches', icon: 'power' },
     { key: 'home', href: '/home', label: 'Home', icon: 'home' },
   ];

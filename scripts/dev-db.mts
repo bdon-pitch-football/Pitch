@@ -591,11 +591,23 @@ await db.query(`insert into coach_role (coach_profile_id, title, org_name, start
 // An UNCLAIMED club with a compiled listing (D-90 source 2): the board must
 // show both routes — 'I'm interested' for verified clubs, 'Send my CV' for a
 // listing we compiled from the club's own public notice.
-const westgate = randomUUID();
 // Compiled from public notices, including the address on them — which is
 // where a claim code goes, and the only place it can go (doc 15 §34).
-await db.query(`insert into club (id, name, suburb, state, club_state, public_slug, contact_email) values ($1,'Westgate Rangers','Altona','VIC','unclaimed','westgate-rangers','secretary@westgaterangers.example.au')`, [westgate]);
-await trialAges((await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, source, competition_gender) values ($1,'U13 Boys trials','2026-10-12','Mon 5:30 PM · Grant Reserve','compiled','boys') returning id`, [westgate])).rows[0].id, ['U13']);
+//
+// Through the operator's own functions (0130), as a real listing is: the seed
+// proves the path rather than writing round it, and the wall refuses a
+// compiled notice written any other way. Marina is the seat the suites drive
+// the console with; in development any signed-in address is an operator.
+const westgate = (await db.query(
+  `select fn_ops_add_club($1, 'td@example.com', 'Westgate Rangers', 'Altona', 'VIC',
+     'secretary@westgaterangers.example.au', 'club website /contact') as id`, [td])).rows[0].id as string;
+// The function refuses a date that has passed (it would never show), and a
+// demo seeds this same database on any day of the year — so on a day after
+// the 12th the date is today rather than a seed that stops starting.
+await db.query(
+  `select fn_ops_add_notice($1, 'td@example.com', $2, 'U13 Boys trials', array['U13'], 'boys',
+     greatest('2026-10-12'::date, (now() at time zone 'Australia/Melbourne')::date),
+     'Mon 5:30 PM', 'Grant Reserve', '{}', 'https://westgaterangers.example.au/trials')`, [td, westgate]);
 
 // --- walkthrough states: one of each waiting card, so every journey has
 // something real to open. All fictional (doc 16 §4).
