@@ -79,3 +79,17 @@ what is actually in them, because the markers are not all one kind:
 
 **Proposed:** one Terms release, doc 22 v2.1, that applies items 1 and 4
 together. We would not ship piecemeal edits to a legal page a parent reads.
+
+## 5 · For your information: BUZ has overridden half of U-11
+
+BUZ decided that replies to Pitch's emails reach him directly, at
+burak.donmez@pitch-football.com, not a support inbox (register D-169). His
+reason: his direct contact is what Pitch offers clubs.
+
+**What is unchanged:** the email carrying a child's CV to a club still has no
+reply address, so a club replying about a child reaches nobody. That is the
+part of U-11 that is about children.
+
+**What changes:** account, verification and notice emails can now be answered
+into a named person's inbox. Tell us if that needs anything in the privacy
+policy or retention statement.
