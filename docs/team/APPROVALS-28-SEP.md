@@ -55,3 +55,9 @@ Anything new still goes to BUZ.
 
 - **Ops call sheet, TD card:** "End this Technical Director's access" · "Why" · "{Name} no longer sees the register, the squads or any player's record at {Club}. What they wrote stays theirs. To name a new Technical Director, record them on a call."
 - **Club roles screen, beside the TD row:** "End their access" · "Why" · "{Name} no longer sees the register, the squads or any player's record. To name a new Technical Director, ring Pitch."
+
+## 29 September: three removals (BUZ: "yes to the three")
+
+- `/home` (club administrator): "…its notices and its plan." becomes "…its notices."
+- `/club/register` (held club): the sentence "Paying doesn't change it and can't." is removed.
+- `/ops/verification`: the sentence "Payment does not change that and cannot." is removed.
