@@ -3112,12 +3112,17 @@ check('H7: a departed coach keeps only what they authored (D-48)', await level(I
 await db.query(`update membership set ended_at = now() where person_id = $1 and role = 'technical_director'`, [ID.td]);
 check('H8: a departed technical director loses club-wide access at once', await level(ID.td, ID.deniz), 'none');
 check('H9: and cannot write to the record either', await prov(ID.td, REC.deniz), null);
-await db.query(`update membership set ended_at = null where person_id = $1 and role = 'technical_director'`, [ID.td]);
 // Not H10 — doc 14 H10 is "a person self-declares technical_director", and a
 // label starting with a row id is a claim to test that row (L4). Reinstating
 // a TD belongs with H9, and since 0058 the revival is re-checked against the
 // call, the proof and the club's state like any other write of the live role.
-check('H9c: reinstating the role restores it, still without a stored flag', await level(ID.td, ID.deniz), 'full');
+// Since 0100 the call that named her is SPENT once her role ended after it:
+// un-ending the row by hand is refused, and a new call is the way back — the
+// words BUZ approved tell the operator and the club exactly that.
+await expectFail('td21: an ended Technical Director cannot be revived by hand off the call that named them before (0100, D-48)',
+  `update membership set ended_at = null where person_id = '${ID.td}' and role = 'technical_director'`);
+await recordTd(ID.td, CLUB.riverside, 'td@fixture.example');
+check('H9c: reinstating the role on a new call restores it, still without a stored flag', await level(ID.td, ID.deniz), 'full');
 
 // ---------------------------------------------------------------------------
 // 0058 — a club gets its technical director on the verification call, and
@@ -3335,6 +3340,234 @@ check('H9c: reinstating the role restores it, still without a stored flag', awai
      /fn_td_on_call/.test(await procSrc('fn_attach_recorded_td')),
      /fn_td_on_call/.test(await procSrc('fn_td_membership_write_rule'))],
     [true, true, true]);
+}
+
+// ---------------------------------------------------------------------------
+// 0100 — a Technical Director's access ends, and a club never has two
+// (D-48, D-93; brief F). Walked the way it happens: a club verified on a call
+// that named its TD, a child in one of its squads with a registration there,
+// and the TD writing one entry on that child's record while they held the
+// role. Then the three ways the role ends — the club's administrator, Pitch's
+// operator, and a later call naming somebody else — and every read path the
+// TD used, asked again afterwards: the record, the register, the
+// registration's CV, the squad screen and the pen.
+// ---------------------------------------------------------------------------
+{
+  const club = crypto.randomUUID(), sq = crypto.randomUUID(), firstCall = crypto.randomUUID();
+  const avery = crypto.randomUUID(), blair = crypto.randomUUID(), casey = crypto.randomUUID();
+  const admin = crypto.randomUUID(), coach = crypto.randomUUID(), tm = crypto.randomUUID(), op = crypto.randomUUID();
+  const kid = crypto.randomUUID(), gdn = crypto.randomUUID(), rec = crypto.randomUUID(), reg = crypto.randomUUID();
+  const refusedQ = async (sql, params) => { try { await db.query(sql, params); return false; } catch { return true; } };
+  const one = async (sql, params) => (await db.query(sql, params)).rows[0];
+  const liveTds = async () => (await db.query(
+    `select person_id from membership where club_id = $1 and role = 'technical_director' and ended_at is null order by person_id`,
+    [club])).rows.map((r) => r.person_id);
+  const endings = async () => (await db.query(
+    `select person_id, cause, ended_by, operator_email, reason, call_id from td_ending where club_id = $1 order by id`, [club])).rows;
+  // Every read the TD's screens make, asked of the database the way the pages
+  // ask it: /club/register (fn_register_rows), the CV opened from it
+  // (fn_can_read_registration), /club/squads/[id] (fn_squad_roster's record
+  // ids, which are what open a player), the record itself, and the pen.
+  const reads = async (who) => [
+    await level(who, kid),
+    (await one('select fn_can_work_register($1,$2) as c', [who, club])).c,
+    (await db.query('select * from fn_register_rows($1,$2)', [who, club])).rows.length,
+    (await one('select fn_can_read_registration($1,$2) as c', [who, reg])).c,
+    (await db.query('select record_id from fn_squad_roster($1,$2) where record_id is not null', [who, sq])).rows.length,
+    await prov(who, rec),
+  ];
+  const CAN = ['full', true, 1, true, 1, 'coach_verified'];
+
+  await db.query(`insert into club (id, name, suburb, state, contact_email, club_state, subscription_status)
+    values ($1,'Handover FC','Somewhere','VIC','secretary@handoverfc.example','claimed','active')`, [club]);
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season)
+    values ($1,$2,'U14 Boys','U14','boys','2026')`, [sq, club]);
+  await db.query(`insert into person (id, first_name, last_name, dob) values
+    ($1,'Avery','Ashdown',$9), ($2,'Blair','Brennan',$9), ($3,'Casey','Callander',$9), ($4,'Harper','Handover',$9),
+    ($5,'Coach','Handover',$9), ($6,'Team','Manager',$9), ($7,'Olly','Operator',$9), ($8,'Handover Guardian',null,$9)`,
+    [avery, blair, casey, admin, coach, tm, op, gdn, yearsAgo(40)]);
+  await db.query(`update person set email = 'olly@pitch.example' where id = $1`, [op]);
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Remy','Fixture',$2)`, [kid, yearsAgo(14)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [gdn, kid]);
+  await mem(kid, club, sq, 'player');
+  await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CB'])`, [rec, kid]);
+  await db.query(`insert into registration (id, player_id, club_id, policy_version) values ($1,$2,$3,'20@v2.4')`, [reg, kid, club]);
+  await mem(admin, club, null, 'club_admin');
+  await mem(coach, club, sq, 'coach');
+  await mem(tm, club, sq, 'team_manager');
+  // Verified first, on a call that named nobody, so recordTd's call is a
+  // re-verification at a club that stays verified.
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [firstCall, club]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [firstCall, club]);
+  await recordTd(avery, club, 'avery@handoverfc-staff.example');
+  // Every TD this block names holds a WWCC the club attested, so the pen is a
+  // question about the role and not about the check (D-22).
+  for (const p of [avery, blair, casey, coach]) {
+    await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [p, club, admin]);
+  }
+  check('tdx0: the TD the call named reads everything the TD screens read — record, register, CV, squad, pen',
+    await reads(avery), CAN);
+  // Something the TD wrote while they held the role (D-48 is about this).
+  const entry = (await one(`insert into record_entry (record_id, entry_type, author_id, provenance)
+    values ($1,'coach_note',$2,'coach_verified') returning id`, [rec, avery])).id;
+
+  // ---- who may end it ------------------------------------------------------
+  check('tdx1: the database answers who may end it — the club\'s administrator, and not the TD, a coach, a team manager or another club\'s administrator',
+    await Promise.all([admin, avery, coach, tm, ID.adminOther, null].map(async (w) =>
+      (await one('select fn_may_end_td($1,$2) as m', [w, club])).m)),
+    [true, false, false, false, false, false]);
+  check('tdx2: and fn_end_td refuses every one of those others, whatever reason they give — the TD stays',
+    [await refusedQ('select fn_end_td($1,$2,$3)', [avery, club, 'Stepping down myself']),
+     await refusedQ('select fn_end_td($1,$2,$3)', [coach, club, 'I would like the job']),
+     await refusedQ('select fn_end_td($1,$2,$3)', [tm, club, 'Team manager says so']),
+     await refusedQ('select fn_end_td($1,$2,$3)', [ID.adminOther, club, 'Another club entirely']),
+     await refusedQ('select fn_end_td($1,$2,$3)', [null, club, 'Nobody at all']),
+     await liveTds()],
+    [true, true, true, true, true, [avery]]);
+  check('tdx3: the administrator needs a reason — blank, spaces and two letters are refused, and nothing ends',
+    [await refusedQ('select fn_end_td($1,$2,$3)', [admin, club, '']),
+     await refusedQ('select fn_end_td($1,$2,$3)', [admin, club, '   ']),
+     await refusedQ('select fn_end_td($1,$2,$3)', [admin, club, 'no']),
+     await liveTds(), await endings()],
+    [true, true, true, [avery], []]);
+
+  // ---- the administrator ends it ------------------------------------------
+  check('tdx4: the club\'s administrator ends it, with a reason, and is told whose access ended',
+    (await one('select fn_end_td($1,$2,$3) as p', [admin, club, 'Moved to another club'])).p, avery);
+  check('H9: a Technical Director whose access ended reads nothing at that club by any TD path — register, the CV from it, the squad, the pen — and keeps only what they authored (D-48)',
+    await reads(avery), ['authored_only', false, 0, false, 0, null]);
+  check('tdx5: what they wrote is untouched — the entry is there, still theirs (D-48)',
+    await one('select author_id, provenance from record_entry where id = $1', [entry]),
+    { author_id: avery, provenance: 'coach_verified' });
+  check('tdx6: the audit row says who ended it, why, which person, and by which door',
+    await endings(), [{ person_id: avery, cause: 'club_admin', ended_by: admin, operator_email: null, reason: 'Moved to another club', call_id: null }]);
+  check('tdx7: the audit is append-only',
+    [await refusedQ(`update td_ending set reason = 'edited' where club_id = $1`, [club]),
+     await refusedQ(`delete from td_ending where club_id = $1`, [club])], [true, true]);
+  check('tdx8: a second press ends nobody and logs nothing',
+    [(await one('select fn_end_td($1,$2,$3) as p', [admin, club, 'Pressed twice'])).p, (await endings()).length], [null, 1]);
+  check('tdx9: the operator console says the role ended since the call, and is not waiting on anyone',
+    await one('select person_id, active, ended_at is not null as ended from fn_club_td($1)', [club]),
+    { person_id: avery, active: false, ended: true });
+
+  // ---- and it stays ended --------------------------------------------------
+  await expectFail('tdx10: the ended row cannot be revived by hand off the call that named them',
+    `update membership set ended_at = null where person_id = '${avery}' and club_id = '${club}' and role = 'technical_director'`);
+  await expectFail('tdx11: nor a fresh row written for them off that same call',
+    `insert into membership (person_id, club_id, role) values ('${avery}','${club}','technical_director')`);
+  const reverify = crypto.randomUUID();
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [reverify, club]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [reverify, club]);
+  check('tdx12: a re-verification that names nobody brings nobody back — the attach refuses a spent call in silence',
+    [await liveTds(), (await one('select fn_attach_recorded_td($1) as m', [club])).m], [[], null]);
+
+  // ---- naming a TD stays call-only, and a new call is the way back --------
+  await recordTd(avery, club, 'avery@handoverfc-staff.example');
+  check('tdx13: a NEW call naming them is fresh evidence, and the role comes back on it',
+    [await liveTds(), await level(avery, kid)], [[avery], 'full']);
+  const averyRow = (await one(`select id from membership where person_id = $1 and club_id = $2 and role = 'technical_director' and ended_at is null`, [avery, club])).id;
+  await recordTd(avery, club, 'avery@handoverfc-staff.example');
+  check('tdx14: a re-verification that names the same person changes nothing — same row, nothing ended, nothing logged',
+    [(await one(`select id from membership where person_id = $1 and club_id = $2 and role = 'technical_director' and ended_at is null`, [avery, club])).id,
+     await liveTds(), (await endings()).length],
+    [averyRow, [avery], 1]);
+
+  // ---- handover on the call -------------------------------------------------
+  await db.query('begin');
+  await recordTd(blair, club, 'blair@handoverfc-staff.example');
+  const inTx = await liveTds();
+  await db.query('rollback');
+  check('tdx15: the old TD ends in the SAME transaction as the call naming somebody else — rolled back, nothing happened',
+    [inTx, await liveTds(), (await endings()).length], [[blair], [avery], 1]);
+  await recordTd(blair, club, 'blair@handoverfc-staff.example');
+  const handoverCall = (await one(`select fn_td_call($1) as c`, [club])).c;
+  check('tdx16: a verified call naming a different TD ends the live one and attaches the new — never two at once',
+    [await liveTds(), await reads(avery), await reads(blair)],
+    [[blair], ['authored_only', false, 0, false, 0, null], CAN]);
+  check('tdx17: and logs it against that call, with nobody pressing and no typed reason',
+    (await endings()).at(-1), { person_id: avery, cause: 'replaced_on_call', ended_by: null, operator_email: null, reason: null, call_id: handoverCall });
+
+  // A new TD with no account yet: the old one still ends at the call. The
+  // gap is a club with no TD, which is the restrictive direction.
+  await db.query(`update person set email = 'casey@handoverfc-staff.example' where id = $1`, [casey]);
+  await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, td_name, td_email, policy_version)
+    values ($1,now(),'BUZ','03 9000 0000','FV club directory','verified','Casey Callander','casey@handoverfc-staff.example','27@v1.0')`, [club]);
+  check('tdx18: a call naming somebody whose address is not proved yet still ends the live TD at once — nobody holds it meanwhile',
+    [await liveTds(), await level(blair, kid), (await one('select active, ended_at from fn_club_td($1)', [club]))],
+    [[], 'none', { active: false, ended_at: null }]);
+  await proveAddress(casey);
+  check('tdx19: and the role goes to the person named, when they prove their address',
+    [await liveTds(), await level(casey, kid)], [[casey], 'full']);
+
+  // Only the LATEST call names the TD. Before 0100 any verified call that ever
+  // recorded an address counted, so a person named on an older call could
+  // still pick the role up by proving their address after a newer call named
+  // somebody else — a second TD through the back door.
+  const late = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Laurie','Late',$2,'laurie@handoverfc-staff.example')`,
+    [late, yearsAgo(41)]);
+  await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, td_name, td_email, policy_version)
+    values ($1,now() - interval '30 days','BUZ','03 9000 0000','FV club directory','verified','Laurie Late','laurie@handoverfc-staff.example','27@v1.0')`, [club]);
+  await proveAddress(late);
+  check('tdx20: somebody an OLDER call named cannot pick the role up by proving their address later',
+    [await liveTds(), (await one('select fn_td_on_call($1,$2) as c', [late, club])).c, await level(late, kid)],
+    [[casey], false, 'none']);
+
+  // ---- the operator's door ---------------------------------------------------
+  check('tdx21: the operator must be the person whose address the console gives, and must give a reason',
+    [await refusedQ('select fn_ops_end_td($1,$2,$3,$4)', [op, 'someone-else@pitch.example', club, 'Club asked on the phone']),
+     await refusedQ('select fn_ops_end_td($1,$2,$3,$4)', [null, 'olly@pitch.example', club, 'Club asked on the phone']),
+     await refusedQ('select fn_ops_end_td($1,$2,$3,$4)', [op, 'olly@pitch.example', club, ' ']),
+     await liveTds()],
+    [true, true, true, [casey]]);
+  check('tdx22: the operator ends it, and the audit row names the operator and their address',
+    [(await one('select fn_ops_end_td($1,$2,$3,$4) as p', [op, 'olly@pitch.example', club, 'Club asked on the phone'])).p,
+     await liveTds(), await level(casey, kid), (await endings()).at(-1)],
+    [casey, [], 'none', { person_id: casey, cause: 'operator', ended_by: op, operator_email: 'olly@pitch.example', reason: 'Club asked on the phone', call_id: null }]);
+
+  // A call that records the club's own mailbox names nobody who can hold the
+  // role (0060) — and it is still a call naming somebody other than the live
+  // TD, so the live TD ends. Pinned because it is a choice (brief F's words:
+  // "a TD email different from the live TD"), and the report says so.
+  await recordTd(casey, club, 'casey@handoverfc-staff.example');
+  await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, td_name, td_email, policy_version)
+    values ($1,now(),'BUZ','03 9000 0000','FV club directory','verified','Casey Callander','secretary@handoverfc.example','27@v1.0')`, [club]);
+  check('tdx23: a call recording the club\'s own mailbox ends the live TD and attaches nobody',
+    [await liveTds(), (await endings()).at(-1)?.cause ?? null], [[], 'replaced_on_call']);
+
+  // Structural: one call names the TD, and every reader asks for it (L23).
+  check('tdx24: the wall, the attach and the console all read the one call (fn_td_call)',
+    [/fn_td_call/.test(await procSrc('fn_td_on_call')),
+     /fn_td_call/.test(await procSrc('fn_attach_recorded_td')),
+     /fn_td_call/.test(await procSrc('fn_club_td')),
+     /fn_td_replaced_on_call/.test(await procSrc('fn_call_attaches_td'))],
+    [true, true, true, true]);
+  check('tdx25: td_ending has row-level security like every table (L26)',
+    (await one(`select relrowsecurity as r from pg_class where relname = 'td_ending'`)).r, true);
+
+  // The doors in the product. The club's action ends through fn_end_td and
+  // takes no club from the form; the operator's checks the operator first;
+  // nothing in app/ ends a TD row with its own UPDATE or calls the worker.
+  const rolesAct = codeOnly(srcOf('app/club/roles/actions.ts'));
+  const callAct = codeOnly(srcOf('app/ops/call/[clubId]/actions.ts'));
+  const endTdBody = /export async function endTd\([\s\S]*?\n\}/.exec(callAct)?.[0] ?? '';
+  const endAccessBody = /export async function endTdAccess\([\s\S]*?\n\}/.exec(rolesAct)?.[0] ?? '';
+  check('tdx26: /club/roles ends a TD only through fn_end_td, for the club the session administers — never a club id off the form',
+    [/fn_end_td\(\$1, \$2, \$3\)/.test(endAccessBody), /formData\.get\('club/.test(endAccessBody), /fn_ops_end_td/.test(rolesAct)],
+    [true, false, false]);
+  check('tdx27: the call sheet\'s door checks the operator before it asks the database to end anything',
+    [endTdBody.indexOf('requireOperator()') > -1,
+     endTdBody.indexOf('requireOperator()') < endTdBody.indexOf('fn_ops_end_td')], [true, true]);
+  const endsByHand = routeFiles.filter((f) => {
+    const src = codeOnly(readFileSync(f, 'utf8'));
+    return /fn_td_ends|fn_td_replaced_on_call/.test(src)
+      || /update membership set ended_at[^`]*technical_director/.test(src)
+      || (/fn_ops_end_td/.test(src) && !/\/app\/ops\//.test(f));
+  });
+  check('tdx28: nothing else in app/ ends a Technical Director — no UPDATE of its own, no call to the worker, no operator door outside /ops',
+    endsByHand.map((f) => f.slice(f.indexOf('app/'))), []);
 }
 
 // J: the union rule (A12c) — a person wearing two hats gets the higher of
@@ -3805,8 +4038,13 @@ for (const f of ['../app/build/[recordId]/photo/route.ts', '../app/coach/edit/ph
 const coachCvSrc = readFileSync(fileURLToPath(new URL('../app/c/[slug]/page.tsx', import.meta.url)), 'utf8');
 check('coach1: the club crest comes from membership, not from the typed role',
   /from membership m join club c2/.test(coachCvSrc), true);
-check('coach2: and it only renders when the held club is the one on the page',
-  /held\.name === current\?\.org/.test(coachCvSrc), true);
+check('coach2: and it only renders when a held club is the one on the page',
+  /heldClubs\.find\(\(h\) => h\.crest && h\.name === current\?\.org\)/.test(coachCvSrc), true);
+// Brief F: a Technical Director's live membership earns it too — the role the
+// verification call confirmed (0058) — and still never the typed org name.
+// Rendered both ways by the render suite (crest-r1, crest-r2).
+check('coach1b: the memberships that earn a crest are a live coach\'s and a live Technical Director\'s, nothing else',
+  /m\.role in \('coach', 'technical_director'\) and m\.ended_at is null\) as held_clubs/.test(coachCvSrc), true);
 
 // ---------------------------------------------------------------------------
 // Coach clips and the coaching jobs board (0019).

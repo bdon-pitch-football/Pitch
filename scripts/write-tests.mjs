@@ -228,6 +228,169 @@ async function post(path, who, form) {
 
 
 // ---------------------------------------------------------------------------
+// BRIEF F (29 Sep): the crest a verified Technical Director has earned, and
+// ending a TD's access (0100; D-48, D-93). Pressed through the real screens:
+// the coach editor, /club/roles as the club's administrator, the operator's
+// call sheet, and the sheet's call naming somebody else. Every read the TD
+// made is asked again afterwards through the page that makes it — the
+// register, a CV opened from it, a squad, a CV opened from the squad — not by
+// reading a membership row. EARLY, on the fresh database, because the squads
+// are emptied and seeded sessions ended by the time the suite is done; and it
+// hands both roles back through calls at the end (tde-w15, tde-w16), so every
+// block after it sees the seed's Technical Directors in their seats.
+// ---------------------------------------------------------------------------
+{
+  const marina = ids.people.marina, pat = ids.people.pat, sam = ids.people.sam, dana = ids.people.dana;
+  const op = ids.people.jordan;   // any signed-in person with an address is an operator in development (lib/ops-policy)
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const press = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
+  };
+
+  // ---- the crest ------------------------------------------------------------
+  // The half the render suite cannot press: a Technical Director whose typed
+  // line names ANOTHER club wears no crest, although her own club has one.
+  // Any crest image in the hero: the sweep above uploaded a new crest for
+  // Riverside, so its file name is not the seed's any more.
+  const cv = async () => (await get('/c/marina-petrovic', null)).html;
+  const hero = (h) => h.slice(0, h.indexOf('Coaching now'));
+  const crestOn = (h) => /<img[^>]+src="[^"]*crest[^"]*"/.test(hero(h));
+  const setRole = async (org) => {
+    for (;;) {
+      const rm = forms((await get('/coach/edit', marina)).html).find((f) => 'roleId' in f.fields);
+      if (!rm) break;
+      await press('/coach/edit', marina, rm.fields);
+    }
+    const add = forms((await get('/coach/edit', marina)).html).find((f) => f.visible.some((v) => v.name === 'org'));
+    await press('/coach/edit', marina, { ...add.fields, title: 'Technical Director', org, from: '2022', to: '' });
+  };
+  check('crest-w0: the Technical Director the call confirmed wears Riverside’s crest before anything is pressed',
+    crestOn(await cv()), true);
+  await setRole('Northern United SC');
+  const typed = await cv();
+  check('crest-w1: a typed "Technical Director, Northern United SC" wears no crest — not hers, not theirs — though her own club has one',
+    [/Northern United SC · Melbourne VIC/.test(words(hero(typed))), crestOn(typed)],
+    [true, false]);
+  await setRole('Riverside FC');
+  // Her earlier role back as well, so the page is the seed's again.
+  const addPast = forms((await get('/coach/edit', marina)).html).find((f) => f.visible.some((v) => v.name === 'org'));
+  await press('/coach/edit', marina, { ...addPast.fields, title: 'Head Coach · U16 Girls', org: 'Northern United SC', from: '2017', to: '2022' });
+  check('crest-w2: typed back to the club the call confirmed, the crest returns — so w1 saw the page move',
+    crestOn(await cv()), true);
+
+  // ---- before: what the TD reads, through the pages that read it ----------
+  const reg = (await get('/club/register', marina)).html;
+  const regCv = /href="(\/club\/register\/cv\/[0-9a-f-]{36})"/.exec(reg)?.[1];
+  // The first squad with a player in it — some are empty by now.
+  let squad = null, squadCv = null;
+  for (const m of new Set([...(await get('/club/squads', marina)).html.matchAll(/href="(\/club\/squads\/[0-9a-f-]{36})"/g)].map((x) => x[1]))) {
+    squadCv = /href="(\/club\/squads\/[0-9a-f-]{36}\/cv\/[0-9a-f-]{36})"/.exec((await get(m, marina)).html)?.[1] ?? null;
+    if (squadCv) { squad = m; break; }
+  }
+  const reads = async (who) => Promise.all(['/club/register', regCv, squad, squadCv].map(async (p) => (p ? (await get(p, who)).status : null)));
+  check('tde-w0: the TD reads the register, a CV opened from it, a squad and a CV opened from the squad',
+    [Boolean(regCv && squad && squadCv), await reads(marina)], [true, [200, 200, 200, 200]]);
+
+  // ---- the club administrator's door ------------------------------------------
+  const rolesPat = (await get('/club/roles', pat)).html;
+  const endForm = forms(rolesPat).find((f) => /^End their access/.test(f.submit));
+  check('tde-w1: the club’s administrator sees the Technical Director’s row and the door, on /club/roles',
+    [/Technical Director Marina Petrovic/.test(words(rolesPat)), Boolean(endForm)], [true, true]);
+  const samRoles = await fetch(BASE + '/club/roles', { redirect: 'manual', headers: { cookie: cookieFor(sam) } });
+  await samRoles.text();
+  check('tde-w2: the TD herself is not given it, and a coach cannot open the screen',
+    [forms((await get('/club/roles', marina)).html).some((f) => /^End their access/.test(f.submit)),
+     samRoles.status, (samRoles.headers.get('location') ?? '').replace(BASE, '')],
+    [false, 307, '/home']);
+  // The same fields posted by everybody who must not end it, and by the
+  // administrator without a reason. Asserted on the state (L12): the TD still
+  // reads everything, whatever each press answered.
+  for (const who of [marina, sam, dana, null]) await press('/club/roles', who, { ...endForm.fields, reason: 'Not mine to end' });
+  await press('/club/roles', pat, { ...endForm.fields, reason: '' });
+  check('tde-w3: the TD, a coach, another club’s TD and a stranger pressing it — and the administrator with no reason — end nothing',
+    await reads(marina), [200, 200, 200, 200]);
+  const ended = await press('/club/roles', pat, { ...endForm.fields, reason: 'Moved on at the end of the season' });
+  check('tde-w4: with a reason it ends, with no JavaScript, and says so in BUZ’s words',
+    [ended.status, ended.location,
+     /Marina Petrovic no longer sees the register, the squads or any player['’]s record\. To name a new Technical Director, ring Pitch\./.test(words((await get('/club/roles?ended=1', pat)).html))],
+    [303, '/club/roles?ended=1', true]);
+  check('H9: the departed Technical Director reads no register, no CV from it, no squad and no CV from the squad — at once, through the real pages',
+    await reads(marina), [307, 404, 404, 404]);
+  check('tde-w5: and her coaching CV loses the crest the role earned (the line she typed stays hers)',
+    [crestOn(await cv()), /Technical Director/.test(words(await cv()))], [false, true]);
+  check('tde-w6: the row is gone, and a second press ends nobody',
+    [/Technical Director Marina Petrovic/.test(words((await get('/club/roles', pat)).html)),
+     forms((await get('/club/roles', pat)).html).some((f) => /^End their access/.test(f.submit))], [false, false]);
+
+  // ---- what the operator sees afterwards ----------------------------------------
+  const queue = (await get('/ops/verification', op)).html;
+  const sheetOf = async (club) => {
+    for (const m of new Set([...queue.matchAll(/href="(\/ops\/call\/[0-9a-f-]{36})"/g)].map((x) => x[1]))) {
+      if (new RegExp(`Call sheet — ${club}`).test(words((await get(m, op)).html))) return m;
+    }
+    return null;
+  };
+  const riverside = await sheetOf('Riverside FC');
+  const rSheet = words((await get(riverside, op)).html);
+  check('tde-w7: Riverside’s call sheet says her access ended, in BUZ’s words, and offers nothing to end',
+    [/Marina Petrovic no longer sees the register, the squads or any player's record at Riverside FC\. What they wrote stays theirs\. To name a new Technical Director, record them on a call\./.test(rSheet),
+     /Waiting on their account/.test(rSheet), /End this Technical Director's access/.test(rSheet)],
+    [true, false, false]);
+  check('tde-w8: the queue no longer says she is waiting on her account (the held state renders in development only)',
+    [/Technical Director Marina Petrovic · access ended · recorded by/.test(words(queue)),
+     /Technical Director Marina Petrovic · waiting on their account/.test(words(queue))], [true, false]);
+
+  // ---- the operator's door -------------------------------------------------------
+  const kingsway = await sheetOf('Kingsway Rovers FC');
+  const kForm = forms((await get(kingsway, op)).html).find((f) => /^End this Technical Director/.test(f.submit));
+  check('tde-w9: Kingsway’s call sheet offers the operator the door while its TD is live', Boolean(kForm), true);
+  const danaReads = async () => (await get('/club/register', dana)).status;
+  await press(kingsway, null, { ...kForm.fields, reason: 'Not an operator' });
+  await press(kingsway, op, { ...kForm.fields, reason: '' });
+  check('tde-w10: signed out, or with no reason, it ends nothing', await danaReads(), 200);
+  const opEnded = await press(kingsway, op, { ...kForm.fields, reason: 'The club rang: Dana has left' });
+  const kSheet = words((await get(kingsway, op)).html);
+  check('tde-w11: with a reason the operator ends it, and the sheet says so in BUZ’s words',
+    [opEnded.status, opEnded.location, await danaReads(),
+     /Dana Kovac no longer sees the register, the squads or any player's record at Kingsway Rovers FC\. What they wrote stays theirs\. To name a new Technical Director, record them on a call\./.test(kSheet)],
+    [303, kingsway, 307, true]);
+
+  // ---- naming a TD is the call, and a call naming somebody else hands over ----
+  const call = async (td_name, td_email) => {
+    const form = forms((await get(riverside, op)).html).find((f) => f.visible.some((v) => v.name === 'outcome'));
+    return press(riverside, op, { ...form.fields, operator: 'BUZ', number_called: '03 9000 0000', number_source: 'FV club directory',
+      answered_by: 'Committee', club_confirmed: 'yes', person_confirmed: 'yes', incorporated: 'yes', authority_confirmed: 'yes',
+      notes: 'handover drill', outcome: 'verified', td_name, td_email });
+  };
+  await call('Marina Petrovic', 'td@example.com');
+  check('tde-w12: a NEW call naming her is the way back, and she reads the register again', (await get('/club/register', marina)).status, 200);
+  await call('Marina Petrovic', 'td@example.com');
+  check('tde-w13: a re-verification naming the same person changes nothing — still hers, still active',
+    [(await get('/club/register', marina)).status, /Active\. Recorded by BUZ/.test(words((await get(riverside, op)).html))], [200, true]);
+  await call('Sam Kaya', 'coach@example.com');
+  check('tde-w14: a call naming somebody else hands over in one go — Marina reads nothing, Sam holds the register',
+    [await reads(marina), (await get('/club/register', sam)).status,
+     /Sam Kaya/.test(words((await get(riverside, op)).html)) && /Active\. Recorded by BUZ/.test(words((await get(riverside, op)).html))],
+    [[307, 404, 404, 404], 200, true]);
+
+  // ---- and back: the seed's seats restored the only way there is ----------------
+  await call('Marina Petrovic', 'td@example.com');
+  check('tde-w15: a call naming Marina hands Riverside back — Sam\u2019s role ends, hers is live, the squad CV opens again',
+    [await reads(marina), (await get('/club/register', sam)).status], [[200, 200, 200, 200], 307]);
+  const kCall = forms((await get(kingsway, op)).html).find((f) => f.visible.some((v) => v.name === 'outcome'));
+  await press(kingsway, op, { ...kCall.fields, operator: 'BUZ', number_called: '03 9000 0001', number_source: 'FV club directory',
+    answered_by: 'Committee', club_confirmed: 'yes', person_confirmed: 'yes', incorporated: 'yes', authority_confirmed: 'yes',
+    notes: 'handover drill', outcome: 'verified', td_name: 'Dana Kovac', td_email: 'kingsway@example.com' });
+  check('tde-w16: and a call naming Dana gives Kingsway its TD back', await danaReads(), 200);
+}
+
+
+// ---------------------------------------------------------------------------
 // Collect every distinct form the product renders, per seat.
 // ---------------------------------------------------------------------------
 const SIGNED_OUT_ROUTES = ['/signin', '/join', '/reset', '/report', '/p/dev-deniz', '/p/dev-revoked'];
@@ -1620,8 +1783,14 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 // 1 · EVERY FORM SUBMITS WITHOUT JAVASCRIPT.
 // ---------------------------------------------------------------------------
 const broke = []; const skipped = [];
+// Ending a Technical Director's access (0100) ends Marina's seat, which every
+// block below leans on. The two doors are pressed — no JavaScript, by the
+// wrong people, with and without a reason — in their own block at the end
+// (tde-w), which owns them the way x3 owns delete.
+const endsTd = (e) => /^End (their access|this Technical Director)/.test(e.form.submit);
 for (const e of all) {
   if (/delete/i.test(e.form.submit)) continue;      // x3 owns this one
+  if (endsTd(e)) continue;                          // tde-w owns these
   const status = await post(e.form.action ?? e.path, e.who, e.form);
   if (status >= 500) broke.push(`${status} ${e.seat} ${e.path} "${e.form.submit}"`);
 }
@@ -1641,6 +1810,7 @@ const leaked = [];
 const settled = (h) => { const n = /nonce="([^"]+)"/.exec(h)?.[1]; return strip(n ? h.split(n).join('NONCE') : h); };
 for (const e of all) {
   if (/delete/i.test(e.form.submit)) continue;
+  if (endsTd(e)) continue;
   if (!e.who) continue;
   const intruder = Object.values(SEATS).find((p) => p !== e.who);
   const before = settled((await get(e.path, e.who)).html);
