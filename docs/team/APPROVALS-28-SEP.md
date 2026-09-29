@@ -50,3 +50,8 @@ Anything new still goes to BUZ.
 - **M11** adopts John's ruling (D-165).
 - **Wiping the free text on erasure** (D-166).
 - **Route 404s:** accepted as they are. The status is a correct 404, but the page body needs JavaScript, because Next 16.3.5's render-time recovery serves an empty document. No proxy-level existence check (that would be a second existence answer) and no soft 200.
+
+## 29 September — TD handover words (BUZ: "approve the TD words")
+
+- **Ops call sheet, TD card:** "End this Technical Director's access" · "Why" · "{Name} no longer sees the register, the squads or any player's record at {Club}. What they wrote stays theirs. To name a new Technical Director, record them on a call."
+- **Club roles screen, beside the TD row:** "End their access" · "Why" · "{Name} no longer sees the register, the squads or any player's record. To name a new Technical Director, ring Pitch."
