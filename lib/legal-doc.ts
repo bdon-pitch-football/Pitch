@@ -133,14 +133,151 @@ export function publishedDate(markdown: string, version: string, doc = '?'): str
   return dates[0];
 }
 
+// ---------------------------------------------------------------------------
+// What a clause marker means on a served page (brief J, 29 Sep).
+//
+// John drafts in the open. A finished clause carries [DRAFTED]; a position
+// nobody has written yet carries [OUTLINE]; a question for counsel sits inside
+// the clause as [LEGAL: doc 18 Qn …]; a clause describing something that has
+// not been operated carries [DO NOT PUBLISH UNTIL BUILT]. Doc 37 asked him what
+// a page does with each. He answered item 1 only, so its "if you say nothing"
+// column is what these rules carry out:
+//
+//   item 2 · [DRAFTED] labels finished text: the label goes, the clause stays.
+//   item 3 · [DO NOT PUBLISH UNTIL BUILT]: the clause is not served until he
+//            ticks it, and the marker comes off in the source when he does.
+//   item 4 · [OUTLINE]: not served. The Terms never promise what isn't written.
+//   item 6 · [LEGAL: …]: the question goes and the clause stays — except the
+//            two he would hold, the $2,000 floor and the five-year period.
+//
+// The source keeps every marker, as it keeps the preamble: it is the record of
+// what is still open with counsel. Nothing here rewords a clause. Every rule
+// REMOVES, and every removal that is not a marker is named in WITHHELD by its
+// exact words, so a rule can never reach text nobody listed. If a named clause
+// cannot be found exactly once — because John has since edited it — we throw
+// rather than serve it: a hold that silently lapses is a published clause.
+// ---------------------------------------------------------------------------
+
+/** The label, the bold around it when it is bolded alone, and the one space after it. */
+const DRAFTED_LABEL = /\*\*\[DRAFTED\]\*\* |\[DRAFTED\] /g;
+/** A counsel question, bold or not, with the one space or em dash that hangs it on the clause. */
+const LEGAL_NOTE = /(?: —)? ?(\*\*)?\[LEGAL\b[^\]]*\]\1(?: —(?= ))?/g;
+/** A clause that is not served at all while it carries one of these. */
+const UNSERVED = /\[OUTLINE\]|\[DO NOT PUBLISH\b[^\]]*\]/;
+/** Anything left of a marker after the rules have run. */
+const ANY_MARKER = /\[DRAFTED\]|\[OUTLINE\]|\[LEGAL\b|\[DO NOT PUBLISH\b/;
+const RULE = /^-{3,}\s*$/;
+
+export type Withheld = {
+  doc: string;
+  /** 'line': the one line opening with `text` — the whole blockquote, if it
+   *  opens one. 'section': the heading opening with `text`, to the next rule
+   *  or heading of its rank. 'words': exactly `text`, cut from its line. */
+  cut: 'line' | 'section' | 'words';
+  text: string;
+  /** held: John's default holds it (doc 37 item 6). drafting: a note about
+   *  the document, like the preamble (brief J item 5). unwritten: a clause
+   *  whose words are not yet written (doc 37 item 4, by its reasoning). */
+  why: 'held' | 'drafting' | 'unwritten';
+};
+
+export const WITHHELD: readonly Withheld[] = [
+  // Doc 37 item 6, held by default: the five-year record period (doc 18 Q6).
+  { doc: '22', cut: 'words', why: 'held', text: ' We keep records of reports and what we did about them for five years.' },
+  // Doc 37 item 6, held by default: the $2,000 liability floor (doc 18 Q11).
+  { doc: '22', cut: 'line', why: 'held', text: '- **(b) For everything else**, our aggregate liability is limited to the greater of' },
+  // 4.3's first sentence is a placeholder pointing at 6.4, an [OUTLINE] that
+  // item 4 takes off the page. The rest of 4.3 is written and stays.
+  { doc: '22', cut: 'words', why: 'unwritten', text: 'Where Pitch records that a coach holds a Working With Children Check, that record is [description under legal review — see 6.4]. ' },
+  { doc: '22', cut: 'line', why: 'drafting', text: '*Note: this was open at v1.0 and is now settled by the register' },
+  { doc: '22', cut: 'words', why: 'drafting', text: ' *(Reconciles 7.4, Schedule A9 and doc 20, which said different things at v1.0. This states the deletion case; A9 states the leaving case. Both trace to D-48 and D-26.)*' },
+  { doc: '22', cut: 'line', why: 'drafting', text: '> **What is on sale, and what is not.**' },
+  { doc: '22', cut: 'line', why: 'drafting', text: '*Why the wording changed at v1.9:' },
+  { doc: '22', cut: 'line', why: 'drafting', text: '*The figures that stood here — $54 a month, or $329 for twelve months — are history' },
+  { doc: '22', cut: 'section', why: 'drafting', text: '## Open items summary' },
+  { doc: '22', cut: 'words', why: 'drafting', text: " · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)" },
+  // Doc 25 is served by no page today (/report is the form alone). Held here
+  // anyway, so the day a page renders it the period is already off it.
+  { doc: '25', cut: 'line', why: 'held', text: '| Report received: what, when, from whom (or that it was anonymous) | 5 years |' },
+  { doc: '25', cut: 'line', why: 'held', text: '| Decision, action taken, who took it, when | 5 years |' },
+  { doc: '25', cut: 'line', why: 'held', text: '**The tension, named:** five years of records about children' },
+];
+
+/**
+ * Apply the marker rules and the named removals to a document whose preamble
+ * has already gone. A document with nothing to withhold comes back byte for
+ * byte — which is what keeps the consent hashes of docs 20 and 21 where they
+ * were.
+ */
+export function withholdUnpublished(doc: string, markdown: string): string {
+  const lines = markdown.split('\n');
+  const one = (hit: (l: string) => boolean, text: string) => {
+    const at = lines.flatMap((l, i) => (hit(l) ? [i] : []));
+    if (at.length !== 1) throw new Error(`doc ${doc}: "${text.slice(0, 48)}…" is withheld and is in the document ${at.length} times, not once`);
+    return at[0];
+  };
+  const drop = new Set<number>();
+  for (const w of WITHHELD.filter((x) => x.doc === doc)) {
+    if (w.cut === 'words') {
+      const i = one((l) => l.includes(w.text), w.text);
+      if (lines[i].split(w.text).length !== 2) throw new Error(`doc ${doc}: "${w.text.slice(0, 48)}…" is withheld and appears twice in one line`);
+      lines[i] = lines[i].replace(w.text, '');
+    } else if (w.cut === 'line') {
+      const i = one((l) => l.startsWith(w.text), w.text);
+      drop.add(i);
+      if (lines[i].startsWith('>')) for (let j = i + 1; j < lines.length && lines[j].startsWith('>'); j++) drop.add(j);
+    } else {
+      const i = one((l) => l.startsWith(w.text), w.text);
+      const rank = /^(#+)\s/.exec(lines[i])?.[1].length;
+      if (!rank) throw new Error(`doc ${doc}: "${w.text}" is withheld as a section and is not a heading`);
+      drop.add(i);
+      for (let j = i + 1; j < lines.length; j++) {
+        const h = /^(#+)\s/.exec(lines[j]);
+        if (RULE.test(lines[j]) || (h && h[1].length <= rank)) break;
+        drop.add(j);
+      }
+    }
+  }
+  // A clause carrying [OUTLINE] or [DO NOT PUBLISH …] goes whole, with the
+  // italic note hanging under it (6.5's "Status: not built" is its own).
+  lines.forEach((l, i) => {
+    if (!UNSERVED.test(l)) return;
+    drop.add(i);
+    if (/^(- |\||>)/.test(l)) return;
+    for (let j = i + 1; j < lines.length; j++) {
+      if (lines[j].trim() === '') continue;
+      if (!/^\*[^*]/.test(lines[j])) break;
+      drop.add(j);
+    }
+  });
+
+  // Where something went, one blank line and one rule where two met — and
+  // only there, so a document nothing was taken from is not touched at all.
+  const out: string[] = [];
+  let seam = false;
+  lines.forEach((l, i) => {
+    const kept = drop.has(i) ? '' : l.replace(LEGAL_NOTE, '').replace(DRAFTED_LABEL, '');
+    if (drop.has(i) || (kept !== l && kept.trim() === '')) { seam = true; return; }
+    if (seam && kept.trim() === '' && out.at(-1)?.trim() === '') return;
+    if (seam && RULE.test(kept) && RULE.test(out.findLast((x) => x.trim() !== '') ?? '')) return;
+    if (kept.trim() !== '') seam = false;
+    out.push(kept);
+  });
+  const served = out.join('\n');
+  const left = ANY_MARKER.exec(served);
+  if (left) throw new Error(`doc ${doc}: a clause marker survived the render rules: ${served.slice(left.index, left.index + 60)}`);
+  return served;
+}
+
 /** The one line of text the renderer adds to a legal document. */
 export const versionLine = (version: string, date: string) =>
   `*Version ${version.replace(/^v/, '')} · ${date}*`;
 
 export type RenderedLegalDoc = { doc: string; version: string; date: string; markdown: string };
 
-/** A legal document as it is served: no drafting preamble, its version and
- *  date under the title, every clause exactly as published. */
+/** A legal document as it is served: no drafting preamble, no clause marker
+ *  and nothing WITHHELD, its version and date under the title, and every
+ *  clause that stays exactly as published. */
 export function legalDocument(file: string): RenderedLegalDoc {
   const doc = /^(\d+)-/.exec(file)?.[1];
   if (!doc) throw new Error(`not a legal document filename: ${file}`);
@@ -149,7 +286,7 @@ export function legalDocument(file: string): RenderedLegalDoc {
   // Read from the raw file: for doc 22 the only date for the current version
   // is in the change log, which is the block we are about to strip.
   const date = publishedDate(raw, version, doc);
-  const lines = stripDraftingPreamble(raw).split('\n');
+  const lines = withholdUnpublished(doc, stripDraftingPreamble(raw)).split('\n');
   lines.splice(headEnd(lines), 0, versionLine(version, date), '');
   return { doc, version, date, markdown: lines.join('\n') };
 }

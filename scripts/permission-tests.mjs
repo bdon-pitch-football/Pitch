@@ -6963,7 +6963,7 @@ const componentFilesAll = [];
 // the product. Docs 24 and 25 have no route yet (see the report); they are
 // checked anyway, so the day they get one they are already clean.
 {
-  const { legalDocument, renderedLegalDocs, renderedVersions, stripDraftingPreamble, publishedDate, versionLine } =
+  const { legalDocument, renderedLegalDocs, renderedVersions, stripDraftingPreamble, publishedDate, versionLine, WITHHELD } =
     await import('../lib/legal-doc.ts');
 
   // Every phrase that says "this is not the document you think you are
@@ -6981,6 +6981,11 @@ const componentFilesAll = [];
   const live = renderedLegalDocs();
   check(`leg1: the register's authority table is the list of live documents (${live.map((d) => `${d.doc}@${d.version}`).join(' ')})`,
     live.length, 5);
+  const MARKED = /\[DRAFTED\]|\[OUTLINE\]|\[LEGAL\b|\[DO NOT PUBLISH\b/;
+  const withheldFrom = new Set(live.map((d) => d.doc).filter((doc) => WITHHELD.some((w) => w.doc === doc)
+    || MARKED.test(stripDraftingPreamble(readFileSync(join(legalDir, fileFor(doc)), 'utf8')))));
+  check(`legj0: the documents something is withheld from are 22 and 25, and no others (${[...withheldFrom].join(', ')})`,
+    [...withheldFrom].sort(), ['22', '25']);
 
   for (const { doc, version } of live) {
     const file = fileFor(doc);
@@ -6998,6 +7003,11 @@ const componentFilesAll = [];
     // Nothing below the title has moved: what we serve from the first line of
     // the document proper to its last is a verbatim substring of the file in
     // docs/legal. No clause, no heading, no sentence, and no version bump.
+    // Brief J (29 Sep): a document carrying clause markers or a WITHHELD
+    // clause is not a substring any more — it is the source minus exactly
+    // those, which legj3 checks as a property for every document. The
+    // documents that skip this line are pinned at legj0, so the set cannot grow.
+    if (withheldFrom.has(doc)) continue;
     const lines = served.markdown.split('\n');
     const tail = lines.slice(lines.indexOf(line) + 1).join('\n').trim();
     check(`leg5: doc ${doc} is served verbatim below the title — no clause, heading or sentence changed`,
@@ -7013,8 +7023,12 @@ const componentFilesAll = [];
     '# Title\n\n### Subtitle\n\n## One\n\n> Content.\n');
   check('leg8: a blockquote below a section heading is never a preamble',
     stripDraftingPreamble('# Title\n\n## One\n\n> Content.\n'), '# Title\n\n## One\n\n> Content.\n');
-  check('leg9: and the two real ones are still served — doc 22 Schedule A, doc 25 Part 4',
-    [legalDocument(fileFor('22')).markdown.includes('> **What is on sale, and what is not.**'),
+  // Brief J: Schedule A's opening blockquote is now withheld BY NAME, as a
+  // drafting note (it cites D-36, D-39 and D-127 and points at prices A6.1 no
+  // longer states). What this check is for is unchanged: the PREAMBLE rule
+  // never takes a body blockquote, so it is asked of that rule directly.
+  check('leg9: and the two real ones survive the preamble rule — doc 22 Schedule A, doc 25 Part 4',
+    [stripDraftingPreamble(readFileSync(join(legalDir, fileFor('22')), 'utf8')).includes('> **What is on sale, and what is not.**'),
      legalDocument(fileFor('25')).markdown.includes('> **Today the investigator is one person')],
     [true, true]);
 
@@ -7151,12 +7165,13 @@ const componentFilesAll = [];
   // it. So these four lines are still served, pinned by their exact opening,
   // AWAITING JOHN. The set exists so that nothing joins it quietly and so that
   // it is emptied, not widened, when he answers.
-  const AWAITING_JOHN = new Set([
-    '22: **[DO NOT PUBLISH UNTIL BUILT] 6.5 Suppression.** A guardian, or a club ',
-    '22: *Status: not built. Today a guardian can pause a profile and disable its',
-    '22: | 4 | **Suppression clause promises a capability that does not exist yet',
-    '22: | 5 | **Guardian-contact gate at 2.3 is not current behaviour — do not p',
-  ]);
+  //
+  // Emptied 29 Sep (brief J). Doc 37 item 3 put the question to him with a
+  // default — "§6.5 is removed until you tick it" — and he did not answer it,
+  // so 6.5 and its status note are not served until he does. Rows 4 and 5
+  // went with the open items table, a drafting table like the preamble. jr5
+  // now asserts that nothing "not built" is served at all.
+  const AWAITING_JOHN = new Set([]);
   // The drafting sense only. "Do not publish other people's children" is a
   // conduct rule (doc 22 Part 9, doc 24 §3), and it is content.
   const UNBUILT = /\[DO NOT PUBLISH[^\]]*\]|— do not publish\b|must not publish before it is built|^\*Status: not built\./i;
@@ -7168,10 +7183,201 @@ const componentFilesAll = [];
   }
   const unexpected = served.filter((l) => !AWAITING_JOHN.has(l));
   const answered = [...AWAITING_JOHN].filter((l) => !served.includes(l));
-  check(`jr5: nothing "not built" is served beyond the four lines awaiting John (${unexpected.join(' · ') || 'nothing is'})`,
+  check(`jr5: nothing "not built" is served — 6.5 is held until John ticks it (doc 37 item 3) (${unexpected.join(' · ') || 'nothing is'})`,
     unexpected, []);
-  check(`jr6: and when he answers, the set is emptied rather than left stale (${answered.join(' · ') || 'all four still served'})`,
-    answered, []);
+  check(`jr6: and nothing is left awaiting John that is no longer served (${answered.join(' · ') || 'the set is empty'})`,
+    [answered, AWAITING_JOHN.size], [[], 0]);
+}
+
+// ---------------------------------------------------------------------------
+// Brief J (29 Sep): the Terms a parent reads on 1 October, with no drafting in
+// them. John answered doc 37 item 1 only, so its "if you say nothing" column
+// rules items 2–6: [DRAFTED] labels go and the clause stays; [OUTLINE] and
+// [DO NOT PUBLISH …] clauses are not served; a [LEGAL: …] question goes and
+// its clause stays, except the $2,000 floor and the five-year record period,
+// which are held. Drafting notes in the body go, as the preamble did.
+//
+// The dangerous way for this to be wrong is not a marker left on the page —
+// that is visible. It is a render rule that quietly eats a sentence John
+// wrote. So legj3 is a property over every rendered document, not a list of
+// spot checks: every line served is a source line with only a marker or a
+// named removal taken out, in source order, and every source line NOT served
+// is one of the lines pinned in legj4. Nothing is served that is not his, and
+// nothing of his goes missing that is not on that list.
+// ---------------------------------------------------------------------------
+{
+  const { legalDocument, renderedLegalDocs, stripDraftingPreamble, withholdUnpublished, versionLine, WITHHELD } =
+    await import('../lib/legal-doc.ts');
+  const legalDir = fileURLToPath(new URL('../docs/legal', import.meta.url));
+  const fileFor = (doc) => readdirSync(legalDir).find((x) => x.startsWith(`${doc}-`) && x.endsWith('.md'));
+  const rawOf = (doc) => readFileSync(join(legalDir, fileFor(doc)), 'utf8');
+  const live = renderedLegalDocs();
+  const threw = (f) => { try { f(); return false; } catch { return true; } };
+
+  // legj1 · The brief's phrases. "Do not publish other people's children" is
+  // a conduct rule (doc 22 Schedule C 3, doc 24 §3) and it is content.
+  const DRAFTING = [/\[DRAFTED\]/, /\[OUTLINE\]/, /\[LEGAL/, /\[DO NOT PUBLISH/i, /do not publish/i,
+    /must not publish/i, /not yet published/i, /for legal review/i];
+  const CONDUCT = /\b[Dd]o not publish other people's children/g;
+  for (const { doc } of live) {
+    const served = legalDocument(fileFor(doc)).markdown.replace(CONDUCT, '');
+    const hits = DRAFTING.filter((r) => r.test(served)).map(String);
+    check(`legj1: doc ${doc} serves none of the brief's drafting phrases (${hits.join(' · ') || 'none'})`, hits, []);
+  }
+
+  // legj2 · The two held clauses: in the source, on no page.
+  const HELD = [
+    ['22', '5.5: We keep records of reports and what we did about them for five years.'],
+    ['22', '8.2(b): **or $2,000**'],
+    ['25', 'Part 4: | Report received: what, when, from whom (or that it was anonymous) | 5 years |'],
+    ['25', 'Part 4: | Decision, action taken, who took it, when | 5 years |'],
+    ['25', 'Part 4: **The tension, named:** five years of records about children'],
+  ];
+  for (const [doc, entry] of HELD) {
+    const words = entry.slice(entry.indexOf(': ') + 2);
+    check(`legj2: doc ${doc} ${entry.slice(0, entry.indexOf(':'))} is held — in the source, not served (${words.slice(0, 48)})`,
+      [rawOf(doc).includes(words), legalDocument(fileFor(doc)).markdown.includes(words)], [true, false]);
+  }
+  // And wherever else a period or the floor might be stated, it is not served.
+  const PERIOD = /five[- ]years?|\b5[- ]years?|\$\s?2,000/i;
+  const stated = live.filter(({ doc }) => PERIOD.test(legalDocument(fileFor(doc)).markdown)).map(({ doc }) => doc);
+  check(`legj2b: no rendered document states the five-year period or the $2,000 floor (${stated.join(', ') || 'none does'})`,
+    stated, []);
+  // Doc 23's row is held by never being servable: the register renders no doc
+  // 23, so the one renderer refuses it (and leg18: nothing else opens docs/legal).
+  check('legj2c: doc 23\'s five-year row is in the source, and no page can serve doc 23',
+    [/\| \*\*5 years\*\* \|/.test(rawOf('23')), live.some((d) => d.doc === '23'), threw(() => legalDocument(fileFor('23')))],
+    [true, false, true]);
+
+  // legj3 · The property. What the test allows a render to take out of a
+  // line, written here rather than imported: the label and its space; a
+  // bracketed counsel question with the one space or dash hanging it on; and
+  // the named words of WITHHELD, which legj5 pins by their exact text.
+  const LABEL = /\*\*\[DRAFTED\]\*\* |\[DRAFTED\] /g;
+  const NOTE = /(?: —)? ?(\*\*)?\[LEGAL[^\]]*\]\1(?: —(?= ))?/g;
+  const unservedOf = {};
+  for (const { doc } of live) {
+    const src = stripDraftingPreamble(rawOf(doc)).split('\n');
+    const d = legalDocument(fileFor(doc));
+    const served = d.markdown.split('\n');
+    served.splice(served.indexOf(versionLine(d.version, d.date)), 1);
+    const words = WITHHELD.filter((w) => w.doc === doc && w.cut === 'words').map((w) => w.text);
+    const allowed = (l) => words.reduce((a, w) => a.split(w).join(''), l).replace(NOTE, '').replace(LABEL, '');
+    const unserved = [];
+    let j = 0;
+    for (const line of src) {
+      while (j < served.length && served[j].trim() === '') j++;
+      if (line.trim() === '') continue;
+      if (j < served.length && allowed(line) === served[j]) { j++; continue; }
+      unserved.push(line);
+    }
+    const invented = served.slice(j).filter((l) => l.trim() !== '');
+    unservedOf[doc] = unserved.filter((l) => !/^-{3,}\s*$/.test(l) && l.trim() !== '>');
+    check(`legj3: doc ${doc} serves only the source, in order, minus markers and named words (${invented.length} lines not accounted for${invented.length ? `: ${invented[0].slice(0, 60)}` : ''})`,
+      invented, []);
+  }
+
+  // legj4 · Everything the source holds that no page serves, by its opening
+  // words. This IS the list at the top of the brief J report; a render rule
+  // that takes one line more, or one fewer, fails here by name.
+  const NOT_SERVED = {
+    '20': [], '21': [], '24': [],
+    '22': [
+      '**[OUTLINE] 3.3 Children aged 16 and 17.** **[LEGAL: doc 18 Q7.]** Our',
+      '*Note: this was open at v1.0 and is now settled by the register (D-74,',
+      '**[OUTLINE] 6.4 Verified status.** What a "verified" state on a coach ',
+      '**[DO NOT PUBLISH UNTIL BUILT] 6.5 Suppression.** A guardian, or a clu',
+      '*Status: not built. Today a guardian can pause a profile and disable i',
+      '- **(b) For everything else**, our aggregate liability is limited to t',
+      '**[LEGAL: doc 18 Q11 — the $2,000 floor is our own construction, not a',
+      '> **What is on sale, and what is not.** This schedule describes **one ',
+      '> *This replaces a banner, written for v1.2, which told the reader tha',
+      '> **The whole of this schedule is written against the unfair contract ',
+      '*Why the wording changed at v1.9: the earlier version said there were ',
+      '*The figures that stood here — $54 a month, or $329 for twelve months ',
+      '**[OUTLINE] A12 Data handling.** The club and Pitch each handle player',
+      '**[OUTLINE]** Consequences, escalation, and the appeal path — drafted ',
+      '## Open items summary',
+      '| # | Item | Where | Blocks |',
+      '|---|---|---|---|',
+      '| 1 | 16–17 acceptance model — and it matters more now that a 16-year-',
+      '| 2 | WWCC representation and verified status | 4.3, 6.4 | Launch — do',
+      '| 3 | Report and takedown: the retention period commits us the day it ',
+      '| 4 | **Suppression clause promises a capability that does not exist y',
+      '| 5 | **Guardian-contact gate at 2.3 is not current behaviour — do not',
+      '| 6 | Consumer guarantees wording; the $2,000 liability floor is our o',
+      '| 7 | Change-of-control commitment — enforceable as drafted? | 5.8 | D',
+      '| 8 | Whether a data processing agreement is needed with clubs — live,',
+      '| 9 | **The unincorporated-association point.** A1.1 is our answer; co',
+      '| 10 | **Founding arrangements are individually negotiated and unpubli',
+      '| 11 | Whether a 14-day cooling-off is the right length for a $329 ann',
+      '| 12 | **Whether A6.2 states the tax invoice and adjustment note oblig',
+      '| 13 | **Whether clause 0.1 is sufficient to identify the contracting ',
+      '*Resolved since v1.2: Schedule A is no longer a placeholder — D-127 se',
+    ],
+    '25': [
+      '**[LEGAL: doc 18 Q6 — what window applies, from what moment, and to wh',
+      '| Report received: what, when, from whom (or that it was anonymous) | ',
+      '| Decision, action taken, who took it, when | 5 years | As above |',
+      '**The tension, named:** five years of records about children sits agai',
+    ],
+  };
+  for (const { doc } of live) {
+    const got = (unservedOf[doc] ?? []).map((l) => l.slice(0, 70));
+    const want = NOT_SERVED[doc] ?? ['(a document nobody pinned)'];
+    const extra = got.filter((l) => !want.includes(l));
+    const back = want.filter((l) => !got.includes(l));
+    check(`legj4: doc ${doc} leaves out exactly the ${want.length} pinned lines (${[...extra.map((l) => `+ ${l.slice(0, 40)}`), ...back.map((l) => `− ${l.slice(0, 40)}`)].join(' · ') || 'it does'})`,
+      [extra, back], [[], []]);
+  }
+
+  // legj5 · WITHHELD is exactly this. A name that joins it removes text from a
+  // legal page, so nothing joins it without this list changing too.
+  check('legj5: the named removals are these thirteen, and only these', WITHHELD.map((w) => `${w.doc} ${w.cut} ${w.why}: ${w.text.slice(0, 44)}`), [
+    '22 words held:  We keep records of reports and what we did ',
+    '22 line held: - **(b) For everything else**, our aggregate',
+    '22 words unwritten: Where Pitch records that a coach holds a Wor',
+    '22 line drafting: *Note: this was open at v1.0 and is now sett',
+    '22 words drafting:  *(Reconciles 7.4, Schedule A9 and doc 20, w',
+    '22 line drafting: > **What is on sale, and what is not.**',
+    '22 line drafting: *Why the wording changed at v1.9:',
+    '22 line drafting: *The figures that stood here — $54 a month, ',
+    '22 section drafting: ## Open items summary',
+    '22 words drafting:  · for legal review · revised on Leo\'s entit',
+    '25 line held: | Report received: what, when, from whom (or',
+    '25 line held: | Decision, action taken, who took it, when ',
+    '25 line held: **The tension, named:** five years of record',
+  ]);
+
+  // legj6 · A document nothing is withheld from is not touched, byte for
+  // byte — so the consent hashes of docs 20 and 21 did not move this round.
+  for (const doc of ['20', '21', '24']) {
+    const stripped = stripDraftingPreamble(rawOf(doc));
+    check(`legj6: doc ${doc} comes through the render rules byte for byte`, withholdUnpublished(doc, stripped) === stripped, true);
+  }
+
+  // legj7 · A held clause that has since been edited fails loudly instead of
+  // lapsing onto the page; so does a marker the rules do not recognise.
+  const s22 = stripDraftingPreamble(rawOf('22'));
+  check('legj7: a held sentence John has reworded stops the render rather than being served',
+    threw(() => withholdUnpublished('22', s22.replace('for five years.', 'for seven years.'))), true);
+  check('legj7b: and so does a held line',
+    threw(() => withholdUnpublished('22', s22.replace('- **(b) For everything else**', '- **(b) For all else**'))), true);
+  check('legj7c: a marker in a shape the rules do not know is never served',
+    threw(() => withholdUnpublished('99', '# T\n\nA clause, at the end of which **[DRAFTED]**\n')), true);
+
+  // legj8 · Each rule on a small document, so a failure says which rule.
+  check('legj8: [DRAFTED] — the label and one space go, the bold around it if it is bolded alone',
+    withholdUnpublished('99', '# T\n\n**[DRAFTED] 1.1 A.** Text.\n\n**[DRAFTED]** Everyone agrees:\n'),
+    '# T\n\n**1.1 A.** Text.\n\nEveryone agrees:\n');
+  check('legj8b: [OUTLINE] — the clause goes whole, with the italic note under it, and the next clause stays',
+    withholdUnpublished('99', '# T\n\n**1.1 A.** Kept.\n\n**[OUTLINE] 1.2 B.** Gone.\n\n*Status: gone too.*\n\n**1.3 C.** Kept.\n'),
+    '# T\n\n**1.1 A.** Kept.\n\n**1.3 C.** Kept.\n');
+  check('legj8c: [LEGAL] — the question goes with the dash that hangs it on; the clause stays',
+    withholdUnpublished('99', '# T\n\nA sentence — **[LEGAL: doc 18 Q5. A question.]**\n\n| a | **[LEGAL: Q7]** — b |\n\n**[LEGAL: Q11 — alone.]**\n\nEnd.\n'),
+    '# T\n\nA sentence\n\n| a | b |\n\nEnd.\n');
+  check('legj8d: a document with nothing to withhold keeps even its double blank lines',
+    withholdUnpublished('99', '# T\n\n\nA\n\n\n\nB\n'), '# T\n\n\nA\n\n\n\nB\n');
 }
 
 // ---------------------------------------------------------------------------
