@@ -4305,8 +4305,12 @@ check('act15: the operator console reads an explicit allowlist', /OPS_EMAILS/.te
   check('U-11 reply-to d: no reply-to at all when support is not configured',
     replyToFor('doc15.§32', '') === undefined, true);
   const documented = /^EMAIL_REPLY_TO=(\S*)/m.exec(srcOf('.env.example'))?.[1] ?? '';
-  check(`U-11 reply-to e: the documented reply address is the support inbox, not a person (${documented})`,
-    documented, 'help@pitchfootball.com.au');
+  // D-169 (BUZ, 29 Sep): replies reach BUZ directly — his direct contact is the
+  // offer to clubs. U-11's safety half is untouched: §19 (a child's CV to a
+  // club) still carries NO reply-to (checks a and g), so a reply about a child
+  // reaches nobody.
+  check(`U-11 reply-to e (D-169): the documented reply address is BUZ's direct address (${documented})`,
+    documented, 'burak.donmez@pitch-football.com');
   check('U-11 reply-to f: the email transport reads no reply address of its own',
     /EMAIL_REPLY_TO/.test(codeOnly(srcOf('lib/providers.ts'))), false);
   check('U-11 reply-to g: a retried message keeps its key, so a re-sent §19 is still no-reply',

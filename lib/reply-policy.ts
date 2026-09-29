@@ -14,7 +14,9 @@
 //
 // Every other message keeps a Reply-To, because several of them ask for a
 // reply ("reply to this email and we will do it", "just hit reply") — and it
-// is the SUPPORT inbox, never a person.
+// is EMAIL_REPLY_TO. That was the support inbox until D-169 (BUZ, 29 Sep): it is
+// now BUZ's direct address, because his direct contact is what Pitch offers
+// clubs. The CV email above (§19) is NOT affected — it still has no Reply-To.
 
 /** Messages a reply must never reach anyone from. */
 export const NO_REPLY_KEYS: ReadonlySet<string> = new Set(['doc15.§19']);
