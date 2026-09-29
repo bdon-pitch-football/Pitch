@@ -80,9 +80,15 @@ and **Preview**:
    back is one redeploy.
 2. **Flip the front door on** in the production database, then `curl -sI /`
    must return 200.
-3. **Kill switches rehearsed from BUZ's phone:** pause shared links, and
+3. **The waitlist's one email (promised on the site: "one email, at launch").**
+   BUZ sends it himself from his own address, one email per person and never
+   CC'd together. Leo drafts each one in BUZ's Gmail on launch morning, from
+   the `waitlist` rows not unsubscribed. The words are held for BUZ's approval
+   (drafted 29 Sep). A reply of "unsubscribe" is the opt-out; Leo records any
+   in `waitlist.unsubscribed_at`.
+4. **Kill switches rehearsed from BUZ's phone:** pause shared links, and
    switch SMS off and back on.
-4. **Under-18s** open the day 1a clears (if BUZ chooses to launch adults,
+5. **Under-18s** open the day 1a clears (if BUZ chooses to launch adults,
    coaches and clubs first).
 
 ## Rollback
