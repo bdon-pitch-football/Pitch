@@ -37,6 +37,25 @@ and **Preview**:
 
 ## 3 · Leo, tomorrow: the preview rehearsal (never production)
 
+**Where it runs, decided 29 Sep:**
+- **The production database** (`rxcgttfosftfgybftogo`) already holds
+  `public.waitlist`, with **5 real sign-ups**, and the social-image storage
+  bucket. Its `waitlist` matches `0001_waitlist.sql` column for column. It was
+  created from that file, but never recorded in the migration history.
+- **The rehearsal runs on a Supabase branch.** It is a disposable copy, Pro
+  plan; the branch's cost (cents an hour) is confirmed with BUZ before it is
+  created, and it is deleted after. All migrations, `0001`–`0130`+, run on the
+  branch. The Vercel **Preview** environment points at the branch;
+  **Production** points at the real project.
+- **The preview deploy needs one go from BUZ: push the `app` branch to
+  GitHub.** It has never been pushed. Vercel builds a preview from it
+  automatically. Production keeps deploying `main` (the website) until launch
+  day.
+- **Launch day on production:** record `0001` as already applied (the table is
+  there, with its 5 rows untouched), then run `0002` onward in order, after
+  the preflight queries.
+
+
 1. **Migrations onto the empty Sydney database, in order.** Run the preflight
    queries first (`RELEASE-PREFLIGHT.md`). On an empty database they return
    nothing.
