@@ -95,3 +95,14 @@ Anything new still goes to BUZ.
 - While the parent's text is queued (D-168): "We've emailed your parent. Their text follows shortly."
 
 **Approved in advance (BUZ: "3 & 4 approved and to you once the builders finished"):** round H's TD name-mismatch confirm wording, and round I's clubs-directory and "add a trial" wording. **BUZ delegated the review to Leo.** Leo checks each string against the copy rules (banned words, D-162, D-163's "never 'at launch' / 'for now' / 'limited'", Australian English, honesty) before it goes live, and lists what shipped.
+
+## 29 September: round H's TD-mismatch words, reviewed by Leo under BUZ's delegation
+
+- Call sheet: "On hold. The role stays off until you confirm this is the person the club named, or record a new call with the right name."
+- Button: "This is the person the club named"
+- Verification queue: "on hold: not the name on the call"
+
+**Still held, development only, for BUZ** (operator-facing, outside the delegation):
+- digest line "Parents’ texts waiting for SMS: {n}"
+- digest subject "Pitch — {n} parents’ text waiting for SMS"
+- Today tile "Texts waiting for SMS" / "parents’ approval requests"
