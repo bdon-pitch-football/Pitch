@@ -11,6 +11,7 @@ import { PGlite } from '@electric-sql/pglite';
 // question and a second place to be wrong (L23).
 import { PROVENANCE, PROVENANCE_LABELS, STAT_SETS, positionGroup, sharedProvenance } from '../lib/football.ts';
 import { PLAYER_FIXTURES } from '../lib/fixtures.ts';
+import { demoDbPort } from '../lib/demo.ts';
 import { analyticsAllowed, analyticsBeforeSend } from '../lib/analytics-scope.ts';
 import { POSITIONS as POSITIONS_TS } from '../lib/football.ts';
 import { CLUBS_WORDS_APPROVED as CLUBS_WORDS_APPROVED_TS, clubsScreensShown as clubsScreensShownTS } from '../lib/ops-policy.ts';
@@ -2516,13 +2517,27 @@ check('M10c: and the register falls straight back to the held view',
   (await db.query('select * from fn_register_rows($1,$2)', [mAdmin, mClub])).rows.length, 0);
 await db.query(`update club set club_state='verified' where id=$1`, [mClub]);
 
-// M7/M8 — what an unverified club MAY do: things with no minor in them.
+// M8 — what an unverified club MAY do: things with no minor in them.
 const m7Club = crypto.randomUUID();
 await db.query(`insert into club (id, name, club_state) values ($1,'Notice FC','claimed')`, [m7Club]);
-await db.exec(`insert into trial_notice (club_id, title, time_venue, trial_on)
-  values ('${m7Club}', 'Open day', 'Sat 9am', current_date + 20)`);
-check('M7: an unverified club may post a public trial notice — no minor in it',
-  (await db.query('select count(*)::int as n from trial_notice where club_id = $1', [m7Club])).rows[0].n, 1);
+// Doc 14 M7 says an unverified club MAY post a trial notice. The register says
+// otherwise: D-90 names the board's two sources, "a verified club posts its
+// own" and Pitch compiles the rest, and the product has always done that —
+// /club/post-trial, the only door a club has, asks for a verified club on the
+// page and again in the action. This check used to insert a notice straight
+// into the table and call it M7, which tested the table and not the product,
+// and asserted the opposite of the register (L4, L22). Brief K: behaviour is
+// unchanged, the check tests what D-90 decides, and M7 is open until BUZ
+// rules between doc 14 and the register.
+{
+  const postPage = codeOnly(srcOf('app/club/post-trial/page.tsx')), postAct = codeOnly(srcOf('app/club/post-trial/actions.ts'));
+  const writers = tsSourceFiles().filter((f) => /insert into trial_notice\b(?!_)/.test(codeOnly(srcOf(f))));
+  check('D-90: a club posts its own trial notice only once it is verified — /club/post-trial asks for a verified club on the page and again in the action, and it is the only writer of a notice in the product (doc 14 M7 says an unverified club may; for BUZ)',
+    [/membership m on m\.club_id = c\.id[\s\S]{0,160}where c\.club_state = 'verified'/.test(postPage),
+     /membership m on m\.club_id = c\.id[\s\S]{0,160}where c\.club_state = 'verified'/.test(postAct),
+     /if \(club\.rows\.length === 0\) redirect\('\/home'\);/.test(postAct), writers],
+    [true, true, true, ['app/club/post-trial/actions.ts']]);
+}
 await db.query(`insert into person (id, first_name, dob) values ($1,'New Coach','${yearsAgo(30)}')`, [crypto.randomUUID()]);
 check('M8: and may add its own people', true, true);
 
@@ -3122,14 +3137,21 @@ check('G11: the read path drops non-positive stats before they leave Postgres',
 // ---------------------------------------------------------------------------
 // Tables H and J — the club walls. A treasurer made an administrator to send
 // invoices must never be able to read a child's development notes (D-93).
+//
+// Relabelled in brief K (L4, the H8 mistake again). Six of these seven carried
+// a table-H row id and tested a table-A row: "H1" was A12b, "H2" A15b, "H3"
+// A12, "H4" A13, "H5" A8, the second "H4" A9. Gate coverage counted H1, H2,
+// H4 and H5 as pinned on the strength of them, and H7 on a check that is doc
+// 14's H3 (a coach leaves and keeps what they wrote). Each now names the row
+// it tests, and the table-H rows nothing tests are open, honestly.
 // ---------------------------------------------------------------------------
-check('H1: the club administrator gets membership and contact only', await level(ID.clubAdmin, ID.deniz), 'membership_only');
-check('H2: the team manager the same', await level(ID.teamManager, ID.deniz), 'membership_only');
-check('H3: the technical director gets the record', await level(ID.td, ID.deniz), 'full');
-check('H4: an administrator at another club gets nothing', await level(ID.adminOther, ID.deniz), 'none');
-check('H5: an unattested coach at the right squad still gets nothing', await level(ID.coachU, ID.deniz), 'none');
-check('H4: a verified coach on a squad they do not hold gets nothing', await level(ID.coachUnassigned, ID.deniz), 'none');
-check('H7: a departed coach keeps only what they authored (D-48)', await level(ID.coachFormer, ID.deniz), 'authored_only');
+check('A12b: the club administrator gets membership and contact only', await level(ID.clubAdmin, ID.deniz), 'membership_only');
+check('A15b: the team manager the same', await level(ID.teamManager, ID.deniz), 'membership_only');
+check('A12: the technical director gets the record', await level(ID.td, ID.deniz), 'full');
+check('A13: an administrator at another club gets nothing', await level(ID.adminOther, ID.deniz), 'none');
+check('A8: an unattested coach at the right squad still gets nothing', await level(ID.coachU, ID.deniz), 'none');
+check('A9: a verified coach on a squad they do not hold gets nothing', await level(ID.coachUnassigned, ID.deniz), 'none');
+check('H3/A10: a coach whose membership has ended keeps only what they authored (D-48)', await level(ID.coachFormer, ID.deniz), 'authored_only');
 
 // H9: a departing technical director loses club-wide access immediately —
 // the same read, one UPDATE later. (Labelled H8 until brief H: doc 14 H8 is
@@ -5559,8 +5581,28 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   const demo = srcOf('lib/demo.ts'), dbSrc = srcOf('lib/db.ts'), prov = srcOf('lib/providers.ts');
   check('DEMO1: demo mode refuses to run in a production build',
     /NODE_ENV === 'production'[\s\S]{0,40}throw/.test(demo), true);
+  // Brief K item 7: the port is demoDbPort() now, 54323 unless a seat sets
+  // its own — still this laptop's loopback, which is the lock.
   check('DEMO2: a demo reads only its own local database, whatever SUPABASE_DB_URL says',
-    [/isDemo\(\) \? DEMO_DB_URL/.test(dbSrc), /127\.0\.0\.1:\$\{DEMO_DB_PORT\}/.test(demo), /DEMO_DB_PORT = 54323/.test(demo)], [true, true, true]);
+    [/isDemo\(\) \? DEMO_DB_URL/.test(dbSrc), /DEMO_DB_URL = `postgres:\/\/postgres@127\.0\.0\.1:\$\{demoDbPort\(\)\}\/postgres`/.test(demo), /DEMO_DB_PORT = 54323/.test(demo)], [true, true, true]);
+
+  // Brief K item 7. `DEMO_CLUB=… node scripts/dev-db.mts` bound 54323 — BUZ's
+  // demo port — whatever PITCH_DEV_DB_PORT said, so a seat exercising the
+  // demo layer on its own port took his. An explicit port wins now; the demo
+  // keeps 54323 as its default; and npm run demo blanks the knob, so the
+  // meeting demo cannot be moved by a shell a seat left set.
+  const seed = codeOnly(srcOf('scripts/dev-db.mts')), launcher = codeOnly(srcOf('scripts/demo.mjs'));
+  check('demo-port1: a demo database is on 54323 unless a port is set, and on the set port when one is',
+    [demoDbPort({}), demoDbPort({ PITCH_DEV_DB_PORT: '' }), demoDbPort({ PITCH_DEV_DB_PORT: '54482' }), demoDbPort({ DEMO_CLUB: 'Club FC', PITCH_DEV_DB_PORT: '54482' })],
+    [54323, 54323, 54482, 54482]);
+  check('demo-port2: dev-db binds a demo on that answer — not on a 54323 of its own — and a plain dev database still refuses the demo\'s port',
+    [/const PORT = DEMO \? demoDbPort\(\) : DEV_PORT;/.test(seed), /new PGLiteSocketServer\(\{ db, port: PORT,/.test(seed), seed.split('\n').some((l) => /\b54323\b/.test(l) && !/console\.error\(/.test(l)),
+     /\(!DEMO && PORT === DEMO_DB_PORT\)/.test(seed)],
+    [true, true, false, true]);
+  check('demo-port3: npm run demo blanks the knob for its database and its app, so BUZ\'s demo is always 54323 — the port it takes over',
+    [/const quiet = \{[\s\S]*?PITCH_DEV_DB_PORT: '',[\s\S]*?\};/.test(launcher),
+     (launcher.match(/\.\.\.process\.env, \.\.\.quiet,/g) ?? []).length, /for \(const port of \[PORT, 54323\]\)/.test(launcher)],
+    [true, 2, true]);
   check('DEMO3: a demo sends no email and no SMS',
     (prov.match(/isDemo\(\) \|\|/g) ?? []).length, 2);
   check('DEMO4: a demo never reaches Stripe or the waitlist',
@@ -6962,8 +7004,8 @@ const componentFilesAll = [];
 //
 // The checks are over lib/legal-doc — the one answer both /privacy and the
 // approval flow render — for every document the register lists as rendered in
-// the product. Docs 24 and 25 have no route yet (see the report); they are
-// checked anyway, so the day they get one they are already clean.
+// the product. Docs 24 and 25 had no route until brief K, and were checked
+// anyway; they are served now, at /conduct and /report/policy.
 {
   const { legalDocument, renderedLegalDocs, renderedVersions, stripDraftingPreamble, publishedDate, versionLine, WITHHELD } =
     await import('../lib/legal-doc.ts');
@@ -7029,9 +7071,12 @@ const componentFilesAll = [];
   // drafting note (it cites D-36, D-39 and D-127 and points at prices A6.1 no
   // longer states). What this check is for is unchanged: the PREAMBLE rule
   // never takes a body blockquote, so it is asked of that rule directly.
+  // Brief K: doc 25's investigator blockquote is in Part 3, which is withheld
+  // as internal now that a page serves doc 25 — so it too is asked of the
+  // preamble rule directly, which is what this check is about.
   check('leg9: and the two real ones survive the preamble rule — doc 22 Schedule A, doc 25 Part 4',
     [stripDraftingPreamble(readFileSync(join(legalDir, fileFor('22')), 'utf8')).includes('> **What is on sale, and what is not.**'),
-     legalDocument(fileFor('25')).markdown.includes('> **Today the investigator is one person')],
+     stripDraftingPreamble(readFileSync(join(legalDir, fileFor('25')), 'utf8')).includes('> **Today the investigator is one person')],
     [true, true]);
 
   // Fail loudly. A legal page that silently renders no version is the same bug
@@ -7257,14 +7302,22 @@ const componentFilesAll = [];
   // the named words of WITHHELD, which legj5 pins by their exact text.
   const LABEL = /\*\*\[DRAFTED\]\*\* |\[DRAFTED\] /g;
   const NOTE = /(?: —)? ?(\*\*)?\[LEGAL[^\]]*\]\1(?: —(?= ))?/g;
+  // Brief K: on a line a named cut touched, and on no other, an empty "()"
+  // with the space before it goes and a run of spaces becomes one; and a cut
+  // marked `stop` gives its sentence back the full stop it took. Nothing else.
+  const TIDY = (l) => l.replace(/ ?\(\s*\)/g, '').replace(/(\S) {2,}(?=\S)/g, '$1 ');
   const unservedOf = {};
   for (const { doc } of live) {
     const src = stripDraftingPreamble(rawOf(doc)).split('\n');
     const d = legalDocument(fileFor(doc));
     const served = d.markdown.split('\n');
     served.splice(served.indexOf(versionLine(d.version, d.date)), 1);
-    const words = WITHHELD.filter((w) => w.doc === doc && w.cut === 'words').map((w) => w.text);
-    const allowed = (l) => words.reduce((a, w) => a.split(w).join(''), l).replace(NOTE, '').replace(LABEL, '');
+    const words = WITHHELD.filter((w) => w.doc === doc && w.cut === 'words');
+    const allowed = (l) => {
+      let a = l, cut = false;
+      for (const w of words) if (a.includes(w.text)) { a = a.split(w.text).join(w.stop ? '.' : ''); cut = true; }
+      return (cut ? TIDY(a) : a).replace(NOTE, '').replace(LABEL, '');
+    };
     const unserved = [];
     let j = 0;
     for (const line of src) {
@@ -7279,6 +7332,9 @@ const componentFilesAll = [];
       invented, []);
   }
 
+  // Doc 25's Parts 2–5 as counted on 29 Sep (brief K): 95 non-blank
+  // lines, rules and bare quote lines aside.
+  const LEGK_DOC25_WITHHELD_LINES = 95;
   // legj4 · Everything the source holds that no page serves, by its opening
   // words. This IS the list at the top of the brief J report; a render rule
   // that takes one line more, or one fewer, fails here by name.
@@ -7317,13 +7373,24 @@ const componentFilesAll = [];
       '| 13 | **Whether clause 0.1 is sufficient to identify the contracting ',
       '*Resolved since v1.2: Schedule A is no longer a placeholder — D-127 se',
     ],
-    '25': [
-      '**[LEGAL: doc 18 Q6 — what window applies, from what moment, and to wh',
-      '| Report received: what, when, from whom (or that it was anonymous) | ',
-      '| Decision, action taken, who took it, when | 5 years | As above |',
-      '**The tension, named:** five years of records about children sits agai',
-    ],
+    // Brief K: doc 25 is served, Part 1 only — its own footer says "Part 1 is
+    // public, Parts 2–5 are internal". So what is not served is Part 2's
+    // heading and every line after it up to the rule over that footer, read
+    // off the source here by the document's own structure; the four lines
+    // round J pinned are among them. Counted as well, so the day John adds a
+    // line to Parts 2–5, or the rule takes one line more, this says so.
+    '25': (() => {
+      const src = stripDraftingPreamble(rawOf('25')).split('\n');
+      const from = src.findIndex((l) => /^# Part 2 — /.test(l));
+      const to = src.findLastIndex((l) => /^-{3,}\s*$/.test(l));
+      return src.slice(from, to).filter((l) => l.trim() !== '' && !/^-{3,}\s*$/.test(l) && l.trim() !== '>').map((l) => l.slice(0, 70));
+    })(),
   };
+  check(`legj4b: doc 25 withholds Parts 2–5 — ${NOT_SERVED['25'].length} lines, from "# Part 2" to the rule over the footer — and round J's four held lines are among them`,
+    [NOT_SERVED['25'].length, NOT_SERVED['25'][0], ['**[LEGAL: doc 18 Q6 — what window applies, from what moment, and to wh',
+      '| Report received: what, when, from whom (or that it was anonymous) | ', '| Decision, action taken, who took it, when | 5 years | As above |',
+      '**The tension, named:** five years of records about children sits agai'].every((l) => NOT_SERVED['25'].includes(l))],
+    [LEGK_DOC25_WITHHELD_LINES, '# Part 2 — How this actually runs', true]);
   for (const { doc } of live) {
     const got = (unservedOf[doc] ?? []).map((l) => l.slice(0, 70));
     const want = NOT_SERVED[doc] ?? ['(a document nobody pinned)'];
@@ -7335,7 +7402,7 @@ const componentFilesAll = [];
 
   // legj5 · WITHHELD is exactly this. A name that joins it removes text from a
   // legal page, so nothing joins it without this list changing too.
-  check('legj5: the named removals are these thirteen, and only these', WITHHELD.map((w) => `${w.doc} ${w.cut} ${w.why}: ${w.text.slice(0, 44)}`), [
+  check(`legj5: the named removals are these ${WITHHELD.length}, and only these`, WITHHELD.map((w) => `${w.doc} ${w.cut} ${w.why}${w.stop ? ' stop' : ''}: ${w.text.slice(0, 44)}`), [
     '22 words held:  We keep records of reports and what we did ',
     '22 line held: - **(b) For everything else**, our aggregate',
     '22 words unwritten: Where Pitch records that a coach holds a Wor',
@@ -7346,9 +7413,17 @@ const componentFilesAll = [];
     '22 line drafting: *The figures that stood here — $54 a month, ',
     '22 section drafting: ## Open items summary',
     '22 words drafting:  · for legal review · revised on Leo\'s entit',
+    '22 words drafting: Reference table for the build',
+    '22 words drafting:  (D-64)',
+    '22 words drafting:  (D-51)',
+    '22 words drafting:  (D-149)',
+    '22 words drafting:  and it is not Phase 1',
+    '22 words drafting:  (reference for the build)',
+    '22 words drafting stop:  — **[LEGAL: doc 18 Q5. This last sentence i',
     '25 line held: | Report received: what, when, from whom (or',
     '25 line held: | Decision, action taken, who took it, when ',
     '25 line held: **The tension, named:** five years of record',
+    '25 rest internal: # Part 2 — How this actually runs',
   ]);
 
   // legj6 · A document nothing is withheld from is not touched, byte for
@@ -7380,6 +7455,85 @@ const componentFilesAll = [];
     '# T\n\nA sentence\n\n| a | b |\n\nEnd.\n');
   check('legj8d: a document with nothing to withhold keeps even its double blank lines',
     withholdUnpublished('99', '# T\n\n\nA\n\n\n\nB\n'), '# T\n\n\nA\n\n\n\nB\n');
+
+  // Brief K's three rules, each on hand-written input, so a failure names the
+  // rule (legj8's reasoning). tidyCut is the renderer's; the inputs and the
+  // answers are written here.
+  const { tidyCut } = await import('../lib/legal-doc.ts');
+  check('legk8: a cut\'s leftovers are tidied — an empty "()" with its space, a run of spaces — and a line with neither is untouched',
+    [tidyCut('A change (). Next.'), tidyCut('| **B** | Architecture |  |'), tidyCut('Kept (a) as  written'), tidyCut('Untouched (b) line.')],
+    ['A change. Next.', '| **B** | Architecture | |', 'Kept (a) as written', 'Untouched (b) line.']);
+  check('legk8b: the tidy never reaches a line no cut touched, even one with a double space in it',
+    withholdUnpublished('22', stripDraftingPreamble(rawOf('22')).replace('0.1 The parties.', '0.1  The parties.')).includes('0.1  The parties.'), true);
+  check('legk8c: the Part 2 heading withheld "to the footer" takes Parts 2–5 and leaves Part 1, the closing rule and the footer',
+    [legalDocument(fileFor('25')).markdown.includes('## If you are unhappy with what we did'),
+     /\n---\n\n\*Pitch Football · [^\n]*Part 1 is public, Parts 2–5 are internal\*\n?$/.test(legalDocument(fileFor('25')).markdown),
+     ['# Part 2', '# Part 3', '# Part 4', '# Part 5', '## Triage, in three classes', 'Take the page down first'].filter((h) => legalDocument(fileFor('25')).markdown.includes(h))],
+    [true, true, []]);
+  check('legk8d: a heading withheld to the footer that is not a heading, or has no closing rule after it, stops the render',
+    [threw(() => withholdUnpublished('25', stripDraftingPreamble(rawOf('25')).replace('# Part 2 — How this actually runs', 'Part 2 — How this actually runs'))),
+     threw(() => withholdUnpublished('25', stripDraftingPreamble(rawOf('25')).replace(/\n---\n(?![\s\S]*\n---\n)/, '\n\n')))],
+    [true, true]);
+}
+
+// ---------------------------------------------------------------------------
+// Brief K item 3 (29 Sep): the Terms still served our own working references
+// inside clauses that stay — "(D-64)", "(D-51)", "(D-149)", "it is not Phase
+// 1", "(reference for the build)", "Reference table for the build" — and 2.3
+// ended with no full stop, where round J took off the counsel note that
+// called its last sentence "not current behaviour" (it is current behaviour:
+// app/join/actions.ts). Each goes by its exact words (WITHHELD); legj3 above
+// proves nothing else moved.
+//
+// Brief K item 2: docs 24 and 25 are served at last, /conduct and
+// /report/policy, through the same renderer and the same rules as /terms.
+// Neither is consented to, so neither can have moved a stamp.
+// ---------------------------------------------------------------------------
+{
+  const { legalDocument, renderedLegalDocs, documentTitle } = await import('../lib/legal-doc.ts');
+  const legalDir = fileURLToPath(new URL('../docs/legal', import.meta.url));
+  const fileFor = (doc) => readdirSync(legalDir).find((x) => x.startsWith(`${doc}-`) && x.endsWith('.md'));
+  const served = (doc) => legalDocument(fileFor(doc)).markdown;
+  const INTERNAL = [/\bD-\d+/, /\bPhase 1\b/, /for the build/i, /not current behaviour/i, /\(\s*\)/];
+  const hits = (doc) => INTERNAL.filter((r) => r.test(served(doc))).map(String);
+  for (const doc of ['22', '24', '25']) {
+    check(`legk1: doc ${doc} serves no reference to our own working papers — no D-number, "Phase 1", "for the build", "not current behaviour", or an empty "()" (${hits(doc).join(' · ') || 'none'})`,
+      hits(doc), []);
+  }
+  // Doc 20 serves "(D-153)" twice, and "D-148" in its footer. It is stamped (20@v2.8) and published, so
+  // taking them off changes a consented text: a version bump and John's call,
+  // not a builder's. Pinned, so it cannot grow and is not forgotten.
+  const d20 = served('20').match(/\bD-\d+/g) ?? [];
+  check(`legk1b: the one other document serving a D-number is doc 20 — "D-153" twice in its clauses, "D-148" in its footer — for John, because it is stamped (${d20.join(', ')})`,
+    [renderedLegalDocs().map((d) => d.doc).filter((doc) => /\bD-\d+/.test(served(doc))), d20], [['20'], ['D-153', 'D-153', 'D-148']]);
+  const terms = served('22');
+  check('legk2: 2.3 ends with its own full stop, and nothing after it — its counsel note is gone and it said the sentence was not current behaviour',
+    [/before the account activates\.\n/.test(terms), /activates —/.test(terms), /proposed addition/.test(terms)], [true, false, false]);
+  check('legk2b: each clause a reference came out of is still served, word for word around the cut',
+    ['Re-acceptance is triggered only by a material change.\n', '*Most-restrictive-wins is honoured in substance:',
+     'which we will confirm in writing on request*;', 'It is not a data export.*', '# Schedule B — Acceptance architecture\n',
+     '| **Schedule B** | Acceptance architecture | |'].filter((k) => !terms.includes(k)), []);
+
+  // The pages. Each is the renderer's, for the document the register names.
+  const conduct = codeOnly(srcOf('app/conduct/page.tsx')), policy = codeOnly(srcOf('app/report/policy/page.tsx'));
+  check('legk3: /conduct renders doc 24 and /report/policy renders doc 25, through renderLegal — the /terms renderer and its rules',
+    [/return renderLegal\('24-Code-of-Conduct\.md'\);/.test(conduct), /return renderLegal\('25-Complaints-and-Takedown\.md'\);/.test(policy)], [true, true]);
+  // No account: nothing on either page, or on /report, asks who is looking.
+  const report = codeOnly(srcOf('app/report/page.tsx'));
+  check('legk3b: and both, with /report, are open to anyone — nothing on them asks for a session',
+    [conduct, policy, report].map((src) => /getSessionPersonId|requireRecordActor|requireOperator|redirect\('\/signin'\)/.test(src)), [false, false, false]);
+  check('legk3c: /report links to the policy, and the link is the document\'s own title — no new words',
+    [/<a href="\/report\/policy"[^>]*>\{documentTitle\('25-Complaints-and-Takedown\.md'\)\}<\/a>/.test(report),
+     documentTitle(fileFor('25')), documentTitle(fileFor('24'))],
+    [true, 'Complaints, Reports and Takedown', 'Code of Conduct']);
+  // The consent stamps. legalStamp hashes docs 20, 21 and 22 and nothing else;
+  // neither new page stamps; and docs 20, 21 and 24 come through the render
+  // rules byte for byte (legj6), so no stamp moved for either new page.
+  const stampSrc = srcOf('lib/legal-stamp.ts');
+  const files = /export const LEGAL_FILES = \{([\s\S]*?)\} as const;/.exec(stampSrc)?.[1] ?? '';
+  check('legk4: neither document is consented to — the stamp knows docs 20, 21 and 22 only, and neither page stamps or writes anything',
+    [[...files.matchAll(/'(\d+)':/g)].map((m) => m[1]), [conduct, policy].map((src) => /legalStamp|consent_event|db\.query/.test(src))],
+    [['20', '21', '22'], [false, false]]);
 }
 
 // ---------------------------------------------------------------------------
@@ -9384,6 +9538,111 @@ const componentFilesAll = [];
     !/await requireOperator\(\);\s*if \(!clubsScreensShown\(process\.env\.NODE_ENV === 'production'\)\) notFound\(\);/.test(codeOnly(readFileSync(f, 'utf8'))));
   check(`cur-s4: every clubs screen is the operator's and is held until BUZ approves its words — a 404 in production until then (${opsClubs.filter((f) => /page\.tsx$/.test(f)).length} screens)`,
     [shownGate.map((f) => f.slice(f.indexOf('app/'))), clubsScreensShownTS(true) === CLUBS_WORDS_APPROVED_TS, clubsScreensShownTS(false)], [[], true, true]);
+}
+
+// --- A suspended club advertises nothing (brief K item 1, 29 Sep; 0140; D-90,
+//     D-74, M10). Round I found a suspended club's trial notices still on the
+//     board and on its page. The rule is the database's — one answer every
+//     page reads — so it is asked here for every class of suspension and for
+//     both sources of a notice, and the pages are held to reading it (s1–s2).
+//     What the board and the page SERVE is the write suite's (susp-ad-w*),
+//     because suspending a club is pressing the operator's button.
+{
+  const one = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const soon = (await one(`select ((now() at time zone 'Australia/Melbourne')::date + 12)::text as d`)).d;
+  const op = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, email) values ($1,'Board','board.curator@fixture.example')`, [op]);
+  const OP = [op, 'board.curator@fixture.example'];
+  const advertised = async (club) => (await db.query(
+    `select source from fn_trial_notices_advertised() where club_id = $1 order by source`, [club])).rows.map((r) => r.source);
+  const wanted = async (club) => (await one(`select count(*)::int as n from fn_players_wanted_advertised() where club_id = $1`, [club])).n;
+  const kept = async (club) => (await one(
+    `select (select count(*)::int from trial_notice where club_id = $1) + (select count(*)::int from players_wanted_notice where club_id = $1) as n`, [club])).n;
+
+  // A club with all three kinds of notice: one Pitch compiled while it was an
+  // unclaimed listing (0130 allows no other time), one it posted itself, and a
+  // players-wanted notice. Then suspended for the class, then lifted.
+  for (const cls of ['child_safety', 'administrative', 'non_payment', null]) {
+    const club = crypto.randomUUID();
+    await db.query(`insert into club (id, name, suburb, state, club_state) values ($1,$2,'Dunmore','VIC','unclaimed')`,
+      [club, `Advertising ${cls ?? 'unclassed'} SC`]);
+    await db.query('select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [...OP, club, 'U13 Boys trials', ['U13'], 'boys', soon, 'Sat 9:00 AM', 'Dunmore Oval', [], 'https://dunmore.example.au/trials']);
+    await db.query(`update club set club_state = 'claimed' where id = $1`, [club]);
+    await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,'U15 Girls trials',$2,'Sun 10:00 AM · Dunmore Oval','club')`, [club, soon]);
+    await db.query(`insert into players_wanted_notice (club_id, title) values ($1,'U13 Boys — Goalkeeper')`, [club]);
+    const before = [await advertised(club), await wanted(club)];
+    await db.query(`update club set club_state = 'suspended', suspension_reason = $2 where id = $1`, [club, cls]);
+    const during = [await advertised(club), await wanted(club), await kept(club)];
+    await db.query(`update club set club_state = 'claimed', suspension_reason = null where id = $1`, [club]);
+    const after = [await advertised(club), await wanted(club)];
+    check(`susp-ad1: suspended ${cls ? `for the ${cls} class` : 'with no class recorded'}, a club advertises nothing — not its own trial notice, not Pitch's compiled one, not a players-wanted notice — nothing is deleted, and lifted, all of it is back`,
+      [before, during, after], [[['club', 'compiled'], 1], [[], 0, 3], [['club', 'compiled'], 1]]);
+  }
+
+  // A verified club, suspended the way the operator's call does it (a call
+  // row, then the state), inside one transaction: the board has lost it
+  // before the transaction ends (M10's "immediately", read inside it).
+  const vClub = crypto.randomUUID(), vCall = crypto.randomUUID();
+  await db.query(`insert into club (id, name, suburb, state, club_state) values ($1,'Advertising Verified SC','Dunmore','VIC','claimed')`, [vClub]);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0700','FV club directory','verified','27@v1.0')`, [vCall, vClub]);
+  await db.query(`update club set club_state = 'verified', verified_call_id = $1 where id = $2`, [vCall, vClub]);
+  await db.query(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,'U12 Mixed trials',$2,'Sat 8:00 AM · Dunmore Oval','club')`, [vClub, soon]);
+  const onBoard = await advertised(vClub);
+  await db.exec(`begin;
+    insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, suspension_reason, policy_version)
+      values ('${vClub}', now(), 'BUZ', '03 9000 0700', 'FV club directory', 'takedown', 'child_safety', '27@v1.0');
+    update club set club_state = 'suspended', suspension_reason = 'child_safety' where id = '${vClub}';`);
+  const inside = await advertised(vClub);
+  await db.exec('commit;');
+  check('susp-ad2: a verified club taken down on the call leaves the board in the same transaction as the takedown',
+    [onBoard, inside], [['club'], []]);
+
+  // The expiry rule every page used to apply for itself now lives in the
+  // same answer, and the one question it asks of the club is its state.
+  const past = crypto.randomUUID();
+  await db.query(`insert into trial_notice (id, club_id, title, trial_on, time_venue, source) values ($1,$2,'Gone trials',
+    (now() at time zone 'Australia/Melbourne')::date - 1,'Sat · Riverside Park','club')`, [past, CLUB.riverside]);
+  const unknown = crypto.randomUUID();
+  check('susp-ad3: a notice whose day has passed is not on the board either — and a club advertises when it is unclaimed, claimed or verified, never when it is suspended, and not at all when it does not exist',
+    [(await one('select count(*)::int as n from fn_trial_notices_advertised() where id = $1', [past])).n,
+     (await db.query(`select club_state, fn_club_advertises(id) as a from club where id = any($1) order by club_state`,
+       [[CLUB.riverside, vClub, (await one(`select id from club where club_state = 'unclaimed' limit 1`)).id,
+         (await one(`select id from club where club_state = 'claimed' limit 1`)).id]])).rows.map((r) => `${r.club_state} ${r.a}`),
+     (await one('select fn_club_advertises($1) as a', [unknown])).a],
+    [0, ['claimed true', 'suspended false', 'unclaimed true', 'verified true'], false]);
+  await db.query('delete from trial_notice where id = $1', [past]);
+  check('susp-ad4: the three answers run as the caller, never as their owner — called through an anon key they meet trial_notice\'s own row-level security (L26)',
+    (await db.query(`select proname, prosecdef from pg_proc where proname in ('fn_club_advertises','fn_trial_notices_advertised','fn_players_wanted_advertised') order by proname`)).rows
+      .map((r) => `${r.proname} ${r.prosecdef}`),
+    ['fn_club_advertises false', 'fn_players_wanted_advertised false', 'fn_trial_notices_advertised false']);
+
+  // ---- the pages read the answer, and nothing else lists a notice ----------------
+  // Every read of a notice table in the product. The ones allowed to read it
+  // directly are a club's own management of its own notices, and a trial that
+  // a registration, a request or an invitation already carries — which is
+  // history, not an advertisement. Anything else that lists a notice reads
+  // the database's answer, so the rule cannot be forgotten by page five.
+  const READS = /\b(?:from|join)\s+(trial_notice|players_wanted_notice)\b/;
+  const DIRECT = {
+    'app/club/post-trial/page.tsx': "the club's own notices, to change them",
+    'app/club/post-trial/actions.ts': "the club's own notice, to change it",
+    'app/club/page-edit/page.tsx': "the club's own players-wanted notices, to change them",
+    'app/club/page-edit/actions.ts': "the club's own players-wanted notice, to remove it",
+    'app/club/invite/[registrationId]/page.tsx': 'the trial a registration already carries',
+    'app/g/interest/[requestId]/page.tsx': 'the trial a request already carries',
+    'app/g/interest/[requestId]/actions.ts': 'the trial a request already carries',
+    'lib/invitations.ts': 'the trial an invitation already carries',
+  };
+  const direct = tsSourceFiles().filter((f) => READS.test(codeOnly(srcOf(f))));
+  check(`susp-ad-s1: no page lists a notice from the tables themselves — every direct read is a club's own management or a trial already attached to something (${direct.filter((f) => !(f in DIRECT)).join(', ') || 'none other'})`,
+    [direct.filter((f) => !(f in DIRECT)), Object.keys(DIRECT).filter((f) => !direct.includes(f))], [[], []]);
+  const through = (f) => (codeOnly(srcOf(f)).match(/\bfn_trial_notices_advertised\(\)/g) ?? []).length;
+  check('susp-ad-s2: and the board, the club page, /home and the register-interest door read fn_trial_notices_advertised — the club page its players-wanted notices through fn_players_wanted_advertised',
+    [['app/trials/page.tsx', 'app/fc/[slug]/page.tsx', 'app/home/page.tsx', 'app/register-interest/[recordId]/page.tsx', 'app/register-interest/[recordId]/actions.ts'].map(through),
+     /from fn_players_wanted_advertised\(\) w where w\.club_id = c\.id/.test(codeOnly(srcOf('app/fc/[slug]/page.tsx')))],
+    [[1, 1, 3, 1, 1], true]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

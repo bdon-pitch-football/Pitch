@@ -1,6 +1,7 @@
 // The public club page — ClubCV.dc.html, copy verbatim where data exists.
 // Squads render as first-class rows including girls'/women's teams (D-68);
-// trial notices auto-expire past their date; the alumni wall renders only
+// trial notices auto-expire past their date, and a suspended club's never
+// show (0140); the alumni wall renders only
 // when it has content and its footnote states the naming guardrail plainly.
 // Unclaimed pages carry the D-64 disclaimer instead of the verified chip.
 // (Design link reads pitchfootball.com.au/<slug>; root-level rewrites map
@@ -66,14 +67,15 @@ export default async function ClubPage({ params, searchParams }: {
                                  order by coalesce(ag.sort, 999), s.name), '[]'::json)
         from squad s left join age_group ag on ag.code = s.age_group
         where s.club_id = c.id) as squads,
+       -- Its notices are the database's answer (0140): still to come, and
+       -- none at all while the club is suspended, of whatever class.
        (select coalesce(json_agg(json_build_object(
            'id', t.id, 'title', t.title, 'timeVenue', t.time_venue,
            'mon', upper(to_char(t.trial_on, 'Mon')), 'day', to_char(t.trial_on, 'DD'),
            'how', t.how_to_register) order by t.trial_on), '[]'::json)
-        from trial_notice t where t.club_id = c.id
-          and t.trial_on >= (now() at time zone 'Australia/Melbourne')::date) as trials,
+        from fn_trial_notices_advertised() t where t.club_id = c.id) as trials,
        (select coalesce(json_agg(json_build_object('title', w.title, 'detail', w.detail) order by w.created_at), '[]'::json)
-        from players_wanted_notice w where w.club_id = c.id) as wanted,
+        from fn_players_wanted_advertised() w where w.club_id = c.id) as wanted,
        (select coalesce(json_agg(json_build_object('line', a.line, 'detail', a.detail) order by a.sort), '[]'::json)
         from alumni_entry a where a.club_id = c.id) as alumni,
        (select coalesce(json_agg(json_build_object('url', v.url, 'title', v.title) order by v.sort, v.created_at), '[]'::json)

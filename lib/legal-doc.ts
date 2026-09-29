@@ -156,6 +156,16 @@ export function publishedDate(markdown: string, version: string, doc = '?'): str
 // exact words, so a rule can never reach text nobody listed. If a named clause
 // cannot be found exactly once — because John has since edited it — we throw
 // rather than serve it: a hold that silently lapses is a published clause.
+//
+// Brief K (29 Sep) adds three things, and none of them is a rewording:
+//   · the Terms' internal references — D-numbers, "not Phase 1", "for the
+//     build" — go by their exact words, like any other drafting note;
+//   · where a named removal leaves "()" or a double space behind, that line is
+//     tidied, and where it took the full stop that ended a sentence, the full
+//     stop comes back (`stop`). Nothing else on the line moves;
+//   · doc 25 is served at last (/report/policy), and its own footer says "Part
+//     1 is public, Parts 2–5 are internal". So Parts 2–5 are withheld whole
+//     ('rest'), and the footer that says so stays.
 // ---------------------------------------------------------------------------
 
 /** The label, the bold around it when it is bolded alone, and the one space after it. */
@@ -168,17 +178,30 @@ const UNSERVED = /\[OUTLINE\]|\[DO NOT PUBLISH\b[^\]]*\]/;
 const ANY_MARKER = /\[DRAFTED\]|\[OUTLINE\]|\[LEGAL\b|\[DO NOT PUBLISH\b/;
 const RULE = /^-{3,}\s*$/;
 
+/** What a named removal leaves behind on its own line, and nothing else: an
+ *  empty "()" with the space before it, and a run of spaces inside the line.
+ *  Only ever run on a line a 'words' cut has just touched. */
+export const tidyCut = (line: string) =>
+  line.replace(/ ?\(\s*\)/g, '').replace(/(\S) {2,}(?=\S)/g, '$1 ');
+
 export type Withheld = {
   doc: string;
   /** 'line': the one line opening with `text` — the whole blockquote, if it
    *  opens one. 'section': the heading opening with `text`, to the next rule
-   *  or heading of its rank. 'words': exactly `text`, cut from its line. */
-  cut: 'line' | 'section' | 'words';
+   *  or heading of its rank. 'words': exactly `text`, cut from its line.
+   *  'rest': the heading opening with `text`, and everything after it up to
+   *  the document's closing rule; the rule and the footer under it stay. */
+  cut: 'line' | 'section' | 'words' | 'rest';
   text: string;
   /** held: John's default holds it (doc 37 item 6). drafting: a note about
-   *  the document, like the preamble (brief J item 5). unwritten: a clause
-   *  whose words are not yet written (doc 37 item 4, by its reasoning). */
-  why: 'held' | 'drafting' | 'unwritten';
+   *  the document, like the preamble (brief J item 5), or a reference to our
+   *  own working papers (brief K item 3). unwritten: a clause whose words are
+   *  not yet written (doc 37 item 4, by its reasoning). internal: a part the
+   *  document itself says is not public (brief K item 2). */
+  why: 'held' | 'drafting' | 'unwritten' | 'internal';
+  /** 'words' only: the cut took the full stop that ended its sentence, and
+   *  the sentence gets it back. */
+  stop?: true;
 };
 
 export const WITHHELD: readonly Withheld[] = [
@@ -196,11 +219,32 @@ export const WITHHELD: readonly Withheld[] = [
   { doc: '22', cut: 'line', why: 'drafting', text: '*The figures that stood here — $54 a month, or $329 for twelve months — are history' },
   { doc: '22', cut: 'section', why: 'drafting', text: '## Open items summary' },
   { doc: '22', cut: 'words', why: 'drafting', text: " · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)" },
-  // Doc 25 is served by no page today (/report is the form alone). Held here
-  // anyway, so the day a page renders it the period is already off it.
+  // Brief K item 3: references to our own working papers, inside clauses that
+  // stay. The register's D-numbers mean nothing to a reader and are not ours
+  // to cite at them; "Phase 1" and "the build" are how we plan, not terms.
+  { doc: '22', cut: 'words', why: 'drafting', text: 'Reference table for the build' },
+  { doc: '22', cut: 'words', why: 'drafting', text: ' (D-64)' },
+  { doc: '22', cut: 'words', why: 'drafting', text: ' (D-51)' },
+  { doc: '22', cut: 'words', why: 'drafting', text: ' (D-149)' },
+  { doc: '22', cut: 'words', why: 'drafting', text: ' and it is not Phase 1' },
+  { doc: '22', cut: 'words', why: 'drafting', text: ' (reference for the build)' },
+  // 2.3's counsel question called its last sentence "a proposed addition, not
+  // current behaviour". It is current behaviour: a 16–17 cannot sign up
+  // without a parent's mobile and address (app/join/actions.ts, D-155/D-157).
+  // Named here rather than left to the [LEGAL] rule, because the note ended
+  // the sentence and the sentence needs its full stop back.
+  { doc: '22', cut: 'words', why: 'drafting', stop: true, text: ' — **[LEGAL: doc 18 Q5. This last sentence is a proposed addition, not current behaviour.]**' },
+  // Doc 25's five-year period, in Part 4. Part 4 is withheld as internal
+  // below (brief K), and these stay named anyway: the day Part 4 is made
+  // public, the period is still off it until John says otherwise.
   { doc: '25', cut: 'line', why: 'held', text: '| Report received: what, when, from whom (or that it was anonymous) | 5 years |' },
   { doc: '25', cut: 'line', why: 'held', text: '| Decision, action taken, who took it, when | 5 years |' },
   { doc: '25', cut: 'line', why: 'held', text: '**The tension, named:** five years of records about children' },
+  // Brief K item 2: doc 25 is served at /report/policy, and its footer says
+  // "Part 1 is public, Parts 2–5 are internal". Parts 2–5 are how the inbox is
+  // run — triage classes, what is still a gap before launch, what an
+  // investigator may open — and the document does not publish them.
+  { doc: '25', cut: 'rest', why: 'internal', text: '# Part 2 — How this actually runs' },
 ];
 
 /**
@@ -221,7 +265,19 @@ export function withholdUnpublished(doc: string, markdown: string): string {
     if (w.cut === 'words') {
       const i = one((l) => l.includes(w.text), w.text);
       if (lines[i].split(w.text).length !== 2) throw new Error(`doc ${doc}: "${w.text.slice(0, 48)}…" is withheld and appears twice in one line`);
-      lines[i] = lines[i].replace(w.text, '');
+      lines[i] = tidyCut(lines[i].replace(w.text, w.stop ? '.' : ''));
+    } else if (w.cut === 'rest') {
+      const i = one((l) => l.startsWith(w.text), w.text);
+      if (!/^#+\s/.test(lines[i])) throw new Error(`doc ${doc}: "${w.text}" is withheld to the footer and is not a heading`);
+      // The closing rule is the one with nothing under it but the footer: one
+      // italic line. Anything else under the last rule means we cannot tell
+      // where the document's own text ends, and we do not guess.
+      const end = lines.findLastIndex((l) => RULE.test(l));
+      const under = lines.slice(end + 1).filter((l) => l.trim() !== '');
+      if (end <= i || under.length !== 1 || !/^\*[^*].*\*$/.test(under[0])) {
+        throw new Error(`doc ${doc}: "${w.text}" is withheld to the footer and no closing rule and footer follow it`);
+      }
+      for (let j = i; j < end; j++) drop.add(j);
     } else if (w.cut === 'line') {
       const i = one((l) => l.startsWith(w.text), w.text);
       drop.add(i);
@@ -274,6 +330,15 @@ export const versionLine = (version: string, date: string) =>
   `*Version ${version.replace(/^v/, '')} · ${date}*`;
 
 export type RenderedLegalDoc = { doc: string; version: string; date: string; markdown: string };
+
+/** A document's own title, as a link to it says it (brief K item 2): its
+ *  heading, without the "PITCH — " every document in docs/legal opens with. */
+export function documentTitle(file: string): string {
+  const head = legalDocument(file).markdown.split('\n')[0];
+  const m = /^#\s+(?:PITCH\s+—\s+)?(.+?)\s*$/.exec(head);
+  if (!m) throw new Error(`${file}: the document has no title`);
+  return m[1];
+}
 
 /** A legal document as it is served: no drafting preamble, no clause marker
  *  and nothing WITHHELD, its version and date under the title, and every

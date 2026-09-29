@@ -1490,7 +1490,10 @@ const georgia = ids.children.georgia;
   check(`leg-r7: nothing in the approval flow's policy says "not yet published" (${/not yet published/i.test(embedded) ? 'it does' : 'nothing does'})`,
     /not yet published/i.test(embedded), false);
 
-  for (const [path, file] of [['/privacy', '20-Privacy-Policy-Adult.md'], ['/privacy/family', '21-Privacy-Policy-Child.md'], ['/terms', '22-Terms-of-Service.md']]) {
+  // Brief K: /conduct (doc 24) and /report/policy (doc 25) are served now, by
+  // the same renderer, and are held to the same four checks.
+  for (const [path, file] of [['/privacy', '20-Privacy-Policy-Adult.md'], ['/privacy/family', '21-Privacy-Policy-Child.md'], ['/terms', '22-Terms-of-Service.md'],
+    ['/conduct', '24-Code-of-Conduct.md'], ['/report/policy', '25-Complaints-and-Takedown.md']]) {
     const { status, html } = await get(path);
     const doc = /<div\s+class="legal-doc"[^>]*>([\s\S]*?)<\/div><style>/.exec(html)?.[1] ?? '';
     check(`leg-r4: ${path} serves the document and no drafting marker (${MARKERS.filter((m) => doc.includes(m)).join(' · ') || 'none'})`,
@@ -1499,28 +1502,51 @@ const georgia = ids.children.georgia;
     check(`leg-r8: ${path} never calls itself unpublished`, /not yet published/i.test(doc), false);
     // The title is still the first thing on the page: the preamble went, and
     // nothing of the document went with it.
+    // Docs 24 and 25 carry one subtitle under the title (lib/legal-doc's
+    // headEnd), and the version line goes under that.
     check(`leg-r6: ${path} opens with the document, not a rule under its title`,
-      /<h1[^>]*>[^<]+<\/h1>\s*<p><em>Version/.test(doc), true);
+      /<h1[^>]*>[^<]+<\/h1>\s*(?:<h3[^>]*>[^<]+<\/h3>\s*)?<p><em>Version/.test(doc), true);
   }
 }
 
 // Brief J (29 Sep): what the Terms page serves on 1 October. The permission
 // suite proves the property over lib/legal-doc (legj1–8); this reads the pages
 // themselves (L16), because a renderer that is right in theory has served the
-// notes in practice before. /report and /conduct render no legal document
-// today — the form, and a not-found — and are read anyway, so the day one of
-// them does, it is already checked.
+// notes in practice before. Brief K: /conduct serves doc 24 and /report/policy
+// doc 25, so both are read here too; /report is the form, and still read.
 {
   const DRAFTING = [/\[DRAFTED\]/, /\[OUTLINE\]/, /\[LEGAL/, /\[DO NOT PUBLISH/i, /do not publish/i,
     /must not publish/i, /not yet published/i, /for legal review/i];
   // A conduct rule, and content: doc 22 Schedule C 3.
   const CONDUCT = /\b[Dd]o not publish other people's children/g;
   const plain = (html) => text(html).join('\n').replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"');
-  for (const path of ['/terms', '/privacy', '/privacy/family', '/report', '/conduct']) {
+  for (const path of ['/terms', '/privacy', '/privacy/family', '/report', '/conduct', '/report/policy']) {
     const { status, html } = await get(path);
     const hits = DRAFTING.filter((r) => r.test(plain(html).replace(CONDUCT, ''))).map(String);
     check(`legj-r1: ${path} (${status}) serves none of the brief's drafting phrases (${hits.join(' · ') || 'none'})`, hits, []);
   }
+
+  // Brief K item 3: our own working references are off the Terms page, and
+  // 2.3 has its full stop. Read off the page, not the renderer (L16).
+  const termsK = plain((await get('/terms')).html);
+  const refs = [/\bD-\d+/, /\bPhase 1\b/, /for the build/i, /not current behaviour/i, /\(\s*\)/].filter((r) => r.test(termsK)).map(String);
+  check(`legk-r1: /terms serves no D-number, "Phase 1", "for the build" or "not current behaviour", and 2.3 ends on its own full stop (${refs.join(' · ') || 'none'})`,
+    [refs, /before the account activates\.(\n|$)/m.test(termsK)], [[], true]);
+
+  // Brief K item 2: both documents, signed out, from /report with no account.
+  const conduct = await get('/conduct'), policy = await get('/report/policy'), form = await get('/report');
+  const policyText = plain(policy.html);
+  check('legk-r2: /conduct serves the Code of Conduct to anyone signed out — its title, its eight rules, the appeal',
+    [conduct.status, /<h1[^>]*>PITCH — Code of Conduct<\/h1>/.test(conduct.html), has(conduct.html, '8. If you see something, report it'), has(conduct.html, 'You can always appeal')],
+    [200, true, true, true]);
+  check('legk-r3: /report/policy serves doc 25\'s Part 1 to anyone signed out, and none of Parts 2–5, which the document keeps internal',
+    [policy.status, /<h1[^>]*>PITCH — Complaints, Reports and Takedown<\/h1>/.test(policy.html),
+     ['Reporting something', 'What happens then', 'If it is urgent', 'If you are unhappy with what we did'].every((h) => policyText.includes(h)),
+     ['Part 2', 'How this actually runs', 'Triage, in three classes', 'Take the page down first', 'Safety by Design', 'What an investigator may look at'].filter((h) => policyText.includes(h))],
+    [200, true, true, []]);
+  const link = /<a href="\/report\/policy"[^>]*>([^<]*)<\/a>/.exec(form.html)?.[1];
+  check(`legk-r4: /report links to it by the document's own title ("${link ?? 'no link'}"), signed out`,
+    [form.status, link, /PITCH — (.+?)<\/h1>/.exec(policy.html)?.[1]], [200, 'Complaints, Reports and Takedown', 'Complaints, Reports and Takedown']);
   const terms = plain((await get('/terms')).html);
   check('legj-r2: /terms serves neither held clause — the five-year record period, the $2,000 floor',
     [/five[- ]years?/i.test(terms), /\$\s?2,000/.test(terms)], [false, false]);
@@ -1531,6 +1557,25 @@ const georgia = ids.children.georgia;
     'A5.4 Free until further notice', 'build supports guardian co-acceptance'];
   const lost = KEPT.filter((k) => !terms.includes(k));
   check(`legj-r3: and the clauses beside each removal are still served (${lost.join(' · ') || 'all are'})`, lost, []);
+}
+
+// Brief K item 4: one button. The board and the club's own page answer "what
+// does a family do here" the same way, for every listing, both ways: "I'm
+// interested" on the board is a register on the page, and "Send my CV" on the
+// board is a CV on the page. A claimed-but-unverified club was the case they
+// disagreed on; the seed has none on the board, so the write suite claims one
+// (one-w*) and this holds the rule over everything the seed does list.
+{
+  const board = (await get('/trials')).html;
+  const doors = [...board.matchAll(/href="\/fc\/([^"?#]+)(\?trial=[0-9a-f-]{36})?#play"[^>]*>([^<]+)</g)]
+    .map((m) => ({ slug: m[1], trial: Boolean(m[2]), label: m[3].replace(/&rsquo;/g, '’') }));
+  const pages = {};
+  for (const slug of new Set(doors.map((d) => d.slug))) pages[slug] = (await get(`/fc/${slug}`)).html;
+  const disagree = doors.filter((d) => d.trial
+    ? !(d.label === 'I’m interested' && has(pages[d.slug], 'Sign in to register your interest') && !has(pages[d.slug], 'Sign in to send your CV'))
+    : !(d.label === 'Send my CV' && has(pages[d.slug], 'Sign in to send your CV') && !has(pages[d.slug], 'Sign in to register your interest')));
+  check(`one-r1: every listing's button on the board is the door its club's page offers (${doors.length} listings; ${disagree.map((d) => d.slug).join(', ') || 'all agree'})`,
+    [doors.length >= 3, doors.some((d) => d.trial) && doors.some((d) => !d.trial), disagree], [true, true, []]);
 }
 
 // "Preview my page" (BUZ, 19 Sep): the family sees the page exactly as a club

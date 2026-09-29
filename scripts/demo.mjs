@@ -39,6 +39,10 @@ const quiet = {
   RESEND_API_KEY: '', EMAIL_FROM: '', SMS_ACCOUNT_SID: '', SMS_API_KEY: '', SMS_LONG_NUMBER: '',
   STRIPE_SECRET_KEY: '', STRIPE_PRICE_MONTHLY: '', STRIPE_PRICE_ANNUAL: '', STRIPE_WEBHOOK_SECRET: '',
   WAITLIST_ENABLED: 'false',
+  // A seat's own database port wins for a demo database and a demo app alike
+  // (lib/demo, brief K item 7). This demo is BUZ's and always 54323 — the port
+  // takeOver() clears — so a port left set in the shell is blanked for both.
+  PITCH_DEV_DB_PORT: '',
 };
 
 // A demo already running holds these ports. In a meeting the useful answer is

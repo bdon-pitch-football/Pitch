@@ -103,15 +103,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           from development_record dr where dr.person_id = p.id) rec) as my_page,
        -- What is coming up: the next trial at a club this player is already on
        -- the register of. Never their club_status, which no player ever sees
-       -- (D-108, doc 14 N10).
+       -- (D-108, doc 14 N10). Only a notice the board itself would show (0140):
+       -- a suspended club's trial is not put in front of a child here either.
        (select row_to_json(nx) from (
           select cl7.name as club, tn.title,
             to_char(tn.trial_on, 'Mon') as month, to_char(tn.trial_on, 'FMDD') as day, tn.time_venue
           from registration r7
           join club cl7 on cl7.id = r7.club_id
-          join trial_notice tn on tn.club_id = r7.club_id
+          join fn_trial_notices_advertised() tn on tn.club_id = r7.club_id
           where r7.player_id = p.id and r7.withdrawn_at is null
-            and tn.trial_on >= (now() at time zone 'Australia/Melbourne')::date
           order by tn.trial_on limit 1) nx) as next_trial,
        (select count(*)::int from registration r8 where r8.player_id = p.id and r8.withdrawn_at is null) as my_registers,
        fn_has_approved_guardian(p.id) as has_guardian,
@@ -245,8 +245,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     const trials = verified ? (await db.query(
       `select t.id, t.title, to_char(t.trial_on, 'Mon') as month, to_char(t.trial_on, 'FMDD') as day, t.time_venue,
          (select count(*)::int from registration r where r.trial_notice_id = t.id and r.withdrawn_at is null) as interested
-       from trial_notice t
-       where t.club_id = $1 and t.trial_on >= (now() at time zone 'Australia/Melbourne')::date
+       from fn_trial_notices_advertised() t
+       where t.club_id = $1
        order by t.trial_on limit 3`,
       [clubSeat.id],
     )).rows as { id: string; title: string; month: string; day: string; time_venue: string; interested: number }[] : [];
@@ -287,8 +287,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     const admin = !isTd ? (await db.query(
       `select
          (select count(*)::int from squad s where s.club_id = $1) as squads,
-         (select count(*)::int from trial_notice t where t.club_id = $1
-            and t.trial_on >= (now() at time zone 'Australia/Melbourne')::date) as trials_live,
+         -- Live means on the board (0140): a suspended club has none live.
+         (select count(*)::int from fn_trial_notices_advertised() t where t.club_id = $1) as trials_live,
          c.crest_path is null as no_crest,
          (c.philosophy is null or length(btrim(c.philosophy)) = 0) as no_philosophy
        from club c where c.id = $1`,
