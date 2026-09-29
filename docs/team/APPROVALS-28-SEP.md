@@ -81,3 +81,17 @@ Anything new still goes to BUZ.
 - **Call sheet:** the line saying a "no" or "unknown" answer will "flag the subscription" is removed. Billing is off (D-163).
 - **The "Support" door is renamed "Lookup"**, as in the signed design (`OpsLookup.dc.html`). The nav label, the page title and Today's "Open in lookup" now agree.
 - **Call sheet, the first two questions** ("Is this the club?" and "Did they independently name the claimant?") **start with no answer selected**, and the call cannot be recorded until both are answered. "Incorporated" and "authority" keep "unknown" as their starting answer.
+
+## 29 September: the child's waiting screen, and the words still to come
+
+**Approved (BUZ: "approve 1 and 2"):**
+- `/join/waiting/[id]`:
+  - tab title "Waiting for your parent · Pitch Football"
+  - heading "One person to go."
+  - body "We've asked your parent to approve your page. Until they say yes, nothing about you is on Pitch — not for clubs, not for coaches, not for us."
+  - footer "If nobody approves within 14 days, we delete what you told us. You can start again any time."
+  - The "What you made / build it while you wait / keep editing" block is removed.
+  - The "Honestly? Just go and ask them" card is unchanged.
+- While the parent's text is queued (D-168): "We've emailed your parent. Their text follows shortly."
+
+**Approved in advance (BUZ: "3 & 4 approved and to you once the builders finished"):** round H's TD name-mismatch confirm wording, and round I's clubs-directory and "add a trial" wording. **BUZ delegated the review to Leo.** Leo checks each string against the copy rules (banned words, D-162, D-163's "never 'at launch' / 'for now' / 'limited'", Australian English, honesty) before it goes live, and lists what shipped.
