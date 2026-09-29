@@ -19,7 +19,13 @@ const LEGAL_CSS = `
         .legal-doc code { background: var(--surface); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
         .legal-doc hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
         .legal-doc table { display: block; overflow-x: auto; }
+        .legal-doc th, .legal-doc td { min-width: 150px; }
 `;
+// The last rule (brief G, 29 Sep): at 375px a four-column table squeezed its
+// cells to 73–117px and a sentence ran eight lines deep, one or two words to
+// a line. A cell now keeps 150px and the table scrolls sideways inside its
+// own box (the rule above it), which a phone does naturally. The layout
+// check's squeeze rule found these; the page itself is otherwise unchanged.
 
 // A document rendered inside another page (doc 32 B3: doc 21 is SHOWN in the
 // approval flow, not merely linked). Same source, same renderer, same styles.

@@ -6,9 +6,14 @@
 // D-79 still holds: nothing here opens a child's record. A player page is
 // identified by its link's fingerprint, a held record by its hold, and a
 // family by a first name — enough to act on, nothing to read.
+//
+// Laid out to OpsReports.dc.html (brief G, 29 Sep): each report opens with
+// its facts in labelled wells — Report, About, From — and what the reporter
+// wrote under its own heading, then the actions. The signed screen is one
+// report at a time and this is the desk of every open one; the words and the
+// hierarchy are the signed screen's, the list is ours.
 import { db } from '@/lib/db';
-import { HeaderMark } from '@/components/Wordmark';
-import { OpsConsole } from '@/components/console-shell';
+import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { requireOperator } from '@/lib/ops-guard';
 import { T } from '@/lib/palette';
 import { card, fieldLabel, sectionLabel } from '@/lib/ui';
@@ -30,6 +35,8 @@ const KIND: Record<string, string> = {
   player_cv: 'A player’s page', coach_cv: 'A coach page', club_page: 'A club page', trial_notice: 'A trial notice', other: 'Not stated',
 };
 const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+// A fact in the signed report's wells: a 44px well, the value on one line.
+const fact: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, minHeight: 44, display: 'flex', alignItems: 'center', padding: '10px 13px', boxSizing: 'border-box', fontSize: 13.5, fontWeight: 700, color: T.ink, overflowWrap: 'anywhere' };
 const well: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' };
 const when = (d: string) => new Date(d).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');
 const DONE: Record<string, string> = {
@@ -76,11 +83,7 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
   return (
     <OpsConsole active="reports">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark back={{ href: '/home' }} />
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Reports</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>A person reads every report. Nothing here opens a child&rsquo;s record, and nothing here deletes one.</div>
-        </div>
+        <OpsHeader title="Reports" sub={<>A person reads every report. Nothing here opens a child&rsquo;s record, and nothing here deletes one.</>} />
         {done && DONE[done] && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>{DONE[done]}</div>}
         {error && ERR[error] && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>{ERR[error]}</div>}
 
@@ -89,17 +92,23 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
             <h2 style={sectionLabel}>Open reports</h2>
             {reports.length === 0 && <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>No open reports.</div>}
             {reports.map((r) => (
-              <div key={r.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 9, border: `1px solid ${r.concern === 'other' ? T.line : T.amber}` }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 800 }}>{CONCERN[r.concern] ?? r.concern}</div>
-                  <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
-                    {KIND[r.subject_kind] ?? r.subject_kind} · {when(r.created_at)}
+              <div key={r.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11, border: `1px solid ${r.concern === 'other' ? T.line : T.amber}` }}>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{CONCERN[r.concern] ?? r.concern}</div>
+                <div className="ops-facts">
+                  <div className="ops-fact"><div style={sectionLabel}>Report</div><div style={fact}>received {when(r.created_at)}</div></div>
+                  <div className="ops-fact"><div style={sectionLabel}>About</div><div style={fact}>
+                    {KIND[r.subject_kind] ?? r.subject_kind}
                     {r.subject_kind !== 'player_cv' && r.subject_ref !== 'unknown' ? ` · ${r.subject_ref}` : ''}
                     {r.subject_kind === 'player_cv' && !r.record_id ? ' · page not identified' : ''}
-                  </div>
+                  </div></div>
+                  {r.reporter_email && <div className="ops-fact"><div style={sectionLabel}>From</div><div style={fact}>{r.reporter_email}</div></div>}
                 </div>
-                {r.reason && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.reason}</div>}
-                {r.reporter_email && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflowWrap: 'anywhere' }}>Reply to: {r.reporter_email}</div>}
+                {r.reason && (
+                  <>
+                    <div style={sectionLabel}>What they wrote</div>
+                    <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: 13, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.reason}</div>
+                  </>
+                )}
                 {r.concern === 'family_safety' && (
                   <div style={{ fontSize: 12, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
                     Suppress first; don&rsquo;t judge the dispute. Point the family to 1800RESPECT (1800 737 732). Permanent removal only on a court order. Use &ldquo;One parent&rsquo;s access&rdquo; below.

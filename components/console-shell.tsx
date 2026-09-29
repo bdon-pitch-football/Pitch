@@ -14,11 +14,16 @@
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
+import { requireOperator } from '@/lib/ops-guard';
+import { HeaderMark } from '@/components/Wordmark';
 
 export type IconKey = 'home' | 'cv' | 'trials' | 'send' | 'roles' | 'register' | 'child' | 'children'
   | 'crest' | 'page' | 'card' | 'shield' | 'help' | 'more' | 'power' | 'flag';
 // short: the label a phone tab uses when the full one would wrap.
-export type Item = { key: string; href: string; label: string; short?: string; icon?: IconKey };
+// count: a number the rail shows beside the door (OpsVerification.dc.html:
+// "Verification 3", "Reports 1"). Never zero (D-162): a door with nothing
+// behind it carries no number rather than a 0.
+export type Item = { key: string; href: string; label: string; short?: string; icon?: IconKey; count?: number };
 
 // One stroke set for every frame, so the bar reads the same in every seat.
 export const ICONS: Record<IconKey, React.ReactNode> = {
@@ -64,6 +69,7 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
               aria-current={it.key === active ? 'page' : undefined}>
               {it.icon && <Glyph k={it.icon} on={it.key === active} size={18} />}
               {it.label}
+              {it.count ? <span className="console-nav-count">{it.count}</span> : null}
             </Link>
           ))}
           <Link href="/signout" className="console-nav-link" style={{ marginTop: 'auto' }}>Sign out</Link>
@@ -234,16 +240,56 @@ export async function CoachConsole({ active, children }: {
   return <Frame label="Coach" head={head} items={items} active={active} floodlight bar>{children}</Frame>;
 }
 
-export function OpsConsole({ active, children }: {
-  active: 'verification' | 'support' | 'switches' | 'reports'; children: React.ReactNode;
+// The operator's frame (OpsToday.dc.html, OpsVerification.dc.html, brief G).
+// The rail head is the signed one — "Pitch operations" over the operator's
+// own address — and two doors carry the number waiting behind them: clubs
+// awaiting a call, and open reports. Both are counts; nothing here names a
+// club, a family or a child. Today is the console's home (/ops).
+//
+// "Money" is in the signed rail and is NOT here: billing is off (D-163), and
+// a door to nothing is a door nobody tested. Held for BUZ in brief G's report.
+export async function OpsConsole({ active, children }: {
+  active: 'today' | 'verification' | 'support' | 'switches' | 'reports'; children: React.ReactNode;
 }) {
+  const { email } = await requireOperator();
+  const n = (await db.query(
+    `select (select count(*)::int from club where club_state = 'claimed') as awaiting,
+       (select count(*)::int from report where actioned_at is null) as reports`,
+  )).rows[0] as { awaiting: number; reports: number };
   const items: Item[] = [
-    { key: 'home', href: '/home', label: 'Home', icon: 'home' },
-    { key: 'reports', href: '/ops/reports', label: 'Reports', icon: 'flag' },
-    { key: 'verification', href: '/ops/verification', label: 'Verification', icon: 'shield' },
+    { key: 'today', href: '/ops', label: 'Today', icon: 'trials' },
+    { key: 'verification', href: '/ops/verification', label: 'Verification', icon: 'shield', count: n.awaiting },
+    { key: 'reports', href: '/ops/reports', label: 'Reports', icon: 'flag', count: n.reports },
     { key: 'support', href: '/ops/support', label: 'Support', icon: 'help' },
     { key: 'switches', href: '/ops/switches', label: 'Emergency switches', short: 'Switches', icon: 'power' },
+    { key: 'home', href: '/home', label: 'Home', icon: 'home' },
   ];
-  const head = <div className="kicker">Operator</div>;
+  const head = (
+    <div>
+      <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.25 }}>Pitch operations</div>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', marginTop: 3, overflowWrap: 'anywhere' }}>{email}</div>
+    </div>
+  );
   return <Frame label="Operator" head={head} items={items} active={active} floodlight bar>{children}</Frame>;
+}
+
+// The title row every operator screen opens with (the signed top bar: a
+// 17px title, a muted line under it, an action at the right when there is
+// one). The logo stays top right on every screen (charter), so the back link
+// and the mark come first, as they do everywhere else in the product.
+export function OpsHeader({ title, sub, back, action }: {
+  title: React.ReactNode; sub?: React.ReactNode; back?: { href: string; label?: string }; action?: React.ReactNode;
+}) {
+  return (
+    <>
+      <HeaderMark back={back ?? { href: '/home' }} />
+      <div className="ops-title">
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.015em', lineHeight: 1.25 }}>{title}</h1>
+          {sub ? <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, marginTop: 2, lineHeight: 1.45 }}>{sub}</div> : null}
+        </div>
+        {action ? <div className="ops-title-action">{action}</div> : null}
+      </div>
+    </>
+  );
 }

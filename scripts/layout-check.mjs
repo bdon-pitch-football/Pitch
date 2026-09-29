@@ -95,7 +95,10 @@ const DEEP = {
   // sheet — the most field-dense form we have — had ever been measured. In
   // development any signed-in person with an address is an operator
   // (lib/ops-policy), and Marina is the seat the render suite drives it with.
-  'club TD': ['@squad', '@squad?pos=GK', '/ops/verification', `/ops/call/${riverside}`],
+  // Brief G (29 Sep) adds the rest of the console: the report desk, support
+  // and the switches were measured by nothing either.
+  'club TD': ['@squad', '@squad?pos=GK', '/ops', '/ops/verification', `/ops/call/${riverside}`,
+    '/ops/reports', '/ops/support', '/ops/support?q=guardian@example.com', '/ops/switches'],
   'club admin': ['@squad'],
 };
 
@@ -329,6 +332,49 @@ const TARGETS = `JSON.stringify((() => {
   }
   return out;
 })())`;
+// SQUEEZED COLUMNS (brief G, 29 Sep). A page can fit the screen and still be
+// unreadable: on /ops/verification at 375px each club row was one flex row of
+// four things, the status chip and the button refused to shrink, and the
+// club's details were squeezed into a column about one word wide ("claimed /
+// by / M. / Harris"), eleven lines deep. Nothing was wider than the screen, so
+// the overflow measurement above called it green.
+//
+// The rule: no element whose OWN text holds words may render narrower than
+// 120px while that text wraps to more than three lines. Lines are counted
+// from the text's own line boxes (a Range over the element's direct text
+// nodes, distinct tops), not guessed from height and line-height, so a tall
+// padded box with one line in it is not a squeeze and a <b> inside a sentence
+// does not hide one. A failure names the element and the first words of what
+// it holds. Hidden elements, the contents of a closed <details> and anything
+// inside an <svg> are skipped.
+const SQUEEZE_MIN_WIDTH = 120, SQUEEZE_MAX_LINES = 3;
+const SQUEEZED = `JSON.stringify((() => {
+  const out = [];
+  const name = (el) => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList[0] ? '.' + el.classList[0] : '');
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.closest('svg, script, style, noscript')) continue;
+    const own = [...el.childNodes].filter((n) => n.nodeType === 3 && /[A-Za-z]{2,}/.test(n.textContent));
+    if (!own.length) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0 || r.width >= ${SQUEEZE_MIN_WIDTH}) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    // A closed <details> still lays its contents out (the phone bar's More
+    // sheet measured 36px wide while shut), but nobody can see them.
+    if (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true })) continue;
+    const tops = new Set();
+    for (const n of own) {
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      for (const box of range.getClientRects()) if (box.width > 0) tops.add(Math.round(box.top));
+    }
+    if (tops.size > ${SQUEEZE_MAX_LINES}) {
+      out.push({ what: name(el), w: Math.round(r.width), lines: tops.size,
+        text: (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 48) });
+    }
+  }
+  return out;
+})())`;
 const tokenRgb = (() => {
   const css = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
   const hex = /--bg:\s*(#[0-9a-f]{6})/i.exec(css)[1];
@@ -344,6 +390,19 @@ await loaded();
 const control = await eval_(MEASURE(375));
 if (!(control.doc > control.vw + 1)) {
   console.error(`SELF-TEST FAILED: a 600px page measured ${control.doc}px on a ${control.vw}px screen. The check is blind; nothing below would mean anything.`);
+  stop(); process.exit(2);
+}
+
+// The squeeze check's own self-test, both ways (L19): the same sentence in a
+// 60px column must be named, and in a 300px column must not be.
+await cdp('Page.navigate', { url: 'data:text/html,<meta name=viewport content="width=device-width">'
+  + '<div style="display:flex"><div id=narrow style="width:60px;font:14px sans-serif">claimed by M. Harris, club admin</div>'
+  + '<div id=wide style="width:300px;font:14px sans-serif">claimed by M. Harris, club admin</div></div>' });
+await loaded();
+const selfSqueeze = await eval_(SQUEEZED);
+if (!selfSqueeze.some((f) => f.what === 'div#narrow') || selfSqueeze.some((f) => f.what === 'div#wide')) {
+  console.error('SELF-TEST FAILED: the squeeze check read ' + JSON.stringify(selfSqueeze)
+    + ' — it must name a 60px column of words and pass a 300px one, or nothing it reports below means anything.');
   stop(); process.exit(2);
 }
 
@@ -415,7 +474,7 @@ if (!withPolicy.injectedOk || withPolicy.ran !== false || !withPolicy.refused.so
 }
 
 const failures = [];
-const ringFails = [], labelFails = [], bodyFails = [], tapFails = [], proseSmall = [];
+const ringFails = [], labelFails = [], bodyFails = [], tapFails = [], proseSmall = [], squeezeFails = [];
 let checked = 0;
 // Two builders restructured this loop on the same day: one added the two
 // measurements below to every page view, the other wrapped the walk so a
@@ -454,6 +513,9 @@ const analyticsPass = async (width, seat, path) => {
   if (on) analyticsOn++;
   if (on !== should) analyticsFails.push({ width, seat, path, on });
 };
+const squeezePass = async (width, seat, path) => {
+  for (const f of await eval_(SQUEEZED)) squeezeFails.push({ width, seat, path, ...f });
+};
 const chromePass = async (width, seat, path) => {
   await analyticsPass(width, seat, path);
   const labels = await eval_(LABELS);
@@ -462,6 +524,7 @@ const chromePass = async (width, seat, path) => {
   if (bg !== tokenRgb) bodyFails.push({ width, seat, path, bg });
   const small = await eval_(TARGETS);
   for (const t of small) (t.prose ? proseSmall : tapFails).push({ width, seat, path, ...t });
+  await squeezePass(width, seat, path);
 };
 try {
   for (const width of widths) {
@@ -503,6 +566,21 @@ try {
           if (where.at !== path || where.missing) { failures.push({ width, seat, path, unrendered: where.missing ? '404' : `landed on ${where.at}` }); continue; }
           const m = await eval_(MEASURE(width));
           if (m.doc > m.vw + 1) failures.push({ width, seat, path, ...m });
+          await squeezePass(width, seat, path);
+          // Today (brief G): every tile the page served is drawn — a real
+          // box on the screen with its label and its number showing — and no
+          // number is a zero (D-162). At least one must exist, or this reads
+          // an empty page as a pass.
+          if (path === '/ops') {
+            const tiles = await eval_(`JSON.stringify([...document.querySelectorAll('[data-ops-tile]')].map((t) => {
+              const r = t.getBoundingClientRect(), kids = [...t.children].map((c) => c.getBoundingClientRect());
+              return { label: t.dataset.opsTile, drawn: r.width > 0 && r.height > 0 && kids.every((k) => k.width > 0 && k.height > 0) && r.right <= ${width} + 1,
+                value: (t.children[1]?.textContent ?? '').trim() };
+            }))`);
+            checked++;
+            const bad = tiles.filter((t) => !t.drawn || !/^[1-9]\d*$/.test(t.value));
+            if (!tiles.length || bad.length) failures.push({ width, seat, path, unrendered: tiles.length ? `Today tiles not drawn, or showing a zero: ${bad.map((t) => `${t.label} "${t.value}"`).join(', ')}` : 'Today drew no tiles at all' });
+          }
         }
       }
     }
@@ -772,9 +850,14 @@ if (proseSmall.length) {
   console.log(`info ${byWhat(proseSmall).length} small link${byWhat(proseSmall).length === 1 ? '' : 's'} inside running prose (a per-screen layout decision, not a component fault):`);
   for (const [what, where] of byWhat(proseSmall).slice(0, 12)) console.log(`     ${what} — e.g. ${where[0]}`);
 }
-const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length;
+// One line per squeezed element per page, named, with its width and lines.
+const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what} "${f.text}"`,
+  (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
+console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
+for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
+const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length;
 if (failures.length === 0 && chromeBad === 0) {
-  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, and /join answers every press');
+  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, and /join answers every press');
   process.exit(0);
 }
 for (const f of failures) {
@@ -782,5 +865,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, squeezed ${squeezeKeys.length})`);
 process.exit(1);

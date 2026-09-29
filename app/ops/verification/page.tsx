@@ -1,11 +1,15 @@
 // OpsVerification.dc.html — the queue of claimed clubs awaiting BUZ's call
 // (D-126). Console surface. Dev-gated until operator auth exists; there is
 // no automated approve control here or anywhere.
+//
+// Rebuilt to the signed design (brief G, 29 Sep): the signed table from 768px
+// — Club · Claimed · Held · status · action — and on a phone each club on two
+// lines, the details full width over the count, the status and the button.
+// The signed warning's last sentence ("Payment does not change that") is
+// left out while billing is off (D-163), and held for BUZ.
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
-import { HeaderMark } from '@/components/Wordmark';
-import { OpsConsole } from '@/components/console-shell';
+import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { requireOperator } from '@/lib/ops-guard';
 import { T } from '@/lib/palette';
 
@@ -14,6 +18,12 @@ export const metadata = { title: 'Club verification', robots: { index: false, fo
 
 // 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
 const day = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');
+
+// The signed "Claimed" column: "30 Aug · 2 days ago" while the club waits,
+// the date alone once it is verified. Days are Melbourne days. Never "0 days"
+// (D-162): the day of the claim is "today", in the design's own word.
+const short = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');
+const ago = (days: number) => days <= 0 ? 'today' : days === 1 ? '1 day ago' : `${days} days ago`;
 
 // The middle of the queue's Technical Director line. Every value in it comes
 // from fn_club_td; nothing here decides anything (L23). Four states, because
@@ -43,6 +53,14 @@ export default async function OpsVerification() {
         from membership m join person p on p.id = m.person_id
         where m.club_id = c.id and m.role in ('technical_director','club_admin') and m.ended_at is null
         limit 1) as claimant,
+       -- When the club was claimed: the claimant's seat began then, and it
+       -- is the only row the claim writes that carries a time (0030).
+       (select min(m.started_at) from membership m
+        where m.club_id = c.id and m.role in ('technical_director','club_admin')) as claimed_at,
+       (select ((now() at time zone 'Australia/Melbourne')::date
+                - (min(m.started_at) at time zone 'Australia/Melbourne')::date)
+        from membership m
+        where m.club_id = c.id and m.role in ('technical_director','club_admin')) as claimed_days,
        td.td_name, td.recorded_at, td.recorded_by, td.active,
        td.account_name, td.name_matches, td.club_mailbox, td.ended_at
      from club c
@@ -56,44 +74,62 @@ export default async function OpsVerification() {
   const awaiting = rows.filter((r) => r.club_state === 'claimed').length;
   const heldTotal = rows.filter((r) => r.club_state === 'claimed').reduce((s, r) => s + r.held, 0);
 
+  const chip = (state: string) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', background: T.surface2, borderRadius: 999, padding: '7px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+      color: state === 'verified' ? T.accent : state === 'suspended' ? T.red : T.amber }}>
+      {state === 'verified' ? 'Verified' : state === 'suspended' ? 'Suspended' : 'Awaiting call'}
+    </span>
+  );
+
   return (
     <OpsConsole active="verification">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark back={{ href: '/home' }} />
-        <div>
-          <h1 style={{ fontSize: 17, fontWeight: 800 }}>Verification</h1>
-          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{awaiting} club{awaiting === 1 ? '' : 's'} awaiting a call · {heldTotal} registration{heldTotal === 1 ? '' : 's'} held</div>
-        </div>
-        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 3 L22 20 H2 Z" /><path d="M12 9.5 v4.5" /><circle cx="12" cy="16.8" r="0.6" fill={T.red} /></svg>
+        <OpsHeader title="Verification"
+          sub={[
+            // Never a zero (D-162): a part with nothing in it is left out.
+            awaiting > 0 ? `${awaiting} club${awaiting === 1 ? '' : 's'} awaiting a call` : null,
+            heldTotal > 0 ? `${heldTotal} registration${heldTotal === 1 ? '' : 's'} held` : null,
+          ].filter(Boolean).join(' · ')} />
+        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden><path d="M12 8.5 v5" /><circle cx="12" cy="17" r="0.6" fill={T.red} /><path d="M10.3 3.6 L2.6 17.4 A1.9 1.9 0 0 0 4.3 20.3 H19.7 A1.9 1.9 0 0 0 21.4 17.4 L13.7 3.6 a1.9 1.9 0 0 0 -3.4 0 Z" /></svg>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>Nothing about a person under 18 reaches any club on this list until you have made the call.</div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Held registrations are hidden from the club entirely — it sees a count and nothing else. Payment does not change that and cannot.</div>
+            <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.4 }}>Nothing about a person under 18 reaches any club on this list until you have made the call.</div>
+            <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 700, lineHeight: 1.55, marginTop: 2 }}>Held registrations are hidden from the club entirely — it sees a count and nothing else.</div>
           </div>
         </div>
-        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '6px 14px' }}>
-          {rows.map((r, i) => (
-            <div key={r.id} className="lift" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 12px', margin: '0 -12px', borderRadius: 12, borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}` }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="ops-table">
+          <div className="ops-head" aria-hidden>
+            <div>Club</div><div>Claimed</div><div>Held</div><div /><div />
+          </div>
+          {rows.map((r) => (
+            <div key={r.id} className="ops-row console-row-hover">
+              <div className="ops-club">
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{r.name}</div>
-                <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500 }}>{[
+                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, marginTop: 2, lineHeight: 1.45 }}>{[
                   [r.suburb, r.state].filter(Boolean).join(' '),
                   r.claimant ? `claimed by ${r.claimant.replace('_', ' ')}` : null,
                 ].filter(Boolean).join(' · ')}</div>
                 {/* One line, and since 0060 it says where the role landed as
                     well as what was recorded: a club's own address can never
                     hold it, and an account under another name is named. */}
-                <div style={{ fontSize: 11.5, fontWeight: 500, color: r.td_name ? (r.club_mailbox ? T.red : r.ended_at ? T.muted : r.active ? T.accent : T.amber) : T.muted }}>
+                <div style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.45, color: r.td_name ? (r.club_mailbox ? T.red : r.ended_at ? T.muted : r.active ? T.accent : T.amber) : T.muted }}>
                   {r.td_name
                     ? [`Technical Director ${r.td_name}`, tdState(r), `recorded by ${r.recorded_by} on ${day(r.recorded_at)}`].filter(Boolean).join(' · ')
                     : 'No Technical Director recorded'}
                 </div>
               </div>
-              <div style={{ width: 40, textAlign: 'center', fontSize: 13, fontWeight: 900, color: r.club_state === 'claimed' ? T.amber : T.muted }}>{r.club_state === 'claimed' ? r.held : '—'}</div>
-              <div style={{ background: T.surface2, borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: r.club_state === 'verified' ? T.accent : r.club_state === 'suspended' ? T.red : T.amber }}>
-                {r.club_state === 'verified' ? 'Verified' : r.club_state === 'suspended' ? 'Suspended' : 'Awaiting call'}
+              <div className="ops-when" style={{ fontSize: 13, color: T.muted, fontWeight: 500 }}>{r.claimed_at
+                ? (r.club_state === 'claimed' ? `${short(r.claimed_at)} · ${ago(r.claimed_days)}` : short(r.claimed_at))
+                : null}</div>
+              <div className="ops-held" style={{ fontSize: 13, fontWeight: 800, color: r.club_state === 'claimed' ? T.amber : T.muted, whiteSpace: 'nowrap' }}>
+                {r.club_state === 'claimed' && r.held > 0
+                  ? <>{r.held}<span className="ops-held-word"> held</span></>
+                  : '—'}
               </div>
-              <Link href={`/ops/call/${r.id}`} style={{ border: `1px solid ${T.line}`, borderRadius: 12, height: 44, padding: '0 14px', display: 'flex', alignItems: 'center', fontSize: 12.5, fontWeight: 700, color: T.secondary, textDecoration: 'none', flexShrink: 0 }}>Open call sheet</Link>
+              <div className="ops-status">{chip(r.club_state)}</div>
+              <div className="ops-action">
+                <Link href={`/ops/call/${r.id}`} className="console-btn console-btn-primary">Open call sheet</Link>
+              </div>
             </div>
           ))}
         </div>

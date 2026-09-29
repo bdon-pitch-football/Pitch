@@ -2728,6 +2728,30 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 }
 
 // ---------------------------------------------------------------------------
+// today-w1–w3 — the operator's Today screen after a day of pressing buttons
+// (brief G, 29 Sep; 0110). The seed sends no approval request, so the render
+// suite can only see the tiles a fresh database fills; by this point the
+// suite has asked guardians to approve children on both channels, and the
+// Approvals sent and Approved tiles must have found that on the consent spine
+// (D-78) — as counts, with "% of sent" a share that cannot pass 100, and with
+// no zero printed anywhere (D-162).
+// ---------------------------------------------------------------------------
+{
+  const html = (await get('/ops', ids.people.marina)).html.replace(/<!--[\s\S]*?-->/g, '');
+  const tile = (label) => {
+    const m = new RegExp(`data-ops-tile="${label}"[^>]*>[\\s\\S]*?<div[^>]*>[^<]*</div><div[^>]*>([^<]*)</div>(?:<div[^>]*>([^<]*)</div>)?`).exec(html);
+    return m ? { value: Number(m[1]), sub: m[2] ?? '' } : null;
+  };
+  const sent = tile('Approvals sent'), approved = tile('Approved');
+  check(`today-w1: the approval requests this suite sent today are counted (${sent ? sent.value : 'no tile'})`, Boolean(sent) && sent.value >= 1, true);
+  const pct = approved ? Number(/^(\d+)% of sent$/.exec(approved.sub)?.[1]) : null;
+  check(`today-w2: approved is a share of sent — never more, and its percentage agrees (${approved ? `${approved.value}, ${approved.sub}` : 'no approvals yet'})`,
+    !approved ? [true, true] : sent ? [approved.value <= sent.value, pct === Math.round((100 * approved.value) / sent.value)] : [false, false], [true, true]);
+  const values = [...html.matchAll(/data-ops-tile="([^"]+)"[^>]*>[\s\S]*?<div[^>]*>[^<]*<\/div><div[^>]*>([^<]*)<\/div>/g)].map((m) => m[2].trim());
+  check(`today-w3: after all that, still no tile says zero (D-162) (${values.join(', ')})`, values.filter((v) => !/^[1-9]\d*$/.test(v)), []);
+}
+
+// ---------------------------------------------------------------------------
 // addr-w3 — no response in the whole write crawl sends a share token into an
 // address bar: not in a redirect, and not in a link a page carries (brief D;
 // L38/L42). The three pages that show a new link once are named in

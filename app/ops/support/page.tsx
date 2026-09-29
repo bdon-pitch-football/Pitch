@@ -2,10 +2,11 @@
 // nothing else. Support tooling can never read a child's record, by any
 // path, and there is deliberately no lookup here that returns one. Every
 // action is logged.
-import { notFound } from 'next/navigation';
+//
+// Brief G (29 Sep): the signed title row and pill, and the charter's console
+// button in place of three hand-drawn outlines. Nothing it shows changed.
 import { db } from '@/lib/db';
-import { HeaderMark } from '@/components/Wordmark';
-import { OpsConsole } from '@/components/console-shell';
+import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { resendApproval } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
 import { T } from '@/lib/palette';
@@ -39,11 +40,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
   return (
     <OpsConsole active="support">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark back={{ href: '/home' }} />
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Support</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Invitation state and resend. That is the whole console.</div>
-        </div>
+        <OpsHeader title="Support" sub="Invitation state and resend. That is the whole console." />
         <div style={{ background: T.surface, border: `1px solid ${T.red}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 3 L22 20 H2 Z" /><path d="M12 9.5 v4.5" /><circle cx="12" cy="16.8" r="0.6" fill={T.red} /></svg>
           <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
@@ -52,7 +49,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
         </div>
         <form style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10 }}>
           <input name="q" aria-label="Invitation id, guardian email or mobile" defaultValue={q ?? ''} placeholder="Invitation id, guardian email or mobile" style={{ flex: 1, background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }} />
-          <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 11, height: 44, padding: '0 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Look up</button>
+          <button type="submit" className="console-btn">Look up</button>
         </form>
         {q && rows.length === 0 && (
           <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 13, color: T.muted, fontWeight: 500 }}>Nothing matches that.</div>
@@ -61,7 +58,8 @@ export default async function Support({ searchParams }: { searchParams: Promise<
           <div key={r.id} className="lift" style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ fontSize: 15, fontWeight: 800 }}>{r.first_name}</div>
-              <div style={{ background: r.approved ? 'rgba(61,220,132,.14)' : r.held ? 'rgba(255,107,107,.14)' : 'rgba(237,161,0,.14)', color: r.approved ? T.accent : r.held ? T.red : T.amber, borderRadius: 7, padding: '3px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {/* The signed status pill (OpsVerification.dc.html). */}
+              <div style={{ background: T.surface2, color: r.approved ? T.accent : r.held ? T.red : T.amber, borderRadius: 999, padding: '7px 14px', fontSize: 12, fontWeight: 700 }}>
                 {r.approved ? 'Approved' : r.held ? 'Held' : 'Waiting on the guardian'}
               </div>
             </div>
@@ -76,7 +74,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
             )}
             {!r.approved && !r.held && (
               <form action={resendApproval}><input type="hidden" name="invitationId" value={r.id} />
-                <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, padding: '0 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Resend the approval request</button>
+                <button type="submit" className="console-btn">Resend the approval request</button>
               </form>
             )}
           </div>
