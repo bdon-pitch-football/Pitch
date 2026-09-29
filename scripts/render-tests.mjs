@@ -79,7 +79,7 @@ async function get(path, personId) {
 // reach the database) and put it back. The answer is read back, so a switch
 // that did not flip stops the run rather than testing the wrong product.
 // How many lines of /terms state a dollar figure today (see free-r1c).
-const TERMS_PRICED_LINES = 7; // Terms v2.1 (John, 29 Sep): prices out of the operative clauses; the history note, the dormant A6.2 GST example, the $2,000 floor, the ACL maximum and the internal questions table remain (doc 37 items 2/6)
+const TERMS_PRICED_LINES = 1; // Brief J (29 Sep, doc 37's defaults): of v2.1's seven, the A6.1 history note, Schedule A's opening banner (the ACL maximum) and the open items table go as drafting, and the $2,000 floor and its counsel note are held. Left: A6.2's dormant GST example, John's clause text
 async function billingSwitch(on) {
   const r = await fetch(`${BASE}/dev/billing?on=${on ? 1 : 0}`, { method: 'POST' });
   const j = r.ok ? await r.json() : null;
@@ -585,10 +585,10 @@ const georgia = ids.children.georgia;
       // "$1", "$L2", and that is not a price anybody reads.)
       //
       // ONE NAMED EXEMPTION, and it is not ours to close: /terms renders doc
-      // 22, whose Schedule A still states the D-109 price. Reshaping it is
-      // John's (docs/legal/36-Note-for-John-free-at-launch.md, item 1), and a
-      // legal document is not edited by a builder. Its mentions are counted
-      // below instead, so the exemption cannot grow without failing.
+      // 22, and a legal document is not edited by a builder. John's v2.1 took
+      // the D-109 price out of Schedule A (doc 36 item 1); what a dollar sign
+      // is left on is his clause text. Its mentions are counted below instead,
+      // so the exemption cannot grow without failing.
       for (const line of text(r.html)) {
         const m = /\$\s?\d/.exec(line);
         if (!m) continue;
@@ -635,11 +635,11 @@ const georgia = ids.children.georgia;
   check(`free-r1d: the only other exemption is the operator's own SMS spend on /ops/switches (${[...opsCost].slice(0, 2).join(' | ') || 'none'})`,
     [...opsCost].every((l) => /spent this month|limit|cap/i.test(l)), true);
   check(`free-r1b: and the crawl was a crawl (${fetched} pages fetched)`, fetched > 150, true);
-  // The exemption, pinned. /terms states doc 22's figures in exactly these
-  // lines today (A6.1's price, A5.1's cooling-off, the liability floor and
-  // the penalty cap). A new line with a dollar figure on it fails here; the
-  // day John's reshaped Schedule A lands, this count drops and so must the pin.
-  check(`free-r1c: /terms is the one exemption, awaiting John (doc 36 item 1) — ${termsPriced.size} lines state a dollar figure`,
+  // The exemption, pinned. /terms states a dollar figure on exactly one line
+  // since brief J: A6.2's GST example, in a clause dormant while Pitch is
+  // free. A new line with a dollar figure on it fails here, and so does the
+  // day that one goes.
+  check(`free-r1c: /terms is the one exemption — ${termsPriced.size} line states a dollar figure (A6.2's dormant GST example)`,
     termsPriced.size, TERMS_PRICED_LINES);
 
   // A bound action renders $ACTION_REF_n plus encrypted arguments only the
@@ -1502,6 +1502,35 @@ const georgia = ids.children.georgia;
     check(`leg-r6: ${path} opens with the document, not a rule under its title`,
       /<h1[^>]*>[^<]+<\/h1>\s*<p><em>Version/.test(doc), true);
   }
+}
+
+// Brief J (29 Sep): what the Terms page serves on 1 October. The permission
+// suite proves the property over lib/legal-doc (legj1–8); this reads the pages
+// themselves (L16), because a renderer that is right in theory has served the
+// notes in practice before. /report and /conduct render no legal document
+// today — the form, and a not-found — and are read anyway, so the day one of
+// them does, it is already checked.
+{
+  const DRAFTING = [/\[DRAFTED\]/, /\[OUTLINE\]/, /\[LEGAL/, /\[DO NOT PUBLISH/i, /do not publish/i,
+    /must not publish/i, /not yet published/i, /for legal review/i];
+  // A conduct rule, and content: doc 22 Schedule C 3.
+  const CONDUCT = /\b[Dd]o not publish other people's children/g;
+  const plain = (html) => text(html).join('\n').replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"');
+  for (const path of ['/terms', '/privacy', '/privacy/family', '/report', '/conduct']) {
+    const { status, html } = await get(path);
+    const hits = DRAFTING.filter((r) => r.test(plain(html).replace(CONDUCT, ''))).map(String);
+    check(`legj-r1: ${path} (${status}) serves none of the brief's drafting phrases (${hits.join(' · ') || 'none'})`, hits, []);
+  }
+  const terms = plain((await get('/terms')).html);
+  check('legj-r2: /terms serves neither held clause — the five-year record period, the $2,000 floor',
+    [/five[- ]years?/i.test(terms), /\$\s?2,000/.test(terms)], [false, false]);
+  // Around every removal, the clause beside it is still there, word for word.
+  const KEPT = ['0.1 The parties.', 'Reports concerning a person under 18 are actioned first.',
+    'nothing on Pitch discharges that responsibility.', '(a) Nothing is capped where it should not be.',
+    '(c) Neither of us is liable', 'Everyone using Pitch agrees:', 'Do not publish other people\'s children.',
+    'A5.4 Free until further notice', 'build supports guardian co-acceptance'];
+  const lost = KEPT.filter((k) => !terms.includes(k));
+  check(`legj-r3: and the clauses beside each removal are still served (${lost.join(' · ') || 'all are'})`, lost, []);
 }
 
 // "Preview my page" (BUZ, 19 Sep): the family sees the page exactly as a club
