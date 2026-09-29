@@ -18,7 +18,9 @@ import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Waiting for your parent', robots: { index: false, follow: false } };
+// Absolute: /join's layout sets a plain title, which stops the root template
+// reaching this page, and the approved tab title carries the brand itself.
+export const metadata = { title: { absolute: 'Waiting for your parent · Pitch Football' }, robots: { index: false, follow: false } };
 
 // D-168 (0120): while SMS is not live, the parent's email goes at once and
 // their text waits. BUZ approved this line on 29 Sep. It renders only while
