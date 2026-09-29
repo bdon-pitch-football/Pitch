@@ -10,7 +10,7 @@ never been pushed.
 |---|---|---|---|
 | 1a | **SMS: Twilio account plus an Australian mobile number** (D-81). The account was upgraded 29 Sep with US$50 prepaid and auto-recharge off. The Regulatory Bundle (EBSD ENTERPRISES PTY LTD, AU mobile, business) was **sent for review 29 Sep**, which takes up to 5 business days. **After approval:** BUZ buys the AU mobile number and attaches the bundle, then pastes `SMS_*` into Vercel. Leo points the number's inbound webhook at `/api/webhooks/sms` and sends a test text. | Twilio console | **In review.** Under-18s still register from launch day, with their texts queued (D-168). |
 | 1b | Email records on `send.pitchfootball.com.au`: DKIM, return path, DMARC `p=none` | DNS host | **Live** (checked 29 Sep with `dig`) |
-| 1c | **Supabase project in Sydney, on Pro**, with point-in-time recovery | supabase.com | Not started. The region cannot be changed later. |
+| 1c | **Supabase project in Sydney, on Pro.** `rxcgttfosftfgybftogo` is in ap-southeast-2 and was upgraded to Pro on 29 Sep. Daily backups are showing (7 days). Point-in-time recovery is not added yet (BUZ's call: add it once real families are on). Storage objects (photos, crests) are not in the backups. | supabase.com | **Done.** The project also holds the live site's waitlist and the social images, so check for name clashes in the rehearsal. The restore test uses "Restore to new project" into a temporary copy, which is deleted afterwards (ask BUZ before creating it). |
 | 1d | **`help@pitchfootball.com.au` forwards to BUZ's inbox.** It is the Reply-To on every email (U-11). | email host | Not started |
 
 ## 2 · BUZ, tomorrow: production values in Vercel (Leo never sees a secret)
