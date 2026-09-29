@@ -37,8 +37,13 @@ const ago = (days: number) => days <= 0 ? 'today' : days === 1 ? '1 day ago' : `
 // production). In production the line carries no state rather than a wrong
 // one, and the call sheet says what happened in BUZ's approved words.
 const HELD_ENDED_STATE = process.env.NODE_ENV !== 'production' ? 'access ended' : null;
-const tdState = (r: { active: boolean; club_mailbox: boolean; name_matches: boolean | null; account_name: string | null; ended_at: string | null }) =>
+// A sixth since 0121 (brief H): a proved account under another name is HELD
+// for a human, and "waiting on their account" would be false. Round H's
+// name-mismatch words, approved in advance by BUZ with Leo's review (29 Sep).
+const NAME_HELD_STATE = 'on hold: not the name on the call';
+const tdState = (r: { active: boolean; club_mailbox: boolean; name_matches: boolean | null; account_name: string | null; ended_at: string | null; name_confirmed: boolean | null }) =>
   !r.club_mailbox && r.ended_at ? HELD_ENDED_STATE :
+  !r.club_mailbox && !r.active && r.name_matches === false && !r.name_confirmed ? NAME_HELD_STATE :
   r.club_mailbox ? 'the club\u2019s own address, so nobody holds the role'
     : r.active && r.name_matches === false ? `active on ${r.account_name}\u2019s account`
     : r.active ? 'active'
@@ -62,7 +67,7 @@ export default async function OpsVerification() {
         from membership m
         where m.club_id = c.id and m.role in ('technical_director','club_admin')) as claimed_days,
        td.td_name, td.recorded_at, td.recorded_by, td.active,
-       td.account_name, td.name_matches, td.club_mailbox, td.ended_at
+       td.account_name, td.name_matches, td.club_mailbox, td.ended_at, td.name_confirmed
      from club c
      -- Who the club's Technical Director is, whether the role is live, and
      -- since 0060 whose account the recorded address actually is: the

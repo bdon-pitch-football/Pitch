@@ -13,7 +13,7 @@
 import { NextResponse } from 'next/server';
 import { cronAllowed } from '@/lib/cron-policy';
 import { db } from '@/lib/db';
-import { dispatch } from '@/lib/messaging';
+import { dispatch, releaseWaitingTexts } from '@/lib/messaging';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +23,26 @@ export async function GET(request: Request) {
   if (!cronAllowed(request.headers.get('authorization'), process.env.CRON_SECRET,
     process.env.NODE_ENV === 'production')) {
     return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
+  // D-168 (0120): first, the parents' approval texts that waited for SMS.
+  // Released oldest first, the moment SMS can send, under every control the
+  // send path has (lib/messaging releaseWaitingTexts, fn_sms_release). A
+  // queued row is never claimed by the sweep below: it has not been metered,
+  // and the release is the only door that meters it.
+  const released = await releaseWaitingTexts(BATCH);
+
+  // In development nothing leaves the machine (lib/messaging): the outbox is
+  // the inbox, and a released text is delivered by being released. The
+  // provider calls below run in production only — before this line the sweep
+  // ran here too, and a key in a developer's .env.local would have sent a
+  // real message from a fixture row.
+  if (process.env.NODE_ENV !== 'production') {
+    return NextResponse.json({ ok: true, released: released.length, claimed: 0, sent: 0 });
+  }
+  let sentReleased = 0;
+  for (const r of released) {
+    if (await dispatch(r.id, 'sms', r.to_address, '', r.body, r.message_key)) sentReleased += 1;
   }
 
   // The claim is a WRITE, and that is the whole point. This used to `select
@@ -40,6 +60,9 @@ export async function GET(request: Request) {
      where id in (
        select id from message_outbox
        where sent_at is null and failed_at is null
+         -- A text still waiting for SMS (0120) is the release's, never the
+         -- sweep's: it has not been metered, and this would send it unmetered.
+         and (queued_for_sms_at is null or released_at is not null)
          -- Give the inline attempt a minute to finish before a sweep decides
          -- the row is stranded, or a slow provider gets two sends.
          and created_at < now() - interval '1 minute'
@@ -61,5 +84,5 @@ export async function GET(request: Request) {
   }
   // Counts only. This response is read in a Vercel log, and a log is not a
   // place a child's name or a guardian's number ever goes.
-  return NextResponse.json({ ok: true, claimed: rows.length, sent });
+  return NextResponse.json({ ok: true, released: released.length, claimed: rows.length, sent: sent + sentReleased });
 }

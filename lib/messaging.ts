@@ -26,7 +26,8 @@ import { db } from './db';
 import { CATALOGUE_KEYS, DRAFT_KEYS, HELD_KEYS, type Composed } from './messages';
 import { sendEmail, sendSms } from './providers';
 import { replyToFor } from './reply-policy';
-import { effectiveSmsCapCents, smsCapCents, smsSwitchedOff } from './sms-policy';
+import { isDemo } from './demo';
+import { effectiveSmsCapCents, smsCanSend, smsCapCents, smsProviderConfigured, smsSwitchedOff } from './sms-policy';
 
 const KEYS = new Set<string>(CATALOGUE_KEYS);
 // Drafts (lib/messages DRAFT_KEYS): written and wired, not yet approved. They
@@ -42,9 +43,18 @@ const DRAFTS = new Set<string>(DRAFT_KEYS);
 const HELD = new Set<string>(HELD_KEYS);
 const SMS_PER_NUMBER_24H = 3;
 const DEFAULT_SMS_COST_CENTS = 8;
+// D-168 (0120): the texts that WAIT when SMS cannot send, instead of being
+// refused — the parent's approval request (doc 15 §1) and the 16–17's
+// "confirm you're their parent" (§1b). Approval needs both channels (D-24,
+// D-156), so refusing these while SMS is down made every under-18 sign-up
+// impossible to approve. Nothing else queues: a kill switch that saved up
+// every text for later would not be a kill switch.
+const QUEUE_UNTIL_SMS_SENDS = new Set<string>(['doc15.§1', 'doc15.§1b']);
 
 export type SendResult =
-  | { queued: true; id: string }
+  // `waiting`: written, and held until SMS can send (0120). Not sent, so the
+  // spine is not told a text went — fn_sms_release tells it when one does.
+  | { queued: true; id: string; waiting?: true }
   | { queued: false; reason: 'not_in_catalogue' | 'not_approved' | 'held' | 'sms_killed' | 'sms_no_cap' | 'sms_rate_limited' | 'sms_cap_reached' | 'no_address' | 'sms_opted_out' };
 
 /**
@@ -85,6 +95,47 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
   if (!to.address) return { queued: false, reason: 'no_address' };
 
   if (msg.channel === 'sms') {
+    const cap = smsCapCents(process.env.SMS_MONTHLY_CAP_CENTS);
+    // The operator's switch (0070), read on every SMS so it takes effect on
+    // the next one, not the next deploy. Off is off whichever side said it;
+    // the cap in force is the lower of the two.
+    const { rows: sw } = await db.query('select sms_off, sms_cap_cents from fn_sms_switch()');
+
+    const h = numberHash(to.address);
+    // STOP means stop. Doc 15 §15 promises "we won't text this number again"
+    // and until 0031 there was nowhere to record that anybody had said it, so
+    // the promise was unenforceable. It is checked BEFORE the meter, because
+    // a message we must not send should not spend a cent of the cap either —
+    // and before the queue (D-168), because a text we must never send should
+    // not wait to be sent either.
+    const { rows: out } = await db.query(
+      `select 1 from sms_opt_out where number_hash = $1
+         and (opted_in_at is null or opted_in_at < opted_out_at)`,
+      [h],
+    );
+    if (out.length > 0) return { queued: false, reason: 'sms_opted_out' };
+
+    // D-168 (0120): SMS cannot send — switched off, or in production no cap
+    // or no provider yet. The parent's approval text is written down and
+    // waits; the outbox job releases it, oldest first, under every control
+    // below, the first time SMS can send. Its three-a-day limit is counted
+    // at queue time too, queued texts with sent ones (fn_sms_queue).
+    const canSend = smsCanSend({
+      production: process.env.NODE_ENV === 'production',
+      envKill: process.env.SMS_KILL_SWITCH,
+      dbOff: sw[0]?.sms_off,
+      envCap: cap,
+      providerConfigured: smsProviderConfigured(
+        { sid: process.env.SMS_ACCOUNT_SID, key: process.env.SMS_API_KEY, from: process.env.SMS_LONG_NUMBER }, isDemo()),
+    });
+    if (!canSend && QUEUE_UNTIL_SMS_SENDS.has(msg.key) && to.invitationId) {
+      const { rows: q } = await db.query(
+        'select fn_sms_queue($1,$2,$3,$4,$5,$6,$7,$8) as id',
+        [msg.key, to.personId ?? null, to.address, msg.body, to.subjectId ?? null, to.invitationId, h, SMS_PER_NUMBER_24H],
+      );
+      return q[0]?.id ? { queued: true, id: q[0].id as string, waiting: true } : { queued: false, reason: 'sms_rate_limited' };
+    }
+
     if (process.env.SMS_KILL_SWITCH === 'true') return { queued: false, reason: 'sms_killed' };
     // The spend cap is mandatory (D-81, BUZ decision 5). No cap configured
     // refuses every SMS the same way the kill switch does — the refusal is
@@ -93,28 +144,12 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
     // the outbox IS the inbox and dispatch() is never called, so there is no
     // spend to cap; a message that CAN reach a provider cannot get past here
     // without one.
-    const cap = smsCapCents(process.env.SMS_MONTHLY_CAP_CENTS);
     if (cap === null && process.env.NODE_ENV === 'production') {
       return { queued: false, reason: 'sms_no_cap' };
     }
-    // The operator's switch (0070), read on every SMS so it takes effect on
-    // the next one, not the next deploy. Off is off whichever side said it;
-    // the cap in force is the lower of the two.
-    const { rows: sw } = await db.query('select sms_off, sms_cap_cents from fn_sms_switch()');
     if (smsSwitchedOff(process.env.SMS_KILL_SWITCH, sw[0]?.sms_off)) return { queued: false, reason: 'sms_killed' };
     const limit = effectiveSmsCapCents(cap, sw[0]?.sms_cap_cents);
 
-    const h = numberHash(to.address);
-    // STOP means stop. Doc 15 §15 promises "we won't text this number again"
-    // and until 0031 there was nowhere to record that anybody had said it, so
-    // the promise was unenforceable. It is checked BEFORE the meter, because
-    // a message we must not send should not spend a cent of the cap either.
-    const { rows: out } = await db.query(
-      `select 1 from sms_opt_out where number_hash = $1
-         and (opted_in_at is null or opted_in_at < opted_out_at)`,
-      [h],
-    );
-    if (out.length > 0) return { queued: false, reason: 'sms_opted_out' };
     const { rows: cnt } = await db.query('select fn_sms_count_24h($1) as n', [h]);
     if (cnt[0].n >= SMS_PER_NUMBER_24H) return { queued: false, reason: 'sms_rate_limited' };
 
@@ -204,6 +239,44 @@ export async function dispatch(
   return false;
 }
 
+/**
+ * Release the parents' texts that waited for SMS (D-168, 0120).
+ *
+ * Asks the same question send() asks — can a text leave now? — and only on a
+ * yes hands the queue to fn_sms_release, which applies every control in the
+ * database: the operator's switch, three a day per number, the monthly cap in
+ * force, STOP, and an invitation that is still open (a purged, approved or
+ * held one sends nothing). Oldest first. The environment's half of "can a
+ * text leave" (the kill switch, the mandatory cap, a provider configured) can
+ * only be read here, which is why the question is asked twice.
+ *
+ * It hands the released rows back and sends none of them: the caller — the
+ * outbox job, never a request — gives each to dispatch() in production. In
+ * development the outbox is the provider — /dev/outbox is the inbox, the
+ * "dev fake" — so a released text is delivered by being released, and
+ * nothing leaves the machine. (Nothing in this file awaits a provider, L40.)
+ */
+export type ReleasedText = { id: string; message_key: string; to_address: string; body: string };
+export async function releaseWaitingTexts(batch = 50): Promise<ReleasedText[]> {
+  const cap = smsCapCents(process.env.SMS_MONTHLY_CAP_CENTS);
+  const { rows: sw } = await db.query('select sms_off, sms_cap_cents from fn_sms_switch()');
+  const canSend = smsCanSend({
+    production: process.env.NODE_ENV === 'production',
+    envKill: process.env.SMS_KILL_SWITCH,
+    dbOff: sw[0]?.sms_off,
+    envCap: cap,
+    providerConfigured: smsProviderConfigured(
+      { sid: process.env.SMS_ACCOUNT_SID, key: process.env.SMS_API_KEY, from: process.env.SMS_LONG_NUMBER }, isDemo()),
+  });
+  if (!canSend) return [];
+  const limit = effectiveSmsCapCents(cap, sw[0]?.sms_cap_cents);
+  const { rows } = await db.query(
+    'select id, message_key, to_address, body from fn_sms_release($1,$2,$3,$4)',
+    [limit, DEFAULT_SMS_COST_CENTS, SMS_PER_NUMBER_24H, batch],
+  );
+  return rows as ReleasedText[];
+}
+
 // Convenience: queue a message and log it on the consent-funnel spine (D-78),
 // so the funnel and the outbox never disagree.
 export async function sendAndLog(
@@ -216,7 +289,9 @@ export async function sendAndLog(
   subjectId?: string,
 ): Promise<SendResult> {
   const result = await send(msg, { ...to, subjectId });
-  if (result.queued) {
+  // A waiting text (0120) has not gone, so the spine does not say it has:
+  // fn_sms_release writes this same row the moment it does.
+  if (result.queued && !result.waiting) {
     // The invitation rides on the spine row too (0077), so an under-16's
     // "We emailed you" can be attached to their log at approval — linked,
     // never rewritten.

@@ -36,6 +36,10 @@ const todayLine = () => {
   return `${get('weekday')} ${get('day')} ${get('month')}`;
 };
 const hhmm = (d: string) => new Date(d).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Australia/Melbourne' });
+// D-168's backlog tile. Its words are NOT approved yet (brief H), so it
+// renders in development only, like the console's other held words.
+const HELD_WAITING_TEXTS = process.env.NODE_ENV !== 'production'
+  ? ['Texts waiting for SMS', 'parents\u2019 approval requests'] as const : null;
 // Parts of a line, with every zero left out (D-162).
 const line = (parts: [number, string][]) => parts.filter(([n]) => n > 0).map(([n, w]) => `${n} ${w}`).join(' · ');
 
@@ -53,6 +57,9 @@ export default async function OpsToday() {
   await requireOperator();
   const t = (await db.query(`select * from fn_ops_today()`)).rows[0] as Today;
   const failures = (await db.query(`select channel, failed_at, provider_said from fn_ops_delivery_failures()`)).rows as Failure[];
+  // D-168 (0120): the parents' approval texts still waiting for SMS, so the
+  // backlog is watched clearing once SMS is live. A count, nothing else.
+  const waitingTexts = Number((await db.query(`select fn_sms_queued_count() as n`)).rows[0]?.n ?? 0);
   const sms = failures.filter((f) => f.channel === 'sms').length;
   const email = failures.length - sms;
 
@@ -69,6 +76,8 @@ export default async function OpsToday() {
     t.held > 0 && <Tile key="h" label="Held" value={t.held} colour={T.amber} sub="clubs not yet verified" />,
     t.awaiting > 0 && <Tile key="w" label="Clubs awaiting a call" value={t.awaiting} colour={T.amber}
       sub={t.awaiting_oldest_days > 0 ? `oldest ${t.awaiting_oldest_days} day${t.awaiting_oldest_days === 1 ? '' : 's'}` : undefined} />,
+    // Held words (brief H): development only until BUZ approves them.
+    HELD_WAITING_TEXTS && waitingTexts > 0 && <Tile key="q" label={HELD_WAITING_TEXTS[0]} value={waitingTexts} colour={T.amber} sub={HELD_WAITING_TEXTS[1]} />,
   ].filter(Boolean);
 
   return (

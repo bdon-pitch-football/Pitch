@@ -34,10 +34,19 @@ export default async function WhileYouWereAway({ viewerId, since }: {
 }) {
   // Dates are formatted in Postgres, in Melbourne, as every other date on
   // this page is: to_char gives 'Sep', never en-AU's 'Sept' (LESSONS L18).
+  //
+  // ONE ORDER, THE CALENDAR'S (brief H, BUZ's walkthrough 29 Sep: "20 Aug,
+  // 28 Dec, 25 Oct" read as a jumble). What has happened comes first, newest
+  // first; then what is coming, soonest first — so the dates read outward
+  // from today in both directions and never jump back. Today counts as
+  // happened. Every seat that shows this card renders this one query.
   const facts = (await db.query(
     `select kind, to_char(fact_on, 'FMDD Mon') as on_label, subject, club_name,
        reader_name, reader_role, surface, to_char(checked_on, 'FMDD Mon') as checked_label
-     from fn_return_facts($1, $2::timestamptz)`,
+     from fn_return_facts($1, $2::timestamptz)
+     order by (fact_on > (now() at time zone 'Australia/Melbourne')::date),
+       case when fact_on <= (now() at time zone 'Australia/Melbourne')::date then fact_on end desc,
+       fact_on, kind`,
     [viewerId, since],
   )).rows as Fact[];
   if (facts.length === 0) return null;

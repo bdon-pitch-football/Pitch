@@ -23,7 +23,7 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { OpsConsole, OpsHeader } from '@/components/console-shell';
-import { endTd, logCall } from './actions';
+import { confirmTdName, endTd, logCall } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
 import { isUuid } from '@/lib/ids';
 import { T } from '@/lib/palette';
@@ -70,6 +70,14 @@ function Choice({ name, label: text, note, options }: { name: string; label: str
     </fieldset>
   );
 }
+// A name mismatch is held for a human (BUZ's approved default 5, 0121). The
+// held state's sentence and the confirm button's words were approved in
+// advance by BUZ on 29 Sep, with the review delegated to Leo
+// (docs/team/APPROVALS-28-SEP.md, "Approved in advance"): live, and listed in
+// the round H report for that review.
+const NAME_HELD_STATE = 'On hold. The role stays off until you confirm this is the person the club named, or record a new call with the right name.';
+const NAME_HELD_CONFIRM = 'This is the person the club named';
+
 // 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
 const longDay = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', timeZone: 'Australia/Melbourne' });
 const day = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');
@@ -104,7 +112,12 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
   const td = (await db.query(`select * from fn_club_td($1)`, [clubId])).rows[0] as
     { td_name: string; td_email: string; recorded_at: string; recorded_by: string; active: boolean;
       account_name: string | null; account_email: string | null;
-      name_matches: boolean | null; club_mailbox: boolean; ended_at: string | null } | undefined;
+      name_matches: boolean | null; club_mailbox: boolean; ended_at: string | null;
+      name_confirmed: boolean } | undefined;
+  // 0121: the account is proved and is not the name the club gave, and no
+  // operator has confirmed it — so the role is held, not waiting on anybody.
+  const heldForName = Boolean(td && td.name_matches === false && !td.name_confirmed
+    && !td.active && !td.ended_at && !td.club_mailbox);
 
   return (
     <OpsConsole active="verification">
@@ -137,9 +150,13 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                   <div style={{ ...label, marginTop: 6 }}>The account holding that address</div>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{td.account_name}</div>
                   <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{td.account_email}</div>
+                  {/* 0121: the role no longer goes to this account on the
+                      address alone, so the approved sentence that said it
+                      did ("The role goes to this account, not to the name
+                      above.") is gone (L25). The first half stays true. */}
                   {td.name_matches === false ? (
                     <div style={{ fontSize: 12.5, color: T.amber, fontWeight: 700, lineHeight: 1.5 }}>
-                      This is not the name recorded on the call. The role goes to this account, not to the name above.
+                      This is not the name recorded on the call.
                     </div>
                   ) : null}
                 </>
@@ -155,8 +172,18 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                     ? `${td.account_name ?? td.td_name} no longer sees the register, the squads or any player's record at ${c.name}. What they wrote stays theirs. To name a new Technical Director, record them on a call.`
                   : td.active
                     ? `Active. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}.`
+                  : heldForName
+                    ? NAME_HELD_STATE
                     : `Waiting on their account. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}. The role switches on the moment that address is confirmed on Pitch.`}
               </div>
+              {/* The human's door (0121): a named, logged confirmation that
+                  attaches the role. */}
+              {heldForName ? (
+                <form action={confirmTdName} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                  <input type="hidden" name="clubId" value={clubId} />
+                  <button type="submit" className="btn btn-secondary">{NAME_HELD_CONFIRM}</button>
+                </form>
+              ) : null}
               {/* The operator's door for ending a TD's access (D-48, 0100).
                   Only while the role is live: there is nothing to end
                   otherwise. The database requires the reason and logs it. */}

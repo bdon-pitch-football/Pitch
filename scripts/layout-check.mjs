@@ -753,10 +753,108 @@ for (const width of [390, 1280]) {
   const landed = pressedBack ? await waitH1('Where do you live?') : '';
   dropLoads();
   joinChecked++;
-  if (at !== 'Pitch is only in Australia for now.') joinFails.push({ width, what: `j3 "Somewhere else" landed on "${at}"` });
+  if (at !== 'Pitch is only open in Australia.') joinFails.push({ width, what: `j3 "Somewhere else" landed on "${at}"` });
   else if (!back) joinFails.push({ width, what: 'j3 "Somewhere else" has no way back a person can see (no control reading "Back")' });
   else if (back < 44) joinFails.push({ width, what: `j3 the way back from "Somewhere else" is ${back}px tall, under 44` });
   else if (landed !== 'Where do you live?') joinFails.push({ width, what: `j3 Back from "Somewhere else" landed on "${landed}", not the country question` });
+}
+
+// ---------------------------------------------------------------------------
+// TWO THINGS BUZ SAW IN THE WALKTHROUGH (brief H, 29 Sep), which only a
+// browser can see.
+//   · st1  A stat tile counted up from 0, so for a moment a child's CV said
+//          "0 appearances" (D-162). Every stat number is recorded from the
+//          first frame the document has — a MutationObserver and a frame loop
+//          installed before any of the page's own scripts — for three
+//          seconds. Each tile must show exactly one value in all that time,
+//          the value the server sent. With prefers-reduced-motion nothing on
+//          the tile animates at all.
+//   · pr1  Tapping a locked Premium row reloaded to ?first=1 at the TOP of
+//          the page, so "Premium is coming. You're first in line." was never
+//          seen. The row is pressed with a real mouse event, and after the
+//          answer arrives the confirmation must be inside the viewport.
+// Both at a phone and a laptop width.
+// ---------------------------------------------------------------------------
+const motionFails = [];
+let motionChecked = 0;
+const TILE_RECORDER = `window.__tiles = [];
+  (() => {
+    const snap = () => {
+      const t = [...document.querySelectorAll('.drill-row > *')].map((l) => {
+        const d = [...l.querySelectorAll('div')].find((x) => x.children.length === 0 && /^\\d+$/.test(x.textContent.trim()));
+        return d ? d.textContent.trim() : '?';
+      });
+      if (t.length) { const k = t.join(','); if (window.__tiles[window.__tiles.length - 1] !== k) window.__tiles.push(k); }
+    };
+    new MutationObserver(snap).observe(document, { subtree: true, childList: true, characterData: true });
+    const until = performance.now() + 3000;
+    const loop = () => { snap(); if (performance.now() < until) requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  })();`;
+await cdp('Network.clearBrowserCookies');
+for (const width of [390, 1280]) {
+  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
+  // st1 — every frame of the tiles, on the share link a club opens.
+  const rec = (await cdp('Page.addScriptToEvaluateOnNewDocument', { source: TILE_RECORDER })).result.identifier;
+  const served = await (await fetch(BASE + '/p/dev-deniz')).text();
+  const row = (served.split('class="drill-row"')[1] ?? '').split(/class="drill-wells"|<\/section>|Season 20/)[0];
+  const servedNums = [...row.matchAll(/>(\d+)<\/div>/g)].map((m) => m[1]).join(',');
+  await visit('/p/dev-deniz');
+  await new Promise((r) => setTimeout(r, 3200));
+  await cdp('Page.removeScriptToEvaluateOnNewDocument', { identifier: rec });
+  const frames = await eval_('JSON.stringify(window.__tiles ?? [])');
+  motionChecked++;
+  if (!frames.length || frames[0].split(',').length < 2) motionFails.push({ width, what: `st1 no stat tiles were seen on /p/dev-deniz (${JSON.stringify(frames)}), so nothing was measured` });
+  else if (frames.length !== 1) motionFails.push({ width, what: `st1 the stat tiles showed ${frames.length} different values over the first three seconds: ${frames.slice(0, 6).join(' → ')}` });
+  else if (frames[0] !== servedNums) motionFails.push({ width, what: `st1 the first frame shows ${frames[0]}, the served HTML ${servedNums || 'no numbers'}` });
+  // …and with reduced motion, nothing on a tile animates.
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await visit('/p/dev-deniz');
+  const moving = await eval_(`JSON.stringify([...document.querySelectorAll('.drill-row > *')].flatMap((l) => [...l.querySelectorAll('div')])
+    .map((d) => getComputedStyle(d).animationName).filter((n) => n && n !== 'none'))`);
+  await cdp('Emulation.setEmulatedMedia', { features: [] });
+  motionChecked++;
+  if (moving.length) motionFails.push({ width, what: `st1b with prefers-reduced-motion a stat tile still animates (${[...new Set(moving)].join(', ')})` });
+
+  // pr1 — the Premium tap, on the adult player's Highlights and the coach's page.
+  for (const [who, find] of [[ids.people.jordan, 'clips'], [ids.people.sam, 'coach']]) {
+    await cdp('Network.setCookie', { name: 'pitch_session', value: cookieFor(who), url: BASE });
+    let path = '/coach/edit';
+    if (find === 'clips') {
+      await visit('/home');
+      path = await eval_(`JSON.stringify(document.querySelector('a[href$="/clips"]')?.getAttribute('href') ?? '')`);
+    }
+    await visit(path);
+    dropLoads();
+    // The product scrolls smoothly (globals.css), so clickOn's centre-then-
+    // measure would read a box the page is still scrolling towards and press
+    // beside the row. Scroll instantly, let it settle, then press where it is.
+    const row = byText('button', 'Unlimited clips');
+    await eval_(`JSON.stringify(((${row})()?.scrollIntoView({ block: 'center', behavior: 'instant' }), true))`);
+    await new Promise((r) => setTimeout(r, 300));
+    const box = await eval_(`JSON.stringify((() => { const r = (${row})()?.getBoundingClientRect(); return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null; })())`);
+    if (box) for (const type of ['mousePressed', 'mouseReleased']) await cdp('Input.dispatchMouseEvent', { type, x: box.x, y: box.y, button: 'left', clickCount: 1 });
+    const pressed = Boolean(box);
+    const STATUS = `JSON.stringify((() => {
+        const el = [...document.querySelectorAll('[role=status]')].find((e) => /Premium is coming/.test(e.textContent));
+        if (!el) return { found: false, url: location.pathname + location.search + location.hash };
+        const r = el.getBoundingClientRect();
+        return { found: true, top: Math.round(r.top), bottom: Math.round(r.bottom), vh: window.innerHeight, url: location.pathname + location.search + location.hash };
+      })())`;
+    let seen = null;
+    for (let i = 0; i < 80 && !seen?.found; i++) {
+      await new Promise((r) => setTimeout(r, 150));
+      seen = await eval_(STATUS).catch(() => null);
+    }
+    // Where it comes to rest, not where a smooth scroll happens to be.
+    if (seen?.found) { await new Promise((r) => setTimeout(r, 1500)); seen = await eval_(STATUS).catch(() => seen); }
+    dropLoads();
+    motionChecked++;
+    if (!path || !pressed) motionFails.push({ width, what: `pr1 no locked Premium row to press on ${path || 'the Highlights page'}` });
+    else if (!seen?.found) motionFails.push({ width, what: `pr1 pressing a locked row on ${path} never showed "Premium is coming. You’re first in line." (at ${seen?.url ?? 'nowhere'})` });
+    else if (seen.top < 0 || seen.bottom > seen.vh) motionFails.push({ width, what: `pr1 after the tap on ${path} the confirmation is out of view (${seen.top}–${seen.bottom} on a ${seen.vh}px screen, at ${seen.url})` });
+    await cdp('Network.clearBrowserCookies');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -836,6 +934,8 @@ for (const f of ringFails) {
 }
 console.log(`join pass    · ${joinChecked} presses on /join at 390 and 1280 — Continue is never silent, the role chips are named what they show, and Somewhere else has a way back`);
 for (const f of joinFails) console.log(`FAIL ${f.width}px · /join — ${f.what}`);
+console.log(`walkthrough  · ${motionChecked} views at 390 and 1280 — a stat tile shows only its real value from the first frame and is still under reduced motion, and a Premium tap lands with its answer in view`);
+for (const f of motionFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 for (const f of labelFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — ${f.labels.length} .field-label not at 10px: ${f.labels.map((l) => `"${l.text}" ${l.size}/${l.weight}`).join(', ')}`);
 for (const f of bodyFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — the page paints ${f.bg}, not --bg ${tokenRgb}`);
 // One line per distinct control, not one per view: the same component fails on
@@ -855,9 +955,9 @@ const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what}
   (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
 console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
 for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
-const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length;
+const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length + motionFails.length;
 if (failures.length === 0 && chromeBad === 0) {
-  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, and /join answers every press');
+  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, and a Premium tap lands in view');
   process.exit(0);
 }
 for (const f of failures) {
@@ -865,5 +965,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, squeezed ${squeezeKeys.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length})`);
 process.exit(1);

@@ -41,10 +41,16 @@ function openable(body: string): React.ReactNode {
 
 export default async function Outbox() {
   if (process.env.NODE_ENV === 'production') notFound();
+  // This page is the inbox, so a text still waiting for SMS (D-168, 0120)
+  // is not in it: it has not arrived anywhere. It appears the moment the
+  // outbox job releases it (/api/jobs/outbox), dated when it was released —
+  // which is when a parent's phone would have buzzed.
   const { rows } = await db.query(
     `select message_key, channel, to_address, subject, body,
-       to_char(created_at at time zone 'Australia/Melbourne', 'DD Mon HH24:MI') as at
-     from message_outbox order by created_at desc limit 50`,
+       to_char(coalesce(released_at, created_at) at time zone 'Australia/Melbourne', 'DD Mon HH24:MI') as at
+     from message_outbox
+     where queued_for_sms_at is null or released_at is not null
+     order by coalesce(released_at, created_at) desc limit 50`,
   );
   // In a club demo this page is shown to a club, so it speaks plainly and
   // hides the catalogue keys (lib/demo).

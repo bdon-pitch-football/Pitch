@@ -165,3 +165,19 @@ export async function endTd(formData: FormData) {
   }
   redirect(`/ops/call/${clubId}`);
 }
+
+// A Technical Director whose account name is not the name on the call is held
+// for a human (BUZ's approved default 5, 0121): the role does not attach until
+// an operator confirms the account IS the person the club named, or a new
+// call records the right name. This is that confirmation. The database checks
+// the operator is a real person by their own address, logs who, when, which
+// call, which account and both names, and attaches the role in the same
+// transaction — or does nothing, for a name that already matches, a mailbox,
+// or an account the role cannot attach to (fn_ops_confirm_td_name).
+export async function confirmTdName(formData: FormData) {
+  const op = await requireOperator();
+  const clubId = String(formData.get('clubId') ?? '');
+  if (!isUuid(clubId)) redirect('/ops/verification');
+  await db.query('select fn_ops_confirm_td_name($1, $2, $3)', [op.personId, op.email, clubId]);
+  redirect(`/ops/call/${clubId}`);
+}

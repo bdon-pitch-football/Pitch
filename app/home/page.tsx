@@ -369,7 +369,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               )}
               {verified && !isTd && theTd?.reader_name && (
                 <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.62)', fontWeight: 500, lineHeight: 1.6 }}>
-                  The register is {theTd.reader_name.split(' ')[0]}&rsquo;s. You keep the club&rsquo;s page, its squads, its notices and its plan.
+                  The register is {theTd.reader_name.split(' ')[0]}&rsquo;s. You keep the club&rsquo;s page, its squads, its notices.
                 </div>
               )}
               {/* D-162: the held count is a fact about absence when it is zero,

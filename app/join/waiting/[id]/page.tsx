@@ -1,15 +1,31 @@
 // WaitingForParent.dc.html — the pending state (D-17). Nothing exists
 // publicly; if nobody approves within 14 days everything purges.
+//
+// Rewritten 29 Sep (BUZ: "approve 1 and 2", docs/team/APPROVALS-28-SEP.md).
+// The design's words promised things that do not exist before a parent says
+// yes: "Your page is built", "the page, the photo, the clips", a "What you
+// made" card and "Keep editing it while you wait" — but under D-17 an
+// under-16 has a first name, a date of birth and a parent's contact, and the
+// CV is built after approval, never before. Every sentence here is now one
+// BUZ approved, and the render suite fails if the page promises a page, a
+// photo or clips again (wait-r1).
 // No SMS/email actually sends yet (doc 15 wiring comes with Twilio/Resend);
 // in development the approval link is surfaced on-screen instead.
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getPendingInvitation } from '@/lib/guardian-flow';
+import { getPendingInvitation, invitationTextWaiting } from '@/lib/guardian-flow';
 import { HeaderMark } from '@/components/Wordmark';
 import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Check your email', robots: { index: false, follow: false } };
+// Absolute: /join's layout sets a plain title, which stops the root template
+// reaching this page, and the approved tab title carries the brand itself.
+export const metadata = { title: { absolute: 'Waiting for your parent · Pitch Football' }, robots: { index: false, follow: false } };
+
+// D-168 (0120): while SMS is not live, the parent's email goes at once and
+// their text waits. BUZ approved this line on 29 Sep. It renders only while
+// the text waits, in place of "Text and email sent", which would be false.
+const TEXT_WAITING = 'We\u2019ve emailed your parent. Their text follows shortly.';
 
 const maskPhone = (p: string) => {
   const d = p.replace(/\s/g, '');
@@ -22,7 +38,9 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
   if (!inv || inv.approved_at) notFound();
 
   const channels = 'Text and email sent'; // both are required now (D-157)
-  const initials = (inv.first_name as string).slice(0, 1).toUpperCase();
+  // "Text and email sent" is false while the text waits for SMS, so it is not
+  // said then (L25): the approved line says what did happen instead.
+  const textWaiting = await invitationTextWaiting(inv.id);
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
@@ -36,8 +54,8 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
               <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.82)' }}>Not live yet</div>
             </div>
           </div>
-          <div style={{ fontSize: 31, fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.015em' }}>Your page is<br />built. One<br />person to go.</div>
-          <div style={{ fontSize: 14.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everything you&rsquo;ve made is saved. Nobody can see it — not clubs, not coaches, not us — until a parent says yes.</div>
+          <h1 style={{ fontSize: 31, fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.015em' }}>One person to go.</h1>
+          <div style={{ fontSize: 14.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>We&rsquo;ve asked your parent to approve your page. Until they say yes, nothing about you is on Pitch — not for clubs, not for coaches, not for us.</div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -48,7 +66,7 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <div style={{ fontSize: 15, fontWeight: 800 }}>{inv.guardian_name}</div>
-              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{channels} · {maskPhone(inv.guardian_phone ?? '')}</div>
+              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{textWaiting ? TEXT_WAITING : `${channels} · ${maskPhone(inv.guardian_phone ?? '')}`}</div>
             </div>
           </div>
         </div>
@@ -63,18 +81,6 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
           )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>What you made</div>
-          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'center', gap: 13 }}>
-            <div style={{ width: 56, height: 56, borderRadius: 17, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, fontWeight: 900, color: T.secondary, flexShrink: 0 }}>{initials}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <div style={{ fontSize: 15, fontWeight: 800 }}>{inv.first_name}</div>
-              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Page not started yet — build it while you wait</div>
-            </div>
-          </div>
-          <div style={{ border: `1px solid ${T.line}`, borderRadius: 12, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13.5, fontWeight: 700, color: T.secondary }}>Keep editing it while you wait</div>
-        </div>
-
         {/* "Send the text again" and "Wrong number? Change who we ask" were
             drawn here as buttons and did nothing. They are out until they are
             built: a resend mints a new link (D-156), and changing who is
@@ -82,7 +88,7 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
 
         <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>
-          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>If nobody approves it within <b style={{ color: T.secondary }}>14 days</b> we delete all of it — the page, the photo, the clips. You can start again any time.</div>
+          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>If nobody approves within <b style={{ color: T.secondary }}>14 days</b>, we delete what you told us. You can start again any time.</div>
         </div>
       </div>
     </div>
