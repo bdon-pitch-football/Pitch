@@ -97,7 +97,7 @@ the list of seats at any time.
    messages, word for word: the parent's approval text and email, the
    "something is waiting" alert a trial invitation sends (no names, no club),
    and the email a club receives when a CV is sent.
-6. **The price.** Everything is free at launch, the Interest Register
+6. **The price.** Everything is free, the Interest Register
    included: the club page, teams, trial notices, CVs by email and WWCC
    verification too. Never name a future price or a date for one (D-163).
 

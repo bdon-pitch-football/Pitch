@@ -55,3 +55,22 @@ Anything new still goes to BUZ.
 
 - **Ops call sheet, TD card:** "End this Technical Director's access" · "Why" · "{Name} no longer sees the register, the squads or any player's record at {Club}. What they wrote stays theirs. To name a new Technical Director, record them on a call."
 - **Club roles screen, beside the TD row:** "End their access" · "Why" · "{Name} no longer sees the register, the squads or any player's record. To name a new Technical Director, ring Pitch."
+
+## 29 September: three removals (BUZ: "yes to the three")
+
+- `/home` (club administrator): "…its notices and its plan." becomes "…its notices."
+- `/club/register` (held club): the sentence "Paying doesn't change it and can't." is removed.
+- `/ops/verification`: the sentence "Payment does not change that and cannot." is removed.
+
+## 29 September: "recommended on all" (BUZ)
+
+- **SMS cost:** accepted. The bare-wake SMS goes to two segments because of the longer address. SMS is switched on last, so nothing to change now.
+- **Email reply-to:** stays `help@pitchfootball.com.au` (John's U-11: a support inbox, not a person). **BUZ creates help@ as a forwarding alias to his own inbox** before launch. That is on the go-live checklist.
+- **Doc 15 §4, the other parent told:** no product path creates a second guardian at launch. Recorded as D-167. "Invite a second parent" is built later; §4 stays unwired until then.
+- **Doc 15 §9, the waitlist confirmation:** retired. The page and the stored consent promise one email, when we open.
+- **The parent door on the front door:** the parent row reuses the approved chip text "Approve and see their record". It leads to `/join`, whose parent door already explains, in approved words, that a child starts the page and a parent approves it.
+- **The coach's verify button:** "Verify for {club}".
+- **Guardian step on /join:** "Give us one way to reach them." becomes "Give us their mobile and email."
+- **Country line:** "Pitch is only in Australia for now." becomes "Pitch is only open in Australia." It no longer says "for now".
+- **The child's waiting screen:** to be rewritten. Leo drafts; BUZ approves the words before anything renders.
+- **Verified stats on an under-16's page** appear with the parent's next approved version (as built). **The front door** has three ways in, not four.
