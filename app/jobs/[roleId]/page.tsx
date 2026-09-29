@@ -28,7 +28,11 @@ export default async function Role({ params, searchParams }: {
   const { rows } = await db.query(
     `select r.id, r.title, r.age_group, r.detail, r.commitment, r.paid, r.closes_on, r.closed_at,
        c.name as club, c.public_slug, c.club_state
-     from coaching_role r join club c on c.id = r.club_id where r.id = $1`,
+     from coaching_role r join club c on c.id = r.club_id
+     -- A suspended club's role is not on the board (0151), and its own page
+     -- is the same not-found as a role that is not there. A closed role of a
+     -- club that is up still opens, to say it closed.
+     where r.id = $1 and fn_club_advertises(r.club_id)`,
     [roleId],
   );
   if (rows.length === 0) notFound();

@@ -137,9 +137,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                join squad sq on sq.id = g2.squad_id
               where g2.person_id = p.id and g2.revoked_at is null
                 and g2.squad_id in (select fn_register_grant_squads(p.id, g2.club_id))) as register_team_names,
-            (select count(*)::int from coaching_role r9 join club c9 on c9.id = r9.club_id
-              where r9.closed_at is null
-                and (r9.closes_on is null or r9.closes_on >= (now() at time zone 'Australia/Melbourne')::date)) as open_roles,
+            (select count(*)::int from fn_coaching_roles_advertised()) as open_roles,
             (select c3.name from membership m2 join club c3 on c3.id = m2.club_id
              where m2.person_id = p.id and m2.role = 'coach' and m2.ended_at is null limit 1) as club,
             -- D-154: the teams whose registrations this coach reads today.
@@ -250,9 +248,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
        order by t.trial_on limit 3`,
       [clubSeat.id],
     )).rows as { id: string; title: string; month: string; day: string; time_venue: string; interested: number }[] : [];
+    // What is on the board for this club (0151), as its trials card above
+    // counts what is on the board: none while it is suspended.
     const openRoles = (await db.query(
-      `select count(*)::int as n from coaching_role where club_id = $1 and closed_at is null
-         and (closes_on is null or closes_on >= (now() at time zone 'Australia/Melbourne')::date)`,
+      `select count(*)::int as n from fn_coaching_roles_advertised() where club_id = $1`,
       [clubSeat.id],
     )).rows[0].n as number;
     const pageUrl = clubSeat.public_slug ? `pitchfootball.com.au/fc/${clubSeat.public_slug}` : null;

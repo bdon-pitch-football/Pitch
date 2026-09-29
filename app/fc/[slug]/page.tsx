@@ -80,8 +80,7 @@ export default async function ClubPage({ params, searchParams }: {
         from alumni_entry a where a.club_id = c.id) as alumni,
        (select coalesce(json_agg(json_build_object('url', v.url, 'title', v.title) order by v.sort, v.created_at), '[]'::json)
         from club_video v where v.club_id = c.id) as videos,
-       (select count(*)::int from coaching_role cr where cr.club_id = c.id and cr.closed_at is null
-          and (cr.closes_on is null or cr.closes_on >= (now() at time zone 'Australia/Melbourne')::date)) as open_roles
+       (select count(*)::int from fn_coaching_roles_advertised() cr where cr.club_id = c.id) as open_roles
      from club c where c.public_slug = $1`,
     [slug],
   );
@@ -129,6 +128,14 @@ export default async function ClubPage({ params, searchParams }: {
   const squadQuery = `${picked ? `&squad=${picked.id}` : ''}${pickedTrial ? `&trial=${pickedTrial.id}` : ''}`;
   // An unclaimed listing has no register anybody reads. That family sends a CV.
   const onPitch = c.club_state === 'claimed' || c.club_state === 'verified';
+  // A suspended club advertises nothing (0140, 0151), and that includes the
+  // way in (brief L, 29 Sep). It was falling through to the unclaimed
+  // branch: "isn't on Pitch yet", which is false, over a "Send my CV to
+  // {club}" door that would route a child's CV to a club we had taken down.
+  // The page keeps who the club is and the way to report it; it offers no
+  // family a way to send, register or pick a squad. No new words — the panel
+  // and the squad chips' door are simply not drawn.
+  const suspended = c.club_state === 'suspended';
 
   // One of the four pages analytics may count (lib/analytics-scope).
   return (
@@ -285,6 +292,7 @@ export default async function ClubPage({ params, searchParams }: {
             the same page plus an invitation to sign in. Under 16 the child
             composes and it routes to their parent to send (D-91), which is
             what /register-interest already does — this is just the door. */}
+        {!suspended && (
         <div id="play" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11, scrollMarginTop: 18 }}>
           <div style={{ fontSize: 15.5, fontWeight: 900, letterSpacing: '-0.015em' }}>Want to play here?</div>
           <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
@@ -335,6 +343,7 @@ export default async function ClubPage({ params, searchParams }: {
             <Link href="/join" style={{ background: T.surface2, color: T.ink, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none', border: `1px solid ${T.line}` }}>Build a CV first — it is what the club reads</Link>
           )}
         </div>
+        )}
 
         {/* The most-looked-at element on the page used to be eleven inert
             pills. A squad is the bucket the club's own register sorts into,
@@ -345,6 +354,17 @@ export default async function ClubPage({ params, searchParams }: {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
               {squads.map((s) => {
                 const on = picked?.id === s.id;
+                // Suspended: the team is named, and it is not a way onto
+                // anything (brief L).
+                if (suspended) {
+                  return (
+                    <span key={s.id} style={{
+                      background: T.surface, border: `1px solid ${T.line}`, borderRadius: 999,
+                      display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 16px',
+                      fontSize: 12.5, fontWeight: 700, color: T.secondary,
+                    }}>{s.name}</span>
+                  );
+                }
                 return (
                   <Link key={s.id} href={on ? `/fc/${slug}#play` : `/fc/${slug}?squad=${s.id}#play`} className="lift"
                     style={{
@@ -359,9 +379,11 @@ export default async function ClubPage({ params, searchParams }: {
                 );
               })}
             </div>
-            <div style={{ fontSize: 11.5, color: T.placeholder, fontWeight: 500 }}>
-              {picked ? `The register will say ${picked.name}. Tap it again to clear it.` : 'Tap a squad to go on the register for it.'}
-            </div>
+            {!suspended && (
+              <div style={{ fontSize: 11.5, color: T.placeholder, fontWeight: 500 }}>
+                {picked ? `The register will say ${picked.name}. Tap it again to clear it.` : 'Tap a squad to go on the register for it.'}
+              </div>
+            )}
           </div>
         )}
 

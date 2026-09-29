@@ -21,6 +21,7 @@ import { createHmac, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { watchForTokens } from './token-in-url.mjs';
+import { RULINGS } from './rulings.mjs';
 
 // A genuine 1x1 PNG. Uploads are re-encoded server-side and type-checked by
 // CONTENT rather than extension (D-94 §7), so a text file pretending to be an
@@ -475,6 +476,128 @@ async function post(path, who, form) {
     [[`303 ${riverside}`, `303 ${riverside}`, `303 ${riverside}`], [200, 200, 200, 200], 307]);
 }
 
+
+// ---------------------------------------------------------------------------
+// BRIEF L (29 Sep): doc 14 table H pressed through the real screens. The
+// permission suite pins H1, H2, H4 and H5 on the database functions; this is
+// the product doing them, read on the pages a person opens — the register, a
+// CV opened from it, the squad screen, a CV opened from the squad:
+//
+//   H4  the Technical Director's Remove on a coach, on /club/squads
+//   H5  every outcome of the operator's call sheet that takes a club out of
+//       verified: suspended for each class, a takedown, and a failed call
+//       (0150)
+//   H2  the family's Leave, on the parent's controls
+//   H1  the family's "Ask them", and the club's confirm
+//
+// EARLY, straight after the TD block, on the seed's Riverside, and it hands
+// everything back: Sam is brought in again for the same two teams, Riverside
+// is verified again with Marina its TD, and Deniz is in U15 Boys again — so
+// every block after this one sees the seed's seats.
+// ---------------------------------------------------------------------------
+{
+  const marina = ids.people.marina, sam = ids.people.sam, alex = ids.people.alex, robin = ids.people.robin;
+  const op = ids.people.jordan;   // any signed-in person with an address is an operator in development (lib/ops-policy)
+  const deniz = ids.children.deniz.child_id, riversideId = ids.clubs['riverside-fc'];
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&rsquo;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const press = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) for (const x of [].concat(v)) fd.append(k, x);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
+  };
+  const status = async (path, who) => (path ? (await get(path, who)).status : null);
+
+  // ---- the pages, found the way a person finds them -------------------------------
+  const squadsHtml = (await get('/club/squads', marina)).html;
+  const squadIds = [...new Set([...squadsHtml.matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)].map((m) => m[1]))];
+  let u15 = null;
+  for (const id of squadIds) if ((await get(`/club/squads/${id}`, marina)).html.includes(`/cv/${deniz}`)) { u15 = `/club/squads/${id}`; break; }
+  const denizCv = u15 ? `${u15}/cv/${deniz}` : null;
+  // Sam's two teams are the squads his register grants open (D-154).
+  const samTeams = [];
+  for (const id of squadIds) if ((await get(`/club/squads/${id}`, sam)).status === 200) samTeams.push(id);
+  const samRegCv = /href="(\/club\/register\/cv\/[0-9a-f-]{36})"/.exec((await get('/coach/register', sam)).html)?.[1] ?? null;
+  const regCv = /href="(\/club\/register\/cv\/[0-9a-f-]{36})"/.exec((await get('/club/register', marina)).html)?.[1] ?? null;
+  check('h-w0: the pages exist to be read — Deniz’s squad and his CV from it, Sam’s two teams, a registration CV each for Sam and Marina',
+    [Boolean(denizCv), samTeams.length, Boolean(samRegCv), Boolean(regCv)], [true, 2, true, true]);
+
+  // What the TD reads, and what the squads' coach reads, each a page.
+  const tdReads = async () => [/\/club\/register\/cv\//.test((await get('/club/register', marina)).html), await status(regCv, marina),
+    (await get(u15, marina)).html.includes(`/cv/${deniz}`), await status(denizCv, marina)];
+  const coachReads = async () => [await status(denizCv, sam), ...(await Promise.all(samTeams.map((t) => status(`/club/squads/${t}`, sam)))),
+    await status(samRegCv, sam), await status('/coach/register', sam)];
+  const TD_LIVE = [true, 200, true, 200], TD_DOWN = [false, 404, false, 404];
+  const COACH_LIVE = [200, 200, 200, 200, 200], COACH_DOWN = [404, 404, 404, 404, 307];
+
+  // ---- H4 · the TD takes a coach off the club's teams ------------------------------
+  check('h4-w0: before — Sam reads his two teams, their registrations and a CV opened from one', await coachReads(), COACH_LIVE);
+  const removeForm = forms((await get('/club/squads', marina)).html).find((f) => f.fields.personId === sam);
+  await press('/club/squads', marina, removeForm?.fields ?? {});
+  const removed = await coachReads();
+  check('H4: a coach the Technical Director takes off the club’s teams mid-season loses read on them at once — each team’s squad screen, its registrations and a CV opened from them — through the real pages',
+    removed.slice(1), COACH_DOWN.slice(1));
+  // Brought back the way any coach is brought in: the TD asks, Sam accepts.
+  const bring = forms((await get('/club/squads', marina)).html).find((f) => f.visible.some((v) => v.name === 'wwcc'));
+  await press('/club/squads', marina, { ...bring.fields, email: 'coach@example.com', squadIds: samTeams, wwcc: 'on' });
+  const accept = forms((await get('/home', sam)).html).find((f) => f.fields.answer === 'accept');
+  if (accept) await press('/home', sam, accept.fields);
+  check('h4-w1: brought back the way a coach is brought in — asked by the TD, accepted on his own home — Sam reads his two teams again', await coachReads(), COACH_LIVE);
+
+  // ---- H5 · Riverside loses verified status, every way the call sheet can do it ----
+  const sheet = `/ops/call/${riversideId}`;
+  const logCall = async (extra) => {
+    const form = forms((await get(sheet, op)).html).find((f) => f.visible.some((v) => v.name === 'outcome'));
+    return press(sheet, op, { ...form.fields, operator: 'BUZ', number_called: '03 9000 0000', number_source: 'FV club directory',
+      answered_by: 'Committee', club_confirmed: 'yes', person_confirmed: 'yes', incorporated: 'yes', authority_confirmed: 'yes',
+      notes: 'H5 drill', ...extra });
+  };
+  const reverify = () => logCall({ outcome: 'verified', td_name: 'Marina Petrovic', td_email: 'td@example.com' });
+  check('h5-w0: before — Riverside is verified: Marina reads the register, a CV from it, the squad and a CV from the squad; Sam the squad CV, his teams and their registrations',
+    [await tdReads(), await coachReads()], [TD_LIVE, COACH_LIVE]);
+  for (const [outcome, cls] of [['suspended', 'child_safety'], ['suspended', 'administrative'], ['suspended', 'non_payment'], ['takedown', ''], ['not_verified', '']]) {
+    await logCall({ outcome, suspension_reason: cls });
+    const down = [await tdReads(), await coachReads()];
+    await reverify();
+    const up = [await tdReads(), await coachReads()];
+    const how = outcome === 'not_verified' ? 'a call recorded "not verified" (0150)'
+      : outcome === 'takedown' ? 'taken down with no class recorded' : `suspended for the ${cls} class`;
+    check(`H5: ${how} on the operator’s call sheet, Riverside’s TD and its assigned coach lose every read of its children at once — the register, a CV from it, the squad, a CV from the squad, the coach’s teams and registrations — and a verified call gives them back`,
+      [down, up], [[TD_DOWN, COACH_DOWN], [TD_LIVE, COACH_LIVE]]);
+  }
+
+  // ---- H2 · the family presses Leave -------------------------------------------------
+  const ctl = `/g/controls/${deniz}`;
+  const leave = forms((await get(ctl, alex)).html).find((f) => f.submit === 'Leave' && f.fields.personId === deniz);
+  check('h2-w0: before — Deniz is in U15 Boys: Marina’s squad screen lists him and opens his CV, and so does the squad’s coach, and his parent has the Leave button',
+    [(await get(u15, marina)).html.includes(`/cv/${deniz}`), await status(denizCv, marina), await status(denizCv, sam), Boolean(leave)],
+    [true, 200, 200, true]);
+  const left = await press(ctl, alex, leave?.fields ?? {});
+  check('H2: his parent presses Leave, and from that moment the club drops to what it is allowed — Marina’s squad screen no longer lists Deniz, and neither she nor the squad’s coach can open his CV from it',
+    [left.location, (await get(u15, marina)).html.includes(`/cv/${deniz}`), await status(denizCv, marina), await status(denizCv, sam)],
+    [`${ctl}?squad=left`, false, 404, 404]);
+
+  // ---- H1 · the family asks, the club confirms -----------------------------------------
+  const askPage = `/squad/${deniz}?club=${riversideId}`;
+  const askForm = forms((await get(askPage, alex)).html).find((f) => f.fields.squadId === u15.split('/').pop());
+  // Somebody who is not his parent pressing the same form is sent home and
+  // nothing reaches the club (asserted on the club's screen, L12).
+  const strangerAsk = await press(`/squad/${deniz}`, robin, askForm?.fields ?? {});
+  const waiting = async () => /says they play here/.test(words((await get(u15, marina)).html));
+  check('H1: consented at joining — a stranger pressing the family’s "Ask them" for Deniz is sent home, and nothing waits on the club',
+    [strangerAsk.location, await waiting()], ['/home', false]);
+  await press(`/squad/${deniz}`, alex, askForm?.fields ?? {});
+  check('H1: his parent asks, and it waits on the club — which reads nothing of him until it confirms',
+    [await waiting(), await status(denizCv, marina)], [true, 404]);
+  const confirm = forms((await get(u15, marina)).html).find((f) => 'claimId' in f.fields);
+  await press(u15, marina, { ...(confirm?.fields ?? {}), answer: 'yes' });
+  const signedCv = words((await get(denizCv, marina)).html);
+  check('H1: the club confirms, and it sees the history the signing brings (D-48) — the squad CV opens for the TD and the squad’s coach, with the club he played for before and last season’s award on it',
+    [await status(denizCv, marina), await status(denizCv, sam), signedCv.includes('Elderslie Juniors SC'), signedCv.includes("Players' Player of the Year")],
+    [200, 200, true, true]);
+}
 
 // ---------------------------------------------------------------------------
 // BRIEF I (29 Sep): Pitch curates the board (0130; D-64, D-74, D-90). Pressed
@@ -1106,8 +1229,24 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const door = await fetch(BASE + postPath, { redirect: 'manual', headers: { cookie: cookieFor(unverified) } });
   await door.text();
   const forged = await submit(postPath, unverified, { ...action, ...base, title: 'Quarrymead posts its own trial', trial_on: '2026-11-30', ages: ['U12'] });
-  check('d90-w1: an unverified club is sent home from "Post a trial", and a notice posted in its name reaches no board (D-90; doc 14 M7 says otherwise — for BUZ)',
-    [door.status, door.headers.get('location'), forged, (await board('')).includes('Quarrymead posts its own trial')], [307, '/home', '/home', false]);
+  // Brief L: both versions are written, and scripts/rulings.mjs says which
+  // one runs. Pending, it is D-90's, under D-90's name, and M7 stays open.
+  const d90Facts = [door.status, door.headers.get('location'), forged, (await board('')).includes('Quarrymead posts its own trial')];
+  if (RULINGS.M7 === 'doc 14') {
+    // Doc 14's version: the door opens for her, and the form she is given
+    // puts her notice on the board.
+    const own = await get(postPath, unverified);
+    const ownForm = forms(own.html)[0];
+    const posted = ownForm ? await submit(postPath, unverified, { ...ownForm.fields, ...base, title: 'Quarrymead posts its own trial', trial_on: '2026-11-30', ages: ['U12'] }) : '';
+    check('M7: an unverified club posts a trial notice through "Post a trial", and it reaches the board (doc 14 M7, as BUZ ruled)',
+      [own.status, Boolean(ownForm), /posted=1/.test(posted), (await board('')).includes('Quarrymead posts its own trial')], [200, true, true, true]);
+  } else if (RULINGS.M7 === 'D-90') {
+    check('M7: an unverified club is sent home from "Post a trial", and a notice posted in its name reaches no board (D-90, as BUZ ruled)',
+      d90Facts, [307, '/home', '/home', false]);
+  } else {
+    check('d90-w1: an unverified club is sent home from "Post a trial", and a notice posted in its name reaches no board (D-90; doc 14 M7 says otherwise — awaiting BUZ, scripts/rulings.mjs)',
+      d90Facts, [307, '/home', '/home', false]);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -3069,14 +3208,33 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   };
   const K = ['Kingsway Rovers FC', 'kingsway-rovers'];
   check('susp-ad-w0: Kingsway, verified, has its own trial on the board and on its page', await shown(...K), [true, true, true]);
+  // Brief L's two follow-ups, read in the same places: the club page's way in
+  // (the "Want to play here?" panel, its doors, and the squad chips' hint),
+  // and a coaching role Kingsway posts on its own screen — on /jobs, on its
+  // own page, and in the club page's "looking for coaches" card (0151).
+  const dana = ids.people.dana;
+  const roleForm = forms((await get('/club/roles', dana)).html).find((f) => f.visible.some((v) => v.name === 'title'));
+  await post('/club/roles', dana, { ...roleForm.fields, title: 'Kingsway sweep coach', ageGroup: 'SEN', commitment: 'Tue 7pm' });
+  const roleId = forms((await get('/club/roles', dana)).html).find((f) => f.fields.roleId)?.fields.roleId;
+  const wayIn = async () => {
+    const page = words((await get('/fc/kingsway-rovers', adult)).html), raw = (await get('/fc/kingsway-rovers', adult)).html;
+    return [raw.includes('id="play"'), /Want to play here\?|Register my interest|Send my CV to Kingsway|Tap a squad to go on the register/.test(page),
+      /Kingsway Rovers FC is looking for coaches/.test(page), (await get('/jobs', null)).html.includes('Kingsway sweep coach'),
+      roleId ? (await get(`/jobs/${roleId}`, null)).status : null];
+  };
+  check('susp-ad-w4: Kingsway, verified, offers a family its way in, and its coaching role is on the jobs board, on its own page and on the club page',
+    await wayIn(), [true, true, true, true, 200]);
   const reverify = () => logCall(kingsway, { outcome: 'verified', td_name: 'Dana Kovac', td_email: 'kingsway@example.com' });
   for (const [outcome, cls] of [['suspended', 'child_safety'], ['suspended', 'administrative'], ['suspended', 'non_payment'], ['takedown', '']]) {
     await logCall(kingsway, { outcome, suspension_reason: cls });
-    const down = await shown(...K);
+    const down = await shown(...K), downIn = await wayIn();
     await reverify();
-    const up = await shown(...K);
-    check(`susp-ad-w1: ${outcome === 'takedown' ? 'taken down with no class recorded' : `suspended for the ${cls} class`}, Kingsway's trial is off the board and off its page — and verified again, it is back on both`,
+    const up = await shown(...K), upIn = await wayIn();
+    const how = outcome === 'takedown' ? 'taken down with no class recorded' : `suspended for the ${cls} class`;
+    check(`susp-ad-w1: ${how}, Kingsway's trial is off the board and off its page — and verified again, it is back on both`,
       [down, up], [[false, false, false], [true, true, true]]);
+    check(`susp-ad-w5: ${how}, Kingsway's page offers no way in — no "Want to play here?", no send or register door, no squad hint — and its coaching role is off the board, its own page and the club page; verified again, all of it is back (brief L, 0151)`,
+      [downIn, upIn], [[false, false, false, false, 404], [true, true, true, true, 200]]);
   }
   const W = ['Westgate Rangers', 'westgate-rangers'];
   check('susp-ad-w2: Westgate, claimed, has Pitch\'s compiled trial on the board and on its page', await shown(...W), [true, true, true]);

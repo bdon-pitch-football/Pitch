@@ -22,9 +22,9 @@ export default async function Jobs() {
     `select r.id, r.title, r.age_group, r.commitment, r.paid, r.closes_on,
        c.name as club, c.public_slug, c.club_state,
        (select count(*)::int from role_application ra where ra.role_id = r.id) as applications
-     from coaching_role r join club c on c.id = r.club_id
-     where r.closed_at is null
-       and (r.closes_on is null or r.closes_on >= (now() at time zone 'Australia/Melbourne')::date)
+     -- The board is the database's answer (0151): open, not past its
+     -- closing day, and none at all from a suspended club, of any class.
+     from fn_coaching_roles_advertised() r join club c on c.id = r.club_id
      order by r.created_at desc`,
   )).rows as {
     id: string; title: string; age_group: string | null; commitment: string | null;
