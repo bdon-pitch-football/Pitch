@@ -143,6 +143,14 @@ async function reach(who, extra = []) {
       // of an account with no children, and Robin is the only seat that has
       // one. Pressing it is sess-w1..w3's job, on a session opened for it.
       if (h === '/signout') continue;
+      // Nor the two documents brief K serves (/conduct, /report/policy). They
+      // hold no form, and this walk stops at 60 pages: /report's new link to
+      // the policy spent one of them, which moved which seat met a form
+      // first — the player's own register-interest page was swept as the
+      // player, with the first squad in its list, and the A4 age hold took
+      // him off the product for every check after it (L32: a page is a
+      // fixture). The render suite reads both pages; this one presses forms.
+      if (h === '/conduct' || h === '/report/policy') continue;
       if (!seen.has(h)) queue.push(h);
     }
   }
@@ -1088,6 +1096,18 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const danaAction = forms((await get(`${postPath}?edit=${kingsway}`, dana)).html)[0].fields;
   await submit(postPath, dana, { ...danaAction, ...base, trial_id: kingsway, title: 'U16–U18 and Seniors trials', trial_on: '2026-12-20', ages: ['U16', 'U17', 'U18', 'SEN'] });
   check('ct5: once families have registered, the date does not move', [(await board('?age=SEN')).includes('25'), (await board('?age=SEN')).includes('>20<')], [true, false]);
+
+  // D-90, and doc 14 M7 against it (brief K item 5). The register says a
+  // VERIFIED club posts its own notice; M7 says an unverified one may. The
+  // product follows the register, and this is that, pressed: a claimed club's
+  // administrator is sent home from the door, and the verified club's own form,
+  // posted in her name, puts nothing on the board. Behaviour unchanged.
+  const unverified = ids.people['m.'];
+  const door = await fetch(BASE + postPath, { redirect: 'manual', headers: { cookie: cookieFor(unverified) } });
+  await door.text();
+  const forged = await submit(postPath, unverified, { ...action, ...base, title: 'Quarrymead posts its own trial', trial_on: '2026-11-30', ages: ['U12'] });
+  check('d90-w1: an unverified club is sent home from "Post a trial", and a notice posted in its name reaches no board (D-90; doc 14 M7 says otherwise — for BUZ)',
+    [door.status, door.headers.get('location'), forged, (await board('')).includes('Quarrymead posts its own trial')], [307, '/home', '/home', false]);
 }
 
 // ---------------------------------------------------------------------------
@@ -2953,6 +2973,116 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     !approved ? [true, true] : sent ? [approved.value <= sent.value, pct === Math.round((100 * approved.value) / sent.value)] : [false, false], [true, true]);
   const values = [...html.matchAll(/data-ops-tile="([^"]+)"[^>]*>[\s\S]*?<div[^>]*>[^<]*<\/div><div[^>]*>([^<]*)<\/div>/g)].map((m) => m[2].trim());
   check(`today-w3: after all that, still no tile says zero (D-162) (${values.join(', ')})`, values.filter((v) => !/^[1-9]\d*$/.test(v)), []);
+}
+
+// ---------------------------------------------------------------------------
+// Brief K items 4 and 1, pressed (29 Sep). Late in the suite on purpose: it
+// claims Westgate Rangers, and it suspends Kingsway and Westgate through the
+// operator's call sheet, and nothing after it reads either club.
+//
+// ONE BUTTON (item 4). A club that has claimed its page and not had the call
+// yet was offered two ways in: the board said "Send my CV", and its own page
+// offered the register. D-90 and D-126 settle it: the family registers
+// interest, and the club sees a count until it is verified — and the family
+// is never told it is unverified (M9). Westgate, the seed's unclaimed listing
+// with a notice Pitch compiled, is claimed here the way any club claims its
+// page, and then both screens are read, and the button pressed.
+//
+// A SUSPENDED CLUB ADVERTISES NOTHING (item 1; 0140). Each class the call
+// sheet offers, and a takedown with none, on a club with its own notice
+// (Kingsway, verified), and a suspension with no class on a club with Pitch's
+// compiled notice (Westgate, claimed). Read on the board and on the club's own
+// page, the two places round I found them, and back when the club is verified
+// again: suspension hides, it never deletes.
+// ---------------------------------------------------------------------------
+{
+  const op = ids.people.marina, robin = ids.people.robin, adult = ids.people.jordan;
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&rsquo;|&#39;|’/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const post = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) for (const x of [].concat(v)) fd.append(k, x);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
+  };
+  // The board's own listing for a club: from its name to the end of its button.
+  const listingOf = (raw, club, slug) => {
+    const html = raw.replace(/<!-- -->/g, '');
+    const at = html.indexOf(`${club} · `);
+    if (at === -1) return null;
+    const end = html.indexOf('</a>', html.indexOf(`href="/fc/${slug}`, at));
+    return html.slice(at, end === -1 ? at + 2000 : end + 4);
+  };
+
+  // ---- one button ----------------------------------------------------------------
+  const ask = forms((await get('/claim/westgate-rangers', robin)).html).find((f) => 'slug' in f.fields && !f.visible.some((v) => v.name === 'code'));
+  await post('/claim/westgate-rangers', robin, ask.fields);
+  const code = /claim Westgate Rangers on Pitch[\s\S]*?your code is:\s*(\d{6})/.exec(words((await get('/dev/outbox', op)).html))?.[1];
+  const enter = forms((await get('/claim/westgate-rangers?sent=1', robin)).html).find((f) => f.visible.some((v) => v.name === 'code'));
+  const claimed = await post('/claim/westgate-rangers', robin, { ...enter.fields, code });
+  check('one-w0: Westgate Rangers is claimed through the product — a club on Pitch, not yet verified', /claimed=1/.test(claimed.location), true);
+
+  const boardHtml = (await get('/trials', null)).html;
+  const westListing = listingOf(boardHtml, 'Westgate Rangers', 'westgate-rangers');
+  const westTrial = /href="\/fc\/westgate-rangers\?trial=([0-9a-f-]{36})#play"/.exec(westListing ?? '')?.[1];
+  check('one-w1: the board offers a claimed club\'s families the register — "I’m interested", carrying the trial — not "Send my CV", and does not tell them the club is unverified',
+    [Boolean(westTrial), /I(&rsquo;|’)m interested/.test(westListing ?? ''), /Send my CV/.test(westListing ?? ''),
+     /Unclaimed listing|verified club/.test(words(westListing ?? ''))],
+    [true, true, false, false]);
+  // Signed out, and as an adult player: the parent's own session has been
+  // ended by the sessions block by now, and this is the seat that presses it.
+  const pageOut = words((await get('/fc/westgate-rangers', null)).html), pageAdult = words((await get('/fc/westgate-rangers', adult)).html);
+  check('one-w2: and so does its own page, signed out and signed in — the same door, and no "Send my CV" anywhere on it',
+    [pageOut.includes('Sign in to register your interest'), pageAdult.includes('Register my interest'),
+     /Send my CV|send your CV|Send [A-Z][a-z]+'s CV/.test(pageOut + pageAdult)],
+    [true, true, false]);
+
+  // Pressed, by an adult, from the board's own link.
+  const viaBoard = (await get(`/fc/westgate-rangers?trial=${westTrial}#play`, adult)).html;
+  const regPath = /href="(\/register-interest\/[0-9a-f-]{36}\?club=[0-9a-f-]{36}(?:&amp;|&)trial=[0-9a-f-]{36})"/.exec(viaBoard)?.[1]?.replace(/&amp;/g, '&');
+  const regForm = regPath ? forms((await get(regPath, adult)).html).find((f) => 'trialId' in f.fields) : null;
+  const done = regForm ? await post(regPath, adult, { ...regForm.fields, note: 'Left back, both feet.' }) : { location: '' };
+  const told = words((await get(done.location || '/home', adult)).html);
+  check('one-w3: the button goes on the club\'s register, carrying the trial — and the family is told they are on it, never that the club is unverified (M9)',
+    [Boolean(regForm?.fields.trialId === westTrial), /registered=1/.test(done.location), told.includes('on Westgate Rangers'), /unverified|not verified|isn't verified/i.test(told)],
+    [true, true, true, false]);
+  const held = words((await get('/club/register', robin)).html);
+  check('one-w4: and the club, until it is verified, sees a count and no name (D-126)',
+    [/\b\d+ waiting\b/.test(held), held.includes('Jordan')], [true, false]);
+
+  // ---- a suspended club advertises nothing -----------------------------------------
+  const kingsway = ids.clubs['kingsway-rovers'], westgate = ids.clubs['westgate-rangers'];
+  const logCall = async (clubId, extra) => {
+    const sheet = `/ops/call/${clubId}`;
+    const form = forms((await get(sheet, op)).html).find((f) => f.visible.some((v) => v.name === 'outcome'));
+    return post(sheet, op, { ...form.fields, operator: 'BUZ', number_called: '03 9000 0600', number_source: 'FV club directory',
+      answered_by: 'Committee', club_confirmed: 'yes', person_confirmed: 'yes', incorporated: 'yes', authority_confirmed: 'yes',
+      notes: 'advertising drill', ...extra });
+  };
+  // Where round I found them: the board, and the club's own page — its trial
+  // rows (each links to itself on the page) and the "Trials coming" count over
+  // them. By the notice's link, not its title: the form sweep renames it.
+  const shown = async (club, slug) => {
+    const board = (await get('/trials', null)).html, page = (await get(`/fc/${slug}`, null)).html;
+    return [Boolean(listingOf(board, club, slug)), page.includes(`href="/fc/${slug}?trial=`), words(page).includes('Trials coming')];
+  };
+  const K = ['Kingsway Rovers FC', 'kingsway-rovers'];
+  check('susp-ad-w0: Kingsway, verified, has its own trial on the board and on its page', await shown(...K), [true, true, true]);
+  const reverify = () => logCall(kingsway, { outcome: 'verified', td_name: 'Dana Kovac', td_email: 'kingsway@example.com' });
+  for (const [outcome, cls] of [['suspended', 'child_safety'], ['suspended', 'administrative'], ['suspended', 'non_payment'], ['takedown', '']]) {
+    await logCall(kingsway, { outcome, suspension_reason: cls });
+    const down = await shown(...K);
+    await reverify();
+    const up = await shown(...K);
+    check(`susp-ad-w1: ${outcome === 'takedown' ? 'taken down with no class recorded' : `suspended for the ${cls} class`}, Kingsway's trial is off the board and off its page — and verified again, it is back on both`,
+      [down, up], [[false, false, false], [true, true, true]]);
+  }
+  const W = ['Westgate Rangers', 'westgate-rangers'];
+  check('susp-ad-w2: Westgate, claimed, has Pitch\'s compiled trial on the board and on its page', await shown(...W), [true, true, true]);
+  await logCall(westgate, { outcome: 'suspended', suspension_reason: '' });
+  check('susp-ad-w3: suspended with no class, the notice Pitch compiled is off the board and off its page too — whoever posted it',
+    await shown(...W), [false, false, false]);
 }
 
 // ---------------------------------------------------------------------------

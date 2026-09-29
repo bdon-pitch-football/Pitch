@@ -13,7 +13,20 @@
 // 127.0.0.1, so a demo is served to the laptop it runs on and not to the
 // room's Wi-Fi (safety review N4c).
 export const DEMO_DB_PORT = 54323;
-export const DEMO_DB_URL = `postgres://postgres@127.0.0.1:${DEMO_DB_PORT}/postgres`;
+
+/**
+ * The port a demo database binds (scripts/dev-db.mts with DEMO_CLUB) and a
+ * demo app reads: 54323, BUZ's, unless a port is set explicitly — and then
+ * that port, for both halves (brief K item 7). A seat running the demo layer
+ * used to take BUZ's port whatever it set, and a demo app on a seat's own
+ * database would have read his. `npm run demo` blanks PITCH_DEV_DB_PORT, so
+ * the meeting demo is always 54323. Still 127.0.0.1 either way: lock 2 is
+ * about never reaching a real database, and this cannot.
+ */
+export function demoDbPort(env: Record<string, string | undefined> = process.env): number {
+  return Number(env.PITCH_DEV_DB_PORT || DEMO_DB_PORT);
+}
+export const DEMO_DB_URL = `postgres://postgres@127.0.0.1:${demoDbPort()}/postgres`;
 
 export function isDemo(): boolean {
   if (process.env.PITCH_DEMO !== '1') return false;

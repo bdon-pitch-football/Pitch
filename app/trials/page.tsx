@@ -1,8 +1,9 @@
 // TrialsIndex.dc.html — the public trials board (D-74, D-90). One
 // chronological noticeboard: no recommender, no personalisation, ever.
-// Every listing carries its stamps; anything past its date never renders.
-// Verified clubs get the in-Pitch route; unclaimed listings say plainly
-// they were compiled and route via the club.
+// Every listing carries its stamps; anything past its date never renders,
+// and nothing of a suspended club's does (0140). A club on Pitch — claimed or
+// verified — gets the in-Pitch route; unclaimed listings say plainly they
+// were compiled and route via the club.
 import Link from 'next/link';
 import { TrialsFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
@@ -40,6 +41,8 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   // no personalisation, ever (D-74).
   // A notice names every age group it is for (D-68 as amended 16 Sep), in
   // the lookup's own order, so "U14 & U15" is found under both.
+  // What is on the board is the database's answer (0140): still to come, and
+  // never a suspended club's, whatever the class of its suspension.
   const { rows } = await db.query(
     `select t.id, t.title, t.time_venue, t.source, t.competition_gender, t.position_needs,
        array(select ta.age_group from trial_notice_age_group ta join age_group ag on ag.code = ta.age_group
@@ -47,8 +50,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
        upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
        to_char(t.added_on, 'DD Mon') as listed, to_char(t.last_checked, 'DD Mon') as checked,
        c.name as club_name, c.club_state, c.public_slug, c.state
-     from trial_notice t join club c on c.id = t.club_id
-     where t.trial_on >= (now() at time zone 'Australia/Melbourne')::date
+     from fn_trial_notices_advertised() t join club c on c.id = t.club_id
      order by t.trial_on`,
   );
   type Listing = {
@@ -192,6 +194,15 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
           )}
           {listings.map((l) => {
             const verified = l.club_state === 'verified';
+            // The same test the club page uses (app/fc/[slug]): a club that has
+            // claimed its page has a register, verified or not. The board sent a
+            // claimed club's families to "Send my CV" while its own page offered
+            // the register — two answers to one question. One button now: the
+            // family registers interest, and until the club is verified it sees
+            // a count and nothing else (D-90, D-126). Nor is the family told the
+            // club is unverified (doc 14 M9), so a claimed club carries neither
+            // label, exactly as its own page shows neither.
+            const onPitch = verified || l.club_state === 'claimed';
             return (
               <div key={l.club_name + l.title} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'center', gap: 13 }}>
                 <div style={{ background: verified ? 'rgba(61,220,132,.12)' : T.surface2, borderRadius: verified ? 11 : 12, padding: '7px 10px', textAlign: 'center', flexShrink: 0 }}>
@@ -203,18 +214,20 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
                   <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{l.time_venue}</div>
                   <div style={{ fontSize: 10, color: T.muted, fontWeight: 700 }}>Listed {l.listed} · checked {l.checked}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: 999, background: verified ? T.accent : T.placeholder }} />
-                      <div style={{ fontSize: 10.5, fontWeight: verified ? 800 : 700, color: verified ? T.accent : T.muted }}>
-                        {verified ? 'On Pitch — verified club' : 'Unclaimed listing · register via club'}
+                    {verified || !onPitch ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: 999, background: verified ? T.accent : T.placeholder }} />
+                        <div style={{ fontSize: 10.5, fontWeight: verified ? 800 : 700, color: verified ? T.accent : T.muted }}>
+                          {verified ? 'On Pitch — verified club' : 'Unclaimed listing · register via club'}
+                        </div>
                       </div>
-                    </div>
+                    ) : <div />}
                     {/* These were two styled boxes that did nothing when pressed — the
                         board's only call to action, dead for every family. They
-                        open the club's page at its door now: a verified club's
-                        register, carrying this trial so the club can invite to
-                        it (D-153), or an unclaimed club's "send my CV". */}
-                    {l.public_slug && (verified ? (
+                        open the club's page at its door now: the register of a
+                        club on Pitch, carrying this trial so the club can invite
+                        to it (D-153), or an unclaimed club's "send my CV". */}
+                    {l.public_slug && (onPitch ? (
                       <Link href={`/fc/${l.public_slug}?trial=${l.id}#play`} style={{ background: T.accent, color: T.onAccent, borderRadius: 999, padding: '0 14px', minHeight: 44, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 900, textDecoration: 'none', flexShrink: 0 }}>I&rsquo;m interested</Link>
                     ) : (
                       <Link href={`/fc/${l.public_slug}#play`} style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 999, padding: '0 14px', minHeight: 44, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>Send my CV</Link>

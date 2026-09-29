@@ -64,8 +64,8 @@ export default async function RegisterInterest({ params, searchParams }: {
 
   const trial = trialParam && isUuid(trialParam)
     ? ((await db.query(
-        `select id, title, to_char(trial_on, 'Dy FMDD Mon') as date from trial_notice
-         where id = $1 and club_id = $2 and trial_on >= (now() at time zone 'Australia/Melbourne')::date`,
+        `select id, title, to_char(trial_on, 'Dy FMDD Mon') as date from fn_trial_notices_advertised()
+         where id = $1 and club_id = $2`,
         [trialParam, c.id])).rows[0] ?? null)
     : null;
 

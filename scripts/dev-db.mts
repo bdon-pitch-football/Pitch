@@ -18,6 +18,7 @@ import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PLAYER_FIXTURES } from '../lib/fixtures.ts';
+import { DEMO_DB_PORT, demoDbPort } from '../lib/demo.ts';
 
 const db = new PGlite();
 const dir = fileURLToPath(new URL('../supabase/migrations', import.meta.url));
@@ -845,16 +846,20 @@ if (DEMO) {
 // that pattern and an un-namespaced one in a shell is a surprise — and the
 // validation the third seat wrote, which is the part worth keeping (L35).
 //
-// The demo keeps its own port and ignores this: a demo must never land on the
-// port a seat is running suites against (L8), and a knob that could point the
-// demo at the dev database would be a way for a demo to open real data
-// (lib/demo).
+// A demo defaults to its own port, 54323, which is BUZ's. It used to IGNORE
+// this knob, so a seat running the demo layer bound 54323 whatever it had set
+// — BUZ's demo port, on a machine where his demo may be up (brief K item 7).
+// An explicitly set port now wins for a demo too, and lib/demo's demoDbPort
+// is the one rule both the database and a demo app read, so a seat's demo is
+// read on the seat's port. `npm run demo` blanks the knob (scripts/demo.mjs),
+// so the meeting demo still binds 54323. A plain dev database still refuses
+// 54323: that is the demo's.
 const DEV_PORT = Number(process.env.PITCH_DEV_DB_PORT || 54322);
-if (!Number.isInteger(DEV_PORT) || DEV_PORT < 1024 || DEV_PORT > 65535 || DEV_PORT === 54323) {
+const PORT = DEMO ? demoDbPort() : DEV_PORT;
+if (!Number.isInteger(PORT) || PORT < 1024 || PORT > 65535 || (!DEMO && PORT === DEMO_DB_PORT)) {
   console.error(`PITCH_DEV_DB_PORT=${process.env.PITCH_DEV_DB_PORT} is not a port a dev database may use (54323 is the demo's).`);
   process.exit(1);
 }
-const PORT = DEMO ? 54323 : DEV_PORT;
 const server = new PGLiteSocketServer({ db, port: PORT, host: '127.0.0.1', inspect: false });
 await server.start();
 console.log(`${DEMO ? 'demo' : 'dev'} db ready on 127.0.0.1:${PORT}${DEMO ? ` · club page /fc/${demoSlug}` : ''}`);

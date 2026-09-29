@@ -50,7 +50,7 @@ export async function composeInterest(formData: FormData) {
   if (club.rows.length === 0) redirect('/home');
 
   // The squad and trial are conveniences, never grants: dropped unless they
-  // are this club's, and a trial only while it is still to come.
+  // are this club's, and a trial only while it is on the board (0140).
   const squadId = isUuid(squadRaw)
     && (await db.query('select 1 from squad where id = $1 and club_id = $2', [squadRaw, clubId])).rows.length > 0
     ? squadRaw : null;
@@ -78,8 +78,8 @@ export async function composeInterest(formData: FormData) {
 
   const trial = isUuid(trialRaw)
     ? ((await db.query(
-        `select id, trial_on from trial_notice
-         where id = $1 and club_id = $2 and trial_on >= (now() at time zone 'Australia/Melbourne')::date`,
+        `select id, trial_on from fn_trial_notices_advertised()
+         where id = $1 and club_id = $2`,
         [trialRaw, clubId])).rows[0] ?? null)
     : null;
 

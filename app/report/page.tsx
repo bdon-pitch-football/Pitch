@@ -6,6 +6,7 @@ import { FAILURE_COPY } from '@/components/FailureState';
 import { fileReport } from './actions';
 import { T } from '@/lib/palette';
 import { card, fieldLabel as label } from '@/lib/ui';
+import { documentTitle } from '@/lib/legal-doc';
 
 // The confirmation is a different screen from the form, and it inherited the
 // form's title: a person who had just reported a concern about a child was
@@ -90,6 +91,10 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
           </div>
           <button type="submit" className="btn btn-primary">Send the report</button>
         </form>
+        {/* Doc 25, how a report is handled, one tap away and still no account
+            (brief K). Its own title is the link, so the words are the
+            document's and nothing new is written here. */}
+        <a href="/report/policy" style={{ alignSelf: 'flex-start', minHeight: 44, display: 'inline-flex', alignItems: 'center', fontSize: 12.5, fontWeight: 700, color: T.accent, textDecoration: 'none' }}>{documentTitle('25-Complaints-and-Takedown.md')}</a>
       </div>
     </div>
   );
