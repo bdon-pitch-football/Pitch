@@ -750,6 +750,27 @@ const georgia = ids.children.georgia;
     check(`ops-r5: the page itself links nowhere but the lookup (${doors.join(' ') || 'nowhere'})`,
       doors.every((h) => h === '/ops/support'), true);
   }
+  // Brief G (29 Sep): the call sheet as BUZ asked for it. The guidance used to
+  // be written INTO the field labels in tracked capitals ("OPERATOR — THE
+  // HUMAN. NAMED, EVERY TIME…"), and each yes/unknown answer was its own tall
+  // select. Read from the served page: every tracked-caps caption is short,
+  // and the four questions are radio groups posting the values they always
+  // posted (0025's columns, write-tests td-w*).
+  {
+    const riv = ids.clubs['riverside-fc'];
+    const html = (await get(`/ops/call/${riv}`, ids.people.marina)).html.replace(/<!--[\s\S]*?-->/g, '');
+    const main = html.replace(/<nav[\s\S]*?<\/nav>/g, ' ');
+    const caps = [...main.matchAll(/<(?:span|div|legend)[^>]*text-transform:uppercase[^>]*>([\s\S]*?)<\/(?:span|div|legend)>/g)]
+      .map((m) => m[1].replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/g, "'").trim()).filter(Boolean);
+    const long = caps.filter((c) => c.length > 32);
+    check(`ops-r6: the call sheet's captions are short, the guidance is not in them (${caps.length} captions${long.length ? ' — too long: ' + long.join(' | ') : ''})`,
+      [caps.length >= 8, long], [true, []]);
+    const radios = (name) => [...main.matchAll(new RegExp(`<input[^>]*type="radio"[^>]*name="${name}"[^>]*value="([a-z]+)"`, 'g'))].map((m) => m[1]);
+    check('ops-r7: the four questions are one-tap choices posting the values they always did',
+      [radios('club_confirmed'), radios('person_confirmed'), radios('incorporated'), radios('authority_confirmed'),
+       /<select[^>]*name="(club_confirmed|person_confirmed|incorporated|authority_confirmed)"/.test(main)],
+      [['yes', 'no'], ['yes', 'no'], ['unknown', 'yes', 'no'], ['unknown', 'yes', 'no'], false]);
+  }
   // D-154 — the administrator's frame and walls. The same subset rule, and
   // the register itself is not one of her doors at a verified club.
   {
