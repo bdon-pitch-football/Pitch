@@ -39,11 +39,11 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 
 | | Document | Version | Where | Who reads it |
 |---|---|---|---|---|
-| **20** | **Privacy Policy — adult** | **v2.8** | `/privacy` · **live** | Adults, clubs, coaches |
-| **21** | **Privacy Policy — child** | **v2.6** | `/privacy/family` · **shown inside the guardian approval flow, not merely linked** | A child, and a parent at the moment they decide |
-| **22** | **Terms of Service** | **v2.1** | `/terms` · **live** · Schedule A at club checkout, before Stripe (D-136) | Everyone; Schedule A by clubs |
-| **24** | **Code of Conduct** | **v1.4** | `/conduct` | Adults who can write about others |
-| **25** | **Complaints and Takedown** | **v1.4** | `/report` · **reachable without an account, from any page** | Anyone, including a stranger |
+| **20** | **Privacy Policy — adult** | **v2.7** | `/privacy` · **live** | Adults, clubs, coaches |
+| **21** | **Privacy Policy — child** | **v2.5** | `/privacy/family` · **shown inside the guardian approval flow, not merely linked** | A child, and a parent at the moment they decide |
+| **22** | **Terms of Service** | **v2.0** | `/terms` · **live** · Schedule A at club checkout, before Stripe (D-136) | Everyone; Schedule A by clubs |
+| **24** | **Code of Conduct** | **v1.3** | `/conduct` | Adults who can write about others |
+| **25** | **Complaints and Takedown** | **v1.3** | `/report` · **reachable without an account, from any page** | Anyone, including a stranger |
 
 **Internal — specifications, not background:**
 
@@ -66,7 +66,7 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 
 Consent is recorded against a **policy version**, and this is what makes "we did what we promised" provable rather than asserted.
 
-**The identifier is `doc@version`** — currently `20@v2.8`, `21@v2.6`, `22@v2.1`. It is stored on the consent row, never a timestamp alone and never a URL. **`repo/lib/consent.ts` holds it, and it is bumped in the same commit that changes what `/privacy` serves — never separately, in either direction.**
+**The identifier is `doc@version`** — currently `20@v2.6`, `21@v2.4`, `22@v1.8`. It is stored on the consent row, never a timestamp alone and never a URL. **`repo/lib/consent.ts` holds it, and it is bumped in the same commit that changes what `/privacy` serves — never separately, in either direction.**
 
 **Three rules, all cheap now and expensive later:**
 
@@ -75,8 +75,6 @@ Consent is recorded against a **policy version**, and this is what makes "we did
 3. **A material change re-asks.** Whether a change is material is **John's call**, and the register records it.
 
 **The materiality ruling on the record (John, 7 September):** doc 20 v2.5 and v2.6 are **not material for re-asking purposes.** The only consents against `20@v2.4` are waitlist registrations — an adult giving an email address. Nothing in those versions changes what those people agreed to, because none of it existed for them to agree to. **The first guardian approval is where materiality starts to bite.**
-
-**The materiality ruling on the record (John, doc 35 rulings 1 and 3, dated 28 September 2026):** removing the drafting preamble from what is served is **not material**, and **no guardian is re-asked**, because nothing in the agreement changed. **The version still bumps**, so that every consent row names exactly the text that was shown: doc 20 **v2.8**, doc 21 **v2.6**, doc 22 **v2.0**, doc 24 **v1.4**, doc 25 **v1.4**, each newer than any version previously recorded for it anywhere (doc 22 is v2.0 because v1.9 had been recorded in the document while this table said v1.8). These are the published versions, and their footers no longer say otherwise.
 
 **Still recommended and not yet built:** store a **SHA-256 of the rendered document, or the commit it was served from, on the consent row** beside the version. A version string is an assertion until it is bound to content — and **it cannot be added retrospectively to rows that already exist.**
 

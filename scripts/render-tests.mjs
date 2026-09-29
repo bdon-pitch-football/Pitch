@@ -79,7 +79,7 @@ async function get(path, personId) {
 // reach the database) and put it back. The answer is read back, so a switch
 // that did not flip stops the run rather than testing the wrong product.
 // How many lines of /terms state a dollar figure today (see free-r1c).
-const TERMS_PRICED_LINES = 10;
+const TERMS_PRICED_LINES = 7; // Terms v2.1 (John, 29 Sep): prices out of the operative clauses; the history note, the dormant A6.2 GST example, the $2,000 floor, the ACL maximum and the internal questions table remain (doc 37 items 2/6)
 async function billingSwitch(on) {
   const r = await fetch(`${BASE}/dev/billing?on=${on ? 1 : 0}`, { method: 'POST' });
   const j = r.ok ? await r.json() : null;

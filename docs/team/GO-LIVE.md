@@ -37,6 +37,25 @@ and **Preview**:
 
 ## 3 · Leo, tomorrow: the preview rehearsal (never production)
 
+**Where it runs, decided 29 Sep:**
+- **The production database** (`rxcgttfosftfgybftogo`) already holds
+  `public.waitlist`, with **5 real sign-ups**, and the social-image storage
+  bucket. Its `waitlist` matches `0001_waitlist.sql` column for column. It was
+  created from that file, but never recorded in the migration history.
+- **The rehearsal runs on a Supabase branch.** It is a disposable copy, Pro
+  plan; the branch's cost (cents an hour) is confirmed with BUZ before it is
+  created, and it is deleted after. All migrations, `0001`–`0130`+, run on the
+  branch. The Vercel **Preview** environment points at the branch;
+  **Production** points at the real project.
+- **The preview deploy needs one go from BUZ: push the `app` branch to
+  GitHub.** It has never been pushed. Vercel builds a preview from it
+  automatically. Production keeps deploying `main` (the website) until launch
+  day.
+- **Launch day on production:** record `0001` as already applied (the table is
+  there, with its 5 rows untouched), then run `0002` onward in order, after
+  the preflight queries.
+
+
 1. **Migrations onto the empty Sydney database, in order.** Run the preflight
    queries first (`RELEASE-PREFLIGHT.md`). On an empty database they return
    nothing.
@@ -61,9 +80,15 @@ and **Preview**:
    back is one redeploy.
 2. **Flip the front door on** in the production database, then `curl -sI /`
    must return 200.
-3. **Kill switches rehearsed from BUZ's phone:** pause shared links, and
+3. **The waitlist's one email (promised on the site: "one email, at launch").**
+   BUZ sends it himself from his own address, one email per person and never
+   CC'd together. Leo drafts each one in BUZ's Gmail on launch morning, from
+   the `waitlist` rows not unsubscribed. The words are held for BUZ's approval
+   (drafted 29 Sep). A reply of "unsubscribe" is the opt-out; Leo records any
+   in `waitlist.unsubscribed_at`.
+4. **Kill switches rehearsed from BUZ's phone:** pause shared links, and
    switch SMS off and back on.
-4. **Under-18s** open the day 1a clears (if BUZ chooses to launch adults,
+5. **Under-18s** open the day 1a clears (if BUZ chooses to launch adults,
    coaches and clubs first).
 
 ## Rollback
