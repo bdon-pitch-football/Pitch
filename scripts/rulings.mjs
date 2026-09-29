@@ -15,7 +15,7 @@
 //                  its own and Pitch compiling the rest (D-90), which is what
 //                  /club/post-trial has always done.
 //
-//   M8  `club_unverified` adds a coach or an administrator.
+//   M8  `club_unverified` adds a coach or an administrator. RULED 30 Sep: D-154.
 //       'doc 14' — permitted: club-internal, no minor involved (doc 14 M8 as
 //                  written). No door for it exists today.
 //       'D-154'  — refused: only the club's Technical Director brings a coach
@@ -26,5 +26,6 @@
 export const RULINGS = {
   // BUZ, 29 Sep: "D-90 stands". Doc 14 M7 amended to "Refused" on app (6ce29a6).
   M7: 'D-90',
-  M8: 'pending',
+  // BUZ, 30 Sep: "recommended on all" — D-154 stands. Doc 14 M8 amended to "Refused".
+  M8: 'D-154',
 };

@@ -73,10 +73,10 @@
   </div>
 
   <div class="tally">
-    <span class="tl"><b>162</b> locked</span>
+    <span class="tl"><b>164</b> locked</span>
     <span class="tl"><b>3</b> proposed</span>
     <span class="tl"><b>4</b> open</span>
-    <span class="tl">v4.29 · 29 Sep 2026</span>
+    <span class="tl">v4.30 · 30 Sep 2026</span>
   </div>
 
   <h2>A · Mission &amp; positioning</h2>
@@ -903,12 +903,22 @@
     <div class="w"><b>BUZ&rsquo;s call, 29 Sep:</b> &ldquo;I want to keep my email address. My selling point to clubs is they have my direct contact details.&rdquo; <b>This overrides half of John&rsquo;s U-11</b> (doc 31), which put every other reply into &ldquo;a support inbox, not a person&rdquo;. The half that is child safety &mdash; no inbound route from a club to a family, and no correspondence about a child in a personal mailbox &mdash; stands. John is told in doc 36.</div>
     <div class="src">Source: BUZ, 29 Sep &middot; amends U-11 (doc 31) for non-&sect;19 messages only &middot; extends 28 Sep&rsquo;s one-contact decision (APPROVALS-28-SEP)</div></div></div>
 
+  <div class="dec safety"><div class="id">D-170</div><div class="st lk">Locked</div><div class="bd">
+    <div class="t"><b>When a player leaves a club, their interest registrations at that club are withdrawn in the same moment.</b> &ldquo;Leaves&rdquo; means their last player membership at that club ends, whether they pressed Leave or signed for another club. The withdrawal is the family&rsquo;s own withdrawal, with everything it already does: the note is emptied in the same transaction (D-128), and the club&rsquo;s register loses the row. No new words; the family is told nothing new.</div>
+    <div class="w"><b>BUZ&rsquo;s call, 30 Sep:</b> &ldquo;recommended on all&rdquo;. Round L found that leaving a squad dropped the club to aggregates (H2) but left the registration open, so the technical director could still open the CV from the register under the registration&rsquo;s own consent. A family leaving a club expects the club to stop reading their child; the restrictive reading is the one they would assume.</div>
+    <div class="src">Source: BUZ, 30 Sep &middot; tightens H2 (doc 14) &middot; keeps D-128 whole</div></div></div>
+
+  <div class="dec safety"><div class="id">D-171</div><div class="st lk">Locked</div><div class="bd">
+    <div class="t"><b>While a club is not verified, nobody at it reads a child through it &mdash; including what they wrote themselves.</b> A coach or technical director at a club that is suspended, taken down, or has failed its call loses <code>authored_only</code> read on entries they authored there as well. It comes back, unchanged, when a verification call restores the club. Nothing is deleted.</div>
+    <div class="w"><b>BUZ&rsquo;s call, 30 Sep:</b> &ldquo;recommended on all&rdquo;. H5 (all minor data access revoked immediately) and D-48 (authoring coaches keep what they wrote) disagreed at this one edge. H5 wins while the club is unverified; D-48 still holds for a coach who leaves a club that stays verified. No screen reads <code>authored_only</code> until the December assessments, so nothing is exposed today; this settles it before it can be.</div>
+    <div class="src">Source: BUZ, 30 Sep &middot; carve-out from D-48 &middot; doc 14 H5</div></div></div>
+
   <h2>The open queue</h2>
   <div class="card">
     <p style="margin:0;font-size:.87rem;color:var(--ink2)">Two decisions remain open, both club pricing, both deliberately held: <b style="color:var(--ink)">D-36</b> club pricing model and <b style="color:var(--ink)">D-39</b> club free-tier boundary &mdash; <b>narrowed on 20 Sep by D-158</b>, which puts squad lists and player confirmation on the free side for good — <b>held until the TD coffees</b>, and <b>D-87</b> gives us until 31 Jan 2027 to close them, so deciding early would be spending the answer before we have earned it. Every coffee asks the same four questions: what was the last software this club paid for, how much, who signed it off, in what month.<br><br><b>D-34 is now closed</b> ($79/yr or $9.99/mo — see D-82). Everything else is called: Stage 0 design-complete (D-22, D-29, D-48–D-52), the launch locked and re-scoped (D-45–D-47, D-74–D-79), post-launch sequence set (D-54–D-58, D-86), the development framework settled (D-60, D-61, D-71), and the 25 Aug board review recorded in full (D-67–D-87), with the design review that followed it (D-88–D-91) and the football vocabulary closed (D-92), with the club role model corrected (D-93) and security set as a standing build posture (D-94), with the legal pack reconciled (D-95–D-98). <b>The handover set is complete:</b> doc 14 (permission tests, the launch gate), doc 15 (every message that sends), doc 16 (positions, stats, fixtures).</p>
   </div>
 
-  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.29 · 29 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
+  <p class="foot">Pitch 3.0 · Design Decisions Register · v4.30 · 30 Sep 2026 · changes only by BUZ's explicit call, by decision number · 25&ndash;27 Aug entries recorded by Leo (CTO)</p>
 </div>
 </body>
 </html>

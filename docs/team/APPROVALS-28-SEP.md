@@ -114,3 +114,12 @@ Anything new still goes to BUZ.
 - **The Terms defaults of doc 37 stand**, including 8.2(b), the $2,000 floor, held whole. That leaves no liability cap for ordinary claims until John clears it.
 - **The queued-text words are live:** Today's tile "Texts waiting for SMS" / "parents’ approval requests", the digest line "Parents’ texts waiting for SMS: {n}", and the subject "Pitch — {n} parents’ text(s) waiting for SMS".
 - **Doc 14 M7 is amended to D-90:** an unverified club may not post its own notice.
+
+## 30 September: "recommended on all, keep going" (BUZ), on round L's four questions
+
+- **M8: D-154 stands.** Doc 14 M8 amended to "Refused"; `scripts/rulings.mjs` M8 set to `'D-154'`. The gate reads 263/263.
+- **Leaving a club withdraws that family's registrations at it** (D-170).
+- **While a club is not verified, its coaches lose `authored_only` too; it returns on verification** (D-171).
+- **The call sheet stays as it is:** no warning that "not verified" ends a verified club's status. No new words.
+- Leo's smaller fixes, no new words: a suspended club is not named on a child's CV; a club that is not verified shows none of its own players-wanted notices (compiled ones stay).
+
