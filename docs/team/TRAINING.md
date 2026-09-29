@@ -89,6 +89,13 @@ npm run test:timing       # doc 14 E10, L40, J61: response timing against the
                           # started app: `next dev` restarts itself when its
                           # memory climbs, and a restart mid-run stops the run.
 node scripts/gate-coverage.mjs  # doc 14 rows pinned by the suite
+# test:timing: NOT against the everyday dev server. Long rows (J61) push
+# `next dev` past its memory ceiling, and it restarts mid-run ("other side
+# closed"), or it is too noisy to resolve 0.8ms. Use a dedicated dev server with
+# a large heap (Leo's launch config "timing-server": NODE_OPTIONS=
+# --max-old-space-size=12288, port 3280), then run
+# RENDER_BASE=http://localhost:3280 npm run test:timing. On 29 Sep, J61 went from
+# inconclusive in six runs to green at 0.74/0.55ms this way.
 node scripts/palette-check.mjs · python3 scripts/corpus-check.py · node scripts/secret-scan.mjs
 npx tsc --noEmit
 SUPABASE_DB_URL=postgres://ci@127.0.0.1:5432/ci npm run build:check
