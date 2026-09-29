@@ -49,27 +49,38 @@ nothing else.
 - **Doc 15 §4 stays unwired (D-167).** Mark it held in doc 15, with the
   reason.
 
-## D-168: the under-18 door on launch day (the most important item in this round)
+## D-168 (as amended, Option A): under-18s register at launch, and their text is queued (the most important item in this round)
 
-Until SMS can send, which means the provider is configured AND not switched off
-through `/ops/switches` or `SMS_KILL_SWITCH`, **any sign-up whose date of birth
-makes them under 18 stops at a closed door and nothing is collected**: no
-invitation row, no name, no birth date kept, no parent contact.
+On launch day SMS may not be live yet (Twilio's business review can take up to
+five business days). Under-18s still register.
 
-- **The rule is computed** from the same source `lib/sms-policy.ts` uses to
-  refuse a send, in one function. It is not a separate flag somebody must
-  remember to flip. When SMS works, the door opens by itself.
-- The server action refuses too, not only the page.
-- **Proposed words, held until BUZ approves** (Leo is asking him now):
-  - heading: "Under 18? Not yet."
-  - body: "Pitch opens for players under 18 as soon as we can text your
-    parent. A parent approves your page on their phone and by email. There's
-    nothing to fill in until then."
+- **When SMS cannot send** (provider not configured, or switched off): the
+  sign-up proceeds exactly as today, and the parent's EMAIL goes at once. The
+  SMS is written to the outbox as **queued, not refused and not failed**.
+- **The outbox dispatcher** (`/api/jobs/outbox`, hourly, plus on demand) sends
+  queued SMS the moment SMS can send, oldest first. They obey every existing
+  control:
+  - three a day per number;
+  - the monthly cap;
+  - the kill switch;
+  - the 14-day purge: an invitation purged before its text went sends
+    nothing.
+- **Approval rules are unchanged:** both channels must be confirmed. The
+  parent can confirm the email first.
+- The approval page's "One more step. Open the link we texted to you…" stays
+  true, and needs no new words.
+- **The waiting screen** gets one new line when the text is still queued:
+  **"We've emailed your parent. Their text follows shortly."** It is held
+  until BUZ approves it (Leo is asking), and renders only while the SMS is
+  queued.
+- **The 7am digest and the Today dashboard** show the count of queued texts,
+  so BUZ sees the backlog clear.
 - **Checks:**
-  - With SMS unconfigured, an under-16 and a 16–17 sign-up each write zero
-    rows anywhere.
-  - An adult sign-up is unaffected.
-  - With SMS configured (dev fake), the full two-channel flow works as today.
+  - With SMS unconfigured, an under-16 sign-up queues its SMS and sends its
+    email.
+  - With SMS then configured (the dev fake), one dispatcher run sends it.
+  - A purged invitation's queued SMS never sends.
+  - The per-number limit still holds on the backlog.
   - Prove each red.
 
 ## Machine and method
