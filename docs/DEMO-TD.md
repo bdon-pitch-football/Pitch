@@ -84,7 +84,7 @@ haven't rung yet** → **Register**.
 
 **8 · What it costs.** No screen for this one.
 
-> "It's free at launch, all of it, the register included. Your club page,
+> "It's free, all of it, the register included. Your club page,
 > your trial notices, CVs arriving by email and coach verification too. If
 > that ever changes, you'll hear it from me well before it does."
 
