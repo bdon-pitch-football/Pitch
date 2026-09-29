@@ -205,6 +205,10 @@ def s1():
 DEAD_DATES = re.compile(
     r'\b(?:1[1-5]\s*(?:[–-]\s*1[1-5]\s*)?Sep(?:t|tember)?|9\s*Sep(?:t|tember)?|'
     r'2[18]\s*Sep(?:t|tember)?|30\s*Oct(?:ober)?)\b', re.I)
+# D-168 (BUZ, 29 Sep) set launch day as 1 October, so D-131's "no date" no longer
+# holds for that one date. Any OTHER launch date stays a failure: a second date is
+# the drift this rule exists to catch.
+LAUNCH_DAY = re.compile(r'^1\s*Oct(?:ober)?$', re.I)
 COMMITMENT = re.compile(
     r'(launch(?:es|ing)?|go(?:es)?[-\s]live|ship(?:s|ping)?|live)\s+'
     r'(?:on|by|is|date\s+is)?\s*(?:the\s+)?'
@@ -252,6 +256,8 @@ def s2():
         for rx, label in ((DEAD_DATES, 'a date from the dead runway'),
                           (COMMITMENT, 'a launch commitment')):
             for m in rx.finditer(body):
+                if rx is COMMITMENT and LAUNCH_DAY.match(re.sub(r'\s+', ' ', m.group(2)).strip()):
+                    continue
                 # The report's own filing date, however the writer spelled it.
                 if filed and re.sub(r'\s+', ' ', m.group(0)).strip() in filed:
                     continue
