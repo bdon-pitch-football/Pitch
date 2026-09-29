@@ -355,7 +355,7 @@ D-126, D-137, D-139. **The rule the whole section tests: no fact about a person 
 | M4 | A webhook, job or migration attempts to set `verified` | **Denied.** Assert `verified` can be written only by a `sys_admin` mutation carrying an operator identity, and that the write is refused without one |
 | M5 | A club is verified while three registrations are held | All three become readable **in the same transaction**. Assert no partial state where one is visible and two are not |
 | M6 | A family withdraws while a registration is held | The row is removed and the count decrements. **Assert the club is never able to learn that a held registration existed** — no gap in a sequence, no changed timestamp, no audit entry it can read (D-126) |
-| M7 | `club_unverified` posts a trial notice | **Permitted.** The notice is public and carries no minor's data |
+| M7 | `club_unverified` posts a trial notice | **Refused (amended 29 Sep, BUZ: D-90 stands).** Only a verified club posts its own notice; for any other club, Pitch compiles the notice from the club's own public one (D-90, 0130). Nobody advertises a trial to families until BUZ has rung the club. |
 | M8 | `club_unverified` adds a coach or an administrator | **Permitted.** Club-internal, no minor involved |
 | M9 | A player's `register interest` targeting a `claimed` club | **Permitted and held.** Assert the family is told the registration is with the club, and is **never** told the club is unverified — that is our problem, not a fact about a child's prospects |
 | M10 | `club_state` moves `verified` → `suspended` | Every minor-facing permission ends **immediately**, in the same transaction. Assert held-view semantics resume and no cached read survives |

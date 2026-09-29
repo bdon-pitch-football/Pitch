@@ -106,3 +106,11 @@ Anything new still goes to BUZ.
 - digest line "Parents’ texts waiting for SMS: {n}"
 - digest subject "Pitch — {n} parents’ text waiting for SMS"
 - Today tile "Texts waiting for SMS" / "parents’ approval requests"
+
+## 29 September: "recommended on all, turn on clubs" (BUZ)
+
+- **The clubs directory is on:** `CLUBS_WORDS_APPROVED = true`. The words were reviewed by Leo under delegation; the list is in round I's report.
+- **A Pitch-compiled notice for a club that is later verified stays until it expires** (option a, as built).
+- **The Terms defaults of doc 37 stand**, including 8.2(b), the $2,000 floor, held whole. That leaves no liability cap for ordinary claims until John clears it.
+- **The queued-text words are live:** Today's tile "Texts waiting for SMS" / "parents’ approval requests", the digest line "Parents’ texts waiting for SMS: {n}", and the subject "Pitch — {n} parents’ text(s) waiting for SMS".
+- **Doc 14 M7 is amended to D-90:** an unverified club may not post its own notice.

@@ -40,7 +40,8 @@ export const REVOKE_ALL_PHRASE = 'SWITCH OFF EVERY LINK';
 // development only, where the suites drive them; in production /ops/clubs is
 // a 404 and every action under it refuses. Flip this to true in the same
 // commit that records his yes (docs/team/APPROVALS-28-SEP.md).
-export const CLUBS_WORDS_APPROVED = false;
+// APPROVED: BUZ, 29 Sep ("recommended on all, turn on clubs"); recorded in APPROVALS-28-SEP.
+export const CLUBS_WORDS_APPROVED = true;
 export function clubsScreensShown(isProduction: boolean): boolean {
   return CLUBS_WORDS_APPROVED || !isProduction;
 }
