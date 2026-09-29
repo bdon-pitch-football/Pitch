@@ -1,15 +1,13 @@
 # PITCH — Terms of Service
 
-> **⚠️ v2.1, 29 September 2026 — Pitch is free for everyone until further notice, and the price comes out of the contract.** BUZ's call, recorded on 28 September (extending D-163) makes every part of Pitch free for every club, player, parent and coach, the Interest Register included, with no end date.
+> **⚠️ v2.0, 29 September 2026 — Pitch is free for everyone until further notice, and the price comes out of the contract.** BUZ's call, recorded on 28 September (extending D-163) makes every part of Pitch free for every club, player, parent and coach, the Interest Register included, with no end date.
 >
 > **Three clauses change and one of them matters more than the other two.** A6.1 stated **$54 a month or $329 for twelve months** as what it costs today. **Every public surface now says free, and a signed agreement saying otherwise is the document that would win.** A5.1's refund clause is marked dormant. **A5.4 is rewritten and is the important one.**
 >
 > **A5.4's first condition is new and is the whole point: nobody is charged for continuing to use what was free.** Moving off free needs a club to positively agree, 60 days' notice, and one action to leave. *A dormant price switched on by notice, while a club simply carries on using the product, varies what that club pays without its agreement — the kind of term the unfair-contract rules exist to catch, and avoidable for nothing.*
 >
 > **Also confirmed, because "free for everyone" invites the wrong inference:** free changes nothing about who may read a child's record. **Verification is still the only gate, and it was never payment** (D-126, doc 14 M3).
->
-> **v2.0, 28 September 2026 — published. No clause changes.** These drafting notes are no longer served, and the footer names this version and no longer says it is unpublished. **Why v2.0 and not v1.10:** v1.9 is already recorded in this document while the register said v1.8, so the next number had to be newer than both — and v1.10 reads as older than v1.9 to anyone comparing decimals. **Clause 6.5 and open items 4 and 5 are unchanged and still served:** ruling 2 removes clauses describing capabilities that are not built, and 6.5 describes doc 32 A1, which migration 0049 built on 17 September; doc 32 B6 says 6.5 may publish if A1 and A2 are green. That question is with John. John, doc 35 ruling 1: removing the preamble from what is served is not material; the version bumps so that a consent row names exactly the text that was shown, and nobody is re-asked. Ruling 3: these versions are the published ones.
->
+
 > **⚠️ v1.6, 3 September 2026 — this restores work that was lost, and the loss was my doing.** On 1 September I filed pack v1.5, then revised it **in place, keeping the same version number**, so as not to create a phantom version. **That made the second set of changes invisible.** The corpus was built from the first copy and swept for the domain (D-150), and the contact work never arrived: the named Privacy Officer, the explanation of the two domains, the reason there is no postal address, and — the one that matters — **clause 8.3's plain statement that an appeal is not independently reviewed.** The live terms went back to promising a parent a second pair of eyes that does not exist.
 >
 > **The lesson is against me, not against the sweep.** A pack that has been filed is something somebody else may already have consumed. **Revising it in place under the same number is not a smaller change than a version bump — it is an invisible one.** From here, a filed pack is immutable and a correction is a new version, whether or not anything has been published.
@@ -387,4 +385,4 @@ Where a child's safety is involved we may act immediately and without notice, an
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v2.1 · 29 September 2026 · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v2.0 · 29 September 2026 · not yet published · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
