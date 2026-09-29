@@ -74,3 +74,10 @@ Anything new still goes to BUZ.
 - **Country line:** "Pitch is only in Australia for now." becomes "Pitch is only open in Australia." It no longer says "for now".
 - **The child's waiting screen:** to be rewritten. Leo drafts; BUZ approves the words before anything renders.
 - **Verified stats on an under-16's page** appear with the parent's next approved version (as built). **The front door** has three ways in, not four.
+
+## 29 September: four operator-console calls (BUZ: "yes to the four")
+
+- **`/ops/switches`:** "$0.00 spent this month" becomes "Nothing spent this month" when nothing has been spent (D-162: say the absence in words). Any other amount is shown as it is.
+- **Call sheet:** the line saying a "no" or "unknown" answer will "flag the subscription" is removed. Billing is off (D-163).
+- **The "Support" door is renamed "Lookup"**, as in the signed design (`OpsLookup.dc.html`). The nav label, the page title and Today's "Open in lookup" now agree.
+- **Call sheet, the first two questions** ("Is this the club?" and "Did they independently name the claimant?") **start with no answer selected**, and the call cannot be recorded until both are answered. "Incorporated" and "authority" keep "unknown" as their starting answer.
