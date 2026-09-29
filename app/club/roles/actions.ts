@@ -2,6 +2,9 @@
 // Coaching roles a club is hiring for (0019). Posting one is club
 // administration, so club_admin and technical_director both may — the same
 // split as squads (D-93). A coach cannot post a role at their own club.
+//
+// This screen also carries the club administrator's door for ending the
+// Technical Director's access (0100, D-48): see endTdAccess at the foot.
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
@@ -59,4 +62,25 @@ export async function closeRole(formData: FormData) {
   // club should still be able to see who they were.
   await db.query(`update coaching_role set closed_at = now() where id = $1 and club_id = $2`, [roleId, clubId]);
   redirect('/club/roles?closed=1');
+}
+
+// Ending the club's Technical Director's access (D-48, D-93; 0100). D-93
+// gives memberships to the administrator, so this is the administrator's
+// door; Pitch's operator has the other, on the call sheet. The club is the
+// one the session administers, never an id off the form, and the database
+// decides both halves: fn_may_end_td (asked first, so a TD, a coach or a
+// stranger pressing this lands back on the page having changed nothing) and
+// fn_end_td, which asks the same question again, requires the reason, ends
+// the role and writes the audit row. What the TD wrote is not touched.
+// Naming a new TD is not here and cannot be: that is the verification call.
+export async function endTdAccess(formData: FormData) {
+  const me = await getSessionPersonId();
+  if (!me) redirect('/signin');
+  const clubId = await clubIManage(me);
+  if (!clubId) redirect('/home');
+  const reason = String(formData.get('reason') ?? '').trim().slice(0, 500);
+  const may = (await db.query('select fn_may_end_td($1, $2) as m', [me, clubId])).rows[0]?.m === true;
+  if (!may || reason.length < 3) redirect('/club/roles');
+  const ended = (await db.query('select fn_end_td($1, $2, $3) as p', [me, clubId, reason])).rows[0]?.p;
+  redirect(ended ? '/club/roles?ended=1' : '/club/roles');
 }

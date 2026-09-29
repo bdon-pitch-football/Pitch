@@ -44,11 +44,15 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
        -- The crest comes from MEMBERSHIP, never from coach_role.org_name:
        -- a role is free text that grants nothing (0006, the same discipline
        -- as D-72), so a coach could type any club's name. A badge is a claim
-       -- Pitch stands behind, so it only renders for the club we actually
-       -- hold a live coaching membership at.
-       (select json_build_object('name', c2.name, 'crest', c2.crest_path)
+       -- Pitch stands behind, so it only renders for a club they actually
+       -- hold a live membership at: a coach's, or a Technical Director's —
+       -- the role confirmed on the club's verification call (0058, D-93),
+       -- which is a stronger claim than a coach's and was the one left as
+       -- plain text. Every such club, not the first: a TD at one club who
+       -- coaches at another holds both.
+       (select coalesce(json_agg(json_build_object('name', c2.name, 'crest', c2.crest_path)), '[]'::json)
         from membership m join club c2 on c2.id = m.club_id
-        where m.person_id = p.id and m.role = 'coach' and m.ended_at is null limit 1) as held_club,
+        where m.person_id = p.id and m.role in ('coach', 'technical_director') and m.ended_at is null) as held_clubs,
        exists(select 1 from wwcc_attestation w where w.person_id = p.id and w.revoked_at is null) as wwcc,
        (select coalesce(json_agg(json_build_object('title', title, 'org', org_name,
            'from', started_year, 'to', ended_year)
@@ -85,13 +89,15 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
   const licences: { title: string; issuer: string | null; year: string | null }[] = c.licences;
   const wins: { title: string; detail: string | null }[] = c.wins;
   const hasBanner = Boolean(c.banner_path);
-  const held: { name: string; crest: string | null } | null = c.held_club;
+  const heldClubs: { name: string; crest: string | null }[] = c.held_clubs;
   // Distinct clubs across the whole record — a number a club weighs, and one
   // we already hold. Free-text org names, so compared as the coach wrote them.
   const clubCount = new Set(roles.map((r) => r.org).filter(Boolean)).size;
   // The crest only belongs next to the club line when the club named there is
-  // the one we hold the membership at. Otherwise it is a badge on a claim.
-  const showCrest = Boolean(held?.crest && held.name === current?.org);
+  // one we hold the membership at. Otherwise it is a badge on a claim — a
+  // typed "Technical Director, <another club>" included.
+  const held = heldClubs.find((h) => h.crest && h.name === current?.org);
+  const showCrest = Boolean(held);
 
   // L48-L51. The contact route is rendered for anonymous visitors and for
   // signed-in adults, and is ABSENT FROM THE RESPONSE BODY for a signed-in

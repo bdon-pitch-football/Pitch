@@ -1,11 +1,13 @@
-// The club's coaching roles: post one, see who applied, close it.
+// The club's coaching roles: post one, see who applied, close it. And, for
+// the club's administrator, the Technical Director's row with the door that
+// ends their access (0100, D-48, D-93) — see endTdAccess.
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { ClubConsole } from '@/components/console-shell';
-import { postRole, closeRole } from './actions';
+import { postRole, closeRole, endTdAccess } from './actions';
 import { T } from '@/lib/palette';
 import { card, fieldLabel } from '@/lib/ui';
 
@@ -13,11 +15,11 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your coaching roles', robots: { index: false, follow: false } };
 
 export default async function ClubRoles({ searchParams }: {
-  searchParams: Promise<{ saved?: string; closed?: string; error?: string }>;
+  searchParams: Promise<{ saved?: string; closed?: string; error?: string; ended?: string }>;
 }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
-  const { saved, closed, error } = await searchParams;
+  const { saved, closed, error, ended } = await searchParams;
 
   const club = await db.query(
     `select c.id, c.name from club c
@@ -28,6 +30,28 @@ export default async function ClubRoles({ searchParams }: {
   );
   if (club.rows.length === 0) redirect('/home');
   const c = club.rows[0];
+
+  // The Technical Director's row, for whoever the DATABASE says may end their
+  // access (fn_may_end_td: the club's administrator — never the TD, a coach
+  // or a team manager). Nobody else is shown it. Only the TD's own name comes
+  // off it; nothing about any player does.
+  const mayEndTd = (await db.query('select fn_may_end_td($1, $2) as m', [me, c.id])).rows[0]?.m === true;
+  const liveTd = mayEndTd ? (await db.query(
+    `select nullif(trim(p.first_name || ' ' || coalesce(p.last_name, '')), '') as name
+     from membership m join person p on p.id = m.person_id
+     where m.club_id = $1 and m.role = 'technical_director' and m.ended_at is null
+     limit 1`,
+    [c.id],
+  )).rows[0] as { name: string | null } | undefined : undefined;
+  // Whose access this administrator just ended — read from the audit row, so
+  // the name never travels in the address bar.
+  const endedTd = mayEndTd && ended ? (await db.query(
+    `select nullif(trim(p.first_name || ' ' || coalesce(p.last_name, '')), '') as name
+     from td_ending e join person p on p.id = e.person_id
+     where e.club_id = $1 and e.cause = 'club_admin' and e.ended_by = $2
+     order by e.id desc limit 1`,
+    [c.id, me],
+  )).rows[0] as { name: string | null } | undefined : undefined;
 
   const ages = (await db.query(`select code, label, stage from age_group order by sort`)).rows as
     { code: string; label: string; stage: string }[];
@@ -68,6 +92,12 @@ export default async function ClubRoles({ searchParams }: {
         {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Posted. It&rsquo;s on the board now.</div>}
         {closed && <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary }}>Closed. Coaches who put their name forward are still listed below.</div>}
         {error && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give the role a title.</div>}
+        {/* BUZ's words, approved 29 Sep (docs/team/APPROVALS-28-SEP.md). */}
+        {endedTd?.name && (
+          <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5 }}>
+            {endedTd.name} no longer sees the register, the squads or any player&rsquo;s record. To name a new Technical Director, ring Pitch.
+          </div>
+        )}
 
         <form action={postRole} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Post a role</div>
@@ -144,6 +174,21 @@ export default async function ClubRoles({ searchParams }: {
         <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.55 }}>
           You get each coach&rsquo;s CV and what they wrote. You do not get a phone number or an email unless they chose to put one in their message.
         </div>
+        {liveTd?.name && (
+          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <div>
+              <div style={fieldLabel}>Technical Director</div>
+              <div style={{ fontSize: 15.5, fontWeight: 900 }}>{liveTd.name}</div>
+            </div>
+            <form action={endTdAccess} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <label className="field">
+                <div className="field-label">Why</div>
+                <input style={input} name="reason" aria-label="Why" required minLength={3} maxLength={500} />
+              </label>
+              <button type="submit" className="btn btn-secondary">End their access</button>
+            </form>
+          </div>
+        )}
         <Link href="/home" className="btn btn-ghost">Back</Link>
       </div>
     </ClubConsole>

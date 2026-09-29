@@ -575,6 +575,19 @@ await db.query(`insert into coach_role (coach_profile_id, title, org_name, start
   ($1,'Assistant Coach · U14 Boys','Northern United SC','2021','2023',1),
   ($1,'Junior Coach · MiniRoos','Northern United SC','2018','2021',2)`, [samProfile]);
 
+// Marina's coaching CV. D-93 and doc 16 §3b: a Technical Director is a role,
+// not a profile type — she holds a coach CV that reads "Technical Director,
+// Riverside FC". The seed never gave her one, so no page in the dev database
+// showed a TD's crest, and the crest a verified TD has earned (brief F) had
+// nothing to render against. Her role at Riverside is the one her club's
+// verification call confirmed (0058); the line she typed is free text and
+// earns the crest only because it names that club.
+const marinaProfile = randomUUID();
+await db.query(`insert into coach_profile (id, person_id, public_slug, region) values ($1,$2,'marina-petrovic','Melbourne VIC')`, [marinaProfile, td]);
+await db.query(`insert into coach_role (coach_profile_id, title, org_name, started_year, ended_year, sort) values
+  ($1,'Technical Director','Riverside FC','2022',null,0),
+  ($1,'Head Coach · U16 Girls','Northern United SC','2017','2022',1)`, [marinaProfile]);
+
 // An UNCLAIMED club with a compiled listing (D-90 source 2): the board must
 // show both routes — 'I'm interested' for verified clubs, 'Send my CV' for a
 // listing we compiled from the club's own public notice.

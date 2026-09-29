@@ -30,7 +30,15 @@ const ago = (days: number) => days <= 0 ? 'today' : days === 1 ? '1 day ago' : `
 // since 0060 there are four: the club's own address was recorded and nobody
 // can hold the role, the role is live on an account under another name, the
 // role is live, or it is waiting on that address being confirmed.
-const tdState = (r: { active: boolean; club_mailbox: boolean; name_matches: boolean | null; account_name: string | null }) =>
+//
+// A fifth since 0100: the access was ended after the call named them, and
+// "waiting on their account" would be false. The words for it are NOT
+// approved, so they render in development only (brief F: no new copy in
+// production). In production the line carries no state rather than a wrong
+// one, and the call sheet says what happened in BUZ's approved words.
+const HELD_ENDED_STATE = process.env.NODE_ENV !== 'production' ? 'access ended' : null;
+const tdState = (r: { active: boolean; club_mailbox: boolean; name_matches: boolean | null; account_name: string | null; ended_at: string | null }) =>
+  !r.club_mailbox && r.ended_at ? HELD_ENDED_STATE :
   r.club_mailbox ? 'the club\u2019s own address, so nobody holds the role'
     : r.active && r.name_matches === false ? `active on ${r.account_name}\u2019s account`
     : r.active ? 'active'
@@ -54,7 +62,7 @@ export default async function OpsVerification() {
         from membership m
         where m.club_id = c.id and m.role in ('technical_director','club_admin')) as claimed_days,
        td.td_name, td.recorded_at, td.recorded_by, td.active,
-       td.account_name, td.name_matches, td.club_mailbox
+       td.account_name, td.name_matches, td.club_mailbox, td.ended_at
      from club c
      -- Who the club's Technical Director is, whether the role is live, and
      -- since 0060 whose account the recorded address actually is: the
@@ -104,9 +112,9 @@ export default async function OpsVerification() {
                 {/* One line, and since 0060 it says where the role landed as
                     well as what was recorded: a club's own address can never
                     hold it, and an account under another name is named. */}
-                <div style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.45, color: r.td_name ? (r.club_mailbox ? T.red : r.active ? T.accent : T.amber) : T.muted }}>
+                <div style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.45, color: r.td_name ? (r.club_mailbox ? T.red : r.ended_at ? T.muted : r.active ? T.accent : T.amber) : T.muted }}>
                   {r.td_name
-                    ? `Technical Director ${r.td_name} · ${tdState(r)} · recorded by ${r.recorded_by} on ${day(r.recorded_at)}`
+                    ? [`Technical Director ${r.td_name}`, tdState(r), `recorded by ${r.recorded_by} on ${day(r.recorded_at)}`].filter(Boolean).join(' · ')
                     : 'No Technical Director recorded'}
                 </div>
               </div>

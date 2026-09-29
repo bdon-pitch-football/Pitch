@@ -8,13 +8,15 @@
 // since 0054 closed the self-declared TD at claim, this call is the only
 // place it can be confirmed. The role attaches to the person at that address
 // when they have proved it (0058, 0056) — never to the address alone.
-// HANDOVER is deliberately absent, here and everywhere: it is BUZ's
-// fast-follow. This screen records a TD; nothing yet replaces or removes one.
+// HANDOVER (0100): a verified call naming somebody else ends the live TD in
+// the same transaction, and the TD card carries the operator's door for
+// ending one outright (D-48, D-93). The club's administrator has the other
+// door, on /club/roles. Naming a new TD is still this call and nothing else.
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { OpsConsole } from '@/components/console-shell';
-import { logCall } from './actions';
+import { endTd, logCall } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
 import { isUuid } from '@/lib/ids';
 import { T } from '@/lib/palette';
@@ -47,7 +49,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
   const td = (await db.query(`select * from fn_club_td($1)`, [clubId])).rows[0] as
     { td_name: string; td_email: string; recorded_at: string; recorded_by: string; active: boolean;
       account_name: string | null; account_email: string | null;
-      name_matches: boolean | null; club_mailbox: boolean } | undefined;
+      name_matches: boolean | null; club_mailbox: boolean; ended_at: string | null } | undefined;
 
   return (
     <OpsConsole active="verification">
@@ -79,13 +81,32 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                   ) : null}
                 </>
               ) : null}
-              <div style={{ fontSize: 12.5, color: td.club_mailbox ? T.red : td.active ? T.accent : T.amber, fontWeight: 700, lineHeight: 1.5, marginTop: 6 }}>
+              <div style={{ fontSize: 12.5, color: td.club_mailbox ? T.red : td.ended_at ? T.secondary : td.active ? T.accent : T.amber, fontWeight: 700, lineHeight: 1.5, marginTop: 6 }}>
                 {td.club_mailbox
                   ? `This is the club's own contact address, not a person's, so nobody holds the role. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}. Ring the club back and record the Technical Director's own address.`
+                  // 0100: their access was ended since this call named them.
+                  // "Waiting on their account" would be false, and the call
+                  // cannot bring them back — only a new one can. BUZ's words,
+                  // approved 29 Sep (docs/team/APPROVALS-28-SEP.md).
+                  : td.ended_at
+                    ? `${td.account_name ?? td.td_name} no longer sees the register, the squads or any player's record at ${c.name}. What they wrote stays theirs. To name a new Technical Director, record them on a call.`
                   : td.active
                     ? `Active. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}.`
                     : `Waiting on their account. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}. The role switches on the moment that address is confirmed on Pitch.`}
               </div>
+              {/* The operator's door for ending a TD's access (D-48, 0100).
+                  Only while the role is live: there is nothing to end
+                  otherwise. The database requires the reason and logs it. */}
+              {td.active ? (
+                <form action={endTd} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                  <input type="hidden" name="clubId" value={clubId} />
+                  <label style={{ ...card, background: T.surface2 }}>
+                    <div style={label}>Why</div>
+                    <input style={input} name="reason" required minLength={3} maxLength={500} />
+                  </label>
+                  <button type="submit" className="btn btn-secondary">End this Technical Director&rsquo;s access</button>
+                </form>
+              ) : null}
             </>
           ) : (
             <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
