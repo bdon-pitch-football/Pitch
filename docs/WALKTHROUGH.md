@@ -97,7 +97,7 @@ brings you back to the list at any time.
     - **Roles**: who holds which power at the club.
 14. **Switch to Pat Nguyen (admin).** They run the page, the teams, the
     trials and the alumni wall. They cannot read a child's record. There is
-    no billing to show: Pitch is free at launch, the register included
+    no billing to show: Pitch is free, the register included
     (D-163).
 15. **Switch to M. Harris (a club we haven't rung).** The register shows a
     count and not one name. Paying does not change that. Only a verification
