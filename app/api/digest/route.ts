@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   // so the backlog is watched clearing. Counts only. The words are held until
   // BUZ approves them (lib/digest), so in production this adds nothing yet.
   const queued = (await db.query('select fn_sms_queued_count() as n')).rows[0]?.n ?? 0;
-  const showQueued = process.env.NODE_ENV !== 'production';
+  const showQueued = true; // words approved by BUZ, 29 Sep (APPROVALS-28-SEP)
   if (!counts && !(showQueued && queued > 0)) {
     return NextResponse.json({ ok: false, reason: 'unconfigured' }, { status: 503 });
   }

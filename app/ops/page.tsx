@@ -38,8 +38,8 @@ const todayLine = () => {
 const hhmm = (d: string) => new Date(d).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Australia/Melbourne' });
 // D-168's backlog tile. Its words are NOT approved yet (brief H), so it
 // renders in development only, like the console's other held words.
-const HELD_WAITING_TEXTS = process.env.NODE_ENV !== 'production'
-  ? ['Texts waiting for SMS', 'parents\u2019 approval requests'] as const : null;
+// Approved by BUZ, 29 Sep (recorded in APPROVALS-28-SEP).
+const HELD_WAITING_TEXTS = ['Texts waiting for SMS', 'parents\u2019 approval requests'] as const;
 // Parts of a line, with every zero left out (D-162).
 const line = (parts: [number, string][]) => parts.filter(([n]) => n > 0).map(([n, w]) => `${n} ${w}`).join(' · ');
 

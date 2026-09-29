@@ -3724,8 +3724,10 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
        && queueSrc.search(/r\.name_matches === false && !r\.name_confirmed \? NAME_HELD_STATE/) < queueSrc.indexOf("'waiting on their account'"),
      /td\.name_confirmed/.test(queueSrc)], [true, true, true]);
   const todaySrc = codeOnly(srcOf('app/ops/page.tsx'));
-  check('tdn9b: Today\u2019s waiting-texts tile is a count in held words, development only (D-168)',
-    [/const HELD_WAITING_TEXTS = process\.env\.NODE_ENV !== 'production'/.test(todaySrc), /HELD_WAITING_TEXTS && waitingTexts > 0 &&/.test(todaySrc)], [true, true]);
+  // BUZ approved the words on 29 Sep: the tile shows in production too, still a
+  // count, and still omitted at zero (D-162).
+  check('tdn9b: Today\u2019s waiting-texts tile shows its approved words in every build, and only when the count is above zero (D-168, D-162)',
+    [/const HELD_WAITING_TEXTS = \['Texts waiting for SMS'/.test(todaySrc), /HELD_WAITING_TEXTS && waitingTexts > 0 &&/.test(todaySrc)], [true, true]);
   check('tdn8b: the held state and its button show whenever the role is held (words approved in advance, 29 Sep), and the sentence that said the role goes to the account is gone (L25)',
     [/: heldForName\s*\? NAME_HELD_STATE/.test(callSheet), /\{heldForName \? \(\s*<form action=\{confirmTdName\}/.test(callSheet),
      srcOf('app/ops/call/[clubId]/page.tsx').includes('The role goes to this account, not to the name above.')],
@@ -9005,8 +9007,8 @@ const componentFilesAll = [];
        /waiting for SMS/.test(digestMessage(wl, 4, false)?.text ?? ''), /waiting for SMS: 4$/m.test(digestMessage(wl, 4, true)?.text ?? '')],
       [null, null, true, false, true]);
     const digestRoute = codeOnly(srcOf('app/api/digest/route.ts'));
-    check('q11b: and its words are held: the route shows the count outside production only, and sends nothing from development',
-      [/const showQueued = process\.env\.NODE_ENV !== 'production';/.test(digestRoute),
+    check('q11b: its words are approved (BUZ, 29 Sep): the route shows the count in every build, and still sends nothing from development',
+      [/const showQueued = true;/.test(digestRoute),
        digestRoute.search(/if \(process\.env\.NODE_ENV !== 'production'\) \{\s*return NextResponse\.json\(\{ ok: true, sent: false/) > 0
          && digestRoute.search(/if \(process\.env\.NODE_ENV !== 'production'\) \{\s*return NextResponse\.json\(\{ ok: true, sent: false/) < digestRoute.indexOf('await fetch(')],
       [true, true]);
