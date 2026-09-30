@@ -9897,6 +9897,37 @@ const componentFilesAll = [];
   check('ops-t6: a person joining today, one invitation sent on two channels and approved, move the counts by one each',
     [after.signups_total - before.signups_total, after.signups_player - before.signups_player,
      after.approvals_sent - before.approvals_sent, after.approved - before.approved], [1, 1, 1, 1]);
+  // 0157 (BUZ, 30 Sep: the 7am email about yesterday). fn_ops_day is the
+  // Today screen's count for any Melbourne date: for today it must agree with
+  // fn_ops_today to the number, and yesterday must not see today's joiner.
+  {
+    const dayCols = [...(await result('fn_ops_day(date)')).matchAll(/(\w+) (\w[\w ]*?)(?:,|\)$)/g)].map((m) => [m[1], m[2]]);
+    check(`ops-d1: fn_ops_day returns integers and nothing else (${dayCols.length} columns)`,
+      [dayCols.length, dayCols.filter(([, ty]) => ty !== 'integer').map(([c]) => c)], [7, []]);
+    const dayBody = (await db.query(`select prosrc from pg_proc where proname = 'fn_ops_day'`)).rows[0]?.prosrc ?? '';
+    check('ops-d2: and selects no personal field', PERSONAL.test(selected(dayBody)), false);
+    const mel = `(now() at time zone 'Australia/Melbourne')::date`;
+    const d0 = (await db.query(`select * from fn_ops_day(${mel})`)).rows[0];
+    const keys = ['signups_total', 'signups_player', 'signups_parent', 'signups_coach', 'signups_club', 'approvals_sent', 'approved'];
+    check('ops-d3: for today it agrees with the Today screen, number for number',
+      keys.map((k) => d0[k]), keys.map((k) => after[k]));
+    const d1 = (await db.query(`select * from fn_ops_day(${mel} - 1)`)).rows[0];
+    check('ops-d4: and yesterday does not count a person who joined today, nor today\u2019s invitation',
+      [d1.signups_total < d0.signups_total || d0.signups_total === 0, d1.approvals_sent < d0.approvals_sent], [true, true]);
+    const { digestMessage } = await import('../lib/digest.ts');
+    const quiet = { label: 'Wed 30 Sep', signups: 0, player: 0, parent: 0, coach: 0, club: 0, approvalsSent: 0, approved: 0, failures: 0, awaitingCall: 0 };
+    const busy = { ...quiet, signups: 3, player: 1, coach: 2, approvalsSent: 2, approved: 1, failures: 1 };
+    const m = digestMessage(null, 0, true, busy);
+    check('ops-d5: the 7am email reports yesterday on Pitch in counts, and a quiet day with nothing else sends nothing',
+      [digestMessage(null, 0, true, quiet), m?.subject,
+       /^New accounts: 3 \(Player 1 · Coach 2\)$/m.test(m?.text ?? ''), /^Approval requests sent to parents: 2 · Approved: 1$/m.test(m?.text ?? ''),
+       /failed to send \(last 24 hours\): 1$/m.test(m?.text ?? ''), /@|ops-fixture|Opsfixture/.test(m?.text ?? '')],
+      [null, 'Pitch — 3 new accounts yesterday', true, true, true, false]);
+    const digestRouteSrc = codeOnly(srcOf('app/api/digest/route.ts'));
+    check('ops-d6: the digest asks for yesterday through fn_ops_day and the Today functions only — counts, nothing that names anybody',
+      /from fn_ops_day\(\(\(now\(\) at time zone 'Australia\/Melbourne'\)::date - 1\)\)/.test(digestRouteSrc)
+        && !/from (person|consent_event|message_outbox)\b/.test(digestRouteSrc), true);
+  }
   check('ops-t7: approved counts only what was sent today, so "% of sent" can never pass 100 — an approval of an older request is in neither figure',
     [after.approved - before.approved, after.approvals_sent - before.approvals_sent, after.approved <= after.approvals_sent], [1, 1, true]);
   check('ops-t8: the failed text is listed by channel and provider word, and neither its number nor its message is anywhere in the answer',

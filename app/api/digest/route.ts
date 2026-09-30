@@ -22,17 +22,29 @@ export async function GET(req: NextRequest) {
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const counts = await digestCounts(since);
+  // Yesterday on Pitch itself (0157): the Today screen's counts for the day
+  // before, in Melbourne. Counts only, like everything else in this email.
+  const { rows: [y] } = await db.query(`
+    select d.*, to_char(((now() at time zone 'Australia/Melbourne')::date - 1), 'Dy FMDD Mon') as label,
+      (select count(*)::int from fn_ops_delivery_failures()) as failures,
+      (select awaiting from fn_ops_today()) as awaiting
+    from fn_ops_day(((now() at time zone 'Australia/Melbourne')::date - 1)) d`);
+  const day = y ? {
+    label: y.label as string, signups: y.signups_total, player: y.signups_player, parent: y.signups_parent,
+    coach: y.signups_coach, club: y.signups_club, approvalsSent: y.approvals_sent, approved: y.approved,
+    failures: y.failures, awaitingCall: y.awaiting,
+  } : null;
   // D-168 (0120): how many parents' approval texts are still waiting for SMS,
   // so the backlog is watched clearing. Counts only. The words are held until
   // BUZ approves them (lib/digest), so in production this adds nothing yet.
   const queued = (await db.query('select fn_sms_queued_count() as n')).rows[0]?.n ?? 0;
   const showQueued = true; // words approved by BUZ, 29 Sep (APPROVALS-28-SEP)
-  if (!counts && !(showQueued && queued > 0)) {
+  if (!counts && !day && !(showQueued && queued > 0)) {
     return NextResponse.json({ ok: false, reason: 'unconfigured' }, { status: 503 });
   }
 
   // If nothing happened, send nothing (doc 29 §6).
-  const message = digestMessage(counts, queued, showQueued);
+  const message = digestMessage(counts, queued, showQueued, day);
   if (!message) {
     return NextResponse.json({ ok: true, sent: false, ...(counts ?? {}) });
   }

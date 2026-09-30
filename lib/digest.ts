@@ -21,13 +21,48 @@ export interface DigestWaitlist {
 export const queuedTextsLine = (n: number) => `Parents’ texts waiting for SMS: ${n}`;
 export const queuedTextsSubject = (n: number) => `Pitch — ${n} parents’ text${n === 1 ? '' : 's'} waiting for SMS`;
 
+// The day before on Pitch itself (BUZ, 30 Sep: "set up no. 2"). The same
+// counts as the operator's Today screen (fn_ops_day, 0157), for yesterday in
+// Melbourne, plus the last 24 hours' failed sends and the clubs waiting on a
+// call. Counts only: no name, address or id (D-79).
+export interface DigestDay {
+  label: string;          // e.g. 'Wed 30 Sep'
+  signups: number; player: number; parent: number; coach: number; club: number;
+  approvalsSent: number; approved: number;
+  failures: number;       // sends that failed in the last 24 hours
+  awaitingCall: number;   // claimed clubs waiting for BUZ's verification call
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function dayLines(d: DigestDay): string[] {
+  const lines = [`Yesterday on Pitch (${d.label})`, ''];
+  if (d.signups > 0) {
+    const split = ([['Player', d.player], ['Parent', d.parent], ['Coach', d.coach], ['Club', d.club]] as const)
+      .filter(([, n]) => n > 0).map(([r, n]) => `${r} ${n}`).join(' · ');
+    lines.push(`New accounts: ${d.signups}${split ? ` (${split})` : ''}`);
+  } else {
+    lines.push('New accounts: none');
+  }
+  if (d.approvalsSent > 0) lines.push(`Approval requests sent to parents: ${d.approvalsSent} · Approved: ${d.approved}`);
+  if (d.awaitingCall > 0) lines.push(`Clubs waiting for your verification call: ${d.awaitingCall}`);
+  if (d.failures > 0) lines.push(`Emails or texts that failed to send (last 24 hours): ${d.failures}`);
+  lines.push('');
+  return lines;
+}
+
+const dayHappened = (d: DigestDay | null | undefined): d is DigestDay =>
+  !!d && (d.signups > 0 || d.approvalsSent > 0 || d.failures > 0 || d.awaitingCall > 0);
+
 /** The subject and body, or null when there is nothing to say. Counts only. */
-export function digestMessage(w: DigestWaitlist | null, queuedTexts: number, showQueued: boolean):
+export function digestMessage(w: DigestWaitlist | null, queuedTexts: number, showQueued: boolean, day?: DigestDay | null):
   { subject: string; text: string } | null {
   const waitlist = w !== null && w.newTotal > 0;
   const queued = showQueued && queuedTexts > 0;
-  if (!waitlist && !queued) return null;
+  const today = dayHappened(day);
+  if (!waitlist && !queued && !today) return null;
   const lines: string[] = [];
+  if (today) lines.push(...dayLines(day));
   if (waitlist) {
     const roleLine = (['player', 'coach', 'club', 'parent'] as const)
       .map((r) => `${r[0].toUpperCase() + r.slice(1)}: ${w.newByRole[r] ?? 0}`)
@@ -42,9 +77,12 @@ export function digestMessage(w: DigestWaitlist | null, queuedTexts: number, sho
     );
   }
   if (queued) lines.push(queuedTextsLine(queuedTexts), '');
-  lines.push('Addresses live in Supabase — no emails in this digest by design.');
+  lines.push(today
+    ? 'Counts only — no names or addresses in this email, by design. Today so far: pitchfootball.com.au/ops'
+    : 'Addresses live in Supabase — no emails in this digest by design.');
   return {
-    subject: waitlist ? `Pitch waitlist — ${w.newTotal} new (${w.total} total)` : queuedTextsSubject(queuedTexts),
+    subject: today ? `Pitch — ${day.signups > 0 ? plural(day.signups, 'new account', 'new accounts') : 'no new accounts'} yesterday`
+      : waitlist ? `Pitch waitlist — ${w.newTotal} new (${w.total} total)` : queuedTextsSubject(queuedTexts),
     text: lines.join('\n'),
   };
 }
