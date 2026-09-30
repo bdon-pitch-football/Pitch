@@ -123,20 +123,12 @@ export async function leaveSquad(formData: FormData) {
   const personId = field(formData, 'personId');
   const back = backTo(field(formData, 'back'));
   const me = await retractFor(personId);
-  // One statement, one squad_left per membership that actually ended (M6):
-  // the log used to say a child came out of a squad whether or not any row
-  // changed, and a guardian's timeline is not a place for that.
-  const out = await db.query(
-    `with gone as (
-       update membership set ended_at = now()
-       where person_id = $1 and role = 'player' and ended_at is null
-       returning squad_id, club_id)
-     insert into consent_event (event, actor_id, subject_id, detail)
-     select 'squad_left', $2, $1, jsonb_build_object('squad_id', g.squad_id, 'club_id', g.club_id, 'source','family')
-     from gone g`,
-    [personId, me],
-  );
-  if (!out.rowCount) redirect(`${back}?squad=error`);
+  // One function, one transaction (0153): every membership ends, one
+  // squad_left per membership that actually ended (M6), and the family's
+  // registrations at each club left come off its register (D-170). The
+  // database asks fn_can_leave_squad again; the page decides nothing.
+  const out = await db.query(`select fn_leave_squads($2, $1) as n`, [personId, me]);
+  if (!out.rows[0]?.n) redirect(`${back}?squad=error`);
   redirect(`${back}?squad=left`);
 }
 

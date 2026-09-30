@@ -88,8 +88,9 @@ export async function dispatchShareRequest(requestId: string, actorId: string): 
   const d = await db.query(
     `select sr.destination, p.first_name, p.email,
        date_part('year', age(p.dob))::int as age, dr.positions,
-       coalesce((select c.name from membership m join club c on c.id = m.club_id
-         where m.person_id = p.id and m.role = 'player' and m.ended_at is null limit 1), '') as club
+       -- The CV's own club line (fn_cv_club): none while the club is
+       -- suspended or taken down (0155), so the email and the page agree.
+       coalesce(fn_cv_club(p.id)->>'club', '') as club
      from share_request sr
      join development_record dr on dr.id = sr.record_id
      join person p on p.id = dr.person_id
