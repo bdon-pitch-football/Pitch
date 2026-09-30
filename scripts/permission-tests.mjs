@@ -705,6 +705,19 @@ check('doc15 §A7b: §12 names the verified state and interpolates only the club
 const wakeBlocks = msgCode.split(/export const /).filter((b) => b.startsWith('bareWake'));
 check('doc15 §24: the bare wake is defined and interpolates nothing at all',
   wakeBlocks.length === 2 && wakeBlocks.every((b) => !/\$\{(?!SITE|HELP)/.test(b)), true);
+// 30 Sep, first night live: production Next prefetched the "Sign out" links,
+// the prefetch hit GET /signout, and every session was revoked half a second
+// after it was issued. Development never prefetches, so no suite could see it.
+{
+  const signoutRoute = readFileSync(fileURLToPath(new URL('../app/signout/route.ts', import.meta.url)), 'utf8');
+  const linkFiles = ['../app/home/page.tsx', '../components/console-shell.tsx']
+    .map((f) => readFileSync(fileURLToPath(new URL(f, import.meta.url)), 'utf8'));
+  const links = linkFiles.flatMap((s) => [...s.matchAll(/<Link href="\/signout"[^>]*>/g)].map((m) => m[0]));
+  check(`signout-p1: no Sign out link is prefetched (${links.length} links)`,
+    links.length >= 3 && links.every((l) => l.includes('prefetch={false}')), true);
+  check('signout-p2: and /signout answers a prefetch with nothing, before it touches the session',
+    /if \(isPrefetch\(request\)\) return[\s\S]{0,120}\n  await clearSession\(\)/.test(signoutRoute), true);
+}
 check('doc15 §29: the share-card email carries no preview image',
   /shareCardWaitingEmail[\s\S]*?(<img|cid:|\.png|\.jpg)/.test(msgSrc), false);
 // 30 Sep (feature audit): §29's [See the card] linked to the site's front

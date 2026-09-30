@@ -897,7 +897,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
         {/* This screen is the one home with no shell and therefore no bar, so
             it carries the way out itself. Every other seat gets it from the
             console shell's rail and sheet (BUZ, 28 Sep). */}
-        <Link href="/signout" className="btn btn-ghost">Sign out</Link>
+        <Link href="/signout" prefetch={false} className="btn btn-ghost">Sign out</Link>
       </Shell>
     );
   }

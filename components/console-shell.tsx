@@ -73,7 +73,7 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
               {it.count ? <span className="console-nav-count">{it.count}</span> : null}
             </Link>
           ))}
-          <Link href="/signout" className="console-nav-link" style={{ marginTop: 'auto' }}>Sign out</Link>
+          <Link href="/signout" prefetch={false} className="console-nav-link" style={{ marginTop: 'auto' }}>Sign out</Link>
         </nav>
         <div className="console-main">{children}</div>
       </div>
@@ -120,7 +120,7 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
                       <span>{it.label}</span>
                     </Link>
                   ))}
-                  <Link href="/signout" className="seat-sheet-link">
+                  <Link href="/signout" prefetch={false} className="seat-sheet-link">
                     <span>Sign out</span>
                   </Link>
                 </div>
