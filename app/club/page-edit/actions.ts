@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { isUuid } from '@/lib/ids';
+import { PRESETS, isHex } from '@/lib/club-colours';
 
 const HOSTS = /^(https:\/\/)(www\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
 
@@ -136,4 +137,36 @@ export async function removeAlumni(formData: FormData) {
   const id = text(formData, 'alumniId');
   if (isUuid(id)) await db.query(`delete from alumni_entry where id = $1 and club_id = $2`, [id, clubId]);
   redirect('/club/page-edit?removed=alumni#alumni');
+}
+
+// ---------------------------------------------------------------------------
+// Club colours (0160, D-173, BUZ 1 Oct). A preset pair in one tap, or the
+// club's own two colours. Out-of-shape input is refused, never coerced. The
+// database refuses colours on an unclaimed club; the public page ignores them
+// there too (lib/club-colours).
+// ---------------------------------------------------------------------------
+export async function saveClubColours(formData: FormData) {
+  const { clubId } = await manager();
+  const choice = text(formData, 'preset');
+  let pair: { primary: string; secondary: string } | null = null;
+  if (/^\d{1,2}$/.test(choice) && PRESETS[Number(choice)]) {
+    const p = PRESETS[Number(choice)];
+    pair = { primary: p.primary, secondary: p.secondary };
+  } else if (choice === 'custom') {
+    const primary = text(formData, 'primary').toLowerCase();
+    const secondary = text(formData, 'secondary').toLowerCase();
+    if (isHex(primary) && isHex(secondary)) pair = { primary, secondary };
+  }
+  if (!pair) redirect('/club/page-edit?colours=bad#colours');
+  await db.query(
+    `update club set colour_primary = $2, colour_secondary = $3 where id = $1 and club_state <> 'unclaimed'`,
+    [clubId, pair.primary, pair.secondary],
+  );
+  redirect('/club/page-edit?saved=colours#colours');
+}
+
+export async function clearClubColours() {
+  const { clubId } = await manager();
+  await db.query(`update club set colour_primary = null, colour_secondary = null where id = $1`, [clubId]);
+  redirect('/club/page-edit?removed=colours#colours');
 }

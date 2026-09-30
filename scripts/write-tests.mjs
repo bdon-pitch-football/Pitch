@@ -155,6 +155,13 @@ async function reach(who, extra = []) {
       // him off the product for every check after it (L32: a page is a
       // fixture). The render suite reads both pages; this one presses forms.
       if (h === '/conduct' || h === '/report/policy') continue;
+      // Nor the two ways in the Floodlit nav bar (D-173, 1 Oct) put on every
+      // club page: the logo's `/` and "Find your club" `/claim`. Each holds
+      // only a GET search, which the render suite reads (fd2, the /claim
+      // checks); followed here they spent two of the 60 pages and moved which
+      // seat met Jordan's forms first — ks-w0, sq2 and sq3 went red exactly as
+      // brief K recorded (L32).
+      if (h === '/' || h === '/claim' || h.startsWith('/?') || h.startsWith('/claim?')) continue;
       if (!seen.has(h)) queue.push(h);
     }
   }
@@ -2408,6 +2415,31 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const af = forms(html3).find((x) => 'alumniId' in x.fields);
   await send(td, af, { alumniId: nicoId });
   check('ce13: and the TD can take it down', (await pub()).includes('Nico P.'), false);
+
+  // Club colours (0160, D-173, BUZ 1 Oct).
+  const rawPub = async () => (await get('/fc/riverside-fc', null)).html;
+  const colourForm = forms((await get('/club/page-edit', td)).html).find((x) => x.visible.some((v) => v.name === 'primary'));
+  check('cc1: the editor has the club colours form', Boolean(colourForm), true);
+  await send(td, colourForm, { preset: '0' });
+  let raw = await rawPub();
+  check('cc2: the TD picks a pair and the page wears it — the trim runs under the hero and the month on a trial',
+    [/border-bottom:5px solid #f2b134/.test(raw), (raw.match(/color:#f2b134/g) ?? []).length > 0], [true, true]);
+  await send(admin, colourForm, { preset: 'custom', primary: '#0F3F86', secondary: '#ffffff' });
+  raw = await rawPub();
+  check('cc3: the administrator can set the club\u2019s own two colours (upper case is taken as the same colour)',
+    /border-bottom:5px solid #ffffff/.test(raw), true);
+  const badHex = await send(td, colourForm, { preset: 'custom', primary: 'red', secondary: '#ffffff' });
+  const noPick = await send(td, colourForm, { preset: '99' });
+  check('cc4: a colour that is not a colour, or a pair that does not exist, is refused, not guessed',
+    [/colours=bad/.test(badHex.location), /colours=bad/.test(noPick.location), /border-bottom:5px solid #ffffff/.test(await rawPub())], [true, true, true]);
+  await send(coach, colourForm, { preset: '4' });
+  await send(parent, colourForm, { preset: '4' });
+  check('cc5: a coach or a parent posting the same form changes nothing', /border-bottom:5px solid #ffffff/.test(await rawPub()), true);
+  const clearForm = forms((await get('/club/page-edit', td)).html).find((x) => /Pitch green/.test(x.submit ?? ''));
+  await send(td, clearForm, {});
+  check('cc6: and the club can go back to Pitch green', [Boolean(clearForm), /border-bottom:5px solid/.test(await rawPub())], [true, false]);
+  const unclaimedRaw = (await get('/fc/westgate-rangers', null)).html;
+  check('cc7: an unclaimed page never wears club colours', /border-bottom:5px solid/.test(unclaimedRaw), false);
 }
 
 // ---- who is in each squad (0052, D-158) ------------------------------------

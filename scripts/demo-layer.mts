@@ -232,6 +232,8 @@ async function unclaimListing(db: PGlite, clubId: string, mailSlug: string) {
   await db.query(
     `update club set club_state = 'unclaimed', verified_call_id = null, subscription_status = null,
        philosophy = null, pathway_line = null, established = null, banner_path = null,
+       -- 0160: an unclaimed club holds no colours (D-172), so a reset clears them.
+       colour_primary = null, colour_secondary = null,
        contact_email = $2
      where id = $1`,
     [clubId, publicAddress],

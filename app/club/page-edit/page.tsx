@@ -8,7 +8,8 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { ClubConsole } from '@/components/console-shell';
-import { addClubVideo, removeClubVideo, saveClubStory, addWanted, removeWanted, addAlumni, removeAlumni } from './actions';
+import { addClubVideo, removeClubVideo, saveClubStory, addWanted, removeWanted, addAlumni, removeAlumni, saveClubColours, clearClubColours } from './actions';
+import { PRESETS, clubTheme } from '@/lib/club-colours';
 import { T } from '@/lib/palette';
 import { card } from '@/lib/ui';
 
@@ -16,14 +17,14 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Edit your club page', robots: { index: false, follow: false } };
 
 export default async function ClubPageEdit({ searchParams }: {
-  searchParams: Promise<{ saved?: string; crest?: string; banner?: string; video?: string; removed?: string; story?: string; wanted?: string; alumni?: string }>;
+  searchParams: Promise<{ saved?: string; crest?: string; banner?: string; video?: string; removed?: string; story?: string; wanted?: string; alumni?: string; colours?: string }>;
 }) {
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
-  const { saved, crest, banner, video, story, wanted, alumni } = await searchParams;
+  const { saved, crest, banner, video, story, wanted, alumni, colours } = await searchParams;
 
   const { rows } = await db.query(
-    `select c.id, c.name, c.crest_path, c.banner_path, c.public_slug, c.philosophy, c.pathway_line, c.established from club c
+    `select c.id, c.name, c.club_state, c.crest_path, c.banner_path, c.public_slug, c.philosophy, c.pathway_line, c.established, c.colour_primary, c.colour_secondary from club c
      join membership m on m.club_id = c.id and m.person_id = $1
        and m.role in ('technical_director','club_admin') and m.ended_at is null
      limit 1`,
@@ -132,6 +133,57 @@ export default async function ClubPageEdit({ searchParams }: {
             It gets cropped to a wide strip and darkened towards the bottom, where your crest and your club name sit. Anything you want seen wants to be near the middle or the top.
           </div>
         </form>
+
+        {/* Club colours (0160, D-173). The page shows the same arithmetic the
+            public page uses, so what a club sees here is what families see. */}
+        <form id="colours" action={saveClubColours} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13, scrollMarginTop: 18 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>Club colours</div>
+          {colours === 'bad' && warn('Pick one of the pairs, or both of your own colours.')}
+          {(() => {
+            const theme = clubTheme({ primary: c.colour_primary, secondary: c.colour_secondary }, c.club_state === 'unclaimed' ? 'claimed' : c.club_state);
+            return (
+              <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: theme ? `linear-gradient(115deg, ${theme.hero} 0%, ${theme.heroDeep} 100%)` : 'var(--hero)', position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 14px 18px 14px' }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 13, background: theme ? theme.trim : T.surface2, color: theme ? theme.onTrim : T.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, flexShrink: 0 }}>{c.name[0]}</div>
+                  <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.015em' }}>{c.name}</div>
+                </div>
+                <div style={{ height: 5, background: theme ? theme.trim : T.accent }} />
+              </div>
+            );
+          })()}
+          <fieldset style={{ border: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+            <legend className="field-label" style={{ marginBottom: 8 }}>Pick a pair</legend>
+            {PRESETS.map((p, i) => {
+              const on = c.colour_primary === p.primary && c.colour_secondary === p.secondary;
+              return (
+                <label key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 9, minHeight: 44, padding: '0 10px', borderRadius: 12, border: `1px solid ${on ? T.accent : T.line}`, background: T.surface2, cursor: 'pointer' }}>
+                  <input type="radio" name="preset" value={String(i)} defaultChecked={on} style={{ accentColor: T.accent }} />
+                  <span aria-hidden style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, background: `linear-gradient(135deg, ${p.primary} 55%, ${p.secondary} 55%)`, border: '1px solid rgba(255,255,255,.18)' }} />
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>{p.name}</span>
+                </label>
+              );
+            })}
+          </fieldset>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 9, minHeight: 44 }}>
+            <input type="radio" name="preset" value="custom" defaultChecked={Boolean(c.colour_primary) && !PRESETS.some((p) => p.primary === c.colour_primary && p.secondary === c.colour_secondary)} style={{ accentColor: T.accent }} />
+            <span style={{ fontSize: 13, fontWeight: 800 }}>Or your own two colours</span>
+          </label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <label className="field" style={{ flex: 1 }}><span className="field-label">Main colour</span>
+              <input id="club-colour-primary" name="primary" type="color" defaultValue={c.colour_primary ?? PRESETS[0].primary} style={{ width: '100%', height: 36, border: 'none', background: 'transparent', padding: 0 }} />
+            </label>
+            <label className="field" style={{ flex: 1 }}><span className="field-label">Second colour</span>
+              <input id="club-colour-secondary" name="secondary" type="color" defaultValue={c.colour_secondary ?? PRESETS[0].secondary} style={{ width: '100%', height: 36, border: 'none', background: 'transparent', padding: 0 }} />
+            </label>
+          </div>
+          <button type="submit" className="btn btn-primary">Save the colours</button>
+          <div style={hint}>Your colours go behind your name and down the edge of your page. Buttons stay green, so families always know what to press. If a colour would make your name hard to read, we darken it just enough.</div>
+        </form>
+        {c.colour_primary && (
+          <form action={clearClubColours} style={{ marginTop: -8 }}>
+            <button type="submit" className="btn btn-ghost">Go back to Pitch green</button>
+          </form>
+        )}
 
         <form id="wanted" action={addWanted} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13, scrollMarginTop: 18 }}>
           <div style={{ fontSize: 14, fontWeight: 900 }}>Players wanted</div>
