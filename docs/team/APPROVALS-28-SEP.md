@@ -160,3 +160,15 @@ Production opened with no club listings, so a club person had nothing to claim a
   - the club's address shown partly hidden (`in••@club.example.au`);
   - "You run the page, the teams and the trial notices." (no billing);
   - "Pitch made this page from public information. Claiming it means you control what's on it."
+
+## 30 September, late: John's four clearances, compiled trials, and Send my CV (BUZ: "approve all four and the wording, go"; "approve all five, keep going")
+
+- **John's four clearances approved** (`JOHN-to-LEO-junior-notices-send-CV-and-held-interest-30-sep.md`): junior trial notices; Send my CV fills in the club's role address in full; held interest at unclaimed clubs (90 days, a date shown, no count under five); a link to the club's own notice.
+- **Compiled notices:** "The club’s own notice" (link, opens the club's page) and "checked {D Mon}" beside each trial on the club page. 80 notices loaded at 22 clubs with `scripts/import-trials.mjs`; 24 held for confirmation.
+- **Send my CV, the five:**
+  1. Under the filled-in address: "The address {Club} publishes on its own website, checked {D Month}. Change it if you have a better one."
+  2. Blocked club: kicker "Not sent", title "We can’t send to this club through Pitch", body "Nothing has been sent."
+  3. doc 15 §19, the CV email's last line: "You received this because … We did not add you to a list. To stop CVs reaching this address through Pitch: {link}"
+  4. `/stop-cvs`: "Stop CVs to this address?" · "Pitch won’t send CVs to this address again. Families can still contact the club in other ways." · **Stop them** · done: "Done" · "Pitch won’t send CVs to this address again."
+  5. Operator: **Stop CVs to this club** · "CVs to this club are stopped."
+- **Warm clubs:** BUZ asked for notices at his five warm clubs to be researched and posted too.
