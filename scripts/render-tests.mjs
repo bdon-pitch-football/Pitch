@@ -2491,6 +2491,18 @@ const georgia = ids.children.georgia;
   check('U6: the take-it-down door is on the page and needs no account — it is /report',
     [/href="\/report\?page=%2Ffc%2Fbrindlewood-rovers-sc"[^>]*>Ask us to update or remove it</.test(brind.html), (await get('/report?page=%2Ffc%2Fbrindlewood-rovers-sc')).status],
     [true, 200]);
+  // John, 30 Sep: a compiled notice shows when it was last checked, and links
+  // to the club's own notice — labelled as the club's, opening the club's own
+  // page in its own tab, never pulled through Pitch.
+  const wg = await get('/fc/westgate-rangers');
+  const wgv = wg.html.replace(/<!-- -->/g, '');
+  const ownLink = /<a href="https:\/\/westgaterangers\.example\.au\/trials" target="_blank" rel="noopener noreferrer"[^>]*>The club’s own notice<\/a>/;
+  check('link-n1: a notice Pitch compiled carries "checked" and a link to the club’s own notice, opening the club’s page',
+    [wg.status, /checked \d{1,2} [A-Z][a-z]{2}/.test(wgv), ownLink.test(wgv)], [200, true, true]);
+  const board = (await get('/trials')).html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+  check('link-n2: the trials board links the same notice to the club’s own page, and a club’s own notice carries no such link',
+    [ownLink.test(board), board.split('>Listed ').slice(1).filter((card) => card.includes('On Pitch — verified club') && card.includes('The club’s own notice')).length === 0],
+    [true, true]);
   check('D-172: never "partner", "member", "joined", "on Pitch", "verified", "official" or "in association with" on an unclaimed page',
     /\b(partner|member|joined|on Pitch|verified|official|in association with)\b/i.test(bw), false);
 

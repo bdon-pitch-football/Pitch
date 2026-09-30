@@ -10236,6 +10236,27 @@ const componentFilesAll = [];
   const fcPage = codeOnly(srcOf('app/fc/[slug]/page.tsx'));
   check('fc-s3: an unclaimed listing is kept out of search engines until the club claims it',
     /unclaimed \? \{ robots: \{ index: false, follow: false \} \}/.test(fcPage), true);
+  // John, 30 Sep: a junior trial notice Pitch compiled for an unclaimed club
+  // is an invitation only until its date — after that it is a standing
+  // statement that children gather at that ground. Asserted on the one
+  // answer every page reads (fn_trial_notices_advertised).
+  const jrClub = (await db.query(`select id from club where club_state = 'unclaimed' limit 1`)).rows[0].id;
+  const jrPast = crypto.randomUUID(), jrToday = crypto.randomUUID();
+  await db.exec('begin;'); await db.query(`select set_config('pitch.curating', 'on', true)`);
+  for (const [id, days] of [[jrPast, -1], [jrToday, 0]]) {
+    await db.query(`insert into trial_notice (id, club_id, title, trial_on, time_venue, source, source_url, added_by, added_by_email)
+      values ($1, $2, 'U12 and U13 girls trials', (now() at time zone 'Australia/Melbourne')::date + $3::int, '9:00 am · Fixture Reserve', 'compiled', 'https://fixture.example.au/trials', $4, $5)`,
+      [id, jrClub, days, ...OPR]);
+    await db.query(`insert into trial_notice_age_group (trial_notice_id, age_group) values ($1, 'U12'), ($1, 'U13')`, [id]);
+  }
+  await db.exec('commit;');
+  check('jr-x1: a junior notice compiled for an unclaimed club shows on its day and never the day after (John, 30 Sep)',
+    (await db.query('select id from fn_trial_notices_advertised() where id = any($1)', [[jrPast, jrToday]])).rows.map((r) => r.id),
+    [jrToday]);
+  await db.exec('begin;'); await db.query(`select set_config('pitch.curating', 'on', true)`);
+  await db.query('delete from trial_notice_age_group where trial_notice_id = any($1)', [[jrPast, jrToday]]);
+  await db.query('delete from trial_notice where id = any($1)', [[jrPast, jrToday]]);
+  await db.exec('commit;');
   await db.query('delete from club_request where requested_by = $1', [adult]);
   await db.query('delete from person where id in ($1, $2, $3)', [adult, unproved, minor]);
 }

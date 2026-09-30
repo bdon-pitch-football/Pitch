@@ -44,7 +44,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   // What is on the board is the database's answer (0140): still to come, and
   // never a suspended club's, whatever the class of its suspension.
   const { rows } = await db.query(
-    `select t.id, t.title, t.time_venue, t.source, t.competition_gender, t.position_needs,
+    `select t.id, t.title, t.time_venue, t.source, t.source_url, t.competition_gender, t.position_needs,
        array(select ta.age_group from trial_notice_age_group ta join age_group ag on ag.code = ta.age_group
              where ta.trial_notice_id = t.id order by ag.sort) as age_groups,
        upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
@@ -54,7 +54,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
      order by t.trial_on`,
   );
   type Listing = {
-    title: string; time_venue: string; source: string; mon: string; day: string; age_groups: string[];
+    title: string; time_venue: string; source: string; source_url: string | null; mon: string; day: string; age_groups: string[];
     competition_gender: string | null; position_needs: string[]; state: string | null;
     id: string; listed: string; checked: string; club_name: string; club_state: string; public_slug: string | null;
   };
@@ -213,6 +213,11 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
                   <div style={{ fontSize: 14, fontWeight: 800 }}>{l.club_name} · {l.title.replace(' trials', '')}</div>
                   <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{l.time_venue}</div>
                   <div style={{ fontSize: 10, color: T.muted, fontWeight: 700 }}>Listed {l.listed} · checked {l.checked}</div>
+                  {/* John, 30 Sep: a notice Pitch compiled links to the club's own
+                      notice — the club's, never styled as a Pitch action. */}
+                  {l.source !== 'club' && l.source_url && (
+                    <a href={l.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: T.secondary, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>The club&rsquo;s own notice</a>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, gap: 8 }}>
                     {verified || !onPitch ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

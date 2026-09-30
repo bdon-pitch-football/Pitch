@@ -79,7 +79,8 @@ export default async function ClubPage({ params, searchParams }: {
        (select coalesce(json_agg(json_build_object(
            'id', t.id, 'title', t.title, 'timeVenue', t.time_venue,
            'mon', upper(to_char(t.trial_on, 'Mon')), 'day', to_char(t.trial_on, 'DD'),
-           'how', t.how_to_register) order by t.trial_on), '[]'::json)
+           'how', t.how_to_register, 'checked', to_char(t.last_checked, 'FMDD Mon'),
+           'notice', case when t.source <> 'club' then t.source_url end) order by t.trial_on), '[]'::json)
         from fn_trial_notices_advertised() t where t.club_id = c.id) as trials,
        (select coalesce(json_agg(json_build_object('title', w.title, 'detail', w.detail) order by w.created_at), '[]'::json)
         from fn_players_wanted_advertised() w where w.club_id = c.id) as wanted,
@@ -94,7 +95,7 @@ export default async function ClubPage({ params, searchParams }: {
   if (rows.length === 0) notFound();
   const c = rows[0];
   const squads: { id: string; name: string; gender: string }[] = c.squads;
-  const trials: { id: string; title: string; timeVenue: string; mon: string; day: string; how: string | null }[] = c.trials;
+  const trials: { id: string; title: string; timeVenue: string; mon: string; day: string; how: string | null; checked: string; notice: string | null }[] = c.trials;
   const wanted: { title: string; detail: string | null }[] = c.wanted;
   const alumni: { line: string; detail: string | null }[] = c.alumni;
   const videos: { url: string; title: string }[] = c.videos;
@@ -262,7 +263,8 @@ export default async function ClubPage({ params, searchParams }: {
             <h2 style={label}>Trials</h2>
             <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 0 }}>
               {trials.map((t, i) => (
-                <Link key={t.id} href={pickedTrial?.id === t.id ? `/fc/${slug}#play` : `/fc/${slug}?trial=${t.id}#play`} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}`, textDecoration: 'none', color: 'inherit', minHeight: 44 }}>
+                <div key={t.id} style={{ padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
+                <Link href={pickedTrial?.id === t.id ? `/fc/${slug}#play` : `/fc/${slug}?trial=${t.id}#play`} style={{ display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none', color: 'inherit', minHeight: 44 }}>
                   <div style={{ background: 'rgba(61,220,132,.12)', borderRadius: 11, padding: '7px 10px', textAlign: 'center', flexShrink: 0 }}>
                     <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: T.accent }}>{t.mon}</div>
                     <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1 }}>{t.day}</div>
@@ -272,6 +274,17 @@ export default async function ClubPage({ params, searchParams }: {
                     <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{t.timeVenue}</div>
                   </div>
                 </Link>
+                {/* John, 30 Sep: "last checked" is visible to the reader, and a
+                    notice Pitch compiled links to the club's own notice —
+                    labelled as the club's, opening the club's own page, never
+                    styled as a Pitch action. */}
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 10, paddingLeft: 59, fontSize: 11, fontWeight: 700, color: T.muted }}>
+                  <span>checked {t.checked}</span>
+                  {t.notice && (
+                    <a href={t.notice} target="_blank" rel="noopener noreferrer" style={{ color: T.secondary, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>The club&rsquo;s own notice</a>
+                  )}
+                </div>
+                </div>
               ))}
               {/* Only where there is a register to go on. An unclaimed listing
                   carries trials compiled from the club's own public notices
