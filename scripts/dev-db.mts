@@ -788,6 +788,8 @@ await db.query(
 // John's six rules (U1-U6). The name is invented; the locality is real.
 await db.query(`insert into club (name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
   values ('Brindlewood Rovers SC','Bulla','VIC','unclaimed','info@brindlewoodrovers.example.au','brindlewood-rovers-sc','club website /contact (fixture)', now())`);
+// An address the listing used to have (0162): it must still land on the page.
+await db.query(`insert into club_slug_former (slug, club_id) select 'brindlewood-rovers', id from club where public_slug = 'brindlewood-rovers-sc'`);
 // Two more, so "Send my CV" filling in a club's address is held to both
 // halves of John's rule (0160, 30 Sep §2). Kestrelford Athletic publishes
 // only a person's address, so the send screen fills in nothing for it.

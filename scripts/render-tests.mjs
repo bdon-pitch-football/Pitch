@@ -2503,6 +2503,11 @@ const georgia = ids.children.georgia;
   check('link-n2: the trials board links the same notice to the club’s own page, and a club’s own notice carries no such link',
     [ownLink.test(board), board.split('>Listed ').slice(1).filter((card) => card.includes('On Pitch — verified club') && card.includes('The club’s own notice')).length === 0],
     [true, true]);
+  // 0162: an address a listing used to have moves for good to the one it has now.
+  const oldFc = await get('/fc/brindlewood-rovers'), oldClaim = await get('/claim/brindlewood-rovers', ids.people.robin);
+  check('slug-r1: a club’s former page address moves for good (308) to its address now — the page and its claim screen',
+    [oldFc.status, oldFc.location?.endsWith('/fc/brindlewood-rovers-sc'), oldClaim.status, oldClaim.location?.endsWith('/claim/brindlewood-rovers-sc')],
+    [308, true, 308, true]);
   check('D-172: never "partner", "member", "joined", "on Pitch", "verified", "official" or "in association with" on an unclaimed page',
     /\b(partner|member|joined|on Pitch|verified|official|in association with)\b/i.test(bw), false);
 

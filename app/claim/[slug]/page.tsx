@@ -2,7 +2,7 @@
 // claimant chooses it: an administrator NEVER reads a player's development
 // record, by any route (D-93). Verified status is separate and human (D-126).
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
@@ -37,7 +37,11 @@ export default async function ClaimClub({ params, searchParams }: {
      from club where public_slug = $1`,
     [slug],
   );
-  if (rows.length === 0) notFound();
+  if (rows.length === 0) {
+    const now = (await db.query('select fn_club_slug_now($1) as s', [slug])).rows[0]?.s;
+    if (now) permanentRedirect(`/claim/${now}`);
+    notFound();
+  }
   const c = rows[0];
 
   // A club that is not unclaimed is done, whether or not the caller arrived

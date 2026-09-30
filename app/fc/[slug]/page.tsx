@@ -12,7 +12,7 @@
 // squads as the way in, and the alumni wall last because it is the argument
 // you want a parent holding when they stop reading.
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import ClipCard from '@/components/cv/ClipCard';
@@ -92,7 +92,13 @@ export default async function ClubPage({ params, searchParams }: {
      from club c where c.public_slug = $1`,
     [slug],
   );
-  if (rows.length === 0) notFound();
+  if (rows.length === 0) {
+    // An address a listing used to have keeps working (0162): it moves for
+    // good to the one the club has now.
+    const now = (await db.query('select fn_club_slug_now($1) as s', [slug])).rows[0]?.s;
+    if (now) permanentRedirect(`/fc/${now}`);
+    notFound();
+  }
   const c = rows[0];
   const squads: { id: string; name: string; gender: string }[] = c.squads;
   const trials: { id: string; title: string; timeVenue: string; mon: string; day: string; how: string | null; checked: string; notice: string | null }[] = c.trials;

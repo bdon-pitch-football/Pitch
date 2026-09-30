@@ -10748,5 +10748,26 @@ const componentFilesAll = [];
      /robots: \{ index: false, follow: false \}/.test(stopPage)], [true, true]);
 }
 
+// --- A club's page address keeps its letters (0162; BUZ, 30 Sep: "should be
+//     Derzelez"). Letters are folded, never dropped, and an address a listing
+//     used to have is kept so it can move for good to the new one.
+{
+  const slug = async (name) => (await db.query('select fn_club_slug_for($1, null) as s', [name])).rows[0].s;
+  check('slug-1: letters are folded to their plain form, never dropped — Đ is D',
+    [await slug('Balmoral FC (Đerzelez)'), await slug('Café São Paulo FC'), await slug('Øster Æble & Sons'), await slug('Straße United')],
+    ['balmoral-fc-derzelez', 'cafe-sao-paulo-fc', 'oster-aeble-and-sons', 'strasse-united']);
+  const own = (await db.query(`insert into club (name, club_state, public_slug) values ('Slugtest Wanderers', 'unclaimed', 'slugtest-wanderers-now') returning id`)).rows[0].id;
+  await db.query(`insert into club_slug_former (slug, club_id) values ('slugtest-wanderers', $1)`, [own]);
+  check('slug-2: a former address answers with the listing’s address now, and an unknown one with nothing',
+    [(await db.query(`select fn_club_slug_now('slugtest-wanderers') as s`)).rows[0].s, (await db.query(`select fn_club_slug_now('no-such-club') as s`)).rows[0].s],
+    ['slugtest-wanderers-now', null]);
+  check('slug-3: a new listing never takes an address another club used to have',
+    await slug('Slugtest Wanderers'), 'slugtest-wanderers-2');
+  await db.query('delete from club where id = $1', [own]);
+  check('slug-4: the former-address table has row-level security on and no policies (L26)',
+    [(await db.query(`select relrowsecurity as r from pg_class where relname = 'club_slug_former'`)).rows[0].r,
+     (await db.query(`select count(*)::int as n from pg_policies where tablename = 'club_slug_former'`)).rows[0].n], [true, 0]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);
