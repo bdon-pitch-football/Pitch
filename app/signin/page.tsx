@@ -38,7 +38,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
                 \u00a72). */}
             {out ? 'Signed out on this device.' : reset ? 'Password saved. Sign in with it.'
               : confirmed ? 'Address confirmed. Sign in with the password you chose.'
-              : joined ? 'Check your email. There\u2019s a link in it that confirms the address is yours \u2014 open it and you can sign in.'
+              : joined ? 'Check your email. There\u2019s a link in it that confirms the address is yours \u2014 open it and you can sign in. If it isn\u2019t in your inbox, look in spam or junk \u2014 we\u2019re new, and some inboxes don\u2019t know us yet.'
               : 'One account, whichever seat you hold.'}
           </div>
         </div>

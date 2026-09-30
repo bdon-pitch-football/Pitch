@@ -131,3 +131,7 @@ Anything new still goes to BUZ.
 ## 30 September: the SMS switch words (BUZ: "approve the SMS words too")
 
 - The whole SMS card on `/ops/switches`, as listed to BUZ: heading, "Nothing spent this month", the switch-off explanation, both buttons, the off/Vercel-off/limit/no-limit lines, the limit field and its buttons, the four confirmations, the two errors and the four log lines. `SMS_WORDS_APPROVED = true`; the card now renders in production, so the launch-day "switch SMS off and on from the phone" step is possible.
+
+## 30 September: the spam sentence after sign-up (BUZ: "approve the spam sentence")
+
+- `/signin?joined=1`, after "…open it and you can sign in.": "If it isn't in your inbox, look in spam or junk — we're new, and some inboxes don't know us yet." Reason: the rehearsal's confirm email passed SPF, DKIM and DMARC and still went to Gmail spam (a new sending domain). Remove once mail lands in inboxes reliably. Render check fp-spam1.

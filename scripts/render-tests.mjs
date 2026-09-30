@@ -2194,6 +2194,14 @@ const georgia = ids.children.georgia;
     check('fp10: and it is on the sign-in page, not on "Welcome back"',
       has((await get('/home')).html, REFUSED), false);
   }
+  // Rehearsal, 30 Sep: the confirm email passed SPF, DKIM and DMARC and still
+  // landed in Gmail's spam, because the sending domain is new. The screen a
+  // new account waits on says where to look (BUZ approved the sentence).
+  {
+    const joined = await get('/signin?joined=1');
+    check('fp-spam1: after joining, the page says to look in spam or junk (a new sending domain, rehearsal 30 Sep)',
+      [joined.status, has(joined.html, 'If it isn’t in your inbox, look in spam or junk — we’re new, and some inboxes don’t know us yet.')], [200, true]);
+  }
 
   // ---- the screen after reporting a concern about a child -------------------
   {
