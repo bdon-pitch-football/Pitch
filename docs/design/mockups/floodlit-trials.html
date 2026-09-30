@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch — Floodlit proposal: the trials board</title>
+<style>
+@font-face{font-family:Archivo;font-weight:500;src:url(../../../assets/fonts/Archivo-500.ttf)}
+@font-face{font-family:Archivo;font-weight:700;src:url(../../../assets/fonts/Archivo-700.ttf)}
+/* No 800 file in assets/fonts: 800 renders from the 900 file in this mockup only. The app loads the real 800. */
+@font-face{font-family:Archivo;font-weight:800 900;src:url(../../../assets/fonts/Archivo-900.ttf)}
+
+/* ---- the real tokens: app/globals.css :root (28 Sep stack) + FLOODLIT ---- */
+:root{
+  --bg:#0b120e;--surface:#1d2b23;--surface-2:#25332c;--surface-sunken:#15201a;--line:#32463b;
+  --ink:#eef5f0;--secondary:#b9c8bf;--muted:#8a9d92;--placeholder:#909994;
+  --accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#ab87e0;--red:#e37776;
+  --surface-hover:#2b3c34;--line-hover:#384e42;
+  --hero:linear-gradient(160deg,#24543c 0%,#1f3d2e 60%,#1d3126 100%);
+  --r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--r-pill:999px;
+  --ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;
+  --card-pad:15px 14px;--ease:cubic-bezier(.22,1,.36,1);
+  --shadow-card:0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -16px rgba(0,0,0,.75);
+  --shadow-float:0 1px 0 rgba(255,255,255,.07) inset,0 28px 60px -18px rgba(0,0,0,.9);
+  --shadow-accent:0 10px 26px -8px rgba(61,220,132,.55);
+  --fl-surface:linear-gradient(180deg,#1f2e26 0%,#1a271f 100%);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+
+/* ---- the presentation board (not the product) ---- */
+body{background:#050907;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:1180px;margin:0 auto;padding:40px 28px 8px}
+.doc h1{font-size:34px;font-weight:900;letter-spacing:var(--ls-title);margin:6px 0 10px;line-height:1.1}
+.doc p{font-size:15px;line-height:1.62;color:var(--secondary);margin:0 0 10px;max-width:78ch}
+.doc b{color:var(--ink)}
+.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kick{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.idx{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+.idx a{font-size:12.5px;font-weight:700;color:var(--secondary);border:1px solid var(--line);border-radius:999px;padding:0 12px;min-height:34px;display:inline-flex;align-items:center;text-decoration:none}
+.idx a:hover{color:var(--ink);border-color:var(--muted)}
+.zoomctl{display:inline-flex;align-items:center;gap:9px;margin-top:10px;font-size:13px;font-weight:700;color:var(--secondary);min-height:44px;cursor:pointer}
+.zoomctl input{width:17px;height:17px;accent-color:var(--accent)}
+.state{max-width:none;padding:34px 28px 10px;border-top:1px solid #16211b;margin-top:26px}
+.state-h{max-width:1180px;margin:0 auto 14px;display:flex;flex-direction:column;gap:6px}
+.state-h h2{font-size:22px;font-weight:900;letter-spacing:var(--ls-title);margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.state-h p{font-size:13.5px;line-height:1.6;color:var(--secondary);margin:0;max-width:96ch}
+.state-h p b{color:var(--ink)}
+.tg{border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tg-ok{background:rgba(61,220,132,.14);color:var(--accent)}
+.tg-dec{background:rgba(237,161,0,.14);color:var(--amber)}
+.tg-now{background:rgba(227,119,118,.14);color:var(--red)}
+.pair{display:flex;gap:28px;align-items:flex-start;justify-content:center;flex-wrap:wrap;margin:0 auto}
+.fr{display:flex;flex-direction:column;gap:8px}
+.fr-l{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.f390{width:390px;flex:none;container-type:inline-size;border-radius:22px;overflow:hidden;border:1px solid #1d2a23}
+.f1280{width:1280px;flex:none;container-type:inline-size;border-radius:22px;overflow:hidden;border:1px solid #1d2a23;zoom:.56}
+body:has(#actual:checked) .f1280{zoom:1}
+
+/* ---- the product, scoped to .scr ---- */
+.scr{position:relative;background:var(--bg);color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500;min-height:844px;display:flex;flex-direction:column}
+.scr a{color:var(--accent);text-decoration:none}
+.scr :where(h1,h2,h3,p){margin:0;font-size:inherit;font-weight:inherit}
+.scr input,.scr select,.scr button{font-family:inherit}
+@container (min-width:1024px){.scr{min-height:900px}}
+/* The floodlight: light from above the stand, fading to the page. */
+.flood{background:var(--bg) radial-gradient(ellipse 130% 85% at 50% -25%,#17422e 0%,#10281c 42%,#0b120e 78%) no-repeat;background-size:100% 900px}
+
+/* SiteNav (components/floodlit/SiteNav.tsx + globals FLOODLIT) */
+.fl-wide{width:100%;max-width:1200px;margin:0 auto;padding-left:18px;padding-right:18px}
+@container (min-width:640px){.fl-wide{padding-left:28px;padding-right:28px}}
+@container (min-width:1024px){.fl-wide{padding-left:40px;padding-right:40px}}
+.fl-nav{position:sticky;top:0;z-index:30;background:rgba(11,18,14,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.06)}
+.fl-nav-in{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:60px}
+.fl-nav-brand{order:2;display:inline-flex;align-items:center;min-height:44px;margin-left:auto}
+.fl-nav-left{order:1;display:flex;align-items:center;gap:4px}
+.fl-nav-links{order:1;display:flex;gap:0;margin-right:auto}
+.fl-nav-link{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border-radius:10px;font-size:14px;font-weight:700;color:var(--secondary)!important}
+.fl-nav-link[aria-current=page]{color:var(--ink)!important}
+.fl-nav-back{padding-left:0!important;color:var(--muted)!important}
+@container (max-width:639px){.fl-nav-in{gap:4px}.fl-nav-link{padding:0 8px;font-size:13px}.fl-nav-links + .fl-nav-left{margin-right:auto}.fl-nav-links{margin-right:0}}
+@container (min-width:1024px){.fl-nav-brand{order:1;margin-left:0}.fl-nav-left{order:3}.fl-nav-links{order:2;gap:2px;margin-left:12px;margin-right:auto}.fl-nav-back{display:none!important}}
+/* In a flow, the way back is not the logo: from 1024 it moves out of the bar
+   to the top of the panel instead of disappearing (same link, one visible at
+   a time, so a phone and a laptop still offer the same thing). */
+.back.page-back{display:none}
+@container (min-width:1024px){.back.page-back{display:inline-flex}}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.back{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:13px;font-weight:700;color:var(--muted)!important}
+
+/* type */
+.h1{font-size:26px;font-weight:900;letter-spacing:var(--ls-title);line-height:1.15}
+.h1-s{font-size:22px;font-weight:900;letter-spacing:var(--ls-title);line-height:1.2}
+.sub{font-size:14px;color:var(--secondary);font-weight:500;line-height:1.55}
+.label{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.small{font-size:12px;color:var(--muted);font-weight:500;line-height:1.5}
+
+/* buttons: the charter's two, and nothing else */
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);letter-spacing:var(--ls-button);text-decoration:none;width:100%;border:none;cursor:pointer;white-space:nowrap}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)!important}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink)!important;border:1px solid var(--line)}
+.btn-auto{width:auto;padding:0 22px}
+.fl-glow{box-shadow:var(--shadow-accent)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none}
+.textbtn{display:flex;align-items:center;justify-content:center;min-height:44px;font-size:13.5px;font-weight:700;color:var(--muted);background:none;border:none;width:100%}
+
+/* surfaces */
+.fl-card{background:var(--fl-surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.note-amber{background:var(--surface);border:1px solid var(--amber);border-radius:var(--r-card);padding:13px 14px;font-size:12.5px;color:var(--secondary);font-weight:500;line-height:1.55}
+.note-amber b{color:var(--ink);font-weight:800}
+.note-accent{background:var(--surface);border:1px solid var(--accent);border-radius:var(--r-card);padding:13px 14px;font-size:13.5px;color:var(--secondary);font-weight:700;line-height:1.5}
+
+/* fields: one well everywhere (.field, globals) */
+.field{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-well);padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.field.on{border-color:var(--accent)}
+.field.bad{border-color:var(--amber)}
+.field-label{font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.field input,.field select{background:transparent;border:none;color:var(--ink);font-size:14.5px;font-weight:700;padding:0;width:100%;min-height:24px;outline:none}
+.field input::placeholder{color:var(--placeholder);font-weight:500}
+.field .help{font-size:12px;color:var(--muted);font-weight:500;line-height:1.5;margin-top:4px}
+.tick{display:flex;align-items:center;gap:10px;min-height:44px;font-size:12px;color:var(--muted);font-weight:500}
+.tick input{width:17px;height:17px;accent-color:var(--accent);margin:0}
+.tick a{font-weight:700}
+
+/* the door panel: the phone column as drawn; from 640 the same column,
+   lifted onto a Floodlit panel (a container change only) */
+.flow{flex:1;padding-top:22px;padding-bottom:40px}
+.door{width:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+@container (min-width:640px){.door{margin-top:28px;padding:28px 28px 30px;background:var(--fl-surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-float)}}
+@container (min-width:1024px){.door{max-width:640px;margin-top:48px;padding:34px 36px 36px}}
+.col{width:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+@container (min-width:1024px){.col{max-width:640px;margin-top:26px}}
+/* inside the panel a card goes UP one step (action goes up) */
+@container (min-width:640px){.door .choice,.door .note-amber,.door .note-accent,.door .card{background:var(--surface-2)}.door .field{background:var(--surface-hover)}}
+
+/* choices: country, role */
+.choices{display:flex;flex-direction:column;gap:9px}
+.choice{display:flex;align-items:center;gap:12px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:15px 14px;min-height:44px;color:var(--ink);width:100%}
+.choice.on{border:1.5px solid var(--accent);padding:14.5px 13.5px}
+.choice .ic{width:40px;height:40px;border-radius:var(--r-well);flex-shrink:0;background:var(--surface-2);display:flex;align-items:center;justify-content:center}
+.choice.on .ic{background:rgba(61,220,132,.14)}
+.choice .t{font-size:15px;font-weight:800;color:var(--ink)}
+.choice .s{font-size:12px;font-weight:500;color:var(--muted);margin-top:1px}
+.roles{display:grid;grid-template-columns:1fr;gap:9px}
+.two{display:flex;flex-direction:column;gap:8px}
+@container (min-width:640px){.roles{grid-template-columns:1fr 1fr}.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}}
+.stack{display:flex;flex-direction:column;gap:9px}
+.ticks{display:flex;flex-direction:column;gap:9px}
+.ticks div{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--secondary);font-weight:500;line-height:1.5}
+
+/* the light search field from `/` (FLOODLIT .fl-search) */
+.fl-search{display:flex;gap:8px;width:100%}
+.fl-search-field{flex:1;min-width:0;display:flex;align-items:center;gap:10px;height:58px;padding:0 16px;border-radius:16px;background:#eef5f0;box-shadow:var(--shadow-float)}
+.fl-search-field input{flex:1;min-width:0;height:44px;border:0;background:transparent;color:#0b120e;font-size:16.5px;font-weight:700;outline:none}
+.fl-search-field input::placeholder{color:#5b6b62;font-weight:500}
+.fl-search .btn{width:auto;height:58px;padding:0 22px;border-radius:16px}
+
+/* chips (globals .chip) */
+.chip{height:44px;border-radius:var(--r-pill);padding:0 14px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;white-space:nowrap;background:var(--surface-2);border:1px solid var(--line);color:var(--secondary)!important;text-decoration:none}
+.chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)!important;font-weight:800}
+.chip-count{opacity:.65;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.badge{min-width:18px;height:18px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:10.5px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
+
+/* the not-yet tile: dashed means nothing is here yet (the unclaimed crest's language) */
+.dash{border:1.5px dashed rgba(255,255,255,.3);border-radius:var(--r-well);background:rgba(255,255,255,.04)}
+
+/* ---- the trials board ---- */
+.tb{flex:1;display:flex;flex-direction:column;gap:16px;padding-top:22px;padding-bottom:44px}
+.tb-head{display:flex;flex-direction:column;gap:5px}
+.tb-head .sub{font-size:13.5px}
+.tb-body{display:flex;flex-direction:column;gap:16px}
+.tb-list{display:flex;flex-direction:column;gap:12px;min-width:0}
+.m-only{display:block}.d-only{display:none}
+@container (min-width:768px){.m-only{display:none}.d-only{display:block}}
+/* P1: from 1024 the filters are a rail beside the list (D-173 width) */
+@container (min-width:1024px){
+  .tb{padding-top:34px}
+  .tb-body{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start}
+  .tb-rail{position:sticky;top:84px}
+  .tb.empty-b .tb-body{display:flex}
+}
+.filters{display:flex;flex-direction:column;gap:14px;padding:16px 16px 18px}
+.fgroup{display:flex;flex-direction:column;gap:7px}
+.fsum{display:inline-flex}
+.fsum.open{border-color:var(--accent);color:var(--ink)!important}
+.countrow{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.count{font-size:12.5px;font-weight:700;color:var(--muted);padding:0 4px}
+.clear{font-size:12.5px;font-weight:800;min-height:44px;display:inline-flex;align-items:center;padding:0 4px}
+.how{display:flex;align-items:flex-start;gap:9px;padding:13px 14px;font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.5}
+
+/* THE TRIAL ROW: the club page's row (app/fc/[slug]), shared. The date leads. */
+.tr{display:grid;grid-template-columns:54px minmax(0,1fr);column-gap:14px;padding:16px 16px 14px}
+.tr-date{text-align:center;padding-top:2px}
+.tr-d{font-size:28px;font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums;color:var(--ink)}
+.tr-m{font-size:10px;font-weight:900;letter-spacing:var(--ls-label);color:var(--accent);margin-top:5px}
+.tr-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+.tr-title{font-size:16px;font-weight:800;line-height:1.3}
+.tr-meta{font-size:13px;color:var(--muted);font-weight:500}
+.tr-stamp{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;font-size:11px;font-weight:700;color:var(--muted)}
+.tr-stamp .st{min-height:22px;display:inline-flex;align-items:center}
+.own{display:inline-flex;align-items:center;gap:5px;min-height:44px;color:var(--secondary)!important;text-decoration:underline!important;text-decoration-color:rgba(185,200,191,.4)!important;text-underline-offset:3px;font-size:11.5px;font-weight:700}
+.tr-foot{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
+.tr-foot.solo{justify-content:flex-end}
+.stt{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--accent);min-width:0}
+.stt i{width:6px;height:6px;border-radius:999px;background:var(--accent);flex-shrink:0}
+.stt.un{color:var(--muted);font-weight:700}.stt.un i{background:var(--placeholder)}
+.tr-foot .btn{flex-shrink:0}
+.tr-foot .btn-auto{padding:0 18px}
+@container (min-width:768px){
+  .tr{grid-template-columns:54px minmax(0,1fr) auto;align-items:center;padding:18px 20px}
+  .tr-foot{grid-column:3;grid-row:1;flex-direction:column;align-items:flex-end;justify-content:center;gap:8px;margin:0;padding:0 0 0 16px;border-top:0}
+}
+
+/* the empty board */
+.empty{display:flex;align-items:flex-start;gap:14px;padding:18px 16px}
+.empty .dash{width:54px;height:62px;flex-shrink:0}
+.empty p{font-size:13.5px;color:var(--secondary);font-weight:500;line-height:1.55}
+.empty p b{display:block;font-size:16px;font-weight:800;color:var(--ink);margin-bottom:4px}
+.board-art{display:flex;gap:10px}
+.board-art .dash{width:54px;height:62px}
+.board-art .dash:nth-child(2){opacity:.6}.board-art .dash:nth-child(3){opacity:.3}
+.emptyB{display:flex;flex-direction:column;gap:16px;padding:26px 20px 24px}
+.emptyB p{font-size:14px;color:var(--secondary);font-weight:500;line-height:1.6;max-width:52ch}
+.emptyB p b{display:block;font-size:20px;font-weight:900;letter-spacing:var(--ls-title);color:var(--ink);margin-bottom:6px;line-height:1.2}
+.clubdoor{padding:20px 20px;display:flex;flex-direction:column;gap:14px}
+.clubdoor h3{font-size:20px;font-weight:900;letter-spacing:var(--ls-title);line-height:1.2}
+@container (min-width:1024px){.emptyB{flex-direction:row;align-items:center;gap:28px;padding:30px 30px}}
+@container (min-width:768px){.fam{width:auto;align-self:flex-start;padding:0 22px}.clubdoor{flex-direction:row;align-items:center;justify-content:space-between;gap:24px;padding:24px 26px}.cd-btn{width:auto;padding:0 26px}}
+</style>
+</head>
+<body>
+<div class="doc">
+<div class="kick">Pitch · Floodlit proposal · 1 Oct 2026 · screen 3 of Leo’s list</div>
+<h1>The trials board (<code style="font-size:28px">/trials</code>)</h1>
+<p><b>One idea: the board is built from the club page’s parts.</b> The trial row here is the trial row on <code>/fc/[slug]</code> (date first, the same numeral, the same stamps and the same “The club’s own notice”), in the same Floodlit card, under the same nav bar. A family who goes from the board to a club sees one object, not two. Nothing is invented: no new component, no new token, no new colour.</p>
+<p><b>Fixed and kept:</b> every word (verbatim from <code>app/trials/page.tsx</code>), the fields on each listing, the 390 order (title, filters, what is chosen and the count, the how-it-works note, the listings), chronological order with no recommender, the four filters, every listing’s “checked” date and the club’s own notice link (D-90, John 30 Sep), no image on an unclaimed club’s listing (D-172). Seed content only: Riverside FC, Westgate Rangers and Kingsway Rovers FC are fixtures from <code>scripts/dev-db.mts</code>.</p>
+<p><b>Two decisions run through every artboard:</b> the nav bar on the signed-out board is <b>P2</b>, and every 1280 artboard shows the filters as a rail beside the list, which is <b>P1</b>. Without P1 the same rows and cards sit in the 640 column with the filter card above them, as today; without P2 the bar is the logo alone.</p>
+<p><span class="tg tg-ok">green</span> works under the rules as they stand. <span class="tg tg-dec">amber</span> needs a decision from BUZ, numbered as in the proposal report (<code>docs/design/reports/2026-10-01-proposal-trials-and-join.md</code>).</p>
+<label class="zoomctl"><input type="checkbox" id="actual"> Show the 1280 artboards at actual size</label>
+<div class="idx"><a href="#empty-a">Empty (rules as they stand)</a><a href="#empty-b">Empty (P3 + P4)</a><a href="#one">One listing</a><a href="#full">Full board</a><a href="#filtered">Filtered</a><a href="#filtered-empty">Filtered to nothing</a></div>
+</div>
+
+<section class="state" id="empty-a">
+  <div class="state-h"><h2>Empty board, as the rules stand <span class="tg tg-ok">no decision needed</span></h2><p>What <b>/trials</b> shows today with 0 trials, in the same order, restyled. The filters offer only “Any age” and “All” (D-162 already hides every zero-count chip), the how-it-works note still explains buttons that are not there, and the empty line is the approved sentence, set as a title and a body inside <b>one</b> element so the render suite still reads one string. The dashed tile is the unclaimed crest’s “not yet” language, where a date would be.</p></div>
+  <div class="pair">
+    <div class="fr"><div class="fr-l">390</div><div class="f390"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters</span></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="true">All</a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><div class="count" aria-live="polite">0 trials</div></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which.</div></div><div class="fl-card empty"><div class="dash" aria-hidden="true"></div><p><b>No trials listed for that yet.</b> An empty week is honest — we only list what a club has posted or published itself.</p></div></div></div></main></div></div></div>
+    <div class="fr"><div class="fr-l">1280 <span style="font-weight:700;letter-spacing:0;text-transform:none">(shown at 56% — tick "actual size" above for 100%)</span></div><div class="f1280"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters</span></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="true">All</a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><div class="count" aria-live="polite">0 trials</div></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which.</div></div><div class="fl-card empty"><div class="dash" aria-hidden="true"></div><p><b>No trials listed for that yet.</b> An empty week is honest — we only list what a club has posted or published itself.</p></div></div></div></main></div></div></div>
+  </div>
+</section>
+<section class="state" id="empty-b">
+  <div class="state-h"><h2>Empty board, if BUZ says yes to P3 and P4 <span class="tg tg-dec">needs P3 + P4</span><span class="tg tg-dec">new line N1</span></h2><p><b>P3:</b> an empty board shows only what is true of an empty board: no filters (there is nothing to filter) and no note about “the button on each listing”. <b>N1:</b> “No trials listed yet.” for the unfiltered case (the approved line says “for that”, which fits a filtered board). <b>P4:</b> two doors, signed-out visitors only, in words BUZ already approved elsewhere: a family builds the CV the club will read (the club page’s line), and a club is sent to claim its page (club landing lines). One primary on the screen, and it is the club’s, because clubs are the one audience. A signed-in player or parent sees the board in their seat frame without the doors.</p></div>
+  <div class="pair">
+    <div class="fr"><div class="fr-l">390</div><div class="f390"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb empty-b"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><div class="tb-list" style="width:100%"><div class="countrow"><div class="count" aria-live="polite">0 trials</div></div><div class="fl-card emptyB"><div class="board-art" aria-hidden="true"><div class="dash"></div><div class="dash"></div><div class="dash"></div></div><div style="display:flex;flex-direction:column;gap:16px;min-width:0"><p><b>No trials listed yet.</b> An empty week is honest — we only list what a club has posted or published itself.</p><a href="#" class="btn btn-secondary fam">Build a CV first — it is what the club reads</a></div></div><div class="fl-card clubdoor"><div style="display:flex;flex-direction:column;gap:8px;min-width:0"><span class="label" style="color:var(--amber)">For clubs &amp; technical directors</span><h3>Put your trials where families can find them.</h3></div><a href="#" class="btn btn-primary fl-glow cd-btn">Claim your club page</a></div></div></div></main></div></div></div>
+    <div class="fr"><div class="fr-l">1280 <span style="font-weight:700;letter-spacing:0;text-transform:none">(shown at 56% — tick "actual size" above for 100%)</span></div><div class="f1280"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb empty-b"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><div class="tb-list" style="width:100%"><div class="countrow"><div class="count" aria-live="polite">0 trials</div></div><div class="fl-card emptyB"><div class="board-art" aria-hidden="true"><div class="dash"></div><div class="dash"></div><div class="dash"></div></div><div style="display:flex;flex-direction:column;gap:16px;min-width:0"><p><b>No trials listed yet.</b> An empty week is honest — we only list what a club has posted or published itself.</p><a href="#" class="btn btn-secondary fam">Build a CV first — it is what the club reads</a></div></div><div class="fl-card clubdoor"><div style="display:flex;flex-direction:column;gap:8px;min-width:0"><span class="label" style="color:var(--amber)">For clubs &amp; technical directors</span><h3>Put your trials where families can find them.</h3></div><a href="#" class="btn btn-primary fl-glow cd-btn">Claim your club page</a></div></div></div></main></div></div></div>
+  </div>
+</section>
+<section class="state" id="one">
+  <div class="state-h"><h2>One listing: a notice Pitch compiled <span class="tg tg-ok">no decision needed</span></h2><p>The likely first live listing: an unclaimed club’s notice, loaded from its own website. It carries its stamps (listed, checked), “The club’s own notice” as the club’s link and never a Pitch button (underlined secondary text, external mark, John 30 Sep), the unclaimed line, and “Send my CV” as the secondary button. No crest, no image (D-172). The row is <b>the club page’s trial row</b>: date first, the same numeral and month.</p></div>
+  <div class="pair">
+    <div class="fr"><div class="fr-l">390</div><div class="f390"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters</span></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a><a href="#" class="chip" aria-pressed="false">U13<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="true">All</a><a href="#" class="chip" aria-pressed="false">Boys<span class="chip-count">1</span></a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><div class="count" aria-live="polite">1 trial</div></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which. Last checked 1 Oct.</div></div><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">12</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Westgate Rangers · U13 Boys</div>
+    <div class="tr-meta">Mon 5:30 PM · Grant Reserve</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span><a href="#" class="own">The club’s own notice<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M14 4 h6 v6"/><path d="M20 4 L11 13"/><path d="M18 14 v5 a1 1 0 0 1 -1 1 H5 a1 1 0 0 1 -1 -1 V7 a1 1 0 0 1 1 -1 h5"/></svg></a></div>
+  </div>
+  <div class="tr-foot"><div class="stt un"><i></i>Unclaimed listing · register via club</div><a href="#" class="btn btn-secondary btn-auto">Send my CV</a></div>
+</article></div></div></main></div></div></div>
+    <div class="fr"><div class="fr-l">1280 <span style="font-weight:700;letter-spacing:0;text-transform:none">(shown at 56% — tick "actual size" above for 100%)</span></div><div class="f1280"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters</span></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a><a href="#" class="chip" aria-pressed="false">U13<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="true">All</a><a href="#" class="chip" aria-pressed="false">Boys<span class="chip-count">1</span></a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><div class="count" aria-live="polite">1 trial</div></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which. Last checked 1 Oct.</div></div><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">12</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Westgate Rangers · U13 Boys</div>
+    <div class="tr-meta">Mon 5:30 PM · Grant Reserve</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span><a href="#" class="own">The club’s own notice<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M14 4 h6 v6"/><path d="M20 4 L11 13"/><path d="M18 14 v5 a1 1 0 0 1 -1 1 H5 a1 1 0 0 1 -1 -1 V7 a1 1 0 0 1 1 -1 h5"/></svg></a></div>
+  </div>
+  <div class="tr-foot"><div class="stt un"><i></i>Unclaimed listing · register via club</div><a href="#" class="btn btn-secondary btn-auto">Send my CV</a></div>
+</article></div></div></main></div></div></div>
+  </div>
+</section>
+<section class="state" id="full">
+  <div class="state-h"><h2>Full board, nothing filtered <span class="tg tg-ok">order and fields unchanged</span><span class="tg tg-dec">1280 needs P1</span></h2><p>Every upcoming notice in the seed, by date: two verified clubs (“I’m interested”, the one primary per row, 50px) and one compiled notice (“Send my CV”, secondary, 46px). The row buttons move onto the charter’s two heights; today they are 44px pills, a third button. <b>At 1280 the filters are a sticky rail beside the list (P1)</b>: a parent on a laptop sees what is chosen and what it leaves at once. If BUZ says no to P1, the same rows sit in the 640 column with the filter card above them, as today.</p></div>
+  <div class="pair">
+    <div class="fr"><div class="fr-l">390</div><div class="f390"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters</span></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a><a href="#" class="chip" aria-pressed="false">U13<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">U14<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">U15<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">U16<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">U17<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U18<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">Seniors<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="true">All</a><a href="#" class="chip" aria-pressed="false">Boys<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">Girls<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Positions wanted</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any</a><a href="#" class="chip" aria-pressed="false">GK<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">CB<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">ST<span class="chip-count">1</span></a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><div class="count" aria-live="polite">4 trials</div></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which. Last checked 1 Oct.</div></div><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">11</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Riverside FC · U14 &amp; U15 Boys</div>
+    <div class="tr-meta">Sun 9:00 AM · Riverside Park, Pitch 2</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span></div>
+  </div>
+  <div class="tr-foot"><div class="stt"><i></i>On Pitch — verified club</div><a href="#" class="btn btn-primary btn-auto fl-glow">I’m interested</a></div>
+</article><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">12</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Westgate Rangers · U13 Boys</div>
+    <div class="tr-meta">Mon 5:30 PM · Grant Reserve</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span><a href="#" class="own">The club’s own notice<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M14 4 h6 v6"/><path d="M20 4 L11 13"/><path d="M18 14 v5 a1 1 0 0 1 -1 1 H5 a1 1 0 0 1 -1 -1 V7 a1 1 0 0 1 1 -1 h5"/></svg></a></div>
+  </div>
+  <div class="tr-foot"><div class="stt un"><i></i>Unclaimed listing · register via club</div><a href="#" class="btn btn-secondary btn-auto">Send my CV</a></div>
+</article><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">18</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Riverside FC · Girls U13–U16</div>
+    <div class="tr-meta">Sun 10:00 AM · Riverside Park, Pitch 1</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span></div>
+  </div>
+  <div class="tr-foot"><div class="stt"><i></i>On Pitch — verified club</div><a href="#" class="btn btn-primary btn-auto fl-glow">I’m interested</a></div>
+</article><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">25</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Kingsway Rovers FC · U16–U18 and Seniors</div>
+    <div class="tr-meta">Sun 10:00 AM · Brunswick West Oval</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span></div>
+  </div>
+  <div class="tr-foot"><div class="stt"><i></i>On Pitch — verified club</div><a href="#" class="btn btn-primary btn-auto fl-glow">I’m interested</a></div>
+</article></div></div></main></div></div></div>
+    <div class="fr"><div class="fr-l">1280 <span style="font-weight:700;letter-spacing:0;text-transform:none">(shown at 56% — tick "actual size" above for 100%)</span></div><div class="f1280"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters</span></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a><a href="#" class="chip" aria-pressed="false">U13<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">U14<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">U15<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">U16<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">U17<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U18<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">Seniors<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="true">All</a><a href="#" class="chip" aria-pressed="false">Boys<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">Girls<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Positions wanted</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any</a><a href="#" class="chip" aria-pressed="false">GK<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">CB<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">ST<span class="chip-count">1</span></a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><div class="count" aria-live="polite">4 trials</div></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which. Last checked 1 Oct.</div></div><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">11</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Riverside FC · U14 &amp; U15 Boys</div>
+    <div class="tr-meta">Sun 9:00 AM · Riverside Park, Pitch 2</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span></div>
+  </div>
+  <div class="tr-foot"><div class="stt"><i></i>On Pitch — verified club</div><a href="#" class="btn btn-primary btn-auto fl-glow">I’m interested</a></div>
+</article><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">12</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Westgate Rangers · U13 Boys</div>
+    <div class="tr-meta">Mon 5:30 PM · Grant Reserve</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span><a href="#" class="own">The club’s own notice<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M14 4 h6 v6"/><path d="M20 4 L11 13"/><path d="M18 14 v5 a1 1 0 0 1 -1 1 H5 a1 1 0 0 1 -1 -1 V7 a1 1 0 0 1 1 -1 h5"/></svg></a></div>
+  </div>
+  <div class="tr-foot"><div class="stt un"><i></i>Unclaimed listing · register via club</div><a href="#" class="btn btn-secondary btn-auto">Send my CV</a></div>
+</article><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">18</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Riverside FC · Girls U13–U16</div>
+    <div class="tr-meta">Sun 10:00 AM · Riverside Park, Pitch 1</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span></div>
+  </div>
+  <div class="tr-foot"><div class="stt"><i></i>On Pitch — verified club</div><a href="#" class="btn btn-primary btn-auto fl-glow">I’m interested</a></div>
+</article><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">25</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Kingsway Rovers FC · U16–U18 and Seniors</div>
+    <div class="tr-meta">Sun 10:00 AM · Brunswick West Oval</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span></div>
+  </div>
+  <div class="tr-foot"><div class="stt"><i></i>On Pitch — verified club</div><a href="#" class="btn btn-primary btn-auto fl-glow">I’m interested</a></div>
+</article></div></div></main></div></div></div>
+  </div>
+</section>
+<section class="state" id="filtered">
+  <div class="state-h"><h2>Filtered: Boys, filters open on the phone <span class="tg tg-ok">no decision needed</span></h2><p>The phone folds the four groups into one Filters chip with a count; opened, it is the same card the rail shows. Every chip says how many trials it would leave, given what is already chosen, so nobody taps into an empty board. What is chosen stays on screen as a chip you can take off. The address is the filter (<code>/trials?gender=boys</code>), so a parent can send it on.</p></div>
+  <div class="pair">
+    <div class="fr"><div class="fr-l">390</div><div class="f390"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum open"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters<span class="badge">1</span></span><div class="fl-card" style="margin-top:10px"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a><a href="#" class="chip" aria-pressed="false">U13<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U14<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U15<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="false">All</a><a href="#" class="chip" aria-pressed="true">Boys<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">Girls<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Positions wanted</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any</a><a href="#" class="chip" aria-pressed="false">GK<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">CB<span class="chip-count">1</span></a></div></div></div></div></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a><a href="#" class="chip" aria-pressed="false">U13<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U14<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U15<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="false">All</a><a href="#" class="chip" aria-pressed="true">Boys<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">Girls<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Positions wanted</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any</a><a href="#" class="chip" aria-pressed="false">GK<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">CB<span class="chip-count">1</span></a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><a href="#" class="chip" aria-pressed="true" aria-label="Remove Boys">Boys<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></a><div class="count" aria-live="polite">2 trials</div></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which. Last checked 1 Oct.</div></div><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">11</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Riverside FC · U14 &amp; U15 Boys</div>
+    <div class="tr-meta">Sun 9:00 AM · Riverside Park, Pitch 2</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span></div>
+  </div>
+  <div class="tr-foot"><div class="stt"><i></i>On Pitch — verified club</div><a href="#" class="btn btn-primary btn-auto fl-glow">I’m interested</a></div>
+</article><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">12</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Westgate Rangers · U13 Boys</div>
+    <div class="tr-meta">Mon 5:30 PM · Grant Reserve</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span><a href="#" class="own">The club’s own notice<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M14 4 h6 v6"/><path d="M20 4 L11 13"/><path d="M18 14 v5 a1 1 0 0 1 -1 1 H5 a1 1 0 0 1 -1 -1 V7 a1 1 0 0 1 1 -1 h5"/></svg></a></div>
+  </div>
+  <div class="tr-foot"><div class="stt un"><i></i>Unclaimed listing · register via club</div><a href="#" class="btn btn-secondary btn-auto">Send my CV</a></div>
+</article></div></div></main></div></div></div>
+    <div class="fr"><div class="fr-l">1280 <span style="font-weight:700;letter-spacing:0;text-transform:none">(shown at 56% — tick "actual size" above for 100%)</span></div><div class="f1280"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum open"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters<span class="badge">1</span></span><div class="fl-card" style="margin-top:10px"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a><a href="#" class="chip" aria-pressed="false">U13<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U14<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U15<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="false">All</a><a href="#" class="chip" aria-pressed="true">Boys<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">Girls<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Positions wanted</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any</a><a href="#" class="chip" aria-pressed="false">GK<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">CB<span class="chip-count">1</span></a></div></div></div></div></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a><a href="#" class="chip" aria-pressed="false">U13<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U14<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">U15<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="false">All</a><a href="#" class="chip" aria-pressed="true">Boys<span class="chip-count">2</span></a><a href="#" class="chip" aria-pressed="false">Girls<span class="chip-count">1</span></a></div></div><div class="fgroup"><div class="label">Positions wanted</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any</a><a href="#" class="chip" aria-pressed="false">GK<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="false">CB<span class="chip-count">1</span></a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><a href="#" class="chip" aria-pressed="true" aria-label="Remove Boys">Boys<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></a><div class="count" aria-live="polite">2 trials</div></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which. Last checked 1 Oct.</div></div><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">11</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Riverside FC · U14 &amp; U15 Boys</div>
+    <div class="tr-meta">Sun 9:00 AM · Riverside Park, Pitch 2</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span></div>
+  </div>
+  <div class="tr-foot"><div class="stt"><i></i>On Pitch — verified club</div><a href="#" class="btn btn-primary btn-auto fl-glow">I’m interested</a></div>
+</article><article class="fl-card tr">
+  <div class="tr-date"><div class="tr-d">12</div><div class="tr-m">OCT</div></div>
+  <div class="tr-main">
+    <div class="tr-title">Westgate Rangers · U13 Boys</div>
+    <div class="tr-meta">Mon 5:30 PM · Grant Reserve</div>
+    <div class="tr-stamp"><span class="st">Listed 30 Sep · checked 1 Oct</span><a href="#" class="own">The club’s own notice<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M14 4 h6 v6"/><path d="M20 4 L11 13"/><path d="M18 14 v5 a1 1 0 0 1 -1 1 H5 a1 1 0 0 1 -1 -1 V7 a1 1 0 0 1 1 -1 h5"/></svg></a></div>
+  </div>
+  <div class="tr-foot"><div class="stt un"><i></i>Unclaimed listing · register via club</div><a href="#" class="btn btn-secondary btn-auto">Send my CV</a></div>
+</article></div></div></main></div></div></div>
+  </div>
+</section>
+<section class="state" id="filtered-empty">
+  <div class="state-h"><h2>Filtered to nothing: an old link <span class="tg tg-ok">no decision needed</span></h2><p>Chips cannot lead here (D-162), but a link can: a parent shares <code>?gender=girls&amp;pos=GK</code> and the one trial it matched has passed. Both chosen filters stay on screen to be taken off, “Clear” appears because there are two, and here the approved line fits exactly: “No trials listed for that yet.”</p></div>
+  <div class="pair">
+    <div class="fr"><div class="fr-l">390</div><div class="f390"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters<span class="badge">2</span></span></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="false">All</a><a href="#" class="chip" aria-pressed="false">Boys<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="true">Girls<span class="chip-count">0</span></a></div></div><div class="fgroup"><div class="label">Positions wanted</div><div class="chips"><a href="#" class="chip" aria-pressed="false">Any</a><a href="#" class="chip" aria-pressed="true">GK<span class="chip-count">0</span></a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><a href="#" class="chip" aria-pressed="true" aria-label="Remove Girls">Girls<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></a><a href="#" class="chip" aria-pressed="true" aria-label="Remove GK wanted">GK wanted<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></a><div class="count" aria-live="polite">0 trials</div><a href="#" class="clear">Clear</a></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which.</div></div><div class="fl-card empty"><div class="dash" aria-hidden="true"></div><p><b>No trials listed for that yet.</b> An empty week is honest — we only list what a club has posted or published itself.</p></div></div></div></main></div></div></div>
+    <div class="fr"><div class="fr-l">1280 <span style="font-weight:700;letter-spacing:0;text-transform:none">(shown at 56% — tick "actual size" above for 100%)</span></div><div class="f1280"><div class="scr flood"><header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="#" class="fl-nav-brand" aria-label="Pitch, home"><span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span></a><nav class="fl-nav-links" aria-label="Pitch"><a href="#" class="fl-nav-link">Find your club</a><a href="#" class="fl-nav-link" aria-current="page">Trials</a></nav><div class="fl-nav-left"><a href="#" class="fl-nav-link">Sign in</a></div></div></header><main class="fl-wide tb"><div class="tb-head"><h1 class="h1">Trials board</h1><div class="sub">Club trials listed below, by trial date.</div></div><div class="tb-body"><aside class="tb-rail"><div class="m-only"><span class="chip fsum"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>Filters<span class="badge">2</span></span></div><div class="d-only fl-card"><div class="filters"><div class="fgroup"><div class="label">Age group</div><div class="chips"><a href="#" class="chip" aria-pressed="true">Any age</a></div></div><div class="fgroup"><div class="label">Competition</div><div class="chips"><a href="#" class="chip" aria-pressed="false">All</a><a href="#" class="chip" aria-pressed="false">Boys<span class="chip-count">1</span></a><a href="#" class="chip" aria-pressed="true">Girls<span class="chip-count">0</span></a></div></div><div class="fgroup"><div class="label">Positions wanted</div><div class="chips"><a href="#" class="chip" aria-pressed="false">Any</a><a href="#" class="chip" aria-pressed="true">GK<span class="chip-count">0</span></a></div></div></div></div></aside><div class="tb-list"><div class="countrow"><a href="#" class="chip" aria-pressed="true" aria-label="Remove Girls">Girls<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></a><a href="#" class="chip" aria-pressed="true" aria-label="Remove GK wanted">GK wanted<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></a><div class="count" aria-live="polite">0 trials</div><a href="#" class="clear">Clear</a></div><div class="card-sunken how"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9d92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M12 3 a9 9 0 1 0 0.01 0 Z"/><path d="M12 7 v5.5 l3.5 2"/></svg><div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which.</div></div><div class="fl-card empty"><div class="dash" aria-hidden="true"></div><p><b>No trials listed for that yet.</b> An empty week is honest — we only list what a club has posted or published itself.</p></div></div></div></main></div></div></div>
+  </div>
+</section>
+<div class="doc" style="padding-bottom:60px"><p class="small" style="margin-top:30px">Standalone: opens from disk, no network, no build. Tokens copied from <code>app/globals.css</code> (:root and FLOODLIT) on 1 Oct; if they differ, globals.css is right. Fonts from <code>assets/fonts</code> (500, 700, 900; 800 renders from the 900 file here only).</p></div>
+</body>
+</html>
