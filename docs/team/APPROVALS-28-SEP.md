@@ -135,3 +135,8 @@ Anything new still goes to BUZ.
 ## 30 September: the spam sentence after sign-up (BUZ: "approve the spam sentence")
 
 - `/signin?joined=1`, after "…open it and you can sign in.": "If it isn't in your inbox, look in spam or junk — we're new, and some inboxes don't know us yet." Reason: the rehearsal's confirm email passed SPF, DKIM and DMARC and still went to Gmail spam (a new sending domain). Remove once mail lands in inboxes reliably. Render check fp-spam1.
+
+## 30 September: the 7am email about yesterday (BUZ: "set up no. 2", then applied 0157 and pushed 539ea9d)
+
+- Subject: "Pitch — {n} new account(s) yesterday" / "Pitch — no new accounts yesterday".
+- Body: "Yesterday on Pitch ({Dy D Mon})"; "New accounts: {n} (Player a · Parent b · Coach c · Club d)" or "New accounts: none"; "Approval requests sent to parents: {x} · Approved: {y}"; "Clubs waiting for your verification call: {w}"; "Emails or texts that failed to send (last 24 hours): {f}"; footer "Counts only — no names or addresses in this email, by design. Today so far: pitchfootball.com.au/ops". Lines with nothing to say are left out; a day with nothing sends nothing. Cron 20:00 UTC (7am AEDT). Checks ops-d1–d6.
