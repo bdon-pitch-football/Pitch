@@ -91,6 +91,24 @@ and **Preview**:
 - **A failed database connection does not break `/`:** it reads as "front door closed" and serves coming-soon. Check `/trials` returns 200 after every deploy.
 - **The bucket `public-images`** must be created by hand (step 4.2).
 
+## 3c · Went live: 30 September, about 6pm (BUZ: "We need to be live before midnight")
+
+Done in this order, each production step by BUZ's own hand, each checked by Leo:
+1. Production database password reset; entered through a hidden prompt into `.env.production-db.local` (git-ignored, never printed).
+2. Migrations: `apply-migrations.mjs --baseline-waitlist --apply`: 0001 recorded (made by hand 3 Sep), 0002–0156 applied. Waitlist: 5 rows, untouched. Ledger 94.
+3. Vercel Production settings added: `SUPABASE_DB_URL`, `SESSION_SECRET` (secrets), `SUPABASE_CA_CERT`, `OPS_EMAILS`, `SUPABASE_STORAGE_BUCKET`. Existing ones checked correct.
+4. Bucket `public-images` created, public.
+5. Front door opened in the database **before** the switch, so the app's old coming-soon copy was never served.
+6. Vercel Production branch changed from `main` to **`app`**; BUZ pushed; the app went live on pitchfootball.com.au.
+
+**Found and fixed on the night:**
+- **Production's `RESEND_API_KEY` (3 Sep) never worked** (HTTP 400, never reached this Resend account). Replaced with `pitch-production2`. Two rows share the name (Preview, Production): edit the one whose environment says Production.
+- **Every session was revoked half a second after sign-in:** production prefetched the "Sign out" links (`GET /signout`). Fixed in de2868c: `prefetch={false}` on every Sign out link, and `/signout` answers a prefetch with 204 and touches nothing. Checks signout-p1/p2. Development never prefetches, so no suite could have seen it: **check sign-in on the live site after every deploy that touches navigation.**
+
+**Now true, and easy to forget:**
+- **Every push to `app` deploys to production.** Nothing is pushed without BUZ's go.
+- **Rollback:** Vercel → Deployments → the last good production deploy → ⋯ → Instant Rollback (or "Site: free until further notice" for the old website). Nothing in the database is lost.
+
 ## 4 · 1 October: BUZ's go
 
 1. BUZ says go. Leo promotes the verified preview to production on
