@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
   const { rows: [y] } = await db.query(`
     select d.*, to_char(((now() at time zone 'Australia/Melbourne')::date - 1), 'Dy FMDD Mon') as label,
       (select count(*)::int from fn_ops_delivery_failures()) as failures,
-      (select awaiting from fn_ops_today()) as awaiting
+      (select awaiting from fn_ops_today()) as awaiting,
+      fn_club_requests_open() as asks
     from fn_ops_day(((now() at time zone 'Australia/Melbourne')::date - 1), $1::text[]) d`,
     // BUZ's own test accounts are left out (0158). The list lives in the
     // environment, never in the code: DIGEST_EXCLUDE_EMAILS, comma-separated.
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
   const day = y ? {
     label: y.label as string, signups: y.signups_total, player: y.signups_player, parent: y.signups_parent,
     coach: y.signups_coach, club: y.signups_club, approvalsSent: y.approvals_sent, approved: y.approved,
-    failures: y.failures, awaitingCall: y.awaiting,
+    failures: y.failures, awaitingCall: y.awaiting, clubAsks: y.asks,
   } : null;
   // D-168 (0120): how many parents' approval texts are still waiting for SMS,
   // so the backlog is watched clearing. Counts only. The words are held until

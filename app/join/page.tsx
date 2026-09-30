@@ -230,7 +230,7 @@ export default function Join() {
               )}
               {role === 'club' && (
                 <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.55 }}>
-                  Next: open your club&rsquo;s page on Pitch and press <b style={{ color: T.secondary }}>Claim your club</b>. We email a code to the club&rsquo;s own public address, so the person who claims it is someone the club can already be reached at. If your club isn&rsquo;t on Pitch yet, email {SUPPORT_EMAIL} and we&rsquo;ll add it.
+                  Next: find your club on Pitch and press <b style={{ color: T.secondary }}>Claim</b>. We email a code to the club&rsquo;s own public address, so the person who claims it is someone the club can already be reached at. If your club isn&rsquo;t on Pitch yet, you can ask us to add it there.
                 </div>
               )}
             </form>

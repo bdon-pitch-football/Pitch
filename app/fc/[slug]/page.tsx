@@ -28,15 +28,22 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { rows } = await db.query(
-    'select name, suburb, state from club where public_slug = $1', [slug]);
+    'select name, suburb, state, club_state from club where public_slug = $1', [slug]);
   const c = rows[0];
   if (!c) return { title: 'Club' };
+  // A listing Pitch compiled is not in search until the club claims it (30 Sep,
+  // when the full Victorian list was loaded). The sitemap already leaves it out.
+  const unclaimed = c.club_state === 'unclaimed';
   const where = [c.suburb, c.state].filter(Boolean).join(', ');
   return {
     title: c.name,
-    description: `${c.name}${where ? ` — ${where}` : ''}. Teams, trials and pathway on Pitch.`,
+    // D-172: an unclaimed page never says the club is on Pitch, even in a meta tag.
+    description: unclaimed
+      ? `${c.name}${where ? ` — ${where}` : ''}. Pitch made this page from public information. ${c.name} has not claimed it.`
+      : `${c.name}${where ? ` — ${where}` : ''}. Teams, trials and pathway on Pitch.`,
     alternates: { canonical: `/fc/${slug}` },
     openGraph: { title: c.name, url: `/fc/${slug}` },
+    ...(unclaimed ? { robots: { index: false, follow: false } } : {}),
   };
 }
 
@@ -225,13 +232,22 @@ export default async function ClubPage({ params, searchParams }: {
                  neither: not the verified chip, which it has not earned, and
                  not a sentence that is no longer true. */
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.6)' }}>Compiled from public information — not affiliated until claimed</div>
-                {/* The door the club sign-up points at ("open your club's page
-                    on Pitch and press Claim your club", /join) and nothing
-                    linked to: /claim/[slug] was reachable from no page at all
-                    (D-164). Unclaimed listings only; the claim page asks the
-                    person to sign in and proves the club by its own address. */}
-                <Link href={`/claim/${slug}`} style={{ fontSize: 12, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Claim your club</Link>
+                {/* D-172 (John, 30 Sep): the banner is above the fold, in body
+                    text, and says who made the page. The removal door works
+                    with no account (it is /report). Wording: BUZ, option A. */}
+                <div data-unclaimed-banner="" style={{ fontSize: 14, fontWeight: 700, color: T.ink, lineHeight: 1.5 }}>
+                  Pitch made this page from public information. {c.name} has not claimed it.
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: T.secondary, lineHeight: 1.55 }}>
+                  Is this your club? Claim it to run the page yourself, or ask us to update or remove it.
+                </div>
+                {/* Two doors, 44px each: claiming proves the club by its own
+                    address (/claim/[slug]); the other is /report, no account
+                    needed (U6), honoured within one business day. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 18px' }}>
+                  <Link href={`/claim/${slug}`} style={{ fontSize: 13, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Claim it</Link>
+                  <a href={`/report?page=${encodeURIComponent(`/fc/${slug}`)}`} style={{ fontSize: 13, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Ask us to update or remove it</a>
+                </div>
               </div>
             ) : null}
           </div>
@@ -298,7 +314,7 @@ export default async function ClubPage({ params, searchParams }: {
           <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
             {onPitch
               ? <>Go on {c.name}&rsquo;s register and your football goes with you. It is not a trial spot and it is not a decision — there is nothing here to be turned down from.</>
-              : <>{c.name} isn&rsquo;t on Pitch yet, so there is no register here. Send them your CV instead — it goes as a link, and you can switch it off.</>}
+              : <>{c.name} hasn&rsquo;t claimed this page, so there is no register here. Send them your CV instead — it goes as a link, and you can switch it off.</>}
           </div>
           {pickedTrial && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.surface2, borderRadius: 12, padding: '9px 12px' }}>

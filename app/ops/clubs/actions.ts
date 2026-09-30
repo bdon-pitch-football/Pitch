@@ -51,7 +51,20 @@ export async function addClub(formData: FormData) {
     'select fn_ops_add_club($1, $2, $3, $4, $5, $6, $7) as id',
     [op.personId, op.email, ...listing(formData)])).rows[0].id as string);
   if (!r.ok) redirect(`/ops/clubs/new?error=${r.code}`);
+  // Added from a club's own ask (0159): the ask is done.
+  const request = text(formData, 'request');
+  if (isUuid(request)) await db.query('select fn_ops_club_request_close($1, $2, $3, $4)', [op.personId, op.email, request, 'added']);
   redirect(`/ops/clubs/${r.value}`);
+}
+
+// A club's ask that will not be added (0159): not a club, a duplicate under
+// another name, or an address that is not the club's own.
+export async function dismissClubRequest(formData: FormData) {
+  const op = await operator();
+  const request = text(formData, 'request');
+  if (!isUuid(request)) redirect('/ops/clubs');
+  await db.query('select fn_ops_club_request_close($1, $2, $3, $4)', [op.personId, op.email, request, 'dismissed']);
+  redirect('/ops/clubs');
 }
 
 export async function editClub(formData: FormData) {

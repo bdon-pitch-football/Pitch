@@ -25,6 +25,7 @@ import { clubsScreensShown } from '@/lib/ops-policy';
 import { T } from '@/lib/palette';
 import { card } from '@/lib/ui';
 import { StateChip } from './chip';
+import { dismissClubRequest } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Clubs', robots: { index: false, follow: false } };
@@ -35,13 +36,40 @@ export default async function OpsClubs({ searchParams }: { searchParams: Promise
   await requireOperator();
   if (!clubsScreensShown(process.env.NODE_ENV === 'production')) notFound();
   const q = String((await searchParams).q ?? '').trim().slice(0, 80);
+  const op = await requireOperator();
   const rows = (await db.query(`select * from fn_ops_clubs($1)`, [q])).rows as Row[];
+  // 0159: clubs a club person asked us to add. The club's details only.
+  const asks = (await db.query(`select * from fn_ops_club_requests($1, $2)`, [op.personId, op.email])).rows as
+    { id: string; name: string; suburb: string; state: string; contact_email: string; created_at: string }[];
 
   return (
     <OpsConsole active="clubs">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <OpsHeader title="Clubs"
           action={<Link href="/ops/clubs/new" className="console-btn console-btn-primary">Add a club</Link>} />
+        {asks.length > 0 && (
+          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12, border: `1px solid ${T.amber}` }}>
+            <h2 style={{ fontSize: 14, fontWeight: 800 }}>Clubs asking to be added</h2>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: T.secondary, lineHeight: 1.55 }}>
+              Check the email address is on the club&rsquo;s own website before you add it. The claim code goes there.
+            </div>
+            {asks.map((a) => {
+              const add = `/ops/clubs/new?request=${a.id}&name=${encodeURIComponent(a.name)}&suburb=${encodeURIComponent(a.suburb)}&state=${a.state}&contact=${encodeURIComponent(a.contact_email)}`;
+              return (
+                <div key={a.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, borderTop: `1px solid ${T.line}`, paddingTop: 10 }}>
+                  <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, overflowWrap: 'anywhere' }}>{a.name}</div>
+                    <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, overflowWrap: 'anywhere' }}>{a.suburb} {a.state} · {a.contact_email}</div>
+                  </div>
+                  <Link href={add} className="console-btn console-btn-primary">Add</Link>
+                  <form action={dismissClubRequest}><input type="hidden" name="request" value={a.id} />
+                    <button type="submit" className="console-btn">Dismiss</button>
+                  </form>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <form role="search" style={{ ...card, display: 'flex', gap: 10 }}>
           <input name="q" aria-label="Club name or suburb" defaultValue={q} placeholder="Club name or suburb"
             style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }} />

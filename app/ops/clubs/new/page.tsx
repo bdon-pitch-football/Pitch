@@ -19,10 +19,15 @@ import { ListingFields } from '../listing-fields';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Add a club', robots: { index: false, follow: false } };
 
-export default async function AddClub({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function AddClub({ searchParams }: {
+  searchParams: Promise<{ error?: string; request?: string; name?: string; suburb?: string; state?: string; contact?: string }>;
+}) {
   await requireOperator();
   if (!clubsScreensShown(process.env.NODE_ENV === 'production')) notFound();
-  const { error } = await searchParams;
+  const { error, request, name, suburb, state, contact } = await searchParams;
+  // From a club's ask (0159): the form starts with what the club told us.
+  const asked = request ? { name: name ?? '', suburb: suburb ?? null, state: state === 'NSW' ? 'NSW' : 'VIC',
+    contact_email: contact ?? null, listing_source: 'Asked by the club on Pitch; address checked on its website' } : undefined;
   return (
     <OpsConsole active="clubs">
       <div className="console ops-sheet" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
@@ -34,7 +39,8 @@ export default async function AddClub({ searchParams }: { searchParams: Promise<
         )}
         <form action={addClub} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <ListingFields />
+            <ListingFields c={asked} />
+            {request && <input type="hidden" name="request" value={request} />}
           </div>
           <button type="submit" className="btn btn-primary">Add a club</button>
         </form>

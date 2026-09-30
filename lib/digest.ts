@@ -31,6 +31,7 @@ export interface DigestDay {
   approvalsSent: number; approved: number;
   failures: number;       // sends that failed in the last 24 hours
   awaitingCall: number;   // claimed clubs waiting for BUZ's verification call
+  clubAsks?: number;      // clubs a club person asked us to add (0159), still open
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -46,13 +47,14 @@ function dayLines(d: DigestDay): string[] {
   }
   if (d.approvalsSent > 0) lines.push(`Approval requests sent to parents: ${d.approvalsSent} · Approved: ${d.approved}`);
   if (d.awaitingCall > 0) lines.push(`Clubs waiting for your verification call: ${d.awaitingCall}`);
+  if ((d.clubAsks ?? 0) > 0) lines.push(`Clubs asking to be added: ${d.clubAsks}`);
   if (d.failures > 0) lines.push(`Emails or texts that failed to send (last 24 hours): ${d.failures}`);
   lines.push('');
   return lines;
 }
 
 const dayHappened = (d: DigestDay | null | undefined): d is DigestDay =>
-  !!d && (d.signups > 0 || d.approvalsSent > 0 || d.failures > 0 || d.awaitingCall > 0);
+  !!d && (d.signups > 0 || d.approvalsSent > 0 || d.failures > 0 || d.awaitingCall > 0 || (d.clubAsks ?? 0) > 0);
 
 /** The subject and body, or null when there is nothing to say. Counts only. */
 export function digestMessage(w: DigestWaitlist | null, queuedTexts: number, showQueued: boolean, day?: DigestDay | null):

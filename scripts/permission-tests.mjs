@@ -1421,6 +1421,7 @@ check('I5b/I3: the consent log survives the deletion',
     'registration_request.dispatched_by': `insert into registration_request (record_id, club_id, dispatched_by, dispatched_at) values ('${E.rec}','${E.club}',$P, now())`,
     'role_application.coach_id': `insert into role_application (role_id, coach_id) values ('${E.role}',$P)`,
     'send_held.person_id': `insert into send_held (person_id, club_name) values ($P,'Erasure Park FC')`,
+    'club_request.requested_by': `insert into club_request (requested_by, name, suburb, state, contact_email) values ($P,'Erasure Rangers','Erasure','VIC','sec@erasure-rangers.example')`,
     'share_card_approval.approved_by': `insert into share_card_approval (record_id, requested_by, card_kind, approved_by, approved_at) values ('${E.rec}','${E.guardian}','og',$P, now())`,
     'share_card_approval.requested_by': `insert into share_card_approval (record_id, requested_by, card_kind) values ('${E.rec}',$P,'og')`,
     'share_request.dispatched_by': `insert into share_request (record_id, requested_by, dispatched_by, dispatched_at) values ('${E.rec}','${E.guardian}',$P, now())`,
@@ -7085,7 +7086,7 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
      (await db.query(`select fn_email_proved($1) as ok`, [taken])).rows[0].ok],
     [true, true, false]);
   check('door8: the join screen tells a coach and a club person what happens next',
-    [/Create my coaching account/.test(page), /Claim your club/.test(page)], [true, true]);
+    [/Create my coaching account/.test(page), /find your club on Pitch and press/.test(page)], [true, true]);
 }
 
 // ---- an address is not a person until they open a link we sent to it -------
@@ -9872,8 +9873,9 @@ const componentFilesAll = [];
   const queries = [...codeOnly(page).matchAll(/db\.query\(\s*`([^`]*)`/g)].map((m) => m[1].replace(/\s+/g, ' ').trim());
   // Brief H (D-168, 0120): a third, the count of parents' texts waiting for
   // SMS, so BUZ watches the backlog clear. A count, like the other two.
-  check(`ops-t4: the Today page asks the database exactly three things, all counts (${queries.length} queries)`,
-    queries, ['select * from fn_ops_today()', 'select channel, failed_at, provider_said from fn_ops_delivery_failures()', 'select fn_sms_queued_count() as n']);
+  // 0159 (30 Sep): a fourth, the count of clubs asking to be added.
+  check(`ops-t4: the Today page asks the database exactly four things, all counts (${queries.length} queries)`,
+    queries, ['select * from fn_ops_today()', 'select channel, failed_at, provider_said from fn_ops_delivery_failures()', 'select fn_sms_queued_count() as n', 'select fn_club_requests_open() as n']);
   const hrefs = [...codeOnly(page).matchAll(/href=\{?["'`]([^"'`]*)["'`]\}?/g)].map((m) => m[1]);
   check('ops-t5: and it links to one place, the lookup, with nothing of anybody’s in the address',
     [hrefs, /href=\{[^"'`]/.test(codeOnly(page))], [['/ops/support'], false]);
@@ -10153,7 +10155,7 @@ const componentFilesAll = [];
   check(`cur-s1: every door on /ops/clubs checks the operator before it asks the database anything (${exported.map(([n]) => n).join(', ')})`,
     [exported.length, exported.filter(([, body]) => !(body.indexOf('await operator()') > -1 && body.indexOf('await operator()') < body.indexOf('db.query'))).map(([n]) => n),
      /async function operator\(\) \{\s*const op = await requireOperator\(\);\s*if \(!clubsScreensShown\(process\.env\.NODE_ENV === 'production'\)\) notFound\(\);/.test(actions)],
-    [6, [], true]);
+    [7, [], true]);
   const writers = routeFiles.filter((f) => {
     const src = codeOnly(readFileSync(f, 'utf8'));
     return /fn_ops_(add|edit|remove)_club|fn_ops_(add|edit|check|remove)_notice/.test(src) && !/\/app\/ops\/clubs\/actions\.ts$/.test(f);
@@ -10168,11 +10170,74 @@ const componentFilesAll = [];
   const pageQueries = opsClubs.filter((f) => /page\.tsx$/.test(f)).flatMap((f) =>
     [...codeOnly(readFileSync(f, 'utf8')).matchAll(/db\.query\(\s*`([^`]*)`/g)].map((m) => m[1].replace(/\s+/g, ' ').trim()));
   check(`cur-s3: the clubs screens ask the database only through the operator's reads and the age-group lookup (${pageQueries.length} queries)`,
-    [pageQueries.length >= 5, pageQueries.filter((q) => !/from (fn_ops_clubs|fn_ops_club|fn_ops_club_notices)\(\$1\)|from age_group order by sort/.test(q))], [true, []]);
+    [pageQueries.length >= 5, pageQueries.filter((q) => !/from (fn_ops_clubs|fn_ops_club|fn_ops_club_notices)\(\$1\)|from fn_ops_club_requests\(\$1, \$2\)|from age_group order by sort/.test(q))], [true, []]);
   const shownGate = opsClubs.filter((f) => /page\.tsx$/.test(f)).filter((f) =>
     !/await requireOperator\(\);\s*if \(!clubsScreensShown\(process\.env\.NODE_ENV === 'production'\)\) notFound\(\);/.test(codeOnly(readFileSync(f, 'utf8'))));
   check(`cur-s4: every clubs screen is the operator's and is held until BUZ approves its words — a 404 in production until then (${opsClubs.filter((f) => /page\.tsx$/.test(f)).length} screens)`,
     [shownGate.map((f) => f.slice(f.indexOf('app/'))), clubsScreensShownTS(true) === CLUBS_WORDS_APPROVED_TS, clubsScreensShownTS(false)], [[], true, true]);
+}
+
+// --- Clubs find themselves, or ask to be added (0159; BUZ, 30 Sep: "Right
+//     now they can't sign up"). Production opened with no listings, so a
+//     club person had nothing to claim and no way to find anything.
+{
+  const state = async (sql, args) => { try { await db.query(sql, args); return 'ok'; } catch (e) { return e.code ?? 'error'; } };
+  const cur = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, email) values ($1, 'Asker Curator', 'asker.curator@fixture.example')`, [cur]);
+  const OPR = [cur, 'asker.curator@fixture.example'];
+  await db.query('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7)', [...OPR, 'Quillbrook Rangers SC', 'Quillbrook', 'VIC', 'info@quillbrook-rangers.example.au', 'club website /contact']);
+  const names = async (q) => (await db.query('select name from fn_club_search($1)', [q])).rows.map((r) => r.name);
+  const cols = (await db.query(`select pg_get_function_result('fn_club_search(text)'::regprocedure) as r`)).rows[0].r;
+  check('fc-s1: a club person finds a listed club by a piece of its name or its suburb, and a search shorter than two letters finds nothing',
+    [(await names('quillb')).includes('Quillbrook Rangers SC'), (await names('Quillbrook')).length >= 1, (await names('q')).length, (await names('%')).length],
+    [true, true, 0, 0]);
+  const suspended = (await db.query(`select name from club where club_state = 'suspended' limit 1`)).rows[0]?.name;
+  check('fc-s2: a suspended club is not found, and the search returns club facts only — no person, no address',
+    [suspended ? (await names(suspended)).includes(suspended) : false, /email|person|contact|listed_by/.test(cols)], [false, false]);
+
+  const adult = crypto.randomUUID(), unproved = crypto.randomUUID(), minor = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, email) values
+    ($1, 'Askeradult', '1985-03-02', 'asker.adult@fixture.example'),
+    ($2, 'Askerunproved', '1985-03-02', 'asker.unproved@fixture.example'),
+    ($3, 'Askerminor', (now() - interval '15 years')::date, 'asker.minor@fixture.example')`, [adult, unproved, minor]);
+  await proveAddress(adult); await proveAddress(minor);
+  const ask = (who, name, suburb = 'Pinewood', email = 'secretary@fixture-ask.example.au') =>
+    state('select fn_club_request_add($1, $2, $3, $4, $5)', [who, name, suburb, 'VIC', email]);
+  check('fc-r1: an adult with a confirmed address can ask for a club; an unconfirmed account and an under-18 cannot',
+    [await ask(adult, 'Pinewood Athletic'), await ask(unproved, 'Pinewood United'), await ask(minor, 'Pinewood City')],
+    ['ok', '42501', '42501']);
+  check('fc-r2: a club already listed is refused (same name and suburb), and so is an ask with no real address',
+    [await ask(adult, 'Quillbrook Rangers SC', 'Quillbrook'), await ask(adult, 'Pinewood Rovers', 'Pinewood', 'not-an-address')],
+    ['23505', '23514']);
+  await ask(adult, 'Pinewood Wanderers'); await ask(adult, 'Pinewood Strikers');
+  check('fc-r3: three open asks at a time — the fourth is refused', await ask(adult, 'Pinewood Eagles'), '23514');
+  const queue = (await db.query('select * from fn_ops_club_requests($1, $2)', OPR)).rows;
+  const qcols = Object.keys(queue[0] ?? {});
+  check('fc-r4: the operator sees the asks with the club’s details only — never who asked',
+    [queue.filter((r) => r.name.startsWith('Pinewood')).length, qcols.some((c) => /requested|person|asker/.test(c)),
+     await state('select * from fn_ops_club_requests($1, $2)', [adult, 'not.the.operator@fixture.example'])],
+    [3, false, '42501']);
+  const before = (await db.query('select fn_club_requests_open() as n')).rows[0].n;
+  const first = queue.find((r) => r.name === 'Pinewood Athletic');
+  await db.query('select fn_ops_club_request_close($1, $2, $3, $4)', [...OPR, first.id, 'dismissed']);
+  check('fc-r5: closing an ask takes it off the queue and the count, and nobody can close one in someone else\u2019s name',
+    [(await db.query('select fn_club_requests_open() as n')).rows[0].n, (await db.query('select * from fn_ops_club_requests($1, $2)', OPR)).rows.some((r) => r.id === first.id),
+     // The database checks the caller is who they say (fn_ops_operator); WHO
+     // is an operator is the /ops guard's (OPS_EMAILS), pinned by cur-s1.
+     await state('select fn_ops_club_request_close($1, $2, $3, $4)', [minor, 'asker.curator@fixture.example', queue[1].id, 'added'])],
+    [before - 1, false, '42501']);
+  const rls = (await db.query(`select relrowsecurity r from pg_class where oid = 'club_request'::regclass`)).rows[0].r;
+  const pols = (await db.query(`select count(*)::int n from pg_policies where tablename = 'club_request'`)).rows[0].n;
+  check('fc-r6: the asks table is locked — row security on, no policies (L26)', [rls, pols], [true, 0]);
+  const { digestMessage } = await import('../lib/digest.ts');
+  const quietButAsks = { label: 'Wed 30 Sep', signups: 0, player: 0, parent: 0, coach: 0, club: 0, approvalsSent: 0, approved: 0, failures: 0, awaitingCall: 0, clubAsks: 2 };
+  check('fc-r7: the 7am email says how many clubs are asking to be added, even on a day with nothing else',
+    /^Clubs asking to be added: 2$/m.test(digestMessage(null, 0, true, quietButAsks)?.text ?? ''), true);
+  const fcPage = codeOnly(srcOf('app/fc/[slug]/page.tsx'));
+  check('fc-s3: an unclaimed listing is kept out of search engines until the club claims it',
+    /unclaimed \? \{ robots: \{ index: false, follow: false \} \}/.test(fcPage), true);
+  await db.query('delete from club_request where requested_by = $1', [adult]);
+  await db.query('delete from person where id in ($1, $2, $3)', [adult, unproved, minor]);
 }
 
 // --- A suspended club advertises nothing (brief K item 1, 29 Sep; 0140; D-90,

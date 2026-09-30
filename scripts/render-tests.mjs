@@ -2203,6 +2203,27 @@ const georgia = ids.children.georgia;
     check('fp10: and it is on the sign-in page, not on "Welcome back"',
       has((await get('/home')).html, REFUSED), false);
   }
+  // 30 Sep: clubs could not sign up — production had nothing to claim and no
+  // way to find anything. Find your club, and "Tell us your club" (0159).
+  {
+    const find = await get('/claim');
+    check('fyc-r1: /claim is Find your club, with a search by club name or suburb, and no account needed to search',
+      [find.status, has(find.html, 'Find your club'), /placeholder="Club name or suburb"/.test(find.html)], [200, true, true]);
+    const hit = await get('/claim?q=Riverside');
+    check('fyc-r2: a claimed club is found and says so, with no Claim button for it',
+      [has(hit.html, 'Riverside FC'), has(hit.html, 'Already claimed'), /href="\/claim\/riverside-fc"/.test(hit.html)], [true, true, false]);
+    const miss = await get('/claim?q=Zzqxw');
+    check('fyc-r3: nothing found says so, and a signed-out visitor is asked to sign in before telling us a club',
+      [has(miss.html, 'We couldn’t find'), has(miss.html, 'Not here? Tell us your club'), has(miss.html, 'Sign in to tell us your club'), /name="email"/.test(miss.html)],
+      [true, true, true, false]);
+    const signedIn = await get('/claim?q=Zzqxw', ids.people.robin);
+    check('fyc-r4: signed in, the ask form takes the club’s name, suburb, state and its own email address',
+      [/name="name"/.test(signedIn.html), /name="suburb"/.test(signedIn.html), /name="state"/.test(signedIn.html), /name="email"/.test(signedIn.html),
+       has(signedIn.html, 'The club’s own address, the one on its website. We send the claim code there.')], [true, true, true, true, true]);
+    const home = await get('/home', ids.people.robin);
+    check('fyc-r5: a brand-new account’s home offers Find your club, and no longer says claiming is not on this screen',
+      [/href="\/claim"/.test(home.html), has(home.html, 'Here for a club? Find your club'), has(home.html, 'claiming a club page')], [true, true, false]);
+  }
   // Rehearsal, 30 Sep: the confirm email passed SPF, DKIM and DMARC and still
   // landed in Gmail's spam, because the sending domain is new. The screen a
   // new account waits on says where to look (BUZ approved the sentence).
@@ -2433,10 +2454,37 @@ const georgia = ids.children.georgia;
 // ---- links that had no page pointing at them (D-164) -------------------------
 {
   const westgate = await get('/fc/westgate-rangers');
-  check('link-r1: an unclaimed club page carries "Claim your club", to /claim/<slug>',
-    /href="\/claim\/westgate-rangers"[^>]*>Claim your club</.test(westgate.html), true);
+  check('link-r1: an unclaimed club page carries "Claim it", to /claim/<slug> (D-172 wording, BUZ 30 Sep)',
+    /href="\/claim\/westgate-rangers"[^>]*>Claim it</.test(westgate.html), true);
   const riverside = await get('/fc/riverside-fc');
   check('link-r1b: and a verified one does not', /href="\/claim\//.test(riverside.html), false);
+  // D-172 (John's six rules, 30 Sep): an unclaimed page Pitch compiled.
+  const brind = await get('/fc/brindlewood-rovers-sc');
+  // Visible words only: scripts, tags and entities out (the page's own text).
+  const bw = brind.html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ')
+    .replace(/<[^>]+>/g, ' ').replace(/&rsquo;/g, '\u2019').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  check('U1: an unclaimed page carries no image file of any kind — no crest, logo or photograph',
+    // Pitch's own brand files (its app icon) are Pitch's; nothing else may be an image.
+    [brind.status, /<img\b/i.test(brind.html),
+     (brind.html.replace(/_next\/static[^"]*/g, '').match(/[^" ]*\.(png|jpe?g|webp|gif|svg)(\?[^"]*)?/gi) ?? []).filter((u) => !u.startsWith('/assets/brand/'))],
+    [200, false, []]);
+  check('U2: no personal name, email address or phone number appears on it — not even the club\u2019s own published address',
+    [/[\w.+-]+@[\w-]+\.[\w.]+/.test(bw), /\b0[2-478](\s?\d){8}\b|\+61/.test(bw), /brindlewoodrovers\.example/.test(brind.html)], [false, false, false]);
+  check('U3: nothing about a person under 18 — no squad, no team list, no child\u2019s name',
+    [/Deniz|Georgia|Mila|Nate/.test(bw), /data-squad|href="\/squad\//.test(brind.html)], [false, false]);
+  check('U4: it is kept out of search engines until the club claims it',
+    /<meta name="robots" content="noindex, nofollow"/.test(brind.html), true);
+  const bannerAt = brind.html.indexOf('data-unclaimed-banner');
+  check('U5: the banner is there, in body-text size, before anything else on the page is offered',
+    [bannerAt > 0, brind.html.replace(/<!-- -->/g, '').includes('Pitch made this page from public information. Brindlewood Rovers SC has not claimed it.'),
+     /data-unclaimed-banner="" style="font-size:14px/.test(brind.html), bannerAt < Math.max(brind.html.indexOf('>Trials<'), brind.html.length)],
+    [true, true, true, true]);
+  check('U6: the take-it-down door is on the page and needs no account — it is /report',
+    [/href="\/report\?page=%2Ffc%2Fbrindlewood-rovers-sc"[^>]*>Ask us to update or remove it</.test(brind.html), (await get('/report?page=%2Ffc%2Fbrindlewood-rovers-sc')).status],
+    [true, 200]);
+  check('D-172: never "partner", "member", "joined", "on Pitch", "verified", "official" or "in association with" on an unclaimed page',
+    /\b(partner|member|joined|on Pitch|verified|official|in association with)\b/i.test(bw), false);
+
   const nate = ids.children.nate;
   const home = await get('/home', nate.child_id);
   check('link-r2: a 16–17 with a confirmed parent is offered "Share my CV" on their home, to /share-card/<record>',

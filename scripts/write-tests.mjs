@@ -101,7 +101,10 @@ function forms(html) {
     for (const t of body.matchAll(/<textarea[^>]*name="([^"]*)"/g)) visible.push({ name: t[1], type: 'textarea' });
     const label = /name="\$ACTION_ID_([a-f0-9]+)"/.exec(body)?.[1]
       ?? Object.keys(fields).join(',') ?? '?';
-    out.push({ fields, visible, action, bound: /\$ACTION_REF_/.test(body), actionId: label,
+    // A method="get" form (a search) is a link with a query string: a browser
+    // submits it as a GET, with or without JavaScript (30 Sep, /claim).
+    const method = (/method="([^"]+)"/i.exec(m[1])?.[1] ?? 'post').toLowerCase();
+    out.push({ fields, visible, action, method, bound: /\$ACTION_REF_/.test(body), actionId: label,
       submit: (/<button[^>]*type="submit"[^>]*>([\s\S]*?)<\/button>/.exec(body)?.[1] ?? '')
         .replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, "'").trim().slice(0, 34) });
   }
@@ -193,8 +196,11 @@ async function post(path, who, form) {
     if (v.file) fd.append(v.name, new Blob([PNG], { type: 'image/png' }), 'sweep.png');
     else fd.append(v.name, value(v));
   }
-  const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual',
-    headers: who ? { cookie: cookieFor(who) } : {} });
+  const r = form.method === 'get'
+    ? await fetch(BASE + path + (path.includes('?') ? '&' : '?') + new URLSearchParams([...fd.entries()].map(([k, v]) => [k, String(v)])).toString(),
+        { redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} })
+    : await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual',
+        headers: who ? { cookie: cookieFor(who) } : {} });
   await r.text();
   return r.status;
 }
@@ -707,10 +713,11 @@ async function post(path, who, form) {
      /Brackenfold Rovers Brackenfold VIC — Unclaimed/.test(words((await get('/ops/clubs?q=brackenfold', op)).html))],
     [303, true, 1, true]);
   const pub = words((await get('/fc/brackenfold-rovers', null)).html);
-  check('cur-w2: its public page is up at once, with the D-64 disclaimer and the door to claim it',
-    [/Compiled from public information — not affiliated until claimed/.test(pub), /Claim your club/.test(pub)], [true, true]);
+  check('cur-w2: its public page is up at once, with the D-172 banner and the door to claim it',
+    [/Pitch made this page from public information\. Brackenfold Rovers has not claimed it\./.test(pub), /Claim it/.test(pub)], [true, true]);
   check('cur-w3: and /claim, unchanged, would send its code to the address the listing was compiled with, and nowhere else',
-    /secretary@brackenfold\.example\.au/.test(words((await get('/claim/brackenfold-rovers', ids.people.robin)).html)), true);
+    // D-172 (30 Sep): shown partly hidden, the address the listing was compiled with.
+    /se••@brackenfold\.example\.au/.test(words((await get('/claim/brackenfold-rovers', ids.people.robin)).html)), true);
   const dup = await press('/ops/clubs/new', op, { ...newForm.fields, ...listing, name: 'BRACKENFOLD  rovers', suburb: ' brackenfold ' });
   const blank = await press('/ops/clubs/new', op, { ...newForm.fields, ...listing, name: 'Sourceless Rovers', source: ' ' });
   check('cur-w4: the same club again is refused by name and suburb, and a listing with no source is refused — the page says which, and nothing more is listed',
@@ -3247,9 +3254,20 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const ask = forms((await get('/claim/westgate-rangers', robin)).html).find((f) => 'slug' in f.fields && !f.visible.some((v) => v.name === 'code'));
   await post('/claim/westgate-rangers', robin, ask.fields);
   const code = /claim Westgate Rangers on Pitch[\s\S]*?your code is:\s*(\d{6})/.exec(words((await get('/dev/outbox', op)).html))?.[1];
-  const enter = forms((await get('/claim/westgate-rangers?sent=1', robin)).html).find((f) => f.visible.some((v) => v.name === 'code'));
+  // Read while the code is out and the club is still unclaimed (claim-w1).
+  const sentPage = (await get('/claim/westgate-rangers?sent=1', robin)).html;
+  const enter = forms(sentPage).find((f) => f.visible.some((v) => v.name === 'code'));
   const claimed = await post('/claim/westgate-rangers', robin, { ...enter.fields, code });
   check('one-w0: Westgate Rangers is claimed through the product — a club on Pitch, not yet verified', /claimed=1/.test(claimed.location), true);
+  // The four preview fixes (BUZ, 30 Sep): the address is partly hidden, the
+  // page says who made it, billing is not mentioned, and the claimed screen
+  // tells the truth about trials and leads on to the club.
+  const donePage = (await get('/claim/westgate-rangers?claimed=1', robin)).html;
+  check('claim-w1: while claiming, the club\u2019s address is shown partly hidden, never in full, and billing is not mentioned',
+    [/[\w.+-]{3,}@[\w-]+\.[\w.]+/.test(words(sentPage)), /••@/.test(sentPage), /billing/i.test(words(sentPage))], [false, true, false]);
+  check('claim-w2: once claimed, trials wait for verification — never "you can post trials" — and the screen leads on to the club',
+    [/Posting trials, and anything to do with players, waits for verification/.test(words(donePage)), /You can post trials/.test(words(donePage)),
+     /href="\/home"[^>]*>Go to your club</.test(donePage)], [true, false, true]);
 
   const boardHtml = (await get('/trials', null)).html;
   const westListing = listingOf(boardHtml, 'Westgate Rangers', 'westgate-rangers');

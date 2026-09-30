@@ -782,6 +782,11 @@ await db.query(
 // appears on no public board and in no other suite's counts. Two registrations
 // copied off Riverside's bulk register, so "the list is hidden, nothing is
 // deleted" has something to be true about.
+// An unclaimed listing Pitch compiled (D-172, John 30 Sep): a club nobody
+// has claimed, built from public facts, so the suites can hold its page to
+// John's six rules (U1-U6). The name is invented; the locality is real.
+await db.query(`insert into club (name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
+  values ('Brindlewood Rovers SC','Bulla','VIC','unclaimed','info@brindlewoodrovers.example.au','brindlewood-rovers-sc','club website /contact (fixture)', now())`);
 const tarrowvale = randomUUID();
 const tarrowvaleCall = randomUUID();
 await db.query(`insert into club (id, name, suburb, state, club_state, contact_email)

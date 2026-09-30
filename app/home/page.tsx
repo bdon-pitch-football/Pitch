@@ -891,8 +891,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
         </Link>
 
+        {/* A new club account lands here with no seat until it claims (30 Sep). */}
+        <Link href="/claim" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Here for a club? Find your club</div>
+            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Search for it and claim its page</div>
+          </div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
+        </Link>
+
         <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-          Adding a child, claiming a club page and building a player CV are not on this screen yet — tell us which you came for and we will point you at it.
+          Adding a child and building a player CV are not on this screen yet — tell us which you came for and we will point you at it.
         </div>
         {/* This screen is the one home with no shell and therefore no bar, so
             it carries the way out itself. Every other seat gets it from the

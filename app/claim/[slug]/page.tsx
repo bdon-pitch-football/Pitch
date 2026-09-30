@@ -1,6 +1,7 @@
 // ClaimClub.dc.html — copy verbatim. The role split is stated where the
 // claimant chooses it: an administrator NEVER reads a player's development
 // record, by any route (D-93). Verified status is separate and human (D-126).
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
@@ -11,6 +12,14 @@ import { card, sectionLabel as label } from '@/lib/ui';
 import { SUPPORT_EMAIL } from '@/lib/support';
 
 export const dynamic = 'force-dynamic';
+
+// The club's address is held to send the code, not shown in full to whoever
+// opens this page (John, D-172): enough to recognise it, not to copy it.
+const masked = (email: string) => {
+  const [local, domain] = String(email).split('@');
+  if (!domain) return '••';
+  return `${local.slice(0, local.length > 2 ? 2 : 1)}••@${domain}`;
+};
 export const metadata = { title: 'Claim your club', robots: { index: false, follow: false } };
 
 export default async function ClaimClub({ params, searchParams }: {
@@ -41,7 +50,9 @@ export default async function ClaimClub({ params, searchParams }: {
         <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>{claimed ? `${c.name} is yours to run.` : 'This page has already been claimed.'}</div>
-          {claimed && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You can post trials and edit the page now. Verification — the phone call that unlocks anything to do with players — happens separately, and we&rsquo;ll be in touch.</div>}
+          {claimed && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You can edit the page now. Posting trials, and anything to do with players, waits for verification — a phone call from us — and we&rsquo;ll be in touch.</div>}
+          {/* The claimed screen was a dead end (30 Sep preview). */}
+          {claimed && <Link href="/home" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Go to your club</Link>}
         </div>
       </div>
     );
@@ -73,7 +84,7 @@ export default async function ClaimClub({ params, searchParams }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Check the club&rsquo;s inbox</h1>
             <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-              We sent a six-digit code to <b style={{ color: T.ink }}>{c.contact_email}</b> — the address on {c.name}&rsquo;s own public listing. It works once and expires in 30 minutes.
+              We sent a six-digit code to <b style={{ color: T.ink }}>{masked(c.contact_email)}</b> — the address on {c.name}&rsquo;s own public listing. It works once and expires in 30 minutes.
             </div>
           </div>
           {bad && (
@@ -93,7 +104,7 @@ export default async function ClaimClub({ params, searchParams }: {
               <div style={card}>
                 <div style={{ fontSize: 15, fontWeight: 800 }}>Club administrator</div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.5 }}>
-                  You run the page, the teams, the trial notices and the billing. <b style={{ color: T.secondary }}>An administrator never reads a player&rsquo;s development record, by any route.</b> Technical Director is confirmed on the verification call, never chosen on a form.
+                  You run the page, the teams and the trial notices. <b style={{ color: T.secondary }}>An administrator never reads a player&rsquo;s development record, by any route.</b> Technical Director is confirmed on the verification call, never chosen on a form.
                 </div>
               </div>
             </div>
@@ -121,7 +132,7 @@ export default async function ClaimClub({ params, searchParams }: {
         <HeaderMark />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Claim {c.name}</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>This page already exists — we built it from your public notices. Claiming it means you control what&rsquo;s on it and you can post trials.</div>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Pitch made this page from public information. Claiming it means you control what&rsquo;s on it.</div>
         </div>
 
         <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -144,7 +155,7 @@ export default async function ClaimClub({ params, searchParams }: {
             <div style={label}>Prove it&rsquo;s your club</div>
             <div style={card}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>We&rsquo;ll send a code to</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: T.accent, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', marginTop: 3 }}>{c.contact_email}</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: T.accent, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', marginTop: 3 }}>{masked(c.contact_email)}</div>
             </div>
             {/* You do not get to choose where the proof goes. A code sent to
                 an address of the reader's choosing proves the reader can read

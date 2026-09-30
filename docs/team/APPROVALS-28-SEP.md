@@ -149,3 +149,14 @@ Production opened with no club listings, so a club person had nothing to claim a
 - `/join` club path: "Next: find your club on Pitch and press **Claim**. … If your club isn't on Pitch yet, you can ask us to add it there."
 - Operator: `/ops/clubs` "Clubs asking to be added" with **Add** (pre-filled) and **Dismiss**, note "Check the email address is on the club's own website before you add it. The claim code goes there."; Today tile "Clubs asking to be added" · "see Clubs"; 7am email line "Clubs asking to be added: {n}".
 - Unclaimed listings are `noindex` until claimed. The full Victorian list (scout, 30 Sep) is loaded with `scripts/import-clubs.mjs` through `fn_ops_add_club`.
+
+## 30 September: D-172 (unclaimed club pages) and the claim screens (BUZ: "approve both", "A", "approve the four fixes")
+
+- **D-172 numbered** (John's ruling of 30 Sep, register v4.31).
+- **Unclaimed-page banner**, body text, above the fold: "Pitch made this page from public information. {Club} has not claimed it." · "Is this your club? Claim it to run the page yourself, or ask us to update or remove it." · links **Claim it** and **Ask us to update or remove it** (/report, no account). BUZ softened John's second line: "more subtle, like it's not something wrong that we are doing this" → option A.
+- The unclaimed page's CV line: "{Club} hasn't claimed this page, so there is no register here. Send them your CV instead …" (was "isn't on Pitch yet": D-172 never says "on Pitch").
+- **The four claim-screen fixes:**
+  - claimed: "You can edit the page now. Posting trials, and anything to do with players, waits for verification — a phone call from us — and we'll be in touch." plus **Go to your club**;
+  - the club's address shown partly hidden (`in••@club.example.au`);
+  - "You run the page, the teams and the trial notices." (no billing);
+  - "Pitch made this page from public information. Claiming it means you control what's on it."

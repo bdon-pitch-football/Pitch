@@ -60,6 +60,8 @@ export default async function OpsToday() {
   // D-168 (0120): the parents' approval texts still waiting for SMS, so the
   // backlog is watched clearing once SMS is live. A count, nothing else.
   const waitingTexts = Number((await db.query(`select fn_sms_queued_count() as n`)).rows[0]?.n ?? 0);
+  // 0159: clubs a club person asked us to add. A count; the list is on Clubs.
+  const clubAsks = Number((await db.query(`select fn_club_requests_open() as n`)).rows[0]?.n ?? 0);
   const sms = failures.filter((f) => f.channel === 'sms').length;
   const email = failures.length - sms;
 
@@ -77,6 +79,7 @@ export default async function OpsToday() {
     t.awaiting > 0 && <Tile key="w" label="Clubs awaiting a call" value={t.awaiting} colour={T.amber}
       sub={t.awaiting_oldest_days > 0 ? `oldest ${t.awaiting_oldest_days} day${t.awaiting_oldest_days === 1 ? '' : 's'}` : undefined} />,
     // Held words (brief H): development only until BUZ approves them.
+    clubAsks > 0 && <Tile key="c" label="Clubs asking to be added" value={clubAsks} colour={T.amber} sub="see Clubs" />,
     HELD_WAITING_TEXTS && waitingTexts > 0 && <Tile key="q" label={HELD_WAITING_TEXTS[0]} value={waitingTexts} colour={T.amber} sub={HELD_WAITING_TEXTS[1]} />,
   ].filter(Boolean);
 
