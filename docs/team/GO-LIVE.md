@@ -73,6 +73,24 @@ and **Preview**:
    time into a scratch project, and check the tables are there. A backup
    nobody has restored is a hypothesis.
 
+## 3b · What the 30 September rehearsal proved, and what it taught
+
+**Proved on real infrastructure** (Supabase branch `Rehersal`, Vercel preview of `app` at eb390ad):
+- All 94 migrations apply cleanly on Supabase Postgres 17.6 through `scripts/apply-migrations.mjs`, and the schema fingerprint matches PGlite entry for entry (1,376 entries; PGlite additionally lists NOT NULL as constraints, which Supabase keeps on the columns).
+- The app on Vercel (syd1) reads the database: `/trials`, `/jobs`, `/signin`, `/join`, the four legal pages all 200.
+- Headers on every page: CSP without `unsafe-inline`, HSTS, `nosniff`, and `noindex` on the preview.
+- The three crons answer 401 without `CRON_SECRET`; `/ops` redirects a stranger.
+- **The front door on Vercel:** with `front_door_open` true, `/` answers 200 with the product front page. **No 307 loop** (the open question in RELEASE-PREFLIGHT is answered).
+
+**Taught (do it this way on launch morning):**
+- **`TZ` cannot be set on Vercel** (a reserved name). Nothing needs it: `lib/age.ts` and every SQL date name `Australia/Melbourne` explicitly (doc 14 G9).
+- **Pasting `NAME=value` lines into Vercel's Key box resets the form to Config and Production.** Paste first, *then* set Type = Secret and Environments, then Save.
+- **After saving a variable, Vercel offers "Redeploy". Press Dismiss.** That button rebuilds *Production*. (It rebuilt the website twice on 30 Sep: same code, same settings, no visible change.)
+- **Put secrets on the clipboard one command at a time and paste straight away**; a clipboard holds one thing. Check the shape before saving (Leo can check line names and lengths without reading values).
+- **A database password must be URL-safe in `SUPABASE_DB_URL`.** Supabase's generated passwords contain symbols; `set-rehearsal-url.mjs` style entry (typed or pasted into a prompt, encoded by the script) avoids hand-editing. A value that is not a `postgresql://` URL shows up as `getaddrinfo ENOTFOUND base` in the logs.
+- **A failed database connection does not break `/`:** it reads as "front door closed" and serves coming-soon. Check `/trials` returns 200 after every deploy.
+- **The bucket `public-images`** must be created by hand (step 4.2).
+
 ## 4 · 1 October: BUZ's go
 
 1. BUZ says go. Leo promotes the verified preview to production on
