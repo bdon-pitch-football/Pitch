@@ -145,8 +145,15 @@ export const helpReplySms = (): Composed => ({
 // 16-17 sending for themselves, and an adult. The first line and the
 // paragraphs about under-18s follow the sender, because "Jordan's family has
 // sent you Jordan's football CV" is false when a 22-year-old sent it.
+//
+// The last line is an opt-out that works (John, 30 Sep §2: treat this email
+// as commercial and comply anyway; BUZ approved the words 30 Sep). It names
+// the send and its signature (lib/stop-cvs), never the address. It used to
+// say "there is nothing to unsubscribe from", which was true of a list and
+// left a club with no way to stop CVs arriving at all.
 export const cvToClubEmail = (
   childFirstName: string, age: number, positions: string, clubOfPlayer: string, token: string,
+  stop: { requestId: string; sig: string },
   sender: 'family' | 'self' = 'family', band: 'u16' | '16_17' | '18plus' = 'u16',
 ): Composed => {
   const self = sender === 'self';
@@ -164,9 +171,10 @@ export const cvToClubEmail = (
     : `Replies to this message do not reach the family. There is no way to reply to a family through Pitch — at any tier, for anybody. That is deliberate, and it is the same rule for every under-18 on here.
 
 If you want ${childFirstName} at a trial, post it on Pitch. Families register their interest from your trial, and that is where you can invite them — it goes to ${childFirstName} and their parent together, and a record is kept.`;
+  const stopLink = `${SITE}/stop-cvs?r=${stop.requestId}&t=${stop.sig}`;
   const why = self
-    ? `You received this because a player sent you their CV. We did not add you to a list and there is nothing to unsubscribe from.`
-    : `You received this because a family sent you their child's CV. We did not add you to a list and there is nothing to unsubscribe from.`;
+    ? `You received this because a player sent you their CV. We did not add you to a list. To stop CVs reaching this address through Pitch: ${stopLink}`
+    : `You received this because a family sent you their child's CV. We did not add you to a list. To stop CVs reaching this address through Pitch: ${stopLink}`;
   // A player with no current club — which is most players sending a CV, since
   // finding one is why they send it — read "currently at ." (28 Sep). The
   // clause goes when there is no club, and the line goes when there are no

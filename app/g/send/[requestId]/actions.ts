@@ -54,7 +54,19 @@ export async function dispatchSend(formData: FormData) {
 
   // Not yours, already sent, never existed or malformed — one answer.
   const done = isUuid(requestId) ? await dispatchShareRequest(requestId, guardianId) : null;
+  // 0160: the club asked Pitch to stop between the page and the press. Only a
+  // request this guardian may see is asked about, so the answer says nothing
+  // about anybody else's; theirs lands on its page, which says so. Asked
+  // before the floor, so nothing is awaited between the floor and the answer.
+  const stopped = !done && isUuid(requestId) && (await db.query(
+    `select fn_send_blocked(sr.destination) as b from share_request sr
+     join development_record dr on dr.id = sr.record_id
+     join guardianship_link g on g.child_id = dr.person_id and g.guardian_id = $2
+       and g.approved_at is not null and g.revoked_at is null
+     where sr.id = $1 and sr.dispatched_at is null`,
+    [requestId, guardianId],
+  )).rows[0]?.b === true;
   await answerNoSoonerThan(startedAt);
-  if (!done) redirect('/home');
+  if (!done) redirect(stopped ? `/g/send/${requestId}` : '/home');
   redirect(`/g/send/${requestId}?sent=1`);
 }

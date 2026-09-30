@@ -1953,9 +1953,11 @@ check('U-11d: the guardian\u2019s send screen promises no reply route either',
     '--conditions=react-server', '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--input-type=module', '-e',
     `const m = await import(${JSON.stringify(at)}); process.stdout.write(JSON.stringify(m.cvToClubEmail(...${JSON.stringify(args)})));`,
   ], { encoding: 'utf8' })).body;
-  const withClub = cv(['Deniz', 14, 'AM, LW', 'Riverside FC', 'tok']);
-  const noClub = cv(['Deniz', 14, 'AM, LW', '', 'tok']);
-  const nothing = cv(['Deniz', 14, '', '', 'tok']);
+  const STOP = { requestId: '11111111-2222-4333-8444-555555555555', sig: 'S'.repeat(43) };
+  const withClub = cv(['Deniz', 14, 'AM, LW', 'Riverside FC', 'tok', STOP]);
+  const noClub = cv(['Deniz', 14, 'AM, LW', '', 'tok', STOP]);
+  const nothing = cv(['Deniz', 14, '', '', 'tok', STOP]);
+  const selfSent = cv(['Nate', 17, 'GK', '', 'tok', STOP, 'self', '16_17']);
   check('msg19a: §19 names the club when the player has one, word for word as before',
     withClub.includes('Deniz plays AM, LW, currently at Riverside FC.'), true);
   check('msg19b: and with no club the clause goes — no "currently at ." — and nothing new is said in its place',
@@ -1963,6 +1965,13 @@ check('U-11d: the guardian\u2019s send screen promises no reply route either',
      noClub.replace('Deniz plays AM, LW.', 'Deniz plays AM, LW, currently at Riverside FC.') === withClub], [true, false, true]);
   check('msg19c: with no positions either, the line goes and the paragraphs close up',
     [/plays/.test(nothing), /\n\n\n/.test(nothing)], [false, false]);
+  // John, 30 Sep §2: treated as commercial, so it carries a working opt-out.
+  // The link names the send and its signature — never the address.
+  const stopLine = (who) => `You received this because ${who}. We did not add you to a list. To stop CVs reaching this address through Pitch: pitchfootball.com.au/stop-cvs?r=${STOP.requestId}&t=${STOP.sig}`;
+  check('sc-m1: §19 ends with the stop link, in both variants, and no longer says there is nothing to unsubscribe from',
+    [withClub.trimEnd().endsWith(stopLine("a family sent you their child's CV")), selfSent.trimEnd().endsWith(stopLine('a player sent you their CV')),
+     /nothing to unsubscribe from/.test(withClub + selfSent), /stop-cvs[^\s]*@/.test(withClub + selfSent)],
+    [true, true, false, false]);
 }
 
 // ONE CONTACT ADDRESS (BUZ, 28 Sep; APPROVALS-28-SEP "Contact address"):
@@ -10158,7 +10167,8 @@ const componentFilesAll = [];
   check(`cur-s1: every door on /ops/clubs checks the operator before it asks the database anything (${exported.map(([n]) => n).join(', ')})`,
     [exported.length, exported.filter(([, body]) => !(body.indexOf('await operator()') > -1 && body.indexOf('await operator()') < body.indexOf('db.query'))).map(([n]) => n),
      /async function operator\(\) \{\s*const op = await requireOperator\(\);\s*if \(!clubsScreensShown\(process\.env\.NODE_ENV === 'production'\)\) notFound\(\);/.test(actions)],
-    [7, [], true]);
+    // 0160: an eighth, stopClubSends (the operator stops CVs to a club).
+    [8, [], true]);
   const writers = routeFiles.filter((f) => {
     const src = codeOnly(readFileSync(f, 'utf8'));
     return /fn_ops_(add|edit|remove)_club|fn_ops_(add|edit|check|remove)_notice/.test(src) && !/\/app\/ops\/clubs\/actions\.ts$/.test(f);
@@ -10173,7 +10183,8 @@ const componentFilesAll = [];
   const pageQueries = opsClubs.filter((f) => /page\.tsx$/.test(f)).flatMap((f) =>
     [...codeOnly(readFileSync(f, 'utf8')).matchAll(/db\.query\(\s*`([^`]*)`/g)].map((m) => m[1].replace(/\s+/g, ' ').trim()));
   check(`cur-s3: the clubs screens ask the database only through the operator's reads and the age-group lookup (${pageQueries.length} queries)`,
-    [pageQueries.length >= 5, pageQueries.filter((q) => !/from (fn_ops_clubs|fn_ops_club|fn_ops_club_notices)\(\$1\)|from fn_ops_club_requests\(\$1, \$2\)|from age_group order by sort/.test(q))], [true, []]);
+    // 0160: fn_ops_club_sends, two yes/no answers — is an address held, is it stopped.
+    [pageQueries.length >= 6, pageQueries.filter((q) => !/from (fn_ops_clubs|fn_ops_club|fn_ops_club_notices|fn_ops_club_sends)\(\$1\)|from fn_ops_club_requests\(\$1, \$2\)|from age_group order by sort/.test(q))], [true, []]);
   const shownGate = opsClubs.filter((f) => /page\.tsx$/.test(f)).filter((f) =>
     !/await requireOperator\(\);\s*if \(!clubsScreensShown\(process\.env\.NODE_ENV === 'production'\)\) notFound\(\);/.test(codeOnly(readFileSync(f, 'utf8'))));
   check(`cur-s4: every clubs screen is the operator's and is held until BUZ approves its words — a 404 in production until then (${opsClubs.filter((f) => /page\.tsx$/.test(f)).length} screens)`,
@@ -10515,6 +10526,192 @@ const componentFilesAll = [];
     return !t || contrast('#eef5f0', t.hero) < 4.5 || contrast(t.trim, '#0b120e') < 3 || contrast(t.trim, t.heroDeep) < 3 || contrast(t.onTrim, t.trim) < 3;
   }).map((p) => `${p.primary}/${p.secondary}`);
   check(`col6: whatever a club picks, its name stays readable and its trim stays visible (${bad.join(', ') || 'all pass'})`, bad, []);
+}
+
+// --- "Send my CV" fills in the club's own address, and a club that asks is
+//     never sent to again (0160; John's ruling of 30 Sep §2, cleared by BUZ).
+//     Only a role address is ever filled in — never a person's — and only
+//     one checked within 90 days; the CV email carries a working opt-out; and
+//     "if a club opts out, we stop sending to it at all — including an address
+//     a family types by hand". Every door asks fn_send_blocked.
+{
+  const one = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const state = async (sql, args) => { try { await db.query(sql, args); return 'ok'; } catch (e) { return e.code ?? 'error'; } };
+  const role = async (email, club) => (await one('select fn_role_address($1, $2) as r', [email, club])).r;
+  const blocked = async (d) => (await one('select fn_send_blocked($1) as b', [d])).b;
+  const today = (await one(`select ((now() at time zone 'Australia/Melbourne')::date)::text as d`)).d;
+  const offered = async (slug) => (await db.query(
+    'select club_name, address, checked_on::text as checked_on, blocked from fn_send_address_for_club($1)', [slug])).rows;
+
+  // The shapes production holds (Leo's count of the 138, 30 Sep): the role
+  // local parts as they are, and the club-named accounts mirrored on invented
+  // clubs, because a real club's name is never fixture data (L15).
+  const ROLE = ['info', 'admin', 'secretary', 'enquiries', 'contact', 'juniors', 'committee', 'hello', 'administration',
+    'communications', 'mail', 'registrations', 'president', 'ypl', 'miniroostd', 'junior.boys', 'juniors.westernsubsc',
+    'secretary.baxtersc', 'refc.secretary', 'shfc.cluboffice'];
+  const NAMED = [['kestrelfordsoccerclub@gmail.com', 'Kestrelford Soccer Club'], ['marlowbrookcity@bigpond.com', 'Marlowbrook City FC'],
+    ['thornbeckthunder@gmail.com', 'Thornbeck Thunder SC'], ['larkvaleparkfc3999@gmail.com', 'Larkvale Park SC'],
+    ['easterneagles1950@gmail.com', 'Eastern Eagles FC'], ['fcblions@gmail.com', 'FC Bramblewood Lions'],
+    ['quillonsc@gmail.com', 'Quillon SC'], ['marlowbrookcityfc@gmail.com', 'Marlowbrook City FC']];
+  const roleMiss = [];
+  for (const l of ROLE) if (!(await role(`${l}@club.example.au`, 'Riverside FC'))) roleMiss.push(l);
+  for (const [e, c] of NAMED) if (!(await role(e, c))) roleMiss.push(e);
+  check(`sc-1: every role shape production holds is a role address — the role words, and accounts named after the club (${ROLE.length + NAMED.length} shapes)`,
+    roleMiss, []);
+  check('sc-2: a person’s address never is — at the club’s own domain or on free mail — and neither is anything that is not an address (it fails closed)',
+    [await role('john.smith@club.example.au', 'Kestrelford Athletic SC'), await role('jsmith@gmail.com', 'Riverside FC'),
+     await role('smithy1987@hotmail.com', 'Riverside FC'), await role('j.whitcombe@kestrelfordathletic.example.au', 'Kestrelford Athletic SC'),
+     await role('info', 'Riverside FC'), await role(null, 'Riverside FC'), await role('fcunited@gmail.com', 'FC United')],
+    [false, false, false, false, false, false, false]);
+
+  // Four listings: a role address, a person's, a suspended club, and one to stop.
+  const club = async (name, slug, email, st = 'unclaimed') => (await one(
+    `insert into club (name, suburb, state, club_state, contact_email, public_slug) values ($1, 'Preston', 'VIC', $2, $3, $4) returning id`,
+    [name, st, email, slug])).id;
+  const quenby = await club('Quenby Rovers SC', 'sc-quenby-rovers', 'Info@QuenbyRovers.example.au');
+  await club('Holloway Park SC', 'sc-holloway-park', 'd.pemberton@hollowaypark.example.au');
+  await club('Stanmere City FC', 'sc-stanmere-city', 'info@stanmerecity.example.au', 'suspended');
+  const larkmoor = await club('Larkmoor Athletic SC', 'sc-larkmoor', 'secretary@larkmoor.example.au');
+  const gmailClub = await club('Tollcross Juniors SC', 'sc-tollcross', 'tollcrossjuniors@gmail.com');
+  const checkedOn = async (id) => (await one('select contact_checked_on::text as d from club where id = $1', [id])).d;
+  check('sc-3: an address written is checked today (Melbourne), whatever writes it',
+    [await checkedOn(quenby), await checkedOn(larkmoor)], [today, today]);
+  await db.query(`update club set contact_checked_on = contact_checked_on - 30 where id = $1`, [quenby]);
+  const kept = await checkedOn(quenby);
+  await db.query(`update club set contact_email = contact_email, name = name where id = $1`, [quenby]);
+  const unchanged = await checkedOn(quenby);
+  await db.query(`update club set contact_email = 'info@quenbyrovers.example.au' where id = $1`, [quenby]);
+  const moved = await checkedOn(quenby);
+  check('sc-4: re-saving the same address keeps its date; a changed address is checked today',
+    [unchanged === kept, kept !== today, moved], [true, true, today]);
+
+  check('sc-5: a role address, checked in 90 days and not stopped, is offered in full with its date',
+    await offered('sc-quenby-rovers'),
+    [{ club_name: 'Quenby Rovers SC', address: 'info@quenbyrovers.example.au', checked_on: today, blocked: false }]);
+  check('sc-6: a club that publishes only a person’s address is offered no address and no date — only its name',
+    await offered('sc-holloway-park'), [{ club_name: 'Holloway Park SC', address: null, checked_on: null, blocked: false }]);
+  await db.query(`update club set contact_checked_on = (now() at time zone 'Australia/Melbourne')::date - 90 where id = $1`, [quenby]);
+  const at90 = (await offered('sc-quenby-rovers'))[0].address;
+  await db.query(`update club set contact_checked_on = (now() at time zone 'Australia/Melbourne')::date - 91 where id = $1`, [quenby]);
+  const at91 = (await offered('sc-quenby-rovers'))[0];
+  check('sc-7: an address checked 90 days ago still fills in; at 91 days it stops, date and all, until somebody checks it',
+    [at90, at91.address, at91.checked_on], ['info@quenbyrovers.example.au', null, null]);
+  check('sc-8: an unknown slug and a suspended club return no row at all',
+    [(await offered('sc-no-such-club')).length, (await offered('sc-stanmere-city')).length], [0, 0]);
+
+  // The club's own opt-out, from the CV email: the send it came in.
+  const adult = crypto.randomUUID(), adultRec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1, 'Stopsender', $2)`, [adult, yearsAgo(24)]);
+  await db.query(`insert into development_record (id, person_id, positions) values ($1, $2, array['CM'])`, [adultRec, adult]);
+  const ask = async (dest) => (await one(
+    `insert into share_request (record_id, requested_by, destination) values ($1, $2, $3) returning id`, [adultRec, adult, dest])).id;
+  const blocks = async () => (await db.query(
+    `select coalesce(address, domain) as what, source, club_id = any($1::uuid[]) as clubbed from send_block order by 1`,
+    [[larkmoor, gmailClub, quenby]])).rows;
+  const before = await blocks();
+  const larkAsk = await ask('Larkmoor Athletic SC <secretary@larkmoor.example.au>');
+  // Asked for, but not yet sent, when the club asks us to stop.
+  const pending = await ask('Larkmoor Athletic SC <juniors@larkmoor.example.au>');
+  await db.query('select fn_send_stop_request($1)', [larkAsk]);
+  await db.query('select fn_send_stop_request($1)', [larkAsk]);
+  const after = (await blocks()).filter((b) => !before.some((x) => x.what === b.what));
+  check('sc-9: a club’s stop link stops its address and its own domain, once, however often it is pressed',
+    after, [{ what: 'larkmoor.example.au', source: 'recipient', clubbed: true }, { what: 'secretary@larkmoor.example.au', source: 'recipient', clubbed: true }]);
+  check('sc-10: and a different address a family types at that club — or at a part of its domain — is stopped too; a domain that merely ends the same way is not',
+    [await blocked('coach@larkmoor.example.au'), await blocked('Larkmoor <Juniors@Larkmoor.example.au>'),
+     await blocked('x@mail.larkmoor.example.au'), await blocked('x@notlarkmoor.example.au')], [true, true, true, false]);
+  check('sc-11: the send screen offers it no address and says it is stopped',
+    await offered('sc-larkmoor'), [{ club_name: 'Larkmoor Athletic SC', address: null, checked_on: null, blocked: true }]);
+
+  const gmailAsk = await ask('Tollcross Juniors SC <tollcrossjuniors@gmail.com>');
+  await db.query('select fn_send_stop_request($1)', [gmailAsk]);
+  check('sc-12: a club run from free mail stops only its own address — never gmail.com for everybody',
+    [await blocked('tollcrossjuniors@gmail.com'), await blocked('someone.else@gmail.com'),
+     (await one(`select count(*)::int as n from send_block where domain = 'gmail.com'`)).n], [true, false, 0]);
+  const shared1 = await club('Ashvale Rangers SC', 'sc-ashvale', 'ashvale@league.example.au');
+  await club('Birchmont United', 'sc-birchmont', 'birchmont@league.example.au');
+  await db.query('select fn_send_stop_request($1)', [await ask('Ashvale Rangers SC <ashvale@league.example.au>')]);
+  const typedAsk = await ask('Some Club <coach@typedbyhand.example.au>');
+  await db.query('select fn_send_stop_request($1)', [typedAsk]);
+  check('sc-13: a domain another listed club is on is not stopped, and an address that is no club’s stops only itself',
+    [await blocked('ashvale@league.example.au'), await blocked('birchmont@league.example.au'),
+     await blocked('coach@typedbyhand.example.au'), await blocked('secretary@typedbyhand.example.au'),
+     (await one(`select club_id from send_block where address = 'ashvale@league.example.au'`)).club_id === shared1],
+    [true, false, true, false, true]);
+  const rowsBefore = (await blocks()).length;
+  check('sc-14: a stop for a send that does not exist stops nothing, and says nothing',
+    [await state('select fn_send_stop_request($1)', [crypto.randomUUID()]), (await blocks()).length - rowsBefore], ['ok', 0]);
+
+  // The belt: whatever composed a request, a stopped destination is never stamped sent.
+  const stamp = (id) => state(`update share_request set dispatched_by = $2, dispatched_at = now() where id = $1`, [id, adult]);
+  const openAsk = await ask('Quenby Rovers SC <info@quenbyrovers.example.au>');
+  check('sc-15: the dispatch stamp is refused for a stopped destination (asked for before the club stopped it), and allowed for one that is not',
+    [await stamp(pending), await stamp(openAsk),
+     await state(`insert into share_request (record_id, requested_by, destination, dispatched_by, dispatched_at) values ($1, $2, 'x <coach@larkmoor.example.au>', $2, now())`, [adultRec, adult])],
+    ['42501', 'ok', '42501']);
+  check('sc-16: who asked us to stop is locked like every table — row security on, no policies (L26)',
+    [(await one(`select relrowsecurity as r from pg_class where oid = 'send_block'::regclass`)).r,
+     (await one(`select count(*)::int as n from pg_policies where tablename = 'send_block'`)).n], [true, 0]);
+
+  // The operator, for a club that asks by phone or email.
+  const opId = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, email) values ($1, 'Stop Curator', 'stop.curator@fixture.example')`, [opId]);
+  const OPS = [opId, 'stop.curator@fixture.example'];
+  const wharf = await club('Wharfdale Harriers SC', 'sc-wharfdale', 'admin@wharfdaleharriers.example.au');
+  const bare = (await one(`insert into club (name, club_state) values ('Addressless Athletic', 'unclaimed') returning id`)).id;
+  const sendsOf = async (id) => one('select held, stopped from fn_ops_club_sends($1)', [id]);
+  const was = await sendsOf(wharf);
+  check('sc-17: only an operator named by their own address can stop a club, and a club with no address held has nothing to stop',
+    [await state('select fn_ops_stop_club_sends($1, $2, $3)', [adult, 'stop.curator@fixture.example', wharf]),
+     await state('select fn_ops_stop_club_sends($1, $2, $3)', [...OPS, bare]), await sendsOf(bare)],
+    ['42501', '23514', { held: false, stopped: false }]);
+  await db.query('select fn_ops_stop_club_sends($1, $2, $3)', [...OPS, wharf]);
+  check('sc-18: the operator stops a club’s address and its domain for every sender, and the log names who did it',
+    [was, await sendsOf(wharf), await blocked('under12s@wharfdaleharriers.example.au'),
+     await one(`select source, created_by_email from send_block where domain = 'wharfdaleharriers.example.au'`),
+     await one(`select action, operator_email, detail->>'address' as address, detail->>'domain' as domain from curation_event where club_id = $1`, [wharf])],
+    [{ held: true, stopped: false }, { held: true, stopped: true }, true,
+     { source: 'operator', created_by_email: 'stop.curator@fixture.example' },
+     { action: 'club_sends_stopped', operator_email: 'stop.curator@fixture.example', address: 'admin@wharfdaleharriers.example.au', domain: 'wharfdaleharriers.example.au' }]);
+
+  // The doors in the product: every one asks the same question.
+  const pickUp = /const req = await client\.query\(\s*`([^`]*)`/.exec(dispatchLib)?.[1] ?? '';
+  check('sc-s1: the one dispatch path will not pick up a stopped destination — a stopped send returns null, one answer',
+    [/for update of sr/.test(pickUp), /and not fn_send_blocked\(sr\.destination\)/.test(pickUp)], [true, true]);
+  const compose = codeOnly(composeSrc).split('export async function composeSend')[1].split('export async function')[0];
+  const askAt = compose.indexOf('fn_send_blocked');
+  check('sc-s2: composeSend asks before it writes anything or counts the send, on both paths, and lands on the blocked screen',
+    [askAt > 0, askAt < compose.indexOf('insert into'), askAt < compose.indexOf('checkRate'), askAt < compose.indexOf("state.mode === 'self'"),
+     /redirect\(`\/send\/\$\{recordId\}\?blocked=1`\)/.test(compose)], [true, true, true, true, true]);
+  const sendPage = codeOnly(srcOf('app/send/[recordId]/page.tsx'));
+  check('sc-s3: the send screen reads the club’s address only through fn_send_address_for_club, and never masks it (John: a masked address cannot be reviewed)',
+    [/from fn_send_address_for_club\(\$1\)/.test(sendPage), /contact_email|from club\b/.test(sendPage), /•|\\u2022|mask/i.test(sendPage)],
+    [true, false, false]);
+  const stopPage = codeOnly(srcOf('app/stop-cvs/page.tsx')), stopAct = codeOnly(srcOf('app/stop-cvs/actions.ts'));
+  check('sc-s4: opening /stop-cvs changes nothing — the page reads no database; only the press stops, after the signature and the rate limit',
+    [/db\.|fn_send_stop_request|from '@\/lib\/db'/.test(stopPage),
+     stopAct.indexOf('checkRate') > -1 && stopAct.indexOf('stopCvsValid') > -1 && stopAct.indexOf('stopCvsValid') < stopAct.indexOf('fn_send_stop_request'),
+     (stopAct.match(/redirect\(/g) ?? []).length, /redirect\('\/stop-cvs\?done=1'\)/.test(stopAct)], [false, true, 1, true]);
+  const { execFileSync } = await import('node:child_process');
+  const lib = fileURLToPath(new URL('../lib/stop-cvs.ts', import.meta.url));
+  const run = (code, env = {}) => { try { return execFileSync(process.execPath, [
+    '--conditions=react-server', '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--input-type=module', '-e',
+    `const m = await import(${JSON.stringify(lib)}); ${code}`], { encoding: 'utf8', env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return 'threw'; } };
+  const rid = '0c9a6f7e-3b1d-4d2a-9e8f-1a2b3c4d5e6f';
+  const sig = run(`process.stdout.write(m.stopCvsSig(${JSON.stringify(rid)}))`, { SESSION_SECRET: 'sc-test-secret' });
+  const expectSig = createHmac('sha256', 'sc-test-secret').update(`stop-cvs:${rid}`).digest('base64url');
+  const valid = (r, t) => run(`process.stdout.write(String(m.stopCvsValid(${JSON.stringify(r)}, ${JSON.stringify(t)})))`, { SESSION_SECRET: 'sc-test-secret' });
+  check('sc-s5: the stop link is HMAC-SHA256 of the send under the session secret; it verifies, and a changed id, a changed signature or no signature does not',
+    [sig === expectSig, valid(rid, expectSig), valid('0c9a6f7e-3b1d-4d2a-9e8f-1a2b3c4d5e70', expectSig),
+     valid(rid, expectSig.slice(0, -1) + (expectSig.endsWith('A') ? 'B' : 'A')), valid(rid, '')],
+    [true, 'true', 'false', 'false', 'false']);
+  check('sc-s6: and in production it refuses to sign with no secret, as sessions do, comparing in constant time',
+    [run(`process.stdout.write(m.stopCvsSig(${JSON.stringify(rid)}))`, { SESSION_SECRET: '', NODE_ENV: 'production' }),
+     /timingSafeEqual\(want, got\)/.test(codeOnly(srcOf('lib/stop-cvs.ts')))], ['threw', true]);
+  const cfg = srcOf('next.config.mjs');
+  check('sc-s7: /stop-cvs is served no-referrer and noindex, and the page asks not to be indexed',
+    [/source: '\/stop-cvs',\s*headers: \[\s*\{ key: 'Referrer-Policy', value: 'no-referrer' \},\s*\{ key: 'X-Robots-Tag', value: 'noindex, nofollow' \}/.test(cfg),
+     /robots: \{ index: false, follow: false \}/.test(stopPage)], [true, true]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

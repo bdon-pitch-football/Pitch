@@ -381,7 +381,9 @@ The first thing most Australian clubs will ever see from Pitch, arriving in a ge
 > — Pitch
 > pitchfootball.com.au · burak.donmez@pitch-football.com
 >
-> *You received this because a family sent you their child's CV. We did not add you to a list and there is nothing to unsubscribe from.*
+> *You received this because a family sent you their child's CV. We did not add you to a list. To stop CVs reaching this address through Pitch: pitchfootball.com.au/stop-cvs?r=…&t=…*
+
+**CHANGED 30 Sep 2026 — the last line now carries a working opt-out (John's ruling of 30 Sep §2; the words approved by BUZ 30 Sep, recorded in `docs/team/APPROVALS-28-SEP.md`).** It read *"We did not add you to a list and there is nothing to unsubscribe from."* John ruled that this email is treated as commercial and complies anyway, so it needs a way to stop it. The first sentence is unchanged in both variants (a player sending their own CV reads *"You received this because a player sent you their CV."*). The link names the send and its signature, never the address; opening it changes nothing, and pressing **Stop them** on it stops that address, and the club's own domain where the address is the club's and the domain is not free mail (migration 0160). If a club opts out, nothing more is sent to it through Pitch, including to an address a family types by hand.
 
 **Why the last line is there.** A club that thinks it has been added to a marketing list marks this as spam, and one club marking us as spam costs us the next hundred. It is also simply true — there is no list, because D-99 forbids one (doc 14 §J38).
 

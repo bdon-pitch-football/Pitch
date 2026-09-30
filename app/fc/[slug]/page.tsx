@@ -337,10 +337,10 @@ export default async function ClubPage({ params, searchParams }: {
               !me ? (
                 <Link href="/signin" className="btn btn-primary fl-glow">Sign in to send your CV</Link>
               ) : myRecord ? (
-                <Link href={`/send/${myRecord}`} className="btn btn-primary fl-glow">Send my CV to {c.name}</Link>
+                <Link href={`/send/${myRecord}?club=${c.public_slug}`} className="btn btn-primary fl-glow">Send my CV to {c.name}</Link>
               ) : children.length > 0 ? (
                 children.map((k) => (
-                  <Link key={k.recordId} href={`/send/${k.recordId}`} className="btn btn-primary fl-glow">Send {k.name}&rsquo;s CV to {c.name}</Link>
+                  <Link key={k.recordId} href={`/send/${k.recordId}?club=${c.public_slug}`} className="btn btn-primary fl-glow">Send {k.name}&rsquo;s CV to {c.name}</Link>
                 ))
               ) : (
                 <Link href="/join" className="btn btn-primary fl-glow">Build a CV first — it is what the club reads</Link>

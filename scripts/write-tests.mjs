@@ -944,6 +944,103 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// 0160 · "SEND MY CV" FROM A CLUB'S PAGE, AND A CLUB THAT ASKS US TO STOP.
+// (John, 30 Sep §2.) The whole journey, observed through the product: the
+// send screen fills in the club's published address; the club gets the CV
+// with a stop link; a bad signature stops nothing and says the same as a good
+// one; a good one stops the club; and then nothing can be sent to it — not
+// its address, not another address a family types at its domain, and not a
+// request a child composed before it asked. Brindlewood is stopped for the
+// rest of this run (reseed after, as always).
+// ---------------------------------------------------------------------------
+{
+  const nate = ids.children.nate, deniz = ids.children.deniz, parent = SEATS.parent;
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&#39;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
+  const outbox = async () => plain((await get('/dev/outbox', parent)).html);
+  const CLUB = 'info@brindlewoodrovers.example.au';
+  const post = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return (r.headers.get('location') ?? '').replace(BASE, '');
+  };
+  const filledForm = async (who, rec) => {
+    const f = forms((await get(`/send/${rec}?club=brindlewood-rovers-sc`, who)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+    return f ? { ...f.fields, ...Object.fromEntries(f.visible.filter((v) => v.value !== undefined).map((v) => [v.name, v.value])) } : null;
+  };
+  const linksOf = async () => { const t = plain((await get(`/send/${nate.record_id}`, nate.child_id)).html); return t.slice(t.indexOf('Your links')); };
+
+  // A child composes for their parent BEFORE the club asks us to stop.
+  const denizForm = await filledForm(parent, deniz.record_id);
+  const denizLoc = await post(`/send/${deniz.record_id}`, parent, denizForm);
+  const box0 = await outbox();
+  const ask = /\/g\/send\/([0-9a-f-]{36})/.exec(box0.slice(box0.indexOf(`It goes to: ${CLUB}`)))?.[1];
+  const gForm = ask && forms((await get(`/g/send/${ask}`, parent)).html).find((f) => 'requestId' in f.fields);
+  check('sc-w1: from the club’s page the form arrives filled in, and posted exactly as filled it asks the parent, naming that address',
+    [denizForm?.clubName, denizForm?.address, /asked=1/.test(denizLoc), Boolean(ask), Boolean(gForm)],
+    ['Brindlewood Rovers SC', CLUB, true, true, true]);
+
+  const nateForm = await filledForm(nate.child_id, nate.record_id);
+  const sentLoc = await post(`/send/${nate.record_id}`, nate.child_id, nateForm);
+  const box1 = await outbox();
+  const at = box1.indexOf(`doc15.§19 → ${CLUB}`);
+  const card = at < 0 ? '' : box1.slice(at, box1.indexOf('doc15.§', at + 10) < 0 ? undefined : box1.indexOf('doc15.§', at + 10));
+  const link = /pitchfootball\.com\.au\/stop-cvs\?r=([0-9a-f-]{36})&t=([A-Za-z0-9_-]{43})/.exec(card);
+  check('sc-w2: a 16–17 sends it as filled in, and the club’s §19 ends with the stop link — and no longer says there is nothing to unsubscribe from',
+    [/sent=1/.test(sentLoc), at >= 0, /We did not add you to a list\. To stop CVs reaching this address through Pitch: pitchfootball\.com\.au\/stop-cvs\?r=/.test(card),
+     Boolean(link), /nothing to unsubscribe from/.test(card), /stop-cvs[^\s]*@/.test(card)],
+    [true, true, true, true, false, false]);
+
+  const [, r, t] = link ?? [];
+  const stopForm = forms((await get(`/stop-cvs?r=${r}&t=${t}`, null)).html).find((f) => 'r' in f.fields);
+  const stillOpen = async () => /value="info@brindlewoodrovers\.example\.au"/.test((await get(`/send/${nate.record_id}?club=brindlewood-rovers-sc`, nate.child_id)).html);
+  const badLoc = await post('/stop-cvs', null, { ...stopForm.fields, t: (t?.[0] === 'A' ? 'B' : 'A') + (t ?? '').slice(1) });
+  const badDone = plain((await get(badLoc, null)).html);
+  const openAfterBad = await stillOpen();
+  const goodLoc = await post('/stop-cvs', null, stopForm.fields);
+  const goodDone = plain((await get(goodLoc, null)).html);
+  check('sc-w3: pressing "Stop them" with a bad signature stops nothing, and lands on exactly the screen a good one does',
+    [stopForm?.fields.r === r, badLoc, goodLoc, openAfterBad, badDone === goodDone, goodDone.includes('Done Pitch won’t send CVs to this address again.')],
+    [true, '/stop-cvs?done=1', '/stop-cvs?done=1', true, true, true]);
+  const stoppedPage = plain((await get(`/send/${nate.record_id}?club=brindlewood-rovers-sc`, nate.child_id)).html);
+  check('sc-w4: with a good one the club is stopped: its page’s send screen says "We can’t send to this club through Pitch", with no form',
+    [await stillOpen(), stoppedPage.includes('We can’t send to this club through Pitch Nothing has been sent.')], [false, true]);
+
+  const linksBefore = await linksOf();
+  const typedLoc = await post(`/send/${nate.record_id}`, nate.child_id, { ...nateForm, address: 'coach@brindlewoodrovers.example.au' });
+  const box2 = await outbox();
+  check('sc-w5: a self-send typed by hand to another address at that club is refused with nothing created — no send, no email to anyone, nothing on the player’s list',
+    [typedLoc, box2.includes('coach@brindlewoodrovers.example.au'), await linksOf() === linksBefore],
+    [`/send/${nate.record_id}?blocked=1`, false, true]);
+  const denizAgain = await post(`/send/${deniz.record_id}`, parent, denizForm);
+  check('sc-w6: and an under-16’s compose to it is refused before anything is asked of the parent',
+    [denizAgain, (await outbox()).split(`It goes to: ${CLUB}`).length - 1], [`/send/${deniz.record_id}?blocked=1`, 1]);
+  const gPage = plain((await get(`/g/send/${ask}`, parent)).html);
+  const gLoc = await post(`/g/send/${ask}`, parent, gForm.fields);
+  check('sc-w7: the request the child composed before the club asked now says it cannot be sent, and pressing send from the old page sends nothing',
+    [gPage.includes('We can’t send to this club through Pitch Nothing has been sent.'), /Send it to/.test(gPage), gLoc,
+     (await outbox()).split(`doc15.§19 → ${CLUB}`).length - 1],
+    [true, false, `/g/send/${ask}`, 1]);
+
+  // The operator, for a club that asks by phone or by email. Any signed-in
+  // address is an operator in development (lib/ops-policy).
+  const op = ids.people.jordan;
+  const screen = `/ops/clubs/${ids.clubs['kestrelford-athletic-sc']}`;
+  const stopBtn = forms((await get(screen, op)).html).find((f) => f.submit === 'Stop CVs to this club');
+  await post(screen, null, stopBtn?.fields ?? {});
+  const afterSignedOut = plain((await get(screen, op)).html);
+  const opLoc = await post(screen, op, stopBtn?.fields ?? {});
+  const afterOp = plain((await get(screen, op)).html);
+  const kLoc = await post(`/send/${nate.record_id}`, nate.child_id, { ...nateForm, clubName: 'Kestrelford Athletic SC', address: 'j.whitcombe@kestrelfordathletic.example.au' });
+  check('sc-w8: the operator’s "Stop CVs to this club" works with no JavaScript — signed out it stops nothing; pressed, the page says so and a family’s send to that address is refused',
+    [Boolean(stopBtn), afterSignedOut.includes('CVs to this club are stopped.'), opLoc, afterOp.includes('CVs to this club are stopped.'),
+     afterOp.includes('Stop CVs to this club'), kLoc],
+    [true, false, screen, true, false, `/send/${nate.record_id}?blocked=1`]);
+}
+
+// ---------------------------------------------------------------------------
 // 0a1 · D-105 — THE KEEPER'S FORM OPENS WITH THE KEEPER'S SET.
 //
 // STAT_SETS is the brief's position-aware DEFAULT PRE-SELECTION, and until

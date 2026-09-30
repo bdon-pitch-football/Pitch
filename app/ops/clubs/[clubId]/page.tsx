@@ -23,7 +23,7 @@ import { clubsScreensShown } from '@/lib/ops-policy';
 import { isUuid } from '@/lib/ids';
 import { T } from '@/lib/palette';
 import { card, sectionLabel } from '@/lib/ui';
-import { checkNotice, editClub, removeClub, removeNotice } from '../actions';
+import { checkNotice, editClub, removeClub, removeNotice, stopClubSends } from '../actions';
 import { StateChip } from '../chip';
 import { ListingFields, type Listing } from '../listing-fields';
 
@@ -57,6 +57,9 @@ export default async function OpsClub({ params, searchParams }: {
        to_char(added_on, 'FMDD Mon') as added, added_by_email, to_char(last_checked, 'FMDD Mon') as checked
      from fn_ops_club_notices($1)`,
     [clubId])).rows as Notice[];
+  // 0160: whether an address is held, and whether the club asked us to stop.
+  const sends = (await db.query(`select held, stopped from fn_ops_club_sends($1)`, [clubId])).rows[0] as
+    { held: boolean; stopped: boolean } | undefined;
   const unclaimed = c.club_state === 'unclaimed';
   const curatable = unclaimed || c.club_state === 'claimed';
 
@@ -84,6 +87,18 @@ export default async function OpsClub({ params, searchParams }: {
             <button type="submit" className="btn btn-secondary">Save changes</button>
           </form>
         )}
+
+        {/* A club that asks us to stop sending it CVs (0160). Whatever its
+            state: stopping is the safe direction. Nothing when no address is
+            held — there is nothing of Pitch's to stop. */}
+        {sends?.stopped ? (
+          <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary }}>CVs to this club are stopped.</div>
+        ) : sends?.held ? (
+          <form action={stopClubSends} className="ops-doors" style={{ justifyContent: 'flex-start' }}>
+            <input type="hidden" name="clubId" value={c.id} />
+            <button type="submit" className="console-btn">Stop CVs to this club</button>
+          </form>
+        ) : null}
 
         {/* Never an empty section (D-162): a verified club with no notice
             of Pitch's shows no Trials heading at all. */}

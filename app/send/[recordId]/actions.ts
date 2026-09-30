@@ -48,6 +48,12 @@ export async function composeSend(formData: FormData) {
   // because the log records what happened, never what was stopped (L56).
   if (state.mode === 'off') redirect(`/send/${recordId}`);
   if (!clubName || !EMAIL_RE.test(address)) redirect(`/send/${recordId}?error=1`);
+  // 0160 (John, 30 Sep §2): a club that asked Pitch to stop is not sent to —
+  // including an address typed by hand at that club's domain. Asked before
+  // anything is written, on both paths: nothing is created and nothing is
+  // logged, and the page says so plainly, with no reason.
+  const stopped = (await db.query('select fn_send_blocked($1) as b', [address])).rows[0]?.b === true;
+  if (stopped) redirect(`/send/${recordId}?blocked=1`);
 
   if (state.mode === 'self') {
     // L38-L41, on the same terms as the guardian's door: counted per sending

@@ -1006,7 +1006,8 @@ async function sampleMessages(db: PGlite, clubId: string) {
       [msg.key, msg.channel, to, msg.subject ?? null, msg.body, String(minutesAgo)]);
 
   if (nate) {
-    await put(m.cvToClubEmail('Nate', 17, nate.positions.join(' · '), nate.club, 'demo-link', 'self', '16_17'), clubMail, 1440);
+    await put(m.cvToClubEmail('Nate', 17, nate.positions.join(' · '), nate.club, 'demo-link',
+      { requestId: '00000000-0000-0000-0000-000000000000', sig: 'demo-link' }, 'self', '16_17'), clubMail, 1440);
   }
   await put(m.bareWakeSms(), parentPhone, 180);
   await put(m.bareWakeEmail(), 'guardian@example.com', 179);

@@ -5,6 +5,13 @@
 //
 // Which screen renders is decided by lib/send-state.ts — the SAME function the
 // action reads — so the page can never offer a send the action will refuse.
+//
+// From a club's own page (?club=<slug>) the club and its address are filled
+// in (0160; John, 30 Sep §2): the address only when the database says it is a
+// role address, checked within 90 days and not stopped, and then IN FULL —
+// the guardian reviews exactly this (D-91, doc 14 L2/L4), and a masked
+// address cannot be reviewed. Both fields stay editable. A club that asked
+// Pitch to stop gets a plain "can't send", and no reason.
 import { notFound, redirect } from 'next/navigation';
 import { requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
@@ -55,11 +62,11 @@ const Status = ({ dot, kicker, title, children }: { dot: string; kicker: string;
 
 export default async function SendCv({ params, searchParams }: {
   params: Promise<{ recordId: string }>;
-  searchParams: Promise<{ asked?: string; sent?: string; error?: string; off?: string; link?: string }>;
+  searchParams: Promise<{ asked?: string; sent?: string; error?: string; off?: string; link?: string; club?: string; blocked?: string }>;
 }) {
   const { recordId } = await params;
   const { personId } = await requireRecordActor(recordId);
-  const { asked, sent, error, off, link } = await searchParams;
+  const { asked, sent, error, off, link, club, blocked } = await searchParams;
   const state = await sendState(recordId, personId);
   if (!state) notFound();
   // L10/L11: no send surface at all, rather than one that goes nowhere.
@@ -99,6 +106,29 @@ export default async function SendCv({ params, searchParams }: {
     );
   }
 
+  // The club's page passes its slug. A slug is a-z, 0-9 and hyphens (0130);
+  // anything else is ignored rather than asked about.
+  const slug = typeof club === 'string' && /^[a-z0-9-]{1,80}$/.test(club) ? club : null;
+  const held = slug
+    ? (await db.query(
+        `select club_name, address, to_char(checked_on, 'FMDD FMMonth') as checked, blocked
+         from fn_send_address_for_club($1)`,
+        [slug],
+      )).rows[0] as { club_name: string; address: string | null; checked: string | null; blocked: boolean } | undefined
+    : undefined;
+
+  // 0160: the club asked Pitch to stop, or the action refused an address that
+  // did. Nothing else on the page — no form, no reason, nothing about the club.
+  if (blocked || held?.blocked) {
+    return (
+      <Shell>
+        <Status dot={T.muted} kicker="Not sent" title="We can’t send to this club through Pitch">
+          Nothing has been sent.
+        </Status>
+      </Shell>
+    );
+  }
+
   const self = state.mode === 'self';
   const act = composeSend;
   return (
@@ -113,15 +143,19 @@ export default async function SendCv({ params, searchParams }: {
           <div style={label}>Sending to</div>
           <label style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Club</div>
-            <input style={input} name="clubName" aria-label="Club" placeholder="e.g. Northern United SC" required maxLength={60} />
+            <input style={input} name="clubName" aria-label="Club" placeholder="e.g. Northern United SC" required maxLength={60} defaultValue={held?.club_name} />
           </label>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={label}>Their email address</div>
           <label style={card}>
-            <input style={{ ...input, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} name="address" aria-label="Their email address" type="email" placeholder="football@theclub.com.au" required />
+            <input style={{ ...input, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} name="address" aria-label="Their email address" type="email" placeholder="football@theclub.com.au" required defaultValue={held?.address ?? undefined} />
           </label>
-          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>From the club&rsquo;s own trial notice. Check it&rsquo;s right — a wrong address just goes nowhere.</div>
+          {held?.address && held.checked ? (
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>The address {held.club_name} publishes on its own website, checked {held.checked}. Change it if you have a better one.</div>
+          ) : (
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>From the club&rsquo;s own trial notice. Check it&rsquo;s right — a wrong address just goes nowhere.</div>
+          )}
         </div>
         <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
           <div style={{ fontSize: 13.5, fontWeight: 800 }}>What the club gets</div>

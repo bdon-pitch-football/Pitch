@@ -671,11 +671,12 @@ await db.query(
 
 // 2. Georgia has asked to send her CV to a club (D-99)
 const georgiaRec = await recOf('Georgia');
-await db.query(
+const georgiaAsk = (await db.query(
   `insert into share_request (record_id, requested_by, destination, created_at)
-   values ($1, (select person_id from development_record where id = $1), 'Quarrymead United <football@quarrymeadunited.example.au>', now() - interval '3 days')`,
+   values ($1, (select person_id from development_record where id = $1), 'Quarrymead United <football@quarrymeadunited.example.au>', now() - interval '3 days')
+   returning id`,
   [georgiaRec],
-);
+)).rows[0].id as string;
 
 // 3. Nate has asked to go on a club register (D-108 via D-91)
 const nateRec = await recOf('Nate');
@@ -787,6 +788,20 @@ await db.query(
 // John's six rules (U1-U6). The name is invented; the locality is real.
 await db.query(`insert into club (name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
   values ('Brindlewood Rovers SC','Bulla','VIC','unclaimed','info@brindlewoodrovers.example.au','brindlewood-rovers-sc','club website /contact (fixture)', now())`);
+// Two more, so "Send my CV" filling in a club's address is held to both
+// halves of John's rule (0160, 30 Sep §2). Kestrelford Athletic publishes
+// only a person's address, so the send screen fills in nothing for it.
+// Wrenmoor Wanderers asked Pitch to stop sending it CVs, so nobody can —
+// its address and its own domain are stopped, as the operator's button stops
+// them. Names invented, localities real (fx2).
+const kestrelford = randomUUID();
+await db.query(`insert into club (id, name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
+  values ($1,'Kestrelford Athletic SC','Preston','VIC','unclaimed','j.whitcombe@kestrelfordathletic.example.au','kestrelford-athletic-sc','club website /contact (fixture)', now())`, [kestrelford]);
+const wrenmoor = randomUUID();
+await db.query(`insert into club (id, name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
+  values ($1,'Wrenmoor Wanderers FC','Altona','VIC','unclaimed','secretary@wrenmoorwanderers.example.au','wrenmoor-wanderers-fc','club website /contact (fixture)', now())`, [wrenmoor]);
+await db.query(`insert into send_block (address, club_id, source, created_by_email) values ('secretary@wrenmoorwanderers.example.au', $1, 'operator', 'seed@fixture.example')`, [wrenmoor]);
+await db.query(`insert into send_block (domain, club_id, source, created_by_email) values ('wrenmoorwanderers.example.au', $1, 'operator', 'seed@fixture.example')`, [wrenmoor]);
 const tarrowvale = randomUUID();
 const tarrowvaleCall = randomUUID();
 await db.query(`insert into club (id, name, suburb, state, club_state, contact_email)
@@ -1065,6 +1080,9 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
       // bulk register. L40 compares a real send with a limited one, and each
       // sender has ten real sends a day, so it needs more than one of them.
       heldClub: quarrymead,
+      // Georgia's request to Quarrymead: the render suite opens its stop link
+      // (0160) and checks that opening it stopped nothing.
+      georgiaAsk,
       adultPlayers: (await db.query(
         `select p.id as person_id, dr.id as record_id from person p join development_record dr on dr.person_id = p.id
          where p.dob is not null and fn_age_band(p.dob) = '18plus' order by p.first_name, p.id`)).rows,

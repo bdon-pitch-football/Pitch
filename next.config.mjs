@@ -30,6 +30,15 @@ const nextConfig = {
       // /unsubscribe and /manage carry a bearer token in the URL — never leak it.
       { source: '/unsubscribe', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
       { source: '/manage', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+      // /stop-cvs carries a signed stop link for one send (doc 15 §19, 0160):
+      // the same no-referrer, and noindex here as well as in the page.
+      {
+        source: '/stop-cvs',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
       // Tokenised CV pages: a minor's share token must never reach a third
       // party via the Referer header (D-94 §5), and the pages carry noindex
       // in metadata AND here as a belt (D-95).
