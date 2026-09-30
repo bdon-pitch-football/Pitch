@@ -70,7 +70,7 @@ async function get(path, personId) {
   });
   const html = await res.text();
   served.push({ path, who: personId ?? null, status: res.status, analytics: ANALYTICS_MARK.test(html) });
-  return { status: res.status, location: res.headers.get('location'), csp: res.headers.get('content-security-policy'), html };
+  return { status: res.status, location: res.headers.get('location'), csp: res.headers.get('content-security-policy'), robots: res.headers.get('x-robots-tag'), html };
 }
 
 // D-163 (0075): billing is OFF until further notice, and this suite renders the product
@@ -2473,7 +2473,8 @@ const georgia = ids.children.georgia;
   check('U3: nothing about a person under 18 — no squad, no team list, no child\u2019s name',
     [/Deniz|Georgia|Mila|Nate/.test(bw), /data-squad|href="\/squad\//.test(brind.html)], [false, false]);
   check('U4: it is kept out of search engines until the club claims it',
-    /<meta name="robots" content="noindex, nofollow"/.test(brind.html), true);
+    // John asks for both: the meta tag and the served header.
+    [/<meta name="robots" content="noindex, nofollow"/.test(brind.html), brind.robots], [true, 'noindex, nofollow']);
   const bannerAt = brind.html.indexOf('data-unclaimed-banner');
   check('U5: the banner is there, in body-text size, before anything else on the page is offered',
     [bannerAt > 0, brind.html.replace(/<!-- -->/g, '').includes('Pitch made this page from public information. Brindlewood Rovers SC has not claimed it.'),
