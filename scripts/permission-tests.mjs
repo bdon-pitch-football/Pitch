@@ -9914,6 +9914,21 @@ const componentFilesAll = [];
     const d1 = (await db.query(`select * from fn_ops_day(${mel} - 1)`)).rows[0];
     check('ops-d4: and yesterday does not count a person who joined today, nor today\u2019s invitation',
       [d1.signups_total < d0.signups_total || d0.signups_total === 0, d1.approvals_sent < d0.approvals_sent], [true, true]);
+    // 0158: the operator's test accounts are left out of the 7am counts, a
+    // +tag included, and the list comes from the environment, not the code.
+    const exA = crypto.randomUUID(), exB = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, email) values ($1, 'Optest', 'op.test@example.com'), ($2, 'Optest', 'op.test+t1@example.com')`, [exA, exB]);
+    await db.query(`insert into development_record (person_id) values ($1), ($2)`, [exA, exB]);
+    const withAll = (await db.query(`select * from fn_ops_day(${mel}, '{}'::text[])`)).rows[0];
+    const without = (await db.query(`select * from fn_ops_day(${mel}, array['OP.test@example.com'])`)).rows[0];
+    const oneArg = (await db.query(`select * from fn_ops_day(${mel})`)).rows[0];
+    check('ops-d7: the 7am count leaves out the operator\u2019s test accounts, +tag and case included, and nothing else changes',
+      [withAll.signups_total - without.signups_total, withAll.signups_player - without.signups_player, oneArg.signups_total === withAll.signups_total],
+      [2, 2, true]);
+    check('ops-d8: and the list is read from DIGEST_EXCLUDE_EMAILS — no address is written into the digest route',
+      (() => { const src = codeOnly(srcOf('app/api/digest/route.ts')); return [/process\.env\.DIGEST_EXCLUDE_EMAILS/.test(src), /fn_ops_day[^\n]*@[a-z]/i.test(src)]; })(), [true, false]);
+    await db.query('delete from development_record where person_id in ($1, $2)', [exA, exB]);
+    await db.query('delete from person where id in ($1, $2)', [exA, exB]);
     const { digestMessage } = await import('../lib/digest.ts');
     const quiet = { label: 'Wed 30 Sep', signups: 0, player: 0, parent: 0, coach: 0, club: 0, approvalsSent: 0, approved: 0, failures: 0, awaitingCall: 0 };
     const busy = { ...quiet, signups: 3, player: 1, coach: 2, approvalsSent: 2, approved: 1, failures: 1 };
@@ -9925,7 +9940,7 @@ const componentFilesAll = [];
       [null, 'Pitch — 3 new accounts yesterday', true, true, true, false]);
     const digestRouteSrc = codeOnly(srcOf('app/api/digest/route.ts'));
     check('ops-d6: the digest asks for yesterday through fn_ops_day and the Today functions only — counts, nothing that names anybody',
-      /from fn_ops_day\(\(\(now\(\) at time zone 'Australia\/Melbourne'\)::date - 1\)\)/.test(digestRouteSrc)
+      /from fn_ops_day\(\(\(now\(\) at time zone 'Australia\/Melbourne'\)::date - 1\), \$1::text\[\]\)/.test(digestRouteSrc)
         && !/from (person|consent_event|message_outbox)\b/.test(digestRouteSrc), true);
   }
   check('ops-t7: approved counts only what was sent today, so "% of sent" can never pass 100 — an approval of an older request is in neither figure',

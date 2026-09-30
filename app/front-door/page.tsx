@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation';
 import FrontDoor, { FRONT_DOOR_SEATS, type FrontDoorSeat } from '@/components/front-door/FrontDoor';
 import { frontDoorOpen } from '@/lib/front-door';
 import PublicAnalytics from '@/components/PublicAnalytics';
+import SiteFooter from '@/components/SiteFooter';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,5 +29,6 @@ export default async function FrontDoorPage({ searchParams }: { searchParams: Pr
   if (!(await frontDoorOpen())) notFound();
   const seat = (await searchParams).for ?? '';
   // Served at `/`, so it is the front door analytics may count (lib/analytics-scope).
-  return <><FrontDoor seat={(FRONT_DOOR_SEATS as readonly string[]).includes(seat) ? seat as FrontDoorSeat : null} /><PublicAnalytics /></>;
+  // Doc 32 B4 and B5 on the busiest page: who we legally are, and Report a page.
+  return <><FrontDoor seat={(FRONT_DOOR_SEATS as readonly string[]).includes(seat) ? seat as FrontDoorSeat : null} /><SiteFooter onFrontPage /><PublicAnalytics /></>;
 }

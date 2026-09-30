@@ -4,9 +4,20 @@
 import { usePathname } from 'next/navigation';
 import { ENTITY_LINE } from '@/lib/entity';
 
-export default function SiteFooter() {
+// Signed-in screens carry the footer without the entity line (BUZ, 30 Sep:
+// option 1). Doc 32 B5 asks that the SITE names the legal person: the public
+// pages, the front page and every legal page still do. B4's "Report a page"
+// stays on every page.
+const SIGNED_IN = ['/home', '/build', '/coach', '/club', '/ops', '/g/', '/squad', '/manage', '/registers', '/send', '/share-card'];
+export const showsEntity = (path: string | null): boolean =>
+  !SIGNED_IN.some((p) => path === p || path?.startsWith(p.endsWith('/') ? p : `${p}/`));
+
+export default function SiteFooter({ onFrontPage = false }: { onFrontPage?: boolean }) {
   const path = usePathname();
-  if (path === '/') return null;
+  // `/` is either the front door or the old coming-soon page, and the old page
+  // carries its own footer. So the layout's footer stays off `/`, and the front
+  // door renders this one itself (onFrontPage).
+  if (path === '/' && !onFrontPage) return null;
   // Only public addresses go into a report. Many paths carry a secret — a
   // share token (/p/…), an approval code (/a/…), a reset or undo token — and
   // a report must never store one (0010). The CV page's own link sends the
@@ -14,7 +25,7 @@ export default function SiteFooter() {
   const safe = path && (/^\/(c|fc)\/[a-z0-9-]+$/.test(path) || ['/trials', '/jobs'].includes(path)) ? path : '';
   return (
     <footer className="site-foot">
-      <div>{ENTITY_LINE}</div>
+      {showsEntity(path) && <div>{ENTITY_LINE}</div>}
       <nav aria-label="Legal">
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>

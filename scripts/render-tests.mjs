@@ -1445,14 +1445,23 @@ const georgia = ids.children.georgia;
   check('g32-r1: the approval page shows the child privacy policy in the flow (B3)',
     /The privacy policy we wrote for Mila/.test(approval) && /class="legal-doc"/.test(approval), true);
   check('g32-r2: and /privacy/family serves it', (await get('/privacy/family')).status, 200);
-  for (const path of ['/signin', '/trials', '/p/dev-jordan', `/g/controls/${ids.children.nate.child_id}`]) {
-    const who = path.startsWith('/g/') ? ids.people.alex : null;
+  // BUZ, 30 Sep (option 1): the public site names the legal person (B5); a
+  // signed-in screen keeps Privacy, Terms and Report a page (B4) and drops the
+  // entity line.
+  for (const path of ['/signin', '/trials', '/p/dev-jordan', '/terms', `/g/controls/${ids.children.nate.child_id}`, '/home']) {
+    const signedIn = path.startsWith('/g/') || path === '/home';
+    const who = signedIn ? ids.people.alex : null;
     const html = (await get(path, who)).html;
     const foot = /<footer class="site-foot">([\s\S]*?)<\/footer>/.exec(html)?.[1] ?? '';
-    check(`g32-r3: ${path.replace(/[0-9a-f-]{36}/, '*')} names the legal person and links a report (B4, B5)`,
-      /EBSD Enterprises Pty Ltd/.test(foot) && /ABN 65 701 879 718/.test(foot) && /href="\/report/.test(foot), true);
+    const named = /EBSD Enterprises Pty Ltd/.test(foot) && /ABN 65 701 879 718/.test(foot);
+    check(`g32-r3: ${path.replace(/[0-9a-f-]{36}/, '*')} links a report (B4) and ${signedIn ? 'leaves the entity line off a signed-in screen' : 'names the legal person (B5)'}`,
+      [/href="\/report/.test(foot), named], [true, !signedIn]);
     check(`g32-r4: ${path.replace(/[0-9a-f-]{36}/, '*')} footer carries no secret`, /dev-|[0-9a-f]{36}/.test(foot), false);
   }
+  // The front page had no footer at all once the front door replaced the
+  // coming-soon page (found 30 Sep). It renders the full one itself.
+  check('g32-r6: the front door renders the full footer (B4, B5) — the layout\u2019s stays off `/` for the old page',
+    /<SiteFooter onFrontPage \/>/.test(readFileSync(new URL('../app/front-door/page.tsx', import.meta.url), 'utf8')), true);
   check('g32-r5: nothing calls itself "Pitch Football Pty Ltd"', /Pitch Football Pty Ltd/i.test((await get('/signin')).html), false);
 }
 
