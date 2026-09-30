@@ -78,17 +78,22 @@ and **Preview**:
 1. BUZ says go. Leo promotes the verified preview to production on
    `pitchfootball.com.au`. The coming-soon site's `main` is kept, so rolling
    back is one redeploy.
-2. **Flip the front door on** in the production database, then `curl -sI /`
+2. **Create the storage bucket** `public-images` in the production project,
+   **public-read** (Storage → New bucket, or `insert into storage.buckets (id,
+   name, public) values ('public-images', 'public-images', true)`). No
+   migration creates it; without it, crest and photo uploads fail. (Found in
+   the 30 Sep rehearsal.)
+3. **Flip the front door on** in the production database, then `curl -sI /`
    must return 200.
-3. **The waitlist's one email (promised on the site: "one email, at launch").**
+4. **The waitlist's one email (promised on the site: "one email, at launch").**
    BUZ sends it himself from his own address, one email per person and never
    CC'd together. Leo drafts each one in BUZ's Gmail on launch morning, from
    the `waitlist` rows not unsubscribed. The words are held for BUZ's approval
    (drafted 29 Sep). A reply of "unsubscribe" is the opt-out; Leo records any
    in `waitlist.unsubscribed_at`.
-4. **Kill switches rehearsed from BUZ's phone:** pause shared links, and
+5. **Kill switches rehearsed from BUZ's phone:** pause shared links, and
    switch SMS off and back on.
-5. **Under-18s** open the day 1a clears (if BUZ chooses to launch adults,
+6. **Under-18s** open the day 1a clears (if BUZ chooses to launch adults,
    coaches and clubs first).
 
 ## Rollback
