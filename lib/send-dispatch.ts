@@ -113,7 +113,9 @@ export async function dispatchShareRequest(requestId: string, actorId: string): 
   if (clubAddress) {
     await send(
       cvToClubEmail(row.first_name, row.age, (row.positions ?? []).join(', '), row.club, raw,
-        // The club's opt-out (John, 30 Sep §2): this send, signed — never the address.
+        // The club's opt-out (John, 30 Sep §2): this send, signed — never the
+        // address. The id is also the send's stop reference (0161), which a
+        // trigger wrote at dispatch and which outlives the child's erasure.
         { requestId, sig: stopCvsSig(requestId) },
         selfSend ? 'self' : 'family', band),
       { address: clubAddress },

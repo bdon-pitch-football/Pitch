@@ -1353,7 +1353,7 @@ check('I5b/I3: the consent log survives the deletion',
   const E = {};
   for (const k of ['child', 'guardian', 'other', 'otherGuardian', 'adult', 'investigator', 'club', 'squad', 'rec', 'otherRec',
     'report', 'comp', 'role', 'reg', 'otherReg', 'otherReg2', 'inv', 'otherInv', 'tok', 'otherTok', 'outAbout', 'grant', 'otherGrant',
-    'reportHold', 'reportTok', 'reportCoach', 'reportOther']) {
+    'reportHold', 'reportTok', 'reportCoach', 'reportOther', 'stopReq']) {
     E[k] = crypto.randomUUID();
   }
   const P = E.child;
@@ -1479,6 +1479,11 @@ check('I5b/I3: the consent log survives the deletion',
     // Rows elsewhere that point at a message about the child.
     await q(`insert into access_request (share_token_id, requester_name, requester_role, notified_outbox_id) values ($1,'Riley','coach',$2)`, [E.otherTok, E.outAbout]);
     await q(`insert into age_transition_notice (child_id, outbox_id) values ($1,$2)`, [E.other, E.outAbout]);
+    // 0161: a CV of hers that went to a club, and the stop reference the
+    // dispatch leaves (written here by hand: the triggers are off).
+    await q(`insert into share_request (id, record_id, requested_by, destination, dispatched_by, dispatched_at)
+             values ($1,$2,$3,'Erasure Park FC <info@erasurepark.example.au>',$3, now())`, [E.stopReq, E.rec, E.guardian]);
+    await q(`insert into send_stop_ref (id, address) values ($1,'info@erasurepark.example.au')`, [E.stopReq]);
   } catch (e) { fixtureErr = e.message; }
   await db.exec(`set session_replication_role = origin`);
   check('erase1: the fixture builds', fixtureErr, null);
@@ -1527,6 +1532,26 @@ check('I5b/I3: the consent log survives the deletion',
     [await level(E.guardian, P), await level(E.adult, P), await level(null, P)], ['none', 'none', 'none']);
   check('I4c/E8: and the child’s own link reads like every other dead state',
     (await q(`select fn_token_read(decode(md5('e-tok'),'hex')) as r`)).rows[0].r, null);
+  // DELIBERATELY RETAINED through an erasure, each with no reference to any
+  // person and the reason it stays. A table added here is a decision, read by
+  // a person; the check below holds it to "names nobody".
+  const RETAINED = {
+    // 0161 (Leo, 30 Sep): the club's opt-out must work for as long as the CV
+    // email exists (Spam Act), which is longer than the child's record may.
+    send_stop_ref: 'the address a CV was sent to and when, keyed by the send — no child, record, sender, band or content',
+  };
+  const retainedShape = [];
+  for (const t of Object.keys(RETAINED)) {
+    const cols = (await q(`select string_agg(column_name, ',' order by column_name) as c from information_schema.columns where table_name = $1`, [t])).rows[0].c;
+    const fks = (await q(`select count(*)::int as n from pg_constraint where contype = 'f' and conrelid = $1::regclass`, [t])).rows[0].n;
+    retainedShape.push([t, cols, fks]);
+  }
+  check('erase8: what erasure deliberately keeps names nobody — the stop reference is the send\u2019s id, an address and a time, with no foreign key to anything',
+    retainedShape, [['send_stop_ref', 'address,created_at,id', 0]]);
+  const stopAfter = (await q(`select count(*)::int as n from share_request where id = $1`, [E.stopReq])).rows[0].n;
+  await q('select fn_send_stop_request($1)', [E.stopReq]);
+  check('erase8b: so after her erasure her CV request is gone, and the club it went to can still stop CVs with the link in that email',
+    [stopAfter, (await q(`select fn_send_blocked('info@erasurepark.example.au') as b`)).rows[0].b], [0, true]);
   check('I5c: the consent log records the request and the completion, and survives',
     (await q(`select array_agg(event order by id)::text[] as e from consent_event
               where (subject_id = $1 and event = 'deletion_requested') or (actor_id = $2 and event = 'deletion_completed')`, [P, E.guardian])).rows[0].e,
@@ -10565,11 +10590,15 @@ const componentFilesAll = [];
   await db.query(`insert into development_record (id, person_id, positions) values ($1, $2, array['CM'])`, [adultRec, adult]);
   const ask = async (dest) => (await one(
     `insert into share_request (record_id, requested_by, destination) values ($1, $2, $3) returning id`, [adultRec, adult, dest])).id;
+  // A CV that went: the stop link only exists in a sent email (0161).
+  const sent = async (dest) => (await one(
+    `insert into share_request (record_id, requested_by, destination, dispatched_by, dispatched_at) values ($1, $2, $3, $2, now()) returning id`,
+    [adultRec, adult, dest])).id;
   const blocks = async () => (await db.query(
     `select coalesce(address, domain) as what, source, club_id = any($1::uuid[]) as clubbed from send_block order by 1`,
     [[larkmoor, gmailClub, quenby]])).rows;
   const before = await blocks();
-  const larkAsk = await ask('Larkmoor Athletic SC <secretary@larkmoor.example.au>');
+  const larkAsk = await sent('Larkmoor Athletic SC <secretary@larkmoor.example.au>');
   // Asked for, but not yet sent, when the club asks us to stop.
   const pending = await ask('Larkmoor Athletic SC <juniors@larkmoor.example.au>');
   await db.query('select fn_send_stop_request($1)', [larkAsk]);
@@ -10583,15 +10612,15 @@ const componentFilesAll = [];
   check('sc-11: the send screen offers it no address and says it is stopped',
     await offered('sc-larkmoor'), [{ club_name: 'Larkmoor Athletic SC', address: null, checked_on: null, blocked: true }]);
 
-  const gmailAsk = await ask('Tollcross Juniors SC <tollcrossjuniors@gmail.com>');
+  const gmailAsk = await sent('Tollcross Juniors SC <tollcrossjuniors@gmail.com>');
   await db.query('select fn_send_stop_request($1)', [gmailAsk]);
   check('sc-12: a club run from free mail stops only its own address — never gmail.com for everybody',
     [await blocked('tollcrossjuniors@gmail.com'), await blocked('someone.else@gmail.com'),
      (await one(`select count(*)::int as n from send_block where domain = 'gmail.com'`)).n], [true, false, 0]);
   const shared1 = await club('Ashvale Rangers SC', 'sc-ashvale', 'ashvale@league.example.au');
   await club('Birchmont United', 'sc-birchmont', 'birchmont@league.example.au');
-  await db.query('select fn_send_stop_request($1)', [await ask('Ashvale Rangers SC <ashvale@league.example.au>')]);
-  const typedAsk = await ask('Some Club <coach@typedbyhand.example.au>');
+  await db.query('select fn_send_stop_request($1)', [await sent('Ashvale Rangers SC <ashvale@league.example.au>')]);
+  const typedAsk = await sent('Some Club <coach@typedbyhand.example.au>');
   await db.query('select fn_send_stop_request($1)', [typedAsk]);
   check('sc-13: a domain another listed club is on is not stopped, and an address that is no club’s stops only itself',
     [await blocked('ashvale@league.example.au'), await blocked('birchmont@league.example.au'),
@@ -10601,6 +10630,12 @@ const componentFilesAll = [];
   const rowsBefore = (await blocks()).length;
   check('sc-14: a stop for a send that does not exist stops nothing, and says nothing',
     [await state('select fn_send_stop_request($1)', [crypto.randomUUID()]), (await blocks()).length - rowsBefore], ['ok', 0]);
+  const neverSent = await ask('Some Club <coach@neversent.example.au>');
+  await db.query('select fn_send_stop_request($1)', [neverSent]);
+  const ref = async (id) => (await one('select address from send_stop_ref where id = $1', [id]))?.address ?? null;
+  check('sc-14b: a request that was never sent leaves no stop reference and stops nothing; a sent one leaves exactly its address',
+    [await ref(neverSent), await blocked('coach@neversent.example.au'), await ref(larkAsk)],
+    [null, false, 'secretary@larkmoor.example.au']);
 
   // The belt: whatever composed a request, a stopped destination is never stamped sent.
   const stamp = (id) => state(`update share_request set dispatched_by = $2, dispatched_at = now() where id = $1`, [id, adult]);
@@ -10634,6 +10669,40 @@ const componentFilesAll = [];
      { source: 'operator', created_by_email: 'stop.curator@fixture.example' },
      { action: 'club_sends_stopped', operator_email: 'stop.curator@fixture.example', address: 'admin@wharfdaleharriers.example.au', domain: 'wharfdaleharriers.example.au' }]);
 
+  // 0161 · 1 — only an unclaimed listing has its address filled in: the
+  // words say "publishes on its own website", which is what we know of a
+  // listing Pitch compiled and nothing else.
+  const claimedId = await club('Rushbrook Athletic SC', 'sc-rushbrook', 'info@rushbrook.example.au', 'claimed');
+  const verifiedId = await club('Pellham Vale FC', 'sc-pellham-vale', 'secretary@pellhamvale.example.au', 'claimed');
+  const vCall = crypto.randomUUID();
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0160','FV club directory','verified','27@v1.0')`, [vCall, verifiedId]);
+  await db.query(`update club set club_state = 'verified', verified_call_id = $1 where id = $2`, [vCall, verifiedId]);
+  check('sc-19: a claimed club and a verified club get their name and no address, even a fresh role address; an unclaimed one does',
+    [await offered('sc-rushbrook'), await offered('sc-pellham-vale'), (await offered('sc-quenby-rovers'))[0].club_name, claimedId !== verifiedId],
+    [[{ club_name: 'Rushbrook Athletic SC', address: null, checked_on: null, blocked: false }],
+     [{ club_name: 'Pellham Vale FC', address: null, checked_on: null, blocked: false }], 'Quenby Rovers SC', true]);
+
+  // 0161 · 3 — the club's opt-out outlives the family's erasure. An
+  // under-16's CV, sent by their parent through the product's own path (the
+  // trigger writes the stop reference), then the parent erases the child.
+  const kid = crypto.randomUUID(), mum = crypto.randomUUID(), kidRec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1, 'Stopkid', $2), ($3, 'Stopmum', $4)`, [kid, yearsAgo(13), mum, yearsAgo(40)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1, $2, now())`, [mum, kid]);
+  await db.query(`insert into development_record (id, person_id, positions) values ($1, $2, array['LB'])`, [kidRec, kid]);
+  const kidSend = (await one(`insert into share_request (record_id, requested_by, destination) values ($1, $2, 'Wharfdale Juniors <juniors@erasedkid.example.au>') returning id`, [kidRec, kid])).id;
+  await db.query(`update share_request set dispatched_by = $2, dispatched_at = now() where id = $1`, [kidSend, mum]);
+  const refBefore = await ref(kidSend);
+  const erased = await state('select fn_erase_child($1, $2)', [mum, kid]);
+  await db.query('select fn_send_stop_request($1)', [kidSend]);
+  check('sc-20: a parent erases their child after a CV went; the request is gone, and the club pressing the link in that email still stops CVs to its address',
+    [refBefore, erased, (await one('select count(*)::int as n from share_request where id = $1', [kidSend])).n,
+     await ref(kidSend), await blocked('juniors@erasedkid.example.au')],
+    ['juniors@erasedkid.example.au', 'ok', 0, 'juniors@erasedkid.example.au', true]);
+  check('sc-21: the stop reference is locked like every table — row security on, no policies (L26)',
+    [(await one(`select relrowsecurity as r from pg_class where oid = 'send_stop_ref'::regclass`)).r,
+     (await one(`select count(*)::int as n from pg_policies where tablename = 'send_stop_ref'`)).n], [true, 0]);
+
   // The doors in the product: every one asks the same question.
   const pickUp = /const req = await client\.query\(\s*`([^`]*)`/.exec(dispatchLib)?.[1] ?? '';
   check('sc-s1: the one dispatch path will not pick up a stopped destination — a stopped send returns null, one answer',
@@ -10648,10 +10717,15 @@ const componentFilesAll = [];
     [/from fn_send_address_for_club\(\$1\)/.test(sendPage), /contact_email|from club\b/.test(sendPage), /•|\\u2022|mask/i.test(sendPage)],
     [true, false, false]);
   const stopPage = codeOnly(srcOf('app/stop-cvs/page.tsx')), stopAct = codeOnly(srcOf('app/stop-cvs/actions.ts'));
-  check('sc-s4: opening /stop-cvs changes nothing — the page reads no database; only the press stops, after the signature and the rate limit',
+  // Leo, 30 Sep: a good signature is always honoured and never rate-limited;
+  // only a failed one is counted.
+  const stopBody = stopAct.split('export async function stopCvs')[1] ?? '';
+  const validAt = stopBody.indexOf('if (stopCvsValid(requestId, sig)) {'), elseAt = stopBody.indexOf('} else {');
+  check('sc-s4: opening /stop-cvs changes nothing — the page reads no database; only the press stops, after the signature, and only a failed signature is counted against the limit',
     [/db\.|fn_send_stop_request|from '@\/lib\/db'/.test(stopPage),
-     stopAct.indexOf('checkRate') > -1 && stopAct.indexOf('stopCvsValid') > -1 && stopAct.indexOf('stopCvsValid') < stopAct.indexOf('fn_send_stop_request'),
-     (stopAct.match(/redirect\(/g) ?? []).length, /redirect\('\/stop-cvs\?done=1'\)/.test(stopAct)], [false, true, 1, true]);
+     validAt > -1 && validAt < stopBody.indexOf('fn_send_stop_request') && stopBody.indexOf('fn_send_stop_request') < elseAt,
+     (stopBody.match(/checkRate\(/g) ?? []).length, stopBody.indexOf('checkRate(') > elseAt,
+     (stopAct.match(/redirect\(/g) ?? []).length, /redirect\('\/stop-cvs\?done=1'\)/.test(stopAct)], [false, true, 1, true, 1, true]);
   const { execFileSync } = await import('node:child_process');
   const lib = fileURLToPath(new URL('../lib/stop-cvs.ts', import.meta.url));
   const run = (code, env = {}) => { try { return execFileSync(process.execPath, [

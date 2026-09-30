@@ -40,6 +40,10 @@ export async function composeSend(formData: FormData) {
   const { personId } = await requireRecordActor(recordId);
   const clubName = String(formData.get('clubName') ?? '').trim();
   const address = String(formData.get('address') ?? '').trim();
+  // The club's page the form came from (0160), carried back on an error so
+  // the club is still filled in. A slug or nothing.
+  const clubSlug = String(formData.get('club') ?? '');
+  const back = /^[a-z0-9-]{1,80}$/.test(clubSlug) ? `&club=${clubSlug}` : '';
 
   const state = await sendState(recordId, personId);
   // L10/L11: paused, unapproved, or not this person's to send — no send row.
@@ -47,7 +51,7 @@ export async function composeSend(formData: FormData) {
   // L6: sending is switched off. Nothing is created and nothing is logged,
   // because the log records what happened, never what was stopped (L56).
   if (state.mode === 'off') redirect(`/send/${recordId}`);
-  if (!clubName || !EMAIL_RE.test(address)) redirect(`/send/${recordId}?error=1`);
+  if (!clubName || !EMAIL_RE.test(address)) redirect(`/send/${recordId}?error=1${back}`);
   // 0160 (John, 30 Sep §2): a club that asked Pitch to stop is not sent to —
   // including an address typed by hand at that club's domain. Asked before
   // anything is written, on both paths: nothing is created and nothing is

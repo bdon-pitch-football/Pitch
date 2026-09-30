@@ -976,6 +976,13 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     ['Brindlewood Rovers SC', CLUB, true, true, true]);
 
   const nateForm = await filledForm(nate.child_id, nate.record_id);
+  // Leo, 30 Sep: a mistyped address comes back with the club still filled in.
+  const typoLoc = await post(`/send/${nate.record_id}`, nate.child_id, { ...nateForm, address: 'info at brindlewood' });
+  const typoPage = typoLoc ? (await get(typoLoc, nate.child_id)).html : '';
+  check('sc-w1b: a mistyped address comes back to the form with the club carried through, filled in again, and the error said',
+    [typoLoc, /value="Brindlewood Rovers SC"/.test(typoPage), /value="info@brindlewoodrovers\.example\.au"/.test(typoPage),
+     /Check the club name and the email address/.test(plain(typoPage))],
+    [`/send/${nate.record_id}?error=1&club=brindlewood-rovers-sc`, true, true, true]);
   const sentLoc = await post(`/send/${nate.record_id}`, nate.child_id, nateForm);
   const box1 = await outbox();
   const at = box1.indexOf(`doc15.§19 → ${CLUB}`);
@@ -1031,6 +1038,28 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     [Boolean(stopBtn), afterSignedOut.includes('CVs to this club are stopped.'), opLoc, afterOp.includes('CVs to this club are stopped.'),
      afterOp.includes('Stop CVs to this club'), kLoc],
     [true, false, screen, true, false, `/send/${nate.record_id}?blocked=1`]);
+
+  // Leo, 30 Sep: a good signature is always honoured and never counted. From
+  // one address, twenty good presses (of a link already used), then a
+  // twenty-first good one, for a new send, still stops.
+  const pressFrom = async (fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + '/stop-cvs', { method: 'POST', body: fd, redirect: 'manual', headers: { 'x-forwarded-for': '203.0.113.21' } });
+    await r.text();
+    return (r.headers.get('location') ?? '').replace(BASE, '');
+  };
+  const burst = [];
+  for (let i = 0; i < 20; i++) burst.push(await pressFrom(stopForm.fields));
+  const burstSent = await post(`/send/${nate.record_id}`, nate.child_id, { ...nateForm, clubName: 'Stopburst FC', address: 'coach@stopburst.example.au' });
+  const box3 = await outbox();
+  const at3 = box3.indexOf('doc15.§19 → coach@stopburst.example.au');
+  const link3 = /stop-cvs\?r=([0-9a-f-]{36})&t=([A-Za-z0-9_-]{43})/.exec(box3.slice(at3));
+  const twentyFirst = link3 ? await pressFrom({ ...stopForm.fields, r: link3[1], t: link3[2] }) : null;
+  const afterBurst = await post(`/send/${nate.record_id}`, nate.child_id, { ...nateForm, clubName: 'Stopburst FC', address: 'coach@stopburst.example.au' });
+  check('sc-w9: the 21st good stop in an hour from one address still records — the club it went to can no longer be sent to',
+    [[...new Set(burst)], /sent=1/.test(burstSent), at3 >= 0, twentyFirst, afterBurst],
+    [['/stop-cvs?done=1'], true, true, '/stop-cvs?done=1', `/send/${nate.record_id}?blocked=1`]);
 }
 
 // ---------------------------------------------------------------------------

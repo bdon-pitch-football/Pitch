@@ -2555,6 +2555,19 @@ const georgia = ids.children.georgia;
   const odd = await get(`/send/${nate.record_id}?club=Brindlewood%20Rovers%27%3B`, nate.child_id);
   check('sc-r6: a club parameter that is not a slug is ignored — the plain screen, nothing filled in',
     [odd.status, valueOf(odd.html, 'clubName'), valueOf(odd.html, 'address')], [200, null, null]);
+  // 0161: a verified club — Kingsway's address is a role address — gets its
+  // name and no address: "publishes on its own website" is only what we know
+  // of a listing Pitch compiled.
+  const verifiedClub = await get(`/send/${nate.record_id}?club=kingsway-rovers`, nate.child_id);
+  check('sc-r11: a verified club gets its name filled in and no address, and the usual line under the empty field',
+    [verifiedClub.status, valueOf(verifiedClub.html, 'clubName'), valueOf(verifiedClub.html, 'address'),
+     /publishes on its own website/.test(vis(verifiedClub.html)), vis(verifiedClub.html).includes(OLD_HELP)],
+    [200, 'Kingsway Rovers FC', null, false, true]);
+  const typo = await get(`/send/${nate.record_id}?error=1&club=brindlewood-rovers-sc`, nate.child_id);
+  check('sc-r12: after a mistyped address the screen says so and still carries the club — filled in, and in the form for the next press',
+    [typo.status, /Check the club name and the email address/.test(vis(typo.html)), valueOf(typo.html, 'address'),
+     /<input type="hidden" name="club" value="brindlewood-rovers-sc"\/?>/.test(typo.html)],
+    [200, true, 'info@brindlewoodrovers.example.au', true]);
   const nateClub = await get('/fc/brindlewood-rovers-sc', nate.child_id);
   const alexClub = await get('/fc/brindlewood-rovers-sc', ids.people.alex);
   nateClub.html = nateClub.html.replace(/<!-- -->/g, ''); alexClub.html = alexClub.html.replace(/<!-- -->/g, '');

@@ -139,6 +139,9 @@ export default async function SendCv({ params, searchParams }: {
       </div>
       {error && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary }}>Check the club name and the email address — a wrong address just goes nowhere.</div>}
       <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="recordId" value={recordId} />
+        {/* The club travels with the form, so a mistyped address comes back
+            with the club still filled in (?error=1&club=). */}
+        {slug && <input type="hidden" name="club" value={slug} />}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={label}>Sending to</div>
           <label style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
