@@ -6,6 +6,7 @@
 //   node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/prod-ca.crt --apply    # do it
 //   node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/prod-ca.crt --fingerprint
 //   node scripts/apply-migrations.mjs --local-fingerprint     # the same fingerprint from PGlite, for comparison
+//   ... --baseline-waitlist   # production only: 0001 was run by hand on 3 Sep; record it, run 0002 onward
 //
 // Reads the connection string from SUPABASE_DB_URL and never prints it (only
 // host and database name). Never put production values in .env.local: `next
@@ -106,7 +107,35 @@ if (has('--fingerprint')) {
 const ledgerExists = (await q(`select to_regclass('pitch_meta.applied_migration') is not null e`)).rows[0].e;
 const publicTables = (await q(`select count(*)::int n from pg_class c join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and c.relkind='r'`)).rows[0].n;
-if (!ledgerExists && publicTables > 0) {
+
+// --baseline-waitlist (launch, 30 Sep). Production was made on 3 Sep by running
+// 0001_waitlist.sql by hand, before this ledger existed, and it holds real
+// sign-ups. This records 0001 as applied WITHOUT running it, and only when the
+// database is exactly what 0001 makes: one table in public, waitlist, with
+// 0001's columns, both indexes and RLS on. Anything else is refused. No row is
+// read or written; the table is left as it is.
+let baseline = false;
+if (has('--baseline-waitlist')) {
+  if (ledgerExists) { console.error('refusing --baseline-waitlist: a ledger already exists'); await client.end(); process.exit(1); }
+  const tables = (await q(`select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='public' and c.relkind='r' order by 1`)).rows.map((r) => r.relname);
+  const cols = (await q(`select column_name||':'||data_type||':'||is_nullable v from information_schema.columns
+    where table_schema='public' and table_name='waitlist' order by column_name`)).rows.map((r) => r.v).join(',');
+  const want = ['consent_at:timestamp with time zone:NO', 'consent_text:text:NO', 'created_at:timestamp with time zone:NO',
+    'email:text:NO', 'id:uuid:NO', 'policy_version:text:NO', 'role:text:NO', 'source:text:NO',
+    'unsub_token:text:NO', 'unsubscribed_at:timestamp with time zone:YES'].join(',');
+  const idx = (await q(`select indexname from pg_indexes where schemaname='public' and tablename='waitlist' order by 1`)).rows.map((r) => r.indexname);
+  const rls = (await q(`select relrowsecurity r from pg_class where oid='public.waitlist'::regclass`)).rows[0]?.r === true;
+  const ok = tables.join(',') === 'waitlist' && cols === want
+    && ['waitlist_created_idx', 'waitlist_email_key'].every((i) => idx.includes(i)) && rls;
+  if (!ok) {
+    console.error(`refusing --baseline-waitlist: public is not exactly 0001's waitlist (tables: ${tables.join(',') || 'none'}; columns match: ${cols === want}; indexes: ${idx.join(',')}; rls: ${rls})`);
+    await client.end(); process.exit(1);
+  }
+  baseline = true;
+  console.log('baseline: public is exactly 0001_waitlist.sql — 0001 will be recorded as applied, not run');
+}
+if (!ledgerExists && publicTables > 0 && !baseline) {
   console.error(`refusing: public already has ${publicTables} tables and there is no ledger — this database was built another way`);
   await client.end(); process.exit(1);
 }
@@ -119,6 +148,7 @@ for (const [f, h] of applied) {
   if (!files.includes(f)) { console.error(`STOP ${f} is applied but no longer in the repo`); bad++; continue; }
   if (sha(readFileSync(join(dir, f), 'utf8')) !== h) { console.error(`STOP ${f} changed after it was applied — write a new migration instead`); bad++; }
 }
+if (baseline) applied.set('0001_waitlist.sql', sha(readFileSync(join(dir, '0001_waitlist.sql'), 'utf8')));
 const pending = files.filter((f) => !applied.has(f));
 const lastApplied = [...applied.keys()].sort().pop();
 for (const f of pending) if (lastApplied && f < lastApplied) { console.error(`STOP ${f} is pending but ${lastApplied} is already applied (out of order)`); bad++; }
@@ -134,6 +164,11 @@ if (!has('--apply')) {
 await q(`create schema if not exists pitch_meta`);
 await q(`create table if not exists pitch_meta.applied_migration (
   file text primary key, sha256 text not null, applied_at timestamptz not null default now(), applied_by text not null default current_user)`);
+if (baseline) {
+  await q(`insert into pitch_meta.applied_migration (file, sha256, applied_by) values ($1, $2, 'baseline: made by hand 3 Sep')
+    on conflict (file) do nothing`, ['0001_waitlist.sql', sha(readFileSync(join(dir, '0001_waitlist.sql'), 'utf8'))]);
+  console.log('OK   0001_waitlist.sql recorded as applied (baseline; not run, no row touched)');
+}
 for (const f of pending) {
   const body = readFileSync(join(dir, f), 'utf8');
   const t0 = Date.now();
