@@ -10481,7 +10481,7 @@ const componentFilesAll = [];
 }
 
 // ---------------------------------------------------------------------------
-// Club colours (0160, D-173, BUZ 1 Oct). A claimed club's own colours; never
+// Club colours (0161, D-173, BUZ 1 Oct). A claimed club's own colours; never
 // on an unclaimed page (D-172), and never at the cost of reading the page.
 // ---------------------------------------------------------------------------
 {
