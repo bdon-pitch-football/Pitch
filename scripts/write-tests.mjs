@@ -493,7 +493,21 @@ async function post(path, who, form) {
 // EARLY, straight after the TD block, on the seed's Riverside, and it hands
 // everything back: Sam is brought in again for the same two teams, Riverside
 // is verified again with Marina its TD, and Deniz is in U15 Boys again — so
-// every block after this one sees the seed's seats.
+// every block after this one sees the seed's seats. One thing does not come
+// back, by design (D-170, brief M): Deniz's registration at Riverside, which
+// his family's Leave took off the register.
+//
+// BRIEF M (30 Sep) adds the authors. The seed has Sam write one coach-verified
+// entry on Deniz (D-48), and no page reads 'authored_only' until December,
+// so what the database answers is read through /dev/read-level (development
+// only, 404 in production — dev3). H5: Sam, on the squad and an author,
+// drops to nothing, not to what he wrote, every way Riverside leaves verified
+// (D-171). H2: once Deniz has left a club that stays verified, Sam keeps what
+// he wrote (D-48) and loses even that every way Riverside leaves verified;
+// and the Leave takes Deniz off Riverside's register (D-170). (The TD's
+// Remove on /club/squads revokes a coach's register grants and not the squad
+// membership the seed wrote for Sam, so it does not make him a former
+// coach — L13, round L's "Found" 1.)
 // ---------------------------------------------------------------------------
 {
   const marina = ids.people.marina, sam = ids.people.sam, alex = ids.people.alex, robin = ids.people.robin;
@@ -509,6 +523,10 @@ async function post(path, who, form) {
     return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
   };
   const status = async (path, who) => (path ? (await get(path, who)).status : null);
+  const levelOf = async (viewer, person) => {
+    const r = await fetch(`${BASE}/dev/read-level?viewer=${viewer}&person=${person}`, { method: 'POST' });
+    return r.ok ? (await r.json()).level : `status ${r.status}`;
+  };
 
   // ---- the pages, found the way a person finds them -------------------------------
   const squadsHtml = (await get('/club/squads', marina)).html;
@@ -532,21 +550,7 @@ async function post(path, who, form) {
   const TD_LIVE = [true, 200, true, 200], TD_DOWN = [false, 404, false, 404];
   const COACH_LIVE = [200, 200, 200, 200, 200], COACH_DOWN = [404, 404, 404, 404, 307];
 
-  // ---- H4 · the TD takes a coach off the club's teams ------------------------------
-  check('h4-w0: before — Sam reads his two teams, their registrations and a CV opened from one', await coachReads(), COACH_LIVE);
-  const removeForm = forms((await get('/club/squads', marina)).html).find((f) => f.fields.personId === sam);
-  await press('/club/squads', marina, removeForm?.fields ?? {});
-  const removed = await coachReads();
-  check('H4: a coach the Technical Director takes off the club’s teams mid-season loses read on them at once — each team’s squad screen, its registrations and a CV opened from them — through the real pages',
-    removed.slice(1), COACH_DOWN.slice(1));
-  // Brought back the way any coach is brought in: the TD asks, Sam accepts.
-  const bring = forms((await get('/club/squads', marina)).html).find((f) => f.visible.some((v) => v.name === 'wwcc'));
-  await press('/club/squads', marina, { ...bring.fields, email: 'coach@example.com', squadIds: samTeams, wwcc: 'on' });
-  const accept = forms((await get('/home', sam)).html).find((f) => f.fields.answer === 'accept');
-  if (accept) await press('/home', sam, accept.fields);
-  check('h4-w1: brought back the way a coach is brought in — asked by the TD, accepted on his own home — Sam reads his two teams again', await coachReads(), COACH_LIVE);
-
-  // ---- H5 · Riverside loses verified status, every way the call sheet can do it ----
+  // The operator's call sheet, pressed for every way out of verified (H5).
   const sheet = `/ops/call/${riversideId}`;
   const logCall = async (extra) => {
     const form = forms((await get(sheet, op)).html).find((f) => f.visible.some((v) => v.name === 'outcome'));
@@ -555,21 +559,73 @@ async function post(path, who, form) {
       notes: 'H5 drill', ...extra });
   };
   const reverify = () => logCall({ outcome: 'verified', td_name: 'Marina Petrovic', td_email: 'td@example.com' });
-  check('h5-w0: before — Riverside is verified: Marina reads the register, a CV from it, the squad and a CV from the squad; Sam the squad CV, his teams and their registrations',
-    [await tdReads(), await coachReads()], [TD_LIVE, COACH_LIVE]);
-  for (const [outcome, cls] of [['suspended', 'child_safety'], ['suspended', 'administrative'], ['suspended', 'non_payment'], ['takedown', ''], ['not_verified', '']]) {
+  const WAYS = [['suspended', 'child_safety'], ['suspended', 'administrative'], ['suspended', 'non_payment'], ['takedown', ''], ['not_verified', '']];
+  const wayName = (outcome, cls) => outcome === 'not_verified' ? 'a call recorded "not verified" (0150)'
+    : outcome === 'takedown' ? 'taken down with no class recorded' : `suspended for the ${cls} class`;
+
+  // ---- H4 · the TD takes a coach off the club's teams ------------------------------
+  check('h4-w0: before — Sam reads his two teams, their registrations and a CV opened from one, and the database gives him Deniz’s whole record',
+    [await coachReads(), await levelOf(sam, deniz)], [COACH_LIVE, 'full']);
+  const removeForm = forms((await get('/club/squads', marina)).html).find((f) => f.fields.personId === sam);
+  await press('/club/squads', marina, removeForm?.fields ?? {});
+  const removed = await coachReads();
+  check('H4: a coach the Technical Director takes off the club’s teams mid-season loses read on them at once — each team’s squad screen, its registrations and a CV opened from them — through the real pages',
+    removed.slice(1), COACH_DOWN.slice(1));
+
+  // Brought back the way any coach is brought in: the TD asks, Sam accepts.
+  const bring = forms((await get('/club/squads', marina)).html).find((f) => f.visible.some((v) => v.name === 'wwcc'));
+  await press('/club/squads', marina, { ...bring.fields, email: 'coach@example.com', squadIds: samTeams, wwcc: 'on' });
+  const accept = forms((await get('/home', sam)).html).find((f) => f.fields.answer === 'accept');
+  if (accept) await press('/home', sam, accept.fields);
+  check('h4-w1: brought back the way a coach is brought in — asked by the TD, accepted on his own home — Sam reads his two teams again', await coachReads(), COACH_LIVE);
+
+  // ---- H5 · Riverside loses verified status, every way the call sheet can do it ----
+  // Besides the pages: the database's answer for Sam, who is on Deniz's squad
+  // AND wrote about him, and for Marina (D-171); Riverside's own players-
+  // wanted notices on its public page (0156); and the club line on Deniz's
+  // CV, on his parent's preview and on the share link (0155) — "Riverside FC
+  // — U15 Boys" and "U15 Boys · now" are that line, and nothing else on his
+  // CV prints them.
+  const levels = async () => [await levelOf(sam, deniz), await levelOf(marina, deniz)];
+  const wantedShown = async () => words((await get('/fc/riverside-fc', null)).html).includes('Players wanted');
+  const denizRec = ids.children.deniz.record_id;
+  const clubLine = async () => [`/build/${denizRec}/preview`, '/p/dev-deniz'].map(async (path) => {
+    const w = words((await get(path, path.startsWith('/p/') ? null : alex)).html);
+    return w.includes('Riverside FC — U15 Boys') || w.includes('U15 Boys · now');
+  });
+  const lines = async () => Promise.all(await clubLine());
+  check('h5-w0: before — Riverside is verified: Marina reads the register, a CV from it, the squad and a CV from the squad; Sam the squad CV, his teams and their registrations; both read Deniz’s whole record; its page wants players; and Deniz’s CV names it',
+    [await tdReads(), await coachReads(), await levels(), await wantedShown(), await lines()],
+    [TD_LIVE, COACH_LIVE, ['full', 'full'], true, [true, true]]);
+  for (const [outcome, cls] of WAYS) {
     await logCall({ outcome, suspension_reason: cls });
     const down = [await tdReads(), await coachReads()];
+    const downMore = [await levels(), await wantedShown(), await lines()];
     await reverify();
     const up = [await tdReads(), await coachReads()];
-    const how = outcome === 'not_verified' ? 'a call recorded "not verified" (0150)'
-      : outcome === 'takedown' ? 'taken down with no class recorded' : `suspended for the ${cls} class`;
+    const upMore = [await levels(), await wantedShown(), await lines()];
+    const how = wayName(outcome, cls);
     check(`H5: ${how} on the operator’s call sheet, Riverside’s TD and its assigned coach lose every read of its children at once — the register, a CV from it, the squad, a CV from the squad, the coach’s teams and registrations — and a verified call gives them back`,
       [down, up], [[TD_DOWN, COACH_DOWN], [TD_LIVE, COACH_LIVE]]);
+    check(`H5: ${how}, and the database agrees — the coach on Deniz’s squad who wrote about him drops to nothing, not to what he wrote (D-171), and so does the TD; a verified call gives both back`,
+      [downMore[0], upMore[0]], [['none', 'none'], ['full', 'full']]);
+    check(`pw-w1: ${how}, Riverside’s own players-wanted notices are off its public page (0140, 0156), and back once it is verified`,
+      [downMore[1], upMore[1]], [false, true]);
+    if (outcome !== 'not_verified') {
+      check(`cvclub-w1: ${how}, Deniz’s CV names no club — on his parent’s preview and on his share link it reads as a player’s with no club (0155) — and a verified call puts Riverside back`,
+        [downMore[2], upMore[2]], [[false, false], [true, true]]);
+    }
   }
 
   // ---- H2 · the family presses Leave -------------------------------------------------
   const ctl = `/g/controls/${deniz}`;
+  // His registrations, as his parent's controls list them (each has "Take off
+  // this register"); the one Riverside's TD can open is Riverside's.
+  const regIds = async () => forms((await get(ctl, alex)).html).map((f) => f.fields.registrationId).filter(Boolean);
+  let rivReg = null;
+  for (const id of await regIds()) if ((await get(`/club/register/cv/${id}`, marina)).status === 200) { rivReg = id; break; }
+  const cameOff = async () => (words((await get(ctl, alex)).html).match(/Deniz came off a club register/g) ?? []).length;
+  const regBefore = [Boolean(rivReg), (await regIds()).length, (await get('/club/register', marina)).html.includes(rivReg), await cameOff()];
   const leave = forms((await get(ctl, alex)).html).find((f) => f.submit === 'Leave' && f.fields.personId === deniz);
   check('h2-w0: before — Deniz is in U15 Boys: Marina’s squad screen lists him and opens his CV, and so does the squad’s coach, and his parent has the Leave button',
     [(await get(u15, marina)).html.includes(`/cv/${deniz}`), await status(denizCv, marina), await status(denizCv, sam), Boolean(leave)],
@@ -578,6 +634,23 @@ async function post(path, who, form) {
   check('H2: his parent presses Leave, and from that moment the club drops to what it is allowed — Marina’s squad screen no longer lists Deniz, and neither she nor the squad’s coach can open his CV from it',
     [left.location, (await get(u15, marina)).html.includes(`/cv/${deniz}`), await status(denizCv, marina), await status(denizCv, sam)],
     [`${ctl}?squad=left`, false, 404, 404]);
+  // D-48 through the product: Sam wrote about Deniz, and Deniz has left a
+  // club that stays verified, so Sam keeps what he wrote and Marina keeps
+  // nothing. D-171: while Riverside is not verified, even that goes — every
+  // way the call sheet takes it there — and comes back with a verified call.
+  check('H2: and the club drops to what D-48 leaves it — the TD reads nothing of Deniz, and the coach who wrote about him only what he wrote',
+    [await levelOf(marina, deniz), await levelOf(sam, deniz)], ['none', 'authored_only']);
+  for (const [outcome, cls] of WAYS) {
+    await logCall({ outcome, suspension_reason: cls });
+    const down = await levelOf(sam, deniz);
+    await reverify();
+    check(`H5: ${wayName(outcome, cls)} on the operator’s call sheet, the coach who wrote about Deniz before he left keeps nothing of it while Riverside is not verified (D-171), and a verified call gives it back`,
+      [down, await levelOf(sam, deniz)], ['none', 'authored_only']);
+  }
+  check('H2: and his family’s registration at Riverside goes with him (D-170) — Marina’s register no longer has it and the CV from it does not open; his parent’s controls list only his other club’s; and his timeline says he came off a club register',
+    [regBefore, [await status(`/club/register/cv/${rivReg}`, marina), (await get('/club/register', marina)).html.includes(rivReg),
+      (await regIds()).length, (await regIds()).includes(rivReg), await cameOff()]],
+    [[true, 2, true, 0], [404, false, 1, false, 1]]);
 
   // ---- H1 · the family asks, the club confirms -----------------------------------------
   const askPage = `/squad/${deniz}?club=${riversideId}`;
@@ -2066,25 +2139,6 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     [inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Add their club/.test(await card())], [false, true]);
   check('sqf8: D-158 — and her page shows no club that took her out', await clubLine('Riverside FC'), false);
 
-  // The family door. Her own club in the seed has nobody who can confirm a
-  // claim, so the parent asks the club that has — and then she leaves, which
-  // needs nobody's permission (D-10).
-  const riverside = ids.clubs['riverside-fc'];
-  const pick = forms((await get(`/squad/${g.child_id}?club=${riverside}&back=controls`, alex)).html)
-    .find((f) => f.fields.personId === g.child_id && f.fields.squadId === squadId);
-  const asked = await postTo(`/squad/${g.child_id}`, alex, { ...pick.fields });
-  check('sqf9: her parent asks a club to confirm where she plays, from her controls',
-    [/squad=asked/.test(asked.location), /Waiting on Riverside FC/.test(await card())], [true, true]);
-  const claim = forms((await get(`/club/squads/${squadId}`, td)).html).find((x) => 'claimId' in x.fields && x.fields.answer === 'yes');
-  if (claim) await postTo(`/club/squads/${squadId}`, td, claim.fields);
-  check('sqf10: the club confirms it, and her parent sees the club on her card',
-    [Boolean(claim), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Riverside FC/.test(await card())], [true, true, true]);
-  const leave = forms(await controls()).find((f) => f.fields.personId === g.child_id && !('claimId' in f.fields) && !('squadId' in f.fields) && f.submit === 'Leave');
-  const left = await postTo(`/g/controls/${g.child_id}`, alex, { ...leave.fields });
-  check('sqf11: her parent takes her out with one tap, and the club no longer has her',
-    [/squad=left/.test(left.location), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Add their club/.test(await card())],
-    [true, false, true]);
-
   // ---- 0054: a no looks like a silence, and a register is a first name ----
   // The club asks her again and her parent says NO. D-138: the club must not
   // be able to tell that from an unanswered ask, and she must not come back
@@ -2116,6 +2170,40 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('sqf17: the club takes it back, and she is askable again — the only way it clears before thirty days',
     [waiting((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name),
      askSection((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name)], [false, true]);
+
+  // The family door. Her own club in the seed has nobody who can confirm a
+  // claim, so the parent asks the club that has — and then she leaves, which
+  // needs nobody's permission (D-10).
+  // (Since brief M this comes after the club's ask: the family's Leave now
+  // takes her off Riverside's register (D-170), and the club's no-looks-like-
+  // silence checks above need her on it.)
+  const riverside = ids.clubs['riverside-fc'];
+  const pick = forms((await get(`/squad/${g.child_id}?club=${riverside}&back=controls`, alex)).html)
+    .find((f) => f.fields.personId === g.child_id && f.fields.squadId === squadId);
+  const asked = await postTo(`/squad/${g.child_id}`, alex, { ...pick.fields });
+  check('sqf9: her parent asks a club to confirm where she plays, from her controls',
+    [/squad=asked/.test(asked.location), /Waiting on Riverside FC/.test(await card())], [true, true]);
+  const claim = forms((await get(`/club/squads/${squadId}`, td)).html).find((x) => 'claimId' in x.fields && x.fields.answer === 'yes');
+  if (claim) await postTo(`/club/squads/${squadId}`, td, claim.fields);
+  check('sqf10: the club confirms it, and her parent sees the club on her card',
+    [Boolean(claim), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Riverside FC/.test(await card())], [true, true, true]);
+  // Her registration at Riverside, as her parent's controls list it — the
+  // one Riverside's TD can open.
+  const regIds = async () => forms(await controls()).map((f) => f.fields.registrationId).filter(Boolean);
+  let rivReg = null;
+  for (const id of await regIds()) if ((await get(`/club/register/cv/${id}`, td)).status === 200) { rivReg = id; break; }
+  const cameOff = async () => (words(await controls()).match(new RegExp(`${g.first_name} came off a club register`, 'g')) ?? []).length;
+  const offBefore = [Boolean(rivReg), await cameOff()];
+  const leave = forms(await controls()).find((f) => f.fields.personId === g.child_id && !('claimId' in f.fields) && !('squadId' in f.fields) && f.submit === 'Leave');
+  const left = await postTo(`/g/controls/${g.child_id}`, alex, { ...leave.fields });
+  check('sqf11: her parent takes her out with one tap, and the club no longer has her',
+    [/squad=left/.test(left.location), inSquad((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name), /Add their club/.test(await card())],
+    [true, false, true]);
+
+  check('H2: D-170 — and her family’s registration at Riverside went with her: its TD cannot open the CV from it, the club is not offered her from its register, her controls no longer list it, and her timeline says she came off a club register',
+    [offBefore, [(await get(`/club/register/cv/${rivReg}`, td)).status, askSection((await get(`/club/squads/${squadId}`, td)).html).includes(g.first_name),
+      (await regIds()).includes(rivReg), await cameOff()]],
+    [[true, 0], [404, false, false, 1]]);
 }
 
 // ---------------------------------------------------------------------------

@@ -2143,6 +2143,36 @@ for (const f of billingRoutes) {
     [true, false, true, true]);
 }
 
+{
+  // app/dev/read-level (brief M, 30 Sep) answers fn_read_level for the write
+  // suite, which has no page on which 'authored_only' shows (D-171). In
+  // production it would be an oracle over who may read whom, so it must not
+  // exist there at all, and it answers the level and nothing off the record.
+  const devLevel = srcOf('app/dev/read-level/route.ts');
+  check('dev3: the read-level answer the write suite uses does not exist in production or in a club demo, answers POST only, and returns fn_read_level and nothing else',
+    [/if \(process\.env\.NODE_ENV === 'production' \|\| isDemo\(\)\) return new NextResponse\(null, \{ status: 404 \}\);/.test(devLevel),
+     /export async function (GET|PUT|PATCH|DELETE)\b/.test(devLevel), /export async function POST\b/.test(devLevel),
+     devLevel.indexOf('status: 404') < devLevel.indexOf('db.query'),
+     [...codeOnly(devLevel).matchAll(/db\.query\(\s*'([^']*)'/g)].map((m) => m[1])],
+    [true, false, true, true, ['select fn_read_level($1, $2) as level']]);
+}
+
+{
+  // 0155: the club line on every CV is fn_cv_club's answer. assembleCv (the
+  // 16-17 and adult CV on the share link, the preview, the register and the
+  // squad screen) and the CV email's "currently at" read it; the under-16
+  // snapshot is served through fn_approved_cv, which does. No CV surface
+  // reads a player's club from membership itself, so a suspended club cannot
+  // come back through a second query that never asked.
+  const rr = codeOnly(srcOf('lib/record-read.ts'));
+  check('cvclub-s1: every CV surface reads its club line from fn_cv_club — assembleCv, the CV email and the served snapshot — and none reads a player\u2019s club from membership itself',
+    [/fn_cv_club\(\$2\) as membership/.test(rr), /from membership m join club c/.test(rr),
+     /fn_cv_club\(p\.id\)->>'club'/.test(codeOnly(dispatchLib)), /join club c on c\.id = m\.club_id/.test(codeOnly(dispatchLib)),
+     /fn_cv_club\(dr\.person_id\)/.test(await procSrc('fn_approved_cv')),
+     /club_state <> 'suspended'/.test(await procSrc('fn_cv_club'))],
+    [true, false, true, false, true, true]);
+}
+
 // J54 — deletion has no caller in the dunning path.
 const j54Src = (await db.query(`select prosrc from pg_proc where proname='fn_apply_subscription'`)).rows[0].prosrc;
 check('J54: no dunning code path deletes a registration',
@@ -3290,12 +3320,13 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
 // ---------------------------------------------------------------------------
 {
   const P = {};
-  for (const k of ['oldTd', 'oldCoach', 'td', 'coach1', 'coach2', 'admin', 'parent', 'stranger', 'kid', 'kid2', 'teen']) P[k] = crypto.randomUUID();
+  for (const k of ['oldTd', 'oldCoach', 'td', 'coach1', 'coach2', 'admin', 'parent', 'stranger', 'kid', 'kid2', 'teen', 'author', 'leaver']) P[k] = crypto.randomUUID();
   const C = { old: crypto.randomUUID(), club: crypto.randomUUID() };
   const S = { old: crypto.randomUUID(), s1: crypto.randomUUID(), s2: crypto.randomUUID() };
   const R = { kid: crypto.randomUUID(), kid2: crypto.randomUUID(), teen: crypto.randomUUID() };
   const adults = [['oldTd', 'Previous TD'], ['oldCoach', 'Previous Coach'], ['td', 'Signing TD'], ['coach1', 'Signing Coach'],
-    ['coach2', 'Second Coach'], ['admin', 'Signing Admin'], ['parent', 'Signing Parent'], ['stranger', 'Signing Stranger']];
+    ['coach2', 'Second Coach'], ['admin', 'Signing Admin'], ['parent', 'Signing Parent'], ['stranger', 'Signing Stranger'],
+    ['author', 'Authoring Coach'], ['leaver', 'Leaving Coach']];
   for (const [k, name] of adults) {
     await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`, [P[k], name, yearsAgo(40)]);
   }
@@ -3328,7 +3359,12 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
   await mem(P.coach2, C.club, S.s1, 'coach');
   await mem(P.coach2, C.club, S.s2, 'coach');
   await mem(P.admin, C.club, null, 'club_admin');
-  for (const [p, c] of [[P.oldTd, C.old], [P.oldCoach, C.old], [P.td, C.club], [P.coach1, C.club], [P.coach2, C.club]]) {
+  // Two more coaches on the Signing U15, for D-171 (brief M): one who writes
+  // about the child and stays, one who writes and then leaves the club.
+  await mem(P.author, C.club, S.s1, 'coach');
+  await mem(P.leaver, C.club, S.s1, 'coach');
+  for (const [p, c] of [[P.oldTd, C.old], [P.oldCoach, C.old], [P.td, C.club], [P.coach1, C.club], [P.coach2, C.club],
+    [P.author, C.club], [P.leaver, C.club]]) {
     await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [p, c, c === C.old ? P.oldTd : P.td]);
   }
   for (const sq of [S.s1, S.s2]) {
@@ -3352,9 +3388,21 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
   }
   await mem(P.kid2, C.club, S.s2, 'player');
   // Both children's families put them on Signing FC's register, each for a squad.
-  const REG = { kid: crypto.randomUUID(), kid2: crypto.randomUUID() };
+  const REG = { kid: crypto.randomUUID(), kid2: crypto.randomUUID(), old: crypto.randomUUID() };
   await db.query(`insert into registration (id, player_id, club_id, squad_target, policy_version, disclosed_by) values
     ($1,$2,$3,$4,'20@v2.4',$5), ($6,$7,$3,$8,'20@v2.4',$5)`, [REG.kid, P.kid, C.club, S.s1, P.parent, REG.kid2, P.kid2, S.s2]);
+  // D-170 (brief M): the child is on the register of the club they play for
+  // too, with a note, so a transfer has a registration to take off it — and
+  // the Signing FC one carries a note, so the Leave has one to empty (D-128).
+  await db.query(`insert into registration (id, player_id, club_id, squad_target, note, policy_version, disclosed_by) values
+    ($1,$2,$3,$4,'Wants to stay in midfield','20@v2.4',$5)`, [REG.old, P.kid, C.old, S.old, P.parent]);
+  await db.query(`update registration set note = 'Keen to play up a year' where id = $1`, [REG.kid]);
+  // And one players-wanted notice of Signing FC's own (0156).
+  await db.query(`insert into players_wanted_notice (club_id, title) values ($1,'U15 Boys — Left back')`, [C.club]);
+  const regState = async (r) => (await db.query(`select withdrawn_at is not null as out, note from registration where id = $1`, [r])).rows[0] ?? 'removed';
+  const withdrawals = async (who) => (await db.query(
+    `select actor_id, detail->>'registration_id' as reg from consent_event where subject_id = $1 and event = 'registration_withdrawn' order by id`, [who])).rows
+    .map((e) => `${e.actor_id === P.parent ? 'parent' : e.actor_id}:${e.reg === REG.old ? 'Previous FC' : e.reg === REG.kid ? 'Signing FC' : e.reg === REG.kid2 ? 'Signing FC (second)' : e.reg}`);
 
   const sqRead = async (v, sq, p) => (await db.query('select fn_can_read_squad_player($1,$2,$3) as ok', [v, sq, p])).rows[0].ok;
   const roster = async (v, sq) => (await db.query('select player_id, record_id from fn_squad_roster($1,$2)', [v, sq])).rows;
@@ -3383,9 +3431,14 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
     ['none', 0]);
   check('H1: the join asks for the family’s consent again — a confirm carrying an asker who may not act for the child signs nobody',
     await joinSquad(P.kid, S.s1, P.td, P.stranger), false);
-  // The club's confirm, as app/club/squads/[squadId]/actions.ts makes it.
+  // The club's confirm, as app/club/squads/[squadId]/actions.ts makes it —
+  // one transaction, and the old club's register is read inside it.
+  const oldRegBefore = [await regRead(P.oldTd, REG.old), (await regRows(P.oldTd, C.old)).includes(REG.old), await regState(REG.old)];
+  await db.query('begin');
   await db.query(`update squad_claim set answered_at = now(), answered_by = $2, confirmed = true where id = $1`, [claim, P.td]);
   const signed = await joinSquad(P.kid, S.s1, P.td, P.parent);
+  const oldRegInside = [await regRead(P.oldTd, REG.old), (await regRows(P.oldTd, C.old)).includes(REG.old), await regState(REG.old)];
+  await db.query('commit');
   const moves = (await db.query(
     `select event, actor_id, detail->>'club_id' as club, detail->>'source' as source from consent_event
      where subject_id = $1 and event in ('squad_joined','squad_left')`, [P.kid])).rows
@@ -3412,6 +3465,9 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
     [await level(P.oldTd, P.kid), await level(P.oldCoach, P.kid), await sqRead(P.oldTd, S.old, P.kid), await onRoster(P.oldTd, S.old, P.kid),
      await prov(P.oldTd, R.kid), await prov(P.oldCoach, R.kid)],
     ['none', 'authored_only', false, null, null, null]);
+  check('H2: a transfer ends the family\u2019s registration at the club the child left, in the signing\u2019s own transaction — Previous FC\u2019s register loses the row and its TD cannot open it, the note is emptied with it (D-128), and the consent log carries the family\u2019s withdrawal, made by the parent who asked (D-170)',
+    [oldRegBefore, oldRegInside, await withdrawals(P.kid)],
+    [[true, true, { out: false, note: 'Wants to stay in midfield' }], [false, false, { out: true, note: null }], ['parent:Previous FC']]);
 
   // The 16-17 signs too, the same way, so H5 and H2 have both bands.
   const teenClaim = crypto.randomUUID();
@@ -3442,6 +3498,23 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
   check('H4: and the register grant for that squad, removed, ends its registrations, the CV opened from them and the squad screen in the same transaction — the other squad’s stay',
     grantOff, [false, false, 0, true, true, true]);
 
+  // ---- D-171's authors (brief M) ------------------------------------------------
+  // Round L's H5 used coaches who had written nothing, so D-48's exception was
+  // never in the room. Now three people have written about a child at Signing
+  // FC while it was verified: a coach who stays on the squad, a coach who
+  // then leaves the club, and the TD (about the second child, so H2's TD
+  // stays a non-author). And the coach at Previous FC wrote about the first
+  // child before the transfer, at a club that stays verified throughout.
+  for (const [rec, who] of [[R.kid, P.author], [R.kid, P.leaver], [R.kid2, P.td]]) {
+    await db.query(`insert into record_entry (record_id, entry_type, author_id, provenance) values ($1,'coach_note',$2,'coach_verified')`, [rec, who]);
+  }
+  await db.query(`update membership set ended_at = now() where person_id = $1 and ended_at is null`, [P.leaver]);
+  const h5auth = async () => [await level(P.author, P.kid), await level(P.leaver, P.kid), await level(P.td, P.kid2), await level(P.oldCoach, P.kid)];
+  const AUTH_LIVE = ['full', 'authored_only', 'full', 'authored_only'];
+  const AUTH_DOWN = ['none', 'none', 'none', 'authored_only'];
+  check('H3: a coach who wrote about a child and then left a club that stays verified keeps read on what they wrote, and nothing more (D-48, which D-171 leaves standing) — beside them the coach who stayed and the TD read in full',
+    await h5auth(), AUTH_LIVE);
+
   // ---- H5 · the club loses verified status, every way it can ---------------------
   // Every read a TD or a coach assigned now makes of a child at the club.
   const h5 = async () => [
@@ -3453,6 +3526,7 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
     (await db.query('select count(*)::int as n from fn_verifiable_stats($1,$2)', [P.coach1, R.kid])).rows[0].n,
     (await db.query('select fn_club_minor_facing($1) as v', [C.club])).rows[0].v];
   const LIVE = ['full', 'full', 'full', 'full', true, true, 2, 1, true, 2, true, 'coach_verified', 'coach_verified', 2, true];
+  const wantedHere = async () => (await db.query(`select count(*)::int as n from fn_players_wanted_advertised() where club_id = $1`, [C.club])).rows[0].n;
   const DOWN = ['none', 'none', 'none', 'none', false, false, 0, 0, false, 0, false, null, null, 0, false];
   check('H5: while Signing FC is verified, its TD and its assigned coaches read its children — every read below is live, so none can pass by being empty',
     await h5(), LIVE);
@@ -3471,6 +3545,9 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
     }
     const state = (await db.query('select club_state from club where id = $1', [C.club])).rows[0].club_state;
     const down = await h5();
+    const authDown = await h5auth();
+    const cvDown = [(await servedCv(R.kid)).club, (await db.query(`select fn_cv_club($1)->>'club' as c`, [P.teen])).rows[0].c];
+    const wantedDown = await wantedHere();
     await db.query('commit');
     const back = crypto.randomUUID();
     await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
@@ -3480,7 +3557,33 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
       : outcome === 'takedown' ? 'a takedown' : `a suspension ${cls ? `for the ${cls} class` : 'with no class recorded'}`;
     check(`H5: ${how} — every minor-facing read ends in the call's own transaction, for the TD and for the coaches assigned now: the record, the squad CV, the squad screen, the register and a CV from it, the pen; and a verified call brings them back`,
       [state, down, await h5()], [outcome === 'not_verified' ? 'claimed' : 'suspended', DOWN, LIVE]);
+    check(`H5: ${how} — the coaches and the TD who wrote about its children lose that too, in the same transaction: the coach still on the squad and the TD drop to nothing rather than to what they wrote, and so does the coach who wrote and left (D-171); the coach at Previous FC, which is still verified, keeps what they wrote there; and a verified call gives every one of them back`,
+      [authDown, await h5auth()], [AUTH_DOWN, AUTH_LIVE]);
+    check(`pw1: ${how} — Signing FC's own players-wanted notice is off its page in the same transaction (0140, 0156), not deleted, and back once it is verified`,
+      [wantedDown, await wantedHere()], [0, 1]);
+    if (outcome !== 'not_verified') {
+      check(`cvclub1: ${how} — no CV names Signing FC while it is down: the under-16's served snapshot and the 16-17's live club line are a player's with no club (0155), and a verified call puts the club back`,
+        [cvDown, [(await servedCv(R.kid)).club, (await db.query(`select fn_cv_club($1)->>'club' as c`, [P.teen])).rows[0].c]],
+        [['', ''], ['Signing FC', 'Signing FC']]);
+    }
   }
+
+  // The club an entry was written through is the one that matters, not the
+  // club the child is at now: Previous FC failing its call takes away what
+  // its coach wrote about a child who has since left for Signing FC.
+  await db.query('begin');
+  await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1, now(), 'BUZ', '03 9000 0000', 'FV club directory', 'not_verified', '27@v1.0')`, [C.old]);
+  const oldAuthorDown = [(await db.query('select club_state from club where id = $1', [C.old])).rows[0].club_state, await level(P.oldCoach, P.kid)];
+  await db.query('commit');
+  {
+    const back = crypto.randomUUID();
+    await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [back, C.old]);
+    await db.query(`update club set club_state = 'verified', verified_call_id = $2 where id = $1`, [C.old, back]);
+  }
+  check('H5: Previous FC failing its call ends what its coach wrote about a child who has since left for Signing FC — the read flowed through Previous FC, so it goes with Previous FC\u2019s verification (D-171) — and a verified call gives it back, unchanged',
+    [oldAuthorDown, await level(P.oldCoach, P.kid)], [['claimed', 'none'], 'authored_only']);
 
   // ---- H2 · a player leaves a club ------------------------------------------------
   // The squad's coach writes about the child while they are in the squad (the
@@ -3488,30 +3591,60 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
   await db.query(`insert into record_entry (record_id, entry_type, author_id, provenance) values ($1,'coach_note',$2,'coach_verified')`, [R.kid, P.coach1]);
   const rosterBefore = (await roster(P.td, S.s1)).length;
   const otherClubLevel = await level(ID.coachOther, P.teen);   // a verified coach at another club, for the 16-17's floor
+  const regBefore = [await regRead(P.td, REG.kid), (await regRows(P.td, C.club)).includes(REG.kid), await regState(REG.kid)];
   await db.query('begin');
-  // The family's Leave, word for word the statement app/squad/actions.ts runs.
-  await db.query(`with gone as (
-       update membership set ended_at = now()
-       where person_id = $1 and role = 'player' and ended_at is null
-       returning squad_id, club_id)
-     insert into consent_event (event, actor_id, subject_id, detail)
-     select 'squad_left', $2, $1, jsonb_build_object('squad_id', g.squad_id, 'club_id', g.club_id, 'source','family')
-     from gone g`, [P.kid, P.parent]);
+  // The family's Leave, as app/squad/actions.ts calls it (0153).
+  const leftN = (await db.query('select fn_leave_squads($1, $2) as n', [P.parent, P.kid])).rows[0].n;
+  const regInside = [await regRead(P.td, REG.kid), (await regRows(P.td, C.club)).includes(REG.kid), await regState(REG.kid)];
   const left = [await level(P.td, P.kid), await level(P.coach1, P.kid), await sqRead(P.td, S.s1, P.kid), await sqRead(P.coach1, S.s1, P.kid),
     await onRoster(P.td, S.s1, P.kid), (await roster(P.td, S.s1)).length, await prov(P.td, R.kid), await prov(P.coach1, R.kid),
     await verifyClub(P.td, R.kid)];
   await db.query('commit');
   check('H2: a player leaves — from that moment no td_own or coach_own_v reads the full record: the TD reads nothing, the squad’s coach only what they wrote (D-48), neither opens the squad CV, the squad screen drops the child and keeps the count, and the pen is gone',
-    left, ['none', 'authored_only', false, false, null, rosterBefore - 1, null, null, null]);
+    [leftN, left], [1, ['none', 'authored_only', false, false, null, rosterBefore - 1, null, null, null]]);
+  check('H2: and the family\u2019s registration at the club comes off its register in the Leave\u2019s own transaction — the TD\u2019s register has no row and fn_can_read_registration says no, so no CV opens from it; the note is emptied with it (D-128); and the consent log carries the parent\u2019s withdrawal (D-170)',
+    [regBefore, regInside, (await withdrawals(P.kid)).slice(-1)],
+    [[true, true, { out: false, note: 'Keen to play up a year' }], [false, false, { out: true, note: null }], ['parent:Signing FC']]);
   const cvAfter = await servedCv(R.kid);
-  check('H2: and the register gives back nothing the membership gave — the CV it opens no longer names Signing FC or the squad (the club line follows the membership, D-158)',
+  check('H2: and nothing the membership gave is left on the CV — it no longer names Signing FC or the squad (the club line follows the membership, D-158)',
     [cvAfter.club, cvAfter.squad?.name ?? ''], ['', '']);
   await db.query('begin');
-  await db.query(`update membership set ended_at = now() where person_id = $1 and role = 'player' and ended_at is null`, [P.teen]);
+  await db.query('select fn_leave_squads($1, $2)', [P.parent, P.teen]);
   const teenLeft = [await level(P.td, P.teen), await level(P.coach1, P.teen), await sqRead(P.coach1, S.s1, P.teen)];
   await db.query('commit');
   check('H2: a 16-17 who leaves drops to exactly what a verified coach at another club gets — the B3 floor, public — never the full record, and the squad CV is closed',
     [otherClubLevel, teenLeft], ['public', ['public', 'public', false]]);
+
+  // D-170's word is the LAST membership. The second child plays up into the
+  // U15s as well (a second squad at the same club keeps both, 0054), and the
+  // club takes them out of the U16s — the statement app/club/squads/
+  // [squadId]/actions.ts runs. They are still at Signing FC, so the
+  // registration stays; the rule itself, asked there, withdraws nothing. When
+  // the family presses Leave, it comes off.
+  const playsUp = await joinSquad(P.kid2, S.s1, P.td, P.parent);
+  await db.query('begin');
+  await db.query(`with out as (
+       update membership set ended_at = now()
+       where person_id = $1 and squad_id = $2 and role = 'player' and ended_at is null
+       returning person_id)
+     insert into consent_event (event, actor_id, subject_id, detail)
+     select 'squad_left', $3, o.person_id, jsonb_build_object('squad_id',$2::uuid,'source','club')
+     from out o`, [P.kid2, S.s2, P.td]);
+  const oneOfTwo = [await regRead(P.td, REG.kid2), (await regRows(P.td, C.club)).includes(REG.kid2), (await regState(REG.kid2)).out,
+    (await db.query('select fn_left_club_withdraws($1,$2,$3) as n', [P.kid2, C.club, P.parent])).rows[0].n, (await regState(REG.kid2)).out];
+  await db.query('commit');
+  await db.query('select fn_leave_squads($1, $2)', [P.parent, P.kid2]);
+  check('D-170: a player still in another squad at the club has not left it — taken out of one of two squads, the registration stays on the TD\u2019s register and readable, and the rule withdraws nothing while a membership there is live; the family\u2019s Leave then takes it off',
+    [playsUp, oneOfTwo, [await regRead(P.td, REG.kid2), (await regState(REG.kid2)).out, (await withdrawals(P.kid2))]],
+    [true, [true, true, false, 0, false], [false, true, ['parent:Signing FC (second)']]]);
+  // The Leave is the database's, and the page asks nothing (0153).
+  const leaveSrc = codeOnly(srcOf('app/squad/actions.ts'));
+  check('D-170: the family\u2019s Leave is fn_leave_squads — app/squad/actions.ts ends no membership itself — and a leave withdraws through one rule, called by the two ways a player leaves a club and nothing else',
+    [/fn_leave_squads\(\$2, \$1\)/.test(leaveSrc), /update\s+membership/i.test(leaveSrc),
+     (await db.query(`select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and prosrc ~ 'fn_left_club_withdraws\\(' and proname <> 'fn_left_club_withdraws' order by proname`)).rows.map((r) => r.proname),
+     /fn_withdraw_registration\(p_person, r\.id\)/.test(await procSrc('fn_left_club_withdraws'))],
+    [true, false, ['fn_join_squad', 'fn_leave_squads'], true]);
 
   // ---- H7 · experience_entry grants nothing to anyone, ever ---------------------
   // Round K: the old check read one migration file, 0003, and nothing a later
@@ -4919,9 +5052,13 @@ const snapSrc = readFileSync(fileURLToPath(new URL('../lib/cv-build.ts', import.
 
 // The locality on a CV is the CLUB's suburb and state. We hold no address for
 // a player, and this line must never start reading like one.
-for (const [what, src] of [['the live read', readSrc], ['the approved snapshot', snapSrc]]) {
+// Since 0155 the live read takes its whole club line from fn_cv_club, so
+// for it the rule is asked where it now lives: the read calls fn_cv_club,
+// and fn_cv_club builds the locality from the club's suburb and state.
+const cvClubSrc = await procSrc('fn_cv_club');
+for (const [what, src, locality] of [['the live read', readSrc, /fn_cv_club\(\$2\)/.test(readSrc) ? cvClubSrc : readSrc], ['the approved snapshot', snapSrc, snapSrc]]) {
   check(`hist4: ${what} takes the locality from the club, never the person`,
-    /c\.suburb[\s\S]{0,40}c\.state/.test(src), true);
+    /c\.suburb[\s\S]{0,40}c\.state/.test(locality), true);
   check(`hist5: ${what} never selects a suburb or postcode off person`,
     /p\.(suburb|postcode|address)/.test(codeOnly(src)), false);
 }

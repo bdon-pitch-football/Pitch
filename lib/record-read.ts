@@ -178,11 +178,11 @@ export async function assembleCv(recordId: string, personId: string, band: strin
         from experience_entry where record_id = $1 and kind = 'previous_club') as previous_clubs,
       (select coalesce(json_agg(json_build_object('title', title, 'url', url) order by added_at), '[]'::json)
         from highlight where record_id = $1) as highlights,
-      (select row_to_json(y) from (
-        select c.name as club, c.crest_path as "clubCrestPath", c.suburb, c.state,
-               s.name as squad_name, s.age_group, s.competition_gender
-        from membership m join club c on c.id = m.club_id left join squad s on s.id = m.squad_id
-        where m.person_id = $2 and m.role = 'player' and m.ended_at is null limit 1) y) as membership`,
+      -- The club line is the database's answer, the same one every under-16
+      -- snapshot is served with (fn_cv_club, 0054): the live membership, and
+      -- no club at all while that club is suspended or taken down (0155).
+      -- This used to be a second query of its own, which never asked.
+      fn_cv_club($2) as membership`,
     [bundle.record_id, bundle.person_id],
   );
   const row = r.rows[0];
@@ -203,11 +203,11 @@ export async function assembleCv(recordId: string, personId: string, band: strin
     clubCrestPath: row.membership?.clubCrestPath ?? undefined,
     // The club's suburb and state. Never the child's — we do not hold an
     // address for a player and this line must not start looking like one.
-    locality: [row.membership?.suburb, row.membership?.state].filter(Boolean).join(' ') || undefined,
+    locality: row.membership?.locality || undefined,
     squad: {
-      name: row.membership?.squad_name ?? '',
-      ageGroup: row.membership?.age_group ?? '',
-      competitionGender: row.membership?.competition_gender ?? null,
+      name: row.membership?.squad?.name ?? '',
+      ageGroup: row.membership?.squad?.ageGroup ?? '',
+      competitionGender: row.membership?.squad?.competitionGender ?? null,
     },
     about: row.core.about ?? '',
     stats: row.stats,

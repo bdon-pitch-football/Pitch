@@ -641,6 +641,15 @@ const denizRec = await recOf('Deniz');
   if ((await db.query('select fn_verify_stat($1,$2) as ok', [sam, goals])).rows[0].ok !== true) {
     throw new Error('D-160: Sam could not verify a stat in his own squad — the seed and fn_write_provenance disagree');
   }
+  // D-48 and D-171 (0154): Sam writes one coach-verified entry on Deniz while
+  // he holds the squad, so the write suite has an AUTHORING coach: on the
+  // squad he drops to nothing, not to what he wrote, while Riverside is not
+  // verified (H5); once Deniz has left he keeps what he wrote (D-48, H2), and
+  // even that goes while Riverside is not verified. No screen shows an entry
+  // before December; the body is empty.
+  // The provenance trigger (0015) refuses it unless he may write it.
+  await db.query(`insert into record_entry (record_id, entry_type, author_id, provenance) values ($1,'coach_note',$2,'coach_verified')`,
+    [denizRec, sam]);
   // A u16's page is the approved snapshot (D-119), and lib/cv-build builds a
   // snapshot's stats from fn_stat_public — so the next version his guardian
   // approves carries the verification. The seed's snapshot stands in for that
