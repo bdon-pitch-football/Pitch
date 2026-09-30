@@ -9414,10 +9414,10 @@ const componentFilesAll = [];
   const pageWords = [...swPage.matchAll(/^\s{2}([a-z_]+): '/gm)].map((m) => m[1]);
   check(`sms-p7: every word the switch log can hold has a line on the page (${logWords.length})`,
     logWords.filter((w) => !pageWords.includes(w)), []);
-  // The words are a proposal (builder report, 28 Sep). Held: the card renders
-  // in development only until BUZ says yes, and production is unchanged.
-  check('sms-p8: the SMS card’s words are held — it renders outside production only, until BUZ approves them',
-    [/const SMS_WORDS_APPROVED = false;/.test(swPage), /const SMS_SHOWN = SMS_WORDS_APPROVED \|\| process\.env\.NODE_ENV !== 'production';/.test(swPage),
+  // The words were a proposal (builder report, 28 Sep); BUZ approved them on
+  // 30 Sep, so the card renders in production as well.
+  check('sms-p8: the SMS card’s words are approved (BUZ, 30 Sep) — it renders in production too',
+    [/const SMS_WORDS_APPROVED = true;/.test(swPage), /const SMS_SHOWN = SMS_WORDS_APPROVED \|\| process\.env\.NODE_ENV !== 'production';/.test(swPage),
       [...swPage.matchAll(/\{SMS_SHOWN && /g)].length >= 7], [true, true, true]);
 
   // --- D-168 (0120): under-18s register at launch, and the parent's text

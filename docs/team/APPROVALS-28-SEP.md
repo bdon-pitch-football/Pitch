@@ -127,3 +127,7 @@ Anything new still goes to BUZ.
 ## 30 September: doc 15 §10b, confirm your email address (BUZ: "approve as written")
 
 - The confirm-your-address email for all three sign-up doors, word for word as drafted (doc 15 §10b). Until today it was a draft, which the app refuses to send in production; the rehearsal on the real deploy found that no new account could be confirmed. Now in `CATALOGUE_KEYS`, key `doc15.§10b`; `DRAFT_KEYS` is empty. Regression check `doc15 §10b` in the permission suite, proven red against the draft.
+
+## 30 September: the SMS switch words (BUZ: "approve the SMS words too")
+
+- The whole SMS card on `/ops/switches`, as listed to BUZ: heading, "Nothing spent this month", the switch-off explanation, both buttons, the off/Vercel-off/limit/no-limit lines, the limit field and its buttons, the four confirmations, the two errors and the four log lines. `SMS_WORDS_APPROVED = true`; the card now renders in production, so the launch-day "switch SMS off and on from the phone" step is possible.

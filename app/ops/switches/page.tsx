@@ -22,13 +22,11 @@ const ACTION: Record<string, string> = {
   links_all_revoked: 'Switched off every live link',
 };
 
-// ⚠ AWAITING BUZ. The SMS switch (0070) works, and its words are new: the
-// label, the explanations, the buttons, the banners and the four log lines
-// below are proposals, listed verbatim in the builder report of 28 Sep. Until
-// BUZ approves them the SMS card renders in development only, where the suites
-// press it; in production the page is exactly the two switches it was. Flip
-// this to true in the same commit that records his yes.
-const SMS_WORDS_APPROVED = false;
+// The SMS switch (0070) and its words: the label, the explanations, the
+// buttons, the banners and the four log lines below. Proposed in the builder
+// report of 28 Sep; approved by BUZ on 30 Sep ("approve the SMS words too"),
+// so the card now renders in production too.
+const SMS_WORDS_APPROVED = true;
 const SMS_SHOWN = SMS_WORDS_APPROVED || process.env.NODE_ENV !== 'production';
 const SMS_ACTION: Record<string, string> = {
   sms_off: 'Switched SMS off',
