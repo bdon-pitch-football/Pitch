@@ -49,7 +49,7 @@ Reused from elsewhere, unchanged: the `/` hero line and the search's "Club name 
 ## Later on 1 Oct — club colours, review fixes, final suite
 
 - **BUZ:** "Keep the scaling, approve the words, start club colours", and "For clubs · free" on `/` (no count of clubs). The count line was only ever in the clickable preview, which is updated too.
-- **Club colours:** migration 0161 (renumbered from 0160 at hand-over; a proposal for Leo's team to own, per his brief §8), `lib/club-colours.ts`, a Club colours form in Crest & club page (12 pairs, or the club's own two), and the claimed club page wearing them: the hero, a stripe, the crest tile when there's no crest, and the trial months. Buttons stay green. Unclaimed or suspended clubs never get colours; the database, the theme function and the page each refuse them. White text holds 4.5:1 and the trim 3:1 for any colour a club picks (perms col6).
+- **Club colours:** migration 0162 (renumbered from 0160 at hand-over; a proposal for Leo's team to own, per his brief §8), `lib/club-colours.ts`, a Club colours form in Crest & club page (12 pairs, or the club's own two), and the claimed club page wearing them: the hero, a stripe, the crest tile when there's no crest, and the trial months. Buttons stay green. Unclaimed or suspended clubs never get colours; the database, the theme function and the page each refuse them. White text holds 4.5:1 and the trim 3:1 for any colour a club picks (perms col6).
 - **Copy check fixes (no new words):**
   - The claim panel drops "Trial notices families can find" and "One list of every player who wants to join", because claiming doesn't switch those on; verification does. It also drops its duplicate "Is this your club?".
   - "Every squad you run" loses "MiniRoos to seniors".
