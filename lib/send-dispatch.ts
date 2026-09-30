@@ -10,12 +10,14 @@
 // on share_request and share_token refuse the row otherwise.
 //
 // Returns null for every way a send can fail to happen: not yours, already
-// sent, never existed, not permitted. One answer, deliberately.
+// sent, never existed, not permitted, or an address that asked Pitch to stop
+// (0160). One answer, deliberately.
 import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from './db';
 import { childSentCvEmail, cvSentToPlayerEmail, cvToClubEmail, sendMadeByOtherGuardianEmail } from './messages';
 import { send } from './messaging';
+import { stopCvsSig } from './stop-cvs';
 
 type Band = 'u16' | '16_17' | '18plus';
 
@@ -35,6 +37,9 @@ export async function dispatchShareRequest(requestId: string, actorId: string): 
        join person p on p.id = dr.person_id
        where sr.id = $1 and sr.dispatched_at is null
          and fn_can_dispatch($2, sr.record_id)
+         -- 0160: a club that asked us to stop is not sent to, whenever the
+         -- request was composed. The trigger on share_request is the belt.
+         and not fn_send_blocked(sr.destination)
        for update of sr`,
       [requestId, actorId],
     );
@@ -108,6 +113,8 @@ export async function dispatchShareRequest(requestId: string, actorId: string): 
   if (clubAddress) {
     await send(
       cvToClubEmail(row.first_name, row.age, (row.positions ?? []).join(', '), row.club, raw,
+        // The club's opt-out (John, 30 Sep §2): this send, signed — never the address.
+        { requestId, sig: stopCvsSig(requestId) },
         selfSend ? 'self' : 'family', band),
       { address: clubAddress },
     );

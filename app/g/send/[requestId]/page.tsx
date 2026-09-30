@@ -30,7 +30,7 @@ export default async function GuardianSend({ params, searchParams }: {
   if (!isUuid(requestId)) notFound();
 
   const { rows } = await db.query(
-    `select sr.destination, sr.dispatched_at, p.first_name
+    `select sr.destination, sr.dispatched_at, p.first_name, fn_send_blocked(sr.destination) as stopped
      from share_request sr
      join development_record dr on dr.id = sr.record_id
      join person p on p.id = dr.person_id
@@ -53,6 +53,26 @@ export default async function GuardianSend({ params, searchParams }: {
           <HeaderMark back={{ href: '/home', label: 'Your family' }} />
           <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>Sent. {clubName} can open {name}&rsquo;s page.</h1>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>You can pause or replace {name}&rsquo;s link any time — the club&rsquo;s access stops when you do.</div>
+        </div>
+      </div>
+    );
+  }
+
+  // 0160: the club asked Pitch to stop after this was asked for. The same
+  // neutral words the send screen uses, and no button: nothing can go.
+  if (r.stopped) {
+    return (
+      <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+          <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+          <div style={{ borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div style={{ width: 7, height: 7, borderRadius: 999, background: T.muted }} />
+              <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.82)' }}>Not sent</div>
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>We can&rsquo;t send to this club through Pitch</h1>
+            <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Nothing has been sent.</div>
+          </div>
         </div>
       </div>
     );

@@ -345,11 +345,13 @@ export default async function ClubPage({ params, searchParams }: {
             !me ? (
               <Link href="/signin" className="btn btn-primary">Sign in to send your CV</Link>
             ) : myRecord ? (
-              <Link href={`/send/${myRecord}`} className="btn btn-primary">Send my CV to {c.name}</Link>
+              // ?club= lets the send screen fill in this club and, where the
+              // database allows, its address (0160). The screen decides.
+              <Link href={`/send/${myRecord}?club=${c.public_slug}`} className="btn btn-primary">Send my CV to {c.name}</Link>
             ) : children.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {children.map((k) => (
-                  <Link key={k.recordId} href={`/send/${k.recordId}`} className="btn btn-primary">Send {k.name}&rsquo;s CV to {c.name}</Link>
+                  <Link key={k.recordId} href={`/send/${k.recordId}?club=${c.public_slug}`} className="btn btn-primary">Send {k.name}&rsquo;s CV to {c.name}</Link>
                 ))}
               </div>
             ) : (

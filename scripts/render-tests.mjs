@@ -2514,6 +2514,74 @@ const georgia = ids.children.georgia;
     /href="\/share-card\//.test((await get('/home', ids.people.jordan)).html), false);
 }
 
+// ---- "Send my CV" fills in the club's own address (0160; John, 30 Sep §2) ---
+// From a club's page the send screen fills in the club and, when the database
+// says it is a role address checked within 90 days, the address IN FULL, with
+// where it came from and when. A club with only a person's address gets no
+// address. A club that asked Pitch to stop gets "can't send", and no reason.
+// And the club's opt-out page changes nothing when it is merely opened.
+{
+  const nate = ids.children.nate, deniz = ids.children.deniz;
+  const vis = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ')
+    .replace(/&rsquo;/g, '’').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const input = (h, name) => new RegExp(`<input[^>]*name="${name}"[^>]*>`).exec(h)?.[0] ?? '';
+  const valueOf = (h, name) => /value="([^"]*)"/.exec(input(h, name))?.[1] ?? null;
+  const CHECKED = /The address Brindlewood Rovers SC publishes on its own website, checked \d{1,2} (January|February|March|April|May|June|July|August|September|October|November|December)\. Change it if you have a better one\./;
+  const OLD_HELP = 'From the club’s own trial notice. Check it’s right';
+  const filled = await get(`/send/${nate.record_id}?club=brindlewood-rovers-sc`, nate.child_id);
+  check('sc-r1: from a club’s page, a 16–17 sending their own CV finds the club and its published address filled in, in full, with where it came from and when',
+    [filled.status, valueOf(filled.html, 'clubName'), valueOf(filled.html, 'address'), CHECKED.test(vis(filled.html)), vis(filled.html).includes(OLD_HELP)],
+    [200, 'Brindlewood Rovers SC', 'info@brindlewoodrovers.example.au', true, false]);
+  const child = await get(`/send/${deniz.record_id}?club=brindlewood-rovers-sc`, deniz.child_id);
+  check('sc-r2: and an under-16 composing for their parent sees the same address in full — nothing masked, because the parent reviews exactly this (D-91)',
+    [child.status, valueOf(child.html, 'address'), CHECKED.test(vis(child.html)), /•/.test(vis(child.html)), /Ask my parent to send it/.test(child.html)],
+    [200, 'info@brindlewoodrovers.example.au', true, false, true]);
+  const personal = await get(`/send/${nate.record_id}?club=kestrelford-athletic-sc`, nate.child_id);
+  check('sc-r3: a club that publishes only a person’s address gets its name and nothing else — no address, no "publishes", and the usual line under the empty field',
+    [personal.status, valueOf(personal.html, 'clubName'), valueOf(personal.html, 'address'), /whitcombe/i.test(personal.html),
+     /publishes on its own website/.test(vis(personal.html)), vis(personal.html).includes(OLD_HELP)],
+    [200, 'Kestrelford Athletic SC', null, false, false, true]);
+  const stoppedClub = await get(`/send/${nate.record_id}?club=wrenmoor-wanderers-fc`, nate.child_id);
+  const stoppedText = vis(stoppedClub.html);
+  check('sc-r4: a club that asked Pitch to stop: "We can’t send to this club through Pitch" and "Nothing has been sent." — no form, no reason, nothing about the club',
+    [stoppedClub.status, stoppedText.includes('Not sent We can’t send to this club through Pitch Nothing has been sent.'), /name="clubName"|name="address"/.test(stoppedClub.html),
+     // The page's own address carries the slug; what it SHOWS names nothing.
+     /wrenmoor/i.test(stoppedText), /Your links/.test(stoppedText)],
+    [200, true, false, false, false]);
+  const refusedLanding = await get(`/send/${nate.record_id}?blocked=1`, nate.child_id);
+  check('sc-r5: the screen the action lands on after refusing a stopped address says exactly the same',
+    [refusedLanding.status, vis(refusedLanding.html).includes('Not sent We can’t send to this club through Pitch Nothing has been sent.'), /name="clubName"/.test(refusedLanding.html)],
+    [200, true, false]);
+  const odd = await get(`/send/${nate.record_id}?club=Brindlewood%20Rovers%27%3B`, nate.child_id);
+  check('sc-r6: a club parameter that is not a slug is ignored — the plain screen, nothing filled in',
+    [odd.status, valueOf(odd.html, 'clubName'), valueOf(odd.html, 'address')], [200, null, null]);
+  const nateClub = await get('/fc/brindlewood-rovers-sc', nate.child_id);
+  const alexClub = await get('/fc/brindlewood-rovers-sc', ids.people.alex);
+  nateClub.html = nateClub.html.replace(/<!-- -->/g, ''); alexClub.html = alexClub.html.replace(/<!-- -->/g, '');
+  check('sc-r7: the club page’s "Send my CV to {club}" and "Send {name}’s CV to {club}" carry the club to the send screen',
+    [new RegExp(`href="/send/${nate.record_id}\\?club=brindlewood-rovers-sc"[^>]*>Send my CV to Brindlewood Rovers SC<`).test(nateClub.html),
+     new RegExp(`href="/send/${deniz.record_id}\\?club=brindlewood-rovers-sc"[^>]*>Send Deniz`).test(alexClub.html)], [true, true]);
+
+  // /stop-cvs: noindex, no referrer, and opening it — even with a real
+  // signature, as a mail scanner would — stops nothing.
+  const ask = ids.georgiaAsk;
+  const sig = createHmac('sha256', process.env.SESSION_SECRET || 'dev-only-secret-not-for-production').update(`stop-cvs:${ask}`).digest('base64url');
+  const raw = await fetch(`${BASE}/stop-cvs?r=${ask}&t=${sig}`, { redirect: 'manual' });
+  const stopHtml = await raw.text();
+  const bad = await get(`/stop-cvs?r=${ask}&t=${'A'.repeat(43)}`);
+  const none = await get('/stop-cvs');
+  const shape = (h) => vis(h.replace(/<input[^>]*type="hidden"[^>]*>/g, ''));
+  check('sc-r8: /stop-cvs is noindex (tag and header) and sends no referrer, and asks before it stops anything',
+    [raw.status, /<meta name="robots" content="noindex, nofollow"/.test(stopHtml), raw.headers.get('x-robots-tag'), raw.headers.get('referrer-policy'),
+     shape(stopHtml).includes('Stop CVs to this address? Pitch won’t send CVs to this address again. Families can still contact the club in other ways. Stop them')],
+    [200, true, 'noindex, nofollow', 'no-referrer', true]);
+  check('sc-r9: a bad signature, or none, gets the same page — it tells nobody which sends exist',
+    [bad.status, none.status, shape(bad.html) === shape(stopHtml), shape(none.html) === shape(stopHtml)], [200, 200, true, true]);
+  const gSend = await get(`/g/send/${ask}`, ids.people.alex);
+  check('sc-r10: and opening it changed nothing — the parent can still send to that club',
+    [gSend.status, vis(gSend.html).includes('Send it to Quarrymead United'), vis(gSend.html).includes('We can\u2019t send to this club')], [200, true, false]);
+}
+
 // ---- the sitemap (D-95, doc 32 A6; builder, 28 Sep) -------------------------
 // What search engines are told to crawl. Club pages that are on Pitch —
 // claimed OR verified, the same test the club page uses — published adult

@@ -86,10 +86,15 @@ const DEEP = {
   // The confirm-your-address page (0056) is reached only from an email, so
   // the walk above never lands on it. /confirm/dev-unproved is the seed's
   // known link, the same idea as the dev share tokens.
-  'signed out': ['/confirm/dev-unproved'],
+  // 0160 (30 Sep): the club's stop page is reached only from the CV email.
+  'signed out': ['/confirm/dev-unproved', '/stop-cvs'],
   parent: [`/squad/${g.child_id}?back=controls`, `/squad/${g.child_id}?club=${riverside}&back=controls`,
     `/build/${ids.children.deniz.record_id}/preview`, `/g/pending/${ids.children.deniz.record_id}`],
   player: [`/squad/${ids.people.jordan}`, `/squad/${ids.people.jordan}?club=${riverside}`],
+  // 0160: "Send my CV" from a club's page — the address filled in with its
+  // line underneath, and a club that asked Pitch to stop.
+  'player 16-17': [`/send/${ids.children.nate.record_id}?club=brindlewood-rovers-sc`,
+    `/send/${ids.children.nate.record_id}?club=wrenmoor-wanderers-fc`],
   // The operator console: nothing in the product links to it (render suite
   // s4), so the walk never lands on it and neither the queue nor the call
   // sheet — the most field-dense form we have — had ever been measured. In

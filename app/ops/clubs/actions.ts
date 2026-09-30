@@ -85,6 +85,21 @@ export async function removeClub(formData: FormData) {
   redirect(r.ok ? '/ops/clubs' : `/ops/clubs/${clubId}?error=remove`);
 }
 
+// A club asked us to stop sending it CVs, by phone or by email (0160; John,
+// 30 Sep §2: "If a club opts out, we stop sending to it at all"). Its held
+// address, and its own domain where that is not free mail, are stopped for
+// every sender — including an address a family types by hand.
+export async function stopClubSends(formData: FormData) {
+  const op = await operator();
+  const clubId = text(formData, 'clubId');
+  if (!isUuid(clubId)) redirect('/ops/clubs');
+  // Refused only for a club with no address held, or none at all, where the
+  // page offers no button. The page then says what is true either way, so no
+  // error line is borrowed from the listing form.
+  await attempt(() => db.query('select fn_ops_stop_club_sends($1, $2, $3)', [op.personId, op.email, clubId]));
+  redirect(`/ops/clubs/${clubId}`);
+}
+
 // A notice compiled from the club's own public notice (D-90): the club's own
 // post-trial fields, plus the address of the notice it came from. Positions
 // are read against the ten as the club's form reads them (D-92), and the
