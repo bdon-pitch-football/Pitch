@@ -806,6 +806,27 @@ Sent **instead of §10** when the account has never had a password — which is 
 
 **The child named is the one they approved most recently.** First name only, never a surname or a club (rule 7). §10's amendment still binds: the screen that asked for it says the same thing whether or not the account exists.
 
+
+## 10b · Confirm your email address — to anyone who has just made an account (BUZ, 30 Sep)
+
+Sent by all three sign-up doors (player or parent, coach, club) the moment the account is made. The account is **unproved** until the link is opened (0056, L21): whoever typed the address may not own it, so it signs in nowhere and no child can be linked to it.
+
+**Why neither §10 nor §10a does this job:** §10 opens *"Someone asked to reset the password for this account"*, which is untrue of an account made a second ago and reads as phishing (the reason §10a exists), and §10a names a child the person may not have.
+
+**Subject:** `Confirm your email address`
+
+> Someone put this address into a new account on Pitch. If that was you, this link finishes it:
+>
+> **Confirm your address:** pitchfootball.com.au/confirm/{token}
+>
+> Nobody can sign in to that account until the link is opened. If it wasn't you, ignore this email — the account stays shut, and whoever typed your address gets nothing from it.
+>
+> The link works once and lasts seven days. After that, use "Reset it" on the sign-in page and choose a password from the link we email you.
+>
+> — Pitch
+> pitchfootball.com.au · burak.donmez@pitch-football.com
+
+**Approved by BUZ, 30 Sep 2026, as written** ("approve as written"), after the rehearsal showed that a draft never sends in production, so no new account could be confirmed. No urgency, no child's name, no clue about who else holds an account.
 ---
 
 ## What is deliberately NOT here

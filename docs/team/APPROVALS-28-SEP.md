@@ -123,3 +123,7 @@ Anything new still goes to BUZ.
 - **The call sheet stays as it is:** no warning that "not verified" ends a verified club's status. No new words.
 - Leo's smaller fixes, no new words: a suspended club is not named on a child's CV; a club that is not verified shows none of its own players-wanted notices (compiled ones stay).
 
+
+## 30 September: doc 15 §10b, confirm your email address (BUZ: "approve as written")
+
+- The confirm-your-address email for all three sign-up doors, word for word as drafted (doc 15 §10b). Until today it was a draft, which the app refuses to send in production; the rehearsal on the real deploy found that no new account could be confirmed. Now in `CATALOGUE_KEYS`, key `doc15.§10b`; `DRAFT_KEYS` is empty. Regression check `doc15 §10b` in the permission suite, proven red against the draft.

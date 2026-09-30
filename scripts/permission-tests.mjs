@@ -668,6 +668,11 @@ const smsBlocks = msgSrc.split(/export const /).filter((b) => /channel: 'sms'/.t
     [...declared].filter((k) => !used.includes(k)).length, 0);
   check('doc15: the catalogue is not empty, so neither check above is vacuous',
     declared.size > 20 && used.length > 20, true);
+  // Rehearsal, 30 Sep: on a real deploy a draft never sends, and §10b was the
+  // draft every sign-up door sends. Nobody could confirm an account. The
+  // message every new account depends on must be approved copy.
+  check('doc15 §10b: confirm-your-address is approved copy, so a new account can be confirmed in production (rehearsal, 30 Sep)',
+    catalogue.has('doc15.§10b') && !drafts.has('doc15.§10b') && /key: 'doc15\.§10b',[\s\S]{0,60}Confirm your email address/.test(msgSrc), true);
 }
 
 // Doc 15 §9 is RETIRED and §4 is HELD (BUZ, 29 Sep; D-167). Neither may send:

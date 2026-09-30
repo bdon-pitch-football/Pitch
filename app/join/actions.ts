@@ -33,9 +33,9 @@ async function doorIsOpen(email: string): Promise<boolean> {
 // not own it, so nothing about it works until a link we sent there is opened.
 // Until then it signs in nowhere and no child can be linked to it.
 //
-// The words are a DRAFT — doc 15 does not carry them, BUZ has not approved
-// them — so lib/messaging queues this in development and refuses it in
-// production. That is deliberate: this door cannot ship before the copy does.
+// The words are doc 15 §10b, approved by BUZ on 30 Sep. Until then they were a
+// draft, which lib/messaging refuses in production: the rehearsal found that
+// this door could not confirm anybody until the copy was approved.
 // D-63, D-164 (3): an account is for somebody who said they live in
 // Australia. The page asks before anything else and offers nothing to anyone
 // who says otherwise; this is the same rule where a script cannot skip it.

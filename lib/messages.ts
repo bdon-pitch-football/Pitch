@@ -559,19 +559,20 @@ This link works once and expires in an hour. If you didn't ask for this, ignore 
 ${SITE} · ${HELP}`,
 });
 
-// §10b · DRAFT — confirm the address on a new account (B1/B2, L21). BUZ has
-// NOT approved these words and doc 15 does not carry them, so this key is not
-// in CATALOGUE_KEYS: it queues in development, where the outbox is the inbox,
-// and lib/messaging refuses it in production. The three sign-up doors need
-// this message and neither approved one can honestly do the job — §10 opens
-// "Someone asked to reset the password for this account", which is untrue of
-// an account made a second ago and reads as phishing (the reason §10a
-// exists), and §10a names a child the person may not have.
+// §10b · Confirm the address on a new account (B1/B2, L21). Approved by BUZ
+// as written, 30 Sep 2026, and carried in doc 15 §10b. Until then it was a
+// draft, which lib/messaging refuses in production; the rehearsal on a real
+// deploy found that this left every new account unconfirmable. The three
+// sign-up doors need this message and neither §10 nor §10a can honestly do
+// the job — §10 opens "Someone asked to reset the password for this
+// account", which is untrue of an account made a second ago and reads as
+// phishing (the reason §10a exists), and §10a names a child the person may
+// not have.
 //
 // Rules it is written to: no urgency, no child's name, no clue about who else
 // holds an account, and the plain reason the link exists.
 export const confirmAddressEmail = (token: string): Composed => ({
-  key: 'doc15.§10b.draft',
+  key: 'doc15.§10b',
   channel: 'email',
   subject: 'Confirm your email address',
   body:
@@ -803,7 +804,7 @@ Verification is free and stays free.
 
 // The closed set. A key not in here cannot be sent.
 export const CATALOGUE_KEYS = [
-  'doc15.§1', 'doc15.§2', 'doc15.§1b', 'doc15.§2b', 'doc15.§3', 'doc15.§10', 'doc15.§10a', 'doc15.§13', 'doc15.§14',
+  'doc15.§1', 'doc15.§2', 'doc15.§1b', 'doc15.§2b', 'doc15.§3', 'doc15.§10', 'doc15.§10a', 'doc15.§10b', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
   'doc15.§6', 'doc15.§21', 'doc15.§22', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
   'doc15.§33', 'doc15.§34', 'doc15.§27', 'doc15.§28', 'doc15.§38',
@@ -815,9 +816,8 @@ export const CATALOGUE_KEYS = [
 // lib/messaging queues it in development — where nothing leaves the machine —
 // and refuses it outright in production. The door that needs one cannot ship
 // until doc 15 carries the words and the key moves into CATALOGUE_KEYS above.
-export const DRAFT_KEYS = [
-  'doc15.§10b.draft',   // confirm your address, for the three sign-up doors
-] as const;
+// None today: §10b was the last, approved 30 Sep.
+export const DRAFT_KEYS: readonly string[] = [] as const;
 
 // Approved words BUZ has STOPPED sending. A held message keeps its text, its
 // section number and its place in the catalogue — doc 14 can define a gate by
