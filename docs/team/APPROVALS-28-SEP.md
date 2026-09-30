@@ -140,3 +140,12 @@ Anything new still goes to BUZ.
 
 - Subject: "Pitch — {n} new account(s) yesterday" / "Pitch — no new accounts yesterday".
 - Body: "Yesterday on Pitch ({Dy D Mon})"; "New accounts: {n} (Player a · Parent b · Coach c · Club d)" or "New accounts: none"; "Approval requests sent to parents: {x} · Approved: {y}"; "Clubs waiting for your verification call: {w}"; "Emails or texts that failed to send (last 24 hours): {f}"; footer "Counts only — no names or addresses in this email, by design. Today so far: pitchfootball.com.au/ops". Lines with nothing to say are left out; a day with nothing sends nothing. Cron 20:00 UTC (7am AEDT). Checks ops-d1–d6.
+
+## 30 September: clubs can sign up (BUZ: "approve all, keep within a day")
+
+Production opened with no club listings, so a club person had nothing to claim and no way to find anything. Approved words:
+- `/claim`, **Find your club**: "Search for your club, then claim its page. We email a code to the club's own address to check it's you." · search "Club name or suburb" · **Search** · per result **Claim** or "Already claimed" · "We couldn't find "{q}"." · **Not here? Tell us your club** · fields "Club name", "Suburb", "State", "The club's email address" with help "The club's own address, the one on its website. We send the claim code there." · **Send** · signed out: **Sign in to tell us your club** · sent: "Thanks. We'll add {club} within a day. Search for it here then, and press Claim." (**BUZ keeps "within a day"**: requested clubs are added within 24 hours) · errors: "That club is already on Pitch. Search for it above." / "You've already asked for three clubs. We'll get to them soon." / "Confirm your email address first, then ask again." / "Check the club's name, suburb and email address."
+- `/home` (no seat yet): **Here for a club? Find your club** · "Search for it and claim its page". The line "claiming a club page … not on this screen yet" is gone.
+- `/join` club path: "Next: find your club on Pitch and press **Claim**. … If your club isn't on Pitch yet, you can ask us to add it there."
+- Operator: `/ops/clubs` "Clubs asking to be added" with **Add** (pre-filled) and **Dismiss**, note "Check the email address is on the club's own website before you add it. The claim code goes there."; Today tile "Clubs asking to be added" · "see Clubs"; 7am email line "Clubs asking to be added: {n}".
+- Unclaimed listings are `noindex` until claimed. The full Victorian list (scout, 30 Sep) is loaded with `scripts/import-clubs.mjs` through `fn_ops_add_club`.
