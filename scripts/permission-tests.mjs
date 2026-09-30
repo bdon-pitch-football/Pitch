@@ -707,6 +707,16 @@ check('doc15 §24: the bare wake is defined and interpolates nothing at all',
   wakeBlocks.length === 2 && wakeBlocks.every((b) => !/\$\{(?!SITE|HELP)/.test(b)), true);
 check('doc15 §29: the share-card email carries no preview image',
   /shareCardWaitingEmail[\s\S]*?(<img|cid:|\.png|\.jpg)/.test(msgSrc), false);
+// 30 Sep (feature audit): §29's [See the card] linked to the site's front
+// page, and nothing there led to /g/card, so no parent could reach a card to
+// approve it. The link now opens the card the child just asked for.
+{
+  const act = readFileSync(fileURLToPath(new URL('../app/share-card/[recordId]/actions.ts', import.meta.url)), 'utf8');
+  check('doc15 §29: [See the card] opens the card itself — /g/card/{id} — not the front page',
+    /See the card: \$\{SITE\}\/g\/card\/\$\{cardId\}/.test(msgSrc), true);
+  check('doc15 §29: and the request passes the id of the card it just made',
+    /returning id[\s\S]{0,200}const cardId[\s\S]*shareCardWaitingEmail\([^)]*cardId\)/.test(act), true);
+}
 // codeOnly first. doc 15 §32 explains at length why a card "didn't go
 // through" rather than being declined, and the corpus check already allows
 // explaining a ban — explaining is not using. The fifth check in this file

@@ -372,14 +372,14 @@ export const clubDeverifiedEmail = (clubName: string, childFirstName: string, un
 
 // §29 · A card waiting for your approval. NO preview image — generating the
 // preview is generating the image, before anyone approved it (D-101).
-export const shareCardWaitingEmail = (childFirstName: string): Composed => ({
+export const shareCardWaitingEmail = (childFirstName: string, cardId: string): Composed => ({
   key: 'doc15.§29',
   channel: 'email',
   subject: `${childFirstName} has made a card to share`,
   body:
 `${childFirstName} has made a card and would like to post it.
 
-See the card: ${SITE}
+See the card: ${SITE}/g/card/${cardId}
 
 You'll see the exact image — the same one, not a description of it. Nothing has been made and nothing exists anywhere until you say yes.
 

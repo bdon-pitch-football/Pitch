@@ -21,11 +21,13 @@ export async function requestCard(formData: FormData) {
   const kinds = ['story', 'square', 'landscape'];
   const cardKind = kinds.includes(shape) ? shape : 'story';
 
-  await db.query(
+  const card = await db.query(
     `insert into share_card_approval (record_id, requested_by, card_kind)
-     select $1, dr.person_id, $2 from development_record dr where dr.id = $1`,
+     select $1, dr.person_id, $2 from development_record dr where dr.id = $1
+     returning id`,
     [recordId, cardKind],
   );
+  const cardId: string | undefined = card.rows[0]?.id;
   await db.query(
     `insert into consent_event (event, subject_id, detail)
      select 'card_requested', dr.person_id, jsonb_build_object('kind', $2::text)
@@ -43,7 +45,9 @@ export async function requestCard(formData: FormData) {
      where dr.id = $1 and p2.email is not null limit 1`,
     [recordId],
   );
-  if (g.rows[0]) await send(shareCardWaitingEmail(g.rows[0].first_name), { address: g.rows[0].email });
+  // The link opens the card itself (/g/card/{id}), the [See the card] of doc 15
+  // §29. It used to be the site's front page, where nothing led on to it (30 Sep).
+  if (g.rows[0] && cardId) await send(shareCardWaitingEmail(g.rows[0].first_name, cardId), { address: g.rows[0].email });
 
   redirect(`/share-card/${recordId}?asked=1`);
 }
