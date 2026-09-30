@@ -9,8 +9,11 @@ import Wordmark from '@/components/Wordmark';
 
 type NavLink = { href: string; label: string; current?: boolean };
 
-export default function SiteNav({ back, links = [], overlay = false, signIn = true }: {
+export default function SiteNav({ back, links = [], overlay = false, signIn = true, homeLink = true }: {
   back?: { href: string; label?: string };
+  // false on a tokenised page: the reader was handed one link, and the old
+  // header's logo was not a link either.
+  homeLink?: boolean;
   links?: NavLink[];
   overlay?: boolean;
   signIn?: boolean;
@@ -18,7 +21,9 @@ export default function SiteNav({ back, links = [], overlay = false, signIn = tr
   return (
     <header className={`fl-nav${overlay ? ' fl-nav-overlay' : ''}`}>
       <div className="fl-wide fl-nav-in">
-        <a href="/" className="fl-nav-brand" aria-label="Pitch, home"><Wordmark size={20} /></a>
+        {homeLink
+          ? <a href="/" className="fl-nav-brand" aria-label="Pitch, home"><Wordmark size={20} /></a>
+          : <span className="fl-nav-brand"><Wordmark size={20} /></span>}
         {links.length > 0 && (
           <nav className="fl-nav-links" aria-label="Pitch">
             {links.map((l) => (

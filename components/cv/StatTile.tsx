@@ -17,18 +17,21 @@ import { T } from '@/lib/palette';
 // block cannot caption itself — when the numbers beside it came from somewhere
 // else. While every stat in the record shares one source the block says it
 // once, exactly as before, and nothing is drawn here.
+// Floodlit (D-173, 1 Oct): the number is the headline — 52px, no box, a
+// hairline between tiles (.cv-tile, globals.css). It no longer rises in with
+// the block: a tile is visible from the first frame, so a slow phone at the
+// ground and a link preview both show the numbers.
 export default function StatTile({ value, label, accent, delay = 0, source }: {
   value: number; label: string; accent: boolean; delay?: number; source?: string;
 }) {
   return (
-    <div className="cv-rise" style={{ animationDelay: `${0.28 + delay}s`, background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: '10px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      <div className="settle" style={{ animationDelay: `${0.28 + delay}s`, fontSize: 21, fontWeight: 900, letterSpacing: '-0.04em', color: accent ? T.accent : T.ink }}>{value}</div>
-      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,.72)', textTransform: 'uppercase' }}>{label}</div>
-      {/* 9px/800 at .72 white, the same values as the block chip and the tile's
-          own label: .55 measured 4.51:1 on the hero after the 28 Sep surface
-          stack, which is a pass by 0.01 and not a margin to ship. */}
+    <div className="cv-tile">
+      <div className="settle cv-tile-num" style={{ animationDelay: `${0.2 + delay}s`, color: accent ? 'var(--cv-lead, var(--accent))' : T.ink }}>{value}</div>
+      <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(255,255,255,.72)', textTransform: 'uppercase', marginTop: 6 }}>{label}</div>
+      {/* 9px/800 at .72 white, the same values as the block chip and the
+          tile's own label: .55 measured 4.51:1 on the hero, a pass by 0.01. */}
       {source && (
-        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(255,255,255,.72)', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.3 }}>{source}</div>
+        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(255,255,255,.72)', textTransform: 'uppercase', lineHeight: 1.3, marginTop: 2 }}>{source}</div>
       )}
     </div>
   );

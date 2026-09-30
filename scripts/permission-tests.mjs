@@ -5137,7 +5137,9 @@ check('hist12: a stat tile renders its own value and holds no other — no state
   [/>\{value\}</.test(tileSrc), /useState|useEffect|useLayoutEffect|requestAnimationFrame|setInterval|setTimeout/.test(tileSrc)], [true, false]);
 check('hist13: and under prefers-reduced-motion neither the rise nor the settle moves',
   [/prefers-reduced-motion: reduce\)[\s\S]{0,200}\.settle[\s\S]{0,40}animation: none/.test(srcOf('app/globals.css')),
-    /prefers-reduced-motion: reduce\) \{ \.cv-rise[^}]*animation: none/.test(srcOf('components/cv/PlayerCV.tsx'))], [true, true]);
+    // The card's rise moved into globals.css with the Floodlit player card
+    // (D-173, 1 Oct); the property is the same, so the check follows it.
+    /prefers-reduced-motion: reduce\) \{ \.cv-rise[^}]*animation: none/.test(srcOf('app/globals.css'))], [true, true]);
 
 // A coach's licences and results are SELF-DECLARED (0029) and must stay
 // visibly apart from the WWCC, which is the one credential on that page a
@@ -9165,9 +9167,25 @@ const componentFilesAll = [];
     Object.entries(served).filter(([k, v]) => /dob|birth(?!Quarter)|year|age$/i.test(k) || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v))).map(([k]) => k), []);
   // D-89: the card surfaces read no quarter and no age group — the band's own
   // rule, applied to the marker that narrows a child further.
+  const cvSrcAll = () => codeOnly(srcOf('components/cv/PlayerCV.tsx'));
   const cardSurfaces = ['app/p/[token]/opengraph-image.tsx', 'app/g/card/[cardId]/image/route.tsx', 'lib/cv-meta.ts'];
   check('ctx4: the Open Graph image, the share card and the link-preview text never read the quarter or the context line (D-89)',
     cardSurfaces.filter((f) => /birthQuarter|contextLine|fn_birth_quarter|born /.test(codeOnly(srcOf(f)))), []);
+  // D-89 and D-173 (1 Oct): a club's colours are the club's identity, so no
+  // card surface — cached for good by every platform — may ever read them.
+  check('ctx4b: and none of them reads a club\u2019s colours',
+    cardSurfaces.filter((f) => /club-colours|colour_primary|colour_secondary|clubTheme/.test(codeOnly(srcOf(f)))), []);
+  // BUZ said yes to a CV wearing its club's colours (1 Oct) and was told John
+  // would see it first. Until his ruling is in the register the switch stays
+  // off; turning it on is a one-line change that also flips this check.
+  const coloursSrc = codeOnly(srcOf('lib/club-colours.ts'));
+  const johnCleared = /CV club colours[^<]{0,80}John[^<]{0,40}cleared/i.test(srcOf('docs/06-Register.html'));
+  check('cvc1: a player\u2019s CV wears no club colours until John\u2019s ruling is recorded in the register',
+    // The switch must equal the ruling: off with no ruling recorded, and on
+    // only once it is. Either one moving alone fails.
+    /export const CV_WEARS_CLUB_COLOURS = (true|false)/.exec(coloursSrc)?.[1], String(johnCleared));
+  check('cvc2: and when it does, only a verified club\u2019s (D-126)',
+    /CV_WEARS_CLUB_COLOURS && p\.club && clubState === 'verified'/.test(cvSrcAll()), true);
   const cvSrc = codeOnly(srcOf('components/cv/PlayerCV.tsx'));
   check('ctx5: the CV draws the marker from the age group and the quarter only — never p.dob — and only for a "U<n>" group',
     [/contextLine\(p\.squad\.ageGroup, p\.birthQuarter\)/.test(cvSrc), /p\.dob/.test(cvSrc), /\^U\\d\{1,2\}\$/.test(cvSrc)], [true, false, true]);

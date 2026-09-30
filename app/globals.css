@@ -966,3 +966,53 @@ h1, h2, h3, h4, h5, h6 {
 .fl-rise { animation: rise .45s var(--ease) both; }
 @media (prefers-reduced-motion: reduce) { .fl-rise { animation: none; } }
 @media (max-width: 1023px) { .fl-aside-first-m { order: -1; } }
+
+/* ===========================================================================
+   THE PLAYER CARD — the public CV, Floodlit (D-173 as extended 1 Oct: the CV
+   takes the 1200px layout, and a claimed club's colours when cleared).
+   Phone: the card runs full-bleed, the story under it. From 1024px: the card
+   is a sticky 440px column on the left and the story scrolls on the right.
+   --------------------------------------------------------------------------- */
+.cv-root { container-type: inline-size; }
+.cv-grid { display: grid; grid-template-columns: minmax(0, 1fr); padding-left: 0; padding-right: 0; }
+.cv-cardcol { min-width: 0; }
+.cv-hero { position: relative; overflow: hidden; padding: 28px 18px 22px 18px; container-type: inline-size; line-height: 1.4; }
+.cv-story { display: flex; flex-direction: column; gap: 34px; padding: 28px 18px 32px 18px; min-width: 0; line-height: 1.4; }
+@container (min-width: 640px) { .cv-hero { padding: 30px 28px 24px 28px; } .cv-story { padding-left: 28px; padding-right: 28px; } }
+@container (min-width: 1024px) {
+  .cv-grid { grid-template-columns: 440px minmax(0, 1fr); gap: 36px; align-items: start; padding-left: 40px; padding-right: 40px; padding-top: 12px; padding-bottom: 40px; }
+  .cv-cardcol { position: sticky; top: 76px; }
+  .cv-hero { border-radius: 26px; border: 1px solid rgba(255,255,255,.08); box-shadow: var(--shadow-float); padding: 30px 26px 26px 26px; }
+  .cv-story { padding: 6px 0 0 0; }
+}
+.cv-num { position: absolute; right: -14px; top: -26px; font-size: 300px; font-weight: 900; letter-spacing: -0.04em; line-height: .8; color: transparent; -webkit-text-stroke: 2px rgba(255,255,255,.1); pointer-events: none; font-variant-numeric: tabular-nums; }
+.cv-avatar { width: 92px; height: 92px; border-radius: 26px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 14px 30px -10px rgba(0,0,0,.6); flex-shrink: 0; }
+.cv-name { position: relative; margin: 18px 0 0 0; font-size: clamp(26px, min(13cqi, calc((100cqi - 48px) / (var(--name-len, 8) * 0.64))), 54px); font-weight: 900; line-height: .98; letter-spacing: -0.015em; text-wrap: balance; overflow-wrap: anywhere; hyphens: manual; }
+.cv-context { position: relative; display: inline-flex; align-self: flex-start; margin-top: 12px; height: 28px; align-items: center; padding: 0 11px; border-radius: 999px; background: rgba(255,255,255,.1); font-size: 12.5px; font-weight: 800; letter-spacing: 0.02em; }
+.cv-hero > .cv-context { display: flex; width: fit-content; }
+.cv-chips { position: relative; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.cv-chip { height: 30px; padding: 0 11px; border-radius: 9px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 800; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.1); }
+.cv-stats { position: relative; margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.12); }
+.cv-stats .drill-row > * + * .cv-tile { border-left: 1px solid rgba(255,255,255,.12); border-radius: 0 12px 12px 0; }
+.cv-tile { padding: 6px 12px 8px 12px; min-width: 0; height: 100%; border-radius: 12px; }
+.cv-stats .drill-row > :first-child .cv-tile { margin-left: -12px; }
+.cv-stats .drill-tile:has(> .drill-in:checked) .cv-tile { background: rgba(255,255,255,.1); }
+.cv-tile-num { font-size: 52px; font-weight: 900; letter-spacing: -0.04em; line-height: .95; font-variant-numeric: tabular-nums; }
+.cv-h2 { display: flex; align-items: center; gap: 12px; margin: 0 0 14px 0; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.cv-h2::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.cv-about { font-size: 18px; line-height: 1.5; font-weight: 500; color: var(--ink); max-width: 40ch; }
+.cv-timeline { position: relative; padding-left: 26px; }
+.cv-timeline::before { content: ''; position: absolute; left: 6px; top: 10px; bottom: 10px; width: 2px; background: linear-gradient(180deg, var(--accent), rgba(255,255,255,.1) 40%); }
+.cv-stop { position: relative; padding: 4px 0 18px 0; }
+.cv-stop:last-child { padding-bottom: 0; }
+.cv-stop::before { content: ''; position: absolute; left: -26px; top: 8px; width: 14px; height: 14px; border-radius: 999px; background: var(--bg); border: 2px solid var(--muted); box-sizing: border-box; }
+.cv-stop-now::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px rgba(61,220,132,.18); }
+/* A short screen: a pinned card could hold an opened provenance well below
+   the fold, so under 700px of height the card scrolls with the page (safety
+   review N4). The card with a well open is 683px from the top, so a 720px
+   laptop still keeps it pinned (audit, 1 Oct). */
+@media (max-height: 700px) { .cv-cardcol { position: static !important; } }
+/* Complete at rest: the card rises into place, it never fades in. */
+.cv-rise { animation: cvRise .5s var(--ease) both; }
+@keyframes cvRise { from { transform: translateY(8px); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cv-rise { animation: none; } }

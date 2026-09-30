@@ -1,32 +1,33 @@
 // The public player CV — the product, the marketing and the acquisition
 // engine at once (CLAUDE.md). Faithful to the signed Main*.dc.html screens
-// for content, order and copy; the creative layer on top (BUZ, 4 Sep:
-// "add your twist") is motion and the position map — both Night Match,
-// no new colours, no new type.
+// for content, order and copy.
 //
-// Server component, zero JS shipped: every animation is CSS. Must be fast
-// on a phone on 4G at a football ground.
+// Floodlit (D-173 as extended 1 Oct — BUZ: "Yes to all three, build it"):
+// the page takes its look from its own social card. A full-width player card
+// (the squad number stadium-tall behind the name, the position map, the
+// season's numbers as one band), then the story as open sections rather than
+// stacked boxes. From 1024px the card stays on the left while the story
+// scrolls on the right. Every word, every field and every rule is the one
+// this page already had; only the arrangement and the scale moved.
+//
+// Server component, zero JS shipped: every animation is CSS, and the page is
+// complete at rest — nothing on it waits for an animation to become visible.
+// Must be fast on a phone on 4G at a football ground.
 import type { FixtureStat, PlayerFixture } from '@/lib/fixtures';
 import {
-  POSITIONS, PROVENANCE_LABELS, STAT_LABELS, positionGroup, provenanceLabel, provenanceLine, renderableExperience,
+  PROVENANCE_LABELS, STAT_LABELS, positionGroup, provenanceLabel, provenanceLine, renderableExperience,
   sharedProvenance, type PositionCode,
 } from '@/lib/football';
-import { HeaderMark } from '@/components/Wordmark';
+import SiteNav from '@/components/floodlit/SiteNav';
 import ClipCard from '@/components/cv/ClipCard';
 import StatTile from '@/components/cv/StatTile';
 import { T } from '@/lib/palette';
+import { CV_WEARS_CLUB_COLOURS, clubTheme, type ClubColours } from '@/lib/club-colours';
 
 // Position dots for the mini pitch map (attack →), x/y in % of the map box.
 const POS_XY: Record<PositionCode, [number, number]> = {
   GK: [8, 50], CB: [24, 50], LB: [26, 16], RB: [26, 84], DM: [40, 50],
   CM: [54, 50], AM: [68, 50], LW: [74, 16], RW: [74, 84], ST: [90, 50],
-};
-
-const kicker: React.CSSProperties = {
-  fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted,
-};
-const card: React.CSSProperties = {
-  background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16,
 };
 
 // D-84: "U15 · born Jan–Mar" under the name. The age group is the one the
@@ -68,32 +69,30 @@ function StatTiles({ p }: { p: PlayerFixture }) {
   if (tiles.length === 0) return null;
   // D-62: the chip is a statement about every number under it, so it renders
   // the source the ROW carries and only while all of them carry the same one.
-  // It used to print "Self-reported" whatever the rows said, which is true of
-  // every stat in the product today and becomes a false statement about the
-  // origin of a number the first time a coach verifies one. Where the rows
-  // differ there is no honest single label, so each tile carries its own.
+  // Where the rows differ there is no honest single label, so each tile
+  // carries its own.
   const shared = sharedProvenance(tiles);
   const drills = tiles.map((t) => ({ key: t.key, line: provenanceLine(t) }));
   return (
-    <>
+    <div className="cv-stats">
       <style>{`
         .drill-in { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
         .drill-wells, .drill-well { display: none; }
         .drill-row:has(.drill-in:checked) ~ .drill-wells { display: flex; }
-        .drill-tile:has(> .drill-in:checked) > div { background: rgba(255,255,255,.14); }
+        .drill-tile:has(> .drill-in:checked) > div { }
         .drill-tile:has(> .drill-in:focus-visible) { outline: 2px solid ${T.accent}; outline-offset: 2px; border-radius: 12px; }
         ${drills.filter((d) => d.line).map((d) => `.drill-row:has(#drill-${d.key}:checked) ~ .drill-wells #drill-well-${d.key} { display: flex; }`).join('\n        ')}
       `}</style>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)' }}>Season 2026</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.66)' }}>Season 2026</div>
         {shared && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '3px 9px' }}>
             <div style={{ width: 5, height: 5, borderRadius: 999, background: 'rgba(255,255,255,.5)' }} />
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)' }}>{PROVENANCE_LABELS[shared]}</div>
+            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.72)' }}>{PROVENANCE_LABELS[shared]}</div>
           </div>
         )}
       </div>
-      <div className="drill-row" style={{ display: 'grid', gridTemplateColumns: `repeat(${tiles.length}, minmax(0,1fr))`, gap: 7, position: 'relative', marginTop: -6 }}>
+      <div className="drill-row" style={{ display: 'grid', gap: 0, gridTemplateColumns: `repeat(${tiles.length}, minmax(0,1fr))` }}>
         {tiles.map((t, i) => {
           const tile = (
             <StatTile value={t.value} label={STAT_LABELS[t.key]} accent={t.key === 'goals' || t.key === 'clean_sheets'} delay={i * 0.09}
@@ -110,33 +109,35 @@ function StatTiles({ p }: { p: PlayerFixture }) {
         })}
       </div>
       {drills.some((d) => d.line) && (
-      <div className="drill-wells" style={{ flexDirection: 'column', gap: 7, position: 'relative', marginTop: -6 }}>
+      <div className="drill-wells" style={{ flexDirection: 'column', gap: 7, marginTop: 10 }}>
         {tiles.map((t, i) => drills[i].line && (
           <div key={t.key} id={`drill-well-${t.key}`} className="drill-well" style={{ flexDirection: 'column', gap: 3, background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: '11px 13px' }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.72)' }}>{STAT_LABELS[t.key]} · {t.value}</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.ink, lineHeight: 1.45 }}>{drills[i].line}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: T.ink, lineHeight: 1.45 }}>{drills[i].line}</div>
           </div>
         ))}
       </div>
       )}
-    </>
+    </div>
   );
 }
 
-// The twist: a quiet mini pitch inside the hero showing where they play.
-// Stroke SVG only (no emoji, per the charter); reads in one glance for a TD.
-function PositionMap({ positions }: { positions: PositionCode[] }) {
+// Where they play, on a pitch: stroke SVG only (no emoji, per the charter);
+// reads in one glance for a TD. The first position is the one they lead with.
+function PositionMap({ positions, lead }: { positions: PositionCode[]; lead: string }) {
   return (
-    <svg viewBox="0 0 100 62" width="86" height="53" aria-hidden style={{ opacity: 0.9 }}>
-      <rect x="1" y="1" width="98" height="60" rx="6" fill="none" stroke="rgba(255,255,255,.28)" strokeWidth="1.5" />
-      <line x1="50" y1="1" x2="50" y2="61" stroke="rgba(255,255,255,.28)" strokeWidth="1.5" />
-      <circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,.28)" strokeWidth="1.5" />
+    <svg viewBox="0 0 100 62" width="132" height="82" aria-hidden style={{ flexShrink: 0 }}>
+      <rect x="1" y="1" width="98" height="60" rx="6" fill="rgba(0,0,0,.2)" stroke="rgba(255,255,255,.3)" strokeWidth="1.3" />
+      <line x1="50" y1="1" x2="50" y2="61" stroke="rgba(255,255,255,.3)" strokeWidth="1.3" />
+      <circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,.3)" strokeWidth="1.3" />
+      <rect x="1" y="17" width="12" height="28" fill="none" stroke="rgba(255,255,255,.22)" strokeWidth="1.1" />
+      <rect x="87" y="17" width="12" height="28" fill="none" stroke="rgba(255,255,255,.22)" strokeWidth="1.1" />
       {positions.map((code, i) => {
         const [x, y] = POS_XY[code];
         return (
           <g key={code}>
-            {i === 0 && <circle cx={x} cy={y * 0.62} r={5} fill="none" stroke={T.accent} strokeWidth="1.2" className="dot-ping" />}
-            <circle cx={x} cy={y * 0.62} r={i === 0 ? 5 : 3.6} fill={i === 0 ? T.accent : 'rgba(61,220,132,.45)'} className="dot-in" style={{ animationDelay: `${0.35 + i * 0.18}s` }} />
+            {i === 0 && <circle cx={x} cy={y * 0.62} r={5.5} fill="none" stroke={lead} strokeWidth="1.2" className="dot-ping" />}
+            <circle cx={x} cy={y * 0.62} r={i === 0 ? 5.5 : 4} fill={i === 0 ? lead : 'rgba(255,255,255,.55)'} />
           </g>
         );
       })}
@@ -144,27 +145,26 @@ function PositionMap({ positions }: { positions: PositionCode[] }) {
   );
 }
 
+const sectionTitle = (text: string) => <h2 className="cv-h2">{text}</h2>;
+
 // reportRef: what "Report this page" tells the operator this page was — the
 // hex of the share token's stored hash, never the token itself (0010).
-export default function PlayerCV({ p, reportRef }: { p: PlayerFixture; reportRef?: string }) {
+// clubColours: the current club's own colours (0162, D-173). Worn only while
+// CV_WEARS_CLUB_COLOURS is on, only when the club is verified (the call,
+// D-126), and never on a card (D-89 — opengraph-image does not read
+// them). The read that supplies them belongs to the tech team (lib/record-read).
+export default function PlayerCV({ p, reportRef, clubColours, clubState }: {
+  p: PlayerFixture; reportRef?: string; clubColours?: Partial<ClubColours> | null; clubState?: string;
+}) {
   const initials = `${p.firstName[0]}${p.lastName[0] ?? ''}`;
-  // Short codes on a player's page (BUZ, 16 Sep): "ST · LW", not "Striker · Left wing".
-  const posLine = p.positions.join(' · ');
+  // The name is sized by its longest word and the card's own width, so a long
+  // surname (Christodoulopoulos, Papadopoulos-Nguyen) fits rather than being
+  // cut at the card's edge (audit, 1 Oct). Wrapping mid-word is the last net.
+  const longestWord = Math.max(...`${p.firstName} ${p.lastName}`.split(/[\s-]+/).map((w) => w.length), 4);
   const group = positionGroup(p.positions);
   // Resolve the clip list once, so the section can ask whether it has any
-  // before deciding to render a heading at all.
-  //
-  // This used to fall back to three hardcoded lists of clip titles keyed on
-  // the fixture slugs — 'deniz', 'nate', 'georgia' — inside the component
-  // that renders every child's CV in the product. Real records could not
-  // reach it (they carry highlights, and their slug is 'live'), so it was
-  // dead rather than dangerous, but it is the same shape as the pronouns
-  // that were NOT dead: fixture data living in a production component,
-  // waiting for a slug to collide with it.
-  //
-  // The cap is enforced where caps belong — at write time, in the clips
-  // action, against the band's limit. A render-time slice cannot be the
-  // control, because it silently hides clips instead of refusing them.
+  // before deciding to render a heading at all. The cap is enforced where caps
+  // belong — at write time, in the clips action, against the band's limit.
   const clips = p.highlights ?? [];
   const previousClubs = p.previousClubs ?? [];
   // Absent band is treated as a minor — the restrictive default, the same
@@ -172,195 +172,195 @@ export default function PlayerCV({ p, reportRef }: { p: PlayerFixture; reportRef
   const isMinor = p.band !== '18plus';
   // No school on an under-18's page, whoever is reading (D-161). The database
   // refuses the write and filters the read (0061); this is the last surface,
-  // and it is the one that catches an entry written before the rule — a u16's
-  // page is a snapshot approved before today, and nothing rewrites it.
+  // and it is the one that catches an entry written before the rule.
   const otherFootball = renderableExperience(p.otherFootball, p.band);
   const context = contextLine(p.squad.ageGroup, p.birthQuarter);
+  // Verified clubs only on a player's page (safety review N1): a club that has
+  // claimed but not had the call is not one we stand behind on a child's CV.
+  const theme = CV_WEARS_CLUB_COLOURS && p.club && clubState === 'verified' ? clubTheme(clubColours ?? null, clubState) : null;
+  const lead = theme ? theme.trim : T.accent;
+  const heroBg = theme
+    ? `radial-gradient(120% 70% at 20% -10%, ${theme.hero} 0%, ${theme.hero} 30%, transparent 72%), linear-gradient(180deg, ${theme.heroDeep} 0%, #0b120e 100%)`
+    : 'radial-gradient(120% 70% at 20% -10%, #2a6a49 0%, #1f5a3d 30%, transparent 72%), linear-gradient(180deg, #173a29 0%, #0b120e 100%)';
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <style>{`
-        @keyframes cvRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-        @keyframes cvPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
-        .cv-rise { animation: cvRise .6s cubic-bezier(.22,1,.36,1) both; }
-        .cv-pulse { animation: cvPulse 2.6s ease-in-out infinite; }
-        @media (prefers-reduced-motion: reduce) { .cv-rise, .cv-pulse { animation: none; } }
-      `}</style>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 22, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        {/* logo — top right on every screen, no exceptions */}
-        <HeaderMark />
-
-        {/* hero */}
-        <div className="cv-rise sheen" style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'var(--hero)', padding: '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ position: 'absolute', right: -14, top: -30, fontSize: 170, fontWeight: 900, letterSpacing: '-0.04em', color: 'rgba(61,220,132,.08)', lineHeight: 1 }}>{p.squadNumber}</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
-            {p.photoPath ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={p.photoPath} alt="" width={66} height={66} style={{ borderRadius: 20, objectFit: 'cover' }} />
-            ) : (
-              <div style={{ width: 66, height: 66, borderRadius: 20, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24 }}>{initials}</div>
-            )}
-            <PositionMap positions={p.positions} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
-            <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{p.firstName} {p.lastName}</h1>
-            {context && <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 700 }}>{context}</div>}
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 500 }}>{posLine} · #{p.squadNumber} · {p.foot} footed</div>
-            {/* The club line carried a HARDCODED 'Melbourne VIC' — every player
-                in the country read as Melbourne. The locality now comes from
-                the club record, and it is the CLUB's suburb and state: we do
-                not hold an address for a player and this line must never
-                start looking like one. The crest is the current club's, from
-                membership — the only club claim on this page Pitch stands
-                behind. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              {p.clubCrestPath && (
+    <div style={{ minHeight: '100dvh', color: T.ink, background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+      {/* The logo: top right on a phone, top left from 1024px (D-173). On a
+          tokenised page it is not a link and there is no sign-in: the only
+          link out is "Report this page". */}
+      <SiteNav signIn={false} homeLink={false} />
+      {/* A container, so the card lays itself out by the room it is given,
+          not by the screen — the site preview puts it in a phone frame. */}
+      <div className="cv-root"><div className="fl-wide cv-grid">
+        {/* ---- the player card ------------------------------------------ */}
+        <div className="cv-cardcol">
+          <section className="cv-hero cv-rise" style={{ background: heroBg, ['--cv-lead' as string]: lead } as React.CSSProperties} aria-labelledby="cv-name">
+            <div className="cv-num" aria-hidden>{p.squadNumber}</div>
+            <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
+              {p.photoPath ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={p.clubCrestPath} alt="" width={24} height={24} style={{ objectFit: 'contain', flexShrink: 0 }} />
+                <img src={p.photoPath} alt="" width={92} height={92} className="cv-avatar" style={{ objectFit: 'cover' }} />
+              ) : (
+                <div className="cv-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 32 }}>{initials}</div>
               )}
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.62)', fontWeight: 500 }}>
-                {[p.club, p.squad.name].filter(Boolean).join(' — ')}{p.locality ? ` · ${p.locality}` : ''}
-              </div>
+              <PositionMap positions={p.positions} lead={lead} />
             </div>
-          </div>
-          {/* Parent-approved was rendered on EVERY band, so an adult's own CV
-              claimed a parent had approved it. It is a fact about a minor's
-              page and it is now gated on the band the permission layer
-              derived — never on anything stored (doc 14 §J1). */}
-          {isMinor && (
-          <div style={{ display: 'flex', position: 'relative' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.08)', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.7)' }}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
-              <span>Parent-approved</span>
+            <h1 id="cv-name" className="cv-name" style={{ ['--name-len' as string]: longestWord } as React.CSSProperties}>{p.firstName} {p.lastName}</h1>
+            {context && <div className="cv-context">{context}</div>}
+            {/* Short codes on a player's page (BUZ, 16 Sep): "ST · LW", not
+                "Striker · Left wing". The same facts the line carried, as chips. */}
+            <div className="cv-chips">
+              {p.positions.map((code, i) => (
+                <span key={code} className="cv-chip" style={i === 0 ? { color: lead, borderColor: lead, background: 'rgba(0,0,0,.28)' } : { background: 'rgba(255,255,255,.12)' }}>{code}</span>
+              ))}
+              <span className="cv-chip">#{p.squadNumber}</span>
+              <span className="cv-chip">{p.foot} footed</span>
             </div>
-          </div>
-          )}
-          <StatTiles p={p} />
-        </div>
-
-        {/* An EMPTY SECTION IS OMITTED, never rendered as a bare heading.
-            This is the same rule as the never-zero stat tiles (D-70): a
-            reserve keeper with no clips yet must not get a "Highlights"
-            header with nothing under it, because the page then reads as
-            half-finished rather than as a page about a keeper. Found
-            walking Nate's CV — he has 0 clips. */}
-        {p.about && (
-          <div className="cv-rise" style={{ animationDelay: '.1s', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h2 style={kicker}>About</h2>
-            <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{p.about}</div>
-          </div>
-        )}
-
-        {/* highlights — click-to-play façades only (D-97); nothing loads
-            from a third party until the viewer presses play */}
-        {clips.length > 0 && (
-          <div className="cv-rise" style={{ animationDelay: '.16s', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <h2 style={kicker}>Highlights</h2>
-            {/* The subtitle used to be derived from the POSITION, so every
-                card under a midfielder said "Goals, assists & link play" and
-                every card under a keeper said "Veo clip". Two stacked cards
-                repeating one line reads as a bug. Only the first card
-                carries it now — it says what kind of footage this is, which
-                is a fact about the player, not about each clip. */}
-            {clips.map((h, i) => (
-              <ClipCard key={h.title} title={h.title} url={h.url} gradientAlt={i % 2 === 1}
-                sub={i === 0 ? (group === 'GK' ? 'Veo clip' : 'Goals, assists & link play') : undefined} />
-            ))}
-          </div>
-        )}
-
-        {/* achievements */}
-        {p.achievements.length > 0 && (
-        <div className="cv-rise" style={{ animationDelay: '.22s', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <h2 style={kicker}>Achievements</h2>
-          {p.achievements.map((a, i) => (
-            <div key={a.title} className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
-              <div style={{ width: 36, height: 36, borderRadius: 11, background: 'rgba(61,220,132,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {i === 0
-                  ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9" /></svg>
-                  : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 L14.6 8.6 L20.5 9.3 L16.2 13.4 L17.4 19.3 L12 16.3 L6.6 19.3 L7.8 13.4 L3.5 9.3 L9.4 8.6 Z" /></svg>}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 800 }}>{a.title}</div>
-                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{a.detail}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        )}
-
-        {/* Football history — the clubs before this one, most recent first.
-            "Most recent" is a text sort on the years the player typed, which
-            works because they type them as years and sorts the ones who did
-            not to the bottom. It was insertion order, which put a 2021 club
-            above a 2023 one purely because it was added second. The player's own
-            account (D-72): free text, no club FK, grants nothing, and it is
-            said plainly at the foot of the section rather than implied. The
-            CURRENT club is not repeated here; it is in the hero, where it
-            carries the crest and the verification behind it. */}
-        {previousClubs.length > 0 && (
-        <div className="cv-rise" style={{ animationDelay: '.25s', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <h2 style={kicker}>Football history</h2>
-          <div style={{ ...card, padding: '4px 15px' }}>
-            {p.club && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 0' }}>
-                <div style={{ width: 8, height: 8, borderRadius: 999, background: T.accent, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800 }}>{p.club}</div>
-                  <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{[p.squad.name, 'now'].filter(Boolean).join(' · ')}</div>
+            {/* The locality is the CLUB's suburb and state: we do not hold an
+                address for a player and this line must never start looking
+                like one. The crest is the current club's, from membership —
+                the only club claim on this page Pitch stands behind. */}
+            {(p.club || p.squad.name) && (
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 9, marginTop: 14 }}>
+                {p.clubCrestPath ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={p.clubCrestPath} alt="" width={28} height={28} style={{ objectFit: 'contain', flexShrink: 0 }} />
+                ) : p.club ? (
+                  // The same line keeps its shape whether or not the club has
+                  // uploaded a crest: its initials, from the name already shown.
+                  <span aria-hidden style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, flexShrink: 0 }}>
+                    {p.club.split(/\s+/).filter((w) => /^[A-Za-z]/.test(w) && !/^(FC|SC|AFC|United|City)$/.test(w)).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || p.club[0]}
+                  </span>
+                ) : null}
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,.84)', fontWeight: 700, lineHeight: 1.3 }}>
+                  {[p.club, p.squad.name].filter(Boolean).join(' — ')}
+                  {p.locality && <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.62)', fontWeight: 500 }}>{p.locality}</div>}
                 </div>
               </div>
             )}
-            {previousClubs.map((e) => (
-              <div key={`${e.orgName}-${e.period ?? ''}`} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 0', borderTop: `1px solid ${T.line}` }}>
-                <div style={{ width: 8, height: 8, borderRadius: 999, border: `1.5px solid ${T.muted}`, boxSizing: 'border-box', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: T.secondary }}>{e.orgName}</div>
-                  {e.period && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}</div>}
+            {/* A fact about a minor's page, gated on the band the permission
+                layer derived — never on anything stored (doc 14 §J1). */}
+            {isMinor && (
+              <div style={{ position: 'relative', display: 'flex', marginTop: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,.3)', borderRadius: 999, padding: '5px 11px', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.78)' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
+                  <span>Parent-approved</span>
                 </div>
               </div>
-            ))}
-          </div>
-          <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
-            Earlier clubs are {p.firstName}&rsquo;s own account of where they played. Only the club at the top is one we hold on Pitch.
-          </div>
+            )}
+            <StatTiles p={p} />
+          </section>
         </div>
-        )}
 
-        {/* other football — experience entries; free text shown, grants nothing */}
-        {otherFootball.length > 0 && (
-        <div className="cv-rise" style={{ animationDelay: '.28s', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <h2 style={kicker}>Other football</h2>
-          {otherFootball.map((e) => (
-            <div key={e.orgName} className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
-              <div style={{ background: 'rgba(61,220,132,.12)', color: T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>{e.kind === 'ntc_academy' ? 'NTC' : e.kind}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 800 }}>{e.orgName}</div>
-                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}{e.note ? ` · ${e.note}` : ''}</div>
+        {/* ---- the story ------------------------------------------------- */}
+        {/* An EMPTY SECTION IS OMITTED, never rendered as a bare heading —
+            the same rule as the never-zero stat tiles (D-70). */}
+        <div className="cv-story">
+          {p.about && (
+            <section>
+              {sectionTitle('About')}
+              <div className="cv-about">{p.about}</div>
+            </section>
+          )}
+
+          {/* highlights — click-to-play façades only (D-97); nothing loads
+              from a third party until the viewer presses play. Only the first
+              card carries the subtitle: it is a fact about the player. */}
+          {clips.length > 0 && (
+            <section>
+              {sectionTitle('Highlights')}
+              <div className="fl-grid-2">
+                {clips.map((h, i) => (
+                  <ClipCard key={h.title} title={h.title} url={h.url} gradientAlt={i % 2 === 1}
+                    sub={i === 0 ? (group === 'GK' ? 'Veo clip' : 'Goals, assists & link play') : undefined} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {p.achievements.length > 0 && (
+            <section>
+              {sectionTitle('Achievements')}
+              <div className="fl-grid-2">
+                {p.achievements.map((a, i) => (
+                  <div key={a.title} className="fl-card" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 16px' }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 13, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {i === 0
+                        ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9" /></svg>
+                        : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3 L14.6 8.6 L20.5 9.3 L16.2 13.4 L17.4 19.3 L12 16.3 L6.6 19.3 L7.8 13.4 L3.5 9.3 L9.4 8.6 Z" /></svg>}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                      <div style={{ fontSize: 15.5, fontWeight: 800 }}>{a.title}</div>
+                      <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{a.detail}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Football history — the clubs before this one, most recent first
+              (a text sort on the years the player typed). The player's own
+              account (D-72): free text, no club FK, grants nothing, and it is
+              said plainly at the foot of the section. The CURRENT club heads
+              the line, because it is the one Pitch holds. */}
+          {previousClubs.length > 0 && (
+            <section>
+              {sectionTitle('Football history')}
+              <div className="cv-timeline">
+                {p.club && (
+                  <div className="cv-stop cv-stop-now">
+                    <div style={{ fontSize: 16, fontWeight: 800 }}>{p.club}</div>
+                    <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{[p.squad.name, 'now'].filter(Boolean).join(' · ')}</div>
+                  </div>
+                )}
+                {previousClubs.map((e) => (
+                  <div key={`${e.orgName}-${e.period ?? ''}`} className="cv-stop">
+                    <div style={{ fontSize: 16, fontWeight: 800, color: T.secondary }}>{e.orgName}</div>
+                    {e.period && <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{e.period}</div>}
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5, marginTop: 14, maxWidth: '60ch' }}>
+                Earlier clubs are {p.firstName}&rsquo;s own account of where they played. Only the club at the top is one we hold on Pitch.
+              </div>
+            </section>
+          )}
+
+          {/* other football — experience entries; free text shown, grants nothing */}
+          {otherFootball.length > 0 && (
+            <section>
+              {sectionTitle('Other football')}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                {otherFootball.map((e) => (
+                  <div key={e.orgName} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 14, border: `1px solid ${T.line}`, background: 'rgba(255,255,255,.03)' }}>
+                    <div style={{ background: 'rgba(61,220,132,.12)', color: T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>{e.kind === 'ntc_academy' ? 'NTC' : e.kind}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800 }}>{e.orgName}</div>
+                      <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}{e.note ? ` · ${e.note}` : ''}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* John's U-11 ruling put this on the SEND: no inbound reply route,
+              and say so plainly or a club concludes we are broken rather than
+              careful. The page carries it too, in the ruling's own words.
+              Minors only: an adult is reachable through their own account. */}
+          {isMinor && (
+            <div style={{ padding: '16px 18px', borderRadius: 16, border: `1px solid ${T.line}`, background: 'rgba(255,255,255,.03)', display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 680 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: T.secondary }}>There is no way to reply to a family through Pitch.</div>
+              <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+                At any tier, for anybody — it is the same rule for every under-18 on here. If you want {p.firstName} at a trial, post it on Pitch: families register their interest from your trial, and that is where you can invite them. It goes to {p.firstName} and their parent together, and a record is kept.
               </div>
             </div>
-          ))}
+          )}
+
+          <a href={`/report?kind=player_cv${reportRef ? `&page=${reportRef}` : ''}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, fontSize: 11.5, color: T.muted, fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
         </div>
-        )}
-
-        {/* John's U-11 ruling put this on the SEND: no inbound reply route,
-            and say so plainly or a club concludes we are broken rather than
-            careful. The same club opens this page days later, often from a
-            forwarded link, with no email in front of them — so the page
-            carries it too, in the ruling's own words rather than new ones.
-            Minors only: an adult is reachable through their own account and
-            has no guardian to point at. */}
-        {isMinor && (
-          <div style={{ ...card, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 800, color: T.secondary }}>There is no way to reply to a family through Pitch.</div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-              At any tier, for anybody — it is the same rule for every under-18 on here. If you want {p.firstName} at a trial, post it on Pitch: families register their interest from your trial, and that is where you can invite them. It goes to {p.firstName} and their parent together, and a record is kept.
-            </div>
-          </div>
-        )}
-
-        <a href={`/report?kind=player_cv${reportRef ? `&page=${reportRef}` : ''}`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
-      </div>
+      </div></div>
     </div>
   );
 }

@@ -77,3 +77,11 @@ export function clubTheme(colours: Partial<ClubColours> | null | undefined, club
   const onTrim = contrast(PAGE, trim) >= contrast(INK, trim) ? PAGE : INK;
   return { hero, heroDeep, trim, onTrim };
 }
+
+// A player's CV wearing their current club's colours (BUZ, 1 Oct: yes). Held
+// OFF until John clears it: on a child's page the club is already named, but
+// its colours are a new visual signal, and BUZ was told John would see it
+// first (13-Board-Room, 1 Oct). Never on a card either way (D-89). Flip to
+// true on John's word, recorded in the register — perms cvc1 pins it false
+// until then, and ctx4 keeps every card surface away from colours for good.
+export const CV_WEARS_CLUB_COLOURS = false;
