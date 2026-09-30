@@ -236,3 +236,12 @@ Numbered for this proposal. Each needs a yes or no. None changes a charter rule.
 4. **`/join`**: the panel, roles two-up, and pairs from 640px. Every form `name` and hidden field stays as it is.
 
 Each screen goes through the full suites on a fresh seed before and after screenshots at 390 and 1280, as the brief's §7 describes.
+
+## BUZ's approval of the corrected lines (1 Oct, "Approve the drafts, remove the parent line")
+
+| Where | Was | Now |
+|---|---|---|
+| `/claim`, asked for a club already listed | That club is already on Pitch. Search for it above. | That club is already listed. Search for it above. |
+| `/claim/[slug]`, step 1 | Claiming gets you the page and trial notices. **Verified status is separate** — … it's what unlocks anything to do with players. | Claiming gets you the page and your squads. **Verified status is separate** — a person here checks your club against Football Victoria's register, and it's what unlocks trial notices and anything to do with players. |
+| `/claim/[slug]`, step 2 | You run the page, the teams and the trial notices. | You run the page and the teams, and the trial notices once your club is verified. |
+| `/join`, guardian step | Why does a parent have to do this? (not a link) | Removed. |

@@ -75,7 +75,7 @@ export default async function FindYourClub({ searchParams }: {
             <div style={label}>Not here? Tell us your club</div>
             {asked && asked !== 'ok' && (
               <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>
-                {asked === 'listed' ? 'That club is already on Pitch. Search for it above.'
+                {asked === 'listed' ? 'That club is already listed. Search for it above.'
                   : asked === 'many' ? 'You’ve already asked for three clubs. We’ll get to them soon.'
                   : asked === 'account' ? 'Confirm your email address first, then ask again.'
                   : 'Check the club’s name, suburb and email address.'}

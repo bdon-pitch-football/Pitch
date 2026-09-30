@@ -279,7 +279,6 @@ export default function Join() {
                 <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>Put in your own number and nothing happens — the approval has to come from an adult&rsquo;s own phone, and we check the two are different.</div>
               </div>
               <button type="submit" className="btn btn-primary">Ask them to approve it</button>
-              <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.muted, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Why does a parent have to do this?</div>
             </form>
           </>
         )}
