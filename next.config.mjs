@@ -41,11 +41,8 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'no-store' },
         ],
       },
-      // D-172 U4: an unclaimed club page is kept out of search engines by its
-      // meta tag AND this header. The header is sent on every club page for
-      // now — no club has claimed yet. Before the first club is verified it
-      // must follow club_state instead, or a claimed club stays hidden too.
-      { source: '/fc/:slug*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
+      // D-172 U4: the /fc X-Robots-Tag is not here — it follows club_state,
+      // which a config header cannot read. proxy.ts sets it (lib/club-robots).
     ];
   },
 };

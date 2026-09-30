@@ -14,6 +14,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { contentSecurityPolicy, storageOrigin } from './lib/csp';
 import { PITCH_METHOD_HEADER } from '@/lib/link-preview';
 import { frontDoorOpen } from '@/lib/front-door';
+import { clubPageNoindex } from '@/lib/club-robots';
 
 // ---- D-164 (1): the front door, behind the launch-day switch (0080) --------
 // `/` is the coming-soon page, a static page this file does not touch while
@@ -36,6 +37,21 @@ async function frontDoorFor(req: NextRequest): Promise<URL | 'home' | null> {
 }
 // ---- end D-164 --------------------------------------------------------------
 
+// ---- D-172 U4: the club page's X-Robots-Tag follows club_state -------------
+// Was a blanket header in next.config.mjs on every /fc page, which would have
+// kept a claimed club out of search too. The page's own meta tag reads the
+// same column (lib/club-robots). Anything under /fc that is not one slug is a
+// 404, and is answered noindex like any slug the database does not know.
+async function clubPageRobots(path: string): Promise<string | null> {
+  if (!path.startsWith('/fc/')) return null;
+  const m = /^\/fc\/([^/]+)\/?$/.exec(path);
+  let slug: string | null = null;
+  try { slug = m ? decodeURIComponent(m[1]) : null; } catch { slug = null; }
+  if (slug && !(await clubPageNoindex(slug))) return null;
+  return 'noindex, nofollow';
+}
+// ---- end D-172 U4 -----------------------------------------------------------
+
 export async function proxy(req: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
   const csp = contentSecurityPolicy(nonce, {
@@ -57,6 +73,9 @@ export async function proxy(req: NextRequest) {
   }
   const res = door ? NextResponse.rewrite(door, { request: { headers } }) : NextResponse.next({ request: { headers } });
   res.headers.set('Content-Security-Policy', csp);
+  // D-172 U4 — see clubPageRobots above.
+  const robots = await clubPageRobots(req.nextUrl.pathname);
+  if (robots) res.headers.set('X-Robots-Tag', robots);
   return res;
 }
 

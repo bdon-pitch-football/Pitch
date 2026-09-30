@@ -2475,6 +2475,14 @@ const georgia = ids.children.georgia;
   check('U4: it is kept out of search engines until the club claims it',
     // John asks for both: the meta tag and the served header.
     [/<meta name="robots" content="noindex, nofollow"/.test(brind.html), brind.robots], [true, 'noindex, nofollow']);
+  // And it flips when club_state leaves 'unclaimed' — both halves, not only
+  // the tag. Riverside and Kingsway were claimed and then verified; no seeded
+  // club with a page sits at plain 'claimed', and the proxy's test is the
+  // page's own (anything but 'unclaimed'). Riverside is already fetched above.
+  const kingsway = await get('/fc/kingsway-rovers');
+  check('U4b: a claimed club’s page carries neither the noindex tag nor the header',
+    [riverside, kingsway].flatMap((r) => [r.status, /<meta name="robots"/.test(r.html), r.robots]),
+    [200, false, null, 200, false, null]);
   const bannerAt = brind.html.indexOf('data-unclaimed-banner');
   check('U5: the banner is there, in body-text size, before anything else on the page is offered',
     [bannerAt > 0, brind.html.replace(/<!-- -->/g, '').includes('Pitch made this page from public information. Brindlewood Rovers SC has not claimed it.'),
