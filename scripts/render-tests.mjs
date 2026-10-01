@@ -1034,7 +1034,11 @@ const georgia = ids.children.georgia;
     const adminHome = plain((await get('/home', ids.people.pat)).html);
     check('s5d: an administrator\'s home shows no register numbers', /On your register|new on the register|interested/.test(adminHome), false);
     const heldHome = plain((await get('/home', ids.people['m.'])).html);
-    check('s5e: an unverified club sees a waiting count and nothing else', [/\d+ waiting/.test(heldHome), /On your register|interested/.test(heldHome)], [true, false]);
+    // Spec A (unverified, 1 Oct): the held count is the hero's one stat — the
+    // numeral, then the word "waiting" — so the two are read as a stat pair
+    // rather than as one run of text.
+    check('s5e: an unverified club sees a waiting count and nothing else',
+      [/class="numeral numeral-l"[^>]*>\d+<\/div><div class="stat-l"[^>]*>waiting</.test(heldHome), /On your register|interested/.test(heldHome)], [true, false]);
   }
 
   // The parent's frame and the coach's bar (D-147, amended 16 Sep). Same
@@ -1945,8 +1949,11 @@ const georgia = ids.children.georgia;
     /On your register|Shortlisted|Invited|new on the register/.test(a.html), false);
   check('ah2: it says whose the register is, and what is hers',
     [has(a.html, 'You keep the club’s page, its squads, its notices.'), /its plan/.test(a.html)], [true, false]);
+  // Spec A, "Suites that will move": the one glow adds .fl-glow to the
+  // primary, so the exact class string is read as its prefix. The count of
+  // exactly one is unchanged.
   check('ah3: there is exactly one accent action on the screen',
-    (a.html.match(/class="btn btn-primary"/g) ?? []).length, 1);
+    (a.html.match(/class="btn btn-primary[^"]*"/g) ?? []).length, 1);
   check('ah3b: and it is Post a trial notice', has(a.html, 'Post a trial notice'), true);
   // The rail stops being the sidebar. Measured as the thing that was wrong —
   // full-width centred grey menu cards outside the two navs — rather than by
@@ -1992,8 +1999,16 @@ const georgia = ids.children.georgia;
     has(r.html, 'No trials coming up. Post one and it goes on your club page and the trials board the same minute.'), true);
 
   const td = await get('/home', ids.people.marina);
-  check('ah13: the technical director keeps her register row and her rail',
-    [has(td.html, 'On your register'), menuCards(td.html) >= 5], [true, true]);
+  // Spec A (TD, "Done when" 1, BUZ 1 Oct): her six centred grey menu cards
+  // are ONE door list with the same hrefs and labels, so "her rail" is read
+  // as that list rather than as five centred cards — and no centred card is
+  // left (ah4's measure, now 0 on every home).
+  const tdDoors = (/<div class="card rows doors">([\s\S]*?)<\/div>/.exec(td.html.replace(/<!-- -->/g, ''))?.[1] ?? '');
+  check('ah13: the technical director keeps her register row and her rail, as one door list',
+    [has(td.html, 'On your register'),
+     [...tdDoors.matchAll(/<a [^>]*href="([^"]*)"/g)].map((m) => m[1]),
+     menuCards(td.html)],
+    [true, ['/club/post-trial', '/club/squads', '/club/page-edit', '/club/roles', '/fc/riverside-fc', '/club/billing'], 0]);
   check('ah13b: and does not get the administrator’s blocks',
     [has(td.html, 'Who can do what here'), has(td.html, 'What a family cannot see yet')], [false, false]);
   await billingSwitch(false);
@@ -3023,6 +3038,141 @@ const georgia = ids.children.georgia;
   check('pd-r3: /g/controls draws no hand-built button, and Delete is the secondary in the red state',
     [ctl.map((h) => /<button[^>]*style="/.test(h)), ctl.map((h) => /class="btn btn-secondary is-danger"[^>]*>Delete /.test(h))],
     [[false, false, false], [true, true, true]]);
+}
+
+// ---------------------------------------------------------------------------
+// hm — every seat's /home, Floodlit (spec A "Pages", mockup floodlit-homes,
+// BUZ 1 Oct). Three layers: the hero, the one glowing primary (directly under
+// the hero on a phone, A-P1), and everything else as quiet rows. Read-only.
+// Each was run against the code before this build and failed there (L20).
+// ---------------------------------------------------------------------------
+{
+  const markupOf = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+  const glowOn = (h) => [...markupOf(h).matchAll(/class="[^"]*\bfl-glow\b[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1]);
+  const homeOf = async (who) => markupOf((await get('/home', who)).html);
+  const seats = [
+    ['an adult player', ids.people.jordan, ['Send my CV to a club']],
+    ['a 16–17 with a confirmed parent', ids.children.nate.child_id, ['Send my CV to a club']],
+    ['a coach', ids.people.sam, ['Edit my coach CV']],
+    ['a club TD', ids.people.marina, ['Register']],
+    ['a small club’s TD', ids.people.dana, ['Register']],
+    ['a club administrator', ids.people.pat, ['Post a trial notice']],
+    ['an unverified club', ids.people['m.'], ['Email us a good time to ring']],
+    ['a parent with things waiting', alex, ['Review it']],
+    ['a brand-new account', ids.people.robin, []],
+    ['signed out', null, ['Sign in']],
+  ];
+  const html = {};
+  for (const [who, id] of seats) html[who] = await homeOf(id);
+  check('hm1: every seat’s home glows on its one primary and nowhere else — none on the brand-new home, where nothing says which door is theirs',
+    seats.map(([who]) => glowOn(html[who])), seats.map(([, , want]) => want));
+
+  // A-P1: the DOM order is the phone order — the hero, then the primary (the
+  // first control in the lead), then the rest, then the aside.
+  const p1 = (h) => {
+    const at = ['class="hg-top"', 'class="hero-panel', 'class="hg-lead"', 'fl-glow', 'class="hg-main"', 'class="hg-aside"'].map((k) => h.indexOf(k));
+    const lead = h.slice(at[2], at[3]);
+    return at.every((x, i) => x > -1 && (i === 0 || at[i - 1] < x)) && (lead.match(/<a |<button/g) ?? []).length === 1;
+  };
+  check('hm2: on a phone the player’s, the coach’s and the TD’s one primary sits directly under the hero (A-P1)',
+    ['an adult player', 'a 16–17 with a confirmed parent', 'a coach', 'a club TD'].map((who) => p1(html[who])), [true, true, true, true]);
+  const lead = (h) => [...h.slice(h.indexOf('class="hg-lead"'), h.indexOf('class="hg-main"')).matchAll(/<a [^>]*class="([^"]*)"[^>]*>([^<]*)</g)].map((m) => `${m[1]}|${m[2]}`);
+  check('hm2b: a 16–17 with a confirmed parent has Share my CV as the only secondary directly under Send; an adult has Send alone',
+    [lead(html['a 16–17 with a confirmed parent']), lead(html['an adult player'])],
+    [['btn btn-primary fl-glow|Send my CV to a club', 'btn btn-secondary|Share my CV'], ['btn btn-primary fl-glow|Send my CV to a club']]);
+
+  // The centred grey menu cards are one door list: the same hrefs and words.
+  const doorsOf = (h, cls = 'card rows doors') => {
+    const list = new RegExp(`<div class="${cls}">([\\s\\S]*?)</div>`).exec(h)?.[1] ?? '';
+    return [...list.matchAll(/<a [^>]*href="([^"]*)"[^>]*>[\s\S]*?<span class="row-t">([^<]*)<\/span>[\s\S]*?(?:<span class="row-end">([^<]*)<\/span>)?<\/a>/g)]
+      .map((m) => [m[1].replace(/[0-9a-f-]{36}/, '*'), m[2].replace(/&amp;/g, '&'), m[3] ?? null]);
+  };
+  check('hm3: the player’s four menu cards are one door list, same four hrefs and words',
+    doorsOf(html['an adult player']), [['/build/*', 'Build your CV', null], ['/trials', 'Trials near you', null], ['/build/*/clips', 'Highlights', null], ['/build/*/more', 'Achievements', null]]);
+  check('hm3b: the coach’s three aside cards are one door list, same hrefs, the open roles as the row’s end',
+    doorsOf(html['a coach']).map(([h, t, e]) => [h, t, e === null ? null : /^[1-9]\d* open$/.test(e)]),
+    [['/c/sam-kaya', 'See my public page', null], ['/coach/register', 'Registrations', null], ['/jobs', 'Coaching roles at clubs', true]]);
+  // Live copy fix 3 (BUZ, 1 Oct): with no role stored from /join, "Find your
+  // club" leads — an order change only (A-P5).
+  check('hm3c: the brand-new home’s four doors are one panel, each with its reason and its end word, Find your club first',
+    doorsOf(html['a brand-new account'], 'card rows').map(([h, t, e]) => [h, t, e]),
+    [['/claim', 'Here for a club? Find your club', 'Open'], ['/coach/edit', 'Build a coach CV', 'Start'], ['/trials', 'Trials near you', 'Open'], ['/jobs', 'Coaching roles at clubs', 'Open']]);
+  const centred = (h) => (h.replace(/<nav[\s\S]*?<\/nav>/g, ' ').match(/text-align:center/g) ?? []).length;
+  check('hm3d: no home has a centred menu card left outside its navs',
+    seats.map(([who]) => centred(html[who])), seats.map(() => 0));
+
+  // A-P6: "tell us" is a mailto to the one user-facing address; the line's
+  // other words are unchanged.
+  check('hm4: on the brand-new home “tell us” is a mailto to the one address, in the line it always sat in',
+    /Adding a child and building a player CV are not on this screen yet — <a href="mailto:burak\.donmez@pitch-football\.com">tell us<\/a> which you came for and we will point you at it\./.test(html['a brand-new account']), true);
+
+  // The parent: the queue's lead is the trial invitation, purple; every other
+  // item is amber; green never marks a wait. The children sit in the second
+  // column, after the queue and the trials row, so on a phone they are last.
+  const p = html['a parent with things waiting'];
+  const tones = [...p.matchAll(/class="notice-k" style="color:([^";]+)/g)].map((m) => m[1]);
+  check(`hm5: the parent’s queue is purple for the club’s invitation, amber for everything else, never green (${tones.join(' ')})`,
+    [tones[0], tones.slice(1).every((t) => t === '#eda100'), tones.includes('#3ddc84'), tones.length >= 4], ['#ab87e0', true, false, true]);
+  check('hm5b: the parent’s trials row says “by date”, and the children come after it, in the grid’s second column',
+    [has(p, 'Every notice we hold, by date'), has(p, 'newest first'),
+     /Every notice we hold, by date[\s\S]*?<\/a><\/div><div><h2 id="children" class="sec-h">Your children<\/h2>/.test(p)], [true, false, true]);
+
+  // The unverified club: a count and nothing else (D-126) — one numeral, and
+  // no Post a trial anywhere, the bar and the rail included.
+  const held = html['an unverified club'];
+  const nums = [...held.matchAll(/class="numeral[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1]);
+  check(`hm6: an unverified club’s held count is a numeral-l and the only number on the page, and no door posts a trial (${nums.join(',')})`,
+    [nums.length, /class="numeral numeral-l"[^>]*>[1-9]\d*</.test(held), /href="\/club\/post-trial"/.test(held)], [1, true, false]);
+
+  // The administrator: Open it is the charter's secondary, and the hero's
+  // numbers are ink — facts, not actions or states.
+  const pat = html['a club administrator'];
+  check('hm7: the administrator’s “Open it” is a secondary button and her hero numbers are ink',
+    [/<a [^>]*class="btn btn-secondary[^"]*"[^>]*>Open it</.test(pat),
+     [...pat.matchAll(/class="numeral numeral-[lms]" style="color:([^";]+)/g)].map((m) => m[1]).every((c) => c === '#eef5f0')], [true, true]);
+
+  // B1 (live defect, BUZ 1 Oct): every child card a parent may act on carries
+  // "Build {first}'s page" to that child's own builder, beside Manage — both
+  // the charter's secondary, so the queue keeps the one glow.
+  const cardDoors = [...p.slice(p.indexOf('id="children"')).matchAll(/<a (?=[^>]*href="(\/build\/[0-9a-f-]{36}|\/g\/controls\/[0-9a-f-]{36})")(?=[^>]*class="([^"]*)")[^>]*>([^<]*)</g)]
+    .map((m) => `${m[1]}|${m[2]}|${m[3].replace(/&#x27;|&rsquo;/g, '’')}`);
+  const kid = (k, first) => [`/build/${ids.children[k].record_id}|btn btn-secondary|Build ${first}’s page`, `/g/controls/${ids.children[k].child_id}|btn btn-secondary|Manage`];
+  // Spec A (B1): an under-16's door only — Nate (17) builds his own page —
+  // and with things waiting, the queue keeps the glow and the door is a
+  // secondary. (The glowing case, nothing waiting and no page, is hm-w2.)
+  check('hm9: each under-16’s card offers “Build {first}’s page” above Manage, both secondary while things wait; the 16–17’s card has Manage alone (B1)',
+    cardDoors, [...kid('deniz', 'Deniz'), `/g/controls/${ids.children.nate.child_id}|btn btn-secondary|Manage`, ...kid('georgia', 'Georgia')]);
+  check('hm9b: and the builder it points at opens for the parent', (await get(`/build/${ids.children.deniz.record_id}`, alex)).status, 200);
+
+  // Live copy fix 1 (BUZ, 1 Oct): with billing off there is no plan, so the
+  // administrator's own line leaves "and the plan" out (ah6 reads it back
+  // with billing on). B2: Riverside has a TD with an account, so the no-TD
+  // line is not drawn.
+  const noTd = /ADMIN_NO_TD_LINE = '([^']+)'/.exec(readFileSync(new URL('../lib/home-copy.ts', import.meta.url), 'utf8'))?.[1] ?? 'missing';
+  check('hm10: billing off, the administrator’s row reads “the page, squads, notices and coaching roles”, with no plan',
+    [has(pat, 'Club administrator — the page, squads, notices and coaching roles. No registrations.'), has(pat, 'and the plan')], [true, false]);
+  check('hm10b: a club whose TD has an account does not get the no-TD line', [noTd !== 'missing', has(pat, noTd)], [true, false]);
+
+  // A-P9 (HoPD ruling 3, 1 Oct): an operator-only account's console has one
+  // door to /ops, "Today", and no Home door, in the rail and in the bar; an
+  // operator with another seat keeps Home, to /home. In development any
+  // signed-in address is an operator: Robin holds no seat, Marina is a TD.
+  {
+    const railOf = (h, label) => new RegExp(`<nav[^>]*aria-label="${label}"[^>]*>([\\s\\S]*?)</nav>`).exec(h)?.[1] ?? '';
+    const doorsIn = (nav) => [...nav.matchAll(/<a (?=[^>]*href="([^"]*)")[^>]*>([\s\S]*?)<\/a>/g)].map((m) => `${m[1]}|${m[2].replace(/<[^>]+>/g, '').trim()}`)
+      .filter((d) => /^\/ops\||^\/home\|/.test(d));
+    const only = markupOf((await get('/ops', ids.people.robin)).html);
+    const seated = markupOf((await get('/ops', ids.people.marina)).html);
+    check('hm11: an operator-only console has one door to /ops, “Today”, and no Home door, in the rail and in the bar',
+      [doorsIn(railOf(only, 'Operator')), doorsIn(railOf(only, 'Operator bar'))], [['/ops|Today'], ['/ops|Today']]);
+    check('hm11b: an operator who holds another seat keeps Home, and it goes to /home',
+      doorsIn(railOf(seated, 'Operator')), ['/ops|Today', '/home|Home']);
+  }
+
+  // The ghost squad number on the player's hero is the CV's own .cv-num, and
+  // it is the player's number.
+  check('hm8: the player’s hero carries their squad number as the CV’s ghost numeral',
+    /<span class="cv-num" aria-hidden="true">9<\/span>/.test(html['an adult player']), true);
 }
 
 // ---------------------------------------------------------------------------

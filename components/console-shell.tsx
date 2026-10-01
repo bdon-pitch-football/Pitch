@@ -277,7 +277,19 @@ export async function CoachConsole({ active, children }: {
 export async function OpsConsole({ active, children }: {
   active: 'today' | 'verification' | 'support' | 'switches' | 'reports' | 'clubs'; children: React.ReactNode;
 }) {
-  const { email } = await requireOperator();
+  const { email, personId } = await requireOperator();
+  // A-P9 (HoPD ruling 3, 1 Oct): does this operator hold another seat — the
+  // seats /home branches on: a club seat, a coach page, their own record, or
+  // a child they are the confirmed parent of? The operator's OWN rows only.
+  const hasSeat = (await db.query(
+    `select exists(select 1 from membership m where m.person_id = $1
+               and m.role in ('technical_director','club_admin') and m.ended_at is null)
+         or exists(select 1 from coach_profile cp where cp.person_id = $1)
+         or exists(select 1 from development_record dr where dr.person_id = $1)
+         or exists(select 1 from guardianship_link g where g.guardian_id = $1
+               and g.approved_at is not null and g.revoked_at is null) as has_seat`,
+    [personId],
+  )).rows[0].has_seat as boolean;
   const n = (await db.query(
     `select (select count(*)::int from club where club_state = 'claimed') as awaiting,
        (select count(*)::int from report where actioned_at is null) as reports`,
@@ -294,10 +306,13 @@ export async function OpsConsole({ active, children }: {
     // "Lookup", the signed design's word (BUZ, 29 Sep); the address is unchanged.
     { key: 'support', href: '/ops/support', label: 'Lookup', icon: 'help' },
     { key: 'switches', href: '/ops/switches', label: 'Emergency switches', short: 'Switches', icon: 'power' },
-    // A-P9 (BUZ, 1 Oct): an operator's Home is the console. /home has no
-    // operator branch, so an operator holding no other seat fell through to
-    // the brand-new welcome ("Build a coach CV").
-    { key: 'home', href: '/ops', label: 'Home', icon: 'home' },
+    // A-P9 (BUZ, 1 Oct; HoPD ruling 3): an operator-ONLY account has one
+    // door to the console, "Today", and no separate Home door — in the bar,
+    // in More or in the rail — because a Home pointed at /ops would be a
+    // second "Today", and /home has no operator branch (it fell through to
+    // the brand-new welcome). An operator who also holds another seat keeps
+    // Home, and it goes to /home, which is that seat's home.
+    ...(hasSeat ? [{ key: 'home', href: '/home', label: 'Home', icon: 'home' as const }] : []),
   ];
   // The signed head keeps its own sizes (14px/800 over 11.5px/700); the
   // address wraps rather than truncates, as it always has.

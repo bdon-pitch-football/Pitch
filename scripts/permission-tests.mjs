@@ -11018,9 +11018,18 @@ const componentFilesAll = [];
      /\{billing && plan && \(plan\.pay_state === 'grace' \|\| plan\.pay_state === 'suspended'\) && \(\s*<RegisterPaused/.test(home),
      (home.match(/PRICES\./g) ?? []).length], [true, true, 2]);
 
-  // A-P9 (defect 3): the operator's Home door is the console, not /home.
-  check('dfx-A-P9: the operator console’s Home door goes to /ops',
-    /\{ key: 'home', href: '\/ops', label: 'Home'/.test(codeOnly(srcOf('components/console-shell.tsx'))), true);
+  // A-P9 (defect 3), as the Head of Product Design ruled it (checklist ruling
+  // 3, README, 1 Oct): an operator-ONLY account has one door to the console,
+  // "Today", and no separate Home door; an operator who holds another seat
+  // keeps Home, to /home. So no Home door points at /ops any more (it would
+  // be a second "Today"), and the one Home door is drawn only with a seat.
+  // The render suite reads both rails as served (hm11).
+  {
+    const shell = codeOnly(srcOf('components/console-shell.tsx'));
+    check('dfx-A-P9: the operator console draws no Home door to /ops, and Home → /home only for an operator who holds another seat',
+      [/\{ key: 'home', href: '\/ops'/.test(shell),
+       /\.\.\.\(hasSeat \? \[\{ key: 'home', href: '\/home', label: 'Home'/.test(shell)], [false, true]);
+  }
 
   // D-PD-1 (defect 4): "Not this one" is a link home on all four answer
   // screens — /g/card has no seeded card, so its source is read here; the
