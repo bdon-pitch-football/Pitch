@@ -16,10 +16,11 @@ import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { requireOperator } from '@/lib/ops-guard';
 import { clubsScreensShown } from '@/lib/ops-policy';
-import { HeaderMark } from '@/components/Wordmark';
+import Wordmark, { HeaderMark } from '@/components/Wordmark';
+import SiteNav from '@/components/floodlit/SiteNav';
 
 export type IconKey = 'home' | 'cv' | 'trials' | 'send' | 'roles' | 'register' | 'child' | 'children'
-  | 'crest' | 'page' | 'card' | 'shield' | 'help' | 'more' | 'power' | 'flag';
+  | 'crest' | 'page' | 'card' | 'shield' | 'help' | 'more' | 'power' | 'flag' | 'clip' | 'star';
 // short: the label a phone tab uses when the full one would wrap.
 // count: a number the rail shows beside the door (OpsVerification.dc.html:
 // "Verification 3", "Reports 1"). Never zero (D-162): a door with nothing
@@ -44,10 +45,16 @@ export const ICONS: Record<IconKey, React.ReactNode> = {
   flag: <><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></>,
   power: <><path d="M12 3v8" /><path d="M6.4 6.9a8 8 0 1 0 11.2 0" /></>,
   more: <><circle cx="5.5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="18.5" cy="12" r="1.2" /></>,
+  // The player's door list (spec A part 13): Highlights and Achievements.
+  clip: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m10 9 5 3-5 3Z" /></>,
+  star: <path d="M12 4l2.4 5 5.4.6-4 3.7 1.1 5.3L12 16l-4.9 2.6 1.1-5.3-4-3.7 5.4-.6Z" />,
 };
 
+// The current door's glyph is ink, not green: green is an action and "you
+// are here" is a state (D-173 (4), spec A part 2) — in the bar, the rail and
+// the sheet alike.
 const Glyph = ({ k, on, size }: { k: IconKey; on: boolean; size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={on ? 'var(--accent)' : 'var(--muted)'}
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={on ? 'var(--ink)' : 'var(--muted)'}
     strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{ICONS[k]}</svg>
 );
 
@@ -55,16 +62,28 @@ const Glyph = ({ k, on, size }: { k: IconKey; on: boolean; size: number }) => (
 // sidebar does not render, so a seat with a bar carries the SAME items along
 // the bottom — never a subset, never a superset. At most four, which is why
 // the club and operator frames, with more doors than that, stay rail-only.
-export function Frame({ label, head, items, active, floodlight, bar, children }: {
+//
+// Every seat's frame paints the floodlight (spec A part 1): the club frame
+// was the only one that could render without it, so `floodlight` is no
+// longer a choice. The prop stays as a no-op until its callers are tidied.
+//
+// THE RAIL (spec A part 4): from 1024px it opens with the rail mark — the
+// logo, top left (D-173 (3)) — above the seat card. The mark is NOT a link:
+// HeaderMark's mark is not one, and a link to / would be a new door. The page
+// header drops its own copy of the mark at the same breakpoint (globals.css,
+// SHELLS part 6), so a framed page shows exactly one logo at every width.
+export function Frame({ label, head, items, active, bar, children }: {
   label: string; head: React.ReactNode; items: Item[]; active: string;
+  /** @deprecated every frame paints the floodlight now (spec A part 1). */
   floodlight?: boolean; bar?: boolean; children: React.ReactNode;
 }) {
   return (
-    <div className={floodlight ? 'floodlight' : undefined}
-      style={{ minHeight: '100dvh', background: floodlight ? undefined : 'var(--bg)', color: 'var(--ink)', display: 'flex', justifyContent: 'center' }}>
+    <div className="floodlight"
+      style={{ minHeight: '100dvh', color: 'var(--ink)', display: 'flex', justifyContent: 'center' }}>
       <div className={bar ? 'console-frame seat-frame' : 'console-frame'}>
         <nav className="console-nav" aria-label={label}>
-          <div style={{ padding: '4px 10px 18px 10px' }}>{head}</div>
+          <div className="rail-mark"><Wordmark size={20} /></div>
+          <div className="seat-card">{head}</div>
           {items.map((it) => (
             <Link key={it.key} href={it.href} className="console-nav-link"
               aria-current={it.key === active ? 'page' : undefined}>
@@ -102,14 +121,14 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
             {tabs.map((it) => (
               <Link key={it.key} href={it.href} className="seat-tab" aria-label={it.short ? it.label : undefined}
                 aria-current={it.key === active ? 'page' : undefined}>
-                {it.icon && <Glyph k={it.icon} on={it.key === active} size={21} />}
+                {it.icon && <span className="seat-tab-ic"><Glyph k={it.icon} on={it.key === active} size={21} /></span>}
                 <span>{it.short ?? it.label}</span>
               </Link>
             ))}
             {(
               <details className="seat-more">
                 <summary className="seat-tab" data-current={inRest ? 'true' : undefined}>
-                  <Glyph k="more" on={inRest} size={21} />
+                  <span className="seat-tab-ic"><Glyph k="more" on={inRest} size={21} /></span>
                   <span>More</span>
                 </summary>
                 <div className="seat-sheet">
@@ -133,8 +152,25 @@ export function Frame({ label, head, items, active, floodlight, bar, children }:
   );
 }
 
-export async function ClubConsole({ active, floodlight, children }: {
+// THE TOP BAR (spec A part 5): every page that renders outside a seat frame
+// carries the logo-only nav bar — top right on a phone, top left from 1024px
+// (D-173 (3)) — and .has-topbar hides the page's own in-column mark, so no
+// page shows two. homeLink={false}: none of these pages linked the mark
+// anywhere, and a link to / would be a new door. The page's own header keeps
+// its back link at every width (SiteNav's `back` is phone-only, which would
+// make it a phone-only control, D-147).
+export function TopBarShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="floodlight has-topbar" style={{ minHeight: '100dvh', color: 'var(--ink)', display: 'flex', flexDirection: 'column' }}>
+      <SiteNav links={[]} signIn={false} homeLink={false} />
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>{children}</div>
+    </div>
+  );
+}
+
+export async function ClubConsole({ active, children }: {
   active: 'home' | 'register' | 'squads' | 'page-edit' | 'roles' | 'post-trial' | 'billing';
+  /** @deprecated a no-op: every frame paints the floodlight (spec A part 1). */
   floodlight?: boolean; children: React.ReactNode;
 }) {
   const me = await getSessionPersonId();
@@ -148,14 +184,7 @@ export async function ClubConsole({ active, floodlight, children }: {
     [me],
   )).rows[0] as { name: string; club_state: string; public_slug: string | null; role: string; billing: boolean } | undefined : undefined;
 
-  if (!seat) {
-    return (
-      <div className={floodlight ? 'floodlight' : undefined}
-        style={{ minHeight: '100dvh', background: floodlight ? undefined : 'var(--bg)', color: 'var(--ink)', display: 'flex', justifyContent: 'center' }}>
-        {children}
-      </div>
-    );
-  }
+  if (!seat) return <TopBarShell>{children}</TopBarShell>;
 
   const verified = seat.club_state === 'verified';
   const items: Item[] = [
@@ -170,25 +199,27 @@ export async function ClubConsole({ active, floodlight, children }: {
     ...(seat.billing ? [{ key: 'billing', href: '/club/billing', label: 'Plan & billing', icon: 'card' as const }] : []),
   ];
 
+  // The seat card (spec A part 4): the crest tile, the club, the role, then
+  // the state line as a pill — the same words, the same two conditions. The
+  // long amber line wraps inside its pill (.pill-wrap).
   const head = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,.08)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 16 }} aria-hidden>{seat.name[0]}</div>
-      <div>
-        <div style={{ fontSize: 14.5, fontWeight: 900, lineHeight: 1.25 }}>{seat.name}</div>
-        <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, marginTop: 2 }}>
-          {seat.role === 'technical_director' ? 'Technical Director' : 'Club administrator'}
+    <>
+      <div className="seat-card-id">
+        <div style={{ width: 40, height: 40, borderRadius: 'var(--r-well)', background: 'rgba(255,255,255,.08)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 16, flexShrink: 0 }} aria-hidden>{seat.name[0]}</div>
+        <div style={{ minWidth: 0 }}>
+          <div className="seat-card-name">{seat.name}</div>
+          <div className="seat-card-role">
+            {seat.role === 'technical_director' ? 'Technical Director' : 'Club administrator'}
+          </div>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <div style={{ width: 6, height: 6, borderRadius: 999, background: verified ? 'var(--accent)' : 'var(--amber)', flexShrink: 0 }} />
-        <div style={{ fontSize: 11, fontWeight: 800, color: verified ? 'var(--accent)' : 'var(--amber)', lineHeight: 1.35 }}>
-          {verified ? 'Verified club' : 'Awaiting verification — registrations are held'}
-        </div>
-      </div>
-    </div>
+      <span className={verified ? 'pill pill-live' : 'pill pill-wait pill-wrap'}>
+        {verified ? 'Verified club' : 'Awaiting verification — registrations are held'}
+      </span>
+    </>
   );
 
-  return <Frame label="Club" head={head} items={items} active={active} floodlight={floodlight} bar>{children}</Frame>;
+  return <Frame label="Club" head={head} items={items} active={active} bar>{children}</Frame>;
 }
 
 // The coach's frame (BUZ, 15 Sep: "give coaches the sidebar now with what
@@ -215,13 +246,7 @@ export async function CoachConsole({ active, children }: {
     [me],
   )).rows[0] as { first_name: string; public_slug: string | null; club: string | null; register_teams: number } | undefined : undefined;
 
-  if (!seat) {
-    return (
-      <div className="floodlight" style={{ minHeight: '100dvh', color: 'var(--ink)', display: 'flex', justifyContent: 'center' }}>
-        {children}
-      </div>
-    );
-  }
+  if (!seat) return <TopBarShell>{children}</TopBarShell>;
 
   // D-147 as amended 16 Sep: Home · My CV · Registrations · Roles, at both
   // widths. The public page stays a door on /home, not in the frame — five
@@ -233,12 +258,12 @@ export async function CoachConsole({ active, children }: {
     { key: 'jobs', href: '/jobs', label: 'Roles', icon: 'roles' },
   ];
   const head = (
-    <div>
-      <div style={{ fontSize: 14.5, fontWeight: 900, lineHeight: 1.25 }}>{seat.first_name}</div>
-      {seat.club && <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, marginTop: 2 }}>{seat.club}</div>}
+    <div style={{ minWidth: 0 }}>
+      <div className="seat-card-name">{seat.first_name}</div>
+      {seat.club && <div className="seat-card-role">{seat.club}</div>}
     </div>
   );
-  return <Frame label="Coach" head={head} items={items} active={active} floodlight bar>{children}</Frame>;
+  return <Frame label="Coach" head={head} items={items} active={active} bar>{children}</Frame>;
 }
 
 // The operator's frame (OpsToday.dc.html, OpsVerification.dc.html, brief G).
@@ -271,13 +296,15 @@ export async function OpsConsole({ active, children }: {
     { key: 'switches', href: '/ops/switches', label: 'Emergency switches', short: 'Switches', icon: 'power' },
     { key: 'home', href: '/home', label: 'Home', icon: 'home' },
   ];
+  // The signed head keeps its own sizes (14px/800 over 11.5px/700); the
+  // address wraps rather than truncates, as it always has.
   const head = (
-    <div>
-      <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.25 }}>Pitch operations</div>
-      <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', marginTop: 3, overflowWrap: 'anywhere' }}>{email}</div>
+    <div style={{ minWidth: 0 }}>
+      <div className="seat-card-name" style={{ fontSize: 14, fontWeight: 800 }}>Pitch operations</div>
+      <div className="seat-card-role" style={{ fontSize: 11.5, fontWeight: 700, marginTop: 3, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{email}</div>
     </div>
   );
-  return <Frame label="Operator" head={head} items={items} active={active} floodlight bar>{children}</Frame>;
+  return <Frame label="Operator" head={head} items={items} active={active} bar>{children}</Frame>;
 }
 
 // The title row every operator screen opens with (the signed top bar: a

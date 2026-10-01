@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { unsubscribeByToken } from '@/lib/waitlist-db';
-import { PitchWordmark, QuietShell } from '@/components/quiet-shell';
+import { QuietShell } from '@/components/quiet-shell';
 import { T } from '@/lib/palette';
 
 // One click sets unsubscribed_at. No confirmation step, no retention question
@@ -24,7 +24,6 @@ export default async function UnsubscribePage({
 
   return (
     <QuietShell>
-      <PitchWordmark />
       {done ? (
         <>
           <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-.02em', margin: 0 }}>

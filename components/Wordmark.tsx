@@ -16,9 +16,10 @@ export default function Wordmark({ size = 20 }: { size?: number }) {
   );
 }
 
-// The header row every app screen renders. The wordmark stays hard right —
-// that rule has no exceptions (BUZ, 24 Aug) — and the left of the same row is
-// where a way out belongs.
+// The header row every app screen renders. On a phone the wordmark stays hard
+// right (BUZ, 24 Aug); from 1024px D-173 (3) moves the logo top left — into
+// the rail on a framed page, into the top bar on an unframed one — and the
+// left of this row is where a way out belongs, at every width.
 //
 // WHY IT IS HERE AND NOT AT THE BOTTOM OF EACH PAGE. Twenty signed-in screens
 // had no link out at all: the whole build flow, all six guardian screens, the
@@ -30,20 +31,21 @@ export default function Wordmark({ size = 20 }: { size?: number }) {
 // Top-left, because someone looking for the exit does not scroll to the foot
 // of a long form to find it.
 export function HeaderMark({ back }: { back?: { href: string; label?: string } }) {
+  // The page header (spec A part 6): the values that were inline here are
+  // .pg-head and .pg-back now, unchanged. Two things the classes add: inside
+  // a seat frame the rail carries the mark from 1024px (D-173 (3)), so the
+  // column's copy goes there; and under a top bar (.has-topbar) it goes at
+  // every width. A header with no back link and no mark has nothing left to
+  // show, so it goes too. On a phone nothing moves: back left, logo right.
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 24 }}>
+    <div className="pg-head">
       {back ? (
-        <a href={back.href} style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
-          color: 'var(--muted)', fontSize: 13, fontWeight: 700,
-          // 44px of tappable height without 44px of visual weight (D-147).
-          minHeight: 44, margin: '-10px 0', paddingRight: 8,
-        }}>
+        <a href={back.href} className="pg-back">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
           {back.label ?? 'Back'}
         </a>
       ) : <span />}
-      <Wordmark size={20} />
+      <span className="pg-head-mark"><Wordmark size={20} /></span>
     </div>
   );
 }

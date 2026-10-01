@@ -22,7 +22,7 @@ export default function Error({ retry }: { error: Error & { digest?: string }; r
     <>
       <title>{`${c.title} · Pitch Football`}</title>
       <FailureState kind="error" glyph={ERROR_GLYPH} heading={c.heading} reason={c.reason} why={c.why}>
-        <button type="button" onClick={() => retry()} className="btn btn-primary">{c.action}</button>
+        <button type="button" onClick={() => retry()} className="btn btn-primary fl-glow">{c.action}</button>
         <a href="/home" className="btn btn-secondary">{c.home}</a>
       </FailureState>
     </>

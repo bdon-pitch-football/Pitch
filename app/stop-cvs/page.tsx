@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { PitchWordmark, QuietShell } from '@/components/quiet-shell';
+import { QuietShell } from '@/components/quiet-shell';
 import { T } from '@/lib/palette';
 import { stopCvs } from './actions';
 
@@ -32,7 +32,6 @@ export default async function StopCvsPage({
 
   return (
     <QuietShell>
-      <PitchWordmark />
       {done ? (
         <>
           <h1 style={h1}>Done</h1>
