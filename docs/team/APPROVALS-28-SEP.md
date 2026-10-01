@@ -226,3 +226,5 @@ BUZ, 1 Oct: "put the public bucket fix in this release". S-3 part 2: under-18 ph
 - A guardian's own edit to an under-16's page, in the family history on `/g/controls`: **"{guardian first name} changed the page."** Guardian's first name only. It replaces the reused approved-change line, which was a stopgap, and is never "{child} submitted a change". (Builder: john-batch; checks jb-f14-2, jb-f14-2b, jb-f14-w2.)
 
 BUZ, 2 Oct (B-1, safety review of John's batch): **"Parent's change only."** A guardian's save to an under-16's page publishes only that guardian's own change onto the approved page. Anything the child added that no guardian reviewed keeps waiting. John is asked to confirm, since it is how F14 publishes.
+
+BUZ, 2 Oct: the parent's review screen (`/g/pending`) shows every change before approval (photo, clips, achievements, other football, form fields), **in this release**. Product Design designs it and BUZ approves the words.
