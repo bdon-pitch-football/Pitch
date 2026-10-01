@@ -64,6 +64,22 @@ Approved, with John's conditions:
 - **Don't add 131 444** to the emergency line.
 - **fp12** moves with it.
 
+## The unclaimed club page: John's D-172 rulings and BUZ's sentence (1 Oct)
+
+**Source:** `13-Board-Room/JOHN-to-PRODUCT-DESIGN-unclaimed-page-three-questions-1-oct.md`.
+**BUZ:** "Yes to the D-172 sentence, hand John's rulings to Leo." The sentence is now in D-172's note in `docs/06-Register.html`. **Copy it to the folder copy at merge.**
+
+**The Floodlit unclaimed page (`/fc/[slug]` when `club_state = 'unclaimed'`) is no longer held.** It goes public when U1–U6 **and** these two new checks hold on the deployed site:
+- **U1b (render):** the `fl-pitch-lines` SVG is byte-identical on two different unclaimed pages, and its stroke is never a club colour.
+- **U5b (layout):** on an unclaimed page at 375×667, the banner's first line ("Pitch made this page from public information. {Club} has not claimed it.") is fully inside the first viewport. Test it with the longest seeded club name.
+
+**Standing guardrails** (now in the register):
+- **The nav on an unclaimed page stays generic:** never the club's name, a link about this club, or a "Claim" button. The claim stays below the banner.
+- **The pitch drawing** stays generic, drawn inline (never a file) and neutral white.
+- **No social proof on an unclaimed page, ever:** no count of clubs "on Pitch", no "clubs near you have claimed", no other clubs' logos.
+
+**Also cleared by John today, and already addressed to Leo:** club colours on the player CV (`13-Board-Room/JOHN-club-colours-on-the-player-CV-CLEARED-1-oct.md`). **Don't flip `CV_WEARS_CLUB_COLOURS` until his condition 4 is met** (render coverage of both states). The register entry for the flip is BUZ's.
+
 ## What is in this folder
 
 Every one of the 74 routes is in one of three places:
