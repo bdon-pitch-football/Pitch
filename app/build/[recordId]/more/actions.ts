@@ -10,7 +10,7 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { EXPERIENCE_KINDS } from '@/lib/football';
-import { ITEM_SQL, publishGuardianChange } from '@/lib/cv-build';
+import { ITEM_SQL, writeRecord } from '@/lib/cv-build';
 import { requireRecordAuthor } from '@/lib/record-guard';
 
 //
@@ -25,6 +25,8 @@ import { requireRecordAuthor } from '@/lib/record-guard';
 // only; BUZ and John, 2 Oct). A child's change waits for the next version the
 // guardian approves, as before. Each entry is handed over in the shape the
 // page version stores it (ITEM_SQL), read off the row just written or deleted.
+// The write and its publication are one transaction with the record's lock
+// taken first (lib/cv-build writeRecord; safety review S-2, 2 Oct).
 //
 // Other football and previous clubs are two lists on the page: a previous
 // club is its own (previousClubs), every other kind the page may show is
@@ -33,17 +35,19 @@ const experienceList = (kind: string) => (kind === 'previous_club' ? 'previousCl
 const experienceItem = (kind: string) => (kind === 'previous_club' ? ITEM_SQL.previousClubs : ITEM_SQL.otherFootball);
 export async function addAchievement(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
-  const { personId, actor } = await requireRecordAuthor(recordId);
+  const author = await requireRecordAuthor(recordId);
   const title = String(formData.get('title') ?? '').trim();
   const detail = String(formData.get('detail') ?? '').trim();
   if (title) {
-    const { rows } = await db.query(
-      `insert into achievement (record_id, title, detail, sort)
-       values ($1,$2,$3,(select coalesce(max(sort)+1,0) from achievement where record_id=$1))
-       returning ${ITEM_SQL.achievements} as item`,
-      [recordId, title, detail || null],
-    );
-    if (actor === 'guardian') await publishGuardianChange(recordId, personId, { add: { list: 'achievements', item: rows[0].item } });
+    await writeRecord(recordId, author, async (client) => {
+      const { rows } = await client.query(
+        `insert into achievement (record_id, title, detail, sort)
+         values ($1,$2,$3,(select coalesce(max(sort)+1,0) from achievement where record_id=$1))
+         returning ${ITEM_SQL.achievements} as item`,
+        [recordId, title, detail || null],
+      );
+      return { add: { list: 'achievements', item: rows[0].item as Record<string, unknown> } };
+    });
   }
   redirect(`/build/${recordId}/more`);
 }
@@ -51,15 +55,17 @@ export async function addAchievement(formData: FormData) {
 export async function removeAchievement(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
   const id = String(formData.get('achievementId') ?? '');
-  const { personId, actor } = await requireRecordAuthor(recordId);
-  const gone = await db.query(`delete from achievement where id=$1 and record_id=$2 returning ${ITEM_SQL.achievements} as item`, [id, recordId]);
-  if (actor === 'guardian' && gone.rows[0]) await publishGuardianChange(recordId, personId, { remove: { list: 'achievements', item: gone.rows[0].item } });
+  const author = await requireRecordAuthor(recordId);
+  await writeRecord(recordId, author, async (client) => {
+    const gone = await client.query(`delete from achievement where id=$1 and record_id=$2 returning ${ITEM_SQL.achievements} as item`, [id, recordId]);
+    return gone.rows[0] ? { remove: { list: 'achievements', item: gone.rows[0].item as Record<string, unknown> } } : null;
+  });
   redirect(`/build/${recordId}/more`);
 }
 
 export async function addExperience(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
-  const { personId, actor } = await requireRecordAuthor(recordId);
+  const author = await requireRecordAuthor(recordId);
   const kind = String(formData.get('kind') ?? '');
   // A previous club is an experience entry and nothing more: it is written
   // to the same table, with the same provenance, and it grants access to
@@ -74,12 +80,14 @@ export async function addExperience(formData: FormData) {
   // is said — rather than surfacing as an error page on a crafted post.
   const allowed = (await db.query(`select fn_experience_public($1,$2) as ok`, [recordId, kind])).rows[0]?.ok === true;
   if ((EXPERIENCE_KINDS as readonly string[]).includes(kind) && allowed && orgName) {
-    const { rows } = await db.query(
-      `insert into experience_entry (record_id, kind, org_name, season_label) values ($1,$2,$3,$4)
-       returning ${experienceItem(kind)} as item`,
-      [recordId, kind, orgName, period || null],
-    );
-    if (actor === 'guardian') await publishGuardianChange(recordId, personId, { add: { list: experienceList(kind), item: rows[0].item } });
+    await writeRecord(recordId, author, async (client) => {
+      const { rows } = await client.query(
+        `insert into experience_entry (record_id, kind, org_name, season_label) values ($1,$2,$3,$4)
+         returning ${experienceItem(kind)} as item`,
+        [recordId, kind, orgName, period || null],
+      );
+      return { add: { list: experienceList(kind), item: rows[0].item as Record<string, unknown> } };
+    });
   }
   redirect(`/build/${recordId}/more`);
 }
@@ -87,16 +95,15 @@ export async function addExperience(formData: FormData) {
 export async function removeExperience(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
   const id = String(formData.get('experienceId') ?? '');
-  const { personId, actor } = await requireRecordAuthor(recordId);
+  const author = await requireRecordAuthor(recordId);
   // The kind decides the list and the shape, so it is read off the row
   // before it goes, in the same statement.
-  const gone = await db.query(
-    `delete from experience_entry where id=$1 and record_id=$2
-     returning kind, ${ITEM_SQL.previousClubs} as previous_club, ${ITEM_SQL.otherFootball} as other`, [id, recordId]);
-  const row = gone.rows[0] as { kind: string; previous_club: Record<string, unknown>; other: Record<string, unknown> } | undefined;
-  if (actor === 'guardian' && row) {
-    await publishGuardianChange(recordId, personId,
-      { remove: { list: experienceList(row.kind), item: row.kind === 'previous_club' ? row.previous_club : row.other } });
-  }
+  await writeRecord(recordId, author, async (client) => {
+    const gone = await client.query(
+      `delete from experience_entry where id=$1 and record_id=$2
+       returning kind, ${ITEM_SQL.previousClubs} as previous_club, ${ITEM_SQL.otherFootball} as other`, [id, recordId]);
+    const row = gone.rows[0] as { kind: string; previous_club: Record<string, unknown>; other: Record<string, unknown> } | undefined;
+    return row ? { remove: { list: experienceList(row.kind), item: row.kind === 'previous_club' ? row.previous_club : row.other } } : null;
+  });
   redirect(`/build/${recordId}/more`);
 }

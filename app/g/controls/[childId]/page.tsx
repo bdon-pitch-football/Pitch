@@ -59,7 +59,11 @@ export default async function Controls({ params, searchParams }: {
            'at', to_char(e.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'event', e.event, 'kind', e.detail->>'kind',
            -- F14 (0169): a guardian's own edit names that guardian, first
            -- name only; the database leaves it null on every other row.
-           'who', e.who)
+           'who', e.who,
+           -- "{first name} approved a change." (BUZ, 2 Oct) for the other
+           -- guardian; the approver's own row (mine) keeps "You approved a
+           -- change".
+           'mine', e.mine)
            order by e.at desc, e.id desc), '[]'::json)
        --
        -- 0077: the rows come from fn_consent_timeline — the child's own, plus
@@ -295,10 +299,10 @@ export default async function Controls({ params, searchParams }: {
                 Nothing yet beyond your approval. Anything you do here — renewing their link, pausing their page, replying to a club — is written down and shows up in this list.
               </div>
             )}
-            {(c.timeline as { at: string; event: string; kind: string | null; who: string | null }[]).map((e, i) => (
+            {(c.timeline as { at: string; event: string; kind: string | null; who: string | null; mine: boolean }[]).map((e, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}` }}>
                 <div style={{ width: 78, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{e.at}</div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{e.event === 'edit_approved' && e.kind === 'guardian_edit' ? (e.who ? `${e.who} changed the page.` : 'Something was recorded') : e.event === 'share_revoked' && e.kind === 'one' ? 'One club\u2019s link was switched off' : e.event === 'share_revoked' && e.kind === 'pitch' ? 'Pitch switched off every link, to keep families safe. A new link you send works as normal.' : EVENT_LINES[e.event] ?? 'Something was recorded'}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{e.event === 'edit_approved' && e.kind === 'guardian_edit' ? (e.who ? `${e.who} changed the page.` : 'Something was recorded') : e.event === 'edit_approved' && !e.mine ? (e.who ? `${e.who} approved a change.` : 'Something was recorded') : e.event === 'share_revoked' && e.kind === 'one' ? 'One club\u2019s link was switched off' : e.event === 'share_revoked' && e.kind === 'pitch' ? 'Pitch switched off every link, to keep families safe. A new link you send works as normal.' : EVENT_LINES[e.event] ?? 'Something was recorded'}</div>
               </div>
             ))}
           </div>

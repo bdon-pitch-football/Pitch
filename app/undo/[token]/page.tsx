@@ -105,6 +105,12 @@ async function revoke(formData: FormData) {
        from asked, share_token lk
        where u.token_hash = asked.token_hash and u.used_at is null
          and lk.id = u.share_token_id and coalesce(lk.expires_at, u.expires_at) > now()
+         -- A link already off spends nothing, as a lapsed one spends nothing:
+         -- the press does the same work for every not-live link, and the
+         -- guardian question is asked only of one that could go off (D-77;
+         -- the timing suite's jr-undo-t2 saw the already-off press do one
+         -- write and one more question than the rest, 2 Oct).
+         and lk.revoked_at is null
          and fn_record_actor(u.issued_to, lk.record_id) = 'guardian'
        returning u.share_token_id, u.issued_to
      ),

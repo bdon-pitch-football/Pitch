@@ -47,6 +47,23 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
   const client = await db.connect();
   try {
     await client.query('begin');
+    // The record's lock first, as every writer of a version takes it (one
+    // order, no deadlock), and the age band asked under it — computed, never
+    // stored: u16 saves land as the pending version; 16-17/18+ edit the live
+    // record directly (D-119).
+    const band = (await client.query(
+      `select fn_age_band(p.dob) as band from development_record dr join person p on p.id = dr.person_id
+       where dr.id = $1 for update of dr`,
+      [recordId],
+    )).rows[0]?.band as string | undefined;
+    const guardianOfU16 = band === 'u16' && author.actor === 'guardian';
+    // A guardian's change is what they CHANGED (safety review of "parent's
+    // change only", B-1, 2 Oct). The form is prefilled from the live record —
+    // for an under-16 with a change waiting, that is the child's unreviewed
+    // draft — and posts every field, so a parent who fixed the squad number
+    // published the child's waiting About as theirs. So the form's fields are
+    // read before the write and after it, and only what moved is published.
+    const before = guardianOfU16 ? await formState(client, recordId, draft.season) : null;
     await client.query(
       `update development_record set positions=$2, squad_number=$3, foot=$4, about=$5, surfaced_stats=$6 where id=$1`,
       [recordId, positions, draft.squadNumber, draft.foot, draft.about.trim() || null, draft.surfacedStats],
@@ -70,20 +87,15 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
       }
     }
 
-    // Age-band branch (computed, never stored): u16 saves land as the
-    // pending version; 16-17/18+ edit the live record directly (D-119).
-    const band = await client.query(
-      `select fn_age_band(p.dob) as band from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
-      [recordId],
-    );
-    if (band.rows[0]?.band === 'u16' && author.actor === 'guardian') {
-      // F14: the guardian's own edit is its own approval — the form's fields,
-      // as they saved them, and nothing else on the page (parent's change
-      // only). The photos the versions named before it are collected, and
+    if (guardianOfU16 && before) {
+      // F14: the guardian's own edit is its own approval — the fields and
+      // stats they changed, and nothing else on the page (parent's change
+      // only). A save that changes nothing publishes nothing and logs
+      // nothing. The photos the versions named before it are collected, and
       // forgotten after commit.
-      const fields = (await client.query(FORM_FIELDS_PATCH, [recordId])).rows[0]?.fields as Record<string, unknown>;
-      replaced.push(...(await publishPatch(client, recordId, author.personId, { set: fields }, draft.season)).replaced);
-    } else if (band.rows[0]?.band === 'u16') {
+      const patch = await formPatch(client, recordId, draft.season, before, await formState(client, recordId, draft.season));
+      if (patch) replaced.push(...(await publishPatch(client, recordId, author.personId, patch, draft.season)).replaced);
+    } else if (band === 'u16') {
       waitsOnGuardian = true;
       const content = await buildSnapshot(client, recordId, draft.season);
       const was = (await client.query(
@@ -145,6 +157,10 @@ export async function approvePendingVersion(recordId: string, guardianId: string
   const client = await db.connect();
   try {
     await client.query('begin');
+    // The record's lock first, the order every version writer takes
+    // (safety review of "parent's change only", S-2): a guardian's patch and
+    // this approval, pressed in the same second, queue rather than deadlock.
+    await client.query('select 1 from development_record where id = $1 for update', [recordId]);
     const pending = await client.query(
       `select id from profile_version where record_id=$1 and status='pending' for update`,
       [recordId],
@@ -162,8 +178,14 @@ export async function approvePendingVersion(recordId: string, guardianId: string
       `update profile_version set status='approved', approved_by=$2, approved_at=now() where id=$1`,
       [pending.rows[0].id, guardianId],
     );
+    // The child is its subject (John, 2 Oct; D-51), so the approval reaches
+    // the family history: "You approved a change" for the approver, and
+    // "{first name} approved a change." for the other guardian (BUZ, 2 Oct;
+    // fn_consent_timeline). It used to carry no child, and reached no one.
     await client.query(
-      `insert into consent_event (event, actor_id, detail) values ('edit_approved', $2, jsonb_build_object('record_id', $1::uuid))`,
+      `insert into consent_event (event, actor_id, subject_id, detail)
+       select 'edit_approved', $2, dr.person_id, jsonb_build_object('record_id', $1::uuid)
+       from development_record dr where dr.id = $1`,
       [recordId, guardianId],
     );
     await client.query('commit');
@@ -204,7 +226,48 @@ export async function forgetPlayerPhoto(recordId: string, path: string | null | 
   }
 }
 
-type Client = { query: (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> };
+type Client = { query: (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[]; rowCount?: number | null }> };
+export type RecordClient = Client;
+
+/**
+ * One write to a page's clips, achievements or other football, and — when an
+ * under-16's guardian made it — its publication, in ONE transaction with the
+ * record's lock taken first (safety review of "parent's change only", S-2).
+ *
+ * They were two: the live insert or delete committed, then the publication
+ * ran in a fresh transaction. A guardian's removal pressed in the same second
+ * as the other guardian's Approve could lose the publication to a deadlock
+ * after the live row was already gone — the clip still on every club's page,
+ * and nothing left on /build/clips to press — and an add could land twice in
+ * the waiting version if the child's own save copied it across in between.
+ * Now the write and its patch commit together or not at all, in the lock
+ * order every version writer takes (the record, then its versions).
+ *
+ * `write` does the live write on the client it is handed and returns the
+ * guardian's patch (null: nothing to publish). Only an under-16's guardian's
+ * patch is published; the database asks again (fn_publish_guardian_change).
+ * Photos the versions stopped naming are forgotten after the commit (L1).
+ */
+export async function writeRecord(
+  recordId: string, author: { personId: string; actor: RecordActor },
+  write: (client: RecordClient) => Promise<GuardianPatch | null>,
+): Promise<void> {
+  let replaced: string[] = [];
+  const client = await db.connect();
+  try {
+    await client.query('begin');
+    await client.query('select 1 from development_record where id = $1 for update', [recordId]);
+    const patch = await write(client);
+    if (author.actor === 'guardian' && patch) ({ replaced } = await publishPatch(client, recordId, author.personId, patch, '2026'));
+    await client.query('commit');
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
+  for (const r of replaced) await forgetPlayerPhoto(recordId, r);
+}
 
 /**
  * Publish a guardian's own change to an under-16's page (F14; John, 1 Oct) —
@@ -264,7 +327,7 @@ export async function publishGuardianChange(
 /** One guardian change (0169 fn_cv_patch): set fields or the photo, or add/remove one entry. */
 export type GuardianList = 'highlights' | 'achievements' | 'otherFootball' | 'previousClubs';
 export type GuardianPatch =
-  | { set: Record<string, unknown> }
+  | { set?: Record<string, unknown>; stats?: { season: string; keys: string[]; entries: unknown[] } }
   | { add: { list: GuardianList; item: Record<string, unknown> } }
   | { remove: { list: GuardianList; item: Record<string, unknown> } };
 export type PublishResult = 'published' | 'unchanged' | 'pending' | 'no_page' | null;
@@ -326,8 +389,45 @@ export const ITEM_SQL = {
 // the guardian's patch, from one expression.
 const FORM_FIELDS_SQL = `jsonb_build_object('positions', dr.positions, 'squadNumber', dr.squad_number, 'foot', dr.foot,
   'about', coalesce(dr.about, ''), 'surfacedStats', dr.surfaced_stats)`;
-const FORM_FIELDS_PATCH = `select ${FORM_FIELDS_SQL} || jsonb_build_object('stats', fn_stat_public(dr.id)) as fields
-  from development_record dr where dr.id = $1`;
+
+// What the build form holds for this record: its fields as a version stores
+// them, and its own stats for the form's season (the rows it writes — no
+// other season, no other source).
+type FormState = { fields: Record<string, unknown>; stats: Record<string, unknown> };
+async function formState(client: Client, recordId: string, season: string): Promise<FormState> {
+  const { rows } = await client.query(
+    `select ${FORM_FIELDS_SQL} as fields,
+       coalesce((select jsonb_object_agg(stat_key, value) from player_stat
+                 where record_id = dr.id and season = $2 and source_experience_id is null), '{}'::jsonb) as stats
+     from development_record dr where dr.id = $1`,
+    [recordId, season],
+  );
+  return rows[0] as FormState;
+}
+
+// The guardian's change, from what the form held before their save and after
+// it: each field that moved, and each stat that moved — that stat's entries as
+// the page shows them (fn_stat_public), for the form's season, patched in entry
+// by entry so no other season, source or verification rides along. Null when
+// nothing moved.
+async function formPatch(client: Client, recordId: string, season: string, before: FormState, after: FormState): Promise<GuardianPatch | null> {
+  const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const set: Record<string, unknown> = {};
+  for (const k of Object.keys(after.fields)) if (!same(before.fields[k], after.fields[k])) set[k] = after.fields[k];
+  const keys = [...new Set([...Object.keys(before.stats), ...Object.keys(after.stats)])]
+    .filter((k) => !same(before.stats[k], after.stats[k])).sort();
+  const patch: { set?: Record<string, unknown>; stats?: { season: string; keys: string[]; entries: unknown[] } } = {};
+  if (Object.keys(set).length > 0) patch.set = set;
+  if (keys.length > 0) {
+    const entries = (await client.query(
+      `select coalesce(jsonb_agg(e), '[]'::jsonb) as entries from jsonb_array_elements(fn_stat_public($1)) e
+       where e->>'season' = $2 and e->>'key' = any($3::text[])`,
+      [recordId, season, keys],
+    )).rows[0]?.entries as unknown[];
+    patch.stats = { season, keys, entries };
+  }
+  return patch.set || patch.stats ? (patch as GuardianPatch) : null;
+}
 
 // The renderable snapshot (same shape PlayerCV consumes).
 async function buildSnapshot(client: Client, recordId: string, season: string) {
