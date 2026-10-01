@@ -78,7 +78,18 @@ Approved, with John's conditions:
 - **The pitch drawing** stays generic, drawn inline (never a file) and neutral white.
 - **No social proof on an unclaimed page, ever:** no count of clubs "on Pitch", no "clubs near you have claimed", no other clubs' logos.
 
-**Also cleared by John today, and already addressed to Leo:** club colours on the player CV (`13-Board-Room/JOHN-club-colours-on-the-player-CV-CLEARED-1-oct.md`). **Don't flip `CV_WEARS_CLUB_COLOURS` until his condition 4 is met** (render coverage of both states). The register entry for the flip is BUZ's.
+## Club colours on the player CV: D-174 (BUZ, 1 Oct: "Yes, draft it and hand to Leo")
+
+The register entry is **D-174** in `docs/06-Register.html` on this branch, marked Locked. **Confirm the number at merge** (D-173 is the latest on both branches), set the register version, and copy the entry to the folder copy. John's clearance: `13-Board-Room/JOHN-club-colours-on-the-player-CV-CLEARED-1-oct.md`.
+
+**Before flipping `CV_WEARS_CLUB_COLOURS` to `true`, in this order:**
+1. **Condition 1, a comment** beside `PRESETS` in `lib/club-colours.ts`: colours are only ever the club's own choice, never derived, sampled, averaged or scraped from a crest, photograph, kit or website.
+2. **Condition 2, asserted:** the theme is null unless the current club is verified, and it follows a club change at once. **For an under-16, it changes only when the guardian approves the pending edit** (D-119), never on the pending version.
+3. **Condition 3, the picker line** on `/club/page-edit`, where colours are chosen: **"Your colours appear on your club page, and on the CV of players who list your club as their current club."** This is new copy, carried by D-174.
+4. **Condition 4, render coverage** of the CV with and without a club's colours, and of each clearing case (unverified, suspended, a club change, an under-16's pending change).
+5. **Then flip the flag,** and update perms **cvc1** in the same commit. It currently pins the flag false "until John's ruling is recorded in the register", which is now true. **ctx4** (no colours on any card surface, D-89) stays exactly as it is.
+
+Not cleared: colours on the coach page (needs its own ruling).
 
 ## What is in this folder
 
