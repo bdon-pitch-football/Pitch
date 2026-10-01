@@ -86,11 +86,26 @@ begin
      set failed_at = now(), failure_reason = 'purged', body = ''
    where invitation_id = v_id
      and sent_at is null and released_at is null and failed_at is null;
-  -- And nothing any message of this invitation carried survives it.
+  -- The parent's number, hashed, is the one thing a hash does NOT hide: an
+  -- Australian mobile is one of ~10^8 values, so a plain sha256 of it is
+  -- recovered in seconds (safety review B-1, 1 Oct). Its hash goes from the
+  -- SMS meter too — the rows stay, with their cents and times, so the monthly
+  -- spend cap still counts every text; only the link to the number goes.
+  -- (sms_opt_out keeps its hash: a STOP must be honoured, Spam Act.)
+  update sms_meter
+     set number_hash = decode(md5(random()::text || clock_timestamp()::text), 'hex')
+   where number_hash in (select number_hash from message_outbox
+                          where invitation_id = v_id and number_hash is not null);
+  -- And nothing any message of this invitation carried survives it. A text's
+  -- hash is overwritten with random bytes rather than cleared: a queued or
+  -- released text must still carry one (0120's constraints), and random bytes
+  -- match no number, so the link to the parent is gone all the same.
   update message_outbox
-     set body = '', subject = null, to_address = ''
+     set body = '', subject = null, to_address = '',
+         number_hash = case when number_hash is null then null
+                            else decode(md5(random()::text || clock_timestamp()::text), 'hex') end
    where invitation_id = v_id
-     and (body <> '' or subject is not null or to_address <> '');
+     and (body <> '' or subject is not null or to_address <> '' or number_hash is not null);
 
   delete from pending_invitation where id = v_id;
 
@@ -119,6 +134,12 @@ begin
   loop
     if fn_purge_pending_invitation(v) then n := n + 1; end if;
   end loop;
+  -- The SMS meter needs a number's hash only for its rolling 24-hour limit
+  -- (fn_sms_count_24h); past that window the hash is a reversible copy of
+  -- somebody's phone number and nothing reads it (B-1). Same daily job.
+  update sms_meter
+     set number_hash = '\x00'::bytea
+   where sent_at < now() - interval '25 hours' and number_hash <> '\x00'::bytea;
   return n;
 end $$;
 

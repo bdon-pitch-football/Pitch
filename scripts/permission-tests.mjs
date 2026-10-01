@@ -11777,6 +11777,31 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('jr-purge-3: and it never deletes an approved invitation, whoever calls it',
     [(await one('select fn_purge_pending_invitation($1) as r', [approvedInv.id])).r, await exists(approvedInv)], [false, true]);
 
+  // ---- B-1 (safety review, 1 Oct): the number is a detail too ----
+  // A plain sha256 of an Australian mobile is one of ~10^8 inputs, so it is
+  // the number. After the deletion no hash of the parent's number may remain:
+  // not on the waiting text, not in the SMS meter. The meter keeps its rows
+  // (cents and times), so the monthly cap still counts every text.
+  const numH = (n) => createHash('sha256').update(n.replace(/\s/g, '')).digest();
+  const rowan = await invite('Rowan', { email: true });
+  const rh = numH(rowan.phone), other = numH('0499 000 111');
+  await db.query(`insert into message_outbox (message_key, channel, to_address, body, invitation_id, number_hash)
+                  values ('doc15.§1', 'sms', $1, 'Rowan asked you to approve their page.', $2, $3)`, [rowan.phone, rowan.id, rh]);
+  await db.query(`insert into sms_meter (number_hash, sent_at, cents) values ($1, now(), 8), ($1, now() - interval '2 hours', 8), ($2, now(), 8)`, [rh, other]);
+  const centsBefore = await count('select coalesce(sum(cents),0)::int as n from sms_meter');
+  check('jr-pd3-7 (B-1): after the No, no hash of the parent\u2019s number is left — not on the waiting text, not in the SMS meter — and the meter still counts every cent, while another number\u2019s 24-hour count is untouched',
+    [await ended('jr-Rowan-email'),
+     await count('select count(*)::int as n from message_outbox where number_hash = $1', [rh]),
+     await count('select count(*)::int as n from sms_meter where number_hash = $1', [rh]),
+     await count('select coalesce(sum(cents),0)::int as n from sms_meter'), await count('select fn_sms_count_24h($1) as n', [other])],
+    [true, 0, 0, centsBefore, 1]);
+  await db.query(`insert into sms_meter (number_hash, sent_at, cents) values ($1, now() - interval '30 hours', 8)`, [other]);
+  await db.query('select fn_purge_pending()');
+  check('jr-purge-4 (B-1): the daily job keeps a number\u2019s hash in the meter only for its 24-hour limit — older rows lose it, recent ones keep it, and no cent is lost',
+    [await count(`select count(*)::int as n from sms_meter where sent_at < now() - interval '25 hours' and number_hash <> '\\x00'::bytea`),
+     await count('select fn_sms_count_24h($1) as n', [other]), await count('select coalesce(sum(cents),0)::int as n from sms_meter')],
+    [0, 1, centsBefore + 8]);
+
   // ---- condition 4: the reason is unreadable by any club actor, and never reaches the child ----
   // A 16–17 already has an account, so their request is the case where a
   // child could ever see anything at all. One ended, one expired — and the
