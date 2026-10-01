@@ -205,3 +205,16 @@ Production opened with no club listings, so a club person had nothing to claim a
 | F6 · `/a` state 3q | "One more step. Your text follows shortly — open the link in it to finish." | john-rulings |
 | F7 · signed-out Claim → sign-in door | heading "Sign in to claim {Club}"; line "New here? Make an account and we’ll bring you back to {Club}." Ships only with the return path through /signin, /join and /confirm | Leo, combined branch |
 | F10 · call sheet, above Log the call (`fn_verified_call_recipient`) | will send: "Logging this call as verified emails {first name} to confirm it." · won't: "Logging this call sends no email, so don’t promise one." | john-rulings |
+
+## 1 Oct — the parent's Send for their under-16 (BUZ: "Yes to all four", via the Head of Product Design)
+
+Parent view only; the player's own view keeps its words.
+
+1. `/send` sub: "Pick who it goes to. {first}'s CV goes as a link, so it always shows what's on {first}'s page today."
+2. "What the club gets", row 1: "A link to {first}'s CV — the same page you'd send anyone."
+3. "What the club gets", row 2: "If you switch {first}'s link off, it stops working for them."
+4. `/register-interest?registered=1` title: "{first} is on {club}'s register." (as built)
+
+Row 3 is /g/send's approved "No contact details for you or {first} — not now, and not if they reply." (N-8 (a)). The tab title is N5's "Send {first}'s CV". "Verified club on Pitch" (N-8 (b)) waits for John (M9).
+
+BUZ, 1 Oct: "fix the photo gap in this release" (safety review S-3, part 1).

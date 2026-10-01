@@ -142,7 +142,10 @@ export default async function SendCv({ params, searchParams }: {
       <form action={act} className="door" style={{ marginTop: 0 }}><input type="hidden" name="recordId" value={recordId} />
         <div className="pg-titles">
           <h1 className="pg-title">{parent ? `Send ${state.firstName}’s CV` : 'Send my CV'}</h1>
-          <div className="pg-sub">Pick who it goes to. Your CV goes as a link, so it always shows what&rsquo;s on your page today.</div>
+          {/* The parent's view speaks about the child (BUZ, 1 Oct: "Yes to all four"); the player's own keeps its words. */}
+          <div className="pg-sub">{parent
+            ? `Pick who it goes to. ${state.firstName}\u2019s CV goes as a link, so it always shows what\u2019s on ${state.firstName}\u2019s page today.`
+            : <>Pick who it goes to. Your CV goes as a link, so it always shows what&rsquo;s on your page today.</>}</div>
         </div>
         {error && <div className="card card-amber c-say" style={{ fontSize: 12.5 }}>Check the club name and the email address — a wrong address just goes nowhere.</div>}
         {/* The club travels with the form, so a mistyped address comes back
@@ -170,8 +173,8 @@ export default async function SendCv({ params, searchParams }: {
         {/* A Well: text you read. A cross is "not given", not danger. */}
         <div className="card-sunken checks">
           <div className="checks-t">What the club gets</div>
-          <Check ok>A link to your CV — the same page you&rsquo;d send anyone.</Check>
-          <Check ok={false}>If you switch your link off, it stops working for them.</Check>
+          <Check ok>{parent ? `A link to ${state.firstName}\u2019s CV — the same page you\u2019d send anyone.` : <>A link to your CV — the same page you&rsquo;d send anyone.</>}</Check>
+          <Check ok={false}>{parent ? `If you switch ${state.firstName}\u2019s link off, it stops working for them.` : 'If you switch your link off, it stops working for them.'}</Check>
           {/* HoPD (1 Oct): a parent reads /g/send's own line here, in /g/send's
               characters; the child keeps theirs. */}
           {parent

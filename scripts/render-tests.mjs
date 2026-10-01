@@ -3057,6 +3057,15 @@ const georgia = ids.children.georgia;
   const OLD_ROW = 'Not your phone number, your email or your address. They never get those.';
   check('C-P4-r9: the parent’s "What the club gets" says "No contact details for you or Deniz…" in place of the child’s line; the child’s view keeps "Not your phone number…"',
     [pSendT.includes(NEW_ROW), pSendT.includes(OLD_ROW), cSendT.includes(OLD_ROW), cSendT.includes(NEW_ROW)], [true, false, true, false]);
+  // BUZ, 1 Oct ("Yes to all four"): the parent's /send speaks about the
+  // child — the sub and the box's first two rows; the child keeps "your".
+  const P_LINES = ['Pick who it goes to. Deniz’s CV goes as a link, so it always shows what’s on Deniz’s page today.',
+    'A link to Deniz’s CV — the same page you’d send anyone.', 'If you switch Deniz’s link off, it stops working for them.'];
+  const C_LINES = ['Pick who it goes to. Your CV goes as a link, so it always shows what’s on your page today.',
+    'A link to your CV — the same page you’d send anyone.', 'If you switch your link off, it stops working for them.'];
+  check('C-P4-r10: the parent\u2019s Send says "Deniz\u2019s CV", "Deniz\u2019s page" and "Deniz\u2019s link" (BUZ\u2019s words); the child\u2019s own view keeps "your"',
+    [P_LINES.map((l) => pSendT.includes(l)), C_LINES.map((l) => pSendT.includes(l)), C_LINES.map((l) => cSendT.includes(l)), P_LINES.map((l) => cSendT.includes(l))],
+    [[true, true, true], [false, false, false], [true, true, true], [false, false, false]]);
   const cReg = await get(`/register-interest/${deniz.record_id}?club=${riverside}`, deniz.child_id);
   const cRegT = vis(form(cReg.html));
   const RI_CHILD = ['Register your interest', 'keep a register of players who want to be there', 'Where you’d play', 'Filled in from your CV',
