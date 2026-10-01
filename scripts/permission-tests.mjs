@@ -10913,5 +10913,23 @@ const componentFilesAll = [];
       && cardAct.indexOf("if (band === '18plus') redirect('/home');") < cardAct.indexOf('insert into share_card_approval'), true);
 }
 
+// A-P4 (BUZ, 1 Oct, option a) and D-F4. The next trial is matched through the
+// player's own squad's age group — never a person-level age (D-68, D-25) —
+// and the invitation note no longer says "Not this time" closes anything.
+{
+  const home = codeOnly(srcOf('app/home/page.tsx'));
+  check('ap4b: the player home matches the next trial to the player\u2019s current squad\u2019s age group',
+    /join trial_notice_age_group ta7 on ta7\.trial_notice_id = tn\.id and ta7\.age_group = s7\.age_group/.test(home)
+      && /m7\.role = 'player' and m7\.ended_at is null/.test(home), true);
+  const invite = srcOf('app/g/invite/[invitationId]/page.tsx');
+  check('df4: the invitation note says nothing is sent — never that "Not this time" closes the invitation (D-138)',
+    [/closes this one invitation/.test(invite), /Nothing is sent, and the club is simply not told\./.test(invite)], [false, true]);
+}
+
+// The verification queue is in claim order (Head of Product Design, 1 Oct):
+// every Victorian listing was created on 30 Sep, so creation order was noise.
+check('vq1: the verification queue puts waiting clubs first, longest-waiting at the top — by when they claimed, not when the listing was made',
+  /order by case c\.club_state when 'claimed' then 0 else 1 end, claimed_at asc nulls last/.test(codeOnly(srcOf('app/ops/verification/page.tsx'))), true);
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

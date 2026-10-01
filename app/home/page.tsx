@@ -4,6 +4,7 @@
 // Player seat: their page as it stands today, then the build actions.
 // Signed-out: one quiet prompt. Copy stays verbatim to the signed screens.
 import Link from 'next/link';
+import { SUPPORT_EMAIL } from '@/lib/support';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
@@ -112,6 +113,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           join club cl7 on cl7.id = r7.club_id
           join fn_trial_notices_advertised() tn on tn.club_id = r7.club_id
           where r7.player_id = p.id and r7.withdrawn_at is null
+            -- A-P4 (BUZ, 1 Oct, option a): only a trial for the age group of
+            -- the player's own current squad. Age group lives on the squad,
+            -- never the person (D-68, D-25), so a player with no squad is
+            -- shown no next trial rather than one for somebody else's age.
+            and exists (select 1 from membership m7
+                          join squad s7 on s7.id = m7.squad_id
+                          join trial_notice_age_group ta7 on ta7.trial_notice_id = tn.id and ta7.age_group = s7.age_group
+                         where m7.person_id = p.id and m7.role = 'player' and m7.ended_at is null)
           order by tn.trial_on limit 1) nx) as next_trial,
        (select count(*)::int from registration r8 where r8.player_id = p.id and r8.withdrawn_at is null) as my_registers,
        fn_has_approved_guardian(p.id) as has_guardian,
@@ -380,6 +389,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               )}
             </div>
 
+            {/* A-P7 (BUZ, 1 Oct, option A): an unverified club is told what
+                happens next — a call, to a number we find ourselves — and its
+                one glow is the step that moves it forward. Register stays, as
+                a secondary, so no door is lost (D-147). */}
+            {!verified && (
+              <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <h2 style={label}>What happens next</h2>
+                <div style={{ fontSize: 14.5, fontWeight: 900 }}>A short phone call with us</div>
+                <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>We ring {clubSeat.name} on a number we find ourselves, not one you give us. Let the club know to expect us.</div>
+                <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`A good time to ring ${clubSeat.name}`)}`} className="btn btn-primary fl-glow">Email us a good time to ring</a>
+                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflowWrap: 'anywhere' }}>{SUPPORT_EMAIL}</div>
+              </div>
+            )}
+
             {/* The one accent action on an administrator's screen. Before this
                 there was none: six identical grey buttons and nowhere for the
                 eye to land. */}
@@ -467,7 +490,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                 keeps the club's page, squads, trials and billing, and before
                 verification the waiting count, which holds no child's details. */}
             {(isTd || !verified) && (
-              <Link href="/club/register" className="btn btn-primary">Register</Link>
+              <Link href="/club/register" className={verified ? 'btn btn-primary' : 'btn btn-secondary'}>Register</Link>
             )}
             {/* THE TECHNICAL DIRECTOR'S RAIL, unchanged. It repeats the sidebar
                 too and that is a separate proposal; the administrator's is the

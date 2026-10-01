@@ -3487,6 +3487,9 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('claim-w2: once claimed, trials wait for verification — never "you can post trials" — and the screen leads on to the club',
     [/Posting trials, and anything to do with players, waits for verification/.test(words(donePage)), /You can post trials/.test(words(donePage)),
      /href="\/home"[^>]*>Go to your club</.test(donePage)], [true, false, true]);
+  check('ap7c: the claim confirmation says we ring on a number we find ourselves — and no longer "we\u2019ll be in touch" (BUZ, 1 Oct, option A)',
+    [/a phone call from us\. We ring Westgate Rangers on a number we find ourselves, so let the club know to expect us\./.test(words(donePage)),
+     /be in touch/.test(words(donePage))], [true, false]);
 
   const boardHtml = (await get('/trials', null)).html;
   const westListing = listingOf(boardHtml, 'Westgate Rangers', 'westgate-rangers');

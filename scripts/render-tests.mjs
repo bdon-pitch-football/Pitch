@@ -463,6 +463,19 @@ const georgia = ids.children.georgia;
     text(unv).some((l) => /Deniz|Nate|Georgia/.test(l)), false);
   check('r35: and is told plainly that the call is what releases them, with no sentence about paying left behind (BUZ, 29 Sep)',
     [has(unv, 'Registrations are held until your club is verified'), /Paying doesn|Payment does/.test(unv)], [true, false]);
+  // A-P7 (BUZ, 1 Oct, option A): the unverified club is told what happens
+  // next, and the one glow is "Email us a good time to ring".
+  const mailto = /href="mailto:burak\.donmez@pitch-football\.com\?subject=A%20good%20time%20to%20ring%20[^"]+"[^>]*>Email us a good time to ring</;
+  check('ap7a: the held register offers the same mailto, as a secondary', [mailto.test(unv), /class="btn btn-secondary"[^>]*>Email us a good time to ring|href="mailto:[^"]*" class="btn btn-secondary"/.test(unv)], [true, true]);
+  const { html: unvHome } = await get('/home', quarrymead);
+  const unvMarkup = unvHome.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+  check('ap7b: an unverified club’s home says what happens next — the call, a number we find ourselves — with the mailto as its one glow and Register kept as a secondary',
+    [has(unvHome, 'What happens next'), has(unvHome, 'A short phone call with us'),
+     /on a number we find ourselves, not one you give us\. Let the club know to expect us\./.test(unvMarkup),
+     mailto.test(unvMarkup), (unvMarkup.match(/class="btn btn-primary fl-glow"/g) ?? []).length,
+     /href="\/club\/register" class="btn btn-secondary"[^>]*>Register</.test(unvMarkup),
+     (unvMarkup.match(/class="btn btn-primary[ "]/g) ?? []).length],
+    [true, true, true, true, 1, true, 1]);
 
   // Every row's primary action has to work. Ninety-seven of a hundred used to
   // 404 for the club's own TD: the page read the u16 approved snapshot for
@@ -2581,6 +2594,12 @@ const georgia = ids.children.georgia;
     [navOf(brind.html).length > 0, /Brindlewood/i.test(navOf(brind.html)), /brindlewood-rovers-sc|\/claim\//.test(navOf(brind.html)),
      /\bclaim\b/i.test(navOf(brind.html).replace(/<[^>]*>/g, ' '))],
     [true, false, false, false]);
+  // A-P4 (BUZ, 1 Oct, option a): a player's "next trial" is only ever one for
+  // their own squad's age group. Jordan (22) and Nate (17) were both shown
+  // Riverside's "U14 & U15 Boys trials".
+  const nextFor = async (who) => (await get('/home', who)).html.replace(/<!-- -->/g, '').replace(/&amp;/g, '&');
+  check('ap4: a player is never shown another age group’s trial as their next trial — Jordan (22) and Nate (17) see no U14 & U15 trial',
+    [/U14 & U15 Boys/.test(await nextFor(ids.people.jordan)), /U14 & U15 Boys/.test(await nextFor(ids.people.nate))], [false, false]);
   check('D-172: never "partner", "member", "joined", "on Pitch", "verified", "official" or "in association with" on an unclaimed page',
     /\b(partner|member|joined|on Pitch|verified|official|in association with)\b/i.test(bw), false);
 

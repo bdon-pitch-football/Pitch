@@ -24,6 +24,7 @@ import RegisterPaused from '@/components/RegisterPaused';
 import { setStatus } from './actions';
 import { T } from '@/lib/palette';
 import { card } from '@/lib/ui';
+import { SUPPORT_EMAIL } from '@/lib/support';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Interest register', robots: { index: false, follow: false } };
@@ -225,6 +226,8 @@ export default async function Register({ searchParams }: {
           <div style={{ ...card, border: `1px solid ${T.amber}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 22, fontWeight: 900, color: T.amber }}>{held} waiting</div>
             <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Registrations are held until your club is verified — a short phone call with us. You&rsquo;ll see the list, and nothing about anyone under 18 reaches any club before that call.</div>
+            {/* A-P7 (BUZ, 1 Oct, option A): the same door as the home's, quieter here. */}
+            <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`A good time to ring ${c.name}`)}`} className="btn btn-secondary">Email us a good time to ring</a>
           </div>
         ) : !active ? (
           <>

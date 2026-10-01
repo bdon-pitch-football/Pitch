@@ -225,7 +225,7 @@ export default async function Invitation({ params, searchParams }: {
       )}
       <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
-        <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>&ldquo;Not this time&rdquo; does not take {self ? 'you' : name} off their register and does not count against {self ? 'you' : name}. It closes this one invitation, and the club is simply not told.</div>
+        <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>&ldquo;Not this time&rdquo; does not take {self ? 'you' : name} off their register and does not count against {self ? 'you' : name}. Nothing is sent, and the club is simply not told.</div>
       </div>
     </Shell>
   );
