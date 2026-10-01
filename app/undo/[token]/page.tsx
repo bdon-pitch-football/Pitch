@@ -53,11 +53,24 @@ const hashOf = (token: string) => createHash('sha256').update(token).digest();
 // the link's id, so the link it was minted against IS the link that now
 // stands in for the one that was sent; Replace switches that link off, and
 // the new one is not the club's.
+//
+// AND ITS HOLDER IS STILL A GUARDIAN (safety review of John's batch, S-1,
+// 2 Oct). Following the link made the undo live as long as anyone renews the
+// link, and neither question asked whether the person it was sent to still
+// holds the child: a parent whose guardianship was revoked could switch off a
+// club's link a year later, with the history naming them. Doc 14 gives a
+// revoked guardian nothing (A6), so the undo now asks the database the same
+// question every family route asks — fn_record_actor of the person it was
+// issued to, on the link's record, is 'guardian' — at load and at the press.
+// It is only ever issued to a guardian (lib/send-dispatch, app/ops/call). A
+// revoked holder's undo reads as not live: the one panel, the same as used,
+// lapsed, off and never (D-77).
 async function undoIsLive(token: string): Promise<boolean> {
   const { rows } = await db.query(
     `select (u.id is not null and u.used_at is null
              and st.id is not null and st.revoked_at is null
-             and coalesce(st.expires_at, u.expires_at) > now()) as live
+             and coalesce(st.expires_at, u.expires_at) > now()
+             and fn_record_actor(u.issued_to, st.record_id) = 'guardian') as live
      from (select $1::bytea as token_hash) asked
      left join undo_token u on u.token_hash = asked.token_hash
      left join share_token st on st.id = u.share_token_id`,
@@ -77,7 +90,8 @@ async function revoke(formData: FormData) {
   // count of links this press switched off, and nothing else — a press on a
   // spent, lapsed or unknown link switches off nothing and says so.
   //
-  // In date by the link's own expiry, as the load asks (§6, above). And a
+  // In date by the link's own expiry, and held by someone who is still a
+  // guardian of the child, as the load asks (§6 and S-1, above). And a
   // switch-off is written down (John, 1 Oct, §6: "The undo writes no consent
   // event: it should"): the controls' own switch-off row (lib/link-switch) —
   // share_revoked, kind 'one', the link and the club it went to — with the
@@ -91,6 +105,7 @@ async function revoke(formData: FormData) {
        from asked, share_token lk
        where u.token_hash = asked.token_hash and u.used_at is null
          and lk.id = u.share_token_id and coalesce(lk.expires_at, u.expires_at) > now()
+         and fn_record_actor(u.issued_to, lk.record_id) = 'guardian'
        returning u.share_token_id, u.issued_to
      ),
      off as (

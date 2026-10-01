@@ -83,10 +83,15 @@
 -- receipts and the funnel read (fn_record_delivery: provider id, channel,
 -- key, subject, invitation; the ops failure list: channel, time, status)
 -- and the address, which the support console counts tries by. Here, the
--- rows already sent or closed lose theirs now. A message still waiting to
--- go keeps its body, because that is what will be sent. Development never
--- dispatches, so /dev/outbox — the inbox the suites read codes from — is
--- untouched.
+-- rows already sent or closed lose theirs now — and the rows the outbox
+-- sweep gave up on after its sixth try, which were never sent and never
+-- closed and so kept theirs for good (safety review of John's batch, S-4,
+-- 2 Oct). A message still waiting to go keeps its body, because that is
+-- what will be sent. Development never dispatches, so /dev/outbox — the
+-- inbox the suites read codes from — is untouched. The same statement runs
+-- after every sweep and from scripts/scrub-sent-bodies.mjs, which GO-LIVE
+-- re-runs straight after the deploy: between this migration and the new
+-- code going live, the old code still keeps every body it sends (S-5).
 --
 -- No new table, so nothing to enable row-level security on (L26).
 -- ---------------------------------------------------------------------------
@@ -211,7 +216,11 @@ comment on column sms_meter.number_hash is
   'HMAC-SHA256 of the number under NUMBER_HASH_KEY (0169), kept 25 hours for the per-number limit, then the zero fingerprint (0167).';
 
 -- 4 · §5.1 ------------------------------------------------------------------
+-- lib/sent-bodies.ts SCRUB_SENT_BODIES, byte for byte (the permission suite
+-- pins it): the outbox sweep runs it after every run and
+-- scripts/scrub-sent-bodies.mjs re-runs it straight after the deploy, so the
+-- three cannot drift. It clears a row the sweep gave up on, too (S-4).
 update message_outbox
    set body = '', subject = null
- where (sent_at is not null or failed_at is not null)
+ where (sent_at is not null or failed_at is not null or attempts >= 6)
    and (body <> '' or subject is not null);

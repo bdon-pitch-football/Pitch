@@ -77,8 +77,7 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
     if (band.rows[0]?.band === 'u16' && author.actor === 'guardian') {
       // F14: the guardian's own edit is its own approval. The photos the
       // versions named before it are collected, and forgotten after commit.
-      replaced.push(...(await versionPhotos(client, recordId)));
-      await publishWith(client, recordId, author.personId, draft.season);
+      replaced.push(...(await publishWith(client, recordId, author.personId, draft.season)).replaced);
     } else if (band.rows[0]?.band === 'u16') {
       waitsOnGuardian = true;
       const content = await buildSnapshot(client, recordId, draft.season);
@@ -228,8 +227,7 @@ export async function publishGuardianChange(
   const client = await db.connect();
   try {
     await client.query('begin');
-    replaced = await versionPhotos(client, recordId);
-    result = await publishWith(client, recordId, guardianId, season);
+    ({ result, replaced } = await publishWith(client, recordId, guardianId, season));
     await client.query('commit');
   } catch (e) {
     await client.query('rollback');
@@ -254,15 +252,30 @@ async function versionPhotos(client: Client, recordId: string): Promise<string[]
   return rows.map((r) => r.photo as string | null).filter((p): p is string => Boolean(p));
 }
 
-// The step itself, on a transaction the caller holds: the snapshot, then the
-// database's answer about what happens to it.
+// The step itself, on a transaction the caller holds: the record's lock, the
+// photos the versions name, the snapshot, then the database's answer about
+// what happens to it — one transaction, in that order.
+//
+// THE LOCK COMES FIRST (safety review of John's batch, B-1, 2 Oct). The
+// snapshot used to be read before anything was locked, and the lock taken
+// afterwards, inside fn_publish_guardian_change. A child's save committing in
+// between — it holds the record's row from its first statement — was then
+// waited for, its new pending version found, and overwritten with a snapshot
+// taken before it: the child's change gone from the version their guardian
+// approves, and left on the live record with no version waiting, for the
+// next guardian save to publish unreviewed. Taking the record's row first
+// means a child's save in flight finishes before anything here is read, and
+// one that starts later waits until this has committed. Under read committed
+// every statement after the lock sees what committed before it.
 async function publishWith(client: Client, recordId: string, guardianId: string, season: string) {
+  await client.query('select 1 from development_record where id = $1 for update', [recordId]);
+  const replaced = await versionPhotos(client, recordId);
   const content = await buildSnapshot(client, recordId, season);
   const { rows } = await client.query(
     'select fn_publish_guardian_change($1, $2, $3::jsonb) as r',
     [recordId, guardianId, JSON.stringify(content)],
   );
-  return (rows[0]?.r ?? null) as 'published' | 'pending' | null;
+  return { result: (rows[0]?.r ?? null) as 'published' | 'pending' | null, replaced };
 }
 
 // The renderable snapshot (same shape PlayerCV consumes).

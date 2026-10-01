@@ -4825,8 +4825,11 @@ for (const [what, file] of [['player photo', '../app/build/[recordId]/photo/rout
   check(`D-94 §7: the ${what} is re-encoded server-side, never served as uploaded`,
     /sharp\(/.test(src) && /toBuffer\(\)/.test(src), true);
   check(`D-94 §7: the ${what} upload is size-capped`, /MAX_BYTES/.test(src), true);
+  // MOVED with the photo merge (2 Oct): the player route asks authorship,
+  // recordAuthor (lib/record-guard, fn_record_author), which takes the person
+  // from the session as recordActor does.
   check(`D-94 §3: the ${what} route takes no person id from the caller`,
-    /getSessionPersonId|recordActor/.test(src), true);
+    /getSessionPersonId|recordActor|recordAuthor\(/.test(src), true);
 }
 // A POST answered with a redirect() gets a 307, which re-POSTs the upload at
 // the destination. Every upload route has to answer 303.
@@ -5012,10 +5015,12 @@ const recordIdSurfaces = routeFiles
 check('act11: the recordId surfaces are discovered, not listed by hand',
   recordIdSurfaces.length >= 11, true);
 // MOVED with N-10 (0169): the /build editors ask the narrower author
-// question, requireRecordAuthor, which counts as checking who is asking.
+// question, requireRecordAuthor, which counts as checking who is asking — and
+// the photo route its non-redirecting twin, recordAuthor (a POST must answer
+// 303, never redirect()'s 307), since the photo merge (2 Oct).
 for (const f of recordIdSurfaces) {
   const src = readFileSync(fileURLToPath(new URL('../' + f, import.meta.url)), 'utf8');
-  check(`act11: ${f} checks who is asking`, /require?RecordActor|recordActor\(|requireRecordAuthor\(/.test(src), true);
+  check(`act11: ${f} checks who is asking`, /require?RecordActor|recordActor\(|requireRecordAuthor\(|recordAuthor\(/.test(src), true);
 }
 
 // D-119: the child never approves their own edit.
@@ -5449,9 +5454,14 @@ check('store5: the bucket is configurable, not hardcoded to one project',
      /recordActor\(/.test(codeOnly(photoRoute)), /publishGuardianPhoto/.test(cvBuildSrc + photoRoute)],
     [true, true, false, false]);
   const pgc = /export async function publishGuardianChange[\s\S]*?\n\}\n/.exec(cvBuildSrc)?.[0] ?? '';
+  // MOVED with B-1's race (2 Oct): the photos are read inside publishWith,
+  // after the record's lock and before the snapshot (bf-race-1).
+  const pw = /async function publishWith[\s\S]*?\n\}\n/.exec(cvBuildSrc)?.[0] ?? '';
   check('photo9: publishGuardianChange reads the photos the old versions named under lock before it publishes, and forgets them only after the commit',
-    [/replaced = await versionPhotos\(client, recordId\);\s*result = await publishWith/.test(pgc), /client\.release\(\);\s*\}[\s\S]*for \(const r of replaced\) await forgetPlayerPhoto\(recordId, r\);/.test(pgc)],
-    [true, true]);
+    [/\(\{ result, replaced \} = await publishWith\(client, recordId, guardianId, season\)\);/.test(pgc),
+     /for update', \[recordId\]\);\s*const replaced = await versionPhotos\(client, recordId\);\s*const content = await buildSnapshot/.test(pw),
+     /client\.release\(\);\s*\}[\s\S]*for \(const r of replaced\) await forgetPlayerPhoto\(recordId, r\);/.test(pgc)],
+    [true, true, true]);
 
   // ---- Under-18 photos are PRIVATE (John's ruling §1, BUZ 1 Oct) ----------
   // The dev signer, on a clock the check controls: alive when minted, dead
@@ -5494,6 +5504,8 @@ check('store5: the bucket is configurable, not hardcoded to one project',
     // write or carry a path, never draw it
     'app/build/[recordId]/photo/route.ts': 'writes', 'app/coach/edit/photo/route.ts': 'writes', 'lib/cv-build.ts': 'writes',
     'app/build/[recordId]/actions.ts': 'flag', 'lib/build-progress.ts': 'flag', 'lib/fixtures.ts': 'type', 'lib/player-photo.ts': 'rules',
+    // reads the paths an erasure is about to unname, to delete the files (D-26)
+    'app/g/controls/[childId]/actions.ts': 'erases',
   };
   const touching = tsSourceFiles().filter((f) => /photo_path|photoPath/.test(codeOnly(readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8'))));
   const srcCode = (f) => codeOnly(readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8'));
@@ -12608,7 +12620,9 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [/set sent_at = now\(\), provider_id = \$2, body = '', subject = null/.test(disp),
      /body = case when \$3 then '' else body end/.test(disp), /subject = case when \$3 then null else subject end/.test(disp)],
     [true, true, true]);
-  const scrub = /(update message_outbox\s+set body = '', subject = null\s+where \(sent_at is not null or failed_at is not null\)[\s\S]*?;)/.exec(mig)?.[1];
+  // MOVED with S-4 (2 Oct): the statement also clears a row the sweep gave
+  // up on, and is lib/sent-bodies' byte for byte (bf-s4-1, bf-s4-2).
+  const scrub = /(update message_outbox\s+set body = '', subject = null\s+where \(sent_at is not null or failed_at is not null[^)]*\)[\s\S]*?;)/.exec(mig)?.[1];
   const mk = async (sent, failed, body) => (await one(
     `insert into message_outbox (message_key, channel, to_address, subject, body, sent_at, failed_at, provider_id)
      values ('doc15.§19','email','club@example.au','Ffion''s CV',$1, case when $2 then now() end, case when $3 then now() end,
@@ -12633,6 +12647,173 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [s7.includes(`We aim to respond within one business day. ${LINE}`), doc15.includes(`> We aim to respond within one business day. ${LINE}`),
      /local police/.test(s7), /local police/.test(doc15), /^\*v1\.5 · 1 Oct 2026/m.test(doc15)],
     [true, true, false, false, true]);
+}
+
+// ---------------------------------------------------------------------------
+// The safety review of John's batch (2 Oct): the fixes, each check red on the
+// code before it (report 2026-10-02-builder-batch-fixes). No label carries a
+// doc 14 row id (L4).
+// ---------------------------------------------------------------------------
+{
+  const one = async (sql, args = []) => (await db.query(sql, args)).rows[0];
+  const n = async (sql, args = []) => (await one(sql, args)).n;
+
+  // ---- B-1, the race: the record's lock before the snapshot ----
+  const cvb = codeOnly(srcOf('lib/cv-build.ts'));
+  const pw = /async function publishWith[\s\S]*?\n\}\n/.exec(cvb)?.[0] ?? '';
+  const at = (re) => pw.search(re);
+  const order = [at(/from development_record where id = \$1 for update/), at(/versionPhotos\(client, recordId\)/),
+    at(/buildSnapshot\(client, recordId, season\)/), at(/fn_publish_guardian_change\(/)];
+  const save = cvb.slice(cvb.indexOf('export async function saveCvDraft('), cvb.indexOf('export async function approvePendingVersion('));
+  check('bf-race-1: a guardian’s publication takes the record’s row lock FIRST, then reads the versions’ photos, then the snapshot, then asks fn_publish_guardian_change — one transaction, so a child’s save in flight finishes before anything is read and its change is in the snapshot that joins its pending version, never overwritten by one taken before it',
+    [order.every((i) => i >= 0) && order.every((i, k) => k === 0 || i > order[k - 1]),
+     (cvb.match(/versionPhotos\(client, recordId\)/g) ?? []).length, (cvb.match(/buildSnapshot\(client, recordId, /g) ?? []).length,
+     /\(\{ result, replaced \} = await publishWith\(client, recordId, guardianId, season\)\);/.test(cvb),
+     /await client\.query\('begin'\);\s*await client\.query\(\s*`update development_record set/.test(save)],
+    // the photos are read in publishWith alone; the snapshot there and in the
+    // child's own save, whose first statement holds the same row
+    [true, 1, 2, true, true]);
+
+  // ---- S-1: the undo re-checks guardianship ----
+  const page = srcOf('app/undo/[token]/page.tsx');
+  const loadSql = /`(select \(u\.id is not null[\s\S]*?)`,/.exec(page)?.[1];
+  const pressSql = /`(with asked as[\s\S]*?)`,/.exec(page)?.[1];
+  const kid = crypto.randomUUID(), rec = crypto.randomUUID(), gOut = crypto.randomUUID(), gIn = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Bryony',$2), ($3,'Bram',$4), ($5,'Beth',$4)`,
+    [kid, yearsAgo(13), gOut, yearsAgo(42), gIn]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rec, kid]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at, revoked_at) values
+    ($1,$3,now() - interval '200 days',now() - interval '1 day'), ($2,$3,now() - interval '200 days',null)`, [gOut, gIn, kid]);
+  const mint = async (issuedTo, raw) => {
+    const link = (await one(`insert into share_token (record_id, token_hash, issued_by, expires_at)
+      values ($1,$2,$3,now() + interval '60 days') returning id`, [rec, sha(crypto.randomUUID()), gIn])).id;
+    await db.query(`insert into undo_token (token_hash, share_token_id, issued_to, expires_at) values ($1,$2,$3,now() + interval '60 days')`,
+      [sha(raw), link, issuedTo]);
+    return link;
+  };
+  const outLink = await mint(gOut, 'bf-undo-revoked'), inLink = await mint(gIn, 'bf-undo-held');
+  const live = async (raw) => (loadSql ? (await one(loadSql, [sha(raw)])).live === true : null);
+  const off = async (id) => (await one('select revoked_at is not null as off from share_token where id = $1', [id])).off;
+  const events = () => n(`select count(*)::int as n from consent_event where subject_id = $1`, [kid]);
+  const ev0 = await events();
+  const liveOut = await live('bf-undo-revoked');
+  const pressOut = pressSql ? (await one(pressSql, [sha('bf-undo-revoked')])).revoked : null;
+  check('bf-undo-1: an undo whose holder is no longer the child’s guardian is not live — it opens on the one not-live panel, its press switches nothing off and writes nothing, and the club’s link stays on (S-1; D-77)',
+    [Boolean(loadSql && pressSql), liveOut, pressOut, await off(outLink), (await events()) - ev0], [true, false, 0, false, 0]);
+  const liveIn = await live('bf-undo-held');
+  const ev1 = await events();
+  const pressIn = pressSql ? (await one(pressSql, [sha('bf-undo-held')])).revoked : null;
+  check('bf-undo-2: while the undo of a guardian who still holds the child stays live, and its press still switches that link off and writes it down',
+    [liveIn, pressIn, await off(inLink), (await events()) - ev1], [true, 1, true, 1]);
+
+  // ---- S-3: a deploy without NUMBER_HASH_KEY does not build ----
+  const ds = await import('../lib/deploy-secrets.mjs').catch(() => null);
+  const miss = (env) => (ds ? ds.missingDeploySecrets(env) : null);
+  const LONG = 'k'.repeat(48);
+  check('bf-s3-1: a production or preview deploy with no NUMBER_HASH_KEY, a blank one or one too short to be a key is missing it; a real key, and every build that is not a deploy (no VERCEL_ENV — the suites’ own production build — or Vercel’s development) are not',
+    [miss({ VERCEL_ENV: 'production' }), miss({ VERCEL_ENV: 'preview', NUMBER_HASH_KEY: '   ' }), miss({ VERCEL_ENV: 'production', NUMBER_HASH_KEY: 'x'.repeat(31) }),
+     miss({ VERCEL_ENV: 'production', NUMBER_HASH_KEY: LONG }), miss({}), miss({ NODE_ENV: 'production' }), miss({ VERCEL_ENV: 'development' })],
+    [['NUMBER_HASH_KEY'], ['NUMBER_HASH_KEY'], ['NUMBER_HASH_KEY'], [], [], [], []]);
+  const cfg = (await import('../next.config.mjs').catch(() => null))?.default;
+  const build = (phase, env) => {
+    const saved = { VERCEL_ENV: process.env.VERCEL_ENV, NUMBER_HASH_KEY: process.env.NUMBER_HASH_KEY };
+    for (const [k, v] of Object.entries(env)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    try {
+      const c = typeof cfg === 'function' ? cfg(phase) : cfg;
+      return c && typeof c === 'object' && 'headers' in c ? 'built' : 'no config';
+    } catch (e) {
+      return `refused: ${e.message}`;
+    } finally {
+      for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    }
+  };
+  const SHORT = 'bf-s3-placeholder-value';
+  const refused = build('phase-production-build', { VERCEL_ENV: 'production', NUMBER_HASH_KEY: SHORT });
+  check('bf-s3-2: next.config refuses that build before anything is built — the refusal names NUMBER_HASH_KEY and never its value — and builds with a real key, for the suites’ own production build, and for next dev',
+    [refused.startsWith('refused: ') && refused.includes('NUMBER_HASH_KEY'), refused.includes(SHORT),
+     build('phase-production-build', { VERCEL_ENV: 'preview', NUMBER_HASH_KEY: undefined }).startsWith('refused: '),
+     build('phase-production-build', { VERCEL_ENV: 'production', NUMBER_HASH_KEY: LONG }),
+     build('phase-production-build', { VERCEL_ENV: undefined, NUMBER_HASH_KEY: undefined }),
+     build('phase-development-server', { VERCEL_ENV: 'production', NUMBER_HASH_KEY: undefined })],
+    [true, false, true, 'built', 'built', 'built']);
+  const nh = await import('../lib/number-hash.ts');
+  check('bf-s3-3: the build’s floor is the runtime’s (32), and the runtime still fails closed behind it — production with no key, or a short one, fingerprints nothing',
+    [ds?.NUMBER_HASH_KEY_MIN_LENGTH, Number(/const MIN_KEY_LENGTH = (\d+);/.exec(srcOf('lib/number-hash.ts'))?.[1]),
+     nh.numberHashKey({ NODE_ENV: 'production' }), nh.numberHashKey({ NODE_ENV: 'production', NUMBER_HASH_KEY: 'x'.repeat(31) })],
+    [32, 32, null, null]);
+
+  // ---- S-4: a message the sweep gives up on keeps no words; one statement ----
+  const sb = await import('../lib/sent-bodies.ts').catch(() => null);
+  const mig169 = srcOf('supabase/migrations/0169_john_batch.sql');
+  const sweep = codeOnly(srcOf('app/api/jobs/outbox/route.ts'));
+  const scrubScript = (() => { try { return srcOf('scripts/scrub-sent-bodies.mjs'); } catch { return ''; } })();
+  const runsAt = sweep.indexOf('await db.query(SCRUB_SENT_BODIES);');
+  check('bf-s4-1: one statement in three places — 0169’s backfill is lib/sent-bodies’ SCRUB_SENT_BODIES byte for byte, the outbox sweep runs it after every production run’s sends, and scripts/scrub-sent-bodies.mjs runs it (and counts with its own predicate) and writes no statement of its own',
+    [Boolean(sb) && mig169.includes(`${sb.SCRUB_SENT_BODIES};`),
+     runsAt > sweep.indexOf("if (process.env.NODE_ENV !== 'production')") && runsAt > sweep.indexOf('sent += 1;') && sweep.indexOf('sent += 1;') > 0,
+     /import \{ COUNT_SENT_BODIES, SCRUB_SENT_BODIES \} from '\.\.\/lib\/sent-bodies\.ts';/.test(scrubScript),
+     /update message_outbox|delete from|insert into/i.test(codeOnly(scrubScript)),
+     Boolean(sb) && sb.COUNT_SENT_BODIES.endsWith(sb.SCRUB_SENT_BODIES.slice(sb.SCRUB_SENT_BODIES.indexOf(' where ')))],
+    [true, true, true, false, true]);
+  const box = async (o) => (await one(
+    `insert into message_outbox (message_key, channel, to_address, subject, body, attempts, last_attempt_at, sent_at, failed_at)
+     values ('doc15.§36','email','parent@example.au','Bryony''s link',$1,$2,now() - interval '1 hour',
+       case when $3 then now() end, case when $4 then now() end) returning id`,
+    [o.body, o.attempts, Boolean(o.sent), Boolean(o.failed)])).id;
+  const BODY = 'Bryony is 13. Switch it off: /undo/bf-raw-undo-token';
+  const rows = { gaveUp: await box({ body: BODY, attempts: 6 }), tryLeft: await box({ body: BODY, attempts: 5 }),
+    first: await box({ body: BODY, attempts: 1 }), sent: await box({ body: BODY, attempts: 2, sent: true }), failed: await box({ body: BODY, attempts: 3, failed: true }) };
+  const counted = sb ? await n(sb.COUNT_SENT_BODIES) : null;
+  const cleared = sb ? (await db.query(sb.SCRUB_SENT_BODIES)).rowCount : null;
+  const after = await Promise.all(Object.values(rows).map(async (id) => {
+    const r = await one('select body, subject, to_address from message_outbox where id = $1', [id]);
+    return [r.body === '', r.subject === null, r.to_address];
+  }));
+  check('bf-s4-2: a message the sweep gave up on after its sixth try loses its body and subject, as a sent or refused one does — the address stays; one with a try left, or on its first, keeps its words for the send; and the count is what it clears',
+    [after, counted !== null && counted === cleared && cleared >= 3],
+    [[[true, true, 'parent@example.au'], [false, false, 'parent@example.au'], [false, false, 'parent@example.au'],
+      [true, true, 'parent@example.au'], [true, true, 'parent@example.au']], true]);
+  check('bf-s4-3: and it is idempotent — a second run clears nothing and counts nothing, so the after-deploy re-run is safe to repeat',
+    sb ? [(await db.query(sb.SCRUB_SENT_BODIES)).rowCount, await n(sb.COUNT_SENT_BODIES)] : null, [0, 0]);
+  check('bf-s4-4: the re-run script plans by default, clears only with --apply, prints counts only (never the database URL, an address or a body), and needs --ca for a remote database, verified',
+    [/if \(!has\('--apply'\)\)/.test(scrubScript), /console\.(log|error)\([^;]*\$\{(raw|url|r\.|row|e\.message|address|body)/.test(scrubScript),
+     /console\.(log|error)\((raw|url|e)\)/.test(scrubScript), /if \(!ca\) \{ console\.error\('refusing:/.test(scrubScript), /rejectUnauthorized: true/.test(scrubScript)],
+    [true, false, false, true, true]);
+
+  // ---- D-26: erasure deletes the child's photo files ----
+  const act = srcOf('app/g/controls/[childId]/actions.ts');
+  const collect = /db\.query\(\s*`(select dr\.id as record_id, p\.photo_path as path[\s\S]*?)`,/.exec(act)?.[1];
+  const pp = await import('../lib/player-photo.ts');
+  const eKid = crypto.randomUUID(), eRec = crypto.randomUUID(), eG = crypto.randomUUID(), eOther = crypto.randomUUID(), eOtherRec = crypto.randomUUID();
+  const hx = (c) => c.repeat(16);
+  const P = {
+    live: `pitch-private:player/${eRec}-${hx('a1')}.jpg`,
+    approved: `/dev-uploads/player-${eRec}-${hx('b2')}.jpg`,
+    pending: `pitch-private:player/${eRec}-${hx('c3')}.jpg`,
+    superseded: `https://example.supabase.co/storage/v1/object/public/public-images/player/${eRec}-${hx('d4')}.jpg`,
+  };
+  const otherPhoto = `pitch-private:player/${eOtherRec}-${hx('e5')}.jpg`;
+  await db.query(`insert into person (id, first_name, dob, photo_path) values ($1,'Elin',$2,$3), ($4,'Emrys',$2,$5), ($6,'Eira',$7,null)`,
+    [eKid, yearsAgo(12), P.live, eOther, otherPhoto, eG, yearsAgo(39)]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2), ($3,$4)`, [eRec, eKid, eOtherRec, eOther]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [eG, eKid]);
+  for (const [status, path] of [['approved', P.approved], ['pending', P.pending], ['superseded', P.superseded]]) {
+    await db.query(`insert into profile_version (record_id, content, status) values ($1,$2,$3)`, [eRec, JSON.stringify({ firstName: 'Elin', photoPath: path }), status]);
+  }
+  await db.query(`insert into profile_version (record_id, content, status) values ($1,$2,'approved')`, [eOtherRec, JSON.stringify({ photoPath: otherPhoto })]);
+  const got = collect ? (await db.query(collect, [eKid])).rows : [];
+  await db.query('select fn_erase_child($1, $2)', [eG, eKid]);
+  const stillShown = await Promise.all(Object.values(P).map(async (p) => (await db.query(pp.PHOTO_STILL_SHOWN, [p])).rows[0].shown));
+  check('bf-erase-1: before the erasure the button reads every photo the child’s rows name — the live record and every version of the page, approved, pending and superseded, public and private — and nobody else’s; each is the record’s own, and once fn_erase_child has run nothing names any of them, so forgetPlayerPhoto deletes every one (D-26)',
+    [got.map((r) => r.path).sort(), got.every((r) => r.record_id === eRec), Object.values(P).map((p) => pp.isPlayerPhotoOf(eRec, p)), stillShown,
+     (await db.query(pp.PHOTO_STILL_SHOWN, [otherPhoto])).rows[0].shown],
+    [Object.values(P).sort(), true, [true, true, true, true], [false, false, false, false], true]);
+  const delAct = codeOnly(act).slice(codeOnly(act).indexOf('export async function deleteEverything('));
+  const steps = [delAct.indexOf('select dr.id as record_id, p.photo_path as path'), delAct.indexOf("await db.query('select fn_erase_child($1, $2)'"),
+    delAct.indexOf('for (const ph of photos) await forgetPlayerPhoto(ph.record_id, ph.path);'), delAct.indexOf('await send(msg')];
+  check('bf-erase-2: the paths are read before fn_erase_child, and every one goes to forgetPlayerPhoto only once the erasure has committed, before anyone is told it is done; the erasure still runs once, and the button removes no image of its own (photo7, erase6)',
+    [steps.every((i) => i >= 0) && steps.every((i, k) => k === 0 || i > steps[k - 1]), (delAct.match(/fn_erase_child/g) ?? []).length, /removeImage/.test(act)],
+    [true, 1, false]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import { cronAllowed } from '@/lib/cron-policy';
 import { db } from '@/lib/db';
 import { dispatch, releaseWaitingTexts } from '@/lib/messaging';
+import { SCRUB_SENT_BODIES } from '@/lib/sent-bodies';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +83,12 @@ export async function GET(request: Request) {
   for (const r of rows as { id: string; message_key: string; channel: string; to_address: string; subject: string | null; body: string }[]) {
     if (await dispatch(r.id, r.channel, r.to_address, r.subject ?? '', r.body, r.message_key)) sent += 1;
   }
+  // A row on its sixth try that failed again is never claimed again, so it is
+  // never sent and never closed — and dispatch() clears words only on those
+  // two. Nothing will send it, so it keeps no body (safety review S-4, 2 Oct;
+  // doc 23). The one statement 0169 ran (lib/sent-bodies), so it also clears
+  // anything the old code sent with its words before this deploy (S-5).
+  await db.query(SCRUB_SENT_BODIES);
   // Counts only. This response is read in a Vercel log, and a log is not a
   // place a child's name or a guardian's number ever goes.
   return NextResponse.json({ ok: true, released: released.length, claimed: rows.length, sent: sent + sentReleased });

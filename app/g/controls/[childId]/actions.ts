@@ -8,6 +8,7 @@
 import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from '@/lib/db';
+import { forgetPlayerPhoto } from '@/lib/cv-build';
 import { getSessionPersonId } from '@/lib/session';
 import { switchOffOneLink } from '@/lib/link-switch';
 import { deletionConfirmedEmail } from '@/lib/messages';
@@ -168,7 +169,31 @@ export async function deleteEverything(formData: FormData) {
   // and each time the family's press rolled back and they kept the record
   // they asked us to destroy. One statement, one transaction, both consent
   // rows inside it.
+  //
+  // AND THE PHOTO FILES GO WITH IT (D-26; CLAUDE.md: photos "are deleted in
+  // the D-26 cascade"; the photo builder's report, 2 Oct). fn_erase_child
+  // deletes rows, and a row is only where a photo is NAMED: the file in the
+  // bucket stayed, public or private, a child's face nothing pointed at. So
+  // every photo the child's rows name — the live record and every version of
+  // the page, whatever its status — is read before the erasure (afterwards
+  // nothing names them, so nothing could find them), and each is handed,
+  // once the erasure has committed, to forgetPlayerPhoto: the one door that
+  // deletes a photo (lib/cv-build), which asks first that nothing still shows
+  // it and only ever takes this record's own player photos. Read here and not
+  // inside fn_erase_child, so the button still runs that function and
+  // deletes nothing itself (erase6).
+  const photos = (await db.query(
+    `select dr.id as record_id, p.photo_path as path
+       from person p join development_record dr on dr.person_id = p.id
+      where p.id = $1 and p.photo_path is not null
+     union
+     select pv.record_id, pv.content ->> 'photoPath'
+       from profile_version pv join development_record dr on dr.id = pv.record_id
+      where dr.person_id = $1 and pv.content ->> 'photoPath' is not null`,
+    [childId],
+  )).rows as { record_id: string; path: string }[];
   await db.query('select fn_erase_child($1, $2)', [guardianId, childId]);
+  for (const ph of photos) await forgetPlayerPhoto(ph.record_id, ph.path);
   if (told) {
     const msg = deletionConfirmedEmail(told.first_name);
     for (const address of told.emails) await send(msg, { address });

@@ -3889,9 +3889,13 @@ const georgia = ids.children.georgia;
   const vis = (h) => text(h).join(' ').replace(/\s+/g, ' ');
   const markupOnly = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ');
   // Undo tokens in each state, from the dev-only minter (app/dev/undo; it
-  // 404s in production — perms jr-dev-undo).
+  // 404s in production — perms jr-dev-undo). MOVED with S-1 (2 Oct): an undo
+  // is live only while its holder is the child's guardian, so the minter
+  // issues each to a guardian, and the record named is a child's — Nate's,
+  // whose parent holds him — not an adult's, who has no guardian. The minted
+  // links are thrown away; nothing here presses one.
   const mint = async (kind) => {
-    const r = await fetch(`${BASE}/dev/undo?record=${ids.adultPlayers[0].record_id}&kind=${kind}&n=1`, { method: 'POST' });
+    const r = await fetch(`${BASE}/dev/undo?record=${ids.children.nate.record_id}&kind=${kind}&n=1`, { method: 'POST' });
     if (!r.ok) throw new Error(`/dev/undo answered ${r.status} — is this the dev app?`);
     return (await r.json()).tokens[0];
   };

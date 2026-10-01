@@ -1,3 +1,6 @@
+import { PHASE_PRODUCTION_BUILD } from 'next/constants.js';
+import { deploySecretsMessage, missingDeploySecrets } from './lib/deploy-secrets.mjs';
+
 /** @type {import('next').NextConfig} */
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -56,4 +59,13 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// A deploy build that lacks a secret it cannot work without stops here, before
+// anything is built, so it never goes live (safety review S-3, 2 Oct;
+// lib/deploy-secrets). Development and the suites' local build are not deploys.
+export default (phase) => {
+  if (phase === PHASE_PRODUCTION_BUILD) {
+    const missing = missingDeploySecrets();
+    if (missing.length > 0) throw new Error(deploySecretsMessage(missing));
+  }
+  return nextConfig;
+};

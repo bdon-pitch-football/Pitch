@@ -18,7 +18,7 @@
 // in-memory (scripts/dev-db.mts), so a restart is a clean reset — run this
 // last, then reseed.
 import { createHmac, randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { watchForTokens } from './token-in-url.mjs';
 import { RULINGS } from './rulings.mjs';
@@ -3386,9 +3386,26 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     // the public page cannot tell "deleted" from "paused". This can.
     const exists = async () => (await get(del.path, del.who)).status === 200;
     check('x3: the guardian can open their child’s controls before deleting', await exists(), true);
+    // D-26: the photo files go with the record (bf-erase-w1). The child x3
+    // deletes is Deniz, who has photos by now (the photo block): his files on
+    // the disk the app writes them to, public and private, and the address
+    // his own builder drew his photo at.
+    const erased = ids.children.deniz;
+    const photoFiles = () => ['.dev-private-uploads', 'public/dev-uploads'].flatMap((dir) => {
+      try {
+        return readdirSync(fileURLToPath(new URL(`../${dir}/`, import.meta.url))).filter((f) => f.startsWith(`player-${erased.record_id}`)).map((f) => `${dir}/${f}`);
+      } catch { return []; }
+    });
+    const drawnAt = (new RegExp(`<img[^>]*src="([^"]*player[-/]${erased.record_id}[^"]*)"`).exec(
+      (await get(`/build/${erased.record_id}`, erased.child_id)).html.replace(/<script[\s\S]*?<\/script>/g, ' '))?.[1] ?? '').replace(/&amp;/g, '&');
+    const imgStatus = async () => (drawnAt ? (await fetch(BASE + drawnAt)).status : null);
+    const [filesBefore, servedBefore] = [photoFiles(), await imgStatus()];
     const status = await post(del.form.action ?? del.path, del.who, del.form);
     check('x3b: and the deletion completes rather than rolling back', status, 303);
     check('x3c: AND THE CHILD IS GONE — the promise on the consent screen', await exists(), false);
+    check(`bf-erase-w1: and so are the child’s photos — every file his rows named (${filesBefore.length} before, public and private) is deleted from the disk, and the address his page drew one at no longer serves it (D-26)`,
+      [del.path.includes(erased.child_id), filesBefore.length > 0, servedBefore, photoFiles(), await imgStatus()],
+      [true, true, 200, [], 404]);
     const box = (await get('/dev/outbox', ids.people.marina)).html;
     check('x3d: and the parent is told it is done (doc 15 §16)', /Pitch record has been deleted/.test(box) && /Two things remain/.test(box.replace(/<[^>]+>/g, ' ')), true);
   }

@@ -22,7 +22,7 @@ and **Preview**:
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `SUPABASE_CA_CERT`, `SUPABASE_STORAGE_BUCKET` | the Sydney project (Settings → API / Database). The CA certificate is required; a missing one fails the connection, never silently. |
 | `SESSION_SECRET` | `openssl rand -base64 48`. Nobody can sign in without it. |
-| `NUMBER_HASH_KEY` | **Production, BEFORE the push that carries 0169** (John's batch, 1 Oct, §5.2). `openssl rand -base64 48`, as a Secret; at least 32 characters. It keys the STOP list's and the SMS meter's number fingerprints (HMAC, never a plain hash). **Without it production refuses every SMS, including the parent's approval text that otherwise waits for Twilio (D-168): no under-16 sign-up could be approved until it is set.** Set it once and never change it: every STOP recorded is keyed with it. 0169 also stops itself if `sms_opt_out` is not empty (`select count(*) from sms_opt_out` must be 0 first; it is, with no SMS ever live). |
+| `NUMBER_HASH_KEY` | **Production and Preview, BEFORE the push that carries 0169** (John's batch, 1 Oct, §5.2). **A Production or Preview build without it now fails** with a message naming the variable (safety review S-3, 2 Oct; `lib/deploy-secrets.mjs`), so a deploy cannot go live without it. `openssl rand -base64 48`, as a Secret; at least 32 characters. It keys the STOP list's and the SMS meter's number fingerprints (HMAC, never a plain hash). **Without it production refuses every SMS, including the parent's approval text that otherwise waits for Twilio (D-168): no under-16 sign-up could be approved until it is set.** Set it once and never change it: every STOP recorded is keyed with it. 0169 also stops itself if `sms_opt_out` is not empty (`select count(*) from sms_opt_out` must be 0 first; it is, with no SMS ever live). |
 | `CRON_SECRET` | `openssl rand -base64 32`. Without it the three crons refuse: no purges, no expiries, no reminders. |
 | `OPS_EMAILS` | `burak.donmez@pitch-football.com`. Empty means nobody can open `/ops`. |
 | `RESEND_API_KEY`, `EMAIL_WEBHOOK_SECRET` | Resend (API keys; Webhooks → signing secret) |
@@ -134,6 +134,22 @@ Done in this order, each production step by BUZ's own hand, each checked by Leo:
    switch SMS off and back on.
 6. **Under-18s** open the day 1a clears (if BUZ chooses to launch adults,
    coaches and clubs first).
+
+## 5 · The push carrying 0167–0169 (John's batch): the order (safety review S-5, 2 Oct)
+
+The new code calls functions only 0169 creates, so the migrations go first —
+and in the gap before the new code serves, the old code keeps the body of
+every message it sends.
+
+1. `NUMBER_HASH_KEY` set in Production and Preview (§2; the build refuses without it).
+2. `select count(*) from sms_opt_out` = 0 (0169 stops itself otherwise).
+3. Apply 0167 → 0168 → 0169.
+4. Push the code straight away.
+5. Straight after the deploy, clear what the old code kept in the gap — plan,
+   then apply, then plan again, which must read 0 (counts only; the same
+   statement 0169 ran, and the outbox sweep runs it every hour from now on):
+   `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/scrub-sent-bodies.mjs --ca supabase/prod-ca.crt` (add `--apply` for the second run).
+6. `select count(*) from sms_opt_out` = 0 again.
 
 ## Rollback
 

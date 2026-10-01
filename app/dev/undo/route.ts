@@ -15,6 +15,13 @@
 // nothing anybody holds. Nothing is sent and no consent event is written here
 // (a live press writes the switch-off row, against the record named).
 //
+// Each undo is issued to who a real one goes to: a guardian of the record's
+// child (lib/send-dispatch §36, app/ops/call §37). Since the safety review of
+// John's batch (S-1, 2 Oct) the undo asks, at load and at the press, whether
+// the person it was issued to is still that child's guardian — so an undo
+// issued to the record's owner, as this used to, is not live, and the suites
+// name a child's record now. A record with no guardian gets a 400.
+//
 // Gated exactly as /dev/billing is: not found in production, and not found in
 // a club demo. POST only, so no crawl and no link preview can reach it.
 import { NextResponse } from 'next/server';
@@ -37,6 +44,11 @@ export async function POST(request: Request) {
   if (!isUuid(record) || !KINDS.includes(kind)) return new NextResponse(null, { status: 400 });
   const owner = (await db.query('select person_id from development_record where id = $1', [record])).rows[0]?.person_id;
   if (!owner) return new NextResponse(null, { status: 400 });
+  const guardian = (await db.query(
+    `select guardian_id from guardianship_link
+     where child_id = $1 and approved_at is not null and revoked_at is null
+     order by approved_at, guardian_id limit 1`, [owner])).rows[0]?.guardian_id;
+  if (!guardian) return new NextResponse(null, { status: 400 });
   const tokens: string[] = [];
   for (let i = 0; i < n; i++) {
     // Lapsed is the LINK's lapse: the undo follows its link's expiry (John,
@@ -46,7 +58,7 @@ export async function POST(request: Request) {
       `insert into share_token (record_id, token_hash, issued_by, expires_at, revoked_at)
        values ($1, $2, $3, case when $5 then now() - interval '1 day' else now() + interval '90 days' end,
          case when $4 then now() end) returning id`,
-      [record, hash(randomBytes(32).toString('base64url')), owner, kind === 'off', kind === 'lapsed'],
+      [record, hash(randomBytes(32).toString('base64url')), guardian, kind === 'off', kind === 'lapsed'],
     )).rows[0].id;
     const raw = randomBytes(24).toString('base64url');
     await db.query(
@@ -54,7 +66,7 @@ export async function POST(request: Request) {
        values ($1, $2, $3,
          case when $4 then now() - interval '1 day' else now() + interval '90 days' end,
          case when $5 then now() end)`,
-      [hash(raw), link, owner, kind === 'lapsed', kind === 'used'],
+      [hash(raw), link, guardian, kind === 'lapsed', kind === 'used'],
     );
     tokens.push(raw);
   }
