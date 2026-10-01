@@ -26,7 +26,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  // D-168 (0120): first, the parents' approval texts that waited for SMS.
+  // Doc 23: the SMS meter holds a number's fingerprint for 24 hours and no
+  // longer (John, 2 Oct, §4; 0170). Forgotten past 23 hours on every run, so
+  // with an hour between runs none is held past 24. Every environment: it
+  // sends nothing, and the meter is written in development too.
+  const forgotten = (await db.query('select fn_sms_forget_numbers() as n')).rows[0].n as number;
+
+  // D-168 (0120): then, the parents' approval texts that waited for SMS.
   // Released oldest first, the moment SMS can send, under every control the
   // send path has (lib/messaging releaseWaitingTexts, fn_sms_release). A
   // queued row is never claimed by the sweep below: it has not been metered,
@@ -39,7 +45,7 @@ export async function GET(request: Request) {
   // ran here too, and a key in a developer's .env.local would have sent a
   // real message from a fixture row.
   if (process.env.NODE_ENV !== 'production') {
-    return NextResponse.json({ ok: true, released: released.length, claimed: 0, sent: 0 });
+    return NextResponse.json({ ok: true, forgotten, released: released.length, claimed: 0, sent: 0 });
   }
   let sentReleased = 0;
   for (const r of released) {
@@ -87,9 +93,10 @@ export async function GET(request: Request) {
   // never sent and never closed — and dispatch() clears words only on those
   // two. Nothing will send it, so it keeps no body (safety review S-4, 2 Oct;
   // doc 23). The one statement 0169 ran (lib/sent-bodies), so it also clears
-  // anything the old code sent with its words before this deploy (S-5).
+  // anything the old code sent with its words before this deploy (S-5), and
+  // every address 30 days after its message ended (John, 2 Oct, §3).
   await db.query(SCRUB_SENT_BODIES);
   // Counts only. This response is read in a Vercel log, and a log is not a
   // place a child's name or a guardian's number ever goes.
-  return NextResponse.json({ ok: true, released: released.length, claimed: rows.length, sent: sent + sentReleased });
+  return NextResponse.json({ ok: true, forgotten, released: released.length, claimed: rows.length, sent: sent + sentReleased });
 }

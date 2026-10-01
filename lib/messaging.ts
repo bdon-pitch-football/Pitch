@@ -23,11 +23,11 @@ import 'server-only';
 import { after } from 'next/server';
 import { db } from './db';
 import { CATALOGUE_KEYS, DRAFT_KEYS, HELD_KEYS, type Composed } from './messages';
-import { sendEmail, sendSms } from './providers';
+import { sendEmail, sendSms, type Dispatch } from './providers';
 import { replyToFor } from './reply-policy';
 import { renderEmail } from './email-html';
 import { isDemo } from './demo';
-import { keyedNumberHash, numberHashKey } from './number-hash';
+import { keyedNumberHash, normaliseNumber, numberHashKey } from './number-hash';
 import { effectiveSmsCapCents, smsCanSend, smsCapCents, smsProviderConfigured, smsSwitchedOff } from './sms-policy';
 
 const KEYS = new Set<string>(CATALOGUE_KEYS);
@@ -56,7 +56,7 @@ export type SendResult =
   // `waiting`: written, and held until SMS can send (0120). Not sent, so the
   // spine is not told a text went — fn_sms_release tells it when one does.
   | { queued: true; id: string; waiting?: true }
-  | { queued: false; reason: 'not_in_catalogue' | 'not_approved' | 'held' | 'sms_killed' | 'sms_no_cap' | 'sms_no_key' | 'sms_rate_limited' | 'sms_cap_reached' | 'no_address' | 'sms_opted_out' };
+  | { queued: false; reason: 'not_in_catalogue' | 'not_approved' | 'held' | 'sms_killed' | 'sms_no_cap' | 'sms_no_key' | 'sms_rate_limited' | 'sms_cap_reached' | 'no_address' | 'sms_not_a_mobile' | 'sms_opted_out' };
 
 /**
  * How a phone number is recognised without being stored.
@@ -100,6 +100,11 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
   if (!to.address) return { queued: false, reason: 'no_address' };
 
   if (msg.channel === 'sms') {
+    // An Australian mobile, or no text (D-63; John, 2 Oct, §5): the one form
+    // lib/number-hash reads is the one Twilio is given, and a number it
+    // cannot read is refused here, before anything is written or metered —
+    // the same answer /join gives it.
+    if (!normaliseNumber(to.address)) return { queued: false, reason: 'sms_not_a_mobile' };
     const cap = smsCapCents(process.env.SMS_MONTHLY_CAP_CENTS);
     // The operator's switch (0070), read on every SMS so it takes effect on
     // the next one, not the next deploy. Off is off whichever side said it;
@@ -233,17 +238,26 @@ export async function dispatch(
   // drawn from that text. Rendered at dispatch, not stored, so a retried row
   // renders exactly as its first attempt and the outbox keeps doc 15's words.
   const mail = channel === 'sms' ? null : renderEmail(messageKey, subject, body);
-  const result = mail === null
-    ? await sendSms(address, body)
-    : await sendEmail(address, subject, mail.text, replyToFor(messageKey, process.env.EMAIL_REPLY_TO), mail.html);
+  // A text goes to Twilio in E.164 (+614…), never as typed (John, 2 Oct, §5):
+  // the one form lib/number-hash makes, so the number sent to is the number
+  // the STOP list and the meter know. This is the only door to sendSms — the
+  // inline send, the sweep, the release and the STOP reply all come through
+  // here. A row whose address is not an Australian mobile is refused for
+  // good without reaching the provider, as the provider refuses an invalid
+  // number (a 4xx: permanent, words cleared).
+  const smsTo = mail === null ? normaliseNumber(address) : null;
+  const result: Dispatch = mail !== null
+    ? await sendEmail(address, subject, mail.text, replyToFor(messageKey, process.env.EMAIL_REPLY_TO), mail.html)
+    : smsTo ? await sendSms(smsTo, body) : { ok: false, reason: 'not_a_mobile', permanent: true };
 
   // Doc 23: "We do not retain message bodies" (John, 1 Oct, §5.1; 0169). The
   // body and subject are cleared the moment the provider has the message,
   // and the moment it is refused for good: nothing reads them after that.
   // What stays is what the receipts and the funnel read — the provider id,
   // channel, key, subject person and invitation — and the address, which
-  // the support console counts tries by. A transient failure keeps its body
-  // for the retry. Development never dispatches, so its outbox keeps every
+  // the support console counts tries by, for 30 days (lib/sent-bodies clears
+  // it hourly after that; John, 2 Oct, §3). A transient failure keeps its
+  // body for the retry. Development never dispatches, so its outbox keeps every
   // word: /dev/outbox is the inbox the suites read.
   if (result.ok) {
     await db.query(

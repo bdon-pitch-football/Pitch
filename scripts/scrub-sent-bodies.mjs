@@ -1,6 +1,7 @@
-// Clears the words of every message nobody will send again (doc 23: "We do
-// not retain message bodies"; John, 1 Oct, §5.1; safety review of John's
-// batch, S-4 and S-5, 2 Oct).
+// Clears the words of every message nobody will send again, and its address
+// 30 days after it ended (doc 23: "We do not retain message bodies"; John,
+// 1 Oct, §5.1; safety review of John's batch, S-4 and S-5, 2 Oct; John, 2 Oct,
+// §3: addresses kept 30 days, then cleared, the try count kept).
 //
 //   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/scrub-sent-bodies.mjs --ca supabase/prod-ca.crt            # plan only
 //   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/scrub-sent-bodies.mjs --ca supabase/prod-ca.crt --apply    # clear
@@ -14,8 +15,9 @@
 // It runs lib/sent-bodies SCRUB_SENT_BODIES: the statement 0169 runs, byte for
 // byte, and the one the outbox sweep runs after every run (the permission
 // suite pins all three to it). Idempotent: a cleared row does not match, so a
-// second run plans 0. A message still to go keeps its words; the address
-// stays (John is ruling on addresses).
+// second run plans 0. A message still to go keeps its words and its address;
+// one that ended inside the last 30 days keeps its address. It reports how
+// many of the rows it clears hold an address past its 30 days, too.
 //
 // It prints COUNTS ONLY — never an address, a body, an id or the database URL.
 //
@@ -24,7 +26,7 @@
 // database and the demo are refused without --i-mean-the-dev-db.
 import pg from 'pg';
 import { readFileSync } from 'node:fs';
-import { COUNT_SENT_BODIES, SCRUB_SENT_BODIES } from '../lib/sent-bodies.ts';
+import { COUNT_SENT_BODIES, COUNT_STALE_ADDRESSES, SCRUB_SENT_BODIES } from '../lib/sent-bodies.ts';
 
 const has = (flag) => process.argv.includes(flag);
 const val = (flag) => { const i = process.argv.indexOf(flag); return i > -1 ? process.argv[i + 1] : null; };
@@ -48,9 +50,11 @@ const client = new pg.Client({ connectionString: url.toString(), ssl, applicatio
 await client.connect();
 try {
   const count = async () => (await client.query(COUNT_SENT_BODIES)).rows[0].n;
+  const stale = async () => (await client.query(COUNT_STALE_ADDRESSES)).rows[0].n;
   console.log(`database: ${local ? 'local' : 'remote'}`);
   const planned = await count();
-  console.log(`messages nobody will send again that still hold words: ${planned}`);
+  console.log(`messages nobody will send again that still hold words, or an address past 30 days: ${planned}`);
+  console.log(`  of which hold an address past 30 days: ${await stale()}`);
   if (!has('--apply')) {
     console.log('plan only — nothing changed. Re-run with --apply.');
   } else {
@@ -58,7 +62,7 @@ try {
     const cleared = (await client.query(SCRUB_SENT_BODIES)).rowCount;
     await client.query('commit');
     console.log(`cleared: ${cleared}`);
-    console.log(`still holding words: ${await count()}`);
+    console.log(`still to clear: ${await count()} (addresses past 30 days: ${await stale()})`);
   }
 } catch (e) {
   await client.query('rollback').catch(() => {});

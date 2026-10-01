@@ -15,6 +15,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { helpReplySms, stopReplySms } from '@/lib/messages';
 import { dispatch, numberHash, sendAndLog } from '@/lib/messaging';
+import { normaliseNumber } from '@/lib/number-hash';
 // Twilio signs the URL plus the sorted POST body with the auth token. The
 // check lives in lib/twilio-signature because the delivery-status callback
 // next door has to make the identical one (0065).
@@ -34,7 +35,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const from = params.From ?? '';
+  // The sender in the one form a number takes (lib/number-hash; John, 2 Oct,
+  // §5): the form we text, hash and reply to. A sender that is not an
+  // Australian mobile is no number we ever texted (D-63), so there is no STOP
+  // of ours for it to make and nothing to reply to: answered, and not read.
+  const from = normaliseNumber(params.From ?? '');
   // Carriers deliver STOP in any case and often with punctuation attached.
   const word = (params.Body ?? '').trim().toUpperCase().replace(/[^A-Z]/g, '');
   if (!from) return NextResponse.json({ ok: true });

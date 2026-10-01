@@ -169,13 +169,22 @@ if (baseline) {
     on conflict (file) do nothing`, ['0001_waitlist.sql', sha(readFileSync(join(dir, '0001_waitlist.sql'), 'utf8'))]);
   console.log('OK   0001_waitlist.sql recorded as applied (baseline; not run, no row touched)');
 }
+// A migration's notices are printed under its name (John, 2 Oct: 0169 prints
+// the count of messages it cleared, "and keep it with this note"). Only while
+// a migration file runs: the ledger's own `if not exists` chatter is not one.
+// Our migrations raise counts, never a row's contents, and Postgres's own
+// notices name objects, not data.
+let running = null;
+client.on('notice', (n) => { if (running) console.log(`     ${running}: ${n.message}`); });
 for (const f of pending) {
   const body = readFileSync(join(dir, f), 'utf8');
   const t0 = Date.now();
+  running = f;
   try {
     await q('begin');
     await q(`set local lock_timeout = '5s'`);
     await q(body);
+    running = null;
     await q(`insert into pitch_meta.applied_migration (file, sha256) values ($1, $2)`, [f, sha(body)]);
     await q('commit');
     console.log(`OK   ${f} (${Date.now() - t0} ms)`);

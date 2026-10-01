@@ -7,7 +7,7 @@ import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { AskHead, ParentPage, TickGlyph } from '@/components/parent-sheet';
 import { approveChange, issueShareLink } from './actions';
-import { requireRecordActor } from '@/lib/record-guard';
+import { recordAuthor, requireRecordActor } from '@/lib/record-guard';
 import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
@@ -50,8 +50,12 @@ export default async function PendingReview({ params, searchParams }: {
   }
 
   if (done) {
-    // approved state: confirmation + the share-link affordance
+    // approved state: confirmation + the share-link affordance — for an
+    // under-16's guardian only. A 16–17's guardian is never offered the press
+    // issueShareLink refuses them (doc 14 E15; fn_record_author, 0169).
     const issue = issueShareLink;
+    const author = await recordAuthor(recordId);
+    const mayIssue = author !== null && author !== 'no-session' && author.actor === 'guardian';
     return (
       <ParentPage>
         <HeaderMark back={{ href: '/home', label: 'Your family' }} />
@@ -67,12 +71,12 @@ export default async function PendingReview({ params, searchParams }: {
             <div className="pd-link pd-mono" style={{ fontSize: 13 }}>pitchfootball.com.au/p/{link}</div>
             <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500 }}>Expires in 90 days. You can pause or regenerate it any time.</div>
           </div>
-        ) : (
+        ) : mayIssue ? (
           // A step that gives nothing away: the charter primary, and the glow.
           <form action={issue}><input type="hidden" name="recordId" value={recordId} />
             <button type="submit" className="btn btn-primary fl-glow">Get the share link</button>
           </form>
-        )}
+        ) : null}
       </ParentPage>
     );
   }

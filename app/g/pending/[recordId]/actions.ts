@@ -13,7 +13,7 @@ import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 import { approvePendingVersion } from '@/lib/cv-build';
 import { db } from '@/lib/db';
-import { requireRecordActor } from '@/lib/record-guard';
+import { requireRecordActor, requireRecordAuthor } from '@/lib/record-guard';
 
 //
 // FORM FIELDS, NOT bind(). A server action passed straight to
@@ -37,9 +37,17 @@ export async function approveChange(formData: FormData) {
 
 // Share-link issuance (D-53): >=128-bit random token, stored hashed; the raw
 // token exists only in the guardian's hands. U16 default expiry 90 days.
+//
+// An under-16's guardian only, asked of the database (fn_record_author, 0169):
+// for a 16–17 the player shares and the guardian sees (John, 2 Oct, §5, the
+// principle of N-10; doc 14 E15). Their guardian keeps everything else
+// requireRecordActor gives them — this page, approving, the controls, the
+// off-switch — and loses only this press. A refused press goes home and
+// writes nothing, exactly as a stranger's does (D-77).
 export async function issueShareLink(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
-  const { personId } = await requireRecordActor(recordId, ['guardian']);
+  const { personId, actor } = await requireRecordAuthor(recordId);
+  if (actor !== 'guardian') redirect('/home');
   const raw = randomBytes(24).toString('base64url'); // 192 bits
   await db.query(
     `insert into share_token (record_id, token_hash, issued_by, expires_at)

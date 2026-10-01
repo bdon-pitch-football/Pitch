@@ -11890,7 +11890,8 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('em-dispatch: every email is rendered at dispatch from its own row — key, subject, words — and both parts go to the provider',
     [/const mail = channel === 'sms' \? null : renderEmail\(messageKey, subject, body\);/.test(msgCode),
      /sendEmail\(address, subject, mail\.text, replyToFor\(messageKey, process\.env\.EMAIL_REPLY_TO\), mail\.html\)/.test(msgCode),
-     /sendSms\(address, body\)/.test(msgCode)], [true, true, true]);
+     // MOVED (John, 2 Oct, §5): a text goes to Twilio in E.164, not as typed (ja-e164-3).
+     /sendSms\(smsTo, body\)/.test(msgCode)], [true, true, true]);
   // Open and click tracking are Resend DOMAIN settings, not an API field; the
   // code can only send nothing that asks for them (em-payload). The switch is
   // on the go-live list, where the person holding the account checks it.
@@ -12124,12 +12125,28 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
      await count('select count(*)::int as n from sms_meter where number_hash = $1', [rh]),
      await count('select coalesce(sum(cents),0)::int as n from sms_meter'), await count('select fn_sms_count_24h($1) as n', [other])],
     [true, 0, 0, centsBefore, 1]);
-  await db.query(`insert into sms_meter (number_hash, sent_at, cents) values ($1, now() - interval '30 hours', 8)`, [other]);
-  await db.query('select fn_purge_pending()');
-  check('jr-purge-4 (B-1): the daily job keeps a number\u2019s hash in the meter only for its 24-hour limit — older rows lose it, recent ones keep it, and no cent is lost',
-    [await count(`select count(*)::int as n from sms_meter where sent_at < now() - interval '25 hours' and number_hash <> '\\x00'::bytea`),
+  // MOVED (John, 2 Oct, §4; 0170): the meter forgets a number HOURLY, past
+  // 23 hours, so doc 23's "dropped after 24 hours" holds in the worst case.
+  // It was the daily job, past 25 hours (about 49 in the worst case). Same
+  // three assertions, at the new boundary, of the function the hourly job
+  // calls: a row just past 23 hours loses its fingerprint and one just inside
+  // keeps it (and still counts), and no cent is lost. The daily path is
+  // jr-purge-4b; the hourly schedule is ja-meter-1.
+  await db.query(`insert into sms_meter (number_hash, sent_at, cents) values ($1, now() - interval '30 hours', 8),
+    ($1, now() - interval '23 hours 5 minutes', 8), ($1, now() - interval '22 hours 55 minutes', 8)`, [other]);
+  let forgot = null;
+  try { forgot = await count('select fn_sms_forget_numbers() as n'); } catch { forgot = null; }
+  check('jr-purge-4 (B-1): the hourly job keeps a number\u2019s hash in the meter only for its 24-hour limit — every row past 23 hours loses it, one inside 23 hours keeps it (and still counts), and no cent is lost',
+    [forgot !== null && forgot >= 2,
+     await count(`select count(*)::int as n from sms_meter where sent_at < now() - interval '23 hours' and number_hash <> '\\x00'::bytea`),
      await count('select fn_sms_count_24h($1) as n', [other]), await count('select coalesce(sum(cents),0)::int as n from sms_meter')],
-    [0, 1, centsBefore + 8]);
+    [true, 0, 2, centsBefore + 24]);
+  await db.query(`insert into sms_meter (number_hash, sent_at, cents) values ($1, now() - interval '23 hours 5 minutes', 8)`, [other]);
+  await db.query('select fn_purge_pending()');
+  check('jr-purge-4b: and the daily job stays harmless — it forgets through the same function, with no window of its own, so there is one window, not two',
+    [await count(`select count(*)::int as n from sms_meter where sent_at < now() - interval '23 hours' and number_hash <> '\\x00'::bytea`),
+     /perform fn_sms_forget_numbers\(\)/.test(await procSrc('fn_purge_pending')), /sms_meter|hours'/.test(await procSrc('fn_purge_pending'))],
+    [0, true, false]);
 
   // ---- condition 4: the reason is unreadable by any club actor, and never reaches the child ----
   // A 16–17 already has an account, so their request is the case where a
@@ -12621,8 +12638,11 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
      /body = case when \$3 then '' else body end/.test(disp), /subject = case when \$3 then null else subject end/.test(disp)],
     [true, true, true]);
   // MOVED with S-4 (2 Oct): the statement also clears a row the sweep gave
-  // up on, and is lib/sent-bodies' byte for byte (bf-s4-1, bf-s4-2).
-  const scrub = /(update message_outbox\s+set body = '', subject = null\s+where \(sent_at is not null or failed_at is not null[^)]*\)[\s\S]*?;)/.exec(mig)?.[1];
+  // up on, and is lib/sent-bodies' byte for byte (bf-s4-1, bf-s4-2). MOVED
+  // again with John's §3 (2 Oct): it also blanks an address 30 days after
+  // its message ended, so the set list no longer ends at the subject (ja-addr).
+  // These rows are new, so every address stays, as asserted below.
+  const scrub = /(update message_outbox\s+set body = '', subject = null[\s\S]*?where \(sent_at is not null or failed_at is not null[^)]*\)[\s\S]*?;)/.exec(mig)?.[1];
   const mk = async (sent, failed, body) => (await one(
     `insert into message_outbox (message_key, channel, to_address, subject, body, sent_at, failed_at, provider_id)
      values ('doc15.§19','email','club@example.au','Ffion''s CV',$1, case when $2 then now() end, case when $3 then now() end,
@@ -12751,7 +12771,8 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('bf-s4-1: one statement in three places — 0169’s backfill is lib/sent-bodies’ SCRUB_SENT_BODIES byte for byte, the outbox sweep runs it after every production run’s sends, and scripts/scrub-sent-bodies.mjs runs it (and counts with its own predicate) and writes no statement of its own',
     [Boolean(sb) && mig169.includes(`${sb.SCRUB_SENT_BODIES};`),
      runsAt > sweep.indexOf("if (process.env.NODE_ENV !== 'production')") && runsAt > sweep.indexOf('sent += 1;') && sweep.indexOf('sent += 1;') > 0,
-     /import \{ COUNT_SENT_BODIES, SCRUB_SENT_BODIES \} from '\.\.\/lib\/sent-bodies\.ts';/.test(scrubScript),
+     // MOVED (John's §3, 2 Oct): it imports the address count too (ja-addr-3).
+     /import \{ COUNT_SENT_BODIES, (?:COUNT_STALE_ADDRESSES, )?SCRUB_SENT_BODIES \} from '\.\.\/lib\/sent-bodies\.ts';/.test(scrubScript),
      /update message_outbox|delete from|insert into/i.test(codeOnly(scrubScript)),
      Boolean(sb) && sb.COUNT_SENT_BODIES.endsWith(sb.SCRUB_SENT_BODIES.slice(sb.SCRUB_SENT_BODIES.indexOf(' where ')))],
     [true, true, true, false, true]);
@@ -12814,6 +12835,160 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('bf-erase-2: the paths are read before fn_erase_child, and every one goes to forgetPlayerPhoto only once the erasure has committed, before anyone is told it is done; the erasure still runs once, and the button removes no image of its own (photo7, erase6)',
     [steps.every((i) => i >= 0) && steps.every((i, k) => k === 0 || i > steps[k - 1]), (delAct.match(/fn_erase_child/g) ?? []).length, /removeImage/.test(act)],
     [true, 1, false]);
+}
+
+// ---------------------------------------------------------------------------
+// John's addenda rulings (2 Oct, JOHN-to-LEO-parents-change-only-and-addenda-
+// 4-5): an address is kept 30 days and then cleared (§3), the SMS meter
+// forgets a number hourly (§4; jr-purge-4 above), a 16–17's parent mints no
+// share link from /g/pending (§5; doc 14 E15), a number goes to Twilio in
+// E.164 (§5), and 0169 prints the count it cleared (§3). Each check red on the
+// code before it (report 2026-10-02-builder-john-addenda). Only E15 carries a
+// doc 14 row id (L4).
+// ---------------------------------------------------------------------------
+{
+  const one = async (sql, args = []) => (await db.query(sql, args)).rows[0];
+  const n = async (sql, args = []) => (await one(sql, args)).n;
+  const sb = await import('../lib/sent-bodies.ts').catch(() => null);
+
+  // ---- §3: an address is kept 30 days after its message ended, then blanked; the tries stay ----
+  // `days` ago it ENDED: sent, refused for good, or its last (sixth) try.
+  const out = async (o) => (await one(
+    `insert into message_outbox (message_key, channel, to_address, subject, body, attempts, created_at, last_attempt_at, sent_at, failed_at)
+     values ('doc15.§2', 'email', 'ja-parent@example.au', null, $1, $2, now() - make_interval(days => $3), now() - make_interval(days => $4),
+       case when $5 then now() - make_interval(days => $4) end, case when $6 then now() - make_interval(days => $4) end) returning id`,
+    [o.body ?? '', o.attempts, o.created ?? o.days, o.days, Boolean(o.sent), Boolean(o.failed)])).id;
+  const A = {
+    sentOld: await out({ days: 31, attempts: 1, sent: true }),
+    failedOld: await out({ days: 31, attempts: 2, failed: true }),
+    gaveUpOld: await out({ days: 31, attempts: 6, body: 'Ffion is 13. /p/ja-raw' }),
+    sentRecent: await out({ days: 29, attempts: 1, sent: true }),
+    // created 40 days ago, but it ended (its sixth try) 29 days ago: its clock starts at the end
+    gaveUpRecent: await out({ days: 29, created: 40, attempts: 6 }),
+    // a try left, last tried 40 days ago: not ended, so still to go — keeps everything
+    stillToGo: await out({ days: 40, attempts: 2, body: 'Ffion is 13.' }),
+  };
+  const stale0 = sb?.COUNT_STALE_ADDRESSES ? await n(sb.COUNT_STALE_ADDRESSES) : null;
+  const cleared = sb ? (await db.query(sb.SCRUB_SENT_BODIES)).rowCount : null;
+  const rowsA = await Promise.all(Object.values(A).map(async (id) => {
+    const r = await one('select to_address, attempts, body from message_outbox where id = $1', [id]);
+    return [r.to_address, r.attempts, r.body === ''];
+  }));
+  check('ja-addr-1: an address is blanked 30 days after its message ended — sent, refused for good, or given up on after six tries (from the last try, not the first) — and kept inside the 30 days; a message still to go keeps its address and words; every try count stays',
+    [rowsA, stale0 !== null && stale0 >= 3, cleared !== null && cleared >= 3],
+    [[['', 1, true], ['', 2, true], ['', 6, true], ['ja-parent@example.au', 1, true], ['ja-parent@example.au', 6, true], ['ja-parent@example.au', 2, false]], true, true]);
+  check('ja-addr-2: and it is idempotent — a second run clears nothing, and both counts read 0',
+    sb?.COUNT_STALE_ADDRESSES ? [(await db.query(sb.SCRUB_SENT_BODIES)).rowCount, await n(sb.COUNT_SENT_BODIES), await n(sb.COUNT_STALE_ADDRESSES)] : null, [0, 0, 0]);
+  const scrubScript = srcOf('scripts/scrub-sent-bodies.mjs');
+  const sweep = codeOnly(srcOf('app/api/jobs/outbox/route.ts'));
+  check('ja-addr-3: it runs where the words are cleared — 0169, the hourly sweep and the after-deploy script, one statement — and the script reports the address count too, a count only',
+    [Boolean(sb) && srcOf('supabase/migrations/0169_john_batch.sql').includes(`${sb.SCRUB_SENT_BODIES};`), sweep.includes('await db.query(SCRUB_SENT_BODIES);'),
+     /import \{ COUNT_SENT_BODIES, COUNT_STALE_ADDRESSES, SCRUB_SENT_BODIES \} from '\.\.\/lib\/sent-bodies\.ts';/.test(scrubScript),
+     /client\.query\(COUNT_STALE_ADDRESSES\)/.test(scrubScript), (scrubScript.match(/console\.log\(`[^`]*address[^`]*\$\{await stale\(\)\}/g) ?? []).length,
+     // the address count is the statement's own: "nobody will send it again" and "ended 30 days ago", word for word
+     Boolean(sb?.COUNT_STALE_ADDRESSES) && sb.COUNT_STALE_ADDRESSES.includes(sb.SCRUB_SENT_BODIES.split('\n')[3]?.trim())
+       && [sb.SCRUB_SENT_BODIES, sb.COUNT_STALE_ADDRESSES].every((q) => q.includes("coalesce(sent_at, failed_at, last_attempt_at, created_at) < now() - interval '30 days'"))],
+    [true, true, true, true, 2, true]);
+
+  // The support console counts an invitation's messages. Inside 30 days by
+  // the parent's address (three: §1 and §2 for this invitation, and an older
+  // §2 resend to the same address that carries no invitation); past them,
+  // by the invitation, and a blanked address matches nothing — not even an
+  // invitation with a blank number.
+  const supportSql = /db\.query\(\s*`(select pi\.id, pi\.first_name[\s\S]*?)`,/.exec(srcOf('app/ops/support/page.tsx'))?.[1];
+  // Approved 35 days ago, both channels confirmed (0045), as an approval is.
+  const approvedInv = async (first, guardian, phone, email) => (await one(
+    `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, sms_confirmed_at, email_confirmed_at, approved_at)
+     values ($1, $2, $3, $4, $5, now() - interval '35 days', now() - interval '35 days', now() - interval '35 days') returning id`,
+    [first, yearsAgo(13), guardian, phone, email])).id;
+  const inv = await approvedInv('Ffion', 'Gwen', '0400 727 272', 'ja-gwen@example.au');
+  const blank = await approvedInv('Bryn', 'Bea', '', null);
+  const msg = async (key, channel, to, invitation) => (await one(
+    `insert into message_outbox (message_key, channel, to_address, body, invitation_id, attempts, created_at, sent_at)
+     values ($1, $2, $3, '', $4, 1, now() - interval '20 days', now() - interval '20 days') returning id`, [key, channel, to, invitation])).id;
+  const sup = [await msg('doc15.§1', 'sms', '0400 727 272', inv), await msg('doc15.§2', 'email', 'ja-gwen@example.au', inv), await msg('doc15.§2', 'email', 'ja-gwen@example.au', null)];
+  const counted = async () => (supportSql ? await Promise.all([inv, blank].map(async (id) => (await one(`select messages from (${supportSql.replace('limit 10', '')}) s`, [id])).messages)) : null);
+  const inside = await counted();
+  await db.query(`update message_outbox set sent_at = now() - interval '31 days', created_at = now() - interval '31 days' where id = any($1::uuid[])`, [sup]);
+  if (sb) await db.query(sb.SCRUB_SENT_BODIES);
+  const past = await counted();
+  const blanked = await n(`select count(*)::int as n from message_outbox where id = any($1::uuid[]) and to_address = ''`, [sup]);
+  check('ja-addr-4: the support console still counts an invitation’s messages by the parent’s address for anything inside 30 days, and past them degrades gracefully — the invitation’s own messages are still counted, by the invitation, and a blanked address never counts towards anyone',
+    [Boolean(supportSql), inside, blanked, past], [true, [3, 0], 3, [2, 0]]);
+
+  // ---- §4: the meter forgets hourly (jr-purge-4 and 4b pin the function) ----
+  const vercel = JSON.parse(srcOf('vercel.json'));
+  const forgetAt = sweep.indexOf("await db.query('select fn_sms_forget_numbers() as n')");
+  check('ja-meter-1: the job that forgets a number past 23 hours runs every hour — the outbox job, scheduled "0 * * * *", calls it on every run, first, before the development return, so no fingerprint is held past 24 hours',
+    [vercel.crons.find((c) => c.path === '/api/jobs/outbox')?.schedule, forgetAt > sweep.indexOf('cronAllowed('),
+     forgetAt > 0 && forgetAt < sweep.indexOf('releaseWaitingTexts(') && forgetAt < sweep.indexOf("if (process.env.NODE_ENV !== 'production')")],
+    ['0 * * * *', true, true]);
+
+  // ---- §5 / doc 14 E15: a 16–17's guardian mints no share link from /g/pending ----
+  const author = async (who, rec) => (await one('select fn_record_author($1,$2) as a', [who, rec])).a;
+  const act = codeOnly(srcOf('app/g/pending/[recordId]/actions.ts'));
+  const issue = act.slice(act.indexOf('export async function issueShareLink('));
+  const steps = [issue.indexOf('await requireRecordAuthor(recordId)'), issue.indexOf("if (actor !== 'guardian') redirect('/home');"),
+    issue.indexOf('insert into share_token'), issue.indexOf("'share_issued'")];
+  check('E15: a 16–17’s guardian pressing "Get the share link" on /g/pending is refused before anything is written — the press asks the database’s author answer (fn_record_author: null for a 16–17’s guardian, ‘guardian’ for an under-16’s), goes home on anything but ‘guardian’, as requireRecordActor’s refusals do, and only then mints and logs',
+    [await author(ID.guardian, REC.nate), await author(ID.guardian, REC.georgia), await author(ID.nate, REC.nate),
+     steps.every((i) => i >= 0) && steps.every((i, k) => k === 0 || i > steps[k - 1]), /requireRecordActor\(/.test(issue)],
+    [null, 'guardian', 'self', true, false]);
+  const pend = codeOnly(srcOf('app/g/pending/[recordId]/page.tsx'));
+  check('E15b: the page offers the press only to the guardian the action would let mint, and the 16–17’s guardian keeps the page itself, approving, and fn_record_actor’s answer everywhere else (R12c)',
+    [/const author = await recordAuthor\(recordId\);\s*const mayIssue = author !== null && author !== 'no-session' && author\.actor === 'guardian';/.test(pend),
+     /\) : mayIssue \? \(\s*<form action=\{issue\}>/.test(pend), /await requireRecordActor\(recordId, \['guardian'\]\);/.test(pend),
+     /requireRecordActor\(recordId, \['guardian'\]\)/.test(act.slice(act.indexOf('export async function approveChange('), act.indexOf('export async function issueShareLink('))),
+     await recActor(ID.guardian, REC.nate)],
+    [true, true, true, true, 'guardian']);
+
+  // ---- §5: a number goes to Twilio in E.164 — one function for the send, the STOP webhook and the hash ----
+  const nh = await import('../lib/number-hash.ts');
+  const devKey = nh.numberHashKey({ NODE_ENV: 'development' });
+  const forms = ['0400 818 181', '0400818181', '+61400818181', '61 400 818 181', '+61 400-818-181', '(04) 0081 8181'];
+  const notMobiles = ['03 9876 5432', '+61398765432', '+447700900123', '0400 818 18', '04008181811', '', 'STOP', '+61 (0)400 818 181'];
+  check('ja-e164-1: every way an Australian mobile is written becomes +614… — and a landline, an overseas number, too few or too many digits, or anything else is not a number we text (null) and has no fingerprint',
+    [forms.map((x) => nh.normaliseNumber(x)), notMobiles.map((x) => nh.normaliseNumber(x)), notMobiles.map((x) => nh.keyedNumberHash(x, devKey))],
+    [forms.map(() => '+61400818181'), notMobiles.map(() => null), notMobiles.map(() => null)]);
+  check('ja-e164-2: and the hash still treats the typed and the international form as one number, keyed (jb-hash-1)',
+    forms.every((x) => nh.keyedNumberHash(x, devKey)?.equals(createHmac('sha256', devKey).update('+61400818181').digest())), true);
+  const msgCode = codeOnly(srcOf('lib/messaging.ts')), hook = codeOnly(srcOf('app/api/webhooks/sms/route.ts'));
+  const disp = msgCode.slice(msgCode.indexOf('export async function dispatch('), msgCode.indexOf('export async function releaseWaitingTexts('));
+  const sendCode = msgCode.slice(msgCode.indexOf('export async function send('), msgCode.indexOf('export async function dispatch('));
+  const refuse = sendCode.indexOf("if (!normaliseNumber(to.address)) return { queued: false, reason: 'sms_not_a_mobile' };");
+  const callers = tsSourceFiles().filter((f) => f !== 'lib/providers.ts' && /\bsendSms\(/.test(codeOnly(srcOf(f))));
+  check('ja-e164-3: dispatch() — the only door to Twilio — hands it the E.164 form and never the address as typed, and refuses a row whose address is not a mobile for good without calling the provider; send() refuses one before the fingerprint, the STOP list, the queue, the meter or the outbox',
+    [/const smsTo = mail === null \? normaliseNumber\(address\) : null;/.test(disp), /smsTo \? await sendSms\(smsTo, body\) : \{ ok: false, reason: 'not_a_mobile', permanent: true \}/.test(disp),
+     /sendSms\(address/.test(msgCode), callers,
+     refuse > 0 && ['numberHash(to.address)', 'from sms_opt_out', 'fn_sms_queue', 'insert into sms_meter', 'insert into message_outbox'].every((s) => refuse < sendCode.indexOf(s))],
+    [true, true, false, ['lib/messaging.ts'], true]);
+  check('ja-e164-4: the STOP webhook reads its sender through the same function before it hashes, records or replies — and a sender that is not a mobile is answered and not read',
+    [/import \{ normaliseNumber \} from '@\/lib\/number-hash';/.test(hook), /const from = normaliseNumber\(params\.From \?\? ''\);/.test(hook),
+     hook.indexOf('if (!from) return NextResponse.json({ ok: true });') < hook.indexOf('const h = numberHash(from);'), /params\.From/.test(hook.replace("normaliseNumber(params.From ?? '')", ''))],
+    [true, true, true, false]);
+
+  // ---- §3: 0169 prints the count it cleared, as a count only ----
+  const mig169 = srcOf('supabase/migrations/0169_john_batch.sql');
+  const block = sb ? /(do \$\$\ndeclare n int;\nbegin\n(update message_outbox[\s\S]*?;)\n  get diagnostics n = row_count;\n  raise notice '[^']*', n;\nend \$\$;)/.exec(mig169) : null;
+  await out({ days: 2, attempts: 1, sent: true, body: 'Ffion is 13. /p/ja-count' });
+  await out({ days: 2, attempts: 3, failed: true, body: 'Ffion is 13.' });
+  const notices = [];
+  let ran = null;
+  if (block) {
+    await db.query('begin');
+    const expect = await n(sb.COUNT_SENT_BODIES);
+    await db.exec(block[1], { onNotice: (m) => notices.push(m.message) });
+    ran = expect;
+    await db.query('rollback');
+  }
+  check('ja-count-1: 0169’s clean-up is its one statement, byte for byte, and it prints how many rows it cleared — one notice, a count and nothing else (no address, no words)',
+    [Boolean(block) && block[2] === `${sb.SCRUB_SENT_BODIES};`, notices, ran !== null && ran >= 2],
+    [true, [`0169 §4: cleared ${ran} message row(s).`], true]);
+  const applier = codeOnly(srcOf('scripts/apply-migrations.mjs'));
+  check('ja-count-2: and the release’s migration runner prints a migration’s notices under its file name, only while that file runs',
+    [/client\.on\('notice', \(n\) => \{ if \(running\) console\.log\(`     \$\{running\}: \$\{n\.message\}`\); \}\);/.test(applier),
+     applier.indexOf('running = f;') > 0 && applier.indexOf('running = f;') < applier.indexOf('await q(body);') && applier.indexOf('running = null;', applier.indexOf('await q(body);')) > 0],
+    [true, true]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

@@ -82,12 +82,15 @@
 -- message, and the moment it is refused for good. What stays is what the
 -- receipts and the funnel read (fn_record_delivery: provider id, channel,
 -- key, subject, invitation; the ops failure list: channel, time, status)
--- and the address, which the support console counts tries by. Here, the
--- rows already sent or closed lose theirs now — and the rows the outbox
--- sweep gave up on after its sixth try, which were never sent and never
--- closed and so kept theirs for good (safety review of John's batch, S-4,
--- 2 Oct). A message still waiting to go keeps its body, because that is
--- what will be sent. Development never dispatches, so /dev/outbox — the
+-- and the address, which the support console counts tries by, for 30 days
+-- (John, 2 Oct, §3: "Addresses are kept 30 days for support … then cleared.
+-- The try count stays."). Here, the rows already sent or closed lose theirs
+-- now — and the rows the outbox sweep gave up on after its sixth try, which
+-- were never sent and never closed and so kept theirs for good (safety
+-- review of John's batch, S-4, 2 Oct) — and any of them that ended more than
+-- 30 days ago loses its address too. A message still waiting to go keeps its
+-- body and address, because that is what will be sent. The count cleared is
+-- printed (a count only), as John asked when he approved this clean-up. Development never dispatches, so /dev/outbox — the
 -- inbox the suites read codes from — is untouched. The same statement runs
 -- after every sweep and from scripts/scrub-sent-bodies.mjs, which GO-LIVE
 -- re-runs straight after the deploy: between this migration and the new
@@ -219,8 +222,22 @@ comment on column sms_meter.number_hash is
 -- lib/sent-bodies.ts SCRUB_SENT_BODIES, byte for byte (the permission suite
 -- pins it): the outbox sweep runs it after every run and
 -- scripts/scrub-sent-bodies.mjs re-runs it straight after the deploy, so the
--- three cannot drift. It clears a row the sweep gave up on, too (S-4).
+-- three cannot drift. It clears a row the sweep gave up on, too (S-4), and an
+-- address 30 days after its message ended (John, 2 Oct, §3).
+--
+-- The count it cleared is printed, as a count and nothing else (John, 2 Oct:
+-- "0169 clearing the rows already sent is approved after the fact. Log the
+-- count it cleared, and keep it with this note."). scripts/apply-migrations
+-- prints a migration's notices, so it lands in the release log beside the
+-- file's OK line.
+do $$
+declare n int;
+begin
 update message_outbox
-   set body = '', subject = null
+   set body = '', subject = null,
+       to_address = case when coalesce(sent_at, failed_at, last_attempt_at, created_at) < now() - interval '30 days' then '' else to_address end
  where (sent_at is not null or failed_at is not null or attempts >= 6)
-   and (body <> '' or subject is not null);
+   and (body <> '' or subject is not null or (to_address <> '' and coalesce(sent_at, failed_at, last_attempt_at, created_at) < now() - interval '30 days'));
+  get diagnostics n = row_count;
+  raise notice '0169 §4: cleared % message row(s).', n;
+end $$;
