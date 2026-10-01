@@ -187,3 +187,8 @@ Production opened with no club listings, so a club person had nothing to claim a
 ## 1 October: doc 15 §39's recipient (BUZ: "option A, keep going")
 
 - §39 "Your club is verified" goes to the club's administrator who claimed the page, only when the club named them on the call (proved adult address, never the club's published address). The TD-handover case is John's to rule on (`LEO-to-JOHN-PD3-not-now-and-the-s39-recipient-1-oct.md`).
+
+## 1 October: the two domains, decided (BUZ: "I am not changing my email. Leave as @pitch-football.com and my website domain will stay as www.pitchfootball.com.au")
+
+- E5 (spec K) is closed: the contact address stays burak.donmez@pitch-football.com (D-169) and the site stays pitchfootball.com.au. No alias domain, no forwarding, no change to SUPPORT_EMAIL. Do not raise it again.
+- Also recorded today: BUZ's go on the PD-3 deletion ("Go on the Not now deletion, hand to Leo") and its label "No, end this request"; the six copy fixes ("Yes to all, hand to Leo"); spec K emails ("Yes to all four, hand to Leo").
