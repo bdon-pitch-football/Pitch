@@ -3086,6 +3086,11 @@ const georgia = ids.children.georgia;
     await r.text();
     return [r.status, (r.headers.get('location') ?? '').replace(BASE, '')];
   };
+  // The tab title follows the page title: the parent reads N5's "Send
+  // {first}'s CV"; the child keeps "Send your CV" (HoPD, 1 Oct).
+  const tab = async (who) => /<title>([^<]*)<\/title>/.exec((await get(`/send/${deniz.record_id}`, who)).html)?.[1] ?? '';
+  check('C-P4-r8: the parent\u2019s tab says "Send Deniz\u2019s CV"; the child\u2019s own says "Send your CV"',
+    [/^Send Deniz(’|&#x27;|&rsquo;)s CV/.test(await tab(alex)), /^Send your CV/.test(await tab(deniz.child_id))], [true, true]);
   check('C-P4-r7: and a parent who opens a 16–17’s Register interest or Send anyway lands on /home, as before',
     [await landing(`/register-interest/${nate.record_id}?club=${riverside}`), await landing(`/send/${nate.record_id}`)],
     [[307, '/home'], [307, '/home']]);

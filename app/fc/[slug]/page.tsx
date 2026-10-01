@@ -117,7 +117,8 @@ export default async function ClubPage({ params, searchParams }: {
            (select id from development_record where person_id = $1) as my_record,
            (select coalesce(json_agg(json_build_object(
                'name', ch.first_name, 'band', fn_age_band(ch.dob),
-               'recordId', (select id from development_record where person_id = ch.id))), '[]'::json)
+               'recordId', (select id from development_record where person_id = ch.id),
+               'paused', coalesce((select profile_paused from guardian_setting where child_id = ch.id), false))), '[]'::json)
             from guardianship_link g join person ch on ch.id = g.child_id
             where g.guardian_id = $1 and g.approved_at is not null and g.revoked_at is null) as children`,
         [me],
@@ -125,8 +126,10 @@ export default async function ClubPage({ params, searchParams }: {
     : null;
   // A parent registers an UNDER-16. A 16-17 goes on a register themselves (doc
   // 14 N4), so offering the parent a button for them only led to a bounce.
+  // Nor while the child's page is paused: Send and Register both answer
+  // 'none' then, so the button was a dead end to /home (HoPD, 1 Oct).
   const children: { name: string; recordId: string | null; band: string }[] = (viewer?.children ?? []).filter(
-    (k: { recordId: string | null; band: string }) => k.recordId && k.band === 'u16',
+    (k: { recordId: string | null; band: string; paused: boolean }) => k.recordId && k.band === 'u16' && !k.paused,
   );
   const myRecord: string | null = viewer?.my_record ?? null;
 

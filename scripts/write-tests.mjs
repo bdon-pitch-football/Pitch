@@ -1474,7 +1474,14 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     (f) => f.fields.childId === georgia && f.fields.paused === want);
   const pause = await (pauseForm('true'))();
   check('p19b: her parent has a pause switch to press', Boolean(pause), true);
+  // HoPD, 1 Oct: a club page offers a parent no Send or Register button for a
+  // PAUSED under-16 — both answer 'none' then, so the button was a dead end.
+  const gRec = ids.children.georgia.record_id;
+  const fcDoors = async () => [...(await get('/fc/riverside-fc', parent)).html.matchAll(new RegExp(`href="/(send|register-interest)/${gRec}`, 'g'))].length > 0;
+  const doorsBefore = await fcDoors();
   await postTo(`/g/controls/${georgia}`, parent, pause);
+  check('p19-fc: before the pause the club page offers her parent her buttons; paused, it offers none',
+    [doorsBefore, await fcDoors()], [true, false]);
   const pausedRegister = (await get('/club/register', club)).html;
   // Links, not the bare id: React keys the row by its registration id in the
   // page payload, and a key is not a door — the club already sees the row.

@@ -18,7 +18,7 @@
 // address cannot be reviewed. Both fields stay editable. A club that asked
 // Pitch to stop gets a plain "can't send", and no reason.
 import { notFound, redirect } from 'next/navigation';
-import { requireRecordActor } from '@/lib/record-guard';
+import { recordActor, requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
 import { PlayerFrame } from '@/components/player-shell';
 import { HeaderMark } from '@/components/Wordmark';
@@ -28,7 +28,18 @@ import CopyLink from '@/components/cv/CopyLink';
 import { Check, G, Outcome, TextLink, Who } from '@/components/player-parts';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Send your CV', robots: { index: false, follow: false } };
+// The tab title follows the page's own title: a parent sending for their
+// under-16 reads N5's approved "Send {first}'s CV" (HoPD, 1 Oct). Anyone the
+// guard would turn away gets the plain title — no name in it.
+export async function generateMetadata({ params }: { params: Promise<{ recordId: string }> }) {
+  const { recordId } = await params;
+  const found = await recordActor(recordId);
+  const state = found ? await sendState(recordId, found.personId) : null;
+  return {
+    title: state?.mode === 'guardian' ? `Send ${state.firstName}\u2019s CV` : 'Send your CV',
+    robots: { index: false, follow: false },
+  };
+}
 
 const Shell = ({ children }: { children: React.ReactNode }) => (
   <PlayerFrame active="send">
