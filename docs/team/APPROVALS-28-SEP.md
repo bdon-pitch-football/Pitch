@@ -192,3 +192,4 @@ Production opened with no club listings, so a club person had nothing to claim a
 
 - E5 (spec K) is closed: the contact address stays burak.donmez@pitch-football.com (D-169) and the site stays pitchfootball.com.au. No alias domain, no forwarding, no change to SUPPORT_EMAIL. Do not raise it again.
 - Also recorded today: BUZ's go on the PD-3 deletion ("Go on the Not now deletion, hand to Leo") and its label "No, end this request"; the six copy fixes ("Yes to all, hand to Leo"); spec K emails ("Yes to all four, hand to Leo").
+- **Demo script (docs/DEMO-TD.md, the unclaimed story), BUZ: "approve the demo line":** "Claiming gets you the page and your squads. It cannot make you verified — only the phone call does that, and trial notices and anything about a child wait until it happens."
