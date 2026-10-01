@@ -3,6 +3,7 @@
 // Who presses send depends on the band AT THE MOMENT OF SENDING (G1):
 //
 //   under 16  the child composes; the request routes to the guardian (D-91)
+//             — and the guardian, composing here themselves, sends it (C-P4)
 //   16–17     the player sends; every guardian is told, every time (§22)
 //   18+       the player sends alone
 //
@@ -59,23 +60,39 @@ export async function composeSend(formData: FormData) {
   const stopped = (await db.query('select fn_send_blocked($1) as b', [address])).rows[0]?.b === true;
   if (stopped) redirect(`/send/${recordId}?blocked=1`);
 
-  if (state.mode === 'self') {
+  if (state.mode === 'self' || state.mode === 'guardian') {
     // L38-L41, on the same terms as the guardian's door: counted per sending
     // actor, and a limited send lands on exactly the page a real one does.
     const withinLimit = await checkRate(`send:actor:${personId}`, SEND_DAILY_CAP, 24 * 60 * 60);
     if (!withinLimit) {
       await db.query(`insert into abuse_signal (actor_id, reason, surface) values ($1,'rate_limited','send')`, [personId]);
       // The player's own list must not show this as sent (John, 17 Sep; 0046).
-      // The page they land on stays identical to a real send (U-3, J40).
-      await db.query(`insert into send_held (person_id, club_name) values ($1,$2)`, [personId, clubName.slice(0, 60)]);
+      // The page they land on stays identical to a real send (U-3, J40). A
+      // parent has no list here, so nothing is held for them: /g/send's
+      // limited press writes nothing either.
+      if (state.mode === 'self') await db.query(`insert into send_held (person_id, club_name) values ($1,$2)`, [personId, clubName.slice(0, 60)]);
       await answerNoSoonerThan(startedAt);
       redirect(`/send/${recordId}?sent=1`);
     }
+    // The request is the record's own: requested_by is the player, who for
+    // 'self' is the sender. C-P4: a parent's send is the request their child
+    // would have composed — the child the initiating actor, as L2 records it
+    // and as erasure finds it (0084) — dispatched at once by the parent,
+    // exactly as /g/send's press dispatches it. No share_request_created and
+    // no §20: nobody asked anybody, and "{name} asked you to send their CV"
+    // would be false on the parent's log.
     const { rows } = await db.query(
-      `insert into share_request (record_id, requested_by, destination) values ($1,$2,$3) returning id`,
-      [recordId, personId, `${clubName} <${address}>`],
+      `insert into share_request (record_id, requested_by, destination)
+       select dr.id, dr.person_id, $2 from development_record dr where dr.id = $1
+       returning id`,
+      [recordId, `${clubName} <${address}>`],
     );
     const done = await dispatchShareRequest(rows[0].id, personId);
+    // A parent's request that did not go must not sit on their home as one
+    // their child is waiting on: it was never the child's to wait on.
+    if (!done && state.mode === 'guardian') {
+      await db.query(`delete from share_request where id = $1 and dispatched_at is null`, [rows[0].id]);
+    }
     await answerNoSoonerThan(startedAt);
     // The switch can be turned off between the page and the press. Fail
     // closed, onto the screen that says so, rather than claiming a send.

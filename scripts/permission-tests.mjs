@@ -6174,6 +6174,63 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     /requireRecordActor\(recordId, \['self'\]\)[\s\S]*?state\.mode !== 'self'/.test(sendActs), true);
 }
 
+// C-P4 (BUZ, 1 Oct): a parent who opens Send or Register interest for their
+// under-16 sends it themselves, from that screen. lib/send-state chooses the
+// screen; the query and the decision are read out of that file and run here
+// against Postgres, so these checks ask the code that ships, not a copy of it
+// (L23). The branch must key on the database's confirmed guardian — never on
+// the viewer simply not being the child, which is what 'ask whoever is
+// looking' amounted to. Fresh people, so no earlier block's pause, erasure or
+// revocation can decide the answer.
+{
+  const ssSrc = srcOf('lib/send-state.ts');
+  const ssSql = /db\.query\(\s*`([\s\S]*?)`/.exec(ssSrc)?.[1] ?? '';
+  const chain = ssSrc.slice(ssSrc.indexOf('let mode: SendMode;') + 'let mode: SendMode;'.length, ssSrc.indexOf('return { firstName'));
+  const decide = new Function('s', `let mode;${chain}\nreturn mode;`);
+  const modeOf = async (rec, viewer) => decide((await db.query(ssSql, [rec, viewer])).rows[0]);
+
+  const P = {}; const R = {};
+  for (const k of ['child', 'teen', 'adult', 'otherChild', 'parent', 'revoked', 'unapproved', 'stranger']) P[k] = crypto.randomUUID();
+  for (const k of ['child', 'teen', 'adult', 'otherChild']) R[k] = crypto.randomUUID();
+  const dob = { child: yearsAgo(14), teen: yearsAgo(17), adult: yearsAgo(20), otherChild: yearsAgo(13) };
+  for (const k of Object.keys(P)) {
+    await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`, [P[k], `cp4 ${k}`, dob[k] ?? yearsAgo(40)]);
+  }
+  for (const [g, ch, approved, revoked] of [
+    [P.parent, P.child, true, false], [P.parent, P.teen, true, false],
+    [P.revoked, P.child, true, true], [P.unapproved, P.child, false, false],
+    [P.stranger, P.otherChild, true, false]]) {
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at, revoked_at)
+      values ($1,$2, case when $3 then now() end, case when $4 then now() end)`, [g, ch, approved, revoked]);
+  }
+  for (const k of Object.keys(R)) {
+    await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['AM'])`, [R[k], P[k]]);
+  }
+  // In the coach's own squad, so the coach reads the record in full and the
+  // check below is about sending, not about reading.
+  await mem(P.child, CLUB.riverside, SQUAD.u15, 'player');
+
+  check('C-P4-1: a confirmed parent opening their under-16’s Send or Register interest gets their own screen (\'guardian\'), Postgres already lets them send it, and the child in their own seat still gets \'ask\'',
+    [await modeOf(R.child, P.parent), await qDispatch(P.parent, R.child), await modeOf(R.child, P.child)],
+    ['guardian', true, 'ask']);
+  check('C-P4-2: a revoked guardian, an unapproved one, another family’s parent, a coach who reads the record in full and the club’s TD get no screen at all',
+    [await modeOf(R.child, P.revoked), await modeOf(R.child, P.unapproved), await modeOf(R.child, P.stranger),
+     await level(ID.coachV, P.child), await modeOf(R.child, ID.coachV), await modeOf(R.child, ID.td)],
+    ['none', 'none', 'none', 'full', 'none', 'none']);
+  check('C-P4-3: a 16–17 and an adult are unchanged — the player sends, and the parent of a 16–17 has no screen (the club page offers them none)',
+    [await modeOf(R.teen, P.teen), await modeOf(R.teen, P.parent), await modeOf(R.adult, P.adult)],
+    ['self', 'none', 'self']);
+  await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1,true,$2)`, [P.child, P.parent]);
+  const paused = [await modeOf(R.child, P.parent), await modeOf(R.child, P.child)];
+  await db.query(`update guardian_setting set profile_paused=false where child_id=$1`, [P.child]);
+  check('C-P4-4: a paused under-16 has no screen for the parent either (L11)', paused, ['none', 'none']);
+  const code = codeOnly(chain);
+  check('C-P4-5: the parent\'s branch keys on the database\'s confirmed guardian (fn_record_actor) whom fn_can_dispatch lets send — never on the viewer not being the child',
+    [/fn_record_actor\(\$2, dr\.id\) = 'guardian' as is_guardian/.test(ssSql), /s\.is_guardian && s\.can\) mode = 'guardian'/.test(code),
+     /!\s*s\.is_self|s\.is_self\s*(===|!==|==|!=)\s*false/.test(code), /s\.band === 'u16' && s\.is_self\) mode = 'ask'/.test(code)],
+    [true, true, false, true]);
+}
+
 // ---------------------------------------------------------------------------
 // The kill switches (D-94 §10; 0044). LAST in the file on purpose: the
 // revoke-all check switches off every link in this database.
@@ -10459,7 +10516,7 @@ const componentFilesAll = [];
     'app/club/page-edit/actions.ts': "the club's own players-wanted notice, to remove it",
     'app/club/invite/[registrationId]/page.tsx': 'the trial a registration already carries',
     'app/g/interest/[requestId]/page.tsx': 'the trial a request already carries',
-    'app/g/interest/[requestId]/actions.ts': 'the trial a request already carries',
+    'lib/interest-dispatch.ts': 'the trial a request already carries (both doors that dispatch one, C-P4)',
     'lib/invitations.ts': 'the trial an invitation already carries',
   };
   const direct = tsSourceFiles().filter((f) => READS.test(codeOnly(srcOf(f))));

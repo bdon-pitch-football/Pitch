@@ -6,6 +6,11 @@
 // Which screen renders is decided by lib/send-state.ts — the SAME function the
 // action reads — so the page can never offer a send the action will refuse.
 //
+// C-P4 (BUZ, 1 Oct; N5's words): a confirmed parent who opens this for their
+// under-16 — the club page's "Send {first}'s CV to {club}" — sends it from
+// here, in their own words, rather than reading the child's and approving
+// their own request by email. The child in their own seat is unchanged.
+//
 // From a club's own page (?club=<slug>) the club and its address are filled
 // in (0160; John, 30 Sep §2): the address only when the database says it is a
 // role address, checked within 90 days and not stopped, and then IN FULL —
@@ -67,6 +72,17 @@ export default async function SendCv({ params, searchParams }: {
       </Shell>
     );
   }
+  // C-P4: the parent's, on the same terms — and with /g/send's own line, the
+  // link being the child's for the parent to pause or replace.
+  if (state.mode === 'guardian' && sent) {
+    return (
+      <Shell>
+        <Outcome tone="accent" kicker="Sent" title="Sent. It’s gone to the club as a link.">
+          You can pause or replace {state.firstName}&rsquo;s link any time — the club&rsquo;s access stops when you do.
+        </Outcome>
+      </Shell>
+    );
+  }
 
   // L6: told plainly that sending is off — about their own account, and
   // nothing about who switched it (doc 15 §22).
@@ -104,6 +120,8 @@ export default async function SendCv({ params, searchParams }: {
   }
 
   const self = state.mode === 'self';
+  // C-P4: the parent sends this one themselves, so it is sent, not asked for.
+  const parent = state.mode === 'guardian';
   const act = composeSend;
   return (
     <Shell>
@@ -112,7 +130,7 @@ export default async function SendCv({ params, searchParams }: {
           it, never inside it. */}
       <form action={act} className="door" style={{ marginTop: 0 }}><input type="hidden" name="recordId" value={recordId} />
         <div className="pg-titles">
-          <h1 className="pg-title">Send my CV</h1>
+          <h1 className="pg-title">{parent ? `Send ${state.firstName}’s CV` : 'Send my CV'}</h1>
           <div className="pg-sub">Pick who it goes to. Your CV goes as a link, so it always shows what&rsquo;s on your page today.</div>
         </div>
         {error && <div className="card card-amber c-say" style={{ fontSize: 12.5 }}>Check the club name and the email address — a wrong address just goes nowhere.</div>}
@@ -149,13 +167,17 @@ export default async function SendCv({ params, searchParams }: {
           <Who icon={G.send()} title="You send this yourself">
             {state.band === '16_17' ? 'Your parent is told each time you send. ' : ''}Switch the link off later and the club&rsquo;s copy stops working.
           </Who>
+        ) : parent ? (
+          <Who icon={G.send()} title="You send this one">
+            You can pause or replace {state.firstName}&rsquo;s link any time — the club&rsquo;s access stops when you do.
+          </Who>
         ) : (
           <Who guard icon={G.people()} title="Your parent sends this one">
             You&rsquo;re under 16, so we ask your parent to check the address and press send. It&rsquo;s the same for every club.
           </Who>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button type="submit" className="btn btn-primary fl-glow">{self ? 'Send it now' : 'Ask my parent to send it'}</button>
+          <button type="submit" className="btn btn-primary fl-glow">{self || parent ? 'Send it now' : 'Ask my parent to send it'}</button>
           <TextLink href="/home">Cancel</TextLink>
         </div>
       </form>

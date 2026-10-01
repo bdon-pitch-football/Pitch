@@ -3002,6 +3002,95 @@ const georgia = ids.children.georgia;
     [gSend.status, vis(gSend.html).includes('Send it to Quarrymead United'), vis(gSend.html).includes('We can\u2019t send to this club')], [200, true, false]);
 }
 
+// ---- C-P4 (BUZ, 1 Oct): a parent sends for their under-16 themselves --------
+// From the club page's "Send {first}'s CV" and "Register {first}'s interest"
+// the parent used to land on the child's screen, read the child's words, and
+// approve their own request by email. Now they read the approved words (N5;
+// README "six fixes" 3) and none of the child's — and the child, in their own
+// seat, reads exactly what they read before. Each page is read as text, the
+// form section only (L11).
+{
+  const nate = ids.children.nate, deniz = ids.children.deniz, alex = ids.people.alex;
+  const riverside = ids.clubs['riverside-fc'];
+  const vis = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ')
+    .replace(/&rsquo;/g, '’').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const form = (h) => { const m = /<form[^>]*class="door"[\s\S]*?<\/form>/.exec(h.replace(/<script[\s\S]*?<\/script>/g, ' ')); return m ? m[0] : ''; };
+  const glows = (h) => (h.replace(/<script[\s\S]*?<\/script>/g, ' ').match(/\bfl-glow\b/g) ?? []).length;
+  const says = (t, list) => list.filter((w) => t.includes(w));
+  const CHILD_SEND = ['Send my CV', 'Ask my parent to send it', 'Your parent sends this one', 'You’re under 16'];
+  const PARENT_SEND = ['Send Deniz’s CV', 'You send this one', 'You can pause or replace Deniz’s link any time — the club’s access stops when you do.', 'Send it now'];
+
+  const pSend = await get(`/send/${deniz.record_id}?club=brindlewood-rovers-sc`, alex);
+  const pSendT = vis(form(pSend.html));
+  check('C-P4-r1: a parent on their under-16’s Send reads the approved words — "Send Deniz’s CV", "You send this one" with /g/send’s line, "Send it now" — and none of the child’s, with one glow and no "Your links"',
+    [pSend.status, says(pSendT, PARENT_SEND), says(pSendT, CHILD_SEND), glows(pSend.html), /Your links/.test(vis(pSend.html)),
+     /<button[^>]*class="btn btn-primary fl-glow"[^>]*>Send it now<\/button>/.test(pSend.html)],
+    [200, PARENT_SEND, [], 1, false, true]);
+  const cSend = await get(`/send/${deniz.record_id}?club=brindlewood-rovers-sc`, deniz.child_id);
+  const cSendT = vis(form(cSend.html));
+  check('C-P4-r2: the under-16 in their own seat reads exactly what they did — "Send my CV", the purple "Your parent sends this one", "Ask my parent to send it" — and none of the parent’s words',
+    [cSend.status, says(cSendT, CHILD_SEND), says(cSendT, PARENT_SEND.slice(1)), /class="row-ic guard"/.test(form(cSend.html))],
+    [200, CHILD_SEND, [], true]);
+
+  const RI_PARENT = ['Register Deniz’s interest', 'Where Deniz would play', 'What the club receives',
+    'A link to Deniz’s CV — not a file, and not a copy. They cannot download or keep one.',
+    'If they invite Deniz to a trial, that invitation comes to you first.',
+    'No contact details for you or Deniz — not now, and not if they reply.',
+    'They see the name, the age and the club — that is how a coach picks a squad. No birthday, no school, no address, and no way to contact either of you.',
+    'You can take Deniz off the register any time from Deniz’s controls. Their access ends when you do.',
+    'Put Deniz on the register'];
+  // The send-a-CV words, the child's words, and the lines that spoke to the
+  // child — left out, not reworded.
+  const RI_NOT = ['Send it now', 'You send this one', 'pause or replace', 'Ask my parent', 'Your parent', 'You’re under 16',
+    'Register your interest', 'Where you’d play', 'keep a register of players who want to be there', 'Filled in from your CV',
+    'Being on a register', 'Put me on the register', 'A link to your CV', 'Take yourself off',
+    'You can take Deniz off the register any time. Their access ends when you do.'];
+  const pReg = await get(`/register-interest/${deniz.record_id}?club=${riverside}`, alex);
+  const pRegT = vis(form(pReg.html));
+  check('C-P4-r3: a parent on their under-16’s Register interest reads the approved words and /g/interest’s rows, the who-line once, one glow on "Put Deniz on the register" — and none of Send’s words or the child’s',
+    [pReg.status, says(pRegT, RI_PARENT), says(pRegT, RI_NOT), pRegT.split('off the register any time').length - 1, glows(pReg.html),
+     /<button[^>]*class="btn btn-primary fl-glow"[^>]*>Put Deniz on the register<\/button>/.test(pReg.html.replace(/<!-- -->/g, ''))],
+    [200, RI_PARENT, [], 1, 1, true]);
+  const cReg = await get(`/register-interest/${deniz.record_id}?club=${riverside}`, deniz.child_id);
+  const cRegT = vis(form(cReg.html));
+  const RI_CHILD = ['Register your interest', 'keep a register of players who want to be there', 'Where you’d play', 'Filled in from your CV',
+    'Football only. Your parent reads this before it goes anywhere.', 'Your parent sends this one', 'Being on a register', 'Ask my parent to send it'];
+  check('C-P4-r4: the under-16 in their own seat reads exactly what they did on Register interest — and none of the parent’s words',
+    [cReg.status, says(cRegT, RI_CHILD), says(cRegT, RI_PARENT)], [200, RI_CHILD, []]);
+
+  // The outcomes: the parent's are their own page's Notice, made of words
+  // already approved; the child's "asked" is unchanged.
+  const pSent = vis((await get(`/send/${deniz.record_id}?sent=1`, alex)).html);
+  const pOn = vis((await get(`/register-interest/${deniz.record_id}?club=${riverside}&registered=1`, alex)).html);
+  const cAsked = vis((await get(`/send/${deniz.record_id}?asked=1`, deniz.child_id)).html);
+  check('C-P4-r5: after the press the parent reads "Sent." or "Deniz is on Riverside FC’s register." with /g/send’s and /g/interest’s own lines, and the child’s "asked" is as it was',
+    [pSent.includes('Sent Sent. It’s gone to the club as a link. You can pause or replace Deniz’s link any time — the club’s access stops when you do.'),
+     /Switch your link off/.test(pSent),
+     pOn.includes('On the register Deniz is on Riverside FC’s register. You can take Deniz off the register any time from Deniz’s controls. Their access ends when you do.'),
+     cAsked.includes('Waiting on your parent Asked. Nothing has been sent yet. Your parent checks the address and presses send.')],
+    [true, false, true, true]);
+
+  // A 16–17 goes on a register and sends for themselves; their parent's
+  // button only ever led to /home. The club page draws one for the under-16
+  // and none for the 16–17 — and the parent landing there anyway still gets
+  // /home.
+  for (const slug of ['riverside-fc', 'brindlewood-rovers-sc']) {
+    const page = (await get(`/fc/${slug}`, alex)).html.replace(/<!-- -->/g, '');
+    check(`C-P4-r6: on /fc/${slug} the parent of an under-16 and a 16–17 gets a button for the under-16 and none for the 16–17`,
+      [new RegExp(`href="/(send|register-interest)/${deniz.record_id}`).test(page),
+       new RegExp(`href="/(send|register-interest)/${nate.record_id}`).test(page), /(Send|Register) Nate(’|&rsquo;)s/.test(page)],
+      [true, false, false]);
+  }
+  const landing = async (path) => {
+    const r = await fetch(BASE + path, { redirect: 'manual', headers: { cookie: cookieFor(alex) } });
+    await r.text();
+    return [r.status, (r.headers.get('location') ?? '').replace(BASE, '')];
+  };
+  check('C-P4-r7: and a parent who opens a 16–17’s Register interest or Send anyway lands on /home, as before',
+    [await landing(`/register-interest/${nate.record_id}?club=${riverside}`), await landing(`/send/${nate.record_id}`)],
+    [[307, '/home'], [307, '/home']]);
+}
+
 // ---- the sitemap (D-95, doc 32 A6; builder, 28 Sep) -------------------------
 // What search engines are told to crawl. Club pages that are on Pitch —
 // claimed OR verified, the same test the club page uses — published adult

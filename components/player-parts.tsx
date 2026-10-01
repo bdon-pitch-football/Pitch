@@ -49,12 +49,12 @@ export function Check({ ok, children }: { ok: boolean; children: ReactNode }) {
 }
 
 /** Who presses send. Purple when it is the parent (the guardian state). */
-export function Who({ guard, icon, title, children }: { guard?: boolean; icon: ReactNode; title: string; children: ReactNode }) {
+export function Who({ guard, icon, title, children }: { guard?: boolean; icon: ReactNode; title?: string; children: ReactNode }) {
   return (
     <div className="card who">
       <div className={guard ? 'row-ic guard' : 'row-ic'}>{icon}</div>
       <div className="row-main">
-        <div className="row-t">{title}</div>
+        {title && <div className="row-t">{title}</div>}
         <div className="c-s2">{children}</div>
       </div>
     </div>

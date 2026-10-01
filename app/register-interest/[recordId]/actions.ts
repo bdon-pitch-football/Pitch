@@ -2,6 +2,7 @@
 // Register interest (D-108), in every band (D-153).
 //
 //   under 16  the child composes; the request routes to the guardian (D-91)
+//             — and the guardian, composing here themselves, sends it (C-P4)
 //   16–17     the player registers themselves (doc 14 N4)
 //   18+       the player registers alone (N5)
 //
@@ -20,6 +21,7 @@ import { legalStamp } from '@/lib/legal-stamp';
 import { signupHoldEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 import { isUuid } from '@/lib/ids';
+import { dispatchInterestRequest } from '@/lib/interest-dispatch';
 import { requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
 
@@ -82,6 +84,34 @@ export async function composeInterest(formData: FormData) {
          where id = $1 and club_id = $2`,
         [trialRaw, clubId])).rows[0] ?? null)
     : null;
+
+  // C-P4 (BUZ, 1 Oct): a parent registering their under-16 does it from
+  // here. The request their child would have composed, dispatched in the same
+  // transaction by the one function /g/interest's press calls — so the club's
+  // register and the parent's log get exactly what an approval gives them,
+  // and a request that cannot go leaves nothing behind. No 'requested' row:
+  // nobody asked anybody.
+  if (state.mode === 'guardian') {
+    let done: string | null = null;
+    const client = await db.connect();
+    try {
+      await client.query('begin');
+      const { rows } = await client.query(
+        `insert into registration_request (record_id, club_id, squad_target, positions, note, trial_notice_id)
+         values ($1,$2,$3,$4,$5,$6) returning id`,
+        [recordId, clubId, squadId, positions, note || null, trial?.id ?? null],
+      );
+      done = await dispatchInterestRequest(client, rows[0].id, personId);
+      await client.query(done ? 'commit' : 'rollback');
+    } catch (e) {
+      await client.query('rollback');
+      throw e;
+    } finally {
+      client.release();
+    }
+    if (!done) redirect('/home');
+    redirect(`/register-interest/${recordId}?club=${clubId}&registered=1`);
+  }
 
   if (state.mode === 'self') {
     const existing = await db.query(
