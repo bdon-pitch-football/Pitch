@@ -20,7 +20,8 @@
 //     the guardian approves (lib/cv-build buildSnapshot reads
 //     person.photo_path).
 //   - under 16, uploaded by a guardian: their own upload is its own approval
-//     (John F14, 1 Oct) — lib/cv-build publishGuardianChange.
+//     (John F14, 1 Oct) — lib/cv-build publishGuardianChange, which sets the
+//     page's photo and nothing else (parent's change only, 2 Oct).
 // The photo it replaces is deleted only once nothing still shows it.
 //
 // Under 18 the photo goes to the PRIVATE bucket (John's ruling §1, BUZ 1 Oct):
@@ -94,7 +95,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ rec
   for (const old of new Set(replaced)) await forgetPlayerPhoto(recordId, old);
   // F14: a guardian's photo is their own change, published as approved by the
   // one function every guardian edit goes through (it forgets the photos the
-  // old versions named). A child's photo waits for the next approval (S-3).
-  if (who.actor === 'guardian') await publishGuardianChange(recordId, who.personId);
+  // old versions named) — the photo and nothing else on the page (parent's
+  // change only, 2 Oct). A child's photo waits for the next approval (S-3).
+  if (who.actor === 'guardian') await publishGuardianChange(recordId, who.personId, { set: { photoPath: rel } });
   return NextResponse.redirect(new URL(`/build/${recordId}?saved=1`, request.url), 303);
 }

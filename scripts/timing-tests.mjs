@@ -708,9 +708,11 @@ if (runs('J61')) {
 if (runs('jr-undo')) {
   // A child's record (S-1, 2 Oct): an undo is live only while the person it
   // was issued to is that child's guardian, and the minter issues to one
-  // (app/dev/undo). The timing suite is last and is followed by a reseed, so
-  // the switch-offs its live presses write to Nate's history go with it.
-  const record = ids.children.nate.record_id;
+  // (app/dev/undo). Deniz's, not Nate's: E10 above pauses Nate, and a paused
+  // child's record takes no new link (fn_can_dispatch), so the minter is
+  // refused. The timing suite is last and is followed by a reseed, so the
+  // switch-offs its live presses write to Deniz's history go with it.
+  const record = ids.children.deniz.record_id;
   const mint = async (kind, n) => {
     const r = await fetch(`${BASE}/dev/undo?record=${record}&kind=${kind}&n=${n}`, { method: 'POST' });
     if (!r.ok) throw new Error(`/dev/undo answered ${r.status} — is this the dev app?`);

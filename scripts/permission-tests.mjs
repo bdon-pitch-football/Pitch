@@ -5450,16 +5450,17 @@ check('store5: the bucket is configurable, not hardcoded to one project',
   // shares. And only an author uploads (N-10, doc 14 R12): a 16–17's
   // guardian may not set their photo.
   check('photo8: the route asks authorship (recordAuthor, fn_record_author) and publishes a guardian\u2019s photo only through publishGuardianChange — no second publish path exists',
-    [/const who = await recordAuthor\(recordId\);/.test(photoRoute), /if \(who\.actor === 'guardian'\) await publishGuardianChange\(recordId, who\.personId\);/.test(photoRoute),
+    [/const who = await recordAuthor\(recordId\);/.test(photoRoute), /if \(who\.actor === 'guardian'\) await publishGuardianChange\(recordId, who\.personId, \{ set: \{ photoPath: rel \} \}\);/.test(photoRoute),
      /recordActor\(/.test(codeOnly(photoRoute)), /publishGuardianPhoto/.test(cvBuildSrc + photoRoute)],
     [true, true, false, false]);
   const pgc = /export async function publishGuardianChange[\s\S]*?\n\}\n/.exec(cvBuildSrc)?.[0] ?? '';
   // MOVED with B-1's race (2 Oct): the photos are read inside publishWith,
   // after the record's lock and before the snapshot (bf-race-1).
-  const pw = /async function publishWith[\s\S]*?\n\}\n/.exec(cvBuildSrc)?.[0] ?? '';
+  // MOVED again (2 Oct): publishPatch, the patch that replaced the snapshot.
+  const pw = /async function publishPatch[\s\S]*?\n\}\n/.exec(cvBuildSrc)?.[0] ?? '';
   check('photo9: publishGuardianChange reads the photos the old versions named under lock before it publishes, and forgets them only after the commit',
-    [/\(\{ result, replaced \} = await publishWith\(client, recordId, guardianId, season\)\);/.test(pgc),
-     /for update', \[recordId\]\);\s*const replaced = await versionPhotos\(client, recordId\);\s*const content = await buildSnapshot/.test(pw),
+    [/\(\{ result, replaced \} = await publishPatch\(client, recordId, guardianId, patch, season\)\);/.test(pgc),
+     /for update', \[recordId\]\);\s*const replaced = await versionPhotos\(client, recordId\);\s*const \{ rows \} = await client\.query\(\s*'select fn_publish_guardian_change/.test(pw),
      /client\.release\(\);\s*\}[\s\S]*for \(const r of replaced\) await forgetPlayerPhoto\(recordId, r\);/.test(pgc)],
     [true, true, true]);
 
@@ -12472,7 +12473,9 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now()), ($3,$2,now()), ($1,$4,now())`, [gA, kid, gB, teen]);
   await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,'{"about":"Left back."}','approved',$2,now())`, [rec, gB]);
   const box0 = await n('select count(*)::int as n from message_outbox');
-  const published = (await one(`select fn_publish_guardian_change($1,$2,'{"about":"Left back, both feet."}'::jsonb) as r`, [rec, gA])).r;
+  // MOVED (2 Oct): the publication takes the guardian's one change as a
+  // patch (parent's change only), not a whole page.
+  const published = (await one(`select fn_publish_guardian_change($1,$2,'{"set":{"about":"Left back, both feet."}}'::jsonb) as r`, [rec, gA])).r;
   const versions = (await db.query(`select status, content->>'about' as about, approved_by, created_by from profile_version where record_id = $1 order by created_at`, [rec])).rows;
   const evs = (await db.query(`select event, actor_id, subject_id, detail from consent_event where detail->>'record_id' = $1`, [rec])).rows;
   check('jb-f14-1: a guardian’s own change to an under-16’s page publishes as the approved version at once, approved by that guardian; the old one is superseded and nothing waits',
@@ -12494,18 +12497,21 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('jb-f14-2b: and /g/controls draws BUZ’s line from it, verbatim, never the child’s "submitted a change"',
     [ctl.includes("e.event === 'edit_approved' && e.kind === 'guardian_edit' ? (e.who ? `${e.who} changed the page.`"), /'who', e\.who/.test(ctl)],
     [true, true]);
-  // A change of the child's already waiting: nothing publishes unreviewed.
-  await db.query(`insert into profile_version (record_id, content, status) values ($1,'{"about":"CHILD WAITING"}','pending')`, [rec]);
-  const joined = (await one(`select fn_publish_guardian_change($1,$2,'{"about":"CHILD WAITING plus parent"}'::jsonb) as r`, [rec, gB])).r;
-  check('jb-f14-3: with the child’s own change still waiting, a guardian’s change joins it and NOTHING publishes — the approved page stands and no event is written (restrictive, pending John)',
+  // A change of the child's already waiting. MOVED (2 Oct, parent's change
+  // only): the guardian's change still publishes at once, and is patched onto
+  // the waiting version too; on the field both touched, the guardian's wins.
+  // It asserted the restrictive answer pending John — nothing published.
+  await db.query(`insert into profile_version (record_id, content, status) values ($1,'{"about":"CHILD WAITING","foot":"Left"}','pending')`, [rec]);
+  const joined = (await one(`select fn_publish_guardian_change($1,$2,'{"set":{"about":"Parent, while the child waits"}}'::jsonb) as r`, [rec, gB])).r;
+  check('jb-f14-3: with the child’s own change still waiting, a guardian’s change still publishes at once and is patched onto the waiting version — the guardian’s value wins on the field both touched, the rest of the child’s change still waits, one event',
     [joined, (await one(`select content->>'about' as a from profile_version where record_id=$1 and status='approved'`, [rec])).a,
-     (await one(`select content->>'about' as a from profile_version where record_id=$1 and status='pending'`, [rec])).a,
+     (await one(`select content - 'x' as c from profile_version where record_id=$1 and status='pending'`, [rec])).c,
      await n(`select count(*)::int as n from consent_event where detail->>'record_id' = $1`, [rec])],
-    ['pending', 'Left back, both feet.', 'CHILD WAITING plus parent', 1]);
+    ['published', 'Parent, while the child waits', { foot: 'Left', about: 'Parent, while the child waits' }, 2]);
   check('jb-f14-4: R8/R12 — the publication is an under-16’s alone: a 16–17’s guardian, a stranger and the child themselves publish nothing, and nothing is written',
-    [(await one(`select fn_publish_guardian_change($1,$2,'{}'::jsonb) as r`, [teenRec, gA])).r,
-     (await one(`select fn_publish_guardian_change($1,$2,'{}'::jsonb) as r`, [rec, ID.coachV])).r,
-     (await one(`select fn_publish_guardian_change($1,$2,'{}'::jsonb) as r`, [rec, kid])).r,
+    [(await one(`select fn_publish_guardian_change($1,$2,'{"set":{"about":"x"}}'::jsonb) as r`, [teenRec, gA])).r,
+     (await one(`select fn_publish_guardian_change($1,$2,'{"set":{"about":"x"}}'::jsonb) as r`, [rec, ID.coachV])).r,
+     (await one(`select fn_publish_guardian_change($1,$2,'{"set":{"about":"x"}}'::jsonb) as r`, [rec, kid])).r,
      await n('select count(*)::int as n from profile_version where record_id = $1', [teenRec])],
     [null, null, null, 0]);
   check('jb-f14-5: fn_publish_guardian_change is not executable by PUBLIC (0166’s pattern)',
@@ -12513,9 +12519,11 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const cvb = codeOnly(srcOf('lib/cv-build.ts'));
   const guardianBranch = cvb.slice(cvb.indexOf("author.actor === 'guardian'"), cvb.indexOf("} else if (band.rows[0]?.band === 'u16')"));
   check('jb-f14-6: in saveCvDraft the guardian’s branch publishes and writes no edit_submitted; the edit-waiting email goes only when the child’s own edit waits; and the step is exported for the photo route as publishGuardianChange',
-    [/publishWith\(client, recordId, author\.personId, draft\.season\)/.test(guardianBranch), /edit_submitted|editWaitingEmail|waitsOnGuardian = true/.test(guardianBranch),
+    // MOVED (2 Oct): the branch patches the form's fields (publishPatch), and
+    // each clips/more action hands over its one entry, added or removed.
+    [/publishPatch\(client, recordId, author\.personId, \{ set: fields \}, draft\.season\)/.test(guardianBranch), /edit_submitted|editWaitingEmail|waitsOnGuardian = true/.test(guardianBranch),
      /if \(!waitsOnGuardian\) return;[\s\S]*send\(editWaitingEmail/.test(cvb), /export async function publishGuardianChange\(/.test(cvb),
-     ['app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/actions.ts'].map((f) => (codeOnly(srcOf(f)).match(/if \(actor === 'guardian'[^)]*\) await publishGuardianChange\(recordId, personId\)/g) ?? []).length)],
+     ['app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/actions.ts'].map((f) => (codeOnly(srcOf(f)).match(/if \(actor === 'guardian'[^)]*\)\s*(?:\{\s*)?await publishGuardianChange\(recordId, personId,\s*\{ (?:add|remove): \{ list: /g) ?? []).length)],
     [true, false, true, true, [2, 4]]);
 
   // ---- §6: the undo follows its link, and is written down ----
@@ -12658,21 +12666,23 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const one = async (sql, args = []) => (await db.query(sql, args)).rows[0];
   const n = async (sql, args = []) => (await one(sql, args)).n;
 
-  // ---- B-1, the race: the record's lock before the snapshot ----
+  // ---- B-1, the race: the record's lock before anything is read ----
+  // MOVED (2 Oct): the snapshot is gone from a guardian's publication (the
+  // patch replaced it); the lock still comes first, the photos under it, then
+  // the database's patch, and the author is asked again under the lock.
   const cvb = codeOnly(srcOf('lib/cv-build.ts'));
-  const pw = /async function publishWith[\s\S]*?\n\}\n/.exec(cvb)?.[0] ?? '';
+  const pw = /async function publishPatch[\s\S]*?\n\}\n/.exec(cvb)?.[0] ?? '';
   const at = (re) => pw.search(re);
-  const order = [at(/from development_record where id = \$1 for update/), at(/versionPhotos\(client, recordId\)/),
-    at(/buildSnapshot\(client, recordId, season\)/), at(/fn_publish_guardian_change\(/)];
+  const order = [at(/from development_record where id = \$1 for update/), at(/versionPhotos\(client, recordId\)/), at(/fn_publish_guardian_change\(/)];
   const save = cvb.slice(cvb.indexOf('export async function saveCvDraft('), cvb.indexOf('export async function approvePendingVersion('));
-  check('bf-race-1: a guardian’s publication takes the record’s row lock FIRST, then reads the versions’ photos, then the snapshot, then asks fn_publish_guardian_change — one transaction, so a child’s save in flight finishes before anything is read and its change is in the snapshot that joins its pending version, never overwritten by one taken before it',
+  const fnSrc = await procSrc('fn_publish_guardian_change');
+  check('bf-race-1: a guardian\u2019s publication takes the record\u2019s row lock FIRST, then reads the versions\u2019 photos, then asks fn_publish_guardian_change — one transaction — and the function asks who is writing only once it holds the same lock',
     [order.every((i) => i >= 0) && order.every((i, k) => k === 0 || i > order[k - 1]),
-     (cvb.match(/versionPhotos\(client, recordId\)/g) ?? []).length, (cvb.match(/buildSnapshot\(client, recordId, /g) ?? []).length,
-     /\(\{ result, replaced \} = await publishWith\(client, recordId, guardianId, season\)\);/.test(cvb),
-     /await client\.query\('begin'\);\s*await client\.query\(\s*`update development_record set/.test(save)],
-    // the photos are read in publishWith alone; the snapshot there and in the
-    // child's own save, whose first statement holds the same row
-    [true, 1, 2, true, true]);
+     (cvb.match(/versionPhotos\(client, recordId\)/g) ?? []).length,
+     /\(\{ result, replaced \} = await publishPatch\(client, recordId, guardianId, patch, season\)\);/.test(cvb),
+     /await client\.query\('begin'\);\s*await client\.query\(\s*`update development_record set/.test(save),
+     fnSrc.indexOf('for update') > -1 && fnSrc.indexOf('for update') < fnSrc.indexOf('fn_record_author(')],
+    [true, 1, true, true, true]);
 
   // ---- S-1: the undo re-checks guardianship ----
   const page = srcOf('app/undo/[token]/page.tsx');
@@ -12814,6 +12824,148 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('bf-erase-2: the paths are read before fn_erase_child, and every one goes to forgetPlayerPhoto only once the erasure has committed, before anyone is told it is done; the erasure still runs once, and the button removes no image of its own (photo7, erase6)',
     [steps.every((i) => i >= 0) && steps.every((i, k) => k === 0 || i > steps[k - 1]), (delAct.match(/fn_erase_child/g) ?? []).length, /removeImage/.test(act)],
     [true, 1, false]);
+
+  // ---- B-1, parent's change only (BUZ, 2 Oct; John confirmed with four
+  // conditions): a guardian's save publishes their one change, as a patch ----
+  {
+    const pk = crypto.randomUUID(), pr = crypto.randomUUID(), pg1 = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,'Pia',$2), ($3,'Piers',$4)`, [pk, yearsAgo(13), pg1, yearsAgo(41)]);
+    await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [pr, pk]);
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [pg1, pk]);
+    const PAGE = {
+      firstName: 'Pia', lastName: 'Q', photoPath: `pitch-private:player/${pr}-${'0a'.repeat(16)}.jpg`, positions: ['CM'], squadNumber: 8, foot: 'Right',
+      about: 'Midfielder.', surfacedStats: ['apps'], stats: { apps: 3 }, club: 'Riverside FC', locality: 'Riverside VIC',
+      highlights: [{ title: 'Approved clip', url: 'https://youtu.be/a' }], highlightsUsed: 1,
+      achievements: [{ title: 'B&F 2025', detail: null }], otherFootball: [], previousClubs: [{ orgName: 'Kingsway Rovers FC', period: '2024' }],
+    };
+    await db.query(`insert into profile_version (record_id, content, status, approved_at) values ($1,$2,'approved',now())`, [pr, JSON.stringify(PAGE)]);
+    const approvedNow = async () => (await one(`select content from profile_version where record_id=$1 and status='approved'`, [pr])).content;
+    const pendingNow = async () => (await one(`select content from profile_version where record_id=$1 and status='pending'`, [pr]))?.content ?? null;
+    const publish = async (patch) => (await one(`select fn_publish_guardian_change($1,$2,$3::jsonb) as r`, [pr, pg1, JSON.stringify(patch)])).r;
+    // jsonb hands keys back in its own order; compare by content, not order.
+    const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object'
+      ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
+    // What moved between two versions: every top-level key whose value changed.
+    const moved = (a, b) => [...new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})])].filter((k) => !same(canon(a?.[k]), canon(b?.[k]))).sort();
+    const steps = [];
+    const step = async (patch) => {
+      const before = await approvedNow();
+      const r = await publish(patch);
+      const after = await approvedNow();
+      steps.push([r, moved(before, after)]);
+      return [before, after];
+    };
+    const [f0, f1] = await step({ set: { positions: ['CM', 'LW'], squadNumber: 10, foot: 'Left', about: 'Midfielder. Both feet.', surfacedStats: ['apps', 'goals'], stats: { apps: 4, goals: 2 } } });
+    const [h0, h1] = await step({ add: { list: 'highlights', item: { title: 'Parent clip', url: 'https://youtu.be/p' } } });
+    const [a0, a1] = await step({ remove: { list: 'achievements', item: { title: 'B&F 2025', detail: null } } });
+    await step({ set: { photoPath: `pitch-private:player/${pr}-${'0b'.repeat(16)}.jpg` } });
+    const [c0, c1] = await step({ add: { list: 'previousClubs', item: { orgName: 'Northern United SC', period: '2025' } } });
+    await step({ remove: { list: 'highlights', item: { title: 'A clip only the child has', url: 'https://youtu.be/k' } } });
+    check('bf-patch-1: the approved page differs from before by EXACTLY the guardian’s change and nothing else (John’s condition 1) — the form’s fields, one clip added, one achievement removed, the photo, one previous club — each list by that one entry; and a removal of something the page never had changes nothing and publishes nothing',
+      [steps, canon(f1?.highlights), canon(h1?.highlights?.slice(0, 1)), same(h1?.highlights?.slice(0, -1), h0?.highlights), a1?.achievements, canon(c1?.previousClubs), same(c0?.previousClubs, c1?.previousClubs?.slice(1)),
+       await n(`select count(*)::int as n from profile_version where record_id=$1`, [pr])],
+      [[['published', ['about', 'foot', 'positions', 'squadNumber', 'stats', 'surfacedStats']], ['published', ['highlights', 'highlightsUsed']],
+        ['published', ['achievements']], ['published', ['photoPath']], ['published', ['previousClubs']], ['unchanged', []]],
+       canon(PAGE.highlights), canon(PAGE.highlights), true, [], canon([{ orgName: 'Northern United SC', period: '2025' }, { orgName: 'Kingsway Rovers FC', period: '2024' }]), true, 6]);
+
+    // Condition 2: a clash. The child's waiting change and the guardian's
+    // patch touch the same field; the guardian's value wins in both, the
+    // rest of the child's change still waits, and the child is told nothing.
+    const pending0 = { ...(await approvedNow()), about: 'CHILD: I want this said.', foot: 'Right', highlights: [...((await approvedNow())?.highlights ?? []), { title: 'Child clip', url: 'https://youtu.be/c' }] };
+    await db.query(`insert into profile_version (record_id, content, status) values ($1,$2,'pending')`, [pr, JSON.stringify(pending0)]);
+    const box0 = await n('select count(*)::int as n from message_outbox');
+    const ev0 = await n(`select count(*)::int as n from consent_event where subject_id = $1 or actor_id = $1`, [pk]);
+    const r2 = await publish({ set: { about: 'PARENT: decided.' } });
+    const [ap2, pe2] = [await approvedNow(), await pendingNow()];
+    check('bf-patch-2: a clash on one field — the guardian’s value wins in the approved page AND the waiting version; the child’s other waiting changes still wait, untouched and unpublished; nothing goes to anyone and nothing names the child as told (John’s condition 2)',
+      [r2, ap2?.about, pe2?.about, moved(pending0, pe2), pe2?.foot, pe2?.highlights?.at(-1)?.title, ap2?.highlights?.some((x) => x.title === 'Child clip'),
+       (await n('select count(*)::int as n from message_outbox')) - box0,
+       (await n(`select count(*)::int as n from consent_event where subject_id = $1 or actor_id = $1`, [pk])) - ev0],
+      ['published', 'PARENT: decided.', 'PARENT: decided.', ['about'], 'Right', 'Child clip', false, 0, 1]);
+
+    // A removal reaches the page at once while the child's change waits (S-2),
+    // and comes off the waiting version too.
+    const r3 = await publish({ remove: { list: 'highlights', item: { title: 'Parent clip', url: 'https://youtu.be/p' } } });
+    const [ap3, pe3] = [await approvedNow(), await pendingNow()];
+    check('bf-patch-3: while a child’s change waits, a guardian’s removal is off the approved page at once and off the waiting version too — the child’s own waiting clip still waits',
+      [r3, ap3?.highlights?.map((x) => x.title), ap3?.highlightsUsed, pe3?.highlights?.map((x) => x.title)],
+      ['published', ['Approved clip'], 1, ['Approved clip', 'Child clip']]);
+
+    // Condition 3: approving the child's change afterwards keeps every change
+    // of the guardian's — approval promotes the waiting version as it stands.
+    const apSrc = codeOnly(srcOf('lib/cv-build.ts'));
+    const approveFn = apSrc.slice(apSrc.indexOf('export async function approvePendingVersion('), apSrc.indexOf('export async function forgetPlayerPhoto('));
+    await db.query(`update profile_version set status='superseded' where record_id=$1 and status='approved'`, [pr]);
+    await db.query(`update profile_version set status='approved', approved_at=now() where record_id=$1 and status='pending'`, [pr]);
+    const ap4 = await approvedNow();
+    check('bf-patch-4: approving the child’s waiting change afterwards never reverts the guardian’s — the approved page keeps the guardian’s words, photo, previous club and removals — because approval promotes the waiting version as it stands and rebuilds nothing from the live record (John’s condition 3)',
+      [ap4?.about, ap4?.photoPath, ap4?.previousClubs?.length, ap4?.achievements, ap4?.highlights?.map((x) => x.title),
+       /buildSnapshot|publishPatch/.test(approveFn), /update profile_version set status='approved', approved_by=\$2, approved_at=now\(\) where id=\$1/.test(approveFn)],
+      ['PARENT: decided.', `pitch-private:player/${pr}-${'0b'.repeat(16)}.jpg`, 2, [], ['Approved clip', 'Child clip'], false, true]);
+
+    // No page yet: nothing publishes. A waiting version is patched; with none,
+    // the function says so and writes nothing, and the caller opens one.
+    const nk = crypto.randomUUID(), nr = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,'Nell',$2)`, [nk, yearsAgo(12)]);
+    await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [nr, nk]);
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [pg1, nk]);
+    const pubN = async (patch) => (await one(`select fn_publish_guardian_change($1,$2,$3::jsonb) as r`, [nr, pg1, JSON.stringify(patch)])).r;
+    const none = await pubN({ set: { about: 'First words.' } });
+    const nothing = await n(`select count(*)::int as n from profile_version where record_id=$1`, [nr]);
+    await db.query(`insert into profile_version (record_id, content, status) values ($1,'{"about":"Child first draft"}','pending')`, [nr]);
+    const waiting = await pubN({ add: { list: 'achievements', item: { title: 'Parent added', detail: null } } });
+    check('bf-patch-5: an under-16 with no approved page publishes nothing — with no version at all the function writes nothing and says "no_page" (the caller opens the waiting version, so the first approval carries it), and a waiting version takes the patch while nothing is approved and nothing is logged',
+      [none, nothing, waiting, canon((await one(`select content from profile_version where record_id=$1 and status='pending'`, [nr])).content),
+       await n(`select count(*)::int as n from profile_version where record_id=$1 and status='approved'`, [nr]),
+       await n(`select count(*)::int as n from consent_event where subject_id=$1`, [nk]),
+       /if \(result === 'no_page'\) \{\s*await client\.query\(\s*`insert into profile_version \(record_id, content, status\) values \(\$1, \$2, 'pending'\)/.test(pw)],
+      ['no_page', 0, 'pending', canon({ about: 'Child first draft', achievements: [{ title: 'Parent added', detail: null }] }), 0, 0, true]);
+
+    // The patch can say only one guardian change: never a name, a club, a
+    // list a guardian does not edit, or two changes at once.
+    const refused = async (patch) => { try { await db.query(`select fn_cv_patch('{}'::jsonb, $1::jsonb)`, [JSON.stringify(patch)]); return false; } catch { return true; } };
+    check('bf-patch-6: fn_cv_patch refuses anything that is not one guardian’s one change — a name, a club, the locality, a list a guardian does not edit, two changes at once, nothing at all',
+      [await refused({ set: { firstName: 'X' } }), await refused({ set: { club: 'X' } }), await refused({ set: { locality: 'X' } }),
+       await refused({ add: { list: 'membership', item: { a: 1 } } }), await refused({ set: { about: 'a' }, add: { list: 'highlights', item: { title: 't', url: 'u' } } }),
+       await refused({}), await refused({ set: { about: 'fine' } })],
+      [true, true, true, true, true, true, false]);
+
+    // Nothing in a guardian's save copies the whole live record across: the
+    // snapshot is built in two places only — the child's own save, and a
+    // first page that has none (publishPatch's no_page) — and every item a
+    // guardian hands over is cut by the same expression the snapshot uses.
+    const cvbAll = srcOf('lib/cv-build.ts');
+    const usesItems = ['app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/actions.ts']
+      .map((f) => (srcOf(f).match(/\$\{ITEM_SQL\.\w+\}|\$\{experienceItem\(kind\)\}/g) ?? []).length);
+    check('bf-patch-7: no guardian save copies the whole live record — the snapshot is built only for the child’s own save and a first page with nothing approved — the form’s patch and the snapshot share one expression for the fields, and every clip, achievement and other-football entry a guardian adds or removes is cut by the snapshot’s own expression',
+      [(cvb.match(/buildSnapshot\(client, recordId, /g) ?? []).length, /if \(result === 'no_page'\)[\s\S]{0,300}buildSnapshot\(client, recordId, season\)/.test(cvb),
+       /async function publishWith/.test(cvb), (cvbAll.match(/\$\{FORM_FIELDS_SQL\}/g) ?? []).length,
+       ['highlights', 'achievements', 'otherFootball', 'previousClubs'].every((k) => cvbAll.includes(`\${ITEM_SQL.${k}}`)), usesItems],
+      [2, true, false, 2, true, [2, 5]]);
+  }
+
+  // ---- doc 15 §30 goes to every guardian (D-51; John, 2 Oct) ----
+  {
+    const ewt = /export const EDIT_WAITING_TO = `([\s\S]*?)`;/.exec(srcOf('lib/cv-build.ts'))?.[1];
+    const k = crypto.randomUUID(), r = crypto.randomUUID();
+    const gs = Array.from({ length: 5 }, () => crypto.randomUUID());
+    await db.query(`insert into person (id, first_name, dob) values ($1,'Wren',$2)`, [k, yearsAgo(13)]);
+    await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [r, k]);
+    const mails = ['a-guardian@example.com', 'b-guardian@example.com', 'revoked@example.com', 'unapproved@example.com', null];
+    for (const [i, g] of gs.entries()) {
+      await db.query(`insert into person (id, first_name, dob, email) values ($1,'G',$2,$3)`, [g, yearsAgo(40), mails[i]]);
+      // A guardian's address is one they proved (0056, L21).
+      if (mails[i]) await proveAddress(g);
+    }
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at, revoked_at) values
+      ($1,$6,now(),null), ($2,$6,now(),null), ($3,$6,now(),now()), ($4,$6,null,null), ($5,$6,now(),null)`, [...gs, k]);
+    const cvbS = codeOnly(srcOf('lib/cv-build.ts'));
+    const sendBlock = cvbS.slice(cvbS.indexOf('if (!waitsOnGuardian) return;'), cvbS.indexOf('export const EDIT_WAITING_TO'));
+    check('bf-30-1: the edit-waiting email (doc 15 §30) goes to EVERY approved, unrevoked guardian with an address, one message each — never the revoked one, the unapproved one or one with no address — and the query no longer stops at one',
+      [ewt ? (await db.query(ewt, [r])).rows.map((x) => [x.email, x.first_name]) : null, /limit 1/.test(ewt ?? 'limit 1'),
+       /for \(const r of g\.rows[^)]*\) \{\s*await send\(editWaitingEmail\(r\.first_name, recordId\), \{ address: r\.email \}\);\s*\}/.test(sendBlock)],
+      [[['a-guardian@example.com', 'Wren'], ['b-guardian@example.com', 'Wren']], false, true]);
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

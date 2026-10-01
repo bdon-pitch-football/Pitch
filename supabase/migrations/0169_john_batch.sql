@@ -24,17 +24,49 @@
 -- doc 14 gives a 16–17's guardian. Every caller was checked (report, 1 Oct).
 -- The app asks this through requireRecordAuthor, on every /build surface.
 --
--- 2 · F14: A GUARDIAN'S OWN EDIT IS ITS OWN APPROVAL.
+-- 2 · F14: A GUARDIAN'S OWN EDIT IS ITS OWN APPROVAL — AND ONLY THEIR OWN.
 -- "D-119 exists so that a child's edit returns to a guardian. It was never
 -- meant to make a guardian approve themselves." A guardian's change to an
 -- under-16's page used to land as a pending version, logged as "{child}
 -- submitted a change", and emailed that guardian to come and approve it.
--- fn_publish_guardian_change(record, guardian, content) is the publication:
+--
+-- PARENT'S CHANGE ONLY (BUZ, 2 Oct; John confirmed the same day, with four
+-- conditions). As first built, a guardian's save snapshotted the WHOLE live
+-- record and published it — so a clip, an achievement, other football or a
+-- photo the child had added, which no guardian had seen, reached every club
+-- on the back of the parent's unrelated save (safety review of John's batch,
+-- B-1). John: "it turned a guardian's edit into an approval of the child's."
+-- Now the publication is a PATCH: the one change the guardian made, and
+-- nothing else, applied to the approved version. fn_cv_patch(content, patch)
+-- is the patch, and it can say only three things:
+--   {"set": {field: value, ...}}   the build form's fields the guardian saved
+--                                  (positions, squadNumber, foot, about,
+--                                  surfacedStats, stats) or a photo
+--                                  (photoPath) — those keys and no others;
+--   {"add": {"list": l, "item": i}}     one clip, achievement or other-football
+--   {"remove": {"list": l, "item": i}}  entry, by the snapshot's own shape —
+--                                  highlights, achievements, otherFootball,
+--                                  previousClubs and no other list.
+-- fn_publish_guardian_change(record, guardian, patch) applies it:
 --   · only for a person fn_record_author calls this record's guardian (so
---     only for an under-16 — doc 14 R8: the machinery is the u16's alone);
---   · the content becomes the approved version at once, with that guardian
---     as its approver, and the old approved version is superseded — one
---     approved version per record, as ever (0002's unique index);
+--     only for an under-16 — doc 14 R8: the machinery is the u16's alone),
+--     asked AFTER the record's row lock, in the same transaction;
+--   · to the PENDING version too, if a change of the child's waits, so that
+--     approving it later never reverts the guardian's (John's condition 3).
+--     Where both touch one field, the guardian's value wins in both: by
+--     editing it they decided it, the child can propose again, and nothing
+--     tells the child (condition 2). The rest of the child's change waits;
+--   · then to the approved version, which is superseded by a new one with
+--     that guardian as its approver — one approved version per record, as
+--     ever (0002's unique index). A guardian's removal therefore reaches
+--     clubs at once even while a child's change waits (S-2; John: "a removal
+--     is the change a parent most needs to land");
+--   · if the patch changes nothing on the approved page (a clip only the
+--     child's waiting version had), no new version and no event;
+--   · with NO approved version (no page yet) nothing publishes: the pending
+--     version is patched if there is one, and otherwise the caller opens it
+--     (lib/cv-build), so the first approval carries the guardian's work, as
+--     it did before F14;
 --   · one `edit_approved` event (D-78's vocabulary, no new word — L5) with
 --     the guardian as actor and the child as subject, told apart from an
 --     approval of the child's edit by kind `guardian_edit`, the way
@@ -42,12 +74,6 @@
 --   · no message: nobody is told anything waits, because nothing does. The
 --     other guardian gets what they get when one guardian approves a child's
 --     edit — no message (D-51; John: "No new message").
--- IF A CHANGE OF THE CHILD'S IS ALREADY WAITING, nothing publishes. A
--- record has one draft, so the snapshot a guardian's save takes carries the
--- child's waiting change with it, and publishing it would publish the
--- child's change unreviewed. The guardian's change joins the pending
--- version instead, and the guardian approves it as before. This is the more
--- restrictive answer, taken until John rules on it (it is not in his ruling).
 --
 -- The family history says "{guardian first name} changed the page." for it
 -- (BUZ, 1 Oct). fn_consent_timeline gains one column, `who`: that first name,
@@ -123,26 +149,98 @@ comment on function fn_record_author(uuid, uuid) is
   'N-10 (0169): who may WRITE a record — its owner, or an approved guardian of an under-16. A 16–17''s guardian keeps fn_record_actor''s answer for everything else (D-22, D-51).';
 
 -- 2 · F14 -------------------------------------------------------------------
-create function fn_publish_guardian_change(p_record uuid, p_guardian uuid, p_content jsonb)
-returns text
-language plpgsql as $$
-declare v_child uuid;
+-- The patch itself: pure, and refusing anything that is not one guardian's
+-- one change — no name, no club, no list a guardian does not edit.
+create function fn_cv_patch(p_content jsonb, p_patch jsonb) returns jsonb
+language plpgsql immutable as $$
+declare
+  v jsonb := coalesce(p_content, '{}'::jsonb);
+  k text; v_op text; v_list text; v_item jsonb; v_idx int;
 begin
-  if p_record is null or p_guardian is null or p_content is null then return null; end if;
-  if fn_record_author(p_guardian, p_record) is distinct from 'guardian' then return null; end if;
-  -- One publication at a time per record.
-  select person_id into v_child from development_record where id = p_record for update;
+  if p_patch is null or jsonb_typeof(p_patch) <> 'object' then
+    raise exception 'fn_cv_patch: no patch';
+  end if;
+  if (select count(*) from jsonb_object_keys(p_patch)) <> 1 then
+    raise exception 'fn_cv_patch: one change at a time';
+  end if;
+  v_op := (select x from jsonb_object_keys(p_patch) x);
 
-  -- The child's change is waiting: the guardian's joins it, and nothing
-  -- publishes unreviewed (see the header).
-  if exists (select 1 from profile_version where record_id = p_record and status = 'pending') then
-    update profile_version set content = p_content where record_id = p_record and status = 'pending';
-    return 'pending';
+  if v_op = 'set' then
+    for k in select jsonb_object_keys(p_patch->'set') loop
+      if k not in ('positions', 'squadNumber', 'foot', 'about', 'surfacedStats', 'stats', 'photoPath') then
+        raise exception 'fn_cv_patch: % is not a field a guardian sets', k;
+      end if;
+      v := jsonb_set(v, array[k], p_patch->'set'->k, true);
+    end loop;
+    return v;
   end if;
 
-  update profile_version set status = 'superseded' where record_id = p_record and status = 'approved';
+  if v_op not in ('add', 'remove') then raise exception 'fn_cv_patch: % is not a change', v_op; end if;
+  v_list := p_patch->v_op->>'list';
+  v_item := p_patch->v_op->'item';
+  if v_list is null or v_list not in ('highlights', 'achievements', 'otherFootball', 'previousClubs') then
+    raise exception 'fn_cv_patch: % is not a list a guardian edits', v_list;
+  end if;
+  if v_item is null or jsonb_typeof(v_item) <> 'object' then raise exception 'fn_cv_patch: no item'; end if;
+
+  if v_op = 'add' then
+    if v_list = 'previousClubs' then
+      -- The snapshot's order: by season, newest first, the newest entry
+      -- first among equals (lib/cv-build buildSnapshot).
+      v := jsonb_set(v, '{previousClubs}', (
+        select coalesce(jsonb_agg(e order by e->>'period' desc nulls last, o), '[]'::jsonb)
+        from (select v_item as e, 0::bigint as o
+              union all
+              select e, o from jsonb_array_elements(coalesce(v->'previousClubs', '[]'::jsonb)) with ordinality t(e, o)) x), true);
+    else
+      v := jsonb_set(v, array[v_list], coalesce(v->v_list, '[]'::jsonb) || jsonb_build_array(v_item), true);
+    end if;
+  else
+    -- One entry, the first equal to the item: never every look-alike.
+    select (o - 1)::int into v_idx
+      from jsonb_array_elements(coalesce(v->v_list, '[]'::jsonb)) with ordinality t(e, o)
+     where e = v_item order by o limit 1;
+    if v_idx is not null then v := v #- array[v_list, v_idx::text]; end if;
+  end if;
+  if v_list = 'highlights' then
+    v := jsonb_set(v, '{highlightsUsed}', to_jsonb(jsonb_array_length(coalesce(v->'highlights', '[]'::jsonb))), true);
+  end if;
+  return v;
+end $$;
+
+comment on function fn_cv_patch(jsonb, jsonb) is
+  'F14 as BUZ ruled it, 2 Oct ("parent''s change only"): one guardian change applied to a page version — set form fields or the photo, or add/remove one clip, achievement or other-football entry. Refuses anything else.';
+
+create function fn_publish_guardian_change(p_record uuid, p_guardian uuid, p_patch jsonb)
+returns text
+language plpgsql as $$
+declare v_child uuid; v_id uuid; v_old jsonb; v_new jsonb; v_pending boolean;
+begin
+  if p_record is null or p_guardian is null or p_patch is null then return null; end if;
+  -- One publication at a time per record, and the question asked under it.
+  select person_id into v_child from development_record where id = p_record for update;
+  if not found then return null; end if;
+  if fn_record_author(p_guardian, p_record) is distinct from 'guardian' then return null; end if;
+
+  -- The child's waiting change first: approving it later must never undo
+  -- the guardian's, and on a field both touched the guardian's value wins.
+  update profile_version set content = fn_cv_patch(content, p_patch)
+   where record_id = p_record and status = 'pending';
+  v_pending := found;
+
+  select id, content into v_id, v_old from profile_version
+   where record_id = p_record and status = 'approved' for update;
+  if not found then
+    -- No page yet: nothing publishes. The first approval carries it.
+    return case when v_pending then 'pending' else 'no_page' end;
+  end if;
+
+  v_new := fn_cv_patch(v_old, p_patch);
+  if v_new = v_old then return 'unchanged'; end if;
+
+  update profile_version set status = 'superseded' where id = v_id;
   insert into profile_version (record_id, content, status, created_by, approved_by, approved_at)
-  values (p_record, p_content, 'approved', p_guardian, p_guardian, now());
+  values (p_record, v_new, 'approved', p_guardian, p_guardian, now());
   insert into consent_event (event, actor_id, subject_id, detail)
   values ('edit_approved', p_guardian, v_child,
           jsonb_build_object('record_id', p_record, 'kind', 'guardian_edit'));
@@ -150,7 +248,7 @@ begin
 end $$;
 
 comment on function fn_publish_guardian_change(uuid, uuid, jsonb) is
-  'F14 (0169): an under-16''s guardian''s own change becomes the approved version at once, with them as approver and one edit_approved event of kind guardian_edit. Joins a waiting child''s change instead of publishing it. No message.';
+  'F14 (0169), parent''s change only (BUZ and John, 2 Oct): an under-16''s guardian''s one change, patched onto the waiting version and published onto the approved one at once, with them as approver and one edit_approved event of kind guardian_edit. Nothing of the child''s rides with it. No message.';
 
 revoke all on function fn_publish_guardian_change(uuid, uuid, jsonb) from public;
 do $$

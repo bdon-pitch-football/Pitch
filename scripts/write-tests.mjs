@@ -1076,11 +1076,13 @@ const photoReads = [];
   check('photo-w2b: and his Open Graph card is byte for byte the same with the new photo on his approved page as before it — no photo, public or signed, reaches an under-18’s card (D-89)',
     [ogBefore.length > 1000, ogAfter.equals(ogBefore)], [true, true]);
 
-  // ---- a child's upload waiting, then the parent's own: one draft, one rule
-  // (publishGuardianChange, until John rules on this case): with the child's
-  // change waiting, the parent's photo joins the waiting version and nothing
-  // publishes — so the club keeps the approved photo until the parent
-  // approves, and then sees the parent's photo; the child's goes ----
+  // ---- a child's upload waiting, then the parent's own (parent's change
+  // only; BUZ and John, 2 Oct): the parent's photo is the page at once, and
+  // the waiting version takes it too — the field both touched is the
+  // parent's — so the child's photo, which nothing names any more, goes, and
+  // approving the child's change later keeps the parent's photo.
+  // MOVED (2 Oct): it asserted the restrictive answer pending John — the
+  // parent's photo joined the waiting version and nothing published ----
   await upload(`/build/${deniz.record_id}`, deniz.child_id, await amber);
   const p4 = await live(deniz.child_id);
   await saveForm(deniz.child_id);
@@ -1091,9 +1093,9 @@ const photoReads = [];
   const okChild = await approve();
   const afterChild = await drawn();
   const greyBytes = await bytes(p5);
-  check('photo-w3: with Deniz\u2019s change waiting, his parent\u2019s photo joins it and nothing publishes — the club keeps the approved photo; his parent approves, the page shows the parent\u2019s photo, and his, which nothing names any more, is deleted',
+  check('photo-w3: with Deniz\u2019s change waiting, his parent\u2019s photo is the club\u2019s at once and the waiting version takes it too; his, which nothing names any more, is deleted; and approving his change keeps the parent\u2019s photo',
     [new Set([p3, p4, p5]).size, childWaits.club, parentOver.club, okChild.location, [afterChild.club, afterChild.same, Boolean(greyBytes && afterChild.bytes?.equals(greyBytes))], await status(p4)],
-    [3, p3, p3, `/g/pending/${deniz.record_id}?done=1`, [p5, true, true], 404]);
+    [3, p3, p5, `/g/pending/${deniz.record_id}?done=1`, [p5, true, true], 404]);
 
   // ---- N-10 / doc 14 R12 (John, 1 Oct): a 16–17's page is theirs. Their
   // parent has no photo form to press, and a crafted post goes home and
@@ -4183,16 +4185,122 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
      (await newest(1))[0], JSON.stringify((await newest(4)).slice(1)) === JSON.stringify(top0)],
     [303, true, false, false, 1, '§30 → guardian@example.com', true]);
   const top2 = await newest(3);
-  // And with her edit waiting, a parent's edit publishes nothing unreviewed:
-  // it joins the waiting change (the restrictive answer, pending John).
+  // And with her edit waiting, a parent's edit still publishes — their own
+  // change, at once — and is patched onto her waiting version too, so that
+  // approving hers later never reverts it. On the field both touched (the
+  // About), the parent's value wins in both, and nothing tells Georgia
+  // (parent's change only: BUZ and John, 2 Oct; John's condition 2).
+  // MOVED: until 2 Oct this asserted the restrictive answer pending John —
+  // the parent's edit joined the waiting change and published nothing.
   const pForm = await formOf(gBuild, alex);
   const JOINED = 'Left back. Both feet. (Parent, while Georgia’s edit waits.)';
   const pSaved = pForm ? await postAs(gBuild, alex, { ...pForm, about: JOINED }) : { status: 0 };
   const h3 = await history();
-  check('jb-f14-w4: while the child’s edit waits, the parent’s edit joins it and publishes nothing — the preview is unchanged, no new history line, no email',
-    [pSaved.status, (await preview()).includes(ALEX_ABOUT), (await preview()).includes(JOINED), count(h3, 'Alex changed the page.') - count(h2, 'Alex changed the page.'),
-     JSON.stringify(await newest(3)) === JSON.stringify(top2)],
-    [303, true, false, 0, true]);
+  const waitingNow = async () => words((await get(`/g/pending/${georgia.record_id}`, alex)).html).split('The new version')[1] ?? '';
+  check('jb-f14-w4: while the child’s edit waits, the parent’s edit still publishes at once — the preview carries it — and the waiting version takes the parent’s value on the field both touched, not the child’s; one "Alex changed the page.", no email, and nothing sent to the child',
+    [pSaved.status, (await preview()).includes(JOINED), (await preview()).includes(KID_ABOUT), (await waitingNow()).includes(JOINED), (await waitingNow()).includes(KID_ABOUT),
+     count(h3, 'Alex changed the page.') - count(h2, 'Alex changed the page.'), JSON.stringify(await newest(3)) === JSON.stringify(top2)],
+    [303, true, false, true, false, 1, true]);
+
+  // ---- B-1, closed by "parent's change only" (BUZ and John, 2 Oct). Each
+  // thing a child adds for herself — a clip, an achievement, a photo — stays
+  // off the page clubs read when a parent saves something else; the parent's
+  // own change is all that publishes. First with nothing waiting (the case
+  // that leaked: a parent's save published the whole live page), then with a
+  // change of hers waiting (S-2, and John's condition 3).
+  const clipsPage = `${gBuild}/clips`, morePage = `${gBuild}/more`;
+  const gClipForm = async (who) => forms((await get(clipsPage, who)).html).find((f) => f.visible.some((v) => v.name === 'url'));
+  const achForm = async (who) => forms((await get(morePage, who)).html).find((f) => f.visible.some((v) => v.name === 'title') && f.visible.some((v) => v.name === 'detail'));
+  const addClip = async (who, title) => { const f = await gClipForm(who); return f ? postAs(clipsPage, who, { ...f.fields, url: `https://www.youtube.com/watch?v=${title.replace(/\W/g, '')}`, title }) : { status: 0 }; };
+  const addAch = async (who, title) => { const f = await achForm(who); return f ? postAs(morePage, who, { ...f.fields, title, detail: '' }) : { status: 0 }; };
+  const live = async (page, who) => words((await get(page, who)).html);
+  const pendingPage = `/g/pending/${georgia.record_id}`;
+  const approveHers = async () => {
+    const f = forms((await get(pendingPage, alex)).html).find((x) => x.submit === 'Approve the change');
+    return f ? postAs(pendingPage, alex, f.fields) : { location: '' };
+  };
+  // Nothing waiting to begin with: her parent approves what waits.
+  await approveHers();
+  const nothingWaits = (await live(pendingPage, alex)).includes('Nothing is waiting on you.');
+  const hB = await history();
+  const G_CLIP = 'B1 clip Georgia added herself', A_ACH = 'B1 achievement her parent added';
+  await addClip(georgia.child_id, G_CLIP);
+  const clipBefore = (await preview()).includes(G_CLIP);
+  await addAch(alex, A_ACH);
+  check('bf-b1-w1: a clip Georgia adds herself stays off the page clubs read when her parent adds an achievement — the achievement publishes at once, her clip waits on her own page',
+    [nothingWaits, clipBefore, (await preview()).includes(A_ACH), (await preview()).includes(G_CLIP), (await live(clipsPage, georgia.child_id)).includes(G_CLIP)],
+    [true, false, true, false, true]);
+  const G_ACH = 'B1 achievement Georgia added herself', A_CLIP = 'B1 clip her parent added';
+  await addAch(georgia.child_id, G_ACH);
+  await addClip(alex, A_CLIP);
+  check('bf-b1-w2: an achievement Georgia adds herself stays off the page clubs read when her parent adds a clip — the clip publishes at once, her achievement waits',
+    [(await preview()).includes(A_CLIP), (await preview()).includes(G_ACH), (await live(morePage, georgia.child_id)).includes(G_ACH)],
+    [true, false, true]);
+  // Her photo: uploaded by her, then her parent saves the form.
+  const photoKey = (html) => new RegExp(`<img[^>]*src="([^"?]*player[-/]${georgia.record_id}[^"?]*)`).exec(html.replace(/<script[\s\S]*?<\/script>/g, ' '))?.[1] ?? null;
+  const previewPhoto = async () => photoKey((await get(`${gBuild}/preview`, alex)).html);
+  const photoBefore = await previewPhoto();
+  const sharp = (await import('sharp')).default;
+  const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 90, g: 20, b: 160 } } }).png().toBuffer();
+  const upForm = forms((await get(gBuild, georgia.child_id)).html).find((f) => /\/photo$/.test(f.action ?? ''));
+  if (upForm) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(upForm.fields)) fd.append(k, v);
+    fd.append('photo', new Blob([png], { type: 'image/png' }), 'photo.png');
+    await (await fetch(BASE + upForm.action, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(georgia.child_id) } })).text();
+  }
+  const herPhoto = photoKey((await get(gBuild, georgia.child_id)).html);
+  const A_ABOUT = 'Left back. Reads the game early. (Her parent, after her photo.)';
+  const aForm = await formOf(gBuild, alex);
+  if (aForm) await postAs(gBuild, alex, { ...aForm, about: A_ABOUT });
+  check('bf-b1-w3: a photo Georgia uploads herself stays off the page clubs read when her parent saves the form — the parent’s words publish at once, the page keeps the photo it had',
+    [Boolean(upForm), Boolean(herPhoto) && herPhoto !== photoBefore, (await preview()).includes(A_ABOUT), await previewPhoto()],
+    [true, true, true, photoBefore]);
+  // Now a change of hers waits: she saves her own words.
+  const G_ABOUT = 'Left back who loves a long throw (Georgia, waiting on her parent).';
+  const gForm2 = await formOf(gBuild, georgia.child_id);
+  if (gForm2) await postAs(gBuild, georgia.child_id, { ...gForm2, about: G_ABOUT });
+  const herWaits = !(await live(pendingPage, alex)).includes('Nothing is waiting on you.');
+  // S-2: a parent's removal reaches clubs at once while her change waits, and
+  // so does anything the parent adds.
+  const clipsHtml = (await get(clipsPage, alex)).html;
+  const removeFor = forms(clipsHtml).filter((f) => 'clipId' in f.fields);
+  // The removal form for the parent's own clip: the Remove that follows its
+  // title, before the next clip's form.
+  const parentClipForm = removeFor.find((f) => {
+    const start = clipsHtml.lastIndexOf('<form', clipsHtml.indexOf(`value="${f.fields.clipId}"`));
+    return clipsHtml.slice(clipsHtml.lastIndexOf('</form>', start), start).includes(A_CLIP);
+  });
+  if (parentClipForm) await postAs(clipsPage, alex, parentClipForm.fields);
+  const A_ACH2 = 'B1 achievement her parent added while hers waits';
+  await addAch(alex, A_ACH2);
+  check('bf-b1-w4: while Georgia’s change waits, her parent removes a clip and it is off the page clubs read at once (S-2), and an achievement the parent adds is on it at once — her waiting words are not',
+    [herWaits, Boolean(parentClipForm), (await preview()).includes(A_CLIP), (await preview()).includes(A_ACH2), (await preview()).includes(G_ABOUT)],
+    [true, true, false, true, false]);
+  // John's condition 3: approving her waiting change later never reverts the
+  // parent's — what they removed stays gone, what they added stays.
+  const approved = await approveHers();
+  const after = await preview();
+  check('bf-b1-w5: and when her parent approves Georgia’s waiting change, her words go on the page and every change the parent made meanwhile stays — the clip they removed stays gone, the achievement they added stays',
+    [approved.location, after.includes(G_ABOUT), after.includes(A_CLIP), after.includes(A_ACH2), after.includes(A_ACH)],
+    [`/g/pending/${georgia.record_id}?done=1`, true, false, true, true]);
+  const hE = await history();
+  check('bf-b1-w6: the family history says "Alex changed the page." once for each change of the parent’s that reached the page — two achievements, a clip, the words, the removal — and "Georgia submitted a change" once, for her words; her own clip, achievement and photo add no line of their own',
+    [count(hE, 'Alex changed the page.') - count(hB, 'Alex changed the page.'), count(hE, 'Georgia submitted a change') - count(hB, 'Georgia submitted a change')],
+    [5, 1]);
+  // A 16–17's page and an adult's are their own, and their own changes are
+  // the page at once, exactly as before.
+  const jordanRec = /\/build\/([0-9a-f-]{36})/.exec((await get('/home', ids.people.jordan)).html)?.[1];
+  const own = [];
+  for (const [who, rec] of [[nate.child_id, nate.record_id], [ids.people.jordan, jordanRec]]) {
+    const more = `/build/${rec}/more`;
+    const f = forms((await get(more, who)).html).find((x) => x.visible.some((v) => v.name === 'title') && x.visible.some((v) => v.name === 'detail'));
+    const T = `B1 own achievement ${who.slice(0, 4)}`;
+    if (f) await postAs(more, who, { ...f.fields, title: T, detail: '' });
+    own.push([Boolean(f), (await live(`/build/${rec}/preview`, who)).includes(T)]);
+  }
+  check('bf-b1-w7: a 16–17 and an adult are unchanged — an achievement each adds is on their own page at once',
+    own, [[true, true], [true, true]]);
 }
 
 // ---------------------------------------------------------------------------
