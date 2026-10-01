@@ -12,6 +12,7 @@
 // not the other is a permission surface nobody tested. The render suite
 // checks the two lists against each other.
 import Link from 'next/link';
+import { cache } from 'react';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { requireOperator } from '@/lib/ops-guard';
@@ -155,14 +156,15 @@ export function Frame({ label, head, items, active, bar, children }: {
 // THE TOP BAR (spec A part 5): every page that renders outside a seat frame
 // carries the logo-only nav bar — top right on a phone, top left from 1024px
 // (D-173 (3)) — and .has-topbar hides the page's own in-column mark, so no
-// page shows two. homeLink={false}: none of these pages linked the mark
-// anywhere, and a link to / would be a new door. The page's own header keeps
+// page shows two. The logo links to / (Head of Product Design ruling, 1 Oct;
+// HD2): a way off any page. Only the dead link (LinkState, through PlayerCV)
+// and /demo keep an unlinked bar. The page's own header keeps
 // its back link at every width (SiteNav's `back` is phone-only, which would
 // make it a phone-only control, D-147).
 export function TopBarShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="floodlight has-topbar" style={{ minHeight: '100dvh', color: 'var(--ink)', display: 'flex', flexDirection: 'column' }}>
-      <SiteNav links={[]} signIn={false} homeLink={false} />
+      <SiteNav links={[]} signIn={false} />
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>{children}</div>
     </div>
   );
@@ -274,14 +276,12 @@ export async function CoachConsole({ active, children }: {
 //
 // "Money" is in the signed rail and is NOT here: billing is off (D-163), and
 // a door to nothing is a door nobody tested. Held for BUZ in brief G's report.
-export async function OpsConsole({ active, children }: {
-  active: 'today' | 'verification' | 'support' | 'switches' | 'reports' | 'clubs'; children: React.ReactNode;
-}) {
-  const { email, personId } = await requireOperator();
-  // A-P9 (HoPD ruling 3, 1 Oct): does this operator hold another seat — the
-  // seats /home branches on: a club seat, a coach page, their own record, or
-  // a child they are the confirmed parent of? The operator's OWN rows only.
-  const hasSeat = (await db.query(
+// A-P9 (HoPD ruling 3, 1 Oct): does this operator hold another seat — the
+// seats /home branches on: a club seat, a coach page, their own record, or
+// a child they are the confirmed parent of? The operator's OWN rows only.
+// Once per request: the frame and the page header both ask.
+const operatorHasSeat = cache(async (personId: string): Promise<boolean> =>
+  (await db.query(
     `select exists(select 1 from membership m where m.person_id = $1
                and m.role in ('technical_director','club_admin') and m.ended_at is null)
          or exists(select 1 from coach_profile cp where cp.person_id = $1)
@@ -289,7 +289,13 @@ export async function OpsConsole({ active, children }: {
          or exists(select 1 from guardianship_link g where g.guardian_id = $1
                and g.approved_at is not null and g.revoked_at is null) as has_seat`,
     [personId],
-  )).rows[0].has_seat as boolean;
+  )).rows[0].has_seat as boolean);
+
+export async function OpsConsole({ active, children }: {
+  active: 'today' | 'verification' | 'support' | 'switches' | 'reports' | 'clubs'; children: React.ReactNode;
+}) {
+  const { email, personId } = await requireOperator();
+  const hasSeat = await operatorHasSeat(personId);
   const n = (await db.query(
     `select (select count(*)::int from club where club_state = 'claimed') as awaiting,
        (select count(*)::int from report where actioned_at is null) as reports`,
@@ -329,12 +335,20 @@ export async function OpsConsole({ active, children }: {
 // 17px title, a muted line under it, an action at the right when there is
 // one). The logo stays top right on every screen (charter), so the back link
 // and the mark come first, as they do everywhere else in the product.
-export function OpsHeader({ title, sub, back, action }: {
-  title: React.ReactNode; sub?: React.ReactNode; back?: { href: string; label?: string }; action?: React.ReactNode;
+//
+// The default way back mirrors A-P9 (HoPD, 1 Oct): to /home for an operator
+// who holds another seat, to /ops (Today) for one who holds none — /home
+// would land them on the brand-new welcome. Today itself (`today`) has no
+// way back for an operator-only account: it is where the way back goes.
+export async function OpsHeader({ title, sub, back, action, today }: {
+  title: React.ReactNode; sub?: React.ReactNode; back?: { href: string; label?: string }; action?: React.ReactNode; today?: boolean;
 }) {
+  const me = back ? null : await getSessionPersonId();
+  const seat = me ? await operatorHasSeat(me) : false;
+  const way = back ?? (seat ? { href: '/home' } : today ? undefined : { href: '/ops' });
   return (
     <>
-      <HeaderMark back={back ?? { href: '/home' }} />
+      <HeaderMark back={way} />
       <div className="ops-title">
         <div style={{ minWidth: 0 }}>
           <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.015em', lineHeight: 1.25 }}>{title}</h1>

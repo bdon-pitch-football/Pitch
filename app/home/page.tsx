@@ -926,7 +926,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                 <div style={{ fontSize: 14, fontWeight: 800 }}>Waiting on your parent</div>
                 <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
                   {parentAsk.text_queued
-                    ? 'We\u2019ve emailed them, and their text follows shortly. Once they do, you can send.'
+                    ? 'We\u2019ve emailed them, and their text follows shortly. Once they do, you can send. Keep building your page in the meantime.'
                     : <>We&rsquo;ve texted and emailed them to confirm they&rsquo;re your parent. Once they do, you can send your CV to clubs. Keep building your page in the meantime.</>}
                 </div>
               </div>

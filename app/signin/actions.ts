@@ -25,10 +25,13 @@ import { checkRate } from '@/lib/ratelimit-db';
 import { isNewDevice, verifyPassword } from '@/lib/auth';
 import { newSignInEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
+import { claimQuery, claimSlug } from '@/lib/claim-return';
 
 export async function signIn(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
   const password = String(formData.get('password') ?? '');
+  // F7: a club they pressed Claim on, carried as its slug only (lib/claim-return).
+  const claim = claimSlug(formData.get('claim'));
 
   const h = await headers();
   const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
@@ -77,9 +80,9 @@ export async function signIn(formData: FormData) {
         await send(newSignInEmail(when), { address: to, personId });
       }
     }
-    redirect('/home');
+    redirect(claim ? `/claim/${claim}` : '/home');
   }
   // One destination for every refusal, reached from four different causes.
   // Never branch this on WHY (D-94 §2, the D-77 oracle rule).
-  redirect('/signin?refused=1');
+  redirect(`/signin?refused=1${claimQuery(claim, '&')}`);
 }

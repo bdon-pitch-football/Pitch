@@ -60,7 +60,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
           <button type="submit" className="console-btn">Look up</button>
         </form>
         {q && rows.length === 0 && (
-          <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">Nothing matches that.</div></div>
+          <div className="empty-tile is-compact"><div className="empty-t">Nothing matches that.</div></div>
         )}
         {/* Results are rows in one table card (spec I), the status a pill:
             Approved live, Held stopped, Waiting on the guardian waiting. */}

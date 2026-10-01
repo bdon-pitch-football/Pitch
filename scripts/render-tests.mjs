@@ -899,11 +899,11 @@ const georgia = ids.children.georgia;
        /<form class="ops-search"/.test(look), inputsOff(look), inv.filter((r) => /Resend the approval request/.test(r)).every((r) => /name="invitationId"/.test(r))],
       [true, false, 1, true, 0, true, [], true]);
     const lookNone = await page('/ops/support?q=nothing-matches');
-    check('op-r4b: and no match is the empty tile', /<div class="card empty"><span class="empty-tile"[^>]*><\/span><div class="empty-t">Nothing matches that\.<\/div><\/div>/.test(lookNone), true);
+    check('op-r4b: and no match is the empty tile', /<div class="empty-tile is-compact"><div class="empty-t">Nothing matches that\.<\/div><\/div>/.test(lookNone), true);
 
     const rep = await page('/ops/reports');
     const repParent = await page('/ops/reports?parent=nobody%40example.com');
-    const empties = (h) => [...h.matchAll(/<div class="card empty"><span class="empty-tile"[^>]*><\/span><div class="empty-t">([^<]*)<\/div><\/div>/g)].map((m) => m[1]);
+    const empties = (h) => [...h.matchAll(/<div class="empty-tile is-compact"><div class="empty-t">([^<]*)<\/div><\/div>/g)].map((m) => m[1]);
     check(`op-r5: on the reports desk every empty list is the empty tile with its own sentence, every field is the console's well, and nothing is red-edged (${empties(rep).join(' | ')})`,
       [empties(rep).filter((e) => ['Nothing is hidden.', 'Nobody is held.'].includes(e)).length, empties(repParent).includes('No parent account with that email.'),
        inputsOff(rep), /card-red/.test(rep), /<div class="player-grid">[\s\S]*<div class="ops-aside-sticky"/.test(rep)], [2, true, [], false, true]);
@@ -2784,6 +2784,17 @@ const georgia = ids.children.georgia;
   check('wt2: the claim page says verification is the phone call, once — never Football Victoria\u2019s register',
     [/Verified status is separate:<\/b> we ring Westgate Rangers on a number we find ourselves, and that call is what unlocks trial notices and anything to do with players\./.test(claimForm),
      /Football Victoria/.test(claimForm), /Only the phone call does that/.test(claimForm)], [true, false, false]);
+  // F7 (BUZ, 1 Oct, approved words): Claim pressed signed out keeps the club.
+  const claimOut = await get('/claim/westgate-rangers');
+  const door = (await get('/signin?claim=westgate-rangers')).html.replace(/<!-- -->/g, '');
+  const plainDoor = (await get('/signin?claim=https%3A%2F%2Fevil.example')).html.replace(/<!-- -->/g, '');
+  check('f7-r1: signed out, Claim goes to a sign-in door that names the club, says we bring them back, and carries the club into the form and into Create an account',
+    [claimOut.status, claimOut.location?.endsWith('/signin?claim=westgate-rangers'), />Sign in to claim Westgate Rangers</.test(door),
+     /New here\? Make an account and we(’|&#x27;|&rsquo;)ll bring you back to Westgate Rangers\./.test(door),
+     /<input type="hidden" name="claim" value="westgate-rangers"\/>/.test(door), /href="\/join\?claim=westgate-rangers"/.test(door)],
+    [307, true, true, true, true, true]);
+  check('f7-r2: a claim value that is not a club is the ordinary door, carrying nothing',
+    [/>Welcome back</.test(plainDoor), /name="claim"/.test(plainDoor), /href="\/join"/.test(plainDoor)], [true, false, true]);
   check('D-172: never "partner", "member", "joined", "on Pitch", "verified", "official" or "in association with" on an unclaimed page',
     /\b(partner|member|joined|on Pitch|verified|official|in association with)\b/i.test(bw), false);
 

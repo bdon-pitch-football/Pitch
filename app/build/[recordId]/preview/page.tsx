@@ -16,6 +16,8 @@ import PlayerCV from '@/components/cv/PlayerCV';
 import { db } from '@/lib/db';
 import { assembleCv, cvClubColours, wornColours, type CvData } from '@/lib/record-read';
 import { requireRecordActor } from '@/lib/record-guard';
+import SiteNav from '@/components/floodlit/SiteNav';
+import { PREVIEW_EMPTY_TITLE } from '@/lib/to-confirm';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Preview your page', robots: { index: false, follow: false } };
@@ -43,6 +45,24 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
     if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(r.person_id)) };
   } else {
     cv = await assembleCv(recordId, r.person_id, r.band);
+  }
+  // B1 (BUZ, 1 Oct): an under-16 with no approved version yet has nothing
+  // to preview — say so and offer the way to start, instead of a 404. The
+  // top bar and the reading column, as every unframed page (spec A part 5).
+  if (!cv && r.band === 'u16') {
+    return (
+      <div className="floodlight has-topbar" style={{ minHeight: '100dvh', color: 'var(--ink)' }}>
+        <SiteNav links={[]} signIn={false} />
+        <main className="reading" style={{ padding: '22px 18px 30px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Link href={actor === 'self' ? `/build/${recordId}` : `/g/controls/${r.person_id}`} className="pg-back" style={{ margin: 0, alignSelf: 'flex-start' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
+            {actor === 'self' ? 'Back to editing' : `Back to ${r.first_name}`}
+          </Link>
+          <div className="pg-titles"><h1 className="pg-title" style={{ margin: 0 }}>{PREVIEW_EMPTY_TITLE}</h1></div>
+          <Link href={`/build/${recordId}`} className="btn btn-primary fl-glow">Build {r.first_name}&rsquo;s page</Link>
+        </main>
+      </div>
+    );
   }
   if (!cv) notFound();
 

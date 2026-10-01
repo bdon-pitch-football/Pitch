@@ -76,7 +76,7 @@ export default async function OpsClubs({ searchParams }: { searchParams: Promise
           <button type="submit" className="console-btn">Search</button>
         </form>
         {rows.length === 0 ? (
-          <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">Nothing matches that.</div></div>
+          <div className="empty-tile is-compact"><div className="empty-t">Nothing matches that.</div></div>
         ) : (
           <div className="ops-table">
             <div className="ops-head ops-clubrow" aria-hidden>

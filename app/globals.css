@@ -693,8 +693,12 @@ select { min-height: 44px; }
 .btn-primary:hover { filter: brightness(1.06); }
 .btn-secondary { height: 46px; font-size: 14px; font-weight: 700; background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
 .btn-secondary:hover { background: var(--surface-hover); }
-.btn-ghost     { height: 44px; font-size: 13.5px; font-weight: 700; background: transparent; color: var(--muted); border: none; }
-.btn-ghost:hover { color: var(--secondary); }
+/* The text button (spec A part 18; Head of Product Design ruling, 1 Oct): 44px,
+   text only — Remove in a list, a flow's stand-alone way out. .btn-ghost is its
+   alias, and keeps today's 13.5px full width standing alone (.textbtn-wide). */
+.textbtn, .btn-ghost { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 6px; font-size: 12px; font-weight: 700; letter-spacing: 0; color: var(--muted); background: none; border: 0; cursor: pointer; font-family: inherit; text-decoration: none; flex-shrink: 0; }
+.textbtn:hover, .btn-ghost:hover { color: var(--ink); }
+.textbtn-wide, .btn-ghost { display: flex; width: 100%; font-size: 13.5px; }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
 
 /* Console-table buttons. The charter allows two buttons and no third, which
@@ -1135,8 +1139,6 @@ h1, h2, h3, h4, h5, h6 {
 /* THE COACH SCREENS (E, 1 Oct): the editor, the registrations and the jobs
    board on A's parts. */
 /* A 44px text button ("Remove"): the way to take one thing out of a list. */
-.textbtn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 6px; font-size: 12px; font-weight: 700; color: var(--muted); background: none; border: 0; cursor: pointer; font-family: inherit; flex-shrink: 0; }
-.textbtn:hover { color: var(--secondary); }
 .panel { display: flex; flex-direction: column; gap: 13px; }
 /* A notice's line (A part 11): the panel carries the state edge. */
 .note { font-size: 13px; font-weight: 700; color: var(--secondary); line-height: 1.55; }
@@ -1325,6 +1327,11 @@ h1, h2, h3, h4, h5, h6 {
 .empty > .empty-tile { width: 46px; height: 54px; }
 .empty-t { display: block; font-size: 14.5px; font-weight: 800; color: var(--ink); margin-bottom: 3px; }
 .empty-b { font-size: 12.5px; font-weight: 500; color: var(--secondary); line-height: 1.55; }
+/* The compact empty tile (HoPD ruling, 1 Oct) for dense console screens: the
+   tile itself is the dashed box, with no glyph tile beside the words. */
+.empty-tile.is-compact { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; text-align: left; }
+.empty-tile.is-compact .empty-t { font-size: 14px; font-weight: 800; margin: 0; }
+.empty-tile.is-compact .empty-b { font-size: 13px; font-weight: 500; color: var(--muted); }
 
 /* 18 · A button that sits inline on a laptop row: a width, not a third button. */
 .btn-auto { width: auto; padding: 0 22px; }
@@ -1372,8 +1379,6 @@ h1, h2, h3, h4, h5, h6 {
    (Head of Product Design ruling 2; spec E's rule, verbatim). The block
    variant is the way out under a door's primary ("Cancel", "Keep building",
    "A different club"): the same text button across the column. */
-.textbtn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 6px; font-size: 12px; font-weight: 700; color: var(--muted); background: none; border: 0; cursor: pointer; font-family: inherit; flex-shrink: 0; }
-.textbtn:hover { color: var(--secondary); }
 .textbtn-block { display: flex; width: 100%; font-size: 14px; text-decoration: none; }
 
 /* A Pill that names a kind rather than a state carries no dot. */
@@ -1807,8 +1812,6 @@ h1, h2, h3, h4, h5, h6 {
 
 /* "Remove" in a list is one text button (Head of Product Design ruling 2):
    44px, text only. .console-btn stays for the other row controls. */
-.textbtn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0 6px; background: transparent; border: none; font-family: inherit; font-size: 12.5px; font-weight: 700; letter-spacing: var(--ls-button); color: var(--muted); cursor: pointer; flex-shrink: 0; white-space: nowrap; text-decoration: none; }
-.textbtn:hover { color: var(--ink); }
 
 /* A create form behind one chip — the trials board's <details> disclosure.
    Open by default when its list is empty; works with JavaScript off. */

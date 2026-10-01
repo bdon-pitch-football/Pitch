@@ -92,12 +92,12 @@ export default async function OpsToday() {
   return (
     <OpsConsole active="today">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
-        <OpsHeader title="Today" sub={`${todayLine()} · Australia/Melbourne`} />
+        <OpsHeader today title="Today" sub={`${todayLine()} · Australia/Melbourne`} />
         {tiles.length > 0 && <div className="ops-tiles">{tiles}</div>}
         {/* N-I2 (BUZ, 1 Oct): with every count at zero every tile is omitted
             (D-162), and the page read as broken. One line, never a 0. */}
         {tiles.length === 0 && (
-          <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">Nothing yet today.</div></div>
+          <div className="empty-tile is-compact"><div className="empty-t">Nothing yet today.</div></div>
         )}
 
         {failures.length > 0 && (

@@ -178,7 +178,7 @@ export default async function Switches({ searchParams }: { searchParams: Promise
           <div className="ops-aside-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <h2 className="sec-h">Switch log</h2>
             {log.length === 0 ? (
-              <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">Nothing has been switched.</div></div>
+              <div className="empty-tile is-compact"><div className="empty-t">Nothing has been switched.</div></div>
             ) : (
               <div className="ops-table">
                 {log.map((e, i) => (

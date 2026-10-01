@@ -11095,7 +11095,7 @@ const componentFilesAll = [];
   // so it is read there — and the table, head and all, is still only the
   // other branch.
   check('dfx-I-27: /ops/verification with no club draws a sentence, not a table head over nothing',
-    [/\{rows\.length === 0 \? \(\s*<div className="card empty"><span className="empty-tile" aria-hidden \/><div className="empty-t">No club has claimed its page yet\.<\/div><\/div>\s*\) : \(\s*<div className="ops-table">/.test(verif)], [true]);
+    [/\{rows\.length === 0 \? \(\s*<div className="empty-tile is-compact"><div className="empty-t">No club has claimed its page yet\.<\/div><\/div>\s*\) : \(\s*<div className="ops-table">/.test(verif)], [true]);
 
   // Floodlit, the operator console (spec I, BUZ 1 Oct): two states the seed
   // never renders, so they are read from the source. N-I2: a day with every
@@ -11105,7 +11105,7 @@ const componentFilesAll = [];
   // (the first in reading order); with neither off, nothing does.
   const todayCode = codeOnly(srcOf('app/ops/page.tsx'));
   check('op-s1: Today’s quiet-day line (N-I2) is the empty tile, drawn only when every tile was omitted, and nowhere else',
-    [/\{tiles\.length === 0 && \(\s*<div className="card empty"><span className="empty-tile" aria-hidden \/><div className="empty-t">Nothing yet today\.<\/div><\/div>\s*\)\}/.test(todayCode),
+    [/\{tiles\.length === 0 && \(\s*<div className="empty-tile is-compact"><div className="empty-t">Nothing yet today\.<\/div><\/div>\s*\)\}/.test(todayCode),
      (todayCode.match(/Nothing yet today\./g) ?? []).length], [true, 1]);
   const swCode = codeOnly(srcOf('app/ops/switches/page.tsx'));
   check('op-s2: the switches page glows only on a way back, and never twice: SMS’s way back glows only while links are not paused',
@@ -11622,6 +11622,23 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('em-§22: §22 is doc 15 word for word but for D-25’s pronouns — two buttons, not the merged line doc 15 does not have',
     [s22.subject, s22.body, /See what they sent, or turn sending off/.test(s22.body)],
     [docSubject(22).replace('sent his CV', 'sent their CV'), d22, false]);
+}
+
+// F7 (BUZ, 1 Oct): the club a person was claiming rides through sign-in,
+// sign-up and the confirmation email as its slug and nothing else — never a
+// URL (an open redirect) and never anything about the person.
+{
+  const { claimSlug, claimQuery } = await import('../lib/claim-return.ts');
+  check('f7-s1: only a club slug travels — a URL, a path, a protocol-relative link, upper case or an over-long value is dropped',
+    [claimSlug('westgate-rangers'), claimSlug('https://evil.example'), claimSlug('//evil.example'), claimSlug('../home'), claimSlug('Westgate'), claimSlug('a'.repeat(81)), claimSlug(undefined),
+     claimQuery('westgate-rangers'), claimQuery('westgate-rangers', '&'), claimQuery('//x')],
+    ['westgate-rangers', null, null, null, null, null, null, '?claim=westgate-rangers', '&claim=westgate-rangers', '']);
+  const join = codeOnly(srcOf('app/join/actions.ts')), signin = codeOnly(srcOf('app/signin/actions.ts')), conf = codeOnly(srcOf('app/confirm/[token]/actions.ts'));
+  check('f7-s2: every redirect that carries it goes through claimSlug/claimQuery, and the confirmation link adds it only through claimQuery',
+    [/redirect\(claim \? `\/claim\/\$\{claim\}` : '\/home'\)/.test(signin), /const claim = claimSlug\(formData\.get\('claim'\)\)/.test(signin),
+     /const claim = claimSlug\(formData\.get\('claim'\)\)/.test(join), /claimQuery\(formData\.get\('claim'\), '&'\)/.test(conf),
+     /\/confirm\/\$\{token\}\$\{claimQuery\(claim\)\}/.test(msgSrc)],
+    [true, true, true, true, true]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

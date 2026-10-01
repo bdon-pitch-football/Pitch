@@ -16,6 +16,7 @@ import type { ReceiptFields } from './receipts';
 // The support address is one constant with no dependencies of its own (BUZ,
 // 28 Sep: his direct address replaces help@ in every message).
 import { SUPPORT_EMAIL } from './support.ts';
+import { claimQuery } from '@/lib/claim-return';
 
 const SITE = 'pitchfootball.com.au';
 const HELP = SUPPORT_EMAIL;
@@ -620,14 +621,14 @@ ${SITE} · ${HELP}`,
 //
 // Rules it is written to: no urgency, no child's name, no clue about who else
 // holds an account, and the plain reason the link exists.
-export const confirmAddressEmail = (token: string): Composed => ({
+export const confirmAddressEmail = (token: string, claim?: string | null): Composed => ({
   key: 'doc15.§10b',
   channel: 'email',
   subject: 'Confirm your email address',
   body:
 `Someone put this address into a new account on Pitch. If that was you, this link finishes it:
 
-Confirm your address: ${SITE}/confirm/${token}
+Confirm your address: ${SITE}/confirm/${token}${claimQuery(claim)}
 
 Nobody can sign in to that account until the link is opened. If it wasn't you, ignore this email — the account stays shut, and whoever typed your address gets nothing from it.
 

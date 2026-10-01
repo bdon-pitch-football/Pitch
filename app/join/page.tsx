@@ -39,8 +39,13 @@ export default function Join() {
   // blank and the person had no idea why. Read after mount, so the server and
   // the first client render agree.
   const [notice, setNotice] = useState<string | null>(null);
+  // F7: the club they pressed Claim on, read after mount like the notices.
+  // Only the club door carries it on; the action checks it again.
+  const [claim, setClaim] = useState('');
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
+    const c = q.get('claim') ?? '';
+    if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(c) && c.length <= 80) { setClaim(c); setRole('club'); }
     // A refusal comes back to a person who already said Australia: show it
     // where they were, not behind the country question again.
     if (q.get('clubAge') || q.get('coachAge') || q.get('error')) setStep('signup');
@@ -207,6 +212,7 @@ export default function Join() {
               <input type="hidden" name="country" value="AU" />
               <input type="hidden" name="firstName" value={firstName} />
               <input type="hidden" name="dob" value={dob} />
+              {role === 'club' && claim && <input type="hidden" name="claim" value={claim} />}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {(role === 'coach' || role === 'club') && (
                   <label className="field"><div className="field-label">Last name</div><input style={input} name="lastName" placeholder="Your surname" /></label>

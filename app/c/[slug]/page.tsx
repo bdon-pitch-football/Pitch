@@ -130,10 +130,10 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', flexDirection: 'column' }}>
       {/* E4 (BUZ, 1 Oct): signed out, the public links and a logo that goes
-          home, as on the club page. Signed in, the bar is the logo alone and
-          not a link, as the page's own mark was. */}
+          home, as on the club page. Signed in, the bar is the logo alone, and
+          it links to / too (Head of Product Design ruling 1, 1 Oct). */}
       {viewer
-        ? <SiteNav links={[]} signIn={false} homeLink={false} />
+        ? <SiteNav links={[]} signIn={false} />
         : <SiteNav links={[{ href: '/claim', label: 'Find your club' }, { href: '/trials', label: 'Trials' }]} />}
       <div className="cv-root coach-root"><div className="fl-wide cv-grid">
         {/* ---- the coach card --------------------------------------------- */}

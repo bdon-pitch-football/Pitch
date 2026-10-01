@@ -18,7 +18,7 @@ import { T } from '@/lib/palette';
 export function ParentPage({ children, page = false }: { children: ReactNode; page?: boolean }) {
   return (
     <div className="floodlight has-topbar" style={{ minHeight: '100dvh', color: 'var(--ink)', display: 'flex', flexDirection: 'column' }}>
-      <SiteNav links={[]} signIn={false} homeLink={false} />
+      <SiteNav links={[]} signIn={false} />
       <main className="fl-wide pd-flow">
         <div className={page ? 'pd-col' : 'door'}>{children}</div>
       </main>

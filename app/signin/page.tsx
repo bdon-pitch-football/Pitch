@@ -8,11 +8,21 @@ import { signIn } from './actions';
 import { FAILURE_COPY } from '@/components/FailureState';
 import { T } from '@/lib/palette';
 import { fieldLabel } from '@/lib/ui';
+import { db } from '@/lib/db';
+import { claimQuery, claimSlug } from '@/lib/claim-return';
 
 export const metadata = { title: 'Sign in', robots: { index: false, follow: false } };
 
-export default async function SignIn({ searchParams }: { searchParams: Promise<{ out?: string; reset?: string; joined?: string; confirmed?: string; refused?: string }> }) {
-  const { out, reset, joined, confirmed, refused } = await searchParams;
+export default async function SignIn({ searchParams }: { searchParams: Promise<{ out?: string; reset?: string; joined?: string; confirmed?: string; refused?: string; claim?: string }> }) {
+  const { out, reset, joined, confirmed, refused, claim: claimParam } = await searchParams;
+  // F7 (BUZ, 1 Oct): someone who pressed Claim on a club while signed out.
+  // The door names that club and brings them back to it; a slug that is no
+  // club's is simply the ordinary door.
+  const claim = claimSlug(claimParam);
+  const club = claim
+    ? ((await db.query('select name from club where public_slug = $1', [claim])).rows[0]?.name as string | undefined) ?? null
+    : null;
+  const carry = club ? claimQuery(claim) : '';
   const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 };
   const label = fieldLabel;
   const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
@@ -30,7 +40,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
         <HeaderMark />
         <OpenInBrowser path="/signin" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{club ? `Sign in to claim ${club}` : 'Welcome back'}</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>
             {/* "You're set up" was true before 0056 and is not now: the
                 account exists and signs in nowhere until the link we emailed
@@ -41,6 +51,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
             {out ? 'Signed out on this device.' : reset ? 'Password saved. Sign in with it.'
               : confirmed ? 'Address confirmed. Sign in with the password you chose.'
               : joined ? 'Check your email. There\u2019s a link in it that confirms the address is yours \u2014 open it and you can sign in. If it isn\u2019t in your inbox, look in spam or junk \u2014 we\u2019re new, and some inboxes don\u2019t know us yet.'
+              : club ? `New here? Make an account and we\u2019ll bring you back to ${club}.`
               : 'One account, whichever seat you hold.'}
           </div>
         </div>
@@ -54,6 +65,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           </div>
         )}
         <form action={signIn} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {club && <input type="hidden" name="claim" value={claim!} />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {/* The visible label is a LABEL, not a div beside the input. It
                 looked identical and read as "edit text, blank" to anyone
@@ -78,7 +90,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>A parent, a player, a coach and a club all sign in here. What you see afterwards depends on the seat, not the door.</div>
         </div>
-        <div style={{ marginTop: 'auto', fontSize: 13, fontWeight: 700, color: T.muted, textAlign: 'center' }}>New to Pitch? <a href="/join" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Create an account</a></div>
+        <div style={{ marginTop: 'auto', fontSize: 13, fontWeight: 700, color: T.muted, textAlign: 'center' }}>New to Pitch? <a href={`/join${carry}`} style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Create an account</a></div>
       </div>
     </div>
   );

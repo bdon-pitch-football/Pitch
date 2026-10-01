@@ -12,6 +12,7 @@
 // arguments — a 500 instead of a working button.
 import { redirect } from 'next/navigation';
 import { useAddressProof } from '@/lib/auth';
+import { claimQuery } from '@/lib/claim-return';
 
 export async function confirmAddress(formData: FormData) {
   const token = String(formData.get('token') ?? '');
@@ -19,5 +20,7 @@ export async function confirmAddress(formData: FormData) {
   // A dead link and a fresh one end in the same two places: the sign-in page
   // or the panel that says this link is finished. Nothing here says whether
   // an account exists (D-94 §2).
-  redirect(personId ? '/signin?confirmed=1' : `/confirm/${encodeURIComponent(token)}`);
+  // F7: the club they were claiming rides along to the sign-in door.
+  const claim = claimQuery(formData.get('claim'), '&');
+  redirect(personId ? `/signin?confirmed=1${claim}` : `/confirm/${encodeURIComponent(token)}${claim.replace('&', '?')}`);
 }

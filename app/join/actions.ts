@@ -8,6 +8,7 @@ import { legalStamp } from '@/lib/legal-stamp';
 import { checkRate } from '@/lib/ratelimit-db';
 import { createAddressProof } from '@/lib/auth';
 import { confirmAddressEmail } from '@/lib/messages';
+import { claimQuery, claimSlug } from '@/lib/claim-return';
 import { send } from '@/lib/messaging';
 
 const AU_MOBILE = /^04\d{2}\s?\d{3}\s?\d{3}$/;
@@ -46,9 +47,9 @@ function inAustralia(formData: FormData): boolean {
   return String(formData.get('country') ?? '') === 'AU';
 }
 
-async function askThemToConfirm(personId: string, email: string): Promise<void> {
+async function askThemToConfirm(personId: string, email: string, claim?: string | null): Promise<void> {
   const token = await createAddressProof(personId);
-  await send(confirmAddressEmail(token), { address: email, personId });
+  await send(confirmAddressEmail(token, claim), { address: email, personId });
 }
 
 export async function startPendingInvitation(formData: FormData) {
@@ -240,7 +241,10 @@ export async function createClubAccount(formData: FormData) {
   const dob = String(formData.get('dob') ?? '').trim();
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
   const password = String(formData.get('password') ?? '');
-  if (!firstName || !dob || !EMAIL_RE.test(email) || password.length < 10) redirect('/join?error=1');
+  // F7: the club they pressed Claim on, if any — carried through the
+  // confirmation link and the sign-in door, back to its claim page.
+  const claim = claimSlug(formData.get('claim'));
+  if (!firstName || !dob || !EMAIL_RE.test(email) || password.length < 10) redirect(`/join?error=1${claimQuery(claim, '&')}`);
   const limited = !(await doorIsOpen(email));
 
   const client = await db.connect();
@@ -249,7 +253,7 @@ export async function createClubAccount(formData: FormData) {
   try {
     await client.query('begin');
     const band = (await client.query('select fn_age_band($1::date) as b', [dob])).rows[0].b as string;
-    if (band !== '18plus') { await client.query('rollback'); redirect('/join?clubAge=1'); }
+    if (band !== '18plus') { await client.query('rollback'); redirect(`/join?clubAge=1${claimQuery(claim, '&')}`); }
     const person = limited ? { rows: [] as { id: string }[] } : await client.query(
       `insert into person (first_name, last_name, dob, dob_locked, email) values ($1,$2,$3,true,$4)
        on conflict (email) do nothing returning id`,
@@ -277,7 +281,7 @@ export async function createClubAccount(formData: FormData) {
   if (existing) await hashPasswordForTiming(password);
   else {
     await setPassword(personId, password);
-    await askThemToConfirm(personId, email);
+    await askThemToConfirm(personId, email, claim);
   }
-  redirect('/signin?joined=1');
+  redirect(`/signin?joined=1${claimQuery(claim, '&')}`);
 }

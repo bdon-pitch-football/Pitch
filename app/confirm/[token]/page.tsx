@@ -14,12 +14,14 @@ import { confirmAddress } from './actions';
 import { addressProofIsLive } from '@/lib/auth';
 import { T } from '@/lib/palette';
 import { card } from '@/lib/ui';
+import { claimSlug } from '@/lib/claim-return';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Confirm your email address', robots: { index: false, follow: false } };
 
-export default async function ConfirmAddress({ params }: { params: Promise<{ token: string }> }) {
+export default async function ConfirmAddress({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ claim?: string }> }) {
   const { token } = await params;
+  const claim = claimSlug((await searchParams).claim);
   const live = await addressProofIsLive(decodeURIComponent(token));
 
   return (
@@ -35,6 +37,7 @@ export default async function ConfirmAddress({ params }: { params: Promise<{ tok
         {live ? (
           <form action={confirmAddress} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <input type="hidden" name="token" value={token} />
+            {claim && <input type="hidden" name="claim" value={claim} />}
             <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
               Press the button and this address is yours on Pitch. Until then, the account it belongs to signs in nowhere.
             </div>

@@ -1944,6 +1944,17 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const signedIn = await post('/signin', signinForm, { email: 'priya@example.com', password: 'parent-password-2468' });
   const home = await fetch(BASE + '/home', { headers: { cookie: signedIn.cookie.split(';')[0] } });
   check('ia12: and the parent is in, looking at their child', /Mila/.test(await home.text()), true);
+  // F7 (BUZ, 1 Oct): Claim pressed signed out → the sign-in door carries the
+  // club, and signing in lands on that club's claim page. Only a club slug
+  // travels: anything else goes home as before, and a refusal keeps the club
+  // on the door without saying why it refused (D-94 §2).
+  const claimDoor = formWith((await ig('/signin?claim=westgate-rangers')).html, /^Sign in$/);
+  const viaClaim = await post('/signin', claimDoor, { email: 'priya@example.com', password: 'parent-password-2468' });
+  const viaBad = await post('/signin', signinForm, { email: 'priya@example.com', password: 'parent-password-2468', claim: '//evil.example/x' });
+  const refusedClaim = await post('/signin', claimDoor, { email: 'nobody-f7@example.com', password: 'not-a-password-1' });
+  check('f7-w1: signing in from a club\u2019s Claim lands on its claim page; a value that is not a slug goes home; a refusal keeps the club on the door',
+    [claimDoor?.fields.claim, viaClaim.location.endsWith('/claim/westgate-rangers'), viaBad.location.endsWith('/home'), refusedClaim.location.endsWith('/signin?refused=1&claim=westgate-rangers')],
+    ['westgate-rangers', true, true, true]);
   check('ia13: the landing now says sign in, not set a password', /href="\/signin"/.test((await ig(`/a/${inv}/done`)).html), true);
   const resetForm = formWith((await ig('/reset')).html, /reset link/);
   await post('/reset', resetForm, { email: 'priya@example.com' });
@@ -2105,7 +2116,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     // line while it waits for SMS (D-168). This seed's dev SMS decides which.
     const ask = /data-parent-ask="([a-z-]+)"/.exec(m)?.[1] ?? 'none';
     const texted = /We(?:’|&#x27;|&rsquo;)ve texted and emailed them to confirm they(?:’|&#x27;|&rsquo;)re your parent\./.test(m);
-    const queued = /We(?:’|&#x27;|&rsquo;)ve emailed them, and their text follows shortly\. Once they do, you can send\./.test(m);
+    const queued = /We(?:’|&#x27;|&rsquo;)ve emailed them, and their text follows shortly\. Once they do, you can send\. Keep building your page in the meantime\./.test(m);
     check(`hm-w3c: an open request shows the waiting notice whose line matches the text’s state, and never the closed line (${ask})`,
       [['asked', 'text-queued'].includes(ask), ask === 'asked' ? [texted, queued] : [queued, texted], /This request has closed\./.test(m)],
       [true, [true, false], false]);

@@ -3,6 +3,7 @@
 // record, by any route (D-93). Verified status is separate and human (D-126).
 import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { claimQuery } from '@/lib/claim-return';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { SHARED_ADDRESS_WARNING } from '@/lib/to-confirm';
@@ -30,7 +31,8 @@ export default async function ClaimClub({ params, searchParams }: {
   const { slug } = await params;
   const { claimed, taken, sent, bad, noaddress } = await searchParams;
   const me = await getSessionPersonId();
-  if (!me) redirect('/signin');
+  // F7: the sign-in door names this club and brings them back here.
+  if (!me) redirect(`/signin${claimQuery(slug)}`);
 
   const { rows } = await db.query(
     `select name, suburb, state, club_state, contact_email,

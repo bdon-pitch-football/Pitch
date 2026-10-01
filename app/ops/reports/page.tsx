@@ -79,7 +79,7 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
 
   // Every empty list is A's empty tile with its existing sentence (spec I).
   const Empty = ({ children }: { children: React.ReactNode }) => (
-    <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">{children}</div></div>
+    <div className="empty-tile is-compact"><div className="empty-t">{children}</div></div>
   );
   // A notice's words (spec I: done is the accent notice, an error the amber).
   const notice: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5 };

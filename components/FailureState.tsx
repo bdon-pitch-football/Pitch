@@ -117,8 +117,8 @@ function GlyphTile({ children }: { children: ReactNode }) {
  *
  * Floodlit (spec A part 22): the logo-only top bar (top right on a phone, top
  * left from 1024px, D-173 (3)), the page title and the well, and the way
- * out's primary carries the screen's one glow (set by the caller). The mark
- * is not a link — it never was here, and a link to / would be a new door.
+ * out's primary carries the screen's one glow (set by the caller). The logo
+ * links to / (HD2, 1 Oct): the way off a 404, a 500 or /report.
  */
 export default function FailureState({ kind, glyph, heading, reason, why, children }: {
   kind: 'not-found' | 'error';
@@ -130,7 +130,7 @@ export default function FailureState({ kind, glyph, heading, reason, why, childr
 }) {
   return (
     <div data-failure={kind} className="floodlight has-topbar" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', flexDirection: 'column' }}>
-      <SiteNav links={[]} signIn={false} homeLink={false} />
+      <SiteNav links={[]} signIn={false} />
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <GlyphTile>{glyph}</GlyphTile>
         <div className="pg-titles">

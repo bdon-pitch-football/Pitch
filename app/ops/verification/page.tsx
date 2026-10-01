@@ -110,7 +110,7 @@ export default async function OpsVerification() {
             table head was drawn over nothing and read as a failed load. A
             sentence instead, never a zero (D-162). */}
         {rows.length === 0 ? (
-          <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">No club has claimed its page yet.</div></div>
+          <div className="empty-tile is-compact"><div className="empty-t">No club has claimed its page yet.</div></div>
         ) : (
         <div className="ops-table">
           <div className="ops-head" aria-hidden>
