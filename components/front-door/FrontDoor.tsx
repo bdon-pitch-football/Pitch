@@ -162,10 +162,13 @@ function Soon({ items }: { items: string[] }) {
   );
 }
 
+// The close repeats the hero's action at the foot of the page. It is the same
+// primary without the glow: the glow is the screen's one primary, the first
+// in reading order — the hero's (spec A part 18; the render suite's glow1).
 function Close({ cta, foot }: { cta: [string, string]; foot: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8 }}>
-      <Link href={cta[1]} className="btn btn-primary fl-glow" style={{ maxWidth: 420 }}>{cta[0]}</Link>
+      <Link href={cta[1]} className="btn btn-primary" style={{ maxWidth: 420 }}>{cta[0]}</Link>
       <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, textAlign: 'center' }}>{foot}</div>
     </div>
   );

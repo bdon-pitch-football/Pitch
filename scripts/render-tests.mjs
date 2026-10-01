@@ -62,6 +62,14 @@ const cookieFor = (personId) => {
 // the client module's name in Next's payload, which the dev server spells
 // out; a production build hashes it, and this suite runs against dev.
 const ANALYTICS_MARK = /@vercel\/analytics|PublicAnalyticsScript/;
+// THE ONE GLOW (Head of Product Design ruling 1, spec A part 18; added with
+// the base pass, 1 Oct). .fl-glow goes on a screen's one primary action and
+// on no other, so a stranger can see what the screen is for. Nothing else
+// enforces a per-page rule, so every page this suite is served is counted —
+// in the markup, not in Next's payload, which repeats every className once
+// more inside a <script>. Judged at the end ("glow1").
+const glowCount = (html) => (html.replace(/<script[\s\S]*?<\/script>/g, ' ').match(/\bclass="[^"]*\bfl-glow\b[^"]*"/g) ?? []).length;
+const glowMany = new Set();
 const served = [];
 async function get(path, personId) {
   const res = await fetch(BASE + path, {
@@ -70,6 +78,8 @@ async function get(path, personId) {
   });
   const html = await res.text();
   served.push({ path, who: personId ?? null, status: res.status, analytics: ANALYTICS_MARK.test(html) });
+  const glows = glowCount(html);
+  if (glows > 1) glowMany.add(`${path.replace(/[0-9a-f-]{36}/g, '*')} (${glows})`);
   return { status: res.status, location: res.headers.get('location'), csp: res.headers.get('content-security-policy'), robots: res.headers.get('x-robots-tag'), html };
 }
 
@@ -1321,8 +1331,11 @@ const georgia = ids.children.georgia;
     [true, true, true, false, true]);
   const doors = [...out.matchAll(/<a[^>]*href="\/fc\/[^"]+#play"[^>]*>/g)].map((m) => m[0]);
   check(`tb2: every listing's one action is a charter button — "I’m interested" the primary, "Send my CV" the secondary (${doors.length} listings)`,
-    [doors.length >= 3, doors.filter((a) => !/class="btn btn-(primary fl-glow|secondary)"/.test(a)).length,
-     /class="btn btn-primary fl-glow"[^>]*href="\/fc\/[^"]+\?trial=[0-9a-f-]{36}#play"[^>]*>I’m interested</.test(out),
+    // The row's primary carries no glow (ruling 1: never a button inside a
+    // list row), so the class is matched exactly — a glow coming back on a
+    // row fails here as well as in glow1.
+    [doors.length >= 3, doors.filter((a) => !/class="btn btn-(primary|secondary)"/.test(a)).length,
+     /class="btn btn-primary"[^>]*href="\/fc\/[^"]+\?trial=[0-9a-f-]{36}#play"[^>]*>I’m interested</.test(out),
      /class="btn btn-secondary"[^>]*href="\/fc\/[^"?]+#play"[^>]*>Send my CV</.test(out)],
     [true, 0, true, true]);
   const none = plain((await get('/trials?gender=girls&pos=GK', null)).html);
@@ -2153,7 +2166,7 @@ const georgia = ids.children.georgia;
   // no door into the product, so a signed-in person sent there was stranded
   // with no sign-out. /home carries the console shell, and sign-out with it.
   check('fp2: it carries a heading, the Pitch mark and a way back to the seat\u2019s home',
-    [/<h1[^>]*>[^<]/.test(typo.html), typo.html.includes('data-failure="not-found"'), has(typo.html, HEADING), /TCH/.test(typo.html), /<a href="\/home" class="btn btn-primary">/.test(typo.html) && has(typo.html, HOME)],
+    [/<h1[^>]*>[^<]/.test(typo.html), typo.html.includes('data-failure="not-found"'), has(typo.html, HEADING), /TCH/.test(typo.html), /<a href="\/home" class="btn btn-primary[^"]*">/.test(typo.html) && has(typo.html, HOME)],
     [true, true, true, true, true]);
   check('fp3: and a title of its own — not the landing page’s line',
     /<title[^>]*>([^<]*)<\/title>/.exec(typo.html)?.[1], 'Page not found · Pitch Football');
@@ -2766,6 +2779,12 @@ const georgia = ids.children.georgia;
 // addr-r1 — no page this crawl was served sends a share token into an address
 // bar: not in a redirect, and not in a link it carries (brief D; L38/L42).
 // ---------------------------------------------------------------------------
+// glow1 — the one glow, over every page the whole suite was served (see
+// glowCount at the top). Proven against the trials board and a two-child
+// club page, which carried three and two before the base pass.
+check(`glow1: no page in the render crawl carries more than one fl-glow (${served.length} pages served)`,
+  [...glowMany], []);
+
 check(`addr-r1: no response in the render crawl carries a share token in a Location or in a link's query string (${tokenWatch.pages} pages, ${tokenWatch.redirects} redirects watched)`,
   [tokenWatch.leaks, tokenWatch.pages > 500, tokenWatch.redirects > 20], [[], true, true]);
 

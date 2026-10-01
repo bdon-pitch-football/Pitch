@@ -1,5 +1,5 @@
 import { marked } from 'marked';
-import { PitchWordmark, QuietShell } from '@/components/quiet-shell';
+import { QuietShell } from '@/components/quiet-shell';
 import { legalDocument } from '@/lib/legal-doc';
 import { T } from '@/lib/palette';
 
@@ -44,7 +44,6 @@ export function renderLegal(file: string) {
 
   return (
     <QuietShell wide>
-      <PitchWordmark />
       <div
         className="legal-doc"
         style={{ fontSize: 14.5, color: T.secondary, fontWeight: 500, lineHeight: 1.65 }}

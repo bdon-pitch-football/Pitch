@@ -19,12 +19,14 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
 
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+      {/* .signin-door, not .door: .door is the shared door panel now (spec
+          A part 20), and this page's own rise must not pick up its panel. */}
       <style>{`@keyframes doorRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-        .door > * { animation: doorRise .5s cubic-bezier(.22,1,.36,1) both; }
-        .door > *:nth-child(2) { animation-delay: .05s } .door > *:nth-child(3) { animation-delay: .1s }
-        .door > *:nth-child(4) { animation-delay: .15s } .door > *:nth-child(5) { animation-delay: .2s }
-        @media (prefers-reduced-motion: reduce) { .door > * { animation: none } }`}</style>
-      <div className="door reading" style={{ width: '100%', minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+        .signin-door > * { animation: doorRise .5s cubic-bezier(.22,1,.36,1) both; }
+        .signin-door > *:nth-child(2) { animation-delay: .05s } .signin-door > *:nth-child(3) { animation-delay: .1s }
+        .signin-door > *:nth-child(4) { animation-delay: .15s } .signin-door > *:nth-child(5) { animation-delay: .2s }
+        @media (prefers-reduced-motion: reduce) { .signin-door > * { animation: none } }`}</style>
+      <div className="signin-door reading" style={{ width: '100%', minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
         <OpenInBrowser path="/signin" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

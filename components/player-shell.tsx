@@ -12,7 +12,7 @@
 // seat gets its own console on its own screens and no frame here.
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
-import { Frame, type Item } from '@/components/console-shell';
+import { Frame, TopBarShell, type Item } from '@/components/console-shell';
 
 export type PlayerTab = 'home' | 'cv' | 'trials' | 'send';
 
@@ -49,12 +49,8 @@ async function resolveSeat(): Promise<Seat> {
   return null;
 }
 
-/** No frame: the page keeps the wrapper it always had. */
-const Plain = ({ children }: { children: React.ReactNode }) => (
-  <div className="floodlight" style={{ minHeight: '100dvh', color: 'var(--ink)', display: 'flex', justifyContent: 'center' }}>
-    {children}
-  </div>
-);
+/** No frame: the logo-only top bar over the page (spec A part 5). */
+const Plain = ({ children }: { children: React.ReactNode }) => <TopBarShell>{children}</TopBarShell>;
 
 function playerFrame(seat: Extract<Seat, { kind: 'player' }>, active: string, children: React.ReactNode) {
   const items: Item[] = [
@@ -64,7 +60,7 @@ function playerFrame(seat: Extract<Seat, { kind: 'player' }>, active: string, ch
     ...(seat.can_send ? [{ key: 'send', href: `/send/${seat.record_id}`, label: 'Send', icon: 'send' as const }] : []),
   ];
   const head = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+    <div className="seat-card-id">
       {seat.photo_path ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img src={seat.photo_path} alt="" width={40} height={40} style={{ borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
@@ -72,12 +68,12 @@ function playerFrame(seat: Extract<Seat, { kind: 'player' }>, active: string, ch
         <div aria-hidden style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: 'var(--secondary)', flexShrink: 0 }}>{seat.first_name?.[0] ?? 'P'}</div>
       )}
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 'var(--ls-title)' }}>{seat.first_name}</div>
-        {seat.club && <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{seat.club}</div>}
+        <div className="seat-card-name">{seat.first_name}</div>
+        {seat.club && <div className="seat-card-role">{seat.club}</div>}
       </div>
     </div>
   );
-  return <Frame label="Player" head={head} items={items} active={active} floodlight bar>{children}</Frame>;
+  return <Frame label="Player" head={head} items={items} active={active} bar>{children}</Frame>;
 }
 
 function guardianFrame(seat: Extract<Seat, { kind: 'guardian' }>, active: string, children: React.ReactNode) {
@@ -92,14 +88,14 @@ function guardianFrame(seat: Extract<Seat, { kind: 'guardian' }>, active: string
     { key: 'trials', href: '/trials', label: 'Trials', icon: 'trials' },
   ];
   const head = (
-    <div>
-      <div style={{ fontSize: 14.5, fontWeight: 900, lineHeight: 1.25 }}>{seat.first_name}</div>
-      <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, marginTop: 2 }}>Your family</div>
+    <div style={{ minWidth: 0 }}>
+      <div className="seat-card-name">{seat.first_name}</div>
+      <div className="seat-card-role">Your family</div>
     </div>
   );
   // Collapsed to one Children tab, a child's own screen marks that tab.
   const current = seat.children.length > 2 && active.startsWith('child:') ? 'children' : active;
-  return <Frame label="Parent" head={head} items={items} active={current} floodlight bar>{children}</Frame>;
+  return <Frame label="Parent" head={head} items={items} active={current} bar>{children}</Frame>;
 }
 
 /** A player's own screens. Anyone else keeps the plain page. */

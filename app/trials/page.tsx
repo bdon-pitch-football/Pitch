@@ -7,7 +7,7 @@
 import Link from 'next/link';
 import { TrialsFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
-import Wordmark from '@/components/Wordmark';
+import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { T } from '@/lib/palette';
 import PublicAnalytics from '@/components/PublicAnalytics';
@@ -157,9 +157,12 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
 
   const board = (
     <main className="fl-wide tb">
-      {/* Signed in, the seat's frame has no bar across the top, so the logo
-          stays where every screen has had it. Signed out, it is in the nav. */}
-      {me && <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>}
+      {/* Signed in, the page header carries the logo, top right on a phone.
+          It is HeaderMark so the shared rules decide where it goes (spec A
+          parts 5 and 6): in a seat frame the rail carries it from 1024px,
+          and with no seat frame the top bar does. Signed out, it is in the
+          nav. */}
+      {me && <HeaderMark />}
       <div className="tb-head">
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15 }}>Trials board</h1>
         <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Club trials listed below, by trial date.</div>

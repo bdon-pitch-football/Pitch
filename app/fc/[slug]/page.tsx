@@ -154,6 +154,11 @@ export default async function ClubPage({ params, searchParams }: {
   const suspended = c.club_state === 'suspended';
 
   const unclaimed = c.club_state === 'unclaimed';
+  // One glow per screen, on the first primary in 390 reading order (spec A
+  // part 18; Head of Product Design ruling 1). On an unclaimed page the claim
+  // card leads at 390 (.fl-aside-first-m), so it keeps the glow and the send
+  // panel's primary is the same button without it.
+  const playPrimary = unclaimed ? 'btn btn-primary' : 'btn btn-primary fl-glow';
   const place = [c.suburb, c.state].filter(Boolean).join(' ');
   // A claimed club's own colours (0160, D-173). null for an unclaimed or
   // suspended club, or one that has not picked any: Pitch's hero then.
@@ -341,23 +346,25 @@ export default async function ClubPage({ params, searchParams }: {
             <div style={{ maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {!onPitch ? (
               !me ? (
-                <Link href="/signin" className="btn btn-primary fl-glow">Sign in to send your CV</Link>
+                <Link href="/signin" className={playPrimary}>Sign in to send your CV</Link>
               ) : myRecord ? (
-                <Link href={`/send/${myRecord}?club=${c.public_slug}`} className="btn btn-primary fl-glow">Send my CV to {c.name}</Link>
+                <Link href={`/send/${myRecord}?club=${c.public_slug}`} className={playPrimary}>Send my CV to {c.name}</Link>
               ) : children.length > 0 ? (
-                children.map((k) => (
-                  <Link key={k.recordId} href={`/send/${k.recordId}?club=${c.public_slug}`} className="btn btn-primary fl-glow">Send {k.name}&rsquo;s CV to {c.name}</Link>
+                // One glow per screen (spec A part 18): the first child's
+                // button, in reading order. The others are the same primary.
+                children.map((k, i) => (
+                  <Link key={k.recordId} href={`/send/${k.recordId}?club=${c.public_slug}`} className={i === 0 ? playPrimary : 'btn btn-primary'}>Send {k.name}&rsquo;s CV to {c.name}</Link>
                 ))
               ) : (
-                <Link href="/join" className="btn btn-primary fl-glow">Build a CV first — it is what the club reads</Link>
+                <Link href="/join" className={playPrimary}>Build a CV first — it is what the club reads</Link>
               )
             ) : !me ? (
               <Link href="/signin" className="btn btn-primary fl-glow">Sign in to register your interest</Link>
             ) : myRecord ? (
               <Link href={`/register-interest/${myRecord}?club=${c.id}${squadQuery}`} className="btn btn-primary fl-glow">Register my interest</Link>
             ) : children.length > 0 ? (
-              children.map((k) => (
-                <Link key={k.recordId} href={`/register-interest/${k.recordId}?club=${c.id}${squadQuery}`} className="btn btn-primary fl-glow">
+              children.map((k, i) => (
+                <Link key={k.recordId} href={`/register-interest/${k.recordId}?club=${c.id}${squadQuery}`} className={i === 0 ? 'btn btn-primary fl-glow' : 'btn btn-primary'}>
                   Register {k.name}&rsquo;s interest
                 </Link>
               ))

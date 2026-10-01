@@ -51,8 +51,11 @@ export default function TrialRow({ id, day, mon, title, timeVenue, listed, check
           {/* They open the club's page at its door: the register of a club on
               Pitch, carrying this trial so the club can invite to it (D-153),
               or an unclaimed club's "send my CV". */}
+          {/* The solid primary with no glow: the glow is the screen's one
+              primary action, never a button inside a list row (Head of
+              Product Design ruling 1, 1 Oct), so four rows never compete. */}
           {slug && (onPitch
-            ? <Link href={`/fc/${slug}?trial=${id}#play`} className="btn btn-primary fl-glow">I&rsquo;m interested</Link>
+            ? <Link href={`/fc/${slug}?trial=${id}#play`} className="btn btn-primary">I&rsquo;m interested</Link>
             : <Link href={`/fc/${slug}#play`} className="btn btn-secondary">Send my CV</Link>)}
         </div>
       )}

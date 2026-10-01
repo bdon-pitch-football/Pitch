@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { getByToken } from '@/lib/waitlist-db';
 import { updateEntry } from './actions';
-import { PitchWordmark, QuietShell } from '@/components/quiet-shell';
+import { QuietShell } from '@/components/quiet-shell';
 import { ROLES } from '@/lib/consent';
 import { T } from '@/lib/palette';
 
@@ -30,7 +30,6 @@ export default async function ManagePage({
   if (!token || !row) {
     return (
       <QuietShell>
-        <PitchWordmark />
         <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-.02em', margin: 0 }}>
           That link didn’t work.
         </h1>
@@ -44,7 +43,6 @@ export default async function ManagePage({
 
   return (
     <QuietShell>
-      <PitchWordmark />
       <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-.02em', margin: 0 }}>
         Your waitlist details.
       </h1>
