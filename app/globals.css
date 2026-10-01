@@ -882,7 +882,7 @@ h1, h2, h3, h4, h5, h6 {
   body:has(.seat-tabs) .site-foot { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
 }
 
-/* ====================================================================
+/* ===========================================================================
    FLOODLIT (D-173, BUZ 1 Oct 2026). Night Match with the lights on. Five
    charter changes, all approved together:
      1. Depth: two soft shadows, card and floating. The surface step and the
@@ -1253,7 +1253,7 @@ h1, h2, h3, h4, h5, h6 {
   .tb-clubdoor .btn { width: auto; padding: 0 26px; flex-shrink: 0; }
 }
 @container (min-width: 1024px) { .tb-emptyb { flex-direction: row; align-items: center; gap: 28px; padding: 30px; } }
-=======
+
 /* An invitation's two answers (/g/invite, D-117; D spec, defect 6, 1 Oct).
    The first option was painted chosen whatever was checked, and the radio was
    invisible with no checked style, so a saved "Interested, not that date"
