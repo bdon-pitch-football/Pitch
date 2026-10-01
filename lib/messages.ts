@@ -108,12 +108,15 @@ ${SITE} · ${HELP}`,
 });
 
 // §3 · Day-10 nudge — SMS. Sent once. Never twice. Deletion is the headline.
+// A hyphen, not a dash or a middle dot (BUZ, 1 Oct, E7): either one puts the
+// whole text in UCS-2, which fits 67 characters a segment instead of 153 and
+// doubles the cost. Every SMS here stays inside GSM-7 (permission suite em-sms).
 export const pendingNudgeSms = (childFirstName: string, code: string): Composed => ({
   key: 'doc15.§3',
   channel: 'sms',
   body:
-    `Pitch: ${childFirstName}'s football profile is still waiting on your OK. It'll be deleted in 4 days if you don't approve it — nothing will be kept.\n` +
-    `${SITE}/a/${code} · ${HELP}`,
+    `Pitch: ${childFirstName}'s football profile is still waiting on your OK. It'll be deleted in 4 days if you don't approve it - nothing will be kept.\n` +
+    `${SITE}/a/${code} - ${HELP}`,
 });
 
 // §14 · The verification code — SMS. Six digits, spaced for a lock screen.
@@ -123,18 +126,18 @@ export const verificationCodeSms = (code: string): Composed => ({
   body: `Pitch: your code is ${code.split('').join('-')}. It expires in 10 minutes.\nWe'll never ring you for this code. ${HELP}`,
 });
 
-// §15 · STOP and HELP auto-replies (D-81).
+// §15 · STOP and HELP auto-replies (D-81). Hyphens for the same reason as §3 (E7).
 export const stopReplySms = (): Composed => ({
   key: 'doc15.§15.stop',
   channel: 'sms',
   body:
-    `Pitch: you're unsubscribed and we won't text this number again. If you were mid-way through approving a child's profile, that will now stop too — reply START or email ${HELP} if that wasn't what you meant.`,
+    `Pitch: you're unsubscribed and we won't text this number again. If you were mid-way through approving a child's profile, that will now stop too - reply START or email ${HELP} if that wasn't what you meant.`,
 });
 export const helpReplySms = (): Composed => ({
   key: 'doc15.§15.help',
   channel: 'sms',
   body:
-    `Pitch — a football development platform. You're getting this because someone asked you to approve a child's profile, or you asked us for a code. Reply STOP to opt out. ${HELP} · ${SITE}`,
+    `Pitch - a football development platform. You're getting this because someone asked you to approve a child's profile, or you asked us for a code. Reply STOP to opt out. ${HELP} - ${SITE}`,
 });
 
 // §19 · A CV sent to a club — to the club. Never the surname beside the club,
@@ -259,6 +262,10 @@ ${contact}
 // never a digest (D-99, D-22), and to both guardians identically where there
 // are two (D-51, F5). Doc 15's example says "his": the product holds no gender
 // for a child (D-25), so it cannot know, and it says "their".
+// Doc 15 gives two buttons of equal weight, [See what he sent] · [Turn sending
+// off]. Until 1 Oct they were merged into one line doc 15 does not have ("See
+// what they sent, or turn sending off"). Both live on the child's controls page
+// — where their CV has been sent, and the sending switch — so both go there.
 export const childSentCvEmail = (childFirstName: string, clubName: string, address: string, childId: string): Composed => ({
   key: 'doc15.§22',
   channel: 'email',
@@ -268,7 +275,8 @@ export const childSentCvEmail = (childFirstName: string, clubName: string, addre
 
 ${childFirstName} does not need your approval for this — at sixteen and seventeen, sending is theirs to do. You are told every time, and the switch is yours if you ever want it off.
 
-See what they sent, or turn sending off: ${SITE}/g/controls/${childId}
+See what they sent: ${SITE}/g/controls/${childId}
+Turn sending off: ${SITE}/g/controls/${childId}
 
 Turning it off is not a punishment and ${childFirstName} will not be told it was you — they will simply see that sending is off on their account, and the two of you can sort it out between you.
 
@@ -498,6 +506,12 @@ ${SITE} · ${HELP}`,
 
 // §33 · A sign-in from somewhere new. Never an IP, a map, a city or a device
 // fingerprint. Goes to guardians and adults, never to an under-16 alone.
+// Doc 15 puts [Change your password] inside the last sentence. Until 1 Oct the
+// email said "change your password" and gave nothing to press — a security
+// alert with no way to act on it. The button is its own line, as every other
+// button here is, and the three lines read as doc 15's one sentence in a client
+// that joins them. /reset asks for the link; it never says whether the account
+// exists (doc 15 §10 amendment).
 export const newSignInEmail = (whenMelbourne: string): Composed => ({
   key: 'doc15.§33',
   channel: 'email',
@@ -507,7 +521,9 @@ export const newSignInEmail = (whenMelbourne: string): Composed => ({
 
 If that was you, there's nothing to do.
 
-If it wasn't: change your password — that signs out everywhere, on every device, straight away.
+If it wasn't:
+Change your password: ${SITE}/reset
+— that signs out everywhere, on every device, straight away.
 
 — Pitch · ${HELP}`,
 });
@@ -517,8 +533,9 @@ If it wasn't: change your password — that signs out everywhere, on every devic
 // v1.3 (BUZ, 1 Oct): the last paragraph no longer offers trial notices before
 // verification (D-90 as amended), and no longer says "we'll ring you" — that
 // taught a claimant to send us the one number doc 27 must never ring. Doc 15
-// bolds the child sentence; this is a plain-text email, so, like §2 and §31,
-// the bold is in the doc and the words are here.
+// bolds the child sentence. The words are here; the bold is drawn only in the
+// HTML part, from lib/email-html's BOLD list, which can wrap these words and
+// never change them.
 export const clubClaimCodeEmail = (clubName: string, code: string): Composed => ({
   key: 'doc15.§34',
   channel: 'email',

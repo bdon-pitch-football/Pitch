@@ -25,7 +25,8 @@ and **Preview**:
 | `CRON_SECRET` | `openssl rand -base64 32`. Without it the three crons refuse: no purges, no expiries, no reminders. |
 | `OPS_EMAILS` | `burak.donmez@pitch-football.com`. Empty means nobody can open `/ops`. |
 | `RESEND_API_KEY`, `EMAIL_WEBHOOK_SECRET` | Resend (API keys; Webhooks → signing secret) |
-| `EMAIL_FROM` | `Pitch <hello@send.pitchfootball.com.au>`, the verified sending domain |
+| `EMAIL_FROM` | `Pitch <hello@send.pitchfootball.com.au>`, the verified sending domain. The code sends it as **Pitch Football** whatever name is here (E3, 1 Oct); only the address is read. |
+| Resend → Domains → `send.pitchfootball.com.au` → Configuration | **Open tracking OFF and click tracking OFF**, before any HTML email sends (spec K, 1 Oct). Every email now carries an HTML part, and with either switch on Resend adds a pixel or rewrites every link — surveillance of a parent reading about their own child (doc 14 J41's reasoning). The code asks for neither; only the dashboard can turn them on. |
 | `EMAIL_REPLY_TO` | `burak.donmez@pitch-football.com` (D-169). No help@ inbox. |
 | `NEXT_PUBLIC_SITE_URL` | `https://pitchfootball.com.au` |
 | `TZ` | `Australia/Melbourne` |

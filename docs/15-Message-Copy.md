@@ -16,9 +16,10 @@
 6. **Every SMS carries a support address**, because someone whose SMS did not arrive cannot use an in-app help link (D-79). **The address is burak.donmez@pitch-football.com** — BUZ, 28 Sep: his direct address is the one contact a user sees, replacing help@ in every message here. It comes from one constant (`lib/support.ts`).
 7. **No message ever contains a WWCC number, a token, or a child's surname alongside their club.**
 8. **Banned words apply here too** (D-85).
-9. **Sender identity:** email from `Pitch <hello@pitchfootball.com.au>` on the transactional subdomain; marketing sends on a separate subdomain and stream entirely (D-81).
+9. **Sender identity:** email from `Pitch Football <hello@pitchfootball.com.au>` on the transactional subdomain; marketing sends on a separate subdomain and stream entirely (D-81). The name is the trading name a stranger can place (BUZ, 1 Oct, E3), and the code sets it whatever the environment says.
 10. **A club's approach to a family is a bare wake, never content** (D-117). The email or SMS says something is waiting; the substance is behind sign-in. See §24 — it is the shortest message here and the most load-bearing.
 11. **Silence is a supported outcome everywhere** (D-138). Where a message asks for a decision, doing nothing must be a complete answer, it must cost nothing, and it must produce no state anyone else can see. No message in this file chases.
+12. **Every email is text and HTML, and the text is the message** (BUZ, 1 Oct, E1). The words in this file are the text part, with `https://` on every link (E8). The HTML part is drawn from that text by `lib/email-html.ts` and shows exactly its words: a **[button]** here is a button there and `Label: address` in the text, with the address printed under it. One green button where there is one action; two plain ones where this file gives two choices equal weight, and none green. Whether a choice that is doing nothing (*Let it expire*, *Ignore*) keeps its words here is John's to rule (E4); until he does, the words stay and the HTML draws no button for them, because there is nothing for one to open. No image of any kind, no tracking, no rewritten link, and no club's crest or colours (E9).
 
 ---
 
@@ -111,8 +112,10 @@ A 16–17 runs their own page, so this is not "approve before anything goes live
 
 Sent once. Never twice.
 
-> **Pitch: Deniz's football profile is still waiting on your OK. It'll be deleted in 4 days if you don't approve it — nothing will be kept.**
-> **pitchfootball.com.au/a/XXXX · burak.donmez@pitch-football.com**
+> **Pitch: Deniz's football profile is still waiting on your OK. It'll be deleted in 4 days if you don't approve it - nothing will be kept.**
+> **pitchfootball.com.au/a/XXXX - burak.donmez@pitch-football.com**
+
+**Changed 1 Oct 2026 (BUZ, E7 of the transactional email and SMS spec):** the nudge has a hyphen where it had a dash and a middle dot. The words are unchanged. A dash or a middle dot is outside the GSM-7 alphabet, and one such character sends the whole text as UCS-2 — 67 characters a segment instead of 153 — which made this text four segments instead of two. Every SMS in this file stays inside GSM-7 (permission suite em-sms).
 
 **Why the deletion is the headline rather than a warning.** We are not chasing the parent; we are telling them the default is deletion. That is honest, it is the actual behaviour (D-17), and it removes any sense that ignoring us is a fight.
 
@@ -309,10 +312,12 @@ Six digits, spaced so it is readable on a lock screen. The never-ring line is th
 ## 15 · STOP and HELP replies — SMS
 
 **On STOP:**
-> **Pitch: you're unsubscribed and we won't text this number again. If you were mid-way through approving a child's profile, that will now stop too — reply START or email burak.donmez@pitch-football.com if that wasn't what you meant.**
+> **Pitch: you're unsubscribed and we won't text this number again. If you were mid-way through approving a child's profile, that will now stop too - reply START or email burak.donmez@pitch-football.com if that wasn't what you meant.**
 
 **On HELP:**
-> **Pitch — a football development platform. You're getting this because someone asked you to approve a child's profile, or you asked us for a code. Reply STOP to opt out. burak.donmez@pitch-football.com · pitchfootball.com.au**
+> **Pitch - a football development platform. You're getting this because someone asked you to approve a child's profile, or you asked us for a code. Reply STOP to opt out. burak.donmez@pitch-football.com - pitchfootball.com.au**
+
+**Changed 1 Oct 2026 (BUZ, E7 of the transactional email and SMS spec):** both replies have a hyphen where they had a dash or a middle dot. The words are unchanged. A dash or a middle dot is outside the GSM-7 alphabet, and one such character sends the whole text as UCS-2 — 67 characters a segment instead of 153 — which made each reply four segments instead of two. Every SMS in this file stays inside GSM-7 (permission suite em-sms).
 
 Required under Australian messaging rules (D-81). The STOP reply names the consequence, because a guardian who opts out mid-approval has silently broken their own child's signup and nobody would otherwise tell them.
 
