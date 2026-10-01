@@ -338,8 +338,12 @@ const TARGETS = `JSON.stringify((() => {
     // on a phone, so it is a control whatever it sits inside. (mailto: is
     // treated as prose: every one in the product is a citation in the legal
     // documents, inside a sentence.)
-    const prose = tag === 'a' && !/^tel:/.test(href)
-      && !!el.parentElement && el.parentElement.textContent.trim().length >= (el.textContent ?? '').trim().length;
+    // Fixed 1 Oct (design checklist): the parent's text always contains the
+    // link's own, so ">=" made EVERY small link "prose" and nothing ever
+    // failed. Prose now means an inline link with other words beside it.
+    const ownText = (el.textContent ?? '').trim();
+    const prose = tag === 'a' && !/^tel:/.test(href) && cs.display === 'inline'
+      && !!el.parentElement && el.parentElement.textContent.trim().length > ownText.length + 1;
     out.push({ what: tag + (el.type ? '[' + el.type + ']' : '') + (href ? ' ' + href.slice(0, 28) : '')
       + ' "' + ((el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)) + '"', w, h, prose });
   }

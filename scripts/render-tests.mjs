@@ -1745,10 +1745,10 @@ const georgia = ids.children.georgia;
   // ---- The Stripe build, behind the switch ---------------------------------
   await billingSwitch(true);
   const b = await get('/club/billing', marina);
-  check('b1: the price is a display numeral, not body text', /class="numeral numeral-l"/.test(b.html) && has(b.html, '$54'), true);
+  check('b1: the price is a display numeral, not body text', /class="[^"]*\bnumeral-l\b[^"]*"/.test(b.html) && has(b.html, '$54'), true);
   check('b1b: with its own caption under it rather than three pixels from it', has(b.html, 'a month, including GST'), true);
   check('b2: the next charge date sits beside it at the same rank',
-    has(b.html, 'Next charge') && /class="numeral numeral-m"/.test(b.html) && has(b.html, 'unless you cancel before then'), true);
+    has(b.html, 'Next charge') && /class="[^"]*\bnumeral-m\b[^"]*"/.test(b.html) && has(b.html, 'unless you cancel before then'), true);
   check('b3: it is a console surface, not a 604px reading column (D-147)',
     /class="console"/.test(b.html) && !/class="reading"/.test(b.html), true);
   check('b4: the statement descriptor and the state of the subscription are both on it',
@@ -1983,7 +1983,7 @@ const georgia = ids.children.georgia;
   check('ah11: a team manager is on her list reading nothing (doc 34 rule 4)',
     has(r.html, 'Tomas Villa') && has(r.html, 'Team manager — no registrations.'), true);
 
-  const numerals = [...r.html.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim());
+  const numerals = [...r.html.matchAll(/class="[^"]*\bnumeral-[lms]\b[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1].trim());
   check(`ah12: no count on her screen is the digit zero (D-162) (${numerals.join(',') || 'no numerals at all'})`,
     numerals.filter((n) => n === '0').length, 0);
   check('ah12b: and the hero is omitted rather than drawn with nothing in it',
@@ -2007,14 +2007,14 @@ const georgia = ids.children.georgia;
                            ['a club TD', ids.people.marina], ['an administrator', ids.people.pat],
                            ['an unverified club', ids.people['m.']]]) {
     const html = (await get('/home', id)).html;
-    const zeros = [...html.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim())
+    const zeros = [...html.matchAll(/class="[^"]*\bnumeral-[lms]\b[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1].trim())
       .filter((n) => n === '0');
     check(`z1: /home for ${who} renders no count as the digit zero (D-162)`, zeros.length, 0);
   }
   await billingSwitch(true);   // the plan screen exists only with billing on (D-163)
   const bill = (await get('/club/billing', ids.people.marina)).html;
   await billingSwitch(false);
-  const zeros = [...bill.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].map((m) => m[1].trim()).filter((n) => n === '0');
+  const zeros = [...bill.matchAll(/class="[^"]*\bnumeral-[lms]\b[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1].trim()).filter((n) => n === '0');
   check('z2: and /club/billing renders no count at all, let alone a zero',
     [has(bill, 'The Interest Register'), zeros.length], [true, 0]);
 }
