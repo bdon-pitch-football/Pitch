@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { saveCvDraft } from '@/lib/cv-build';
 import { STAT_KEYS, STAT_SETS, positionGroup, type StatKey } from '@/lib/football';
-import { requireRecordActor } from '@/lib/record-guard';
+import { requireRecordAuthor } from '@/lib/record-guard';
 
 //
 // Ids come from the FORM, not from bind(). A bound server action renders
@@ -12,8 +12,9 @@ import { requireRecordActor } from '@/lib/record-guard';
 // already re-checked server-side — bind() never made one trustworthy.
 export async function saveDraft(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
-  // Never trust the record id in the URL (D-94 §3).
-  await requireRecordActor(recordId);
+  // Never trust the record id in the URL (D-94 §3). Who may write it is the
+  // database's answer: the owner, or an under-16's guardian (N-10, 0169).
+  const author = await requireRecordAuthor(recordId);
   const positions = String(formData.get('positions') ?? '').split(',').filter(Boolean);
   const chosenStats = formData.get('surfaced') === null ? null : String(formData.get('surfaced'));
   const stats: Partial<Record<StatKey, number | null>> = {};
@@ -42,7 +43,7 @@ export async function saveDraft(formData: FormData) {
       : chosenStats.split(',').filter(Boolean)) as StatKey[],
     stats,
     season: '2026',
-  });
+  }, author);
   // A page with all six of its parts gets the moment rather than the same
   // form again — once. Coming back to edit a finished page saves quietly.
   const { rows } = await db.query(

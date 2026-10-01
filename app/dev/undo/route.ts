@@ -12,7 +12,8 @@
 //
 // Each token points at a share token minted here for the record named, whose
 // own raw value is thrown away: it opens nothing, so revoking it switches off
-// nothing anybody holds. Nothing is sent and no consent event is written.
+// nothing anybody holds. Nothing is sent and no consent event is written here
+// (a live press writes the switch-off row, against the record named).
 //
 // Gated exactly as /dev/billing is: not found in production, and not found in
 // a club demo. POST only, so no crawl and no link preview can reach it.
@@ -38,10 +39,14 @@ export async function POST(request: Request) {
   if (!owner) return new NextResponse(null, { status: 400 });
   const tokens: string[] = [];
   for (let i = 0; i < n; i++) {
+    // Lapsed is the LINK's lapse: the undo follows its link's expiry (John,
+    // 1 Oct, §6), so an undo whose own date has passed while its link is
+    // still in date — a renewed link — is live, not lapsed.
     const link = (await db.query(
       `insert into share_token (record_id, token_hash, issued_by, expires_at, revoked_at)
-       values ($1, $2, $3, now() + interval '90 days', case when $4 then now() end) returning id`,
-      [record, hash(randomBytes(32).toString('base64url')), owner, kind === 'off'],
+       values ($1, $2, $3, case when $5 then now() - interval '1 day' else now() + interval '90 days' end,
+         case when $4 then now() end) returning id`,
+      [record, hash(randomBytes(32).toString('base64url')), owner, kind === 'off', kind === 'lapsed'],
     )).rows[0].id;
     const raw = randomBytes(24).toString('base64url');
     await db.query(

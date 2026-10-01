@@ -24,24 +24,37 @@
 --   fn_end_pending_invitation(token_hash)    the parent's press on /a. It
 --       refuses unless the rules below hold, then calls the one deletion.
 --
--- WHAT THE PRESS REQUIRES (John, 1 Oct). It refuses, and changes nothing:
+-- WHAT THE PRESS REQUIRES (John, 1 Oct; F15 as he ruled it the same day).
+-- It refuses, and changes nothing:
 --   · unless the code is one of the invitation's two channel links (D-156) —
 --     the invitation id, which the CHILD holds ("Show them my page"), is not
 --     a channel and ends nothing; a string that matches no link ends nothing;
---   · unless at least ONE channel has been confirmed by a press. Approving
---     creates a relationship and licenses a disclosure, so it needs both.
---     Ending creates nothing and discloses nothing, so one is enough: the
---     worst a wrong "No" does is make a child ask again;
 --   · if the invitation is approved, or held (D-155). A hold reads as an
 --     approval everywhere, and ending one would be an answer that told
 --     somebody it was not.
+-- Neither link needs to have been confirmed (F15, John, 1 Oct, reversing his
+-- own morning condition of "at least one channel confirmed"). The person
+-- that condition kept out is the person at a mistyped number — the one who
+-- most needs to say no, and who could only do it by first pressing "Yes,
+-- it's me", which for them is false. The only way to hold an unconfirmed
+-- link is to have received it at the contact the child typed, and the worst
+-- a wrong "No" does is make a child ask again. Approving still needs both
+-- channels: it creates a relationship and licenses a disclosure; ending
+-- creates nothing and discloses nothing. And it is still a press: the app
+-- calls this only from a POST on /a, so a mail scanner opening the link
+-- ends nothing.
 -- A refusal looks like nothing happened (John's condition 1): the caller
 -- returns the person to /a as it was, with no error and no reason.
 --
--- WHAT IT RECORDS (John's conditions 2 and 4). The existing `purged` event
--- (D-78's vocabulary; no new word, L5) with two more keys: reason
--- `ended_by_recipient` and the channel TYPE of the link pressed, 'sms' or
--- 'email'. The time is the event's own `at`. Nothing that identifies the
+-- WHAT IT RECORDS (John's conditions 2 and 4, and F15). The existing `purged`
+-- event (D-78's vocabulary; no new word, L5) with three more keys: reason
+-- `ended_by_recipient`, the channel TYPE of the link pressed, 'sms' or
+-- 'email', and `confirmed`, true or false — whether THAT link had been
+-- confirmed by a press before the No. It answers S-1 truthfully: nobody
+-- records a channel that no one confirmed as if someone had. The fourteen-day
+-- job's event names its reason too, `expired` (doc 23 v1.7: the surviving
+-- event carries "the reason (expired or ended)"). The time is the event's
+-- own `at`. Nothing that identifies the
 -- person: not the address, not the number, and not a hash of either — the
 -- screen the parent lands on says "the details we held are deleted", and a
 -- fingerprint of their contact would make that untrue in the database. "Who
@@ -120,7 +133,8 @@ comment on function fn_purge_pending_invitation(uuid, jsonb) is
   'D-17 / D-PD-3 (0167): the one deletion of a pending invitation — the row, what its messages carried, and one subjectless purged event. Called by the fourteen-day job and by a parent''s "No".';
 
 -- The fourteen-day job: the same invitations as ever (unapproved, older than
--- fourteen days, held ones included — D-155), each through the one deletion.
+-- fourteen days, held ones included — D-155), each through the one deletion,
+-- and its event says why: `expired` (doc 23 v1.7; Leo, 1 Oct).
 create or replace function fn_purge_pending() returns int
 language plpgsql as $$
 declare
@@ -132,7 +146,7 @@ begin
      where approved_at is null and created_at < now() - interval '14 days'
      order by created_at
   loop
-    if fn_purge_pending_invitation(v) then n := n + 1; end if;
+    if fn_purge_pending_invitation(v, jsonb_build_object('reason', 'expired')) then n := n + 1; end if;
   end loop;
   -- The SMS meter needs a number's hash only for its rolling 24-hour limit
   -- (fn_sms_count_24h); past that window the hash is a reversible copy of
@@ -152,23 +166,28 @@ language plpgsql as $$
 declare
   v_id uuid;
   v_channel text;
+  v_confirmed boolean;
 begin
   if p_token_hash is null then return false; end if;
-  select id, case when sms_token_hash = p_token_hash then 'sms' else 'email' end
-    into v_id, v_channel
+  -- Either link, confirmed or not (F15). Whether the link pressed had been
+  -- confirmed is read from that link's own channel, never the other one's.
+  select id,
+         case when sms_token_hash = p_token_hash then 'sms' else 'email' end,
+         case when sms_token_hash = p_token_hash then sms_confirmed_at is not null
+              else email_confirmed_at is not null end
+    into v_id, v_channel, v_confirmed
     from pending_invitation
    where (sms_token_hash = p_token_hash or email_token_hash = p_token_hash)
      and approved_at is null
      and held_at is null
-     and (sms_confirmed_at is not null or email_confirmed_at is not null)
    for update;
   if v_id is null then return false; end if;
   return fn_purge_pending_invitation(v_id,
-    jsonb_build_object('reason', 'ended_by_recipient', 'channel', v_channel));
+    jsonb_build_object('reason', 'ended_by_recipient', 'channel', v_channel, 'confirmed', v_confirmed));
 end $$;
 
 comment on function fn_end_pending_invitation(bytea) is
-  'D-PD-3 (0167): a parent ends a pending request from a channel link once one channel is confirmed. Refuses for the invitation id, an unconfirmed invitation, an approved or held one. Records the channel type and nothing about the person.';
+  'D-PD-3 (0167), F15: whoever holds either channel link ends a pending request, confirmed or not. Refuses for the invitation id, an approved or held one. Records the channel type and whether that link was confirmed, and nothing about the person.';
 
 -- The app's own connection asks these; nobody else needs to (0122, 0166).
 revoke all on function fn_purge_pending_invitation(uuid, jsonb) from public;

@@ -22,6 +22,7 @@ and **Preview**:
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `SUPABASE_CA_CERT`, `SUPABASE_STORAGE_BUCKET` | the Sydney project (Settings → API / Database). The CA certificate is required; a missing one fails the connection, never silently. |
 | `SESSION_SECRET` | `openssl rand -base64 48`. Nobody can sign in without it. |
+| `NUMBER_HASH_KEY` | **Production, BEFORE the push that carries 0169** (John's batch, 1 Oct, §5.2). `openssl rand -base64 48`, as a Secret; at least 32 characters. It keys the STOP list's and the SMS meter's number fingerprints (HMAC, never a plain hash). **Without it production refuses every SMS, including the parent's approval text that otherwise waits for Twilio (D-168): no under-16 sign-up could be approved until it is set.** Set it once and never change it: every STOP recorded is keyed with it. 0169 also stops itself if `sms_opt_out` is not empty (`select count(*) from sms_opt_out` must be 0 first; it is, with no SMS ever live). |
 | `CRON_SECRET` | `openssl rand -base64 32`. Without it the three crons refuse: no purges, no expiries, no reminders. |
 | `OPS_EMAILS` | `burak.donmez@pitch-football.com`. Empty means nobody can open `/ops`. |
 | `RESEND_API_KEY`, `EMAIL_WEBHOOK_SECRET` | Resend (API keys; Webhooks → signing secret) |

@@ -787,7 +787,7 @@ export const reportReceivedEmail = (pageDescription: string): Composed => ({
   body:
 `Thanks — we have your report about ${pageDescription} and a person will look at it.
 
-We aim to respond within one business day. If it concerns a child's immediate safety, contact your local police first; we are not an emergency service.
+We aim to respond within one business day. If you believe a child is in immediate danger, call 000. Pitch is not an emergency service.
 
 — Pitch · ${HELP}`,
 });

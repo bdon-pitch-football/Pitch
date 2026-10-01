@@ -220,3 +220,7 @@ Row 3 is /g/send's approved "No contact details for you or {first} — not now, 
 BUZ, 1 Oct: "fix the photo gap in this release" (safety review S-3, part 1).
 
 BUZ, 1 Oct: "put the public bucket fix in this release". S-3 part 2: under-18 photos go to a private bucket, served only through short-lived signed URLs, and their public copies are deleted (John's ruling, `13-Board-Room/JOHN-to-LEO-the-batch-photo-first-1-oct.md` §1).
+
+## 1 Oct — F14's family history line (BUZ, via Leo, on John's batch)
+
+- A guardian's own edit to an under-16's page, in the family history on `/g/controls`: **"{guardian first name} changed the page."** Guardian's first name only. It replaces the reused approved-change line, which was a stopgap, and is never "{child} submitted a change". (Builder: john-batch; checks jb-f14-2, jb-f14-2b, jb-f14-w2.)
