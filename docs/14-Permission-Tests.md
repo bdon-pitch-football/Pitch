@@ -262,7 +262,7 @@ D-99 and D-100. **The rule the whole section tests: Pitch never transmits a mino
 |---|---|---|
 | L15 | Child composes a send; guardian never opens it | **Nothing happens. No send, no reminder, no nudge, no escalation.** Silence is a valid answer (C8, D-77) |
 | L16 | Pending request reaches its lapse window | `send_state = lapsed`. Nothing transmitted; the request is gone, not queued. **Window length unruled — U-1** |
-| L17 | `guardian_count = 2`, guardian 1 sends | Guardian 2 notified (F5, D-51). **Whether one guardian may send alone is unruled — U-2** |
+| L17 | `guardian_count = 2`, guardian 1 sends | Guardian 2 notified (F5, D-51). **U-2 (John, doc 31): either guardian may send alone; the other is told at once and can switch the link off with one tap from the notification — for as long as that link lives (U-2 as amended, BUZ 1 Oct; it was 24 hours). The undo revokes the link and never claims to un-send the email** |
 | L18 | Guardian 2 revokes, pauses or switches sending off while a request is pending | Cannot be dispatched. Most restrictive wins (F2) |
 | L19 | `ex_guardian` opens a pending send request | **Nothing.** Not-found, identical to A6 |
 | L20 | Guardian approves, and guardianship is revoked between approval and dispatch | **Fail closed.** No send. Assert standing is re-checked at dispatch, never carried from approval |

@@ -334,9 +334,10 @@ export const sendRequestLapsedEmail = (clubName: string) => ({
   ].join('\n'),
 });
 
-// §36 · A CV was sent — to the OTHER guardian (John, U-2). Carries the
-// 24-hour undo. The undo revokes the link; it does not un-send the email, and
-// saying otherwise would be lying to a frightened parent.
+// §36 · A CV was sent — to the OTHER guardian (John, U-2). Carries the undo,
+// which lives as long as the link it switches off (U-2 as amended, BUZ 1 Oct;
+// it was twenty-four hours). The undo revokes the link; it does not un-send
+// the email, and saying otherwise would be lying to a frightened parent.
 export const sendMadeByOtherGuardianEmail = (
   otherGuardianFirstName: string, childFirstName: string, clubName: string, undoToken: string,
 ) => ({

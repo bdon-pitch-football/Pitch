@@ -1755,16 +1755,25 @@ const lapseMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts
 check('U-1d: the lapse message never mentions a parent, a decision or waiting',
   /parent|guardian|decision|waiting|did not|ignored/i.test(lapseMsg), false);
 
-// U-2 — either guardian sends; the other gets a 24-hour undo. The undo
-// revokes the LINK and must not claim to un-send the email.
+// U-2 — either guardian sends; the other gets an undo that lives as long as
+// the link it switches off (U-2 as amended, BUZ 1 Oct; it was 24 hours). The
+// undo revokes the LINK and must not claim to un-send the email.
 const undoMsg = codeOnly(readFileSync(fileURLToPath(new URL('../lib/messages.ts', import.meta.url)), 'utf8'))
   .split('sendMadeByOtherGuardianEmail')[1].split('export const')[0];
 // L17/U-2: the other guardian is actually NOTIFIED — the message, the undo
 // token and the route all existed, and nothing connected them.
 check('L17: the dispatch notifies the other approved guardian',
   /sendMadeByOtherGuardianEmail/.test(dispatchLib), true);
-check('L17b: minting them a single-use undo that expires in 24 hours',
-  /insert into undo_token/.test(dispatchLib) && /24 hours/.test(dispatchLib), true);
+// L17b moved with U-2 (BUZ, 1 Oct): the undo is minted with §37's expiry —
+// the link's own, or 90 days for a link with none — never a fixed window.
+// Read from the insert itself, so a "24 hours" anywhere else in the file
+// (or a comment) neither passes nor fails it.
+const undoInsert = /insert into undo_token[\s\S]*?`,/.exec(codeOnly(dispatchLib))?.[0] ?? '';
+check('L17b: minting them a single-use undo that lives as long as the link it switches off (U-2 as amended), not for 24 hours',
+  [undoInsert.length > 0,
+   /coalesce\(\(select expires_at from share_token where id = \$2\), now\(\) \+ interval '90 days'\)/.test(undoInsert),
+   /24 hours|interval '1 day'/.test(undoInsert)],
+  [true, true, false]);
 // Compare the CALL SITE, not the import — the import naturally sits at the
 // top of the file, before everything.
 const dispatchBody = dispatchLib.split('export async function')[1] ?? '';
@@ -2420,11 +2429,15 @@ const consentTrig = (await db.query(`select prosrc from pg_proc where proname='c
 check('I5b: and the database refuses updates and deletes outright',
   /raise exception/i.test(consentTrig), true);
 
-// I2 — an unapproved pending invitation is purged whole, not flagged.
+// I2 — an unapproved pending invitation is purged whole, not flagged. Since
+// 0167 the fourteen-day job and a parent's "No" (D-PD-3) share ONE deletion,
+// fn_purge_pending_invitation, so the row is read where it is deleted: the
+// job must hand every invitation to it, and it must delete, never mark.
 const purgePending = (await db.query(`select prosrc from pg_proc where proname='fn_purge_pending'`)).rows[0].prosrc;
-check('I2: the purge deletes the row rather than marking it',
-  /delete from pending_invitation/i.test(purgePending), true);
-check('I2b: and leaves no readable remnant behind', /update pending_invitation set/i.test(purgePending), false);
+const purgeOne = await procSrc('fn_purge_pending_invitation');
+check('I2: the purge deletes the row rather than marking it — the fourteen-day job hands each invitation to the one deletion, and it deletes',
+  [/fn_purge_pending_invitation\(/i.test(purgePending), /delete from pending_invitation/i.test(purgeOne)], [true, true]);
+check('I2b: and leaves no readable remnant behind', /update pending_invitation set/i.test(purgePending + purgeOne), false);
 
 // I6 — deleting a guardian's account severs the link; the child's record and
 // the second guardian survive.
@@ -11304,6 +11317,359 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [/I'll switch it on today and you'll get an email confirming it\./.test(doc27),
      /CATALOGUE_KEYS = \[[\s\S]*?'doc15\.§39'/.test(msgSrc), /clubVerifiedEmail\(/.test(act)], [true, true, true]);
 }
+
+// ---------------------------------------------------------------------------
+// JOHN'S RULINGS OF 1 OCT, BUILT (BUZ: "Yes to the §36 window change, hand
+// John's rulings to Leo"; "Yes to the line"; the label "No, end this request").
+// Every check here is jr-: none claims a doc 14 row (L4).
+//
+//   · D-PD-3, a parent's "No" on /a (0167), with John's four conditions:
+//     a refusal changes nothing; the event records the channel TYPE and the
+//     time and nothing about the person; the deletion is asserted by query,
+//     not by the event; the reason is unreadable by any club actor and never
+//     reaches the child. One deletion for both endings.
+//   · U-2 as amended: §36's undo lives as long as its link — the SQL in
+//     lib/send-dispatch.ts executed here, not read.
+//   · §39 (0168): the call sheet asks the same answer the press sends to;
+//     nobody rather than a fallback; no digit outside {Club} and {date}; and
+//     an administrator who is a parent at the club finds nothing of theirs
+//     changed by it.
+// ---------------------------------------------------------------------------
+{
+  const one = async (sql, args = []) => (await db.query(sql, args)).rows[0];
+  const count = async (sql, args = []) => (await one(sql, args)).n;
+  const ended = async (code) => (await one('select fn_end_pending_invitation($1) as e', [code === null ? null : sha(code)])).e;
+  // A pending invitation as the product writes one (lib/guardian-flow), with
+  // known link codes and the messages its parent was sent: one that went, and
+  // one still waiting.
+  let k = 0;
+  const invite = async (name, { sms = false, email = false, held = false, approved = false, child = null, days = 0 } = {}) => {
+    k++;
+    const addr = `${name.toLowerCase()}.parent.jr@example.com`, phone = `0400 77${String(k).padStart(2, '0')} 1${String(k).padStart(2, '0')}`;
+    const id = (await one(
+      `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, sms_token_hash, email_token_hash,
+         child_id, created_at, sms_confirmed_at, email_confirmed_at, held_at)
+       values ($1, $2, 'Parent Of ' || $1, $3, $4, $5, $6, $7, now() - make_interval(days => $8::int),
+         case when $9::boolean then now() end, case when $10::boolean then now() end, case when $11::boolean then now() end) returning id`,
+      [name, yearsAgo(child ? 17 : 13), phone, addr, sha(`jr-${name}-sms`), sha(`jr-${name}-email`), child, days,
+       sms || approved, email || approved, held])).id;
+    if (approved) await db.query('update pending_invitation set approved_at = now() where id = $1', [id]);
+    // By their own ids: the invitation reference is set null when the
+    // invitation goes (0077), so afterwards only the id finds them.
+    const sent = (await db.query(
+      `insert into message_outbox (message_key, channel, to_address, subject, body, invitation_id, subject_id, sent_at)
+       values ('doc15.§2', 'email', $1, 'Approve ' || $2 || ' page on Pitch', $2 || ' is 13 and asked you to approve their page.', $3, $4, now()),
+              ('doc15.§1', 'email', $1, 'Approve ' || $2 || ' page', $2 || ' asked again.', $3, $4, null)
+       returning id`,
+      [addr, name, id, child])).rows.map((r) => r.id);
+    return { id, addr, phone, name, sent };
+  };
+  const messagesOf = async (inv) => (await db.query(
+    `select body, subject, to_address, invitation_id, failed_at is not null as closed from message_outbox where id = any($1) order by sent_at nulls last`,
+    [inv.sent])).rows;
+  const exists = async (inv) => (await count('select count(*)::int as n from pending_invitation where id = $1', [inv.id])) === 1;
+  const purges = async (inv) => (await db.query(
+    `select subject_id, actor_id, detail, at from consent_event where event = 'purged' and detail->>'invitation_id' = $1`, [inv.id])).rows;
+  const outboxTotal = async () => count('select count(*)::int as n from message_outbox');
+
+  // ---- condition 1: a refusal changes nothing ----
+  const none = await invite('Juniper');                                   // no channel pressed
+  const heldInv = await invite('Hazel', { sms: true, held: true });       // D-155
+  const approvedInv = await invite('Aster', { approved: true });
+  const byId = await invite('Ivy', { email: true });                      // one channel — but asked by the invitation id
+  const boxBefore = await outboxTotal();
+  const refusals = [await ended('jr-Juniper-sms'), await ended('jr-Juniper-email'), await ended('jr-Hazel-sms'), await ended('jr-Aster-email'),
+    await ended(byId.id), await ended('never-a-link'), await ended(null)];
+  check('jr-pd3-1: it refuses — no channel confirmed (either link), a held request, an approved one, the invitation id the child holds, a string that is no link, and nothing at all',
+    refusals, [false, false, false, false, false, false, false]);
+  check('jr-pd3-1b: and a refusal changes nothing: every row is still there, nothing was written to the log, and no message moved',
+    [await exists(none), await exists(heldInv), await exists(approvedInv), await exists(byId),
+     (await purges(none)).length + (await purges(heldInv)).length + (await purges(approvedInv)).length + (await purges(byId)).length,
+     await outboxTotal(), await count(`select count(*)::int as n from message_outbox where invitation_id = $1 and body <> ''`, [none.id])],
+    [true, true, true, true, 0, boxBefore, 2]);
+
+  // ---- one confirmed channel is enough, from either link ----
+  // 3b: the email was confirmed; the press comes through the texted link.
+  const mira = await invite('Mira', { email: true });
+  const before = await outboxTotal();
+  const t0 = await one('select now() as t');
+  check('jr-pd3-2: with ONE channel confirmed, the No ends the request — here pressed on the other link (state 3b)', await ended('jr-Mira-sms'), true);
+  const ev = await purges(mira);
+  // ---- condition 2: the channel type and the time, and nothing that identifies the person ----
+  check('jr-pd3-3: it writes the existing purged event once — no subject, no actor — with the reason, the channel TYPE of the link pressed, and its own time',
+    [ev.length, ev[0]?.subject_id ?? null, ev[0]?.actor_id ?? null, Object.keys(ev[0]?.detail ?? {}).sort(),
+     ev[0]?.detail?.reason, ev[0]?.detail?.channel, Math.abs(new Date(ev[0]?.at) - new Date(t0.t)) < 60000],
+    [1, null, null, ['channel', 'invitation_id', 'reason'], 'ended_by_recipient', 'sms', true]);
+  const detailText = JSON.stringify(ev[0]?.detail ?? {});
+  const hexOf = (b) => Buffer.from(b).toString('hex');
+  check('jr-pd3-4: and nothing that identifies the person: not the address, not the number, not the name, and not a hash of any of them',
+    [detailText.includes(mira.addr), detailText.replace(/\s/g, '').includes(mira.phone.replace(/\s/g, '')), detailText.includes('Mira'),
+     [sha(mira.addr), sha(mira.phone), sha('jr-Mira-sms'), sha('jr-Mira-email')].some((h) => detailText.includes(hexOf(h)) || detailText.includes(h.toString('base64')))],
+    [false, false, false, false]);
+  // ---- condition 3: the deletion itself, by query ----
+  check('jr-pd3-5: the deletion, asked of the database: the name, date of birth and contact are gone; every message it was sent is emptied — body, subject and address — and the one still waiting is closed, never to send',
+    [await exists(mira),
+     await count(`select count(*)::int as n from pending_invitation where first_name = 'Mira' or guardian_email = $1`, [mira.addr]),
+     (await messagesOf(mira)).map((r) => [r.body, r.subject, r.to_address, r.invitation_id, r.closed]),
+     await count(`select count(*)::int as n from message_outbox where to_address = $1 or body like '%Mira%' or subject like '%Mira%'`, [mira.addr]),
+     await count(`select count(*)::int as n from consent_event where detail::text like $1 or detail::text like '%Mira%'`, [`%${mira.addr}%`])],
+    [false, 0, [['', null, '', null, false], ['', null, '', null, true]], 0, 0]);
+  check('jr-pd3-6: and no message to anyone — nobody is a guardian yet (John): the press adds nothing to the outbox',
+    await outboxTotal(), before);
+  const nova = await invite('Nova', { sms: true });
+  check('jr-pd3-2b: the other way round too — the text confirmed, the press on the emailed link — and the event says "email"',
+    [await ended('jr-Nova-email'), (await purges(nova))[0]?.detail?.channel], [true, 'email']);
+  check('jr-pd3-2c: a second press on a link already ended is a refusal, and writes nothing more', [await ended('jr-Nova-email'), (await purges(nova)).length], [false, 1]);
+
+  // ---- one deletion, two ways to trigger it ----
+  const old = await invite('Willow', { days: 15 });
+  await db.query('select fn_purge_pending()');
+  const oldEv = await purges(old);
+  check('jr-purge-1: the fourteen-day job now goes through the same deletion: the row gone, its messages emptied the same way, and its event says no reason',
+    [await exists(old), (await messagesOf(old)).map((r) => [r.body, r.subject, r.to_address]), oldEv.length, Object.keys(oldEv[0]?.detail ?? {})],
+    [false, [['', null, ''], ['', null, '']], 1, ['invitation_id']]);
+  const deleters = (await db.query(
+    `select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and prosrc ~* 'delete\\s+from\\s+pending_invitation' order by 1`)).rows.map((r) => r.proname);
+  check('jr-purge-2: ONE definition of "delete a pending child": it is the only function that deletes an invitation, and both the job and the No call it',
+    [deleters, /fn_purge_pending_invitation\(/.test(await procSrc('fn_purge_pending')), /fn_purge_pending_invitation\(/.test(await procSrc('fn_end_pending_invitation'))],
+    [['fn_purge_pending_invitation'], true, true]);
+  check('jr-purge-3: and it never deletes an approved invitation, whoever calls it',
+    [(await one('select fn_purge_pending_invitation($1) as r', [approvedInv.id])).r, await exists(approvedInv)], [false, true]);
+
+  // ---- condition 4: the reason is unreadable by any club actor, and never reaches the child ----
+  // A 16–17 already has an account, so their request is the case where a
+  // child could ever see anything at all. One ended, one expired — and the
+  // child's own log must not move for either.
+  const teenA = crypto.randomUUID(), teenB = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Tamsin',$3), ($2,'Tobias',$3)`, [teenA, teenB, yearsAgo(17)]);
+  for (const t of [teenA, teenB]) await db.query(
+    `insert into consent_event (event, subject_id, detail) values ('sms_sent', $1, '{}'), ('email_sent', $1, '{}')`, [t]);
+  const timeline = async (viewer, person) => (await db.query('select event, detail from fn_consent_timeline($1,$2)', [viewer, person])).rows;
+  const tlA0 = await timeline(teenA, teenA), tlB0 = await timeline(teenB, teenB);
+  const tamsin = await invite('Tamsin', { sms: true, child: teenA });
+  const tobias = await invite('Tobias', { sms: true, child: teenB, days: 15 });
+  const endedTeen = await ended('jr-Tamsin-sms');
+  await db.query('select fn_purge_pending()');
+  check('jr-pd3-7: a 16–17’s request, ended and expired: neither ending adds a row to the child’s own log, so what they see is the same either way (D-17, U-1)',
+    [endedTeen, await exists(tamsin), await exists(tobias),
+     JSON.stringify(await timeline(teenA, teenA)) === JSON.stringify(tlA0), JSON.stringify(await timeline(teenB, teenB)) === JSON.stringify(tlB0),
+     (await timeline(teenA, teenA)).map((r) => r.event).sort(), (await timeline(teenB, teenB)).map((r) => r.event).sort()],
+    [true, false, false, true, true, ['email_sent', 'sms_sent'], ['email_sent', 'sms_sent']]);
+  // Every club actor in the database, asking the one function that returns
+  // log rows, about both children: nothing — and none of them reaches the
+  // reason any other way.
+  const clubActors = (await db.query(
+    `select distinct person_id from membership where role in ('technical_director','club_admin','coach','team_manager') and ended_at is null`)).rows.map((r) => r.person_id);
+  const leaks = [];
+  for (const a of clubActors) for (const t of [teenA, teenB]) {
+    const rows = await timeline(a, t);
+    if (rows.some((r) => r.event === 'purged' || JSON.stringify(r.detail).includes('ended_by_recipient'))) leaks.push(a);
+  }
+  check(`jr-pd3-8: no club actor (${clubActors.length} of them) is shown a purged row or its reason on either child’s log`, [clubActors.length > 5, leaks], [true, []]);
+  // Who can read the reason at all: the word is written by one function and
+  // read by none; the only function that returns a log row whole is the
+  // family's own timeline (0077), which reads a person's rows and the funnel
+  // rows attached at approval — and a purged row has no subject and is never
+  // attached (the link trigger names the funnel's words, not `purged`).
+  const allFns = (await db.query(`select p.proname, p.prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'`)).rows;
+  const reasonWriters = allFns.filter((f) => /ended_by_recipient/.test(f.prosrc)).map((f) => f.proname).sort();
+  const reasonReaders = allFns.filter((f) => /detail\s*(->>?|\?)\s*'reason'/.test(f.prosrc)).map((f) => f.proname).sort();
+  const wholeDetail = allFns.filter((f) => /(from|join)\s+consent_event\b/i.test(f.prosrc)
+    && /select[^;]*?\b\w+\.detail\b(?!\s*(->|\?|@>|\|\|))/is.test(f.prosrc)).map((f) => f.proname).sort();
+  const linker = await procSrc('consent_event_link_at_approval');
+  const appSrc = tsSourceFiles().filter((f) => /ended_by_recipient/.test(srcOf(f)));
+  check('jr-pd3-9: the reason is written by one function and read by none; the only function returning a log row whole is the family’s own timeline; a purged row is never attached to anyone’s log; no page or library names the reason; and the log table is closed to the public API',
+    [reasonWriters, reasonReaders, wholeDetail, /'purged'/.test(linker), appSrc,
+     (await one(`select relrowsecurity as r from pg_class where relname = 'consent_event'`)).r],
+    [['fn_end_pending_invitation'], [], ['fn_consent_timeline'], false, [], true]);
+  check('jr-pd3-10: neither new function is executable by PUBLIC (0166’s pattern) — only the app’s own connection asks them',
+    (await db.query(`select p.proname, has_function_privilege('public', p.oid, 'execute') as pub from pg_proc p
+       where proname in ('fn_purge_pending_invitation','fn_end_pending_invitation') order by 1`)).rows.map((r) => [r.proname, r.pub]),
+    [['fn_end_pending_invitation', false], ['fn_purge_pending_invitation', false]]);
+
+  // ---- the label (BUZ, 1 Oct) ----
+  const label = /const PD3_END_LABEL = '([^']*)';/.exec(srcOf('app/a/[id]/page.tsx'))?.[1];
+  check('jr-label: the No on /a carries BUZ’s approved words, from the one constant every suite reads — "No, end this request", never the placeholder, never "Not now"',
+    [label, /\[|pending BUZ|Not now/i.test(label ?? '[')], ['No, end this request', false]);
+  check('jr-label-b: and no "Not now" is written anywhere on /a',
+    ['app/a/[id]/page.tsx', 'app/a/[id]/actions.ts', 'app/a/closed/page.tsx'].map((f) => /Not now/.test(codeOnly(srcOf(f)))), [false, false, false]);
+
+  // ---- G-P1: the undo's two statements, one shape for every token ----
+  // The belt to the timing suite's braces (jr-undo-t): on load and on the
+  // press, every token — live, used, lapsed, already off or never one — costs
+  // one statement that starts from its hash, with no answer before it.
+  const undoSrc = codeOnly(srcOf('app/undo/[token]/page.tsx'));
+  const loadFn = undoSrc.slice(undoSrc.indexOf('async function undoIsLive('), undoSrc.indexOf('async function revoke('));
+  const pressFn = undoSrc.slice(undoSrc.indexOf('async function revoke('), undoSrc.indexOf('export default async function Undo('));
+  check('jr-undo-struct: the load and the press each make ONE query of one shape for every token, starting from its hash, and answer nothing before it; Done only when that press switched a link off',
+    [(loadFn.match(/db\.query\(/g) ?? []).length, /return/.test(loadFn.slice(0, loadFn.indexOf('db.query('))),
+     /from \(select \$1::bytea as token_hash\) asked\s+left join undo_token u on u\.token_hash = asked\.token_hash/.test(loadFn),
+     (pressFn.match(/db\.query\(/g) ?? []).length, /return|redirect\(/.test(pressFn.slice(0, pressFn.indexOf('db.query('))),
+     /with asked as \(select \$1::bytea as token_hash\)/.test(pressFn),
+     /redirect\(rows\[0\]\?\.revoked === 1 \? '\/undo\/done' : `\/undo\/\$\{encodeURIComponent\(token\)\}`\)/.test(pressFn)],
+    [1, false, true, 1, false, true, true]);
+
+  // ---- F6 / 3q (BUZ, 1 Oct): the email confirmed, the text still queued ----
+  const aSrc = codeOnly(srcOf('app/a/[id]/page.tsx'));
+  check('jr-3q: on /a, with the email confirmed and the text still waiting for SMS (the database’s answer, fn_invitation_sms_queued), the status line says the text follows — BUZ’s words — instead of naming a text that has not gone',
+    [/const textQueued = here === 'email' && confirmedHere && !inv\.sms_confirmed && await invitationTextWaiting\(inv\.id\);/.test(aSrc),
+     aSrc.includes('<b>One more step.</b> Your text follows shortly &mdash; open the link in it to finish.'),
+     /textQueued\s*\?/.test(aSrc), /select fn_invitation_sms_queued\(\$1\)/.test(srcOf('lib/guardian-flow.ts'))],
+    [true, true, true, true]);
+
+  // ---- /dev/undo, the suites' source of undo tokens in a chosen state ----
+  // In production it would mint a working "switch this link off" for any
+  // record, so it must not exist there at all (dev2's rule, dev2's words).
+  const devUndo = srcOf('app/dev/undo/route.ts');
+  check('jr-dev-undo: the undo-token minter the render and timing suites use does not exist in production or in a club demo, answers POST only, and refuses before it writes',
+    [/if \(process\.env\.NODE_ENV === 'production' \|\| isDemo\(\)\) return new NextResponse\(null, \{ status: 404 \}\);/.test(devUndo),
+     /export async function (GET|PUT|PATCH|DELETE)\b/.test(devUndo), /export async function POST\b/.test(devUndo),
+     devUndo.indexOf('status: 404') < devUndo.indexOf('insert into')],
+    [true, false, true, true]);
+
+  // ---- doc 27 says what the sheet says (John's §39 condition; B2) ----
+  // The close promises the email only when the sheet says it will go, and the
+  // step before it asks for the Technical Director in the sheet's own words.
+  // The root copy beside the repo is the one BUZ prints; the two must match
+  // byte for byte. From a worktree the root is further up, so it is looked
+  // for, and its absence is said rather than passed.
+  {
+    const doc27 = srcOf('docs/27-Verification-Call.md');
+    const sheetSrc = srcOf('app/ops/call/[clubId]/page.tsx');
+    const tdAsk = /const TD_ASK = '([^']*)';/.exec(sheetSrc)?.[1]?.replace(/\\u2014/g, '\u2014').replace(/\\u2019/g, "'");
+    const step = /\*\*5 · The Technical Director\.\*\*[^\n]*\n> "([^"]*)"/.exec(doc27)?.[1];
+    const close = doc27.split('**6 · Close.**')[1]?.split('\n---')[0] ?? '';
+    check('jr-doc27: doc 27 asks for the Technical Director in the call sheet’s own words, then closes with the email line only when the sheet says it will go — and the version without it ends at "today"',
+      [Boolean(tdAsk), step === tdAsk, /Promise the email only when the sheet says/.test(close),
+       close.includes(`"That's everything. I'll switch it on today and you'll get an email confirming it. If anything changes`),
+       close.includes(`"That's everything. I'll switch it on today. If anything changes`), /to confirm\)/.test(doc27)],
+      [true, true, true, true, true, false]);
+    const { existsSync } = await import('node:fs');
+    const roots = ['../../27-Club-Verification-Call.md', '../../../../../27-Club-Verification-Call.md']
+      .map((r) => fileURLToPath(new URL(r, import.meta.url))).filter((f) => existsSync(f));
+    if (roots.length === 0) console.log('SKIP jr-doc27-sync: no root copy of doc 27 beside this checkout');
+    else check('jr-doc27-sync: the root copy BUZ prints is byte-identical to the repo’s', readFileSync(roots[0], 'utf8') === doc27, true);
+  }
+
+  // ---- U-2 as amended: the dispatch's own SQL, executed ----
+  const undoSql = /`(insert into undo_token[\s\S]*?)`,/.exec(dispatchLib)?.[1];
+  const rec = crypto.randomUUID(), owner = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Undo','1980-01-01')`, [owner]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rec, owner]);
+  const link = async (expires) => (await one(
+    `insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3,$4) returning id`,
+    [rec, sha(crypto.randomUUID()), owner, expires])).id;
+  const dated = await link(new Date(Date.now() + 37 * 864e5).toISOString()), open = await link(null);
+  for (const [t, raw] of [[dated, 'jr-u2-dated'], [open, 'jr-u2-open']]) await db.query(undoSql, [sha(raw), t, owner]);
+  const u = async (raw) => one(`select u.expires_at, st.expires_at as link_expires, extract(epoch from u.expires_at - now()) / 86400 as days
+    from undo_token u join share_token st on st.id = u.share_token_id where u.token_hash = $1`, [sha(raw)]);
+  const ud = await u('jr-u2-dated'), uo = await u('jr-u2-open');
+  check('jr-u2: §36’s undo, minted by lib/send-dispatch’s own statement, lives exactly as long as its link — and 90 days for a link with no date — never 24 hours',
+    [Boolean(undoSql), new Date(ud.expires_at).getTime() === new Date(ud.link_expires).getTime(), Math.round(Number(uo.days)), Number(ud.days) > 1],
+    [true, true, 90, true]);
+
+  // ---- §39 (0168) ----
+  const s39 = (club, date) => {
+    const block = msgSrc.split("key: 'doc15.§39',")[1]?.split('\n});')[0] ?? '';
+    const fill = (x) => (x ?? '').replaceAll('${clubName}', club).replaceAll('${date}', date)
+      .replaceAll('${HELP}', /SUPPORT_EMAIL = '([^']+)'/.exec(srcOf('lib/support.ts'))?.[1] ?? '');
+    return fill(/subject: `([^`]*)`/.exec(block)?.[1]) + '\n' + fill(/body:\n`([\s\S]*?)`,?\s*$/.exec(block)?.[1]);
+  };
+  const digitClub = 'Quarrymead 2000 FC', day = '1 October 2026';
+  const rendered = s39(digitClub, day);
+  check('jr-s39-digits: §39 carries no digit outside {Club} and {date} — a club whose own name has a digit is exempt (John), and that is all',
+    [rendered.includes(digitClub), rendered.includes(day), /\d/.test(rendered.replaceAll(digitClub, '').replaceAll(day, ''))], [true, true, false]);
+
+  const adult = async (first, email, proved = true) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob, email) values ($1,$2,$3,$4)`, [id, first, yearsAgo(41), email]);
+    if (proved) await proveAddress(id);
+    return id;
+  };
+  const club = async (name, contact) => (await one(`insert into club (name, club_state, contact_email) values ($1,'claimed',$2) returning id`, [name, contact])).id;
+  const verify = async (c) => {
+    const id = (await one(`insert into verification_call (club_id, called_at, operator, number_called, number_source, person_confirmed, outcome, policy_version)
+      values ($1, now(), 'BUZ', '03 9000 0039', 'FV club directory', true, 'verified', '27@v1.0') returning id`, [c])).id;
+    await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [id, c]);
+    return id;
+  };
+  const recipient = async (call) => (await db.query('select person_id from fn_verified_call_recipient($1)', [call])).rows.map((r) => r.person_id);
+  // What the call sheet asks before the call is logged: the first name of
+  // the person the press would send §39 to, or nobody.
+  const sheetName = async (c) => (await db.query('select first_name from fn_verified_call_addressee($1)', [c])).rows.map((r) => r.first_name);
+
+  // Nobody, never a fallback: the administrator IS the club's published
+  // address, and around them stand the people a fallback could reach — a
+  // proved adult who is a parent with a child registered there, and a
+  // second proved adult on the club in another role.
+  const fb = await club('Fallowmere FC', 'committee@fallowmere.example.au');
+  const boss = await adult('Boss', 'committee@fallowmere.example.au');
+  await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [boss, fb]);
+  const coachFb = await adult('Cory', 'cory.coach.jr@example.com');
+  await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'coach')`, [coachFb, fb]);
+  const fbCall = await verify(fb);
+  const parentFb = await adult('Pia', 'pia.parent.jr@example.com');
+  const kidFb = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Kip',$2)`, [kidFb, yearsAgo(12)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [parentFb, kidFb]);
+  await db.query(`insert into registration (player_id, club_id, disclosed_by, policy_version) values ($1,$2,$3,'20@v2.4')`, [kidFb, fb, parentFb]);
+  check('jr-s39-nobody: when the one person a call could confirm it to is not a fit recipient, the answer is NOBODY — not a coach, not a parent, not the published address — and the sheet says it will not send',
+    [await recipient(fbCall), await sheetName(fb)],
+    [[], []]);
+  const addrSrc = await procSrc('fn_verified_call_addressee'), recipSrc = await procSrc('fn_verified_call_recipient');
+  check('jr-s39-nobody-b: and neither function can reach anyone else: no Technical Director, guardian, registration or player is read, there is no union, no coalesce onto a person, and the published address appears only to be refused',
+    [/technical_director|guardianship_link|registration|'player'|\bunion\b/i.test(addrSrc + recipSrc), /coalesce\(\s*p\./i.test(addrSrc + recipSrc),
+     (addrSrc.match(/contact_email/g) ?? []).length, /<>\s*lower\(trim\(coalesce\(c\.contact_email/.test(addrSrc), /fn_verified_call_addressee\(/.test(recipSrc)],
+    [false, false, 1, true, true]);
+  // The sheet and the press ask the same question.
+  await db.query('update club set contact_email = $1 where id = $2', ['football@fallowmere.example.au', fb]);
+  check('jr-s39-sheet: the call sheet’s answer is the press’s answer — the address changed, both now name the administrator, the sheet by first name',
+    [await sheetName(fb), await recipient(fbCall)], [['Boss'], [boss]]);
+  // F10 (BUZ, 1 Oct): the line directly above "Log the call", in his words,
+  // from that answer — the first name and never the address.
+  const sheetSrc = codeOnly(srcOf('app/ops/call/[clubId]/page.tsx'));
+  check('jr-s39-sheet-b: the sheet asks fn_verified_call_addressee for the FIRST NAME alone, says BUZ’s two lines verbatim, and puts the line directly above "Log the call"',
+    [/select first_name from fn_verified_call_addressee\(\$1\)/.test(sheetSrc), /select[^`]*\bemail\b[^`]*fn_verified_call_addressee/.test(sheetSrc),
+     sheetSrc.includes('`Logging this call as verified emails ${first} to confirm it.`'),
+     sheetSrc.includes("'Logging this call sends no email, so don\\u2019t promise one.'"),
+     /\{s39Line\(s39To\)\}<\/div>\s*<button type="submit" className="btn btn-primary">Log the call<\/button>/.test(sheetSrc)],
+    [true, false, true, true, true]);
+
+  // An administrator who is also a parent at the club: §39 goes to them as
+  // the administrator, and nothing a guardian sees changes because it did.
+  const pc = await club('Both Hats SC', 'football@bothhats.example.au');
+  const hats = await adult('Hattie', 'hattie.jr@example.com');
+  await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [hats, pc]);
+  const kidH = crypto.randomUUID(), recH = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Hal',$2)`, [kidH, yearsAgo(13)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [hats, kidH]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [recH, kidH]);
+  await db.query(`insert into registration (player_id, club_id, disclosed_by, policy_version) values ($1,$2,$3,'20@v2.4')`, [kidH, pc, hats]);
+  const pcCall = await verify(pc);
+  const guardianView = async () => JSON.stringify({
+    timeline: await timeline(hats, kidH), level: await level(hats, kidH),
+    link: (await db.query('select approved_at, revoked_at from guardianship_link where guardian_id = $1 and child_id = $2', [hats, kidH])).rows,
+    regs: (await db.query('select club_id, withdrawn_at, note from registration where player_id = $1 order by club_id', [kidH])).rows,
+    tokens: (await db.query('select id, revoked_at, paused, expires_at from share_token where record_id = $1 order by id', [recH])).rows,
+    log: await count('select count(*)::int as n from consent_event where actor_id = $1 or subject_id in ($1,$2)', [hats, kidH]),
+    told: await count(`select count(*)::int as n from message_outbox where (to_person = $1 or subject_id = $2) and message_key <> 'doc15.§39'`, [hats, kidH]),
+  });
+  const beforeView = await guardianView();
+  // What the call sheet does after a verified call (actions.ts, pinned by
+  // ve-action): ask this function, and hand each answer to send(), which for
+  // an email writes the outbox row and nothing else (pinned below).
+  const to39 = (await db.query('select person_id, email, club_name from fn_verified_call_recipient($1)', [pcCall])).rows;
+  for (const r of to39) await db.query(
+    `insert into message_outbox (message_key, channel, to_person, to_address, subject, body) values ('doc15.§39','email',$1,$2,$3,$4)`,
+    [r.person_id, r.email, `${r.club_name} is verified on Pitch`, s39(r.club_name, day)]);
+  const sendFn = codeOnly(msgSrc2).split('export async function send(')[1]?.split('export async function dispatch(')[0] ?? '';
+  check('jr-s39-parent: an administrator who is also a parent there receives §39, as the administrator — and nothing a guardian sees changes: the child’s log, the read level, the guardianship, the registration, the links, the consent rows and every other message are as they were',
+    [to39.map((r) => r.person_id), (await guardianView()) === beforeView,
+     /consent_event|guardianship_link|registration|share_token/.test(sendFn), sendFn.length > 200],
+    [[hats], true, false, true]);
+}
+
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

@@ -82,6 +82,25 @@ function Choice({ name, label: text, note, options, unset }: { name: string; lab
 const NAME_HELD_STATE = 'On hold. The role stays off until you confirm this is the person the club named, or record a new call with the right name.';
 const NAME_HELD_CONFIRM = 'This is the person the club named';
 
+// Whether doc 15 §39 will go, and to whom by first name (John, 1 Oct; BUZ's
+// words, 1 Oct; 0168). Doc 27's close says "you'll get an email confirming it"
+// only when it will, so the operator reads this directly above the button.
+// The database answers: fn_verified_call_addressee is the person half of
+// fn_verified_call_recipient — the function the press sends §39 to asks it —
+// so this line and the send cannot disagree. The first name only, never the
+// address: the ops console does not show it.
+const s39Line = (first: string | null) => first
+  ? `Logging this call as verified emails ${first} to confirm it.`
+  : 'Logging this call sends no email, so don\u2019t promise one.';
+
+// B2 (Head of Product Design, 1 Oct; BUZ: "Yes to all, hand to Leo"): after
+// verification a club's Technical Director may never be told the register is
+// theirs to read, because nothing is sent to a TD (doc 15 has no such
+// message, and none is proposed). So the call asks for them, out loud, before
+// the close — doc 27 step 5 — and the sheet prompts it beside the fields that
+// record them. BUZ confirmed the words, 1 Oct.
+const TD_ASK = 'Before we finish \u2014 who\u2019s your Technical Director? Ask them to sign up on Pitch with their own email address, not the club\u2019s shared one. That\u2019s the account that reads the register.';
+
 // 'Sep', as every other date in the product writes it (en-AU gives 'Sept').
 const longDay = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', timeZone: 'Australia/Melbourne' });
 const day = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');
@@ -122,6 +141,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
   // operator has confirmed it — so the role is held, not waiting on anybody.
   const heldForName = Boolean(td && td.name_matches === false && !td.name_confirmed
     && !td.active && !td.ended_at && !td.club_mailbox);
+  const s39To = ((await db.query(`select first_name from fn_verified_call_addressee($1)`, [clubId])).rows[0]?.first_name ?? null) as string | null;
 
   return (
     <OpsConsole active="verification">
@@ -291,6 +311,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
 
           <div style={section}>
             <div style={sectionLabel}>Technical Director</div>
+            <div style={guide} data-td-ask><i>&ldquo;{TD_ASK}&rdquo;</i></div>
             <div className="ops-pair">
               <Field name="td_name" label="Name" placeholder="Full name" note="The name they gave you on the call. Recorded only when the outcome is verified." />
               <Field name="td_email" label="Email address" type="email" placeholder="name@club.example.au" note="As the club gave it." />
@@ -306,6 +327,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
             <div style={hint}>Anything that felt off belongs here even if you verified anyway.</div>
           </div>
 
+          <div style={guide} data-s39={s39To ? 'will' : 'wont'}>{s39Line(s39To)}</div>
           <button type="submit" className="btn btn-primary">Log the call</button>
         </form>
       </div>

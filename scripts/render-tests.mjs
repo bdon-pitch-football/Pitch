@@ -2298,7 +2298,9 @@ const georgia = ids.children.georgia;
   {
     const done = await get('/report?done=1');
     const t = text(done.html);
-    const iUrgent = t.findIndex((l) => l.includes('contact your local police first'));
+    // fp12 moved with HC3 (John, BUZ, 1 Oct): the line is doc 25's sentence,
+    // word for word, and found by it.
+    const iUrgent = t.findIndex((l) => l.includes('If you believe a child is in immediate danger, call 000.'));
     const iThanks = t.findIndex((l) => l.includes('a person will look at it'));
     check('fp11: /report?done=1 has a real heading, so a screen reader announces one',
       /<h1[^>]*>We’ve received your report<\/h1>/.test(done.html), true);
@@ -3023,6 +3025,99 @@ const georgia = ids.children.georgia;
   check('pd-r3: /g/controls draws no hand-built button, and Delete is the secondary in the red state',
     [ctl.map((h) => /<button[^>]*style="/.test(h)), ctl.map((h) => /class="btn btn-secondary is-danger"[^>]*>Delete /.test(h))],
     [[false, false, false], [true, true, true]]);
+}
+
+// ---------------------------------------------------------------------------
+// JOHN'S RULINGS OF 1 OCT (jr-): what the pages serve.
+//   · G-P1: /undo says whether it is live — one not-live panel for used,
+//     lapsed, already-off and never-a-link, byte for byte (D-77);
+//   · D-PD-3: the after-state at a fixed address that ignores the code, and
+//     no No before a channel is confirmed;
+//   · HC3: one emergency sentence, word for word, on the form, the received
+//     page and doc 25 as served;
+//   · §39: the call sheet says whether the confirmation email will go.
+// ---------------------------------------------------------------------------
+{
+  const vis = (h) => text(h).join(' ').replace(/\s+/g, ' ');
+  const markupOnly = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ');
+  // Undo tokens in each state, from the dev-only minter (app/dev/undo; it
+  // 404s in production — perms jr-dev-undo).
+  const mint = async (kind) => {
+    const r = await fetch(`${BASE}/dev/undo?record=${ids.adultPlayers[0].record_id}&kind=${kind}&n=1`, { method: 'POST' });
+    if (!r.ok) throw new Error(`/dev/undo answered ${r.status} — is this the dev app?`);
+    return (await r.json()).tokens[0];
+  };
+  // What differs between two answers that cannot tell anyone anything: the
+  // nonce, Next's per-request id, and the token the visitor already holds.
+  const normal = (html, token) => {
+    let out = html;
+    for (const re of [/nonce="([^"]+)"/, /self\.__next_r="([^"]+)"/]) { const v = re.exec(out)?.[1]; if (v) out = out.split(v).join('<r>'); }
+    return out.replace(/\?v=\d+/g, '').split(token).join('<token>').split(encodeURIComponent(token)).join('<token>');
+  };
+  const states = { 'never a link': 'jr-never-an-undo-link-0123456789abcdef', used: await mint('used'), lapsed: await mint('lapsed'), 'link already off': await mint('off') };
+  const bodies = {};
+  // The markup, outside Next's flight payload: in development that payload
+  // numbers its chunks in whatever order they resolve, so two requests for
+  // the SAME page differ there (seen 1 Oct: "95:I[" against "7d:I[").
+  for (const [k, t] of Object.entries(states)) { const r = await get(`/undo/${t}`); bodies[k] = { status: r.status, html: normal(markupOnly(r.html), t) }; }
+  const base = bodies['never a link'];
+  check('jr-undo-r1: a used, a lapsed and an already-off undo link are served the never-a-link panel byte for byte (nonce, the token and Next’s payload aside)',
+    Object.entries(bodies).filter(([, b]) => b.status !== base.status || b.html !== base.html).map(([k]) => k), []);
+  check('jr-undo-r2: that panel says the link is not live, gives N-G1’s way to the switch and "Go to sign in", and asks nothing',
+    [base.status, has(base.html, 'This link isn’t live'),
+     vis(base.html).includes('It may have been used already, or it may have lapsed. Sign in, and you can switch off any club’s link from your child’s controls.'),
+     /<a[^>]*href="\/signin"[^>]*>Go to sign in<\/a>/.test(markupOnly(base.html)), /<form/.test(markupOnly(base.html)), has(base.html, 'Switch this link off?')],
+    [200, true, true, true, false, false]);
+  const liveTok = await mint('live');
+  const live = await get(`/undo/${liveTok}`);
+  check('jr-undo-r3: a live undo link still asks, with its one button and the "does not un-send" box',
+    [live.status, has(live.html, 'Switch this link off?'), /name="token"/.test(live.html), has(live.html, 'This does not un-send the email.'), has(live.html, 'This link isn’t live')],
+    [200, true, true, true, false]);
+
+  // D-PD-3's after-state, at a fixed address: the same page whatever is put
+  // on it, with the two approved lines and nothing to press.
+  const closed = [await get('/a/closed'), await get('/a/closed?code=dev-mila-text'), await get('/a/closed?ended=1&id=' + ids.pendingInvitation)];
+  check('jr-pd3-r1: /a/closed says "This request has closed." and "Nothing was approved, and the details we held are deleted." — no name, no form, no button — and ignores anything it is handed',
+    [closed.map((r) => r.status), new Set(closed.map((r) => vis(r.html))).size,
+     has(closed[0].html, 'This request has closed.'), has(closed[0].html, 'Nothing was approved, and the details we held are deleted.'),
+     /<form|<button/.test(markupOnly(closed[0].html)), /Mila/.test(vis(closed[0].html))],
+    [[200, 200, 200], 1, true, true, false, false]);
+  // Before any channel is pressed there is no No to press (the seed's Mila:
+  // neither link confirmed). The label is the one constant (jr-label).
+  const label = /const PD3_END_LABEL = '([^']*)';/.exec(readFileSync(fileURLToPath(new URL('../app/a/[id]/page.tsx', import.meta.url)), 'utf8'))?.[1];
+  const fresh = [await get('/a/dev-mila-text'), await get('/a/dev-mila-email'), await get(`/a/${ids.pendingInvitation}`)];
+  check('jr-pd3-r2: before a channel is confirmed, neither link nor the invitation id offers the No — and no /a page says "Not now"',
+    [Boolean(label), fresh.map((r) => has(r.html, label)), fresh.some((r) => /Not now/.test(vis(r.html)))], [true, [false, false, false], false]);
+
+  // HC3: one sentence, three places, word for word — doc 25 read as served (L16).
+  const SENTENCE = 'If you believe a child is in immediate danger, call 000.';
+  const form = vis((await get('/report')).html), done = await get('/report?done=1'), policy = vis((await get('/report/policy')).html);
+  check('jr-hc3-r1: the report form, the received page and doc 25 as served all say "If you believe a child is in immediate danger, call 000." — the received page with "Pitch is not an emergency service." after it',
+    [form.includes(SENTENCE), text(done.html).some((l) => l === `${SENTENCE} Pitch is not an emergency service.`), policy.includes(SENTENCE)],
+    [true, true, true]);
+  check('jr-hc3-r2: and nowhere a second instruction: no "In an emergency, call 000.", no "local police", no 131 444',
+    [form, vis(done.html), policy].map((t) => /In an emergency, call 000\.|local police|131 ?444/.test(t)), [false, false, false]);
+
+  // §39: the call sheet says, before the call is logged, whether the
+  // confirmation email will go. Quarrymead's administrator has their own
+  // proved address; an unclaimed club has no administrator at all.
+  const op = ids.people.marina;
+  const sheetOf = async (clubId) => (await get(`/ops/call/${clubId}`, op)).html;
+  const will = await sheetOf(ids.heldClub), wont = await sheetOf(ids.clubs['westgate-rangers']);
+  // F10 (BUZ, 1 Oct): one line directly above "Log the call". Quarrymead's
+  // administrator is the seed's "M. Harris" at quarrymead@example.com.
+  const lineAboveLog = (h) => /<div[^>]*data-s39="(will|wont)"[^>]*>([^<]*)<\/div><button type="submit" class="btn btn-primary">Log the call<\/button>/.exec(markupOnly(h).replace(/&#x27;/g, "'"))?.slice(1);
+  check('jr-s39-r1: directly above "Log the call", the sheet says "Logging this call as verified emails M. to confirm it." where it will — and "Logging this call sends no email, so don’t promise one." where it will not',
+    [lineAboveLog(will), lineAboveLog(wont)],
+    [['will', 'Logging this call as verified emails M. to confirm it.'], ['wont', 'Logging this call sends no email, so don’t promise one.']]);
+  check('jr-s39-r2: and that line never shows an address',
+    [lineAboveLog(will)?.[1] ?? '', lineAboveLog(wont)?.[1] ?? ''].some((l) => /@/.test(l)), false);
+  // B2 (BUZ, 1 Oct): the sheet prompts the question for the Technical
+  // Director before the close, in the words doc 27 has BUZ say.
+  check('jr-td-r1: the call sheet prompts "Before we finish — who’s your Technical Director? …", in the Technical Director section, on every sheet',
+    [will, wont].map((h) => /data-td-ask/.test(h)
+      && has(h, 'Before we finish — who’s your Technical Director? Ask them to sign up on Pitch with their own email address, not the club’s shared one. That’s the account that reads the register.')),
+    [true, true]);
 }
 
 // ---------------------------------------------------------------------------

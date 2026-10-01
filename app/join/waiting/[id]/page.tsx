@@ -11,7 +11,6 @@
 // photo or clips again (wait-r1).
 // No SMS/email actually sends yet (doc 15 wiring comes with Twilio/Resend);
 // in development the approval link is surfaced on-screen instead.
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPendingInvitation, invitationTextWaiting } from '@/lib/guardian-flow';
 import { ClockGlyph, ClosedGlyph, DashedTile, ParentPage } from '@/components/parent-sheet';
@@ -40,6 +39,15 @@ const maskPhone = (p: string) => {
 // either of them from an id that never existed — which is the point.
 const CLOSED = { heading: 'This request has closed.', line: 'You can ask again whenever you like.' };
 
+// B1 / F3 (Head of Product Design, 1 Oct; BUZ: "Yes to all, hand to Leo"):
+// after a parent approves, this page said "taken down" (the root 404) to the
+// child who had just been told yes. A third state, separate from the closed
+// one, saying only what approval itself means — a parent said yes and builds
+// the page — and nothing about when or how. The closed state is untouched, so
+// an ending and an id that never existed stay byte-identical (John's PD-3
+// condition 3). BUZ confirmed the words, 1 Oct.
+const APPROVED = { heading: 'Your parent said yes.', line: 'They build your page from their account, so ask them to start it with you.' };
+
 export default async function Waiting({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const inv = await getPendingInvitation(id);
@@ -54,8 +62,16 @@ export default async function Waiting({ params }: { params: Promise<{ id: string
       </ParentPage>
     );
   }
-  // Approved: unchanged — the page has no more to say.
-  if (inv.approved_at) notFound();
+  if (inv.approved_at) {
+    return (
+      <ParentPage page>
+        <div className="ask" style={{ gap: 6 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>{APPROVED.heading}</h1>
+          <div className="pd-sub">{APPROVED.line}</div>
+        </div>
+      </ParentPage>
+    );
+  }
 
   const channels = 'Text and email sent'; // both are required now (D-157)
   // "Text and email sent" is false while the text waits for SMS, so it is not

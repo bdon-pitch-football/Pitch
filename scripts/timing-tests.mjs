@@ -17,6 +17,11 @@
 //        today and held — byte for byte and in time (D-77, D-80; doc 14 C6
 //        and C7 ask for one answer, and this measures it). Not labelled with
 //        a row id: no doc 14 row words the timing of this handler (L4).
+//   jr-undo the §36/§37 undo link (G-P1; John, 1 Oct): opening a used, a
+//        lapsed or an already-off one, and pressing any of them or a live
+//        one that lands on Done, against one that never existed — byte for
+//        byte where the answer is the same, and in time for all of them.
+//        Not a doc 14 row (L4).
 //
 // Until 28 Sep all three were "met" by structural checks in the permission
 // suite — the page branches on one boolean, the limit is checked after the
@@ -685,6 +690,85 @@ if (runs('J61')) {
   if (!conclusive) inconclusive = true;
   check(`J61: nor in the time they take${conclusive ? ` (resolution ${results.map((r) => r.res?.toFixed(2)).join('/')}ms, ${A.rounds} and ${B.rounds} rounds)` : ' — INCONCLUSIVE'}`,
     conclusive ? flagged : 'inconclusive', []);
+}
+
+// ---------------------------------------------------------------------------
+// jr-undo — the §36/§37 undo says whether it worked, and the clock says
+// nothing more (G-P1; John, 1 Oct: "the not-live path must do the same work
+// … asserted the way E9 and J40 already are, by diffing two captured
+// responses rather than by reading the handler"). Not a doc 14 row (L4).
+//
+//   load:  a used, a lapsed and an already-off undo link against one that
+//          never existed — one panel, byte for byte and in time;
+//   press: the same three, and a LIVE press that lands on Done, against a
+//          press of one that never existed — the same statement, in time.
+// Live and already-off tokens are spent by a press, so each press gets a
+// fresh one from the dev-only minter (app/dev/undo), minted untimed.
+// ---------------------------------------------------------------------------
+if (runs('jr-undo')) {
+  const record = ids.adultPlayers[0].record_id;
+  const mint = async (kind, n) => {
+    const r = await fetch(`${BASE}/dev/undo?record=${record}&kind=${kind}&n=${n}`, { method: 'POST' });
+    if (!r.ok) throw new Error(`/dev/undo answered ${r.status} — is this the dev app?`);
+    return (await r.json()).tokens;
+  };
+  const pools = { live: [], off: [] };
+  const take = async (kind) => { if (pools[kind].length === 0) pools[kind] = await mint(kind, 200); return pools[kind].pop(); };
+  const [used] = await mint('used', 1), [lapsed] = await mint('lapsed', 1);
+  const never = () => randomBytes(24).toString('base64url');
+  const askFields = forms((await get(`/undo/${await take('live')}`)).html).find((f) => 'token' in f.fields)?.fields;
+  check('jr-undo setup: a live undo link asks, with the press’s own form', Boolean(askFields), true);
+
+  // ---- load ----
+  const LOAD = { 'never a link': never, used: () => used, lapsed: () => lapsed, 'link already off': null };
+  const offForLoad = await take('off'); // opening does not spend it, so one serves every round
+  LOAD['link already off'] = () => offForLoad;
+  const loadArms = Object.fromEntries(Object.keys(LOAD).map((k) => [k, []]));
+  const loadBodies = {};
+  await sampleUntilResolved(async (keep) => {
+    for (const k of shuffle(Object.keys(LOAD))) {
+      const tok = LOAD[k]();
+      const { ms, out } = await timed(async () => { const res = await fetch(`${BASE}/undo/${tok}`); return { status: res.status, html: await res.text() }; });
+      if (keep) loadArms[k].push(ms);
+      // Outside Next's flight payload, which numbers its chunks in whatever
+      // order they resolve in development — the same page twice differs there.
+      if (keep && !loadBodies[k]) loadBodies[k] = { status: out.status, html: normalise(out.html.replace(/<script[\s\S]*?<\/script>/g, ''), tok) };
+    }
+  }, () => Object.values(loadArms), ALPHA / (Object.keys(LOAD).length - 1));
+  const lb = loadBodies['never a link'];
+  check('jr-undo-t1b: opening a used, a lapsed or an already-off undo link is served the never-a-link panel, byte for byte (nonce, the token and Next’s payload aside)',
+    Object.entries(loadBodies).filter(([, b]) => b.status !== lb.status || b.html !== lb.html).map(([k]) => k), []);
+  {
+    const { flagged, conclusive, res } = judge('jr-undo-t1', 'opening the undo link, per not-live state', 'never a link', loadArms);
+    if (!conclusive) inconclusive = true;
+    check(`jr-undo-t1: no not-live undo link is distinguishable from one that never existed by response time${conclusive ? ` (resolution ${res?.toFixed(2)}ms)` : ' — INCONCLUSIVE'}`,
+      conclusive ? flagged : 'inconclusive', []);
+  }
+
+  // ---- press ----
+  const press = (tok) => post(`/undo/${tok}`, null, { ...askFields, token: tok });
+  const PRESS = { 'never a link': never, used: () => used, lapsed: () => lapsed, 'link already off': () => take('off'), 'live (lands on Done)': () => take('live') };
+  const pressArms = Object.fromEntries(Object.keys(PRESS).map((k) => [k, []]));
+  const shapes = {};
+  await sampleUntilResolved(async (keep) => {
+    for (const k of shuffle(Object.keys(PRESS))) {
+      const tok = await PRESS[k]();
+      const { ms, out } = await timed(() => press(tok));
+      if (keep) pressArms[k].push(ms);
+      if (keep && !shapes[k]) shapes[k] = JSON.stringify([out.status, out.location.replace(BASE, '').split(tok).join('<token>'),
+        normalise(out.body, tok), out.headers.filter(([h]) => !/^(date|set-cookie)$/.test(h)).map(([h]) => h)]);
+    }
+  }, () => Object.values(pressArms), ALPHA / (Object.keys(PRESS).length - 1));
+  const notLive = ['used', 'lapsed', 'link already off'].filter((k) => shapes[k] !== shapes['never a link']);
+  const doneShape = JSON.parse(shapes['live (lands on Done)'] ?? '[]');
+  check('jr-undo-t2b: a press on a used, lapsed or already-off link answers exactly as one on a link that never existed — back to the not-live panel — and only the live press goes to Done',
+    [notLive, JSON.parse(shapes['never a link'] ?? '[]')[1], doneShape[1]], [[], '/undo/<token>', '/undo/done']);
+  {
+    const { flagged, conclusive, res } = judge('jr-undo-t2', 'pressing "Switch it off", per state', 'never a link', pressArms);
+    if (!conclusive) inconclusive = true;
+    check(`jr-undo-t2: no press — not a spent link, a lapsed one, one already off, nor the live press that lands on Done — is distinguishable from a press on a link that never existed by response time${conclusive ? ` (resolution ${res?.toFixed(2)}ms)` : ' — INCONCLUSIVE'}`,
+      conclusive ? flagged : 'inconclusive', []);
+  }
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed${failures.length ? ' - ' + failures.join('; ') : ' - ALL GREEN'}`);

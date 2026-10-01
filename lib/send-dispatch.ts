@@ -144,11 +144,20 @@ export async function dispatchShareRequest(requestId: string, actorId: string): 
     return { raw, band };
   }
 
-  // U-2 (John): the OTHER approved guardian is told immediately, and for 24
-  // hours can revoke this link with one tap from the notification. Either
-  // guardian may send alone — a send that waits for a second adult never
-  // goes in a large number of real families — but the more restrictive
-  // guardian's wish still prevails, a few minutes later rather than never.
+  // U-2 (John): the OTHER approved guardian is told immediately, and can
+  // revoke this link with one tap from the notification. Either guardian may
+  // send alone — a send that waits for a second adult never goes in a large
+  // number of real families — but the more restrictive guardian's wish still
+  // prevails, a few minutes later rather than never.
+  //
+  // How long the tap works: as long as the link it switches off (U-2 as
+  // amended, BUZ 1 Oct, on John's ruling — it was twenty-four hours). The
+  // window limited no power, since either guardian can switch the link off
+  // from the controls at any time; it limited only the convenient route, and
+  // after a day the button did nothing while the screen looked the same. A
+  // button that dies while the thing it controls lives is a control we
+  // promised and withdrew. The expression is §37's, so the two undo links
+  // live by one rule (app/ops/call/[clubId]/actions.ts).
   const others = await db.query(
     `select p.id, p.email, p.first_name
      from guardianship_link g
@@ -174,7 +183,8 @@ export async function dispatchShareRequest(requestId: string, actorId: string): 
       const undoRaw = randomBytes(24).toString('base64url');
       await db.query(
         `insert into undo_token (token_hash, share_token_id, issued_to, expires_at)
-         values ($1,$2,$3, now() + interval '24 hours')`,
+         values ($1, $2, $3,
+           coalesce((select expires_at from share_token where id = $2), now() + interval '90 days'))`,
         [createHash('sha256').update(undoRaw).digest(), child.rows[0].share_token_id, other.id],
       );
       await send(

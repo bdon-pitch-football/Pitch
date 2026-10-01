@@ -12,9 +12,9 @@
 // no channel and says where the two links are.
 import { headers } from 'next/headers';
 import { ageOn } from '@/lib/age';
-import { recordGuardianLanded, resolveApprovalLink } from '@/lib/guardian-flow';
+import { invitationTextWaiting, recordGuardianLanded, resolveApprovalLink } from '@/lib/guardian-flow';
 import { isLinkPreviewFetch, PITCH_METHOD_HEADER } from '@/lib/link-preview';
-import { approve, confirmIt } from './actions';
+import { approve, confirmIt, endRequest } from './actions';
 import { LegalBody } from '@/app/legal/legal-page';
 import { AskHead, ChevronGlyph, ClockGlyph, ParentPage, TickGlyph } from '@/components/parent-sheet';
 import { FinishedLink } from '@/components/cv/LinkState';
@@ -38,6 +38,32 @@ const PROMISES: [string, string][] = [
   ['You see everything they see.', 'Linked account, full visibility — and you can withdraw all of it at any time.'],
 ];
 
+// D-PD-3 (BUZ, 1 Oct, on John's ruling): a real No, the equal of Approve. Its
+// label lives here once, and every suite reads it from this line rather than
+// typing it, so a change of words is a change of one string.
+const PD3_END_LABEL = 'No, end this request';
+// The No's own form: the code and nothing else, no tick, no adult declaration
+// — ending creates nothing and discloses nothing (John). Always rendered AFTER
+// the approve form, so a lookup by field still finds Approve first.
+const END_FORM = 'pd-end';
+function EndForm({ code }: { code: string }) {
+  return (
+    <form id={END_FORM} action={endRequest}>
+      <input type="hidden" name="code" value={code} />
+    </form>
+  );
+}
+// Pressed from under the status card (state 3) or the second link's "Yes,
+// it's me" (3b): the same secondary, full width, and its own form.
+function EndButton({ code }: { code: string }) {
+  return (
+    <form action={endRequest}>
+      <input type="hidden" name="code" value={code} />
+      <button type="submit" className="btn btn-secondary" style={{ width: '100%' }}>{PD3_END_LABEL}</button>
+    </form>
+  );
+}
+
 export default async function Approval({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ adult?: string }> }) {
   const { id } = await params;
   const { adult } = await searchParams;
@@ -59,6 +85,16 @@ export default async function Approval({ params, searchParams }: { params: Promi
   const here = inv.channel;
   const confirmedHere = here === 'sms' ? inv.sms_confirmed : here === 'email' ? inv.email_confirmed : false;
   const bothConfirmed = inv.sms_confirmed && inv.email_confirmed;
+  // D-PD-3: the No is offered from the first confirmed channel, on either
+  // link — never by the invitation id, which the child holds, and never
+  // before a press. The database checks all of this again (0167).
+  const mayEnd = here !== null && (inv.sms_confirmed || inv.email_confirmed);
+  // 3q (F6; BUZ, 1 Oct): the email is confirmed and the parent's text is still
+  // waiting for SMS (D-168, 0120). "Open the link we texted to you" would be
+  // untrue — there is no text yet — so the status line says it follows. The
+  // database answers whether it waits (fn_invitation_sms_queued), as it does
+  // for the child's waiting page.
+  const textQueued = here === 'email' && confirmedHere && !inv.sms_confirmed && await invitationTextWaiting(inv.id);
   // The other channel, named only by kind — never its address (D-156).
   const other = here === 'sms' ? 'emailed' : 'texted';
   const teen = inv.existing_child;
@@ -109,21 +145,34 @@ export default async function Approval({ params, searchParams }: { params: Promi
           <b>To {teen ? 'confirm' : 'approve'}, use the links we sent you.</b> We texted one and emailed one. Open each and press &ldquo;Yes, it&rsquo;s me&rdquo;. That&rsquo;s how we know the phone and the email are both yours.
         </div>
       ) : !confirmedHere ? (
-        // A step that gives nothing away, so it keeps the screen's one glow.
-        <form action={confirmIt} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input type="hidden" name="code" value={code} />
-          <div className="pd-body">First, tell us this {here === 'sms' ? 'text' : 'email'} reached you.</div>
-          <button type="submit" className="btn btn-primary fl-glow">Yes, it&rsquo;s me &mdash; continue</button>
-        </form>
+        <>
+          {/* A step that gives nothing away, so it keeps the screen's one glow. */}
+          <form action={confirmIt} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input type="hidden" name="code" value={code} />
+            <div className="pd-body">First, tell us this {here === 'sms' ? 'text' : 'email'} reached you.</div>
+            <button type="submit" className="btn btn-primary fl-glow">Yes, it&rsquo;s me &mdash; continue</button>
+          </form>
+          {/* 3b: the other channel is confirmed already, so the No is here. */}
+          {mayEnd && <EndButton code={code} />}
+        </>
       ) : !bothConfirmed ? (
-        <div role="status" className="card card-accent pd-body">
-          <b>One more step.</b> Open the link we {other} to you, press &ldquo;Yes, it&rsquo;s me&rdquo;, and you can {teen ? 'confirm' : 'approve'} from there or here.
-        </div>
+        <>
+          <div role="status" className="card card-accent pd-body">
+            {textQueued
+              ? <><b>One more step.</b> Your text follows shortly &mdash; open the link in it to finish.</>
+              : <><b>One more step.</b> Open the link we {other} to you, press &ldquo;Yes, it&rsquo;s me&rdquo;, and you can {teen ? 'confirm' : 'approve'} from there or here.</>}
+          </div>
+          <EndButton code={code} />
+        </>
       ) : (
         // D-PD-0: the answer is the charter secondary, and nothing glows. The
         // no-answer sits beside it at the same width: the source's one
         // footnote, split at its line break, in the same order. Two-up from
-        // 1024, stacked on a phone.
+        // 1024, stacked on a phone. D-PD-3: the No is the same button in the
+        // second cell, above the do-nothing well (which stays true: silence
+        // still ends it after 14 days). It belongs to its own form, rendered
+        // after this one, so the adult tick is not asked of it.
+        <>
         <form action={approve} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input type="hidden" name="code" value={code} />
           <label className={adult ? 'card card-amber pd-adult' : 'card pd-adult'}>
@@ -136,6 +185,7 @@ export default async function Approval({ params, searchParams }: { params: Promi
               {!teen && <div className="pd-small" style={{ textAlign: 'center' }}>Approving accepts the Terms &amp; Privacy Policy on {name}&rsquo;s behalf, and you can undo it any time.</div>}
             </div>
             <div className="pd-cell">
+              <button type="submit" form={END_FORM} className="btn btn-secondary">{PD3_END_LABEL}</button>
               <div className="card-sunken pd-info sec">
                 <ClockGlyph />
                 <div>{teen
@@ -145,6 +195,8 @@ export default async function Approval({ params, searchParams }: { params: Promi
             </div>
           </div>
         </form>
+        <EndForm code={code} />
+        </>
       )}
     </ParentPage>
   );

@@ -75,8 +75,10 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
               </label>
             ))}
           </fieldset>
+          {/* HC3 (John, BUZ, 1 Oct): its last sentence is doc 25's, word for
+              word, and the same as the received page's — one instruction. */}
           <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-            <b style={{ color: T.ink }}>If you or your child aren&rsquo;t safe at home,</b> you can talk to 1800RESPECT any time on <a href="tel:1800737732" style={{ color: T.accent, fontWeight: 700, display: 'inline-flex', alignItems: 'center', minHeight: 44, margin: '-11px 0', whiteSpace: 'nowrap' }}>1800 737 732</a>. We can stop another parent seeing your child&rsquo;s page while we look, without deleting anything. In an emergency, call 000.
+            <b style={{ color: T.ink }}>If you or your child aren&rsquo;t safe at home,</b> you can talk to 1800RESPECT any time on <a href="tel:1800737732" style={{ color: T.accent, fontWeight: 700, display: 'inline-flex', alignItems: 'center', minHeight: 44, margin: '-11px 0', whiteSpace: 'nowrap' }}>1800 737 732</a>. We can stop another parent seeing your child&rsquo;s page while we look, without deleting anything. If you believe a child is in immediate danger, call 000.
           </div>
           <label style={card}>
             <div style={label}>What&rsquo;s wrong — optional</div>
