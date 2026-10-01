@@ -393,6 +393,8 @@ select.ops-input option { background: var(--surface-2); color: var(--ink); }
    gives them. A form in the console is one panel; its groups are divided by
    hairlines, not separate cards. */
 .ops-panel { display: flex; flex-direction: column; padding: 4px 16px; }
+/* .card is declared later and its 15px 14px would win; a sectioned panel keeps the spec's own padding (spec I). */
+.card.ops-panel { padding: 4px 16px; }
 .ops-sec { display: flex; flex-direction: column; gap: 11px; padding: 16px 0; }
 .ops-sec + .ops-sec { border-top: 1px solid var(--line); }
 /* A line for the operator to say on the call (the call sheet's B2 prompt),
