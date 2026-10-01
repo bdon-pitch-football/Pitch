@@ -145,7 +145,7 @@ button:active, a[href]:active { transform: scale(.975); }
 .lift:hover {
   transform: translateY(-2px);
   border-color: var(--line-hover) !important;
-  box-shadow: 0 8px 28px rgba(0,0,0,.35);
+  box-shadow: var(--shadow-float); /* the token, not a literal (D-173 (1), spec A part 9) */
 }
 
 /* Hero shimmer: a slow light pass across gradient panels */
@@ -215,8 +215,10 @@ button:active, a[href]:active { transform: scale(.975); }
   font-size: 14px; font-weight: 700; color: var(--secondary);
   transition: background .14s var(--ease), color .14s var(--ease);
 }
-.console-nav-link:hover { background: var(--surface-2); color: var(--ink); }
-.console-nav-link[aria-current="page"] { background: var(--surface-2); color: var(--ink); box-shadow: inset 3px 0 0 var(--accent); }
+.console-nav-link:hover { background: var(--here); color: var(--ink); }
+/* "You are here" is a state, not an action, so it is not green (D-173 (4),
+   spec A part 4): the door sits on the --here pill, with no accent bar. */
+.console-nav-link[aria-current="page"] { background: var(--here); color: var(--ink); box-shadow: none; }
 /* THE TABLE — from 768px, with or without the rail beside it. */
 @media (min-width: 768px) {
   /* A table needs the width, so the console column stops capping at 560 here
@@ -255,8 +257,11 @@ button:active, a[href]:active { transform: scale(.975); }
   .console-nav {
     display: flex; flex-direction: column; gap: 2px;
     position: sticky; top: 0; height: 100dvh; overflow-y: auto;
-    padding: 22px 14px 22px 18px; box-sizing: border-box;
-    border-right: 1px solid var(--line);
+    padding: 18px 14px 22px 18px; box-sizing: border-box;
+    /* The nav bar's glass, so the rail and the public bar are one material
+       (spec A part 4). */
+    background: var(--glass); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border-right: 1px solid var(--glass-line);
   }
   /* Reading-width screens (billing, post a trial, club page) sit beside the
      sidebar, not floating in the middle of what is left. */
@@ -283,7 +288,7 @@ button:active, a[href]:active { transform: scale(.975); }
    rule now fails that by name. From 768 (D-147 as amended 28 Sep: the table
    renders wherever there is room for one, the rail from 1024) it is the
    signed table: Club · Claimed · Held · status · action. */
-.ops-table { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); display: flex; flex-direction: column; }
+.ops-table { background: var(--fl-surface); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-card); display: flex; flex-direction: column; }
 .ops-head { display: none; }
 .ops-row {
   display: grid; align-items: center; gap: 8px 12px; padding: 13px 14px;
@@ -682,10 +687,12 @@ select { min-height: 44px; }
 /* The player's home is a dashboard, so at a laptop it earns a second column:
    what is true about your page down the left, what you can do with it down
    the right. Below 1024 it is one column in the 390px order. */
-.player-grid { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
-.player-grid > * { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+/* .home-grid is its name from spec A (part 23); .player-grid stays as an
+   alias because the suites select it. */
+.home-grid, .player-grid { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+.home-grid > *, .player-grid > * { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 @media (min-width: 1024px) {
-  .player-grid { grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; }
+  .home-grid, .player-grid { grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -697,20 +704,24 @@ select { min-height: 44px; }
 .seat-tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
-  background: rgba(11, 18, 14, .94);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  border-top: 1px solid var(--line);
+  /* The nav bar's glass: the top bar and the bottom bar are one material
+     (spec A part 2). */
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-top: 1px solid var(--glass-line);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .seat-tab {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 5px; min-height: 60px; text-decoration: none;
+  gap: 4px; min-height: 60px; text-decoration: none;
   font-size: 10px; font-weight: 700; letter-spacing: var(--ls-button);
   color: var(--muted); transition: color .16s var(--ease);
 }
-.seat-tab[aria-current="page"] { color: var(--accent); font-weight: 800; }
+/* The current door is ink on a pill behind its icon, not green: green is an
+   action, and "you are here" is a state (D-173 (4), spec A part 2). */
+.seat-tab[aria-current="page"] { color: var(--ink); font-weight: 800; }
 .seat-tab:hover { color: var(--ink); }
-.seat-tab[data-current="true"] { color: var(--accent); font-weight: 800; }
+.seat-tab[data-current="true"] { color: var(--ink); font-weight: 800; }
 /* More: the rest of a seat's doors in a sheet above the bar. */
 .seat-more { display: block; min-width: 0; }
 .seat-more > summary { height: 100%; }
@@ -722,16 +733,16 @@ select { min-height: 44px; }
   position: fixed; left: 10px; right: 10px;
   bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; gap: 2px; padding: 8px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
-  box-shadow: 0 -18px 50px -20px rgba(0, 0, 0, .8);
+  background: var(--fl-surface); border: 1px solid var(--line); border-radius: var(--r-card);
+  box-shadow: var(--shadow-float); /* tokens only (D-173 (1)) */
 }
 .seat-sheet-link {
   display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px;
   border-radius: var(--r-well); text-decoration: none;
   font-size: 14px; font-weight: 700; color: var(--secondary);
 }
-.seat-sheet-link:hover { background: var(--surface-2); color: var(--ink); }
-.seat-sheet-link[aria-current="page"] { background: var(--surface-2); color: var(--ink); box-shadow: inset 3px 0 0 var(--accent); }
+.seat-sheet-link:hover { background: var(--here); color: var(--ink); }
+.seat-sheet-link[aria-current="page"] { background: var(--here); color: var(--ink); box-shadow: none; }
 /* The bar sits over the page, so the page ends above it, not behind it. */
 .seat-frame .console-main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 1024px) {
@@ -770,7 +781,8 @@ select { min-height: 44px; }
 .trial-filters[open] > summary { border-color: var(--accent); color: var(--ink); }
 
 .tag {
-  border-radius: 7px; padding: 4px 8px;
+  /* 7px was not a charter radius; a tag is a pill (spec A part 12). */
+  border-radius: var(--r-pill); padding: 4px 8px;
   font-size: 9.5px; font-weight: 800; letter-spacing: var(--ls-label);
   text-transform: uppercase; white-space: nowrap;
 }
@@ -778,7 +790,10 @@ select { min-height: 44px; }
 /* ---------------------------------------------------------------------------
    SURFACES with meaning. Raised = act here. Sunken = read this.
    --------------------------------------------------------------------------- */
-.card        { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--card-pad); }
+/* The panel is the Floodlit card (D-173 (1), spec A part 9): the same radius
+   and padding, the gradient surface and the card shadow, from tokens. The
+   well never takes a shadow: disclosure goes down, action goes up. */
+.card        { background: var(--fl-surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--card-pad); box-shadow: var(--shadow-card); }
 .card-sunken { background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--card-pad); }
 .card-accent { border-color: var(--accent); }
 .card-amber  { border-color: var(--amber); }
@@ -820,14 +835,14 @@ select { min-height: 44px; }
   /* A row you can track across. The hover is deliberately quiet — this is a
      list of children, not a shopping cart. */
   .console-row-hover { transition: background .14s var(--ease); border-radius: var(--r-well); }
-  .console-row-hover:hover { background: var(--surface-2); }
+  .console-row-hover:hover { background: rgba(255,255,255,.04); }
 
   /* Column rhythm: the name anchors left, the line breathes, status and
      actions hold a fixed width so they line up down the page. */
   .console-row { padding: 14px 10px; }
   .console-head {
     position: sticky; top: 92px; z-index: 4;
-    background: var(--surface);
+    background: var(--fl-surface);
   }
 }
 
@@ -900,7 +915,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* The nav bar. Phone: the way back on the left, the logo on the right (the
    24 Aug rule, kept on a phone). From 1024px: the logo leads, links follow. */
-.fl-nav { position: sticky; top: 0; z-index: 30; background: rgba(11,18,14,.72); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,255,255,.06); }
+.fl-nav { position: sticky; top: 0; z-index: 30; background: var(--glass); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--glass-line); }
 .fl-nav-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 60px; }
 .fl-nav-brand { order: 2; display: inline-flex; align-items: center; min-height: 44px; }
 .fl-nav-left { order: 1; display: flex; align-items: center; gap: 4px; }
@@ -1018,6 +1033,146 @@ h1, h2, h3, h4, h5, h6 {
 @media (prefers-reduced-motion: reduce) { .cv-rise { animation: none; } }
 
 /* ===========================================================================
+   SHELLS (A, 1 Oct) — Floodlit (D-173) applied to the building blocks, not
+   to pages: docs/design/specs/A-shells-and-homes.md, "Shell parts", and the
+   mockup docs/design/mockups/floodlit-shells.html. Groups C to J design
+   inside these parts and name them by the spec's bold names. Rules that
+   EDIT an existing part (.card, .seat-tabs, .console-nav, .tag, .ops-table,
+   .lift, .fl-nav) are edited where they live; everything new is here.
+   --------------------------------------------------------------------------- */
+:root {
+  /* Three names for values FLOODLIT already used. No lib/palette.ts twin:
+     like --surface-hover, they are only expressible in CSS. */
+  --glass:      rgba(11,18,14,.72);    /* the nav bar's glass */
+  --glass-line: rgba(255,255,255,.06); /* the nav bar's bottom hairline */
+  --here:       rgba(255,255,255,.08); /* "you are here": the current door, never an action */
+}
+
+/* 2 · Seat bar: the icon sits in a 52x28 pill slot; the current door's pill
+   is --here. */
+.seat-tab-ic { display: flex; align-items: center; justify-content: center; width: 52px; height: 28px; border-radius: var(--r-pill); transition: background .16s var(--ease); }
+.seat-tab[aria-current="page"] .seat-tab-ic, .seat-tab[data-current="true"] .seat-tab-ic { background: var(--here); }
+
+/* 4 · Rail and console sidebar: the rail mark (the logo, top left from
+   1024px, D-173 (3)) above the seat card. The mark is not a link: a link to
+   / would be a new door. */
+.rail-mark { display: flex; align-items: center; min-height: 44px; padding: 0 10px; margin-bottom: 10px; }
+.seat-card { display: flex; flex-direction: column; gap: 10px; padding: 14px 12px; margin: 0 0 14px 0; border-radius: var(--r-card); background: var(--fl-surface); border: 1px solid var(--line); box-shadow: var(--shadow-card); }
+.seat-card-id { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.seat-card-name { font-size: 14.5px; font-weight: 900; line-height: 1.25; }
+.seat-card-role { font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 5 · Top bar: the wrapper that renders SiteNav adds .has-topbar, and the
+   page's own in-column mark goes at every width, so no page shows two. */
+.has-topbar .pg-head-mark { display: none; }
+.has-topbar .pg-head:not(:has(.pg-back)) { display: none; }
+
+/* 6 · Page header (HeaderMark): the way back on the left, the mark on the
+   right. Inside a frame the rail carries the mark from 1024px, so the
+   column's copy goes at the same breakpoint the rail appears — never one
+   pixel before it, or the logo vanishes at 1024. */
+.pg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; }
+.pg-back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: -10px 0; padding-right: 8px; font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: none; }
+.pg-back:hover { color: var(--ink); }
+@media (min-width: 1024px) {
+  .console-frame .pg-head-mark { display: none; }
+  .console-frame .pg-head:not(:has(.pg-back)) { display: none; }
+}
+
+/* 7 · Page title */
+.pg-titles { display: flex; flex-direction: column; gap: 6px; }
+.pg-title  { font-size: 26px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.15; }
+.pg-sub    { font-size: 14px; font-weight: 500; color: var(--secondary); line-height: 1.55; }
+
+/* 8 · Section heading (on the page, with a hairline to the edge) and panel
+   heading (inside a panel, none). .panel-h is lib/ui's sectionLabel. */
+.sec-h   { display: flex; align-items: center; gap: 12px; margin: 0; font-size: 11px; font-weight: 800; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--muted); }
+.sec-h::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.panel-h { margin: 0; font-size: 11px; font-weight: 800; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--muted); }
+
+/* 9 · Panel inside a panel: one surface UP, and no second shadow. */
+.card .card { background: var(--surface-2); box-shadow: none; }
+
+/* 11 · Notice: a panel with a state edge. Purple is a club's invitation,
+   amber anything else waiting or held, red stopped. Green never waits. */
+.card-purple { border-color: var(--purple); }
+.card-red    { border-color: var(--red); }
+.notice-k    { display: flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 800; letter-spacing: var(--ls-caps); text-transform: uppercase; }
+.notice-k::before { content: ''; width: 8px; height: 8px; border-radius: 999px; background: currentColor; flex-shrink: 0; }
+
+/* 12 · Pill: a status fact, never a control. .tag now takes its radius. */
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: var(--r-pill); font-size: 9.5px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; white-space: nowrap; background: rgba(255,255,255,.1); color: var(--secondary); flex-shrink: 0; }
+.pill::before { content: ''; width: 6px; height: 6px; border-radius: 999px; background: currentColor; flex-shrink: 0; }
+.pill-live  { background: rgba(61,220,132,.16);  color: var(--accent); }
+.pill-wait  { background: rgba(237,161,0,.16);   color: var(--amber); }
+.pill-guard { background: rgba(171,135,224,.16); color: var(--purple); }
+.pill-stop  { background: rgba(227,119,118,.16); color: var(--red); }
+/* A sentence-long state (the club seat card's "Awaiting verification —
+   registrations are held"): it wraps, at the line's own 11px/800. */
+.pill-wrap  { height: auto; padding: 5px 10px; white-space: normal; line-height: 1.35; text-transform: none; letter-spacing: 0; font-size: 11px; align-items: flex-start; align-self: flex-start; }
+.pill-wrap::before { margin-top: 4px; }
+
+/* 13 · List row, step row, door list */
+.row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 12px 14px; color: var(--ink); text-decoration: none; }
+.row:hover { color: var(--ink); }
+.rows > .row + .row { border-top: 1px solid var(--line); }
+.rows > .row:hover { background: rgba(255,255,255,.04); }
+.card.rows { padding: 0; overflow: hidden; }
+.card.row { padding: 12px 14px; }
+.row-ic { width: 36px; height: 36px; border-radius: var(--r-well); background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.row-t { font-size: 14.5px; font-weight: 800; color: var(--ink); line-height: 1.3; }
+.row-s { font-size: 12.5px; font-weight: 500; color: var(--muted); line-height: 1.45; }
+.row-end { flex-shrink: 0; font-size: 12.5px; font-weight: 800; color: var(--accent); }
+.row-chev { flex-shrink: 0; display: flex; color: var(--muted); }
+.row-step { display: flex; align-items: center; gap: 11px; min-height: 44px; padding: 0 12px; border-radius: var(--r-well); background: var(--surface-2); color: var(--ink); text-decoration: none; font-size: 13.5px; font-weight: 700; }
+.row-step:hover { background: var(--surface-hover); color: var(--ink); }
+.doors .row-t { font-size: 14px; font-weight: 700; }
+
+/* 14 · Hero panel: the seat's identity, on --hero, with the floating
+   shadow. The player's variant reuses THE PLAYER CARD's .cv-num as is. */
+.hero-panel { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 18px 16px; border-radius: var(--r-hero); background: var(--hero); box-shadow: var(--shadow-float); }
+.hero-panel > :not(.cv-num) { position: relative; }
+@media (min-width: 1024px) { .hero-panel { padding: 24px 24px 22px; } }
+.hero-id { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.hero-av { width: 52px; height: 52px; border-radius: var(--r-card); flex-shrink: 0; background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; object-fit: cover; }
+.hero-h  { font-size: 21px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.15; margin: 0; }
+.hero-m  { font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,.7); margin-top: 3px; }
+.hero-well { background: rgba(11,18,14,.5); border: 1px solid var(--line); border-radius: var(--r-well); padding: 10px 10px 10px 13px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+/* 15 · Stat: the numeral keeps `numeral numeral-l|m|s` exactly — the zero
+   sweep (ah12, D-162) reads that string. The label is .stat-l; on the hero
+   it is .65 alpha, the first value that holds AA on --hero's lightest stop. */
+.stat-row { display: flex; align-items: flex-end; gap: 26px; flex-wrap: wrap; }
+.stat-l { margin-top: 4px; font-size: 11px; font-weight: 800; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--muted); }
+.hero-panel .stat-l { color: rgba(255,255,255,.65); }
+
+/* 16 · Empty tile. Dashed means "not yet". The first sentence and the rest
+   sit inside one element, so a suite reading one string still does. */
+.empty-tile { border: 1.5px dashed rgba(255,255,255,.3); border-radius: var(--r-well); background: rgba(255,255,255,.04); flex-shrink: 0; }
+.empty { display: flex; align-items: flex-start; gap: 14px; padding: 16px 14px; }
+.empty > .empty-tile { width: 46px; height: 54px; }
+.empty-t { display: block; font-size: 14.5px; font-weight: 800; color: var(--ink); margin-bottom: 3px; }
+.empty-b { font-size: 12.5px; font-weight: 500; color: var(--secondary); line-height: 1.55; }
+
+/* 18 · A button that sits inline on a laptop row: a width, not a third button. */
+.btn-auto { width: auto; padding: 0 22px; }
+
+/* 19 · Field */
+.field[aria-invalid="true"] { border-color: var(--amber); }
+
+/* 20 · Door panel: a form is a door. On a phone the 390 artboard is the
+   column as drawn; from 640px the form sits in a lifted panel. A list is a
+   page and never goes inside a door. */
+.door { width: 100%; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+@media (min-width: 640px) {
+  .door { margin-top: 28px; padding: 28px 28px 30px; background: var(--fl-surface); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-float); box-sizing: border-box; }
+  .door .field { background: var(--surface-hover); }
+  .door .card, .door .card-sunken { background: var(--surface-2); box-shadow: none; }
+}
+@media (min-width: 1024px) { .door { max-width: 640px; margin-top: 48px; padding: 34px 36px 36px; } }
+
+/* ===========================================================================
    THE TRIALS BOARD — Floodlit (D-173 as extended 1 Oct: the board takes the
    1200px layout with a filter rail, the nav bar when signed out, and an
    empty board hides its filters and offers the two doors).
@@ -1065,9 +1220,9 @@ h1, h2, h3, h4, h5, h6 {
 .fl-trial-foot.solo { justify-content: flex-end; }
 .fl-trial-foot .btn { width: auto; padding: 0 18px; flex-shrink: 0; }
 /* The glow is the screen's one primary (Head of Product Design, 1 Oct): a
-   row's "I'm interested" is the solid primary, with no glow and no hover
-   glow, so four rows do not compete with each other. */
-.fl-trial-foot .btn-primary.fl-glow, .fl-trial-foot .btn-primary.fl-glow:hover { box-shadow: none; }
+   row's "I'm interested" is the solid primary and carries no .fl-glow at all
+   (components/floodlit/TrialRow), so four rows do not compete with each
+   other — and the render suite's one-glow check holds on every board. */
 .fl-trial-state { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: var(--accent); min-width: 0; }
 .fl-trial-state::before { content: ''; width: 6px; height: 6px; border-radius: 999px; background: var(--accent); flex-shrink: 0; }
 .fl-trial-state.un { color: var(--muted); font-weight: 700; }

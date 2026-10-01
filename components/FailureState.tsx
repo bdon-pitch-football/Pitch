@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { HeaderMark } from '@/components/Wordmark';
+import SiteNav from '@/components/floodlit/SiteNav';
 import { T } from '@/lib/palette';
 
 // ---------------------------------------------------------------------------
@@ -98,11 +98,12 @@ export const FAILURE_COPY = {
   },
 } as const;
 
-/** The 56px glyph tile LinkState opens with. Stroke SVG only — never emoji. */
+/** The 56px glyph tile LinkState opens with. Stroke SVG only — never emoji.
+ *  At the charter's card radius: 18 was not a charter value (spec A part 22). */
 function GlyphTile({ children }: { children: ReactNode }) {
   return (
     <div>
-      <div style={{ width: 56, height: 56, borderRadius: 18, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 56, height: 56, borderRadius: 'var(--r-card)', background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {children}
       </div>
     </div>
@@ -110,9 +111,14 @@ function GlyphTile({ children }: { children: ReactNode }) {
 }
 
 /**
- * The failure shell: mark top right, glyph, heading, reason, the sunken card
- * that says why there is no more, then the way out. `kind` is the marker the
- * checks read; it is NOT a reason, and nothing here branches on it.
+ * The failure shell: the top bar, then glyph, heading, reason, the sunken
+ * card that says why there is no more, then the way out. `kind` is the marker
+ * the checks read; it is NOT a reason, and nothing here branches on it.
+ *
+ * Floodlit (spec A part 22): the logo-only top bar (top right on a phone, top
+ * left from 1024px, D-173 (3)), the page title and the well, and the way
+ * out's primary carries the screen's one glow (set by the caller). The mark
+ * is not a link — it never was here, and a link to / would be a new door.
  */
 export default function FailureState({ kind, glyph, heading, reason, why, children }: {
   kind: 'not-found' | 'error';
@@ -123,13 +129,13 @@ export default function FailureState({ kind, glyph, heading, reason, why, childr
   children: ReactNode;
 }) {
   return (
-    <div data-failure={kind} className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    <div data-failure={kind} className="floodlight has-topbar" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', flexDirection: 'column' }}>
+      <SiteNav links={[]} signIn={false} homeLink={false} />
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
         <GlyphTile>{glyph}</GlyphTile>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em', margin: 0 }}>{heading}</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{reason}</div>
+        <div className="pg-titles">
+          <h1 className="pg-title">{heading}</h1>
+          <div className="pg-sub">{reason}</div>
         </div>
         <div className="card-sunken" style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>{why}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>{children}</div>

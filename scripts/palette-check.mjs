@@ -121,12 +121,22 @@ for (const sfc of ['--bg', '--surface-sunken', '--surface', '--surface-2']) {
   if (got < 1.25) fail(`hairline: --line is ${r2(got)}:1 on ${sfc}, under 1.25 — the border is what does the elevation work here`);
 }
 
-// NO SHADOW, NO GLOW. The stack earns its depth from the surface step plus the
-// hairline. A resting shadow on a card would be a second, contradictory
-// elevation system and it renders as mud on a dark page.
-for (const cls of ['.card', '.card-sunken']) {
-  const rule = new RegExp(`\\${cls} +\\{[^}]*\\}`).exec(css)?.[0] ?? '';
-  if (/box-shadow/.test(rule)) fail(`${cls} carries a box-shadow — the hairline and the surface step are the elevation`);
+// ONE SHADOW, BY TOKEN, AND NEVER ON A WELL. This was "no shadow, no glow":
+// the stack earned its depth from the surface step plus the hairline, and a
+// literal shadow on a card would have been a second, contradictory elevation
+// system. D-173 (1) (BUZ, 1 Oct) gave depth exactly two soft shadows, as
+// tokens only, and spec A part 9 puts the card one on every panel — so the
+// rule moved, and what it protects did not: the panel's shadow is the token
+// and nothing else (a literal here is the second system this guarded
+// against), and the well carries none at all (part 10: disclosure goes down,
+// action goes up). Proven against both breakages and a missing shadow.
+{
+  const cardRule = /\.card +\{[^}]*\}/.exec(css)?.[0] ?? '';
+  const shadow = /box-shadow:\s*([^;}]+)/.exec(cardRule)?.[1]?.trim();
+  if (shadow !== 'var(--shadow-card)') fail(`.card's box-shadow is ${shadow ?? 'missing'} — a panel carries the card shadow by token (D-173 (1), spec A part 9), never a literal`);
+  const sunken = /\.card-sunken +\{[^}]*\}/.exec(css)?.[0] ?? '';
+  if (/box-shadow/.test(sunken)) fail('.card-sunken carries a box-shadow — a well is read, not lifted (disclosure goes down)');
+  if (shadow === 'var(--shadow-card)' && !/box-shadow/.test(sunken)) ok('a panel carries the card shadow by token, and a well carries none (D-173 (1))');
 }
 
 // A HOVER GOES UP. The interaction layer's two tokens sit a step above the
