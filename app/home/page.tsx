@@ -18,6 +18,7 @@
 import Link from 'next/link';
 import { SUPPORT_EMAIL } from '@/lib/support';
 import { db } from '@/lib/db';
+import { imageSrc } from '@/lib/storage';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
@@ -259,6 +260,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   );
   const me = rows[0];
   if (!me) return <Shell><div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Signed out.</div></Shell>;
+  // Photos as addresses for this read (John's ruling §1): the person's own,
+  // and each child's — the query above returns only children this session is
+  // an approved, unrevoked guardian of.
+  me.photo_path = await imageSrc(me.photo_path);
+  for (const c of me.children as { photo: string | null }[]) c.photo = await imageSrc(c.photo);
   const children: {
     id: string; firstName: string; photo: string | null; recordId: string | null; approvedOn: string;
     linkExpiry: string | null; expiresInDays: number | null; registers: number;

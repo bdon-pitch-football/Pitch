@@ -3,6 +3,7 @@
 // to go and the copy says so plainly (D-98).
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { imageSrc } from '@/lib/storage';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { CoachConsole } from '@/components/console-shell';
@@ -57,6 +58,8 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
   );
   if (rows.length === 0) redirect('/signin');
   const c = rows[0];
+  // Their own photo, as an address for this read (John's ruling §1).
+  c.photo_path = await imageSrc(c.photo_path);
   const roles: { id: string; title: string; org: string; from: string | null; to: string | null }[] = c.roles;
   const clips: { id: string; url: string; title: string }[] = c.clips ?? [];
   const licences: { id: string; title: string; issuer: string | null; year: string | null }[] = c.licences ?? [];

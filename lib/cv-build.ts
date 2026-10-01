@@ -9,6 +9,8 @@ import { db } from './db';
 import { MAX_POSITIONS, STAT_KEYS, type StatKey } from './football';
 import { editWaitingEmail } from './messages';
 import { send } from './messaging';
+import { isPlayerPhotoOf, PHOTO_STILL_SHOWN } from './player-photo';
+import { removeImage } from './storage';
 
 export interface CvDraft {
   positions: string[];
@@ -22,6 +24,8 @@ export interface CvDraft {
 
 export async function saveCvDraft(recordId: string, draft: CvDraft): Promise<void> {
   const positions = draft.positions.slice(0, MAX_POSITIONS);
+  // The photo the pending version named before this save rewrote it, if any.
+  let replaced: string | null = null;
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -56,6 +60,10 @@ export async function saveCvDraft(recordId: string, draft: CvDraft): Promise<voi
     );
     if (band.rows[0]?.band === 'u16') {
       const content = await buildSnapshot(client, recordId, draft.season);
+      replaced = ((await client.query(
+        `select content ->> 'photoPath' as photo from profile_version where record_id = $1 and status = 'pending'`,
+        [recordId],
+      )).rows[0]?.photo as string | null | undefined) ?? null;
       await client.query(
         `insert into profile_version (record_id, content, status)
          values ($1, $2, 'pending')
@@ -77,6 +85,7 @@ export async function saveCvDraft(recordId: string, draft: CvDraft): Promise<voi
   } finally {
     client.release();
   }
+  await forgetPlayerPhoto(recordId, replaced);
 
   // doc 15 §30: tell the guardian an edit is waiting. Once — there is no
   // reminder and no timeout that publishes it (doc 14 §R7).
@@ -97,6 +106,9 @@ export async function saveCvDraft(recordId: string, draft: CvDraft): Promise<voi
 // old approved version is superseded — in one transaction. Silence would
 // have kept the old page live forever (doc 14 §R7).
 export async function approvePendingVersion(recordId: string, guardianId: string): Promise<boolean> {
+  // The photo the outgoing approved version named: once it is superseded it
+  // may be nothing anyone is shown, and then it goes (after the commit).
+  let replaced: string | null = null;
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -108,6 +120,10 @@ export async function approvePendingVersion(recordId: string, guardianId: string
       await client.query('rollback');
       return false;
     }
+    replaced = ((await client.query(
+      `select content ->> 'photoPath' as photo from profile_version where record_id=$1 and status='approved'`,
+      [recordId],
+    )).rows[0]?.photo as string | null | undefined) ?? null;
     await client.query(`update profile_version set status='superseded' where record_id=$1 and status='approved'`, [recordId]);
     await client.query(
       `update profile_version set status='approved', approved_by=$2, approved_at=now() where id=$1`,
@@ -118,12 +134,106 @@ export async function approvePendingVersion(recordId: string, guardianId: string
       [recordId, guardianId],
     );
     await client.query('commit');
-    return true;
   } catch (e) {
     await client.query('rollback');
     throw e;
   } finally {
     client.release();
+  }
+  await forgetPlayerPhoto(recordId, replaced);
+  return true;
+}
+
+/**
+ * A guardian's photo for an under-16 is its own approval (John F14, with
+ * BUZ's go, 1 Oct). D-119 sends a CHILD's edit back to a guardian; it never
+ * meant a guardian approving themselves. So a photo a guardian uploads goes
+ * straight onto the approved page — and onto the pending version too, if the
+ * child has one waiting, or approving that later would put the old photo
+ * back. Only the photo moves: the rest of the live record may hold the
+ * child's unapproved edits, and those still wait.
+ *
+ * Logged as edit_approved with the guardian as the actor and the child as
+ * the subject, so the family history shows it on the existing approved-change
+ * line until BUZ approves words of its own (John proposes "{guardian first
+ * name} changed the page."). No message to anyone: approving a child's edit
+ * sends none today, so neither does this, and no edit-waiting email goes to
+ * the guardian who did it.
+ *
+ * An under-16 with no approved page yet has nothing to publish onto: the
+ * photo stays on the live record and the pending version, and the first
+ * approval carries it. Nothing here creates a page.
+ *
+ * Returns the photos the two versions named before, for forgetPlayerPhoto.
+ * The caller holds the authorisation (recordActor 'guardian'); it is asked
+ * again here, with the band, inside the transaction.
+ */
+export async function publishGuardianPhoto(recordId: string, guardianId: string, path: string): Promise<string[]> {
+  const replaced: string[] = [];
+  const client = await db.connect();
+  try {
+    await client.query('begin');
+    const who = await client.query(
+      `select dr.person_id, fn_age_band(p.dob) = 'u16' and fn_record_actor($2, $1) = 'guardian' as ok
+       from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
+      [recordId, guardianId],
+    );
+    if (!who.rows[0]?.ok) {
+      await client.query('rollback');
+      return [];
+    }
+    const versions = await client.query(
+      `select status, content ->> 'photoPath' as photo from profile_version
+       where record_id = $1 and status in ('approved', 'pending') for update`,
+      [recordId],
+    );
+    for (const v of versions.rows) if (v.photo) replaced.push(v.photo as string);
+    await client.query(
+      `update profile_version set content = jsonb_set(content, '{photoPath}', to_jsonb($2::text))
+       where record_id = $1 and status in ('approved', 'pending')`,
+      [recordId, path],
+    );
+    if (versions.rows.some((v) => v.status === 'approved')) {
+      await client.query(
+        `insert into consent_event (event, actor_id, subject_id, detail)
+         values ('edit_approved', $2, $3, jsonb_build_object('record_id', $1::uuid, 'photo', true))`,
+        [recordId, guardianId, who.rows[0].person_id],
+      );
+    }
+    await client.query('commit');
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
+  return replaced;
+}
+
+/**
+ * Delete a player photo this record has stopped showing (S-3, 1 Oct).
+ *
+ * Called with the path something just stopped naming: the live record's
+ * photo when a new one is uploaded, the pending version's when a save
+ * rewrites it, the approved version's when the guardian approves the next.
+ * It goes only if it is this record's own player photo and nothing that can
+ * still be shown names it — never the photo an approved snapshot uses, which
+ * would 404 on every club's screen. A child's face does not stay in the
+ * bucket once nothing shows it (pillar zero, data minimisation).
+ *
+ * Never throws. It runs after the real work has committed, outside any
+ * db.connect() (L1); a delete that fails leaves a file nothing points at,
+ * which is the state before this existed, and must not turn a saved photo
+ * or a guardian's approval into an error.
+ */
+export async function forgetPlayerPhoto(recordId: string, path: string | null | undefined): Promise<void> {
+  if (!path || !isPlayerPhotoOf(recordId, path)) return;
+  try {
+    const { rows } = await db.query(PHOTO_STILL_SHOWN, [path]);
+    if (rows[0]?.shown !== false) return;
+    await removeImage(path);
+  } catch {
+    // left behind, unreferenced; see above
   }
 }
 

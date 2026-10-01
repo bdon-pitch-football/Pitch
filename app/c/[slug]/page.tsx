@@ -10,6 +10,7 @@
 // adults; there is no existence oracle to protect here.
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import { isPrivatePhoto } from '@/lib/player-photo';
 import ClipCard from '@/components/cv/ClipCard';
 import CopyLink from '@/components/cv/CopyLink';
 import { getSessionPersonId } from '@/lib/session';
@@ -80,6 +81,11 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
   );
   if (rows.length === 0) notFound();
   const c = rows[0];
+  // A public page with no session behind it mints nothing (John's ruling §1):
+  // a private photo — one uploaded before eighteen — shows as initials here,
+  // never as a public copy. The database already refuses this page to anyone
+  // under 18 (fn_coach_page_public).
+  if (isPrivatePhoto(c.photo_path)) c.photo_path = null;
   const name = `${c.first_name} ${c.last_name}`.trim();
   const initials = `${c.first_name[0]}${c.last_name[0] ?? ''}`;
   const roles: { title: string; org: string; from: string | null; to: string | null }[] = c.roles;

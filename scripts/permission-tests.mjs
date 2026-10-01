@@ -5367,6 +5367,207 @@ check('store5: the bucket is configurable, not hardcoded to one project',
   /SUPABASE_STORAGE_BUCKET/.test(storeSrc), true);
 
 // ---------------------------------------------------------------------------
+// S-3 (safety review, 1 Oct; D-119): a player photo is a new object every
+// time. The route wrote every upload to player/{recordId}.jpg — the URL an
+// under-16's approved snapshot names — so a child's new face replaced the
+// approved one on every club's screen, with no guardian. What the running
+// app does with it is the write suite's (photo-w0..w4); these pin the route,
+// the key, the delete rule and the database's answer.
+// ---------------------------------------------------------------------------
+{
+  const photoRouteRaw = readFileSync(fileURLToPath(new URL('../app/build/[recordId]/photo/route.ts', import.meta.url)), 'utf8');
+  const photoRoute = codeOnly(photoRouteRaw);
+  check('photo1: the player photo route never writes the fixed key player/{recordId}.jpg — each upload is put at a key of its own — and writes no profile version itself: the upload is the live record',
+    [/player\/\$\{recordId\}\.jpg/.test(photoRoute), /putImage\(playerPhotoKey\(recordId\)/.test(photoRoute), /profile_version/.test(photoRoute)],
+    [false, true, false]);
+
+  const mod = await import('../lib/player-photo.ts').catch(() => null);
+  const rid = crypto.randomUUID(), other = crypto.randomUUID();
+  const keys = mod ? [mod.playerPhotoKey(rid), mod.playerPhotoKey(rid)] : [];
+  check('photo2: the key is player/{record}-{128 random bits}.jpg and is never the same twice for one record',
+    [keys.length, keys.every((k) => new RegExp(`^player/${rid}-[0-9a-f]{32}\\.jpg$`).test(k)), new Set(keys).size], [2, true, 2]);
+  const hex = 'ab'.repeat(16);
+  const mine = [`/dev-uploads/player-${rid}-${hex}.jpg`, `/dev-uploads/player-${rid}.jpg`,
+    `https://example.supabase.co/storage/v1/object/public/public-images/player/${rid}-${hex}.jpg`,
+    `https://example.supabase.co/storage/v1/object/public/public-images/player/${rid}.jpg`];
+  const notMine = [`/dev-uploads/player-${other}-${hex}.jpg`, `/dev-uploads/coach-photo-${rid}.jpg`, `/dev-uploads/coach-${rid}.jpg`,
+    `/dev-uploads/crest-${rid}.png`, `/dev-uploads/../player-${rid}.jpg`, `/dev-uploads/player-${rid}-${hex}.png`, ''];
+  check('photo3: a record only ever deletes its own player photos — never another record’s, a coach photo, a crest or a traversal',
+    mod ? [mine.map((p) => mod.isPlayerPhotoOf(rid, p)), notMine.map((p) => mod.isPlayerPhotoOf(rid, p))] : null,
+    [mine.map(() => true), notMine.map(() => false)]);
+
+  // The database half, on an under-16 the way production has them: a photo
+  // on the live record, the same photo in the guardian-approved snapshot.
+  const child = crypto.randomUUID(), rec = crypto.randomUUID();
+  const devPath = (k) => `/dev-uploads/${k.replace(/\//g, '-')}`;   // putImage's local shape
+  const approvedPhoto = devPath(keys[0] ?? `player/${rec}.jpg`).replace(rid, rec);
+  const newPhoto = devPath(keys[1] ?? `player/${rec}.jpg`).replace(rid, rec);
+  await db.query(`insert into person (id, first_name, dob, photo_path) values ($1,'Photo',$2,$3)`, [child, yearsAgo(13), approvedPhoto]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rec, child]);
+  await db.query(`insert into profile_version (record_id, content, status, approved_at) values ($1,$2,'approved',now())`,
+    [rec, JSON.stringify({ firstName: 'Photo', photoPath: approvedPhoto })]);
+  const servedBefore = (await db.query('select fn_approved_cv($1) as c', [rec])).rows[0].c;
+  // The route's own statement, run as the route runs it — not a copy of it.
+  const stmt = /db\.query\(\s*`([^`]*update person set photo_path[^`]*)`/.exec(photoRouteRaw)?.[1];
+  const ran = stmt ? (await db.query(stmt, [rec, newPhoto])).rows : [];
+  const servedAfter = (await db.query('select fn_approved_cv($1) as c', [rec])).rows[0].c;
+  check('photo4: an under-16’s upload never touches what fn_approved_cv returns — the approved snapshot names the photo it was approved with, at an address the upload did not write',
+    [ran[0]?.replaced, (await db.query('select photo_path from person where id=$1', [child])).rows[0].photo_path,
+     same(servedAfter, servedBefore), servedAfter?.photoPath, newPhoto !== approvedPhoto],
+    [approvedPhoto, newPhoto, true, approvedPhoto, true]);
+
+  // When a superseded photo may go: only when nothing that can still be
+  // shown names it. The live record, a pending version and the approved one
+  // all keep it; a superseded version keeps nothing.
+  const shown = async (p) => mod ? (await db.query(mod.PHOTO_STILL_SHOWN, [p])).rows[0].shown : null;
+  const pendingPhoto = devPath(`player/${rec}-${'cd'.repeat(16)}.jpg`), oldPhoto = devPath(`player/${rec}-${'ef'.repeat(16)}.jpg`);
+  await db.query(`insert into profile_version (record_id, content, status) values ($1,$2,'pending'), ($1,$3,'superseded')`,
+    [rec, JSON.stringify({ photoPath: pendingPhoto }), JSON.stringify({ photoPath: oldPhoto })]);
+  check('photo5: a photo is deleted only when nothing that can be shown names it — kept for the live record, the pending version and the approved one; gone for one only a superseded version names',
+    [await shown(newPhoto), await shown(pendingPhoto), await shown(approvedPhoto), await shown(oldPhoto), await shown(devPath(`player/${rec}-${'01'.repeat(16)}.jpg`))],
+    [true, true, true, false, false]);
+
+  // The delete runs after the transaction, never inside db.connect() (L1),
+  // and it is the one door: nothing else removes an image.
+  const cvBuildSrc = readFileSync(fileURLToPath(new URL('../lib/cv-build.ts', import.meta.url)), 'utf8');
+  check('photo6: lib/cv-build hands a replaced photo on only after it has released its client — on save and on approval',
+    (codeOnly(cvBuildSrc).match(/client\.release\(\);\s*\}\s*await forgetPlayerPhoto\(recordId, replaced\);/g) ?? []).length, 2);
+  check('photo7: removeImage is called from lib/cv-build alone, and it asks first',
+    [tsSourceFiles().filter((f) => f !== 'lib/storage.ts' && /removeImage\(/.test(readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8'))),
+     /PHOTO_STILL_SHOWN[\s\S]{0,200}removeImage\(path\)/.test(codeOnly(cvBuildSrc))],
+    [['lib/cv-build.ts'], true]);
+
+  // John F14 (with BUZ's go, 1 Oct): a GUARDIAN's photo for an under-16 is
+  // its own approval. Only the photo moves onto the approved page — the live
+  // record may hold the child's unapproved edits, which still wait.
+  const pubBody = /export async function publishGuardianPhoto[\s\S]*?\n\}\n/.exec(cvBuildSrc)?.[0] ?? '';
+  check('photo8: the route publishes a photo only for a guardian, through publishGuardianPhoto — a child\u2019s own upload never reaches it',
+    /if \(who\.actor === 'guardian'\) replaced\.push\(\.\.\.\(await publishGuardianPhoto\(recordId, who\.personId, rel\)\)\)/.test(photoRoute), true);
+  check('photo9: publishGuardianPhoto asks the band and the guardian again, moves only the photo — never a snapshot of the live record — logs edit_approved with the guardian as actor and the child as subject, and sends nothing',
+    [/fn_age_band\(p\.dob\) = 'u16' and fn_record_actor\(\$2, \$1\) = 'guardian'/.test(pubBody), /jsonb_set\(content, '\{photoPath\}'/.test(pubBody),
+     /buildSnapshot|send\(|editWaitingEmail/.test(codeOnly(pubBody)), /'edit_approved', \$2, \$3/.test(pubBody)],
+    [true, true, false, true]);
+  // Its statement, run as written, on a record with all three kinds of version.
+  const patch = /`(update profile_version set content = jsonb_set\(content, '\{photoPath\}'[^`]*)`/.exec(cvBuildSrc)?.[1];
+  const rec2 = crypto.randomUUID(), child2 = crypto.randomUUID();
+  const gPhoto = devPath(`player/${rec2}-${'12'.repeat(16)}.jpg`);
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Patch',$2)`, [child2, yearsAgo(13)]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rec2, child2]);
+  await db.query(`insert into profile_version (record_id, content, status) values ($1,$2,'approved'), ($1,$3,'pending'), ($1,$4,'superseded')`,
+    [rec2, JSON.stringify({ about: 'approved words', photoPath: 'a' }), JSON.stringify({ about: 'waiting words', photoPath: 'p' }),
+     JSON.stringify({ about: 'old words', photoPath: 's' })]);
+  if (patch) await db.query(patch, [rec2, gPhoto]);
+  check('photo10: a guardian\u2019s photo lands on the approved and the pending version and nowhere else — every other word in them is as it was, and history is untouched',
+    (await db.query(`select status, content from profile_version where record_id = $1 order by status`, [rec2])).rows.map((r) => [r.status, r.content.about, r.content.photoPath]),
+    [['approved', 'approved words', gPhoto], ['pending', 'waiting words', gPhoto], ['superseded', 'old words', 's']]);
+
+  // ---- Under-18 photos are PRIVATE (John's ruling §1, BUZ 1 Oct) ----------
+  // The dev signer, on a clock the check controls: alive when minted, dead
+  // one second past ten minutes, and no forged expiry or key passes.
+  const t0 = 1_900_000_000, sec = 'test-secret';
+  const u = mod?.devPhotoUrl ? new URL(`http://x${mod.devPhotoUrl(`player/${rid}-${hex}.jpg`, t0, sec)}`) : null;
+  const [e0, s0] = [u?.searchParams.get('e') ?? null, u?.searchParams.get('s') ?? null];
+  const valid = (k, e, s, t) => (mod?.devPhotoValid ? mod.devPhotoValid(k, e, s, t, sec) : null);
+  const k0 = `player/${rid}-${hex}.jpg`;
+  check('photo11: a minted photo address lives at most ten minutes — valid when minted and at 599s, dead at 601s; a moved expiry, another key or another secret never passes',
+    [mod?.PHOTO_URL_TTL_SECONDS, valid(k0, e0, s0, t0), valid(k0, e0, s0, t0 + 599), valid(k0, e0, s0, t0 + 601),
+     valid(k0, String(Number(e0) + 60), s0, t0), valid(`player/${other}-${hex}.jpg`, e0, s0, t0),
+     mod?.devPhotoValid ? mod.devPhotoValid(k0, e0, s0, t0, 'another-secret') : null, valid(k0, e0, null, t0)],
+    [600, true, true, false, false, false, false, false]);
+
+  // The upload routes: an under-18's photo goes to the private bucket, an
+  // adult's stays public; and a private path is never a URL.
+  const coachRoute = codeOnly(readFileSync(fileURLToPath(new URL('../app/coach/edit/photo/route.ts', import.meta.url)), 'utf8'));
+  check('photo12: both photo routes put an under-18’s photo in the private bucket and only an adult’s in the public one, and a private path is not an address a browser can load',
+    [/rel = band === '18plus'\s*\? await putImage\(playerPhotoKey\(recordId\)[^;]*: await putPrivateImage\(playerPhotoKey\(recordId\)/.test(photoRoute),
+     /rel = adult\s*\? await putImage\([^;]*: await putPrivateImage\(coachPhotoKey\(me\)/.test(coachRoute),
+     mod ? [mod.PRIVATE_PREFIX, mod.privateKeyOf(`pitch-private:player/${rid}-${hex}.jpg`), mod.privateKeyOf('pitch-private:../x.jpg'), mod.privateKeyOf(`/dev-uploads/player-${rid}.jpg`)] : null],
+    [true, true, ['pitch-private:', `player/${rid}-${hex}.jpg`, null, null]]);
+  check('photo3b: and a record’s private photo is its own to delete, never another record’s or a coach photo',
+    mod ? [mod.isPlayerPhotoOf(rid, `pitch-private:player/${rid}-${hex}.jpg`), mod.isPlayerPhotoOf(rid, `pitch-private:player/${other}-${hex}.jpg`),
+      mod.isPlayerPhotoOf(rid, `pitch-private:coach/photo-${rid}-${hex}.jpg`)] : null,
+    [true, false, false]);
+
+  // Every file that reads a photo path is classified, and every one that
+  // DRAWS one does it through an address minted for an allowed read. A new
+  // file that touches a photo path fails here until someone decides which it is.
+  const PHOTO_FILES = {
+    // draw it, minted after their own check (session, record actor, the token read)
+    'app/home/page.tsx': 'mints', 'components/player-shell.tsx': 'mints', 'app/coach/edit/page.tsx': 'mints',
+    'app/build/[recordId]/page.tsx': 'mints', 'lib/record-read.ts': 'mints',
+    // a public page with no session: never mints, never draws a private photo
+    'app/c/[slug]/page.tsx': 'never',
+    // draw only what a minting reader handed them
+    'components/cv/PlayerCV.tsx': 'handed', 'app/build/[recordId]/BuildForm.tsx': 'handed',
+    // write or carry a path, never draw it
+    'app/build/[recordId]/photo/route.ts': 'writes', 'app/coach/edit/photo/route.ts': 'writes', 'lib/cv-build.ts': 'writes',
+    'app/build/[recordId]/actions.ts': 'flag', 'lib/build-progress.ts': 'flag', 'lib/fixtures.ts': 'type', 'lib/player-photo.ts': 'rules',
+  };
+  const touching = tsSourceFiles().filter((f) => /photo_path|photoPath/.test(codeOnly(readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8'))));
+  const srcCode = (f) => codeOnly(readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8'));
+  check(`photo13: every file that touches a photo path is classified (${touching.filter((f) => !PHOTO_FILES[f]).join(', ') || 'all are'}), every one that draws one mints it first, and the public coach page never draws a private one`,
+    [touching.filter((f) => !PHOTO_FILES[f]),
+     Object.entries(PHOTO_FILES).filter(([, k]) => k === 'mints').filter(([f]) => !/imageSrc\(|photoFor\(|withSignedPhoto\(/.test(srcCode(f))).map(([f]) => f),
+     /if \(isPrivatePhoto\(c\.photo_path\)\) c\.photo_path = null;/.test(srcCode('app/c/[slug]/page.tsx')) && !/imageSrc/.test(srcCode('app/c/[slug]/page.tsx'))],
+    [[], [], true]);
+  // An approved snapshot is served by four pages; each mints its photo.
+  const approvedReaders = tsSourceFiles().filter((f) => f.startsWith('app/') && /fn_approved_cv/.test(srcCode(f)));
+  check(`photo13b: every page that serves an approved snapshot mints its photo after its own check (${approvedReaders.join(', ')})`,
+    [approvedReaders.length >= 3, approvedReaders.filter((f) => !/withSignedPhoto\(cv\)/.test(srcCode(f)))], [true, []]);
+  // Who mints at all: only those files, and never a card.
+  const minters = tsSourceFiles().filter((f) => f !== 'lib/storage.ts' && /imageSrc\(/.test(srcCode(f))).sort();
+  check(`photo13c: imageSrc is called only where a read has been allowed (${minters.join(', ')})`,
+    minters, ['app/build/[recordId]/page.tsx', 'app/coach/edit/page.tsx', 'app/home/page.tsx', 'components/player-shell.tsx', 'lib/record-read.ts']);
+
+  // D-89 (BUZ and Product Design, 1 Oct): no photo — public or signed — on
+  // any card, for anyone under 18. Every card route, enumerated: the Open
+  // Graph images, the share-card request and the approved card image.
+  const cardFiles = tsSourceFiles().filter((f) => f.startsWith('app/') && /opengraph-image|twitter-image|\/card\/|share-card\//.test(f));
+  const PHOTO_WORDS = /photo_?[Pp]ath|imageSrc|withSignedPhoto|pitch-private|private-photo|dev-uploads|storage\/v1|avatar/;
+  check(`photo14: no card route pulls a photo, public or signed (${cardFiles.length} routes: ${cardFiles.filter((f) => PHOTO_WORDS.test(srcCode(f))).join(', ') || 'none do'}) — and the CV card reads its CV with the photo switched off`,
+    [cardFiles.length >= 6, cardFiles.filter((f) => PHOTO_WORDS.test(srcCode(f))),
+     /readCvByToken\(token, \{ photo: false \}\)/.test(srcCode('app/p/[token]/opengraph-image.tsx'))],
+    [true, [], true]);
+  const readSrcNow = srcCode('lib/record-read.ts');
+  check('photo14b: and photo: false means none at all — the read hands back no photo path rather than an unminted one',
+    /photo \? withSignedPhoto\(cv\) : \{ \.\.\.cv, photoPath: undefined \}/.test(readSrcNow), true);
+
+  // A guardian whose link was revoked is nobody to this record: no actor,
+  // and the home screen's children (whose photos it mints) are only those of
+  // an approved, unrevoked link.
+  const g2 = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Revoked',$2)`, [g2, yearsAgo(40)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at, revoked_at) values ($1,$2,now() - interval '2 days',now())`, [g2, child]);
+  check('photo15: a revoked guardian mints nothing — the database names them no actor on the record, and the only list of children whose photos /home draws is approved and unrevoked',
+    [(await db.query('select fn_record_actor($1,$2) as a', [g2, rec])).rows[0].a,
+     /'photo', c\.photo_path,[\s\S]{0,4000}?g\.approved_at is not null and g\.revoked_at is null\) as children/.test(srcCode('app/home/page.tsx'))],
+    [null, true]);
+
+  // The move of the public copies: which paths, and every row repointed.
+  const adult = crypto.randomUUID(), adultRec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, photo_path) values ($1,'Grown',$2,$3)`, [adult, yearsAgo(30), `/dev-uploads/player-${adultRec}.jpg`]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [adultRec, adult]);
+  const nate17 = crypto.randomUUID(), nate17Rec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob, photo_path) values ($1,'Seventeen',$2,$3)`, [nate17, yearsAgo(17), `/dev-uploads/player-${nate17Rec}.jpg`]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [nate17Rec, nate17]);
+  const legacy = `/dev-uploads/player-${rec}.jpg`;
+  await db.query(`update person set photo_path = $2 where id = $1`, [child, legacy]);
+  await db.query(`update profile_version set content = jsonb_set(content, '{photoPath}', to_jsonb($2::text)) where record_id = $1 and status = 'approved'`, [rec, legacy]);
+  const planned = mod ? (await db.query(mod.UNDER_18_PUBLIC_PHOTOS)).rows.map((r) => r.path) : [];
+  const mine16 = planned.filter((p) => p.includes(rec) || p.includes(nate17Rec) || p.includes(adultRec)).sort();
+  if (mod) for (const sql of mod.REPOINT_PHOTO) await db.query(sql, [legacy, `pitch-private:player/${rec}.jpg`]);
+  check('photo16: the move finds every public photo an under-18 is named by — the live record and every version, a 16–17’s too — never an adult’s or a private one; and repointing moves every row that named it',
+    [mine16, (await db.query(`select photo_path from person where id = $1`, [child])).rows[0].photo_path,
+     (await db.query(`select count(*)::int as n from profile_version where content ->> 'photoPath' = $1`, [legacy])).rows[0].n],
+    [[`/dev-uploads/player-${nate17Rec}.jpg`, legacy, pendingPhoto, oldPhoto].sort(), `pitch-private:player/${rec}.jpg`, 0]);
+  const moveSrc = readFileSync(fileURLToPath(new URL('./private-photos.mts', import.meta.url)), 'utf8');
+  check('photo17: the move plans by default, deletes a public copy only after its rows point at the private one, prints counts only, and never names the service-role key',
+    [/if \(!has\('--apply'\)\)/.test(moveSrc), moveSrc.indexOf('REPOINT_PHOTO) count.rowsRepointed') < moveSrc.indexOf('await removeImage(path)'),
+     /console\.(log|error)\([^;]*\$\{(path|priv|url|raw)\}/.test(moveSrc), /SUPABASE_SERVICE_ROLE_KEY/.test(moveSrc), /from '\.\.\/lib\/storage\.ts'/.test(moveSrc)],
+    [true, true, false, false, true]);
+}
+
+// ---------------------------------------------------------------------------
 // Sessions can be revoked (0062). The QA bug hunt of 28 Sept measured a
 // captured cookie still opening /home after Sign out, after the password was
 // changed, and after signing back in: the cookie was the person's id plus an

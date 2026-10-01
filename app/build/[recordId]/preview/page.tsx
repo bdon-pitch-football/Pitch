@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PlayerCV from '@/components/cv/PlayerCV';
 import { db } from '@/lib/db';
-import { assembleCv, cvClubColours, wornColours, type CvData } from '@/lib/record-read';
+import { assembleCv, cvClubColours, withSignedPhoto, wornColours, type CvData } from '@/lib/record-read';
 import { requireRecordActor } from '@/lib/record-guard';
 import SiteNav from '@/components/floodlit/SiteNav';
 import { PREVIEW_EMPTY_TITLE } from '@/lib/to-confirm';
@@ -43,6 +43,8 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
     cv = (v.rows[0]?.content as CvData | null) ?? null;
     // And in the club's colours, as a club sees it (D-174, 0165).
     if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(r.person_id)) };
+    // Its photo as an address for this read only (John's ruling §1).
+    if (cv) cv = await withSignedPhoto(cv);
   } else {
     cv = await assembleCv(recordId, r.person_id, r.band);
   }
