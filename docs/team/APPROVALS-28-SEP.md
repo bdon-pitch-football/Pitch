@@ -178,3 +178,8 @@ Production opened with no club listings, so a club person had nothing to claim a
 - **The club colour picker, John's condition 3 (D-174):** "Your colours appear on your club page, and on the CV of players who list your club as their current club."
 - John cleared all three unclaimed-page questions (the nav above the banner, the drawn pitch lines, the claim panel). U1b, U5b and U5-nav assert them. The D-172 clarifying sentence and D-174 are in the register (Head of Product Design, b409c87).
 - The CV club colours switch stays off until John's four conditions are built and tested.
+
+## 1 October: the Floodlit base pass (BUZ: "yes approve the base pass, keep going")
+
+- Spec A steps 1–6: the shared shells and panels on all 74 pages (builder report `docs/design/reports/2026-10-01-build-base-pass.md`). No words or doors changed (923-view crawl).
+- Approved with the three glows dropped under the one-glow rule: the persona landings' closing button, the unclaimed club page's send button, and a second child's button.
