@@ -172,3 +172,9 @@ Production opened with no club listings, so a club person had nothing to claim a
   4. `/stop-cvs`: "Stop CVs to this address?" · "Pitch won’t send CVs to this address again. Families can still contact the club in other ways." · **Stop them** · done: "Done" · "Pitch won’t send CVs to this address again."
   5. Operator: **Stop CVs to this club** · "CVs to this club are stopped."
 - **Warm clubs:** BUZ asked for notices at his five warm clubs to be researched and posted too.
+
+## 1 October: John's Floodlit clearances, club colours on the CV (BUZ: "approve the picker line, keep going")
+
+- **The club colour picker, John's condition 3 (D-174):** "Your colours appear on your club page, and on the CV of players who list your club as their current club."
+- John cleared all three unclaimed-page questions (the nav above the banner, the drawn pitch lines, the claim panel). U1b, U5b and U5-nav assert them. The D-172 clarifying sentence and D-174 are in the register (Head of Product Design, b409c87).
+- The CV club colours switch stays off until John's four conditions are built and tested.

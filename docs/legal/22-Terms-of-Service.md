@@ -1,5 +1,13 @@
 # PITCH — Terms of Service
 
+> **⚠️ v2.2, 1 October 2026 — clause 5.6 is widened from trial notices to unclaimed club pages (D-172).** 183 unclaimed club pages are live, and 5.6 described trial notices only. It now states the closed list of what such a page may contain, what it never contains, that it is not listed in search engines until claimed, and **a removal period of one business day in place of "promptly"**. *A club reading this is entitled to a number rather than an adverb.*
+>
+> **"Any image of or from the club", not "any image",** follows BUZ's clarification of D-172 on 1 October: Pitch's own generic drawing, identical on every unclaimed page, is not an image of the club, and a clause must never say something the page beside it contradicts. **Senior fixtures and results, and "anything evaluative about the club", are restored** from D-172's two lists; the 30 September draft had dropped them.
+>
+> **Materiality (John, 1 October): not material, and nobody is re-asked.** 5.6 describes what Pitch publishes about clubs and makes Pitch a promise to them. It narrows Pitch's own conduct and adds an obligation on Pitch; it changes no right, duty, price or use of data of anyone who accepted v2.1, and the only thing it says about children (nothing about a person under 18 appears on such a page) was already true. The version bumps so that every new consent row names exactly the text that was shown.
+>
+> **Why v2.2:** the 30 September draft of this change called itself v2.1, but v2.1 is the published text adults have accepted since 29 September, and a published version never changes (doc 00). That draft is retired unpublished; its words are kept in `13-Board-Room/JOHN-sync-30-sep-held-docs-00-22.patch`.
+>
 > **⚠️ v2.1, 29 September 2026 — Pitch is free for everyone until further notice, and the price comes out of the contract.** BUZ's call, recorded on 28 September (extending D-163) makes every part of Pitch free for every club, player, parent and coach, the Interest Register included, with no end date.
 >
 > **Three clauses change and one of them matters more than the other two.** A6.1 stated **$54 a month or $329 for twelve months** as what it costs today. **Every public surface now says free, and a signed agreement saying otherwise is the document that would win.** A5.1's refund clause is marked dormant. **A5.4 is rewritten and is the important one.**
@@ -135,7 +143,15 @@ Terms are versioned. Every acceptance writes who accepted, which version, when, 
 
 **[DRAFTED] 5.5 Report this page.** Every public page carries a reporting link. You do not need an account to use it. Reports concerning a person under 18 are actioned first. We keep records of reports and what we did about them for five years. **[LEGAL: doc 18 Q6 — the five-year period is our own reading of the Basic Online Safety Expectations and needs confirming before it is published, because publishing it commits us to it.]**
 
-**[DRAFTED] 5.6 Unclaimed listings.** Some trial notices are compiled by us from information a club has published publicly. These are marked **unclaimed**. An unclaimed listing does not indicate any affiliation between that club and Pitch. Any club may claim its listing, correct it, or ask us to remove it, and we will act on that request promptly.
+**[DRAFTED] 5.6 Unclaimed club pages and listings.** Some club pages and trial notices are compiled by us from information a club has published publicly. **They are marked unclaimed, and they are ours, not the club's.**
+
+**What they may contain, and nothing else:** the club's name, suburb and ground; the leagues and divisions it plays in; the age groups it fields; the year it was founded; its senior fixtures and results; trial and expression-of-interest notices the club has announced publicly; and links to the club's own website and pages. **Every fact carries a recorded source and the date we checked it.**
+
+**What they never contain:** the club's crest or logo, or any image of or from the club; any photograph; text copied from the club; **the name or contact details of any person**, including the club's own published address; **anything at all about a person under 18**, including junior fixtures and results; anything evaluative about the club; or any statement or design implying that the club is a member, partner, customer or endorser of Pitch. **An unclaimed page indicates no affiliation of any kind.**
+
+**They are not listed in search engines until the club claims them.**
+
+**Any club may claim its page, correct anything on it, or ask us to remove it, with no account and no reason given, and we will remove it within one business day of the request.**
 
 **[DRAFTED] 5.7 Claims you make.** Where you publish a figure or claim on your club page — pathway outcomes, results, anything a family might rely on — you are responsible for its accuracy. We do not verify it and we do not supply it.
 
@@ -387,4 +403,4 @@ Where a child's safety is involved we may act immediately and without notice, an
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v2.1 · 29 September 2026 · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v2.2 · 1 October 2026 · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
