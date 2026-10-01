@@ -8,7 +8,9 @@
 //    child's edit returns to a guardian. It was never meant to make a
 //    guardian approve themselves." A guardian's own change publishes as the
 //    approved version at once, with that guardian as the actor, and nobody
-//    is emailed that something waits — nothing does.
+//    is emailed that something waits — nothing does. ONLY that change
+//    (BUZ, 2 Oct, "parent's change only"; John confirmed): it is patched
+//    onto the page, and nothing the child added rides with it.
 import 'server-only';
 import { db } from './db';
 import { MAX_POSITIONS, POSITIONS, STAT_KEYS, type StatKey } from './football';
@@ -75,9 +77,12 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
       [recordId],
     );
     if (band.rows[0]?.band === 'u16' && author.actor === 'guardian') {
-      // F14: the guardian's own edit is its own approval. The photos the
-      // versions named before it are collected, and forgotten after commit.
-      replaced.push(...(await publishWith(client, recordId, author.personId, draft.season)).replaced);
+      // F14: the guardian's own edit is its own approval — the form's fields,
+      // as they saved them, and nothing else on the page (parent's change
+      // only). The photos the versions named before it are collected, and
+      // forgotten after commit.
+      const fields = (await client.query(FORM_FIELDS_PATCH, [recordId])).rows[0]?.fields as Record<string, unknown>;
+      replaced.push(...(await publishPatch(client, recordId, author.personId, { set: fields }, draft.season)).replaced);
     } else if (band.rows[0]?.band === 'u16') {
       waitsOnGuardian = true;
       const content = await buildSnapshot(client, recordId, draft.season);
@@ -109,21 +114,26 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
   }
   for (const r of replaced) await forgetPlayerPhoto(recordId, r);
 
-  // doc 15 §30: tell the guardian an edit is waiting. Once — there is no
-  // reminder and no timeout that publishes it (doc 14 §R7).
+  // doc 15 §30: tell the guardians an edit is waiting. Once — there is no
+  // reminder and no timeout that publishes it (doc 14 §R7). EVERY approved,
+  // unrevoked guardian, one message each (D-51, "both notified"; John, 2 Oct):
+  // this went to one of them only (`limit 1`), so a second parent never
+  // learned a change was waiting on them.
   if (!waitsOnGuardian) return;
-  const g = await db.query(
-    `select p2.email, c.first_name from development_record dr
-     join person c on c.id = dr.person_id
-     join guardianship_link gl on gl.child_id = c.id and gl.approved_at is not null and gl.revoked_at is null
-     join person p2 on p2.id = gl.guardian_id
-     where dr.id = $1 and p2.email is not null limit 1`,
-    [recordId],
-  );
-  if (g.rows[0]) {
-    await send(editWaitingEmail(g.rows[0].first_name, recordId), { address: g.rows[0].email });
+  const g = await db.query(EDIT_WAITING_TO, [recordId]);
+  for (const r of g.rows as { email: string; first_name: string }[]) {
+    await send(editWaitingEmail(r.first_name, recordId), { address: r.email });
   }
 }
+
+/** Who doc 15 §30 goes to: every approved, unrevoked guardian with an address, once each. */
+export const EDIT_WAITING_TO = `
+  select distinct on (p2.email) p2.email, c.first_name from development_record dr
+  join person c on c.id = dr.person_id
+  join guardianship_link gl on gl.child_id = c.id and gl.approved_at is not null and gl.revoked_at is null
+  join person p2 on p2.id = gl.guardian_id
+  where dr.id = $1 and p2.email is not null
+  order by p2.email`;
 
 // Guardian approves the pending version: it becomes the approved one, the
 // old approved version is superseded — in one transaction. Silence would
@@ -197,37 +207,47 @@ export async function forgetPlayerPhoto(recordId: string, path: string | null | 
 type Client = { query: (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> };
 
 /**
- * Publish a guardian's own change to an under-16's page (F14; John, 1 Oct).
+ * Publish a guardian's own change to an under-16's page (F14; John, 1 Oct) —
+ * that change and nothing else (BUZ, 2 Oct, "parent's change only"; John
+ * confirmed with four conditions).
  *
- * The page as it stands now becomes the approved version — what every
+ * The change is a PATCH (fn_cv_patch, 0169): the form fields they saved, the
+ * photo they uploaded, or the one clip, achievement or other-football entry
+ * they added or removed. It is applied to the approved version — what every
  * link-holder reads (D-119) — with this guardian as the approver, and the
  * family history says "{guardian first name} changed the page." (BUZ, 1 Oct).
+ * Anything the CHILD added that no guardian has seen stays on the live record
+ * and waits, exactly as it did: it is never copied across. (As first built,
+ * this snapshotted the whole live record, and a child's clip or photo reached
+ * every club on the back of a parent's unrelated save: safety review B-1.)
+ *
+ * If a change of the child's is waiting, the same patch is applied to it, so
+ * approving it later never undoes the guardian's; on a field both touched the
+ * guardian's value wins, and nothing tells the child. A guardian's removal
+ * reaches clubs at once even then (S-2). With no approved page yet nothing
+ * publishes: the pending version carries it to the first approval.
+ *
  * No message to anyone: the guardian who made it is not told it waits, and
  * the other guardian gets exactly what they get when one guardian approves
- * a child's edit, which is no message (D-51).
- *
- * The database decides (fn_publish_guardian_change, 0169): it publishes only
- * for a person fn_record_author calls this under-16's guardian, and returns
- * null for anyone else. If a change of the CHILD'S is still waiting, nothing
- * publishes: the guardian's change joins the pending version, which the
- * guardian approves as before — the draft is one draft, so publishing now
- * would publish the child's change unreviewed with it. That is the more
- * restrictive answer, chosen until John rules on it (report, 1 Oct).
+ * a child's edit, which is no message (D-51). The database decides
+ * (fn_publish_guardian_change): it acts only for a person fn_record_author
+ * calls this under-16's guardian, asked under the record's lock, and returns
+ * null for anyone else.
  *
  * Call it AFTER the change is written, outside any open transaction (L1).
- * Every editor of a guardian's change calls it: the build form, clips,
- * achievements and other football, and the photo (S-3, called from
- * app/build/[recordId]/photo/route.ts by its own builder).
+ * Every editor of a guardian's change calls it: the build form (inside its
+ * own transaction, through publishPatch), clips, achievements and other
+ * football, and the photo.
  */
 export async function publishGuardianChange(
-  recordId: string, guardianId: string, season = '2026',
-): Promise<'published' | 'pending' | null> {
+  recordId: string, guardianId: string, patch: GuardianPatch, season = '2026',
+): Promise<PublishResult> {
   let replaced: string[] = [];
-  let result: 'published' | 'pending' | null;
+  let result: PublishResult;
   const client = await db.connect();
   try {
     await client.query('begin');
-    ({ result, replaced } = await publishWith(client, recordId, guardianId, season));
+    ({ result, replaced } = await publishPatch(client, recordId, guardianId, patch, season));
     await client.query('commit');
   } catch (e) {
     await client.query('rollback');
@@ -241,6 +261,14 @@ export async function publishGuardianChange(
   return result;
 }
 
+/** One guardian change (0169 fn_cv_patch): set fields or the photo, or add/remove one entry. */
+export type GuardianList = 'highlights' | 'achievements' | 'otherFootball' | 'previousClubs';
+export type GuardianPatch =
+  | { set: Record<string, unknown> }
+  | { add: { list: GuardianList; item: Record<string, unknown> } }
+  | { remove: { list: GuardianList; item: Record<string, unknown> } };
+export type PublishResult = 'published' | 'unchanged' | 'pending' | 'no_page' | null;
+
 // The photos the approved and pending versions name, read under lock before a
 // publish rewrites them, so the ones nothing shows afterwards can go.
 async function versionPhotos(client: Client, recordId: string): Promise<string[]> {
@@ -253,53 +281,74 @@ async function versionPhotos(client: Client, recordId: string): Promise<string[]
 }
 
 // The step itself, on a transaction the caller holds: the record's lock, the
-// photos the versions name, the snapshot, then the database's answer about
-// what happens to it — one transaction, in that order.
+// photos the versions name, then the database's patch — one transaction, in
+// that order. The lock comes first (safety review B-1, the race): a child's
+// save in flight finishes before anything here is read, and one that starts
+// later waits until this has committed.
 //
-// THE LOCK COMES FIRST (safety review of John's batch, B-1, 2 Oct). The
-// snapshot used to be read before anything was locked, and the lock taken
-// afterwards, inside fn_publish_guardian_change. A child's save committing in
-// between — it holds the record's row from its first statement — was then
-// waited for, its new pending version found, and overwritten with a snapshot
-// taken before it: the child's change gone from the version their guardian
-// approves, and left on the live record with no version waiting, for the
-// next guardian save to publish unreviewed. Taking the record's row first
-// means a child's save in flight finishes before anything here is read, and
-// one that starts later waits until this has committed. Under read committed
-// every statement after the lock sees what committed before it.
-async function publishWith(client: Client, recordId: string, guardianId: string, season: string) {
+// NO PAGE YET ('no_page': no approved version and none waiting). Nothing
+// publishes, and the first approval carries the guardian's work: the pending
+// version is opened from the record as it stands, as every under-16's first
+// page was before F14, and the guardian approves it on /g/pending. This is
+// the one place a guardian's save reads the whole record, and it publishes
+// nothing — a first page has nothing approved to patch, and approval is the
+// review. No edit_submitted (it is not the child's) and no email (F14).
+async function publishPatch(client: Client, recordId: string, guardianId: string, patch: GuardianPatch, season: string) {
   await client.query('select 1 from development_record where id = $1 for update', [recordId]);
   const replaced = await versionPhotos(client, recordId);
-  const content = await buildSnapshot(client, recordId, season);
   const { rows } = await client.query(
     'select fn_publish_guardian_change($1, $2, $3::jsonb) as r',
-    [recordId, guardianId, JSON.stringify(content)],
+    [recordId, guardianId, JSON.stringify(patch)],
   );
-  return { result: (rows[0]?.r ?? null) as 'published' | 'pending' | null, replaced };
+  const result = (rows[0]?.r ?? null) as PublishResult;
+  if (result === 'no_page') {
+    await client.query(
+      `insert into profile_version (record_id, content, status) values ($1, $2, 'pending')
+       on conflict (record_id) where status = 'pending' do nothing`,
+      [recordId, JSON.stringify(await buildSnapshot(client, recordId, season))],
+    );
+  }
+  return { result, replaced };
 }
+
+// The shapes a page version stores, shared by the snapshot and by every
+// guardian patch, so an item a guardian adds or removes is byte for byte the
+// item the snapshot holds (fn_cv_patch removes by equality). Each is an SQL
+// expression over the row's own columns.
+export const ITEM_SQL = {
+  highlights: `json_build_object('title', title, 'url', url)`,
+  achievements: `json_build_object('title', title, 'detail', detail)`,
+  otherFootball: `json_build_object('kind', kind, 'orgName', org_name, 'period', season_label, 'note', notes)`,
+  previousClubs: `json_build_object('orgName', org_name, 'period', season_label)`,
+} as const;
+
+// The build form's fields as a page version stores them — the snapshot's and
+// the guardian's patch, from one expression.
+const FORM_FIELDS_SQL = `jsonb_build_object('positions', dr.positions, 'squadNumber', dr.squad_number, 'foot', dr.foot,
+  'about', coalesce(dr.about, ''), 'surfacedStats', dr.surfaced_stats)`;
+const FORM_FIELDS_PATCH = `select ${FORM_FIELDS_SQL} || jsonb_build_object('stats', fn_stat_public(dr.id)) as fields
+  from development_record dr where dr.id = $1`;
 
 // The renderable snapshot (same shape PlayerCV consumes).
 async function buildSnapshot(client: Client, recordId: string, season: string) {
   const { rows } = await client.query(
     `select
-      (select row_to_json(x) from (
-        select p.first_name as "firstName", coalesce(p.last_name,'') as "lastName", p.photo_path as "photoPath",
-               dr.positions, dr.squad_number as "squadNumber", dr.foot, coalesce(dr.about,'') as about,
-               dr.surfaced_stats as "surfacedStats"
-        from development_record dr join person p on p.id = dr.person_id where dr.id = $1) x) as core,
+      (select jsonb_build_object('firstName', p.first_name, 'lastName', coalesce(p.last_name,''), 'photoPath', p.photo_path)
+              || ${FORM_FIELDS_SQL}
+        from development_record dr join person p on p.id = dr.person_id where dr.id = $1) as core,
       -- D-160: the stats as a page may show them — source, dates, the
       -- verifying CLUB, never the coach — so the version a guardian approves
       -- carries a verification the same way the live page does (0083).
       fn_stat_public($1) as stats,
-      (select coalesce(json_agg(json_build_object('title', title, 'detail', detail) order by sort), '[]'::json)
+      (select coalesce(json_agg(${ITEM_SQL.achievements} order by sort), '[]'::json)
         from achievement where record_id = $1) as achievements,
       -- No school on an under-18's page (D-161, 0061). Asked of the database
       -- here too, so a snapshot approved from today carries none — the same
       -- question the live assembly asks, in the same words.
-      (select coalesce(json_agg(json_build_object('kind', kind, 'orgName', org_name, 'period', season_label, 'note', notes)), '[]'::json)
+      (select coalesce(json_agg(${ITEM_SQL.otherFootball}), '[]'::json)
         from experience_entry where record_id = $1 and kind <> 'previous_club'
           and fn_experience_public($1, kind)) as other,
-      (select coalesce(json_agg(json_build_object('orgName', org_name, 'period', season_label) order by season_label desc nulls last, created_at desc), '[]'::json)
+      (select coalesce(json_agg(${ITEM_SQL.previousClubs} order by season_label desc nulls last, created_at desc), '[]'::json)
         from experience_entry where record_id = $1 and kind = 'previous_club') as previous_clubs,
       -- The club, the squad and the club's own locality. These were NOT in
       -- the snapshot, and the fixture hid it by writing its own: every real
@@ -315,7 +364,7 @@ async function buildSnapshot(client: Client, recordId: string, season: string) {
         join club c on c.id = m.club_id
         left join squad s on s.id = m.squad_id
         where dr.id = $1 limit 1) y) as membership,
-      (select coalesce(json_agg(json_build_object('title', title, 'url', url) order by added_at), '[]'::json)
+      (select coalesce(json_agg(${ITEM_SQL.highlights} order by added_at), '[]'::json)
         from highlight where record_id = $1) as highlights`,
     [recordId],
   );
