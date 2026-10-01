@@ -10901,9 +10901,44 @@ const componentFilesAll = [];
      /\{all\.length > 0 && buckets\.length === 0 && \(\s*<div[^>]*>\s*Nobody matches that yet\./.test(reg)], [true, true]);
 
   // Defect 28: the demo strip's one control meets the 44px floor.
+  // J-P1 (BUZ, 1 Oct) moved the strip's styling from inline to its own classes
+  // (J spec, "Parts and exact CSS"), so the height is read where it now lives:
+  // the link must be exactly the class-only markup — no inline style that
+  // could shrink it — and that class's own rule must give it 44px or more.
   const bar = codeOnly(srcOf('components/DemoBar.tsx'));
-  const barMin = Number(/<a href="\/demo" style=\{\{[^}]*minHeight: (\d+)/.exec(bar)?.[1] ?? 0);
+  const cssNoComments = srcOf('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const barLinkRule = /(?:^|\n)\.demo-bar-a \{([^}]*)\}/.exec(cssNoComments)?.[1] ?? '';
+  const barMin = /<a href="\/demo" className="demo-bar-a">Switch seat<\/a>/.test(bar)
+    ? Number(/(?:^|;)\s*min-height:\s*(\d+)px/.exec(barLinkRule)?.[1] ?? 0) : 0;
   check(`dfx-J-28: the demo strip’s "Switch seat" is at least 44px tall (${barMin}px)`, barMin >= 44, true);
+
+  // J, the club demo (BUZ, 1 Oct: J-P1, J-P2). Static, because /demo and the
+  // strip exist only under `npm run demo` and the render crawl never sees them.
+  const barRule = /(?:^|\n)\.demo-bar \{([^}]*)\}/.exec(cssNoComments)?.[1] ?? '';
+  const barTextRule = /(?:^|\n)\.demo-bar-t \{([^}]*)\}/.exec(cssNoComments)?.[1] ?? '';
+  check('dm-J1: the demo strip is a state, not an action — dark, the amber "Demo" pill, no green, never sticky, one line',
+    [/<div role="note" className="demo-bar">\s*<div className="fl-wide demo-bar-in">\s*<span className="pill pill-wait">Demo<\/span>\s*<span className="demo-bar-t">every person here is made up<\/span>\s*<a href="\/demo" className="demo-bar-a">Switch seat<\/a>/.test(bar),
+     /accent|T\.|style=/.test(bar),
+     /background:\s*var\(--surface-sunken\)/.test(barRule) && !/accent|position/.test(barRule) && !/#[0-9a-f]{3,8}\b|rgba?\(/i.test(barRule),
+     /white-space:\s*nowrap/.test(barTextRule) && /text-overflow:\s*ellipsis/.test(barTextRule)],
+    [true, false, true, true]);
+  check('dm-J2: the strip is server-rendered on every page, and only in a demo',
+    /\{isDemo\(\) && <DemoBar \/>\}/.test(codeOnly(srcOf('app/layout.tsx'))), true);
+  const demoPage = codeOnly(srcOf('app/demo/page.tsx'));
+  check('dm-J3: a seat is still a POST form carrying the seat field, one per seat — demo-walk presses it unchanged',
+    /\{seats\.map\(\(s\) => \(\s*<form key=\{s\.key\} action=\{takeSeat\}>\s*<input type="hidden" name="seat" value=\{s\.key\} \/>\s*<button type="submit" className="choice">/.test(demoPage), true);
+  const choiceK = /(?:^|\n)\.choice \.k \{([^}]*)\}/.exec(cssNoComments)?.[1] ?? '';
+  check('dm-J4: /demo has no primary and no green text — no glow, no primary button, the seat role muted',
+    [/fl-glow|btn-primary|accent|T\.accent/.test(demoPage), /color:\s*var\(--muted\)/.test(choiceK)], [false, true]);
+  check('dm-J5: the --unclaimed head tile is the dashed initials tile and never an image (D-172); a claimed club shows its own crest (J-P2)',
+    [/const crest = !unclaimed && club\?\.crest_path \? club\.crest_path : null;/.test(demoPage),
+     (demoPage.match(/<img\b/g) ?? []).length,
+     /\{crest\s*\? <div className="demo-tile demo-tile-crest"><img src=\{crest\}[^>]*\/><\/div>\s*: <div className="demo-tile empty-tile"[^>]*>\{initials\(name\)\}<\/div>\}/.test(demoPage)],
+    [true, 1, true]);
+  check('dm-J6: seats and open links go two-up from 640px and stay one column below it',
+    [/@media \(min-width: 640px\) \{ \.choices\.two \{ grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\); \} \}/.test(cssNoComments),
+     /(?:^|\n)\.choices \{[^}]*grid-template-columns: minmax\(0, 1fr\);/.test(cssNoComments),
+     (demoPage.match(/className="choices two"/g) ?? []).length], [true, true, 2]);
 
   // C-P9 (defect 13): the press refuses an adult as the page does, before
   // any request row is written.

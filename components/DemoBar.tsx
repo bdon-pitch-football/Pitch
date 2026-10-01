@@ -1,14 +1,22 @@
 // The strip across the top of every page in a demo (lib/demo). Server-rendered:
 // the layout only includes it when isDemo() says so.
-import { T } from '@/lib/palette';
-
+//
+// J-P1 (BUZ, 1 Oct): a demo is a mode, which is a state, so the strip is dark
+// and the amber "Demo" pill carries it. It was solid green, and green is an
+// action (D-173 (4)). The words are unchanged; the "·" between "Demo" and the
+// line is now the pill's edge. Inside .fl-wide, so the pill lines up with the
+// logo in the top bar or the rail below it. Never sticky: it pushes the page
+// down by its 44px and scrolls away with it. "Switch seat" is 44px tall, the
+// charter's floor at every width (.demo-bar-a; it was 24px). The CSS is in
+// globals.css under THE CLUB DEMO.
 export default function DemoBar() {
   return (
-    <div role="note" style={{ background: T.accent, color: T.onAccent, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.02em', padding: '0 18px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, flexWrap: 'wrap', textAlign: 'center' }}>
-      <span>Demo · every person here is made up</span>
-      {/* 44px, the charter's floor at every width (J spec, 1 Oct). It was 24px.
-          The strip lost its 7px padding so it grows by 16px, not 30. */}
-      <a href="/demo" style={{ color: T.onAccent, textDecoration: 'underline', textUnderlineOffset: 3, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Switch seat</a>
+    <div role="note" className="demo-bar">
+      <div className="fl-wide demo-bar-in">
+        <span className="pill pill-wait">Demo</span>
+        <span className="demo-bar-t">every person here is made up</span>
+        <a href="/demo" className="demo-bar-a">Switch seat</a>
+      </div>
     </div>
   );
 }
