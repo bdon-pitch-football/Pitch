@@ -9201,17 +9201,25 @@ const componentFilesAll = [];
     cardSurfaces.filter((f) => /birthQuarter|contextLine|fn_birth_quarter|born /.test(codeOnly(srcOf(f)))), []);
   // D-89 and D-173 (1 Oct): a club's colours are the club's identity, so no
   // card surface — cached for good by every platform — may ever read them.
+  // D-174 (0165): the CV's colours ride on the CV data as clubColours and
+  // clubState, so those names, the read and its helper are barred too.
   check('ctx4b: and none of them reads a club\u2019s colours',
-    cardSurfaces.filter((f) => /club-colours|colour_primary|colour_secondary|clubTheme/.test(codeOnly(srcOf(f)))), []);
-  // BUZ said yes to a CV wearing its club's colours (1 Oct) and was told John
-  // would see it first. Until his ruling is in the register the switch stays
-  // off; turning it on is a one-line change that also flips this check.
+    cardSurfaces.filter((f) => /club-colours|colour_primary|colour_secondary|clubTheme|clubColours|clubState|cvClubColours|fn_cv_club_colours/.test(codeOnly(srcOf(f)))), []);
+  // BUZ said yes to a CV wearing its club's colours (1 Oct) and John cleared
+  // it the same day on four conditions; the decision is D-174. The switch
+  // equals that entry: on only while D-174 is in the register, Locked, and is
+  // the decision about a current club's colours on a CV. Keyed to the entry's
+  // own markup (its id, its status chip and its title) rather than to a
+  // phrase — the first version of this check looked for "CV club colours ...
+  // John ... cleared", which the entry as written never said, so it could
+  // only ever have held the switch off. D-174 moving to anything but Locked,
+  // or being renumbered or retitled, turns the switch's check red.
   const coloursSrc = codeOnly(srcOf('lib/club-colours.ts'));
-  const johnCleared = /CV club colours[^<]{0,80}John[^<]{0,40}cleared/i.test(srcOf('docs/06-Register.html'));
-  check('cvc1: a player\u2019s CV wears no club colours until John\u2019s ruling is recorded in the register',
-    // The switch must equal the ruling: off with no ruling recorded, and on
-    // only once it is. Either one moving alone fails.
-    /export const CV_WEARS_CLUB_COLOURS = (true|false)/.exec(coloursSrc)?.[1], String(johnCleared));
+  const d174Locked = /<div class="id">D-174<\/div><div class="st lk">Locked<\/div><div class="bd">\s*<div class="t"><b>[^<]*current club(&rsquo;|\u2019)s colours/.test(srcOf('docs/06-Register.html'));
+  check('cvc1: a player\u2019s CV wears its club\u2019s colours only while D-174 is Locked in the register',
+    // The switch must equal the decision: off with no Locked D-174, and on
+    // only while there is one. Either one moving alone fails.
+    /export const CV_WEARS_CLUB_COLOURS = (true|false)/.exec(coloursSrc)?.[1], String(d174Locked));
   check('cvc2: and when it does, only a verified club\u2019s (D-126)',
     /CV_WEARS_CLUB_COLOURS && p\.club && clubState === 'verified'/.test(cvSrcAll()), true);
   const cvSrc = codeOnly(srcOf('components/cv/PlayerCV.tsx'));
@@ -10572,6 +10580,171 @@ const componentFilesAll = [];
     return !t || contrast('#eef5f0', t.hero) < 4.5 || contrast(t.trim, '#0b120e') < 3 || contrast(t.trim, t.heroDeep) < 3 || contrast(t.onTrim, t.trim) < 3;
   }).map((p) => `${p.primary}/${p.secondary}`);
   check(`col6: whatever a club picks, its name stays readable and its trim stays visible (${bad.join(', ') || 'all pass'})`, bad, []);
+}
+
+// ---------------------------------------------------------------------------
+// A player's CV in its club's colours (0165, D-174; John's conditions 2 and
+// 4, 1 Oct). fn_cv_club_colours answers for the club fn_cv_club names and no
+// other, so the colours follow the club line: they move the moment it moves,
+// a club that is not verified lends none, a suspended club is not there at
+// all, and an under-16's colours move only once their guardian has acted
+// (D-91, D-119). Its own world, so nothing above moves it.
+// ---------------------------------------------------------------------------
+{
+  const q1 = async (sql, args) => (await db.query(sql, args)).rows[0];
+  const K = {};
+  for (const k of ['home', 'away', 'plain', 'lapse', 'susp', 'homeSq', 'awaySq', 'plainSq', 'lapseSq', 'suspSq',
+    'kid', 'teen', 'lapsed', 'susped', 'guardian', 'awayTd', 'nobody']) K[k] = crypto.randomUUID();
+  const person = (id, name, dob) => db.query(`insert into person (id, first_name, last_name, dob) values ($1,$2,'Colours',$3)`, [id, name, dob]);
+  await person(K.kid, 'Kai', yearsAgo(13));
+  await person(K.teen, 'Tess', yearsAgo(17));
+  await person(K.lapsed, 'Lou', yearsAgo(22));
+  await person(K.susped, 'Sid', yearsAgo(22));
+  for (const k of ['guardian', 'awayTd', 'nobody']) await person(K[k], `Cv ${k}`, yearsAgo(41));
+  // The under-16 and the 16-17 both have a confirmed parent: a 16-17 acts on
+  // a squad alone only with one (0054, D-22).
+  for (const child of [K.kid, K.teen]) {
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [K.guardian, child]);
+  }
+  // Five verified clubs, as the product verifies one: a call, then the state.
+  const club = async (id, sq, name, pair) => {
+    const call = crypto.randomUUID();
+    await db.query(`insert into club (id, name, club_state) values ($1,$2,'claimed')`, [id, name]);
+    await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+      values ($1,$2,now(),'BUZ','03 9000 0165','FV club directory','verified','27@v1.0')`, [call, id]);
+    await db.query(`update club set club_state = 'verified', verified_call_id = $1 where id = $2`, [call, id]);
+    if (pair) await db.query(`update club set colour_primary = $2, colour_secondary = $3 where id = $1`, [id, pair.primary, pair.secondary]);
+    await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,'Colours U15','U15','boys','2026')`, [sq, id]);
+  };
+  const [claret, navy, purple, black] = ['Claret and gold', 'Navy and white', 'Purple and gold', 'Black and gold'].map((n) => PRESETS.find((p) => p.name === n));
+  await club(K.home, K.homeSq, 'Colours Home FC', claret);
+  await club(K.away, K.awaySq, 'Colours Away FC', navy);
+  await club(K.plain, K.plainSq, 'Colours Plain FC', null);
+  await club(K.lapse, K.lapseSq, 'Colours Lapse FC', purple);
+  await club(K.susp, K.suspSq, 'Colours Suspended FC', black);
+  const mem = (p, c, sq) => db.query(`insert into membership (person_id, club_id, squad_id, role) values ($1,$2,$3,'player')`, [p, c, sq]);
+  await mem(K.kid, K.home, K.homeSq);
+  await mem(K.teen, K.plain, K.plainSq);
+  await mem(K.lapsed, K.lapse, K.lapseSq);
+  await mem(K.susped, K.susp, K.suspSq);
+  // Away's technical director, recorded on its call (0058), and Kai on Away's
+  // register — the only players a club may ask into a squad (0054, B3).
+  await recordTd(K.awayTd, K.away, 'colours.away.td@fixture.example');
+  await db.query(`insert into registration (player_id, club_id, positions, club_status, disclosed_by, policy_version)
+    values ($1,$2,array['CM'],'new',$3,'20@v2.4')`, [K.kid, K.away, K.guardian]);
+
+  // jsonb keeps its own key order; the answer is read back in the order the
+  // checks below are written in.
+  const colours = async (p) => {
+    const c = (await q1('select fn_cv_club_colours($1) as c', [p])).c;
+    return c && { primary: c.primary, secondary: c.secondary, state: c.state };
+  };
+  const clubLine = async (p) => (await q1(`select fn_cv_club($1)->>'club' as c`, [p])).c;
+  const both = async (p) => [await clubLine(p), await colours(p)];
+  const worn = (pair, state = 'verified') => ({ primary: pair?.primary ?? null, secondary: pair?.secondary ?? null, state });
+
+  check('cvcol1: a live membership at a verified club gives that club’s own colours, beside the club line that names it',
+    await both(K.kid), ['Colours Home FC', worn(claret)]);
+  check('cvcol2: a verified club that chose no colours lends none, and a person the CV names no club for gets nothing at all',
+    [await both(K.teen), await both(K.nobody)], [['Colours Plain FC', worn(null)], ['', null]]);
+
+  // Condition 2: the player changes club. The 16-17 asks and the club
+  // confirms, as app/club/squads/[squadId]/actions.ts does it (fn_join_squad
+  // ends the old membership and starts the new one in one statement).
+  const join = async (who, sq, actor, source, asker) =>
+    (await q1(`select fn_join_squad($1,$2,$3,$4,$5) as ok`, [who, sq, actor, source, asker ?? null])).ok;
+  const moved = await join(K.teen, K.awaySq, K.awayTd, 'claim', K.teen);
+  check('cvcol3: the moment a player changes club the CV wears the NEW club’s colours — the old club’s are gone with its name',
+    [moved, await both(K.teen)], [true, ['Colours Away FC', worn(navy)]]);
+  await join(K.teen, K.plainSq, K.teen, 'claim', K.teen);
+  check('cvcol3b: and moving on to a club with no colours of its own leaves the CV in none',
+    await both(K.teen), ['Colours Plain FC', worn(null)]);
+  await db.query(`update membership set ended_at = now() where person_id = $1 and role = 'player' and ended_at is null`, [K.teen]);
+  check('cvcol3c: a membership that ends with no new one leaves no club line and no colours',
+    await both(K.teen), ['', null]);
+
+  // "Verified only, and the theme clears the moment that stops being true."
+  const before = await both(K.lapsed);
+  await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1, now(), 'BUZ', '03 9000 0165', 'FV club directory', 'not_verified', '27@v1.0')`, [K.lapse]);
+  check('cvcol4: a club that fails a later call (0150) is still named, and lends no colours from that moment — though it still holds them',
+    [before, await both(K.lapsed), (await q1('select colour_primary from club where id = $1', [K.lapse])).colour_primary],
+    [['Colours Lapse FC', worn(purple)], ['Colours Lapse FC', worn(null, 'claimed')], purple.primary]);
+  const beforeSusp = await both(K.susped);
+  await db.query(`update club set club_state = 'suspended', suspension_reason = 'child_safety' where id = $1`, [K.susp]);
+  check('cvcol4b: a suspended club is not named on the CV and gives it nothing (0155)',
+    [beforeSusp, await both(K.susped)], [['Colours Suspended FC', worn(black)], ['', null]]);
+
+  // An under-16 (D-91, D-119). Away asks Kai to join, and a different club
+  // has a claim waiting: neither writes a membership, so neither moves the
+  // colours. Kai cannot say yes alone. The guardian's yes is what moves them,
+  // pressed as app/squad/actions.ts presses it.
+  const inv = crypto.randomUUID();
+  await db.query(`insert into squad_invitation (id, person_id, club_id, squad_id, invited_by) values ($1,$2,$3,$4,$5)`,
+    [inv, K.kid, K.away, K.awaySq, K.awayTd]);
+  await db.query(`insert into squad_claim (person_id, club_id, squad_id, asked_by) values ($1,$2,$3,$4)`,
+    [K.kid, K.plain, K.plainSq, K.guardian]);
+  check('cvcol5: an under-16 with an invitation and a claim both still waiting wears their current club’s colours, unchanged',
+    await both(K.kid), ['Colours Home FC', worn(claret)]);
+  check('cvcol5b: and cannot accept the invitation alone — only a guardian acts for them (D-91)',
+    [(await q1('select fn_can_act_on_squad($1,$2) as ok', [K.kid, K.kid])).ok, (await q1('select fn_can_act_on_squad($1,$2) as ok', [K.guardian, K.kid])).ok],
+    [false, true]);
+  await db.query('begin');
+  await db.query(`update squad_invitation set answered_at = now(), answered_by = $2, accepted = true where id = $1`, [inv, K.guardian]);
+  const accepted = await join(K.kid, K.awaySq, K.guardian, 'invitation');
+  await db.query('commit');
+  check('cvcol5c: the guardian says yes and the colours move with the club line, in the same transaction',
+    [accepted, await both(K.kid)], [true, ['Colours Away FC', worn(navy)]]);
+
+  // The same club as the club line, by construction: the membership
+  // fn_cv_club_colours reads is fn_cv_club's, word for word — the join, the
+  // filter, the order and the limit. If either function's choice of club
+  // changes without the other, this fails.
+  const pick = (src) => {
+    const s = src.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+    return [/from membership m join club c on c\.id = m\.club_id/.test(s), /where m\.person_id = p_person[^$]*?limit 1/.exec(s)?.[0] ?? null];
+  };
+  const [cvClubPick, coloursPick] = [pick(await procSrc('fn_cv_club')), pick(await procSrc('fn_cv_club_colours'))];
+  check('cvcol-s1: fn_cv_club_colours picks its club exactly as fn_cv_club does — same membership, same filter, same order',
+    [coloursPick[0], cvClubPick[0], coloursPick[1] !== null && coloursPick[1] === cvClubPick[1]], [true, true, true]);
+  // And for every person in this database, the two answer about the same
+  // club: a club line exactly when there is a colours answer.
+  const disagree = (await db.query(
+    `select p.id from person p
+     where (coalesce(fn_cv_club(p.id)->>'club', '') <> '') <> (fn_cv_club_colours(p.id) is not null)`)).rows.length;
+  check('cvcol-s2: across every person here, a CV has a colours answer exactly when it names a club', disagree, 0);
+  check('cvcol-s3: colours come back only for a verified club — never a claimed, unclaimed or suspended one',
+    (await db.query(
+      `select p.id from person p where fn_cv_club_colours(p.id) is not null
+         and fn_cv_club_colours(p.id)->>'state' <> 'verified'
+         and (fn_cv_club_colours(p.id)->>'primary' is not null or fn_cv_club_colours(p.id)->>'secondary' is not null)`)).rows.length, 0);
+
+  // One reader. lib/record-read asks the database, beside fn_cv_club, and no
+  // other file in the product does; no database function passes it on.
+  const askers = tsSourceFiles().filter((f) => /fn_cv_club_colours/.test(codeOnly(srcOf(f))));
+  const dbAskers = (await db.query(
+    `select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and proname <> 'fn_cv_club_colours' and prosrc ~ 'fn_cv_club_colours'`)).rows.map((r) => r.proname);
+  const rr = codeOnly(srcOf('lib/record-read.ts'));
+  check('cvcol6: fn_cv_club_colours is asked from lib/record-read and nowhere else — beside fn_cv_club in the live CV read, and once for a snapshot',
+    [askers, dbAskers, /fn_cv_club\(\$2\) as membership,(\s*--[^\n]*)*\s*fn_cv_club_colours\(\$2\) as colours/.test(rr),
+     /select fn_cv_club_colours\(\$1\) as colours/.test(rr)],
+    [['lib/record-read.ts'], [], true, true]);
+  // The snapshot's own copy can never win: the live answer is laid over it.
+  check('cvcol6b: a served under-16 snapshot takes its colours from the live read, laid over the snapshot, on the share link',
+    /\.\.\.bundle\.approved_content, band: [^}]*\.\.\.\(await cvClubColours\(bundle\.person_id\)\)/.test(rr), true);
+  // All four CV surfaces hand PlayerCV the colours they were given, and only
+  // the record read's answer: the share link, the register CV, the squad CV
+  // and the family's preview ("exactly what a club sees").
+  const surfaces = ['app/p/[token]/page.tsx', 'app/club/register/cv/[registrationId]/page.tsx',
+    'app/club/squads/[squadId]/cv/[playerId]/page.tsx', 'app/build/[recordId]/preview/page.tsx'];
+  check('cvcol7: the share link, the register CV, the squad CV and the family preview each pass the CV’s own colours and state to PlayerCV',
+    surfaces.filter((f) => !/<PlayerCV p=\{cv\}[^>]*\{\.\.\.wornColours\(cv\)\} \/>/.test(codeOnly(srcOf(f)))), []);
+  check('cvcol7a: and what they pass is the record read\u2019s own answer, handed over in one place',
+    /export const wornColours = \(cv: CvData\) => \(\{ clubColours: cv\.clubColours \?\? null, clubState: cv\.clubState \?\? undefined \}\)/.test(rr), true);
+  const cvCallers = tsSourceFiles().filter((f) => /<PlayerCV\b/.test(codeOnly(srcOf(f))));
+  check('cvcol7b: and no other page renders a CV from the database — the rest are the design previews, on fixture data with no club state',
+    cvCallers.filter((f) => !surfaces.includes(f)).sort(), ['app/cv-preview/[slug]/page.tsx', 'app/preview/site/page.tsx']);
 }
 
 // --- "Send my CV" fills in the club's own address, and a club that asks is

@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import PlayerCV from '@/components/cv/PlayerCV';
 import LinkState from '@/components/cv/LinkState';
-import { readCvByToken } from '@/lib/record-read';
+import { readCvByToken, wornColours } from '@/lib/record-read';
 import { cvMetadata, DEAD_LINK_METADATA } from '@/lib/cv-meta';
 
 export const dynamic = 'force-dynamic';
@@ -31,5 +31,5 @@ export default async function SharedCv({ params, searchParams }: {
   if (!cv) return <LinkState token={token} asked={asked === '1'} />;
   // The operator finds the record from the hash; the token never leaves this page.
   const reportRef = createHash('sha256').update(token).digest('hex');
-  return <PlayerCV p={cv} reportRef={reportRef} />;
+  return <PlayerCV p={cv} reportRef={reportRef} {...wornColours(cv)} />;
 }

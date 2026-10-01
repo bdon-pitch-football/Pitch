@@ -111,6 +111,14 @@ function forms(html) {
   return out;
 }
 
+// D-174 (0165): what PlayerCV draws for a club's colours — the hero's
+// background and --cv-lead — read from the card's own markup, never from
+// Next's flight data, which repeats every style inside a <script>.
+const cvHero = (html) => /<section class="cv-hero[^"]*" style="([^"]*)"/.exec(html.replace(/<script[\s\S]*?<\/script>/g, ' '))?.[1] ?? '';
+const { clubTheme, PRESETS } = await import('../lib/club-colours.ts');
+const themeOf = (name) => clubTheme(PRESETS.find((p) => p.name === name), 'verified');
+const wearsTheme = (html, t) => cvHero(html).includes(`${t.hero} 0%`) && cvHero(html).includes(`--cv-lead:${t.trim}`);
+
 const SEATS = {
   parent: ids.people.alex, player: ids.people.jordan, 'club TD': ids.people.marina,
   coach: ids.people.sam, 'unverified club': ids.people['m.'], 'brand new': ids.people.robin,
@@ -607,6 +615,17 @@ async function post(path, who, form) {
     return w.includes('Riverside FC — U15 Boys') || w.includes('U15 Boys · now');
   });
   const lines = async () => Promise.all(await clubLine());
+  // D-174: and the colours follow the club line, on the same two pages. The
+  // seed gives Riverside "Sky blue and navy", its own pick.
+  const sky = themeOf('Sky blue and navy');
+  const worn = async () => Promise.all([`/build/${denizRec}/preview`, '/p/dev-deniz'].map(async (path) =>
+    wearsTheme((await get(path, path.startsWith('/p/') ? null : alex)).html, sky)));
+  check('cvcol-w0: before — Deniz\u2019s CV wears Riverside\u2019s colours, on his parent\u2019s preview and on his share link',
+    await worn(), [true, true]);
+  // D-89, read off the artefact itself: his Open Graph image is byte for byte
+  // the same whether or not his CV wears Riverside's colours.
+  const og = async () => Buffer.from(await (await fetch(`${BASE}/p/dev-deniz/opengraph-image`)).arrayBuffer());
+  const ogWorn = await og();
   check('h5-w0: before — Riverside is verified: Marina reads the register, a CV from it, the squad and a CV from the squad; Sam the squad CV, his teams and their registrations; both read Deniz’s whole record; its page wants players; and Deniz’s CV names it',
     [await tdReads(), await coachReads(), await levels(), await wantedShown(), await lines()],
     [TD_LIVE, COACH_LIVE, ['full', 'full'], true, [true, true]]);
@@ -614,10 +633,18 @@ async function post(path, who, form) {
     await logCall({ outcome, suspension_reason: cls });
     const down = [await tdReads(), await coachReads()];
     const downMore = [await levels(), await wantedShown(), await lines()];
+    const downWorn = await worn();
+    const ogDown = await og();
     await reverify();
     const up = [await tdReads(), await coachReads()];
     const upMore = [await levels(), await wantedShown(), await lines()];
+    const upWorn = await worn();
     const how = wayName(outcome, cls);
+    // John's condition 2: verified only, and the theme clears the moment that
+    // stops being true — including "not verified", where the club is still
+    // named and only the colours go.
+    check(`cvcol-w1: ${how}, Deniz\u2019s CV takes off Riverside\u2019s colours at once, on his parent\u2019s preview and his share link, and a verified call puts them back (D-174) — while his Open Graph image is byte for byte the same in both (D-89)`,
+      [downWorn, upWorn, ogWorn.length > 1000 && ogDown.equals(ogWorn), (await og()).equals(ogWorn)], [[false, false], [true, true], true, true]);
     check(`H5: ${how} on the operator’s call sheet, Riverside’s TD and its assigned coach lose every read of its children at once — the register, a CV from it, the squad, a CV from the squad, the coach’s teams and registrations — and a verified call gives them back`,
       [down, up], [[TD_DOWN, COACH_DOWN], [TD_LIVE, COACH_LIVE]]);
     check(`H5: ${how}, and the database agrees — the coach on Deniz’s squad who wrote about him drops to nothing, not to what he wrote (D-171), and so does the TD; a verified call gives both back`,
@@ -651,6 +678,8 @@ async function post(path, who, form) {
   // club that stays verified, so Sam keeps what he wrote and Marina keeps
   // nothing. D-171: while Riverside is not verified, even that goes — every
   // way the call sheet takes it there — and comes back with a verified call.
+  check('cvcol-w2: and Riverside\u2019s colours leave his CV with its name — a player who left a club does not wear it (D-174)',
+    await worn(), [false, false]);
   check('H2: and the club drops to what D-48 leaves it — the TD reads nothing of Deniz, and the coach who wrote about him only what he wrote',
     [await levelOf(marina, deniz), await levelOf(sam, deniz)], ['none', 'authored_only']);
   for (const [outcome, cls] of WAYS) {
@@ -677,12 +706,47 @@ async function post(path, who, form) {
   await press(`/squad/${deniz}`, alex, askForm?.fields ?? {});
   check('H1: his parent asks, and it waits on the club — which reads nothing of him until it confirms',
     [await waiting(), await status(denizCv, marina)], [true, 404]);
+  check('cvcol-w3: an ask still waiting on the club moves no colours — his CV is in Pitch green until the club confirms (D-174, 0165)',
+    await worn(), [false, false]);
   const confirm = forms((await get(u15, marina)).html).find((f) => 'claimId' in f.fields);
   await press(u15, marina, { ...(confirm?.fields ?? {}), answer: 'yes' });
   const signedCv = words((await get(denizCv, marina)).html);
   check('H1: the club confirms, and it sees the history the signing brings (D-48) — the squad CV opens for the TD and the squad’s coach, with the club he played for before and last season’s award on it',
     [await status(denizCv, marina), await status(denizCv, sam), signedCv.includes('Elderslie Juniors SC'), signedCv.includes("Players' Player of the Year")],
     [200, 200, true, true]);
+  check('cvcol-w3b: and the moment it confirms, Riverside\u2019s colours are back on his CV with its name — and on the squad CV the club opens',
+    [await worn(), wearsTheme((await get(denizCv, marina)).html, sky)], [[true, true], true]);
+
+  // The club changes its pick on its own page editor, and Deniz's CV follows
+  // on the next read; it goes back to Pitch green, and so does the CV. A share
+  // card his parent asks for is byte for byte the same throughout (D-89). Put
+  // back to the seed's pick at the end, so the colours block below starts
+  // where the seed does.
+  const preview = async () => (await get(`/build/${denizRec}/preview`, alex)).html;
+  const colourPress = async (fields) => {
+    const f = forms((await get('/club/page-edit', marina)).html).find((x) => x.visible.some((v) => v.name === 'primary'));
+    return press('/club/page-edit', marina, { ...(f?.fields ?? {}), ...fields });
+  };
+  const cardForm = forms((await get(`/share-card/${denizRec}`, alex)).html).find((x) => 'recordId' in x.fields);
+  await press(`/share-card/${denizRec}`, alex, { ...(cardForm?.fields ?? {}), shape: 'landscape' });
+  // The newest card link in his parent's outbox is the one just asked for.
+  const cardId = /\/g\/card\/([0-9a-f-]{36})/.exec((await get('/dev/outbox', alex)).html)?.[1] ?? null;
+  const card = async () => {
+    const r = cardId ? await fetch(`${BASE}/g/card/${cardId}/image`, { headers: { cookie: cookieFor(alex) } }) : null;
+    return r && r.ok && (r.headers.get('content-type') ?? '').startsWith('image/') ? Buffer.from(await r.arrayBuffer()) : null;
+  };
+  const card0 = await card();
+  const claret = PRESETS.findIndex((p) => p.name === 'Claret and gold');
+  await colourPress({ preset: String(claret) });
+  const [cvClaret, cardClaret] = [await preview(), await card()];
+  const clear = forms((await get('/club/page-edit', marina)).html).find((x) => /Pitch green/.test(x.submit ?? ''));
+  await press('/club/page-edit', marina, clear?.fields ?? {});
+  const [cvGreen, cardGreen] = [cvHero(await preview()), await card()];
+  await colourPress({ preset: String(PRESETS.findIndex((p) => p.name === 'Sky blue and navy')) });
+  check('cvcol-w5: Riverside picks another pair and Deniz\u2019s CV wears it on the next read; it goes back to Pitch green and so does his CV — while the share card his parent asked for never moves (D-89)',
+    [wearsTheme(cvClaret, themeOf('Claret and gold')), cvGreen.includes('#2a6a49 0%') && cvGreen.includes('--cv-lead:#3ddc84'),
+     Boolean(card0), Boolean(card0 && cardClaret?.equals(card0) && cardGreen?.equals(card0)), (await worn())[0]],
+    [true, true, true, true, true]);
 }
 
 // ---------------------------------------------------------------------------
@@ -2600,6 +2664,9 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const rawPub = async () => (await get('/fc/riverside-fc', null)).html;
   const colourForm = forms((await get('/club/page-edit', td)).html).find((x) => x.visible.some((v) => v.name === 'primary'));
   check('cc1: the editor has the club colours form', Boolean(colourForm), true);
+  // John's condition 3 (D-174), at the point of choosing, in BUZ's approved words.
+  check('cvcol-w4: the colours form tells the club its colours also go on its players\u2019 CVs',
+    words((await get('/club/page-edit', td)).html).includes('Your colours appear on your club page, and on the CV of players who list your club as their current club.'), true);
   await send(td, colourForm, { preset: '0' });
   let raw = await rawPub();
   check('cc2: the TD picks a pair and the page wears it — the trim runs under the hero and the month on a trial',

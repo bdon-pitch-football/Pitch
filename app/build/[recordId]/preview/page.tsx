@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PlayerCV from '@/components/cv/PlayerCV';
 import { db } from '@/lib/db';
-import { assembleCv, type CvData } from '@/lib/record-read';
+import { assembleCv, cvClubColours, wornColours, type CvData } from '@/lib/record-read';
 import { requireRecordActor } from '@/lib/record-guard';
 import { T } from '@/lib/palette';
 
@@ -40,7 +40,8 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
     // (0054): this page's whole claim is that it is what a club sees.
     const v = await db.query(`select fn_approved_cv($1) as content`, [recordId]);
     cv = (v.rows[0]?.content as CvData | null) ?? null;
-    if (cv) cv = { ...cv, band: 'u16' };
+    // And in the club's colours, as a club sees it (D-174, 0165).
+    if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(r.person_id)) };
   } else {
     cv = await assembleCv(recordId, r.person_id, r.band);
   }
@@ -81,7 +82,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
           </div>
         </div>
       </div>
-      <PlayerCV p={cv} />
+      <PlayerCV p={cv} {...wornColours(cv)} />
     </>
   );
 }
