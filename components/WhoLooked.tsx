@@ -22,7 +22,7 @@
 import { db } from '@/lib/db';
 import { T } from '@/lib/palette';
 import { SUPPORT_EMAIL } from '@/lib/support';
-import { card, sectionLabel } from '@/lib/ui';
+import { card } from '@/lib/ui';
 
 // EVERY USER-VISIBLE STRING ON THIS CARD, IN ONE PLACE.
 //
@@ -68,7 +68,7 @@ export default async function WhoLooked({ viewerId, personId, name }: {
 
   return (
     <div id="who-looked" data-who-looked={rows.length === 0 ? 'nobody' : 'answered'} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-      <h2 style={sectionLabel}>{C.heading(whose)}</h2>
+      <h2 className="sec-h">{C.heading(whose)}</h2>
       {rows.length === 0 ? (
         // The answer almost every family will get. A card that rendered
         // nothing would leave a parent unable to tell "nobody has" from "we

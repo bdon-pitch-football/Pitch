@@ -2873,6 +2873,55 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// pd — the parent screens, Floodlit (spec D, BUZ 1 Oct). D-PD-0: wherever a
+// press gives something away, Yes and No are the same charter secondary and
+// nothing glows; the No is a link home, never a second form. Each check was
+// run against the code before this build and failed there (L20).
+// ---------------------------------------------------------------------------
+{
+  const markup = (h) => h.replace(/<script[\s\S]*?<\/script>/g, '');
+  const pair = (h) => {
+    const i = markup(h).indexOf('class="fl-answer"');
+    if (i < 0) return 'no pair';
+    const s = markup(h).slice(i, i + 1600);
+    return [(s.match(/class="btn btn-secondary"/g) ?? []).length >= 2, /btn-primary/.test(s),
+      /<a [^>]*href="\/home"[^>]*>Not this (one|time)<\/a>/.test(s)];
+  };
+  const parentHome = (await get('/home', alex)).html;
+  const linkOf = (re) => re.exec(parentHome)?.[1] ?? null;
+  const interestId = linkOf(/href="\/g\/interest\/([0-9a-f-]{36})"/), inviteId = linkOf(/href="\/g\/invite\/([0-9a-f-]{36})"/);
+  for (const [what, path] of [
+    ['/g/send', `/g/send/${ids.georgiaAsk}`], ['/g/interest', interestId && `/g/interest/${interestId}`],
+    ['/g/pending', `/g/pending/${deniz.record_id}`], ['/g/invite', inviteId && `/g/invite/${inviteId}`],
+    ['/g/invite reply', inviteId && `/g/invite/${inviteId}?reply=1`],
+  ]) {
+    const r = path ? await get(path, alex) : { status: 0, html: '' };
+    check(`pd-r1: ${what} — the answer is an equal pair of secondaries, the No a link home, and nothing on the page glows`,
+      [r.status, pair(r.html), (markup(r.html).match(/fl-glow/g) ?? []).length], [200, [true, false, true], 0]);
+  }
+
+  // John's ruling (1 Oct): the child's waiting page says the request has
+  // closed — never "expired" — and one answer for every id that is not a
+  // waiting request, so it cannot tell an ending from an id that never was.
+  const closed = [await get('/join/waiting/bogus'), await get('/join/waiting/00000000-0000-0000-0000-000000000000')];
+  const live = await get(`/join/waiting/${ids.pendingInvitation}`);
+  check('pd-r2: a /join/waiting id that is not waiting says "This request has closed. You can ask again whenever you like.", one identical body, never "expired"',
+    [closed.map((r) => r.status), new Set(closed.map((r) => text(r.html).join('|'))).size,
+     has(closed[0].html, 'This request has closed.'), has(closed[0].html, 'You can ask again whenever you like.'),
+     closed.some((r) => /expired/i.test(text(r.html).join(' '))), closed.some((r) => /<form/.test(markup(r.html)))],
+    [[200, 200], 1, true, true, false, false]);
+  check('pd-r2b: and a request still waiting is not told it has closed',
+    [live.status, has(live.html, 'This request has closed.'), has(live.html, 'One person to go.')], [200, false, true]);
+
+  // Controls: charter buttons only. Delete stays one tap, in the red state.
+  const ctl = [];
+  for (const k of ['deniz', 'georgia', 'nate']) ctl.push(markup((await get(`/g/controls/${ids.children[k].child_id}`, alex)).html));
+  check('pd-r3: /g/controls draws no hand-built button, and Delete is the secondary in the red state',
+    [ctl.map((h) => /<button[^>]*style="/.test(h)), ctl.map((h) => /class="btn btn-secondary is-danger"[^>]*>Delete /.test(h))],
+    [[false, false, false], [true, true, true]]);
+}
+
+// ---------------------------------------------------------------------------
 // addr-r1 — no page this crawl was served sends a share token into an address
 // bar: not in a redirect, and not in a link it carries (brief D; L38/L42).
 // ---------------------------------------------------------------------------

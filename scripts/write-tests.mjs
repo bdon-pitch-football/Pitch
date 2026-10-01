@@ -1733,6 +1733,20 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('ia2f: with both pressed, the approve button appears, with the 18-or-over declaration',
     Boolean(approveForm) && /name="adult"/.test(email2.html) && /18 or over/.test(plain(email2.html)), true);
 
+  // D-PD-0 (BUZ, 1 Oct): approving is the charter secondary, and nothing on
+  // the page glows; the no-answer sits beside it in its own element, not as
+  // an 11.5px footnote under a green button. The press before it ("Yes, it's
+  // me") gives nothing away and keeps the one glow.
+  {
+    const mk = (h) => h.replace(/<script[\s\S]*?<\/script>/g, '');
+    check('pd-a1: with both channels pressed, Approve is the charter secondary, no primary or glow renders, and the no-line has its own element',
+      [/<button type="submit" class="btn btn-secondary">Approve this page<\/button>/.test(mk(email2.html)), /btn-primary|fl-glow/.test(mk(email2.html)),
+       /<div>Not ready\? Do nothing\. If you don.t approve, all of this is deleted after 14 days\.<\/div>/.test(mk(email2.html).replace(/&#x27;|&rsquo;/g, "'"))],
+      [true, false, true]);
+    check('pd-a1b: and "Yes, it\'s me" is the screen\'s one glowing primary',
+      (mk(email1.html).match(/class="btn btn-primary fl-glow"[^>]*>Yes, it/g) ?? []).length, 1);
+  }
+
   // --- D-155: the declaration is required ------------------------------------
   const noDecl = await post(`/a/${EMAIL}`, approveForm);
   check('ia2g: approving without the 18-or-over tick approves nothing', /\?adult=1/.test(noDecl.location), true);

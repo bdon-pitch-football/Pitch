@@ -87,7 +87,10 @@ const DEEP = {
   // the walk above never lands on it. /confirm/dev-unproved is the seed's
   // known link, the same idea as the dev share tokens.
   // 0160 (30 Sep): the club's stop page is reached only from the CV email.
-  'signed out': ['/confirm/dev-unproved', '/stop-cvs'],
+  // Spec D (1 Oct): the parent's approval page and the child's waiting page
+  // are reached only from a text, an email or the child's own phone.
+  'signed out': ['/confirm/dev-unproved', '/stop-cvs', `/a/${ids.pendingInvitation}`, '/a/dev-mila-text', '/a/bogus',
+    `/join/waiting/${ids.pendingInvitation}`, '/join/waiting/bogus', '/privacy/family'],
   parent: [`/squad/${g.child_id}?back=controls`, `/squad/${g.child_id}?club=${riverside}&back=controls`,
     `/build/${ids.children.deniz.record_id}/preview`, `/g/pending/${ids.children.deniz.record_id}`],
   player: [`/squad/${ids.people.jordan}`, `/squad/${ids.people.jordan}?club=${riverside}`],

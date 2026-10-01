@@ -16,29 +16,24 @@ import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
 import { invitationView } from '@/lib/invitations';
 import { HeaderMark } from '@/components/Wordmark';
+import { AskHead, ParentPage, TickGlyph } from '@/components/parent-sheet';
 import { sendReply } from './actions';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'An invitation', robots: { index: false, follow: false } };
 
-const label = sectionLabel;
-
+// The answer sheet (spec D): the top bar, the page header's way back, and
+// the door panel from 640px.
 const Shell = ({ back, children }: { back: { href: string; label?: string }; children: React.ReactNode }) => (
-  <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-    <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-      <HeaderMark back={back} />
-      {children}
-    </div>
-  </div>
+  <ParentPage>
+    <HeaderMark back={back} />
+    {children}
+  </ParentPage>
 );
 
 const Tick = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
-    <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{children}</div>
-  </div>
+  <div className="pd-tk"><TickGlyph /><div>{children}</div></div>
 );
 
 const ANSWER: Record<string, string> = { yes: 'will be there', interested_not_date: 'is interested, but not that date' };
@@ -70,8 +65,8 @@ export default async function Invitation({ params, searchParams }: {
   if (v.reply?.approved) {
     return (
       <Shell back={back}>
-        <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>Reply sent to {v.clubName}.</h1>
-        <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Only what was switched on went with it.</div>
+        <h1 style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>Reply sent to {v.clubName}.</h1>
+        <div className="pd-body">Only what was switched on went with it.</div>
       </Shell>
     );
   }
@@ -84,20 +79,16 @@ export default async function Invitation({ params, searchParams }: {
     const currentAnswer = draft?.answer ?? 'yes';
     return (
       <Shell back={back}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name}{v.kind === 'trial' ? ' · trial invitation' : ''}</div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{approving ? `Approve ${name}’s reply` : `Reply to ${v.clubName}`}</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-            {writerIsChild
-              ? 'Your parent approves it before it goes. Nothing reaches the club until then.'
-              : approving
-                ? `${name} wrote this. Change anything you want — it goes to ${v.clubName} when you approve it.`
-                : 'You choose what goes with your answer. Everything below starts switched off.'}
-          </div>
-        </div>
+        <AskHead initial={guardian ? name[0] : undefined} kicker={`${name}${v.kind === 'trial' ? ' · trial invitation' : ''}`}
+          title={approving ? `Approve ${name}’s reply` : `Reply to ${v.clubName}`}
+          sub={writerIsChild
+            ? 'Your parent approves it before it goes. Nothing reaches the club until then.'
+            : approving
+              ? `${name} wrote this. Change anything you want — it goes to ${v.clubName} when you approve it.`
+              : 'You choose what goes with your answer. Everything below starts switched off.'} />
         <form action={sendReply} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="invitationId" value={invitationId} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>{writerIsChild ? 'Your answer' : `${self ? 'Your' : `${name}’s`} answer`}</div>
+            <h2 className="sec-h">{writerIsChild ? 'Your answer' : `${self ? 'Your' : `${name}’s`} answer`}</h2>
             <div style={{ display: 'flex', gap: 8 }}>
               {/* .opt (globals.css): the checked radio is the one drawn chosen.
                   Both used to be painted fixed, the first always as chosen. */}
@@ -113,9 +104,9 @@ export default async function Invitation({ params, searchParams }: {
           </div>
           {!writerIsChild && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={label}>What you hand over</div>
+              <h2 className="sec-h">What you hand over</h2>
               {myEmail && (
-                <label style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, cursor: 'pointer' }}>
+                <label className="card" style={{ display: 'flex', alignItems: 'center', gap: 13, cursor: 'pointer', minHeight: 44 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 800 }}>My email address</div>
                     <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.45, wordBreak: 'break-all' }}>{myEmail}</div>
@@ -123,16 +114,16 @@ export default async function Invitation({ params, searchParams }: {
                   <input type="checkbox" name="share_email" style={{ width: 20, height: 20, accentColor: T.accent }} />
                 </label>
               )}
-              <label style={{ ...card, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>A phone number, if you want to give one</div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>So they can call you about the day. Leave it empty and they get none.</div>
-                <input name="share_phone" type="tel" aria-label="A phone number, if you want to give one" placeholder="04xx xxx xxx" style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', padding: '6px 0 0 0' }} />
+                <input name="share_phone" type="tel" aria-label="A phone number, if you want to give one" placeholder="04xx xxx xxx" style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: '6px 0 0 0' }} />
               </label>
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>Anything you want to say</div>
-            <div style={{ ...card, minHeight: 74 }}>
+            <h2 className="sec-h">Anything you want to say</h2>
+            <div className="card" style={{ minHeight: 74 }}>
               <textarea name="note" aria-label="Anything you want to say" rows={3} defaultValue={draft?.note ?? ''} style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical' }} />
             </div>
           </div>
@@ -142,13 +133,17 @@ export default async function Invitation({ params, searchParams }: {
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>The moment you hand over a phone number, that part of the conversation leaves Pitch and we cannot switch it off for you. {self ? 'Your' : `${name}’s`} CV link is separate — you keep that control whatever you do here.</div>
             </div>
           )}
-          <button type="submit" className="btn btn-primary">
-            {writerIsChild ? 'Send it to my parent to approve' : approving ? `Approve and send to ${v.clubName}` : 'Send my reply'}
-          </button>
-          {/* D-PD-1 (BUZ, 1 Oct): the first screen's "Not this time", beside the
-              submit too. It writes nothing (D-138). An <a>, never a form: the
-              write suite finds this form by its invitationId field. */}
-          <Link href="/home" style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Not this time</Link>
+          {/* D-PD-0: the press that hands something to a club is the charter
+              secondary, and the No beside it is the same size. D-PD-1 (BUZ,
+              1 Oct): the first screen's "Not this time", beside the submit
+              too. It writes nothing (D-138). An <a>, never a form: the write
+              suite finds this form by its invitationId field. */}
+          <div className="fl-answer">
+            <button type="submit" className="btn btn-secondary">
+              {writerIsChild ? 'Send it to my parent to approve' : approving ? `Approve and send to ${v.clubName}` : 'Send my reply'}
+            </button>
+            <Link href="/home" className="btn btn-secondary">Not this time</Link>
+          </div>
         </form>
       </Shell>
     );
@@ -158,69 +153,65 @@ export default async function Invitation({ params, searchParams }: {
     ? (self ? `${v.clubName} would like you at a trial` : `${v.clubName} would like ${name} at a trial`)
     : (self ? `${v.clubName} would like to talk to you` : `${v.clubName} would like to talk to you about ${name}`);
   const kicker = guardian && draft ? `${name} has written a reply` : guardian ? 'Waiting on you' : draft ? 'Waiting on your parent' : 'An invitation';
+  // D-F5 (BUZ, 1 Oct): a guardian of an adult cannot approve or reply (L9),
+  // so the line says who can.
   const sub = guardian
-    ? `${name} can see this too. Nothing goes back to ${v.clubName} until you approve a reply.`
+    ? (minor ? `${name} can see this too. Nothing goes back to ${v.clubName} until you approve a reply.` : `${name} can see this too. Only ${name} can reply.`)
     : minor
       ? (draft ? 'Your reply is with your parent. It goes to the club when they approve it.' : 'Your parent can see this too. If you reply, they approve it before it goes.')
       : `Nothing goes back to ${v.clubName} unless you reply.`;
 
   return (
     <Shell back={back}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{kicker}</div>
-        <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>{heading}</h1>
-        <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{sub}</div>
-      </div>
-      <div style={{ ...card, border: `1px solid ${T.purple}`, display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <AskHead initial={guardian ? name[0] : undefined} kicker={kicker} title={heading} sub={sub} />
+      {/* Purple: a club's invitation (spec A part 11). */}
+      <div className="card card-purple" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 13 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 13, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: T.secondary, flexShrink: 0 }}>{clubInitials}</div>
-          <div>
+          <div className="pd-club-tile">{clubInitials}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 15, fontWeight: 800 }}>{v.clubName}</div>
             {/* doc 15 §25: never "verified against Football Victoria" — that state
                 does not exist (D-126). It said so here until D-153. */}
-            {v.clubVerified && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <div style={{ width: 6, height: 6, borderRadius: 999, background: T.accent }} />
-                <div style={{ fontSize: 11, fontWeight: 800, color: T.accent }}>Verified club</div>
-              </div>
-            )}
+            {v.clubVerified && <div><span className="pill pill-live">Verified club</span></div>}
           </div>
         </div>
         {v.trial && (
           <div style={{ borderTop: `1px solid ${T.line}`, padding: '13px 0' }}>
-            <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted, marginBottom: 4 }}>The trial</div>
+            <div className="pd-flabel" style={{ marginBottom: 4 }}>The trial</div>
             <div style={{ fontSize: 14, fontWeight: 800 }}>{v.trial.title}</div>
             <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>{v.trial.date} · {v.trial.timeVenue}</div>
           </div>
         )}
         {v.note && (
           <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 13 }}>
-            <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted, marginBottom: 4 }}>Their note</div>
+            <div className="pd-flabel" style={{ marginBottom: 4 }}>Their note</div>
             <div style={{ fontSize: 13.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>&ldquo;{v.note}&rdquo;</div>
           </div>
         )}
       </div>
 
       {guardian && draft && (
-        <div style={{ ...card, border: `1px solid ${T.amber}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="card card-amber" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 13.5, fontWeight: 800 }}>{name} {ANSWER[draft.answer] ?? ANSWER.yes}</div>
           {draft.note && <div style={{ fontSize: 13, fontStyle: 'italic', color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>&ldquo;{draft.note}&rdquo;</div>}
-          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>This has not gone to {v.clubName}. It goes when you approve it.</div>
+          <div className="pd-small">This has not gone to {v.clubName}. It goes when you approve it.</div>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <div className="pd-ticks">
         <Tick>They have the CV, the name, the age and the club. They have never had a phone number or an email address.</Tick>
         <Tick>Doing nothing is a complete answer. They are told nothing either way.</Tick>
         <Tick>{self && minor ? 'They can’t get your phone number or your email address from Pitch.' : 'If you say yes, you choose what you hand over. It is not automatic.'}</Tick>
       </div>
 
+      {/* D-PD-0: two equal answers, nothing glows (replying hands something
+          to a club). "Not this time" writes nothing (D-138). */}
       {canAct && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-          <Link href={`/g/invite/${invitationId}?reply=1`} className="btn btn-primary">
+        <div className="fl-answer">
+          <Link href={`/g/invite/${invitationId}?reply=1`} className="btn btn-secondary">
             {guardian && draft ? 'Review and approve' : self && minor && draft ? 'Change my reply' : `Reply to ${v.clubName}`}
           </Link>
-          <Link href="/home" style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Not this time</Link>
+          <Link href="/home" className="btn btn-secondary">Not this time</Link>
         </div>
       )}
       <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
