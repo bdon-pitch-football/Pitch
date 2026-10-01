@@ -1,4 +1,9 @@
 // The public coach CV — CoachCV.dc.html, copy verbatim where data exists.
+// Floodlit (spec E, BUZ 1 Oct): the player card's sibling, built from THE
+// PLAYER CARD's parts and THE COACH CARD's in globals.css. E1: from 1024 the
+// card is the sticky left column, as on the player CV. The card is the
+// player card's own green, never a club's colours (not cleared for a coach
+// page: a coach can hold two clubs).
 // Reached by the STABLE public slug (D-100): no token, no expiry, separate
 // resolver from /p. WWCC shows as a chip only when a club has attested it —
 // never a number (D-98). An unknown slug is a plain 404: coaches are public
@@ -8,9 +13,8 @@ import { db } from '@/lib/db';
 import ClipCard from '@/components/cv/ClipCard';
 import CopyLink from '@/components/cv/CopyLink';
 import { getSessionPersonId } from '@/lib/session';
-import Wordmark from '@/components/Wordmark';
+import SiteNav from '@/components/floodlit/SiteNav';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,220 +114,225 @@ export default async function CoachCv({ params }: { params: Promise<{ slug: stri
     'select fn_coach_contact_visible($1) as v', [viewer],
   )).rows[0].v;
 
-  const label = sectionLabel;
+  // The name is sized by its longest word and the card's own width, as on
+  // the player card (the --name-len rule), so a long surname fits.
+  const longestWord = Math.max(...name.split(/[\s-]+/).map((w) => w.length), 4);
+  const where = [current?.org, c.region].filter(Boolean).join(' · ');
+  // Licences and accomplishments are BOTH self-declared, and the page says
+  // so once, plainly, at the foot of the pair — rather than hedging every
+  // line or letting them sit beside the WWCC looking equally checked.
+  const ownAccount = (
+    <div className="quiet" style={{ marginTop: 14, maxWidth: '60ch' }}>
+      Licences and results above are {c.first_name}&rsquo;s own account. The Working With Children Check is the one thing on this page a club confirmed.
+    </div>
+  );
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
-
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'var(--hero)', display: 'flex', flexDirection: 'column' }}>
-          {/* Same composition as the club page: photo over the banner, the
-              picture darkened where the photo and the name sit, and the whole
-              thing degrading to the plain gradient for the coach who has not
-              uploaded one — which is most of them on day one. */}
-          {hasBanner && (
-            <div style={{ position: 'relative', lineHeight: 0 }}>
-              <img src={c.banner_path} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,21,16,0) 42%, rgba(10,21,16,.78) 100%)' }} />
-            </div>
-          )}
-          <div style={{ padding: hasBanner ? '0 20px 22px 20px' : '24px 20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* position:relative is load-bearing — the banner scrim is
-              absolutely positioned and would otherwise paint over the photo. */}
-          <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: hasBanner ? 'flex-end' : 'flex-start', marginTop: hasBanner ? -42 : 0 }}>
-            {c.photo_path ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={c.photo_path} alt="" width={84} height={84} style={{ width: 84, height: 84, borderRadius: 22, objectFit: 'cover', border: hasBanner ? '3px solid #0e1b14' : '1.5px solid rgba(255,255,255,.2)', boxShadow: hasBanner ? '0 0 0 1px rgba(238,245,240,.18), 0 10px 26px rgba(0,0,0,.5)' : 'none' }} />
-            ) : (
-              <div style={{ width: 84, height: 84, borderRadius: 22, background: hasBanner ? '#1b2b22' : 'rgba(255,255,255,.12)', border: hasBanner ? '3px solid #0e1b14' : 'none', boxShadow: hasBanner ? '0 0 0 1px rgba(238,245,240,.18), 0 10px 26px rgba(0,0,0,.5)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 30 }}>{initials}</div>
+    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', flexDirection: 'column' }}>
+      {/* E4 (BUZ, 1 Oct): signed out, the public links and a logo that goes
+          home, as on the club page. Signed in, the bar is the logo alone and
+          not a link, as the page's own mark was. */}
+      {viewer
+        ? <SiteNav links={[]} signIn={false} homeLink={false} />
+        : <SiteNav links={[{ href: '/claim', label: 'Find your club' }, { href: '/trials', label: 'Trials' }]} />}
+      <div className="cv-root coach-root"><div className="fl-wide cv-grid">
+        {/* ---- the coach card --------------------------------------------- */}
+        <div className="cv-cardcol">
+          <section className="cv-hero cv-hero-coach cv-rise" aria-labelledby="cv-name">
+            {/* The photo over the banner, the picture darkened where the photo
+                and the name sit; the plain card for the coach who has not
+                uploaded one, which is most of them on day one. */}
+            {hasBanner && (
+              <div className="cv-banner">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.banner_path} alt="" />
+              </div>
             )}
-            <div style={{ border: '1px solid rgba(255,255,255,.22)', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', background: hasBanner ? 'rgba(6,19,12,.5)' : 'transparent', marginBottom: hasBanner ? 8 : 0 }}>Coach</div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.015em' }}>{name}</h1>
-            {current && <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', fontWeight: 500 }}>{current.title}</div>}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              {showCrest && (
+            <div className="cv-top">
+              {c.photo_path ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={held!.crest!} alt="" width={24} height={24} style={{ objectFit: 'contain', flexShrink: 0 }} />
+                <img src={c.photo_path} alt="" width={92} height={92} className="cv-avatar" style={{ objectFit: 'cover' }} />
+              ) : (
+                <div className="cv-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 32 }}>{initials}</div>
               )}
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.62)', fontWeight: 500 }}>{[current?.org, c.region].filter(Boolean).join(' · ')}</div>
+              <span className="cv-kind">Coach</span>
             </div>
-            {/* Years coaching was 12px muted text at the foot of a card below
-                the fold — the single number a club hires on. The hero had the
-                room and was doing the least with it of the three profile
-                types. Both figures come off the record already. */}
+            <h1 id="cv-name" className="cv-name" style={{ ['--name-len' as string]: longestWord } as React.CSSProperties}>{name}</h1>
+            {current && <div className="cv-line">{current.title}</div>}
+            {(showCrest || where) && (
+              <div className="cv-where">
+                {showCrest && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={held!.crest!} alt="" width={28} height={28} />
+                )}
+                <span>{where}</span>
+              </div>
+            )}
+            {/* Years coaching — the single number a club hires on — and the
+                clubs on the record, as one band. Both come off the record
+                already; neither renders as a zero (Clubs only above one). */}
             {(yearsCoaching > 0 || clubCount > 1) && (
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22, marginTop: 12, flexWrap: 'wrap' }}>
-                {yearsCoaching > 0 && (
-                  <div>
-                    <div className="numeral numeral-m" style={{ color: T.ink }}>{yearsCoaching}</div>
-                    <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Years coaching</div>
-                  </div>
-                )}
-                {clubCount > 1 && (
-                  <div>
-                    <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{clubCount}</div>
-                    <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Clubs</div>
-                  </div>
-                )}
+              <div className="cv-stats">
+                <div className="cv-tiles">
+                  {yearsCoaching > 0 && (
+                    <div className="cv-tile">
+                      <div className="cv-tile-num">{yearsCoaching}</div>
+                      <div className="cv-tile-l">Years coaching</div>
+                    </div>
+                  )}
+                  {clubCount > 1 && (
+                    <div className="cv-tile">
+                      <div className="cv-tile-num">{clubCount}</div>
+                      <div className="cv-tile-l">Clubs</div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </div>
-          {/* The hero used to carry a chip per licence, which was fine at one
-              and a cram at five — and it put a self-declared credential
-              shoulder to shoulder with the WWCC, the one thing on this page
-              a club actually attested. The WWCC keeps the hero. Licences get
-              a section of their own that can say who issued them and when. */}
-          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+            {/* The WWCC keeps the card: the one thing on this page a club
+                attested (D-98) — a state, never a number. Licences get a
+                section of their own that can say who issued them and when. */}
             {c.wwcc && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.08)', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.7)' }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
-                <span>WWCC</span>
+              <div className="cv-foot">
+                <span className="cv-pill">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
+                  <span>WWCC verified</span>
+                </span>
               </div>
             )}
-          </div>
-          </div>
+          </section>
         </div>
 
-        {c.philosophy && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h2 style={label}>Coaching philosophy</h2>
-            <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500 }}>{c.philosophy}</div>
-          </div>
-        )}
-
-        {/* The history was six identical boxes: a role Sam left in 2021 looked
-            exactly like the one he holds now. The current role is promoted to
-            a card of its own; everything before it becomes a quiet timeline
-            with a rule down the side, because it is context rather than
-            headline. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <h2 className="kicker">Coaching now</h2>
-          {current ? (
-            <div className="card card-accent" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>{current.title}</div>
-              <div style={{ fontSize: 13.5, color: 'var(--secondary)', fontWeight: 700 }}>{current.org}</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>Since {current.from}</div>
-            </div>
-          ) : (
-            <div className="card-sunken" style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>
-              Not currently attached to a club.
-            </div>
+        {/* ---- the story -------------------------------------------------- */}
+        {/* An EMPTY SECTION IS OMITTED, never rendered as a bare heading. */}
+        <div className="cv-story">
+          {c.philosophy && (
+            <section>
+              <h2 className="cv-h2">Coaching philosophy</h2>
+              <div className="cv-about">{c.philosophy}</div>
+            </section>
           )}
 
-          {past.length > 0 && (
-            <>
-              <h2 className="kicker" style={{ marginTop: 4 }}>Before that</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingLeft: 14, borderLeft: '2px solid var(--line)' }}>
+          {/* The current role leads one line; everything before it is quiet
+              context on the same line, with its years at the end. */}
+          <section>
+            <h2 className="cv-h2">Coaching now</h2>
+            {!current && (
+              <div className="card-sunken" style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500, marginBottom: past.length > 0 ? 18 : 0 }}>
+                Not currently attached to a club.
+              </div>
+            )}
+            {(current || past.length > 0) && (
+              <div className="cv-timeline">
+                {current && (
+                  <div className="cv-stop cv-stop-now">
+                    <div style={{ fontSize: 16, fontWeight: 800 }}>{current.title}</div>
+                    <div style={{ fontSize: 13.5, color: 'var(--secondary)', fontWeight: 700 }}>{current.org}</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500 }}>Since {current.from}</div>
+                  </div>
+                )}
+                {past.length > 0 && <h2 className="cv-tl-h">Before that</h2>}
                 {past.map((r) => (
-                  <div key={r.title + r.org + r.from} style={{ padding: '9px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--secondary)' }}>{r.title}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{r.org}</div>
-                    </div>
-                    <div className="tnum" style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                      {r.from} — {r.to}
+                  <div key={r.title + r.org + r.from} className="cv-stop">
+                    <div className="cv-stop-row">
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--secondary)' }}>{r.title}</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500 }}>{r.org}</div>
+                      </div>
+                      <div className="row-yr">{r.from} — {r.to}</div>
                     </div>
                   </div>
                 ))}
               </div>
-            </>
-          )}
-        </div>
+            )}
+          </section>
 
-        {/* Licences and accomplishments are BOTH self-declared, and the page
-            says so once, plainly, at the foot of the pair — rather than
-            hedging every line or, worse, letting them sit next to the WWCC
-            in the hero looking equally checked. Same discipline as
-            "self-reported" on a player's stats. */}
-        {licences.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <h2 className="kicker">Licences &amp; qualifications</h2>
-            <div className="card" style={{ padding: '4px 15px' }}>
-              {licences.map((l, i) => (
-                <div key={l.title + (l.year ?? '')} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 0', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 3 L14.6 8.6 L20.5 9.3 L16.2 13.4 L17.4 19.3 L12 16.3 L6.6 19.3 L7.8 13.4 L3.5 9.3 L9.4 8.6 Z" /></svg>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800 }}>{l.title}</div>
-                    {l.issuer && <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{l.issuer}</div>}
+          {licences.length > 0 && (
+            <section>
+              <h2 className="cv-h2">Licences &amp; qualifications</h2>
+              <div className="card rows">
+                {licences.map((l) => (
+                  <div key={l.title + (l.year ?? '')} className="row">
+                    <span className="row-ic">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3 L14.6 8.6 L20.5 9.3 L16.2 13.4 L17.4 19.3 L12 16.3 L6.6 19.3 L7.8 13.4 L3.5 9.3 L9.4 8.6 Z" /></svg>
+                    </span>
+                    <div className="row-main">
+                      <div className="row-t">{l.title}</div>
+                      {l.issuer && <div className="row-s">{l.issuer}</div>}
+                    </div>
+                    {l.year && <div className="row-yr">{l.year}</div>}
                   </div>
-                  {l.year && (
-                    <div className="tnum" style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>{l.year}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                ))}
+              </div>
+              {wins.length === 0 && ownAccount}
+            </section>
+          )}
 
-        {wins.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <h2 className="kicker">As a coach</h2>
-            {wins.map((a, i) => (
-              <div key={a.title} className="lift card" style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '15px 14px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 11, background: 'rgba(61,220,132,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {i === 0
-                    ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9" /></svg>
-                    : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17 L9 11 L13 15 L21 7" /><path d="M15 7 h6 v6" /></svg>}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800 }}>{a.title}</div>
-                  {a.detail && <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{a.detail}</div>}
+          {wins.length > 0 && (
+            <section>
+              <h2 className="cv-h2">As a coach</h2>
+              <div className="fl-grid-2">
+                {wins.map((a, i) => (
+                  <div key={a.title} className="card win">
+                    <span className="win-ic">
+                      {i === 0
+                        ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9" /></svg>
+                        : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 17 L9 11 L13 15 L21 7" /><path d="M15 7 h6 v6" /></svg>}
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                      <div style={{ fontSize: 15.5, fontWeight: 800 }}>{a.title}</div>
+                      {a.detail && <div style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500 }}>{a.detail}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {ownAccount}
+            </section>
+          )}
+
+          {/* The clips are the closest thing to watching this coach work.
+              Click-to-play façades (D-97); the reassurance on the first card
+              only — repeated under every card it is wallpaper. */}
+          {clips.length > 0 && (
+            <section>
+              <h2 className="cv-h2">Sessions &amp; clips</h2>
+              <div className="fl-grid-2">
+                {clips.map((v, i) => (
+                  <ClipCard key={v.url} title={v.title} url={v.url} gradientAlt={i % 2 === 1}
+                    sub={i === 0 ? 'Nothing loads until you press play' : undefined} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* A footnote about something that has not happened yet: the dashed
+              "not yet" ring, not the amber dot (amber is a state). */}
+          <div className="soon">
+            <span className="notyet-dot" aria-hidden />
+            Players developed and improvement delivered arrive here in December.
+          </div>
+
+          {showContact && (
+            <section>
+              <h2 className="cv-h2">Getting in touch</h2>
+              <div className="card stack8">
+                <a href={`mailto:${c.public_contact}`} style={{ fontSize: 14.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center', margin: '-10px 0', overflowWrap: 'anywhere' }}>{c.public_contact}</a>
+                <div className="quiet">
+                  For clubs and other adults. {name} published this themselves — it is their own address, not one we handed over.
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            </section>
+          )}
 
-        {(licences.length > 0 || wins.length > 0) && (
-          <div style={{ fontSize: 11.5, color: T.placeholder, fontWeight: 500, lineHeight: 1.5 }}>
-            Licences and results above are {c.first_name}&rsquo;s own account. The Working With Children Check is the one thing on this page a club confirmed.
+          {/* Copied by the coach, never sent by Pitch (D-100, L44/L45/L54). */}
+          <div className="share">
+            <CopyLink url={`https://pitchfootball.com.au/c/${c.public_slug}`} label="Copy this link" />
+            <a href={`/c/${c.public_slug}/print`} className="btn btn-secondary">Print or save as PDF</a>
           </div>
-        )}
 
-        {/* The clips are the closest thing to watching this coach work, and
-            they sat UNDER an address card the coach already has in their own
-            editor. Content first; the roadmap footnote after it, not before. */}
-        {clips.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <h2 style={label}>Sessions &amp; clips</h2>
-            {/* The reassurance belongs on the first card. Repeated under every
-                card it stops being reassurance and starts being wallpaper —
-                the same thing the player CV was doing with its clips. */}
-            {clips.map((v, i) => (
-              <ClipCard key={v.url} title={v.title} url={v.url} gradientAlt={i % 2 === 1}
-                sub={i === 0 ? 'Nothing loads until you press play' : undefined} />
-            ))}
-          </div>
-        )}
-
-        {/* Was a card competing with the history. It is a footnote about
-            something that has not happened yet, so it reads as one. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--amber)', flexShrink: 0 }} />
-          Players developed and improvement delivered arrive here in December.
+          <a href={`/report?kind=coach_cv&page=${encodeURIComponent(slug)}`} className="report-link" style={{ marginTop: -22 }}>Report this page</a>
         </div>
-
-        {showContact && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h2 style={label}>Getting in touch</h2>
-            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <a href={`mailto:${c.public_contact}`} style={{ fontSize: 14.5, fontWeight: 800, color: T.accent, textDecoration: 'none' }}>{c.public_contact}</a>
-              <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-                For clubs and other adults. {name} published this themselves — it is their own address, not one we handed over.
-              </div>
-            </div>
-          </div>
-        )}
-
-        <CopyLink url={`https://pitchfootball.com.au/c/${c.public_slug}`} label="Copy this link" />
-
-        <a href={`/c/${c.public_slug}/print`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Print or save as PDF</a>
-
-        <a href={`/report?kind=coach_cv&page=${encodeURIComponent(slug)}`} style={{ display: 'block', padding: '16px 12px', margin: '-16px -12px', fontSize: 11, color: T.muted, textAlign: 'center', fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
-      </div>
+      </div></div>
     </div>
   );
 }

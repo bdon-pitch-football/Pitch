@@ -1,10 +1,11 @@
 'use client';
-import { T } from '@/lib/palette';
-
+// "Save as PDF", shared by the player's and the coach's print (D-121). The
+// charter's primary at its own width (spec C, adopted by E): it was a
+// one-off 44px/radius-10 dark button. Hidden in print.
 export default function PrintButton() {
   return (
-    <div className="no-print" style={{ maxWidth: 760, margin: '0 auto 18px auto', display: 'flex', justifyContent: 'flex-end' }}>
-      <button onClick={() => window.print()} style={{ background: T.bg, color: T.ink, border: 'none', borderRadius: 10, height: 44, padding: '0 18px', fontSize: 13.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+    <div className="no-print print-bar">
+      <button type="button" onClick={() => window.print()} className="btn btn-primary btn-auto">
         Save as PDF
       </button>
     </div>

@@ -9,10 +9,14 @@
 // player print view there is no token to check: if the profile is published,
 // this renders. Clips are listed as titles rather than embeds — nothing
 // third-party loads on a page meant for paper.
+//
+// Floodlit (spec E, BUZ 1 Oct): the sheet takes C's print tokens
+// (--print-*), so the coach and player prints are one light surface; the
+// own-account line moves to --print-muted (it was 3.2:1 on white); the
+// sides are 18px on a phone.
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import PrintButton from '@/app/p/[token]/print/PrintButton';
-import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,43 +69,38 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
   const licences: { title: string; issuer: string | null; year: string | null }[] = c.licences ?? [];
   const wins: { title: string; detail: string | null }[] = c.wins ?? [];
 
-  const kicker: React.CSSProperties = {
-    fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-    color: '#5c6f65', marginBottom: 8,
-  };
-
   return (
-    <div style={{ background: '#ffffff', color: T.bg, minHeight: '100dvh', padding: '32px 28px' }}>
+    <div className="print-page">
       <style>{`@media print { .no-print { display: none !important; } @page { margin: 14mm; } }`}</style>
       <PrintButton />
-      <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <div style={{ borderBottom: `2px solid ${T.bg}`, paddingBottom: 16, marginBottom: 22 }}>
-          <h1 style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.05 }}>{name}</h1>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#3a4a42', marginTop: 4 }}>
+      <div className="ps">
+        <div className="ps-head">
+          <h1 className="ps-name">{name}</h1>
+          <div className="ps-line">
             {[roles.find((r) => !r.to)?.title, roles.find((r) => !r.to)?.org, c.region].filter(Boolean).join(' · ')}
           </div>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#5c6f65', marginTop: 6 }}>
+          <div className="ps-creds">
             {[...licences.map((l) => l.title), c.wwcc ? 'WWCC verified' : null].filter(Boolean).join(' · ')}
           </div>
         </div>
 
         {c.philosophy && (
-          <div style={{ marginBottom: 22 }}>
-            <div style={kicker}>Coaching philosophy</div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.6 }}>{c.philosophy}</div>
+          <div className="ps-sec">
+            <div className="ps-k">Coaching philosophy</div>
+            <div className="ps-p">{c.philosophy}</div>
           </div>
         )}
 
         {roles.length > 0 && (
-          <div style={{ marginBottom: 22 }}>
-            <div style={kicker}>Coaching history</div>
+          <div className="ps-sec">
+            <div className="ps-k">Coaching history</div>
             {roles.map((r) => (
-              <div key={`${r.title}-${r.org}-${r.from}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '8px 0', borderBottom: '1px solid #e6ece9' }}>
+              <div key={`${r.title}-${r.org}-${r.from}`} className="ps-row">
                 <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 800 }}>{r.title}</div>
-                  <div style={{ fontSize: 12, color: '#5c6f65', fontWeight: 500 }}>{r.org}</div>
+                  <div className="ps-t">{r.title}</div>
+                  <div className="ps-s">{r.org}</div>
                 </div>
-                <div style={{ fontSize: 12, color: '#5c6f65', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                <div className="ps-yr">
                   {r.from}{r.from && ' — '}{r.to ?? 'now'}
                 </div>
               </div>
@@ -113,46 +112,46 @@ export default async function PrintCoachCv({ params }: { params: Promise<{ slug:
             document as their page. Both new sections print, and so does the
             line that says which of them anybody checked. */}
         {licences.length > 0 && (
-          <div style={{ marginBottom: 22 }}>
-            <div style={kicker}>Licences &amp; qualifications</div>
+          <div className="ps-sec">
+            <div className="ps-k">Licences &amp; qualifications</div>
             {licences.map((l) => (
-              <div key={l.title + (l.year ?? '')} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '5px 0' }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700 }}>{l.title}{l.issuer ? ` — ${l.issuer}` : ''}</div>
-                {l.year && <div style={{ fontSize: 12.5, color: '#5c6f65', fontWeight: 700, whiteSpace: 'nowrap' }}>{l.year}</div>}
+              <div key={l.title + (l.year ?? '')} className="ps-row q">
+                <div className="ps-t7">{l.title}{l.issuer ? ` — ${l.issuer}` : ''}</div>
+                {l.year && <div className="ps-yr" style={{ fontSize: 12.5 }}>{l.year}</div>}
               </div>
             ))}
           </div>
         )}
 
         {wins.length > 0 && (
-          <div style={{ marginBottom: 22 }}>
-            <div style={kicker}>As a coach</div>
+          <div className="ps-sec">
+            <div className="ps-k">As a coach</div>
             {wins.map((a) => (
               <div key={a.title} style={{ padding: '5px 0' }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700 }}>{a.title}</div>
-                {a.detail && <div style={{ fontSize: 12.5, color: '#5c6f65' }}>{a.detail}</div>}
+                <div className="ps-t7">{a.title}</div>
+                {a.detail && <div className="ps-s" style={{ fontSize: 12.5 }}>{a.detail}</div>}
               </div>
             ))}
           </div>
         )}
 
         {(licences.length > 0 || wins.length > 0) && (
-          <div style={{ fontSize: 10.5, color: T.muted, marginBottom: 22, lineHeight: 1.5 }}>
+          <div className="ps-note">
             Licences and results above are {c.first_name}&rsquo;s own account. The Working With Children Check is the one thing here a club confirmed.
           </div>
         )}
 
         {clips.length > 0 && (
-          <div style={{ marginBottom: 22 }}>
-            <div style={kicker}>Sessions &amp; clips</div>
+          <div className="ps-sec">
+            <div className="ps-k">Sessions &amp; clips</div>
             {clips.map((v) => (
               <div key={v.title} style={{ fontSize: 13, padding: '5px 0', fontWeight: 500 }}>{v.title}</div>
             ))}
-            <div style={{ fontSize: 11, color: '#5c6f65', marginTop: 6 }}>Watch these on the online version of this CV.</div>
+            <div className="ps-s" style={{ fontSize: 11, marginTop: 6 }}>Watch these on the online version of this CV.</div>
           </div>
         )}
 
-        <div style={{ fontSize: 11.5, color: '#5c6f65', borderTop: '1px solid #e6ece9', paddingTop: 12 }}>
+        <div className="ps-foot">
           pitchfootball.com.au/c/{c.public_slug}
         </div>
       </div>
