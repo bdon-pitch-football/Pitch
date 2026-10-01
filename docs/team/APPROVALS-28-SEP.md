@@ -232,3 +232,7 @@ BUZ, 2 Oct: the parent's review screen (`/g/pending`) shows every change before 
 ## 2 Oct — the other guardian's approval line (BUZ, via Leo; John confirmed in `13-Board-Room/JOHN-to-LEO-two-confirmations-2-oct.md`)
 
 - When one guardian approves the child's waiting change, the OTHER guardian's family history on `/g/controls` says: **"{first name} approved a change."** The approver's first name only. The approver's own history keeps **"You approved a change"**. The approval event now names the child, so both reach the history (D-51, "both notified", by history, with no message). If the approver is no longer a guardian of the child, the other guardian sees the existing fallback "Something was recorded". (Builder: batch-fixes; checks bf-appr-1, bf-appr-w1.)
+
+BUZ, 2 Oct ("approve"):
+- **The browser tab title on the closed page:** "This request has closed · Pitch Football".
+- **The parent's Send page, third row of "What the club gets":** the full /g/send line, "No contact details for you or {first} — not now, and not if they reply."
