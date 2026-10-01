@@ -8,6 +8,7 @@
 //   /p/dev-georgia   live token, u16
 //   /p/dev-expired   dead — expired yesterday
 //   /p/dev-revoked   dead — revoked
+//   /p/dev-teodor    live token, 18+, at a club that is claimed again (D-174)
 //   /p/anything-else dead — never existed
 //
 // All fixture people are fictional (doc 16 §4).
@@ -19,6 +20,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PLAYER_FIXTURES } from '../lib/fixtures.ts';
 import { DEMO_DB_PORT, demoDbPort } from '../lib/demo.ts';
+import { PRESETS } from '../lib/club-colours.ts';
 
 const db = new PGlite();
 const dir = fileURLToPath(new URL('../supabase/migrations', import.meta.url));
@@ -850,6 +852,50 @@ await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,
 // Demo mode (npm run demo): rename the club to the one BUZ is meeting, and
 // serve on the demo port so a demo and the dev database never meet.
 const DEMO = process.env.DEMO_CLUB?.trim();
+
+// --- A CV IN ITS CLUB'S COLOURS, AND ONE THAT MUST NOT BE (D-174, 0165) ----
+// John's condition 4: the render suite watches the CV with and without a
+// club's colours before the switch is on (cvcol-r1 to r5).
+//   · Riverside picks "Sky blue and navy" — a preset, the club's own choice
+//     (condition 1), and nothing like Pitch green, so a theme that leaked
+//     somewhere it should not cannot hide. /p/dev-deniz wears it.
+//   · Thornbeck Thunder SC was verified, has a player, and then failed a
+//     later call, so it is 'claimed' again (0150): the state a real CV can be
+//     in. It holds colours of its own ("Purple and gold"), and /p/dev-teodor
+//     must wear none of them. Teodor is an adult with no account and no
+//     guardian, so nothing else in the seed or the suites meets him.
+// Neither in a demo: the demo renames Riverside to the club BUZ is meeting,
+// and a real club's page must never wear colours that club did not choose.
+if (!DEMO) {
+  const riversideColours = PRESETS.find((p) => p.name === 'Sky blue and navy')!;
+  await db.query(`update club set colour_primary = $2, colour_secondary = $3 where id = $1`,
+    [riverside, riversideColours.primary, riversideColours.secondary]);
+
+  const thornbeck = randomUUID(), thornbeckCall = randomUUID(), thornbeckSquad = randomUUID();
+  const teodor = randomUUID(), teodorRec = randomUUID();
+  await db.query(`insert into club (id, name, suburb, state, club_state) values ($1,'Thornbeck Thunder SC','Preston','VIC','claimed')`, [thornbeck]);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now() - interval '60 days','BUZ','03 9000 0003','FV club directory','verified','27@v1.0')`, [thornbeckCall, thornbeck]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [thornbeckCall, thornbeck]);
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,'Seniors Men','SEN','men','2026')`,
+    [thornbeckSquad, thornbeck]);
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Teodor','Vance','1999-05-11')`, [teodor]);
+  await db.query(`insert into membership (person_id, club_id, squad_id, role) values ($1,$2,$3,'player')`, [teodor, thornbeck, thornbeckSquad]);
+  await db.query(`insert into development_record (id, person_id, positions, squad_number, foot, about, surfaced_stats)
+    values ($1,$2,array['CB'],5,'Right','Centre-back who talks all game and wins the ball back early.',array['apps','clean_sheets','goals','assists'])`,
+    [teodorRec, teodor]);
+  // The adult issues their own link, as every adult does.
+  await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() + interval '90 days')`,
+    [teodorRec, sha('dev-teodor'), teodor]);
+  // The later call, written the way an operator records it: 0150 takes the
+  // club back to 'claimed' in the same statement.
+  await db.query(`insert into verification_call (club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1, now() - interval '5 days','BUZ','03 9000 0003','FV club directory','not_verified','27@v1.0')`, [thornbeck]);
+  const purpleGold = PRESETS.find((p) => p.name === 'Purple and gold')!;
+  await db.query(`update club set colour_primary = $2, colour_secondary = $3 where id = $1`, [thornbeck, purpleGold.primary, purpleGold.secondary]);
+  const st = (await db.query(`select club_state from club where id = $1`, [thornbeck])).rows[0] as { club_state: string };
+  if (st.club_state !== 'claimed') throw new Error(`0150: Thornbeck should be claimed after its failed call, and is ${st.club_state}`);
+}
 let demoSlug = '';
 if (DEMO) {
   const { applyDemo } = await import('./demo-layer.mts');

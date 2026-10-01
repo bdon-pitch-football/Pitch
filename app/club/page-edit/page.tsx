@@ -176,6 +176,10 @@ export default async function ClubPageEdit({ searchParams }: {
               <input id="club-colour-secondary" name="secondary" type="color" defaultValue={c.colour_secondary ?? PRESETS[0].secondary} style={{ width: '100%', height: 36, border: 'none', background: 'transparent', padding: 0 }} />
             </label>
           </div>
+          {/* John's condition 3 (D-174): the club is told, where it chooses,
+              that its colours also dress its players' CVs. BUZ approved the
+              line on 1 Oct (docs/team/APPROVALS-28-SEP.md). */}
+          <div style={hint}>Your colours appear on your club page, and on the CV of players who list your club as their current club.</div>
           <button type="submit" className="btn btn-primary">Save the colours</button>
           <div style={hint}>Your colours go behind your name and down the edge of your page. Buttons stay green, so families always know what to press. If a colour would make your name hard to read, we darken it just enough.</div>
         </form>

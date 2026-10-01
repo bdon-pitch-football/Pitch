@@ -19,6 +19,14 @@ export const isHex = (s: unknown): s is string => typeof s === 'string' && HEX.t
 
 // Twelve pairs that cover most Victorian club kits, so most clubs pick in one
 // tap. Named by colour, never by any club.
+//
+// A CLUB'S COLOURS ARE ONLY EVER THE CLUB'S OWN CHOICE (D-174, John's
+// condition 1, 1 Oct). A preset from this list or two colours the club typed
+// itself, on its own page editor — nothing else. Never derived, sampled,
+// averaged or scraped from a crest, a photograph, a kit or a website: not
+// now, and not later as a convenience ("we could pre-fill it from the
+// crest"). John's reason: "The moment a colour is taken rather than given, it
+// stops being a colour and becomes a copy of a design."
 export const PRESETS: { name: string; primary: string; secondary: string }[] = [
   { name: 'Claret and gold', primary: '#7a1f35', secondary: '#f2b134' },
   { name: 'Navy and white', primary: '#0f2f66', secondary: '#f1f1ee' },
@@ -78,10 +86,12 @@ export function clubTheme(colours: Partial<ClubColours> | null | undefined, club
   return { hero, heroDeep, trim, onTrim };
 }
 
-// A player's CV wearing their current club's colours (BUZ, 1 Oct: yes). Held
-// OFF until John clears it: on a child's page the club is already named, but
-// its colours are a new visual signal, and BUZ was told John would see it
-// first (13-Board-Room, 1 Oct). Never on a card either way (D-89). Flip to
-// true on John's word, recorded in the register — perms cvc1 pins it false
-// until then, and ctx4 keeps every card surface away from colours for good.
-export const CV_WEARS_CLUB_COLOURS = false;
+// A player's CV wearing their current club's colours (BUZ, 1 Oct: yes; John
+// cleared it the same day on four conditions; D-174). On only while D-174 is
+// Locked in the register — perms cvc1 pins the switch to it — and only once
+// the render suite had watched the CV with and without a club's colours
+// (cvcol-r1 to r5, John's condition 4). The colours come from
+// fn_cv_club_colours (0165), the club the CV's club line names, through
+// lib/record-read and nothing else. Verified clubs only (cvc2). Never on a
+// card (D-89): ctx4 keeps every card surface away from colours for good.
+export const CV_WEARS_CLUB_COLOURS = true;

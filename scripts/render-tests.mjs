@@ -463,6 +463,19 @@ const georgia = ids.children.georgia;
     text(unv).some((l) => /Deniz|Nate|Georgia/.test(l)), false);
   check('r35: and is told plainly that the call is what releases them, with no sentence about paying left behind (BUZ, 29 Sep)',
     [has(unv, 'Registrations are held until your club is verified'), /Paying doesn|Payment does/.test(unv)], [true, false]);
+  // A-P7 (BUZ, 1 Oct, option A): the unverified club is told what happens
+  // next, and the one glow is "Email us a good time to ring".
+  const mailto = /href="mailto:burak\.donmez@pitch-football\.com\?subject=A%20good%20time%20to%20ring%20[^"]+"[^>]*>Email us a good time to ring</;
+  check('ap7a: the held register offers the same mailto, as a secondary', [mailto.test(unv), /class="btn btn-secondary"[^>]*>Email us a good time to ring|href="mailto:[^"]*" class="btn btn-secondary"/.test(unv)], [true, true]);
+  const { html: unvHome } = await get('/home', quarrymead);
+  const unvMarkup = unvHome.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+  check('ap7b: an unverified club’s home says what happens next — the call, a number we find ourselves — with the mailto as its one glow and Register kept as a secondary',
+    [has(unvHome, 'What happens next'), has(unvHome, 'A short phone call with us'),
+     /on a number we find ourselves, not one you give us\. Let the club know to expect us\./.test(unvMarkup),
+     mailto.test(unvMarkup), (unvMarkup.match(/class="btn btn-primary fl-glow"/g) ?? []).length,
+     /<a (?=[^>]*href="\/club\/register")(?=[^>]*class="btn btn-secondary")[^>]*>Register</.test(unvMarkup),
+     (unvMarkup.match(/class="btn btn-primary[ "]/g) ?? []).length],
+    [true, true, true, true, 1, true, 1]);
 
   // Every row's primary action has to work. Ninety-seven of a hundred used to
   // 404 for the club's own TD: the page read the u16 approved snapshot for
@@ -2442,6 +2455,91 @@ const georgia = ids.children.georgia;
     [og.status, (og.headers.get('content-type') ?? '').startsWith('image/')], [200, true]);
 }
 
+// ---- D-174 (0165): a CV in its club's colours, and the ones that must not be
+// John's condition 4: the CV watched with and without a club's colours before
+// CV_WEARS_CLUB_COLOURS was turned on. The seed gives Riverside "Sky blue and
+// navy" (its own pick, condition 1); Northern United, Nate's club, picked
+// none; Thornbeck Thunder SC holds "Purple and gold" but failed a later call
+// and is only claimed again (0150), so Teodor's CV must wear none of it. What
+// PlayerCV draws for a theme is the hero's colour in the card's background and
+// --cv-lead (the first position chip, the map's marker) set to the trim; with
+// no theme it is Pitch's own hero (#2a6a49) and green.
+{
+  const { clubTheme, PRESETS } = await import('../lib/club-colours.ts');
+  const pair = (name) => PRESETS.find((p) => p.name === name);
+  const sky = clubTheme(pair('Sky blue and navy'), 'verified');
+  const purple = clubTheme(pair('Purple and gold'), 'verified');
+  // Only the card's own markup: Next's flight data repeats every style once
+  // more inside a <script>, and the question is what the page draws.
+  const markup = (html) => html.replace(/<script[\s\S]*?<\/script>/g, ' ');
+  const hero = (html) => /<section class="cv-hero[^"]*" style="([^"]*)"/.exec(markup(html))?.[1] ?? null;
+  const wears = (html, t) => {
+    const s = hero(html) ?? '';
+    return [s.includes(`${t.hero} 0%`), s.includes(`--cv-lead:${t.trim}`)];
+  };
+  const plain = (html) => {
+    const s = hero(html) ?? '';
+    return [s.includes('#2a6a49 0%'), s.includes('--cv-lead:#3ddc84')];
+  };
+  const hexes = (t, p) => [t.hero, t.heroDeep, t.trim, p.primary, p.secondary];
+  const anyOf = (html, list) => list.filter((h) => markup(html).toLowerCase().includes(h));
+
+  const deniz = await get('/p/dev-deniz');
+  check('cvcol-r1: a stranger with the link sees Deniz’s CV in Riverside’s own colours — the hero in its blue, the lead in its trim, not Pitch green',
+    [deniz.status, wears(deniz.html, sky), plain(deniz.html)], [200, [true, true], [false, false]]);
+  const nate = await get('/p/dev-nate');
+  check('cvcol-r2: a verified club that chose no colours leaves its player’s CV in Pitch’s own hero and green',
+    [nate.status, plain(nate.html), anyOf(nate.html, hexes(sky, pair('Sky blue and navy')))], [200, [true, true], []]);
+  const teodor = await get('/p/dev-teodor');
+  check('cvcol-r3: a club that is claimed but not verified lends its player’s CV nothing — no hero, no trim, not one of its colours anywhere in the page',
+    [teodor.status, has(teodor.html, 'Thornbeck Thunder SC'), plain(teodor.html), anyOf(teodor.html, hexes(purple, pair('Purple and gold')))],
+    [200, true, [true, true], []]);
+
+  // The three other CV surfaces hand PlayerCV the same answer: the club's
+  // register CV and squad CV (Marina, Riverside's TD) and the family's own
+  // preview, which promises "exactly what a club sees".
+  const marina = ids.people.marina, alex = ids.people.alex, kid = ids.children.deniz;
+  const { html: reg } = await get('/club/register', marina);
+  let regCv = null;
+  for (const id of new Set([...reg.matchAll(/\/club\/register\/cv\/([a-f0-9-]{36})/g)].map((m) => m[1]))) {
+    const r = await get(`/club/register/cv/${id}`, marina);
+    if (/<h1 id="cv-name"[^>]*>Deniz<!-- --> <!-- -->Yılmaz<\/h1>|<h1 id="cv-name"[^>]*>Deniz Yılmaz<\/h1>/.test(r.html)) { regCv = r; break; }
+  }
+  const { html: squads } = await get('/club/squads', marina);
+  let squadCv = null;
+  for (const sq of new Set([...squads.matchAll(/\/club\/squads\/([a-f0-9-]{36})(?=")/g)].map((m) => m[1]))) {
+    const r = await get(`/club/squads/${sq}/cv/${kid.child_id}`, marina);
+    if (r.status === 200) { squadCv = r; break; }
+  }
+  const preview = await get(`/build/${kid.record_id}/preview`, alex);
+  check('cvcol-r4: Riverside’s register CV, its squad CV and the family’s preview of Deniz all wear Riverside’s colours, as the link does',
+    [regCv && wears(regCv.html, sky), squadCv && wears(squadCv.html, sky), wears(preview.html, sky)],
+    [[true, true], [true, true], [true, true]]);
+
+  // D-89: never on a card. The link preview a platform caches carries none of
+  // the colours, and neither does the Open Graph image — read pixel by pixel,
+  // because an image cannot be read for a string.
+  const meta = (html) => [...html.matchAll(/<meta (?:name|property)="(?:og|twitter):[^"]*" content="([^"]*)"/g)].map((m) => m[1]).join(' | ');
+  const sharp = (await import('sharp')).default;
+  const near = async (png, list) => {
+    const { data, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const rgb = list.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+    let n = 0;
+    for (let i = 0; i < data.length; i += info.channels) {
+      if (rgb.some(([r, g, b]) => Math.abs(data[i] - r) + Math.abs(data[i + 1] - g) + Math.abs(data[i + 2] - b) <= 12)) n += 1;
+    }
+    return n;
+  };
+  const og = await fetch(`${BASE}/p/dev-deniz/opengraph-image`);
+  const ogPng = Buffer.from(await og.arrayBuffer());
+  // The counter has to be able to fail (L19): a card painted in the trim is
+  // found, at every pixel.
+  const painted = await sharp({ create: { width: 40, height: 20, channels: 3, background: sky.trim } }).png().toBuffer();
+  check('cvcol-r5: Deniz’s link preview and Open Graph image carry none of Riverside’s colours — not one pixel of its hero or trim (D-89)',
+    [/#[0-9a-f]{6}/i.test(meta(deniz.html)), og.status, await near(ogPng, [sky.hero, sky.trim]), await near(painted, [sky.hero, sky.trim])],
+    [false, 200, 0, 800]);
+}
+
 // ---- D-160: a stat opens to where it came from; the CLUB, never the coach ---
 {
   const deniz = await get('/p/dev-deniz');
@@ -2581,6 +2679,12 @@ const georgia = ids.children.georgia;
     [navOf(brind.html).length > 0, /Brindlewood/i.test(navOf(brind.html)), /brindlewood-rovers-sc|\/claim\//.test(navOf(brind.html)),
      /\bclaim\b/i.test(navOf(brind.html).replace(/<[^>]*>/g, ' '))],
     [true, false, false, false]);
+  // A-P4 (BUZ, 1 Oct, option a): a player's "next trial" is only ever one for
+  // their own squad's age group. Jordan (22) and Nate (17) were both shown
+  // Riverside's "U14 & U15 Boys trials".
+  const nextFor = async (who) => (await get('/home', who)).html.replace(/<!-- -->/g, '').replace(/&amp;/g, '&');
+  check('ap4: a player is never shown another age group’s trial as their next trial — Jordan (22) and Nate (17) see no U14 & U15 trial',
+    [/U14 & U15 Boys/.test(await nextFor(ids.people.jordan)), /U14 & U15 Boys/.test(await nextFor(ids.people.nate))], [false, false]);
   check('D-172: never "partner", "member", "joined", "on Pitch", "verified", "official" or "in association with" on an unclaimed page',
     /\b(partner|member|joined|on Pitch|verified|official|in association with)\b/i.test(bw), false);
 

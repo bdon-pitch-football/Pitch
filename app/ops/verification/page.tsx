@@ -74,7 +74,10 @@ export default async function OpsVerification() {
      -- database's own answer (fn_club_td), one row per club or none.
      left join lateral (select * from fn_club_td(c.id)) td on true
      where c.club_state in ('claimed','verified','suspended')
-     order by case c.club_state when 'claimed' then 0 else 1 end, c.created_at desc`,
+     -- Waiting clubs first, the longest-waiting at the top: the order they
+     -- CLAIMED in, not the order the listings were made (all 183 Victorian
+     -- listings were made together on 30 Sep, so created_at said nothing).
+     order by case c.club_state when 'claimed' then 0 else 1 end, claimed_at asc nulls last, c.created_at desc`,
   );
   const awaiting = rows.filter((r) => r.club_state === 'claimed').length;
   const heldTotal = rows.filter((r) => r.club_state === 'claimed').reduce((s, r) => s + r.held, 0);

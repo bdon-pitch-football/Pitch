@@ -5,7 +5,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
-import { assembleCv } from '@/lib/record-read';
+import { assembleCv, cvClubColours, wornColours } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import PlayerCV from '@/components/cv/PlayerCV';
 import type { CvData } from '@/lib/record-read';
@@ -55,7 +55,8 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
     // their page at once, and comes off it when they are removed (D-158).
     const v = await db.query(`select fn_approved_cv($1) as content`, [a.record_id]);
     cv = (v.rows[0]?.content as CvData | null) ?? null;
-    if (cv) cv = { ...cv, band: 'u16' };
+    // The club's colours follow the membership too (D-174, 0165).
+    if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(a.player_id)) };
   } else {
     cv = await assembleCv(a.record_id, a.player_id, a.band);
   }
@@ -85,7 +86,7 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
           </a>
         </div>
       </div>
-      <PlayerCV p={cv} />
+      <PlayerCV p={cv} {...wornColours(cv)} />
     </>
   );
 }

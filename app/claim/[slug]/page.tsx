@@ -54,7 +54,7 @@ export default async function ClaimClub({ params, searchParams }: {
         <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>{claimed ? `${c.name} is yours to run.` : 'This page has already been claimed.'}</div>
-          {claimed && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You can edit the page now. Posting trials, and anything to do with players, waits for verification — a phone call from us — and we&rsquo;ll be in touch.</div>}
+          {claimed && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You can edit the page now. Posting trials, and anything to do with players, waits for verification — a phone call from us. We ring {c.name} on a number we find ourselves, so let the club know to expect us.</div>}
           {/* The claimed screen was a dead end (30 Sep preview). */}
           {claimed && <Link href="/home" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Go to your club</Link>}
         </div>

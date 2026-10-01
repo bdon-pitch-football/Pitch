@@ -12,10 +12,39 @@ import { createHash, randomBytes } from 'node:crypto';
 import { headers } from 'next/headers';
 import { cache } from 'react';
 import { db } from './db';
+import type { ClubColours } from './club-colours';
 import type { PlayerFixture } from './fixtures';
 import { checkRate } from './ratelimit-db';
 
-export type CvData = PlayerFixture;
+// clubColours / clubState: the current club's own colours and its state
+// (D-174), the same club the club line names — fn_cv_club_colours (0165),
+// asked here and nowhere else. Colours come back only while the club is
+// verified. PlayerCV is the one reader; no card surface reads them (D-89).
+export type CvData = PlayerFixture & { clubColours?: ClubColours | null; clubState?: string | null };
+
+type ColoursAnswer = { primary: string | null; secondary: string | null; state: string } | null;
+const coloursOf = (c: ColoursAnswer): Pick<CvData, 'clubColours' | 'clubState'> => ({
+  clubColours: c?.primary && c.secondary ? { primary: c.primary, secondary: c.secondary } : null,
+  clubState: c?.state ?? null,
+});
+
+/**
+ * What PlayerCV is handed to wear: the CV's own answer from this module, and
+ * nothing a page computed. Every CV surface passes it the same way (perms
+ * cvcol7).
+ */
+export const wornColours = (cv: CvData) => ({ clubColours: cv.clubColours ?? null, clubState: cv.clubState ?? undefined });
+
+/**
+ * The club colours for a CV served from an under-16's approved snapshot. The
+ * snapshot never holds them: like the club line (fn_approved_cv, 0054) they
+ * follow the live membership, so they are asked on every read and laid over
+ * whatever the snapshot carries. The caller holds the authorisation.
+ */
+export async function cvClubColours(personId: string): Promise<Pick<CvData, 'clubColours' | 'clubState'>> {
+  const { rows } = await db.query('select fn_cv_club_colours($1) as colours', [personId]);
+  return coloursOf(rows[0]?.colours ?? null);
+}
 
 // ---------------------------------------------------------------------------
 // The rate limit on this path (CLAUDE.md §2, D-94; brief C, 29 Sep). Every
@@ -89,7 +118,7 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
     // one function that serves a snapshot to all four of its surfaces (0054,
     // 0061), is where that is answered. A second answer here would be a second
     // place to be wrong (L23).
-    return { ...bundle.approved_content, band: bundle.band as CvData['band'] };
+    return { ...bundle.approved_content, band: bundle.band as CvData['band'], ...(await cvClubColours(bundle.person_id)) };
   }
 
   return assembleCv(bundle.record_id, bundle.person_id, bundle.band);
@@ -182,7 +211,9 @@ export async function assembleCv(recordId: string, personId: string, band: strin
       -- snapshot is served with (fn_cv_club, 0054): the live membership, and
       -- no club at all while that club is suspended or taken down (0155).
       -- This used to be a second query of its own, which never asked.
-      fn_cv_club($2) as membership`,
+      fn_cv_club($2) as membership,
+      -- D-174: that club's own colours, while it is verified (0165).
+      fn_cv_club_colours($2) as colours`,
     [bundle.record_id, bundle.person_id],
   );
   const row = r.rows[0];
@@ -217,5 +248,6 @@ export async function assembleCv(recordId: string, personId: string, band: strin
     highlights: row.highlights,
     highlightsUsed: row.highlights.length,
     surfacedStats: row.core.surfaced_stats,
+    ...coloursOf(row.colours),
   };
 }
