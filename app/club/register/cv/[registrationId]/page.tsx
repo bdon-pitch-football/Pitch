@@ -9,13 +9,18 @@ import { assembleCv, cvClubColours, wornColours } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import PlayerCV from '@/components/cv/PlayerCV';
 import type { CvData } from '@/lib/record-read';
-import { T } from '@/lib/palette';
+import { HeaderMark } from '@/components/Wordmark';
+import Link from 'next/link';
+import { carryBackFrom, registerBackHref } from '@/lib/register-back';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Player CV', robots: { index: false, follow: false } };
 
-export default async function RegisterCv({ params }: { params: Promise<{ registrationId: string }> }) {
+export default async function RegisterCv({ params, searchParams }: {
+  params: Promise<{ registrationId: string }>; searchParams: Promise<{ back?: string }>;
+}) {
   const { registrationId } = await params;
+  const { back } = await searchParams;
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
@@ -73,20 +78,39 @@ export default async function RegisterCv({ params }: { params: Promise<{ registr
     [me, registrationId],
   );
 
+  // F12 (BUZ, 1 Oct, "yes to all"): the no-reply note tells a TD to invite
+  // from the register, so the register row's own door comes with the CV —
+  // the same label, the same /club/invite/[id], the same conditions the row
+  // applies (fn_can_invite, and the paid register's shortlist-first rule),
+  // and nothing for a coach, whose row has no door. Where the row says
+  // "Invitation sent", so does this, with no button.
+  const row = a.td ? (await db.query(
+    `select r.club_status, fn_can_invite($2, r.id) as may,
+            (c.club_state = 'verified' and fn_register_active(r.club_id)) as active
+     from registration r join club c on c.id = r.club_id where r.id = $1`,
+    [registrationId, me],
+  )).rows[0] as { club_status: string; may: boolean; active: boolean } | undefined : undefined;
+  const door = !row?.may ? null
+    : row.club_status === 'invited' ? 'sent'
+    : (row.active ? row.club_status === 'shortlisted' : true) ? 'invite' : null;
+
   // PlayerCV renders the public page, header and all, so the way back to the
-  // register is a bar above it. Without this a TD who opened a row had to use
-  // the browser's back button — and in the installed app there isn't one.
-  return (
+  // register is A's page header in the CV's own column (F, 1 Oct): one nav
+  // bar, and the back link's left edge is the card's at every width. Without
+  // it a TD who opened a row had to use the browser's back button — and in
+  // the installed app there isn't one. P1 (BUZ, 1 Oct): the TD's way back is
+  // the same filtered register, at this row (lib/register-back).
+  const head = (
     <>
-      <div style={{ display: 'flex', justifyContent: 'center', background: T.bg }}>
-        <div className="reading" style={{ width: '100%', padding: '14px 18px 0 18px', boxSizing: 'border-box' }}>
-          <a href={a.td ? '/club/register' : '/coach/register'} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, gap: 6, textDecoration: 'none', color: T.muted, fontSize: 13, fontWeight: 700 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
-            {a.td ? 'The register' : 'Registrations'}
-          </a>
+      <HeaderMark back={a.td ? { href: registerBackHref(back, registrationId), label: 'The register' } : { href: '/coach/register', label: 'Registrations' }} />
+      {door === 'invite' && (
+        <div className="cv-invite">
+          {/* The page's one primary, so its one glow (it is not in a row here). */}
+          <Link href={`/club/invite/${registrationId}${carryBackFrom(back)}`} className="btn btn-primary fl-glow">Invite to trial</Link>
         </div>
-      </div>
-      <PlayerCV p={cv} {...wornColours(cv)} />
+      )}
+      {door === 'sent' && <div className="cv-invite cv-invite-sent">Invitation sent</div>}
     </>
   );
+  return <PlayerCV p={cv} {...wornColours(cv)} head={head} />;
 }
