@@ -55,7 +55,7 @@ Both answers get recorded exactly as given, including "I don't know". **A no, or
 > "What this does is switch on your ability to receive players registering interest with the club. Until we've done this call, nothing about any player under 18 reaches you at all — that's true whether or not anyone's paid us."
 
 **5 · Close.**
-> "That's everything. I'll switch it on today and you'll get an email confirming it. If anything changes — you leave the club, someone else takes the role — email me and I'll turn it off the same day."
+> "That's everything. I'll switch it on today. If anything changes — you leave the club, someone else takes the role — email me and I'll turn it off the same day."
 
 ---
 
@@ -82,7 +82,7 @@ You are, for the length of this call, an unverified person's only contact with P
 | **They're hostile or want the page taken down** | Take it down. A club page is not worth an argument, and doc 25 is the takedown route. Log it. |
 | **They say yes to everything, fast, and volunteer nothing** | Trust your ear. It is fine to say you'll ring back and to do a second call. **Nothing in this process is time-critical.** |
 
-**Unverified is not a punishment and it is not a queue.** A claimed-but-unverified club has its page, can post trial notices, and receives CVs by email like any club. It simply receives nothing about a person under 18 (D-126), and registrations arriving for it are **held** — the club sees a count and nothing else.
+**Unverified is not a punishment and it is not a queue.** A claimed-but-unverified club has its page and receives CVs by email like any club. It cannot post trial notices until it is verified (D-90 as amended). It receives nothing about a person under 18 (D-126), and registrations arriving for it are **held**: the club sees a count and nothing else.
 
 ---
 
