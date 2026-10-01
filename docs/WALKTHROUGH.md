@@ -16,7 +16,7 @@ this script is corrected below, and what needs fixing is in round E.
 cd "/Users/bdonmez22/Desktop/Life/Work/Pitch 3.0/repo" && npm run demo -- "Ashvale Lions FC"
 ```
 
-It opens at http://localhost:3030/demo. **Switch seat** in the green bar
+It opens at http://localhost:3030/demo. **Switch seat** in the bar at the top (the amber Demo tag)
 brings you back to the list at any time.
 
 ## Act 1 · The front door (nobody signed in) — about 5 minutes

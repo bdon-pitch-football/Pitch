@@ -1173,6 +1173,49 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 1024px) { .door { max-width: 640px; margin-top: 48px; padding: 34px 36px 36px; } }
 
 /* ===========================================================================
+   THE CLUB DEMO (J, 1 Oct; J-P1 and J-P2 approved by BUZ) — the strip and
+   /demo. docs/design/specs/J-demo.md, mockup floodlit-access-ops-demo.html.
+   Exists on screen only under `npm run demo` (lib/demo).
+   --------------------------------------------------------------------------- */
+/* The demo strip (components/DemoBar.tsx). A demo is a MODE, which is a
+   state, so the strip is dark and the amber pill carries it: it was solid
+   green, and green is an action (D-173 (4)). The hairline is --line, no
+   literal colour (Head of Product Design ruling 5). 44px, never sticky. */
+.demo-bar { background: var(--surface-sunken); border-bottom: 1px solid var(--line); }
+.demo-bar-in { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.demo-bar-t { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.demo-bar-a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 2px; font-size: 12.5px; font-weight: 800; letter-spacing: var(--ls-button); color: var(--ink); white-space: nowrap; text-decoration: none; }
+.demo-bar-a:hover { color: var(--accent); }
+
+/* /demo: the reading column on the page (a list, so never a door panel). */
+.demo-flow { padding-top: 22px; padding-bottom: 40px; }
+.demo-col { display: flex; flex-direction: column; gap: 20px; }
+@media (min-width: 1024px) { .demo-col { margin-top: 26px; } }
+.demo-head { display: flex; align-items: center; gap: 14px; }
+.demo-sec { display: flex; flex-direction: column; gap: 9px; }
+/* The head tile, the club page's: a claimed club's own crest (J-P2), or the
+   dashed initials tile for --unclaimed (D-172: never an image). */
+.demo-tile { width: 52px; height: 52px; border-radius: var(--r-card); flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 900; color: var(--secondary); }
+.demo-tile-crest { background: var(--surface-2); border: 1px solid var(--line); box-shadow: var(--shadow-card); }
+.demo-tile-crest img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.demo-foot { font-size: 12.5px; font-weight: 500; color: var(--muted); line-height: 1.55; margin: 0; }
+
+/* The choice card: the approved join mockup's role card on the Floodlit
+   surface. A seat is a <button> in its own POST form; a link is an <a>.
+   Pairs go two-up from 640px (D-147); reading order stays the 390 order. */
+.choices { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; }
+@media (min-width: 640px) { .choices.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.choices > form { display: flex; margin: 0; }
+.choice { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; min-height: 64px; padding: 15px 14px; text-align: left; font: inherit; cursor: pointer; text-decoration: none; color: var(--ink); background: var(--fl-surface); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-card); }
+.choice:hover { color: var(--ink); }
+.choice .ic { width: 40px; height: 40px; border-radius: var(--r-well); flex-shrink: 0; background: var(--surface-2); display: flex; align-items: center; justify-content: center; color: var(--secondary); }
+.choice .main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.choice .k { font-size: 10px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); }
+.choice .t { font-size: 15px; font-weight: 800; color: var(--ink); }
+.choice .s { font-size: 12.5px; font-weight: 500; color: var(--secondary); line-height: 1.45; margin-top: 1px; }
+.choice .ch { display: flex; flex-shrink: 0; margin-left: auto; color: var(--muted); }
+
+/* ===========================================================================
    THE TRIALS BOARD — Floodlit (D-173 as extended 1 Oct: the board takes the
    1200px layout with a filter rail, the nav bar when signed out, and an
    empty board hides its filters and offers the two doors).

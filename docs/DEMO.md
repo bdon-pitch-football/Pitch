@@ -61,7 +61,7 @@ half a minute later your browser opens at **http://localhost:3030/demo**.
 
 ## In the meeting (about ten minutes)
 
-The green bar at the top says it's a demo. **Switch seat** takes you back to
+The bar at the top with the amber Demo tag says it's a demo. **Switch seat** takes you back to
 the list of seats at any time.
 
 1. **Their club page.** On /demo, choose *Their club's page*. This is what a
