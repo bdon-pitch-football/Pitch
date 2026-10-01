@@ -7,6 +7,7 @@ import { HeaderMark } from '@/components/Wordmark';
 import { FAILURE_COPY } from '@/components/FailureState';
 import { requestAccess } from '@/app/p/[token]/request/actions';
 import { T } from '@/lib/palette';
+import { DashedTile, ParentPage } from '@/components/parent-sheet';
 
 // The three approved sentences, in one place, because a second page now says
 // them (FinishedLink, below).
@@ -32,19 +33,21 @@ const LOCK = (
 // different for any cause (D-77, D-155: a hold reads as an approval). No
 // request-access form: that is for somebody holding a share link.
 export function FinishedLink() {
+  // Floodlit (spec D, 6b): the top bar, the reading column, and the glyph
+  // tile dashed — nothing to act on here (Head of Product Design ruling 4).
+  // The way out is the screen's one primary, so it glows (spec A part 22).
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
-        {LOCK}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em' }}>{WORDS.heading}</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{WORDS.reason}</div>
-        </div>
-        <div className="card-sunken" style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>{WORDS.why}</div>
-        <a href="/home" className="btn btn-primary">{FAILURE_COPY.notFound.action}</a>
+    <ParentPage page>
+      <DashedTile>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" /><path d="M8 10.5 V7.5 a4 4 0 0 1 8 0 v3" /></svg>
+      </DashedTile>
+      <div className="ask" style={{ gap: 6 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em' }}>{WORDS.heading}</h1>
+        <div className="pd-sub">{WORDS.reason}</div>
       </div>
-    </div>
+      <div className="card-sunken" style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>{WORDS.why}</div>
+      <a href="/home" className="btn btn-primary fl-glow">{FAILURE_COPY.notFound.action}</a>
+    </ParentPage>
   );
 }
 

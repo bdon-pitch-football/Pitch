@@ -4,7 +4,7 @@
 // own statuses, which never reach a family (D-108, doc 14 N10).
 import { db } from '@/lib/db';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
+import { card } from '@/lib/ui';
 import { takeOffRegister } from '@/app/registers/actions';
 
 type Row = {
@@ -42,7 +42,7 @@ export default async function RegisterReaders({ viewerId, personId, name, back, 
 
   return (
     <div id="readers" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-      <h2 style={sectionLabel}>Who has read {whose} registrations</h2>
+      <h2 className="sec-h">Who has read {whose} registrations</h2>
       {taken && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Taken off. That club&rsquo;s register no longer has {name ? name : 'you'} on it.</div>}
       {regs.size === 0 ? (
         <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>

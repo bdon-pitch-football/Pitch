@@ -7,6 +7,7 @@ import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { AskHead, ParentPage } from '@/components/parent-sheet';
 import { approveCard } from './actions';
 import { T } from '@/lib/palette';
 
@@ -43,36 +44,37 @@ export default async function CardApproval({ params, searchParams }: {
   const done = approved || c.approved_at;
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name} made a card</div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{done ? `Approved. It's ${name}'s to post.` : 'This is the exact card'}</h1>
-          {!done && <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Not a description of it — the image itself. Nothing exists anywhere until you say yes.</div>}
-        </div>
+    <ParentPage>
+      <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+      <AskHead initial={name[0]} kicker={`${name} made a card`}
+        title={done ? `Approved. It's ${name}'s to post.` : 'This is the exact card'}
+        sub={done ? undefined : 'Not a description of it — the image itself. Nothing exists anywhere until you say yes.'} />
 
-        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 18, padding: 12 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/g/card/${cardId}/image`} alt={`Card for ${name}`} style={{ width: '100%', borderRadius: 12, display: 'block' }} />
-        </div>
-
-        {!done ? (
-          <>
-            <div className="card-sunken" style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-              If you approve it, {name} can save it and post it wherever they like. <b style={{ color: T.ink }}>Once it&rsquo;s out, we can&rsquo;t take it back</b> — that&rsquo;s true of any image on any platform, and we&rsquo;d rather say so than pretend we have a switch we don&rsquo;t have.
-            </div>
-            <form action={approveCard} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}><input type="hidden" name="cardId" value={cardId} />
-              <button type="submit" className="btn btn-primary">Approve this card</button>
-              {/* D-PD-1 (BUZ, 1 Oct): a working No. It writes nothing and goes where the
-                  back link and silence already go (D-138). An <a>, never a second form. */}
-              <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Not this one</Link>
-            </form>
-          </>
-        ) : (
-          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>Saved as approved. The image {name} posts is byte-for-byte the one you just looked at.</div>
-        )}
+      {/* The exact image, never cropped; from 1024 held to 420px so the
+          answer stays near the fold. */}
+      <div className="card pd-cardframe">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`/g/card/${cardId}/image`} alt={`Card for ${name}`} />
       </div>
-    </div>
+
+      {!done ? (
+        <>
+          <div className="card-sunken" style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+            If you approve it, {name} can save it and post it wherever they like. <b style={{ color: T.ink }}>Once it&rsquo;s out, we can&rsquo;t take it back</b> — that&rsquo;s true of any image on any platform, and we&rsquo;d rather say so than pretend we have a switch we don&rsquo;t have.
+          </div>
+          {/* D-PD-0: two equal answers, nothing glows. D-PD-1: the No writes
+              nothing and goes where the back link and silence already go
+              (D-138). An <a>, never a second form. */}
+          <div className="fl-answer">
+            <form action={approveCard}><input type="hidden" name="cardId" value={cardId} />
+              <button type="submit" className="btn btn-secondary">Approve this card</button>
+            </form>
+            <Link href="/home" className="btn btn-secondary">Not this one</Link>
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>Saved as approved. The image {name} posts is byte-for-byte the one you just looked at.</div>
+      )}
+    </ParentPage>
   );
 }

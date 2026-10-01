@@ -15,9 +15,8 @@ import { ageOn } from '@/lib/age';
 import { recordGuardianLanded, resolveApprovalLink } from '@/lib/guardian-flow';
 import { isLinkPreviewFetch, PITCH_METHOD_HEADER } from '@/lib/link-preview';
 import { approve, confirmIt } from './actions';
-import { card } from '@/lib/ui';
 import { LegalBody } from '@/app/legal/legal-page';
-import { HeaderMark } from '@/components/Wordmark';
+import { AskHead, ChevronGlyph, ClockGlyph, ParentPage, TickGlyph } from '@/components/parent-sheet';
 import { FinishedLink } from '@/components/cv/LinkState';
 import { T } from '@/lib/palette';
 
@@ -69,75 +68,84 @@ export default async function Approval({ params, searchParams }: { params: Promi
   const age = ageOn(inv.dob) ?? 0;
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
+    <ParentPage>
+      {/* The ask head (spec D): the child's tile, who is asking, the question. */}
+      <AskHead initial={name[0]} size={27}
+        kicker={teen ? `${name} named you as their parent` : `${name} started this and asked you to look`}
+        title={teen ? `Are you ${name}\u2019s parent?` : `Approve ${name}\u2019s page?`}
+        sub={teen ? `${name} is ${age}. They run their own page, but they can\u2019t send it to clubs until you confirm.` : `${name} is ${age}. Nothing is live until you say so.`} />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{teen ? `${name} named you as their parent` : `${name} started this and asked you to look`}</div>
-          <div style={{ fontSize: 27, fontWeight: 900, lineHeight: 1.12, letterSpacing: '-0.015em' }}>{teen ? `Are you ${name}\u2019s parent?` : `Approve ${name}\u2019s page?`}</div>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-            {teen ? `${name} is ${age}. They run their own page, but they can\u2019t send it to clubs until you confirm.` : `${name} is ${age}. Nothing is live until you say so.`}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent }}>{teen ? 'Once you confirm' : 'If you approve'}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {(teen ? PROMISES_16 : PROMISES).map(([bold, rest], i) => (
-              <div key={bold} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
-                <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
-                  <b style={{ color: T.ink }}>{!teen && i === 0 ? `${name} ${bold}` : bold}</b> {rest}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* doc 32 B3: the privacy policy written for the child is SHOWN here,
-            in the flow, not merely linked. Open by default for an under-16's
-            parent, whose approval accepts it on the child's behalf. */}
-        <details open={!teen} style={{ ...card, display: 'block' }}>
-          <summary style={{ minHeight: 44, display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: 13.5, fontWeight: 800 }}>
-            The privacy policy we wrote for {name}
-          </summary>
-          <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 8, paddingRight: 4 }}>
-            <LegalBody file="21-Privacy-Policy-Child.md" />
-          </div>
-          <a href="/privacy/family" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, fontSize: 12.5, fontWeight: 700, color: T.accent }}>Open it as a full page</a>
-        </details>
-
-        {here === null ? (
-          <div role="note" style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55, marginTop: 'auto' }}>
-            <b style={{ color: T.ink }}>To {teen ? 'confirm' : 'approve'}, use the links we sent you.</b> We texted one and emailed one. Open each and press &ldquo;Yes, it&rsquo;s me&rdquo;. That&rsquo;s how we know the phone and the email are both yours.
-          </div>
-        ) : !confirmedHere ? (
-          <form action={confirmIt} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <input type="hidden" name="code" value={code} />
-            <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>First, tell us this {here === 'sms' ? 'text' : 'email'} reached you.</div>
-            <button type="submit" className="btn btn-primary">Yes, it&rsquo;s me &mdash; continue</button>
-          </form>
-        ) : !bothConfirmed ? (
-          <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55, marginTop: 'auto' }}>
-            <b style={{ color: T.ink }}>One more step.</b> Open the link we {other} to you, press &ldquo;Yes, it&rsquo;s me&rdquo;, and you can {teen ? 'confirm' : 'approve'} from there or here.
-          </div>
-        ) : (
-          <form action={approve} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <input type="hidden" name="code" value={code} />
-            <label style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 10, minHeight: 44, cursor: 'pointer', border: `1px solid ${adult ? T.amber : T.line}` }}>
-              <input type="checkbox" name="adult" required style={{ marginTop: 2, width: 18, height: 18, accentColor: T.accent, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: T.secondary, fontWeight: 700, lineHeight: 1.5 }}>I&rsquo;m {name}&rsquo;s parent or guardian, and I&rsquo;m 18 or over.</span>
-            </label>
-            <button type="submit" className="btn btn-primary">{teen ? 'Confirm I\u2019m their parent' : 'Approve this page'}</button>
-            <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, textAlign: 'center', lineHeight: 1.5 }}>
-              {teen
-                ? <>Not {name}&rsquo;s parent? Do nothing. This request is deleted after 14 days.</>
-                : <>Approving accepts the Terms &amp; Privacy Policy on {name}&rsquo;s behalf, and you can undo it any time.<br />Not ready? Do nothing. If you don&rsquo;t approve, all of this is deleted after 14 days.</>}
+      {/* What happens if yes: one panel of tick rows. The label is a section
+          heading, not green — green is an action, and this is not one. */}
+      <div className="ask" style={{ gap: 9 }}>
+        <h2 className="sec-h">{teen ? 'Once you confirm' : 'If you approve'}</h2>
+        <div className="card pd-ticks">
+          {(teen ? PROMISES_16 : PROMISES).map(([bold, rest], i) => (
+            <div key={bold} className="pd-tk">
+              <TickGlyph />
+              <div><b>{!teen && i === 0 ? `${name} ${bold}` : bold}</b> {rest}</div>
             </div>
-          </form>
-        )}
+          ))}
+        </div>
       </div>
-    </div>
+
+      {/* doc 32 B3: the privacy policy written for the child is SHOWN here,
+          in the flow, not merely linked. Open by default for an under-16's
+          parent, whose approval accepts it on the child's behalf. LegalBody's
+          own markup is untouched (leg-r1); .pol-well is a wrapper. */}
+      <details open={!teen} className="card pd-pol">
+        <summary>
+          The privacy policy we wrote for {name}
+          <ChevronGlyph />
+        </summary>
+        <div className="pol-well">
+          <LegalBody file="21-Privacy-Policy-Child.md" />
+        </div>
+        <a href="/privacy/family" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, fontSize: 12.5, fontWeight: 700, color: T.accent }}>Open it as a full page</a>
+      </details>
+
+      {here === null ? (
+        <div role="note" className="card pd-body">
+          <b>To {teen ? 'confirm' : 'approve'}, use the links we sent you.</b> We texted one and emailed one. Open each and press &ldquo;Yes, it&rsquo;s me&rdquo;. That&rsquo;s how we know the phone and the email are both yours.
+        </div>
+      ) : !confirmedHere ? (
+        // A step that gives nothing away, so it keeps the screen's one glow.
+        <form action={confirmIt} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input type="hidden" name="code" value={code} />
+          <div className="pd-body">First, tell us this {here === 'sms' ? 'text' : 'email'} reached you.</div>
+          <button type="submit" className="btn btn-primary fl-glow">Yes, it&rsquo;s me &mdash; continue</button>
+        </form>
+      ) : !bothConfirmed ? (
+        <div role="status" className="card card-accent pd-body">
+          <b>One more step.</b> Open the link we {other} to you, press &ldquo;Yes, it&rsquo;s me&rdquo;, and you can {teen ? 'confirm' : 'approve'} from there or here.
+        </div>
+      ) : (
+        // D-PD-0: the answer is the charter secondary, and nothing glows. The
+        // no-answer sits beside it at the same width: the source's one
+        // footnote, split at its line break, in the same order. Two-up from
+        // 1024, stacked on a phone.
+        <form action={approve} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input type="hidden" name="code" value={code} />
+          <label className={adult ? 'card card-amber pd-adult' : 'card pd-adult'}>
+            <input type="checkbox" name="adult" required />
+            <span>I&rsquo;m {name}&rsquo;s parent or guardian, and I&rsquo;m 18 or over.</span>
+          </label>
+          <div className="fl-answer">
+            <div className="pd-cell">
+              <button type="submit" className="btn btn-secondary">{teen ? 'Confirm I\u2019m their parent' : 'Approve this page'}</button>
+              {!teen && <div className="pd-small" style={{ textAlign: 'center' }}>Approving accepts the Terms &amp; Privacy Policy on {name}&rsquo;s behalf, and you can undo it any time.</div>}
+            </div>
+            <div className="pd-cell">
+              <div className="card-sunken pd-info sec">
+                <ClockGlyph />
+                <div>{teen
+                  ? <>Not {name}&rsquo;s parent? Do nothing. This request is deleted after 14 days.</>
+                  : <>Not ready? Do nothing. If you don&rsquo;t approve, all of this is deleted after 14 days.</>}</div>
+              </div>
+            </div>
+          </div>
+        </form>
+      )}
+    </ParentPage>
   );
 }

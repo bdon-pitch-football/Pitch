@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
+import { AskHead, ParentPage, TickGlyph } from '@/components/parent-sheet';
 import { approveChange, issueShareLink } from './actions';
 import { requireRecordActor } from '@/lib/record-guard';
 import { T } from '@/lib/palette';
@@ -41,12 +42,10 @@ export default async function PendingReview({ params, searchParams }: {
   // are /home's, so the two places a parent learns this agree (A-N1).
   if (!done && !r.pending_about) {
     return (
-      <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-          <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Nothing is waiting on you.</h1>
-        </div>
-      </div>
+      <ParentPage>
+        <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+        <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>Nothing is waiting on you.</h1>
+      </ParentPage>
     );
   }
 
@@ -54,26 +53,27 @@ export default async function PendingReview({ params, searchParams }: {
     // approved state: confirmation + the share-link affordance
     const issue = issueShareLink;
     return (
-      <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-          <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{name}&rsquo;s page is approved</h1>
-            <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Clubs holding the link now read this version.</div>
-          </div>
-          {link ? (
-            <div style={{ background: T.surface, border: `1.5px solid ${T.accent}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>The share link — it works only where you send it</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, wordBreak: 'break-all' }}>pitchfootball.com.au/p/{link}</div>
-              <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500 }}>Expires in 90 days. You can pause or regenerate it any time.</div>
-            </div>
-          ) : (
-            <form action={issue}><input type="hidden" name="recordId" value={recordId} />
-              <button type="submit" style={{ width: '100%', background: T.accent, color: T.onAccent, borderRadius: 14, height: 50, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Get the share link</button>
-            </form>
-          )}
+      <ParentPage>
+        <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+        <div className="ask" style={{ gap: 6 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>{name}&rsquo;s page is approved</h1>
+          <div className="pd-sub">Clubs holding the link now read this version.</div>
         </div>
-      </div>
+        {link ? (
+          // Not a link you can press: ink, in the face the send screen uses
+          // for an address, on a plain panel.
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>The share link — it works only where you send it</div>
+            <div className="pd-link pd-mono" style={{ fontSize: 13 }}>pitchfootball.com.au/p/{link}</div>
+            <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500 }}>Expires in 90 days. You can pause or regenerate it any time.</div>
+          </div>
+        ) : (
+          // A step that gives nothing away: the charter primary, and the glow.
+          <form action={issue}><input type="hidden" name="recordId" value={recordId} />
+            <button type="submit" className="btn btn-primary fl-glow">Get the share link</button>
+          </form>
+        )}
+      </ParentPage>
     );
   }
 
@@ -83,52 +83,49 @@ export default async function PendingReview({ params, searchParams }: {
     : null;
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>Waiting on you</div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{name} changed the page</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Only this change needs you. Everything else stays exactly as you approved it.</div>
-        </div>
+    <ParentPage>
+      <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+      <AskHead initial={name[0]} kicker="Waiting on you" title={`${name} changed the page`}
+        sub="Only this change needs you. Everything else stays exactly as you approved it." />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>The About section</div>
-          <div style={{ background: T.surface, border: `1px solid ${T.purple}`, borderRadius: 16, padding: '15px 14px' }}>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted, marginBottom: 4 }}>{approvedDate ? `You approved this on ${approvedDate}` : 'Nothing approved yet'}</div>
-              <div style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, color: T.muted, textDecoration: r.approved_about ? 'line-through' : 'none' }}>{r.approved_about ?? '(empty)'}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.accent, marginBottom: 4 }}>The new version</div>
-              <div style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, color: T.ink }}>{r.pending_about}</div>
-            </div>
+      <div className="ask">
+        <h2 className="sec-h">The About section</h2>
+        {/* Purple: a state, waiting on you. */}
+        <div className="card card-purple">
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted, marginBottom: 4 }}>{approvedDate ? `You approved this on ${approvedDate}` : 'Nothing approved yet'}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, color: T.muted, textDecoration: r.approved_about ? 'line-through' : 'none' }}>{r.approved_about ?? '(empty)'}</div>
+          </div>
+          <div>
+            {/* A label, so ink: green is an action. */}
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.ink, marginBottom: 4 }}>The new version</div>
+            <div style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, color: T.ink }}>{r.pending_about}</div>
           </div>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {[
-            `Until you approve it, every club holding ${name}'s link still reads the old version.`,
-            // D-F1 (BUZ, 1 Oct): "You can edit the words before you approve
-            // them." was here, promising an edit that is not built (D-PD-2).
-            'Saying no leaves the approved page exactly where it is.',
-          ].map((t) => (
-            <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{t}</div>
-            </div>
-          ))}
-        </div>
-
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 'auto' }}><input type="hidden" name="recordId" value={recordId} />
-          <button type="submit" className="btn btn-primary">Approve the change</button>
-          {/* D-PD-2 (BUZ, 1 Oct): "Edit the words first" was drawn here as a
-              button with no destination. It comes back when it is built. */}
-          {/* D-PD-1 (BUZ, 1 Oct): a working No. It writes nothing and goes where the
-              back link and silence already go (D-138). An <a>, never a second form. */}
-          <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Not this one</Link>
-        </form>
       </div>
-    </div>
+
+      <div className="pd-ticks">
+        {[
+          `Until you approve it, every club holding ${name}'s link still reads the old version.`,
+          // D-F1 (BUZ, 1 Oct): "You can edit the words before you approve
+          // them." was here, promising an edit that is not built (D-PD-2).
+          'Saying no leaves the approved page exactly where it is.',
+        ].map((t) => (
+          <div key={t} className="pd-tk"><TickGlyph /><div>{t}</div></div>
+        ))}
+      </div>
+
+      {/* D-PD-0: two equal answers, nothing glows. D-PD-2 (BUZ, 1 Oct): "Edit
+          the words first" was drawn here as a button with no destination; it
+          comes back when it is built. D-PD-1: the No writes nothing and goes
+          where the back link and silence already go (D-138). An <a>, never a
+          second form. */}
+      <div className="fl-answer">
+        <form action={act}><input type="hidden" name="recordId" value={recordId} />
+          <button type="submit" className="btn btn-secondary">Approve the change</button>
+        </form>
+        <Link href="/home" className="btn btn-secondary">Not this one</Link>
+      </div>
+    </ParentPage>
   );
 }

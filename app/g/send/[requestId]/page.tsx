@@ -7,14 +7,12 @@ import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
+import { AskHead, CrossGlyph, InfoGlyph, ParentPage, TickGlyph } from '@/components/parent-sheet';
 import { dispatchSend } from './actions';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Send a CV', robots: { index: false, follow: false } };
-
-const label = sectionLabel;
 
 export default async function GuardianSend({ params, searchParams }: {
   params: Promise<{ requestId: string }>;
@@ -49,13 +47,11 @@ export default async function GuardianSend({ params, searchParams }: {
 
   if (sent || r.dispatched_at) {
     return (
-      <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-          <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-          <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>Sent. {clubName} can open {name}&rsquo;s page.</h1>
-          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>You can pause or replace {name}&rsquo;s link any time — the club&rsquo;s access stops when you do.</div>
-        </div>
-      </div>
+      <ParentPage>
+        <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+        <h1 style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>Sent. {clubName} can open {name}&rsquo;s page.</h1>
+        <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>You can pause or replace {name}&rsquo;s link any time — the club&rsquo;s access stops when you do.</div>
+      </ParentPage>
     );
   }
 
@@ -63,76 +59,67 @@ export default async function GuardianSend({ params, searchParams }: {
   // neutral words the send screen uses, and no button: nothing can go.
   if (r.stopped) {
     return (
-      <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-          <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-          <div style={{ borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <div style={{ width: 7, height: 7, borderRadius: 999, background: T.muted }} />
-              <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.82)' }}>Not sent</div>
-            </div>
-            <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>We can&rsquo;t send to this club through Pitch</h1>
-            <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Nothing has been sent.</div>
-          </div>
+      <ParentPage>
+        <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+        {/* The hero panel (spec A part 14) and the neutral pill (part 12). */}
+        <div className="hero-panel" style={{ padding: 17, gap: 8 }}>
+          <div style={{ display: 'flex' }}><span className="pill">Not sent</span></div>
+          <h1 style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.2, letterSpacing: '-0.015em' }}>We can&rsquo;t send to this club through Pitch</h1>
+          <div className="pd-sub" style={{ fontSize: 13.5 }}>Nothing has been sent.</div>
         </div>
-      </div>
+      </ParentPage>
     );
   }
 
   const act = dispatchSend;
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.purple }}>{name} asked you to send this</div>
-          <h1 style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.015em' }}>Send {name}&rsquo;s CV to {clubName}?</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>Nothing has been sent. It only goes if you send it.</div>
-        </div>
+    <ParentPage>
+      <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+      <AskHead initial={name[0]} size={24} kicker={`${name} asked you to send this`}
+        title={<>Send {name}&rsquo;s CV to {clubName}?</>}
+        sub="Nothing has been sent. It only goes if you send it." />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={label}>It goes to</div>
-          <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', wordBreak: 'break-all' }}>{address}</div>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{name} typed this from the club&rsquo;s trial notice</div>
-          </div>
-          {/* D-PD-2 (BUZ, 1 Oct): "Change the address" was drawn here as a
-              button with no destination. It comes back when it is built. */}
+      {/* The address is a fact to check, not an action: no green edge. */}
+      <div className="ask" style={{ gap: 9 }}>
+        <h2 className="sec-h">It goes to</h2>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div className="pd-mono" style={{ fontSize: 15, fontWeight: 700, wordBreak: 'break-all' }}>{address}</div>
+          <div className="pd-small">{name} typed this from the club&rsquo;s trial notice</div>
         </div>
-
-        <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 800 }}>What the club receives</div>
-          {[
-            `A link to ${name}'s CV — not a file, and not a copy.`,
-            `You can pause or replace that link later. The club's access stops when you do.`,
-            // "If they reply, it comes to you and <name> together" was here, and
-            // it is false: a club's reply to the §19 email reaches nobody (U-11,
-            // doc 15 §19). Removed, 28 Sep; a replacement line is BUZ's to approve.
-          ].map((t) => (
-            <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{t}</div>
-            </div>
-          ))}
-          <div style={{ height: 1, background: T.line }} />
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M6 6 L18 18 M18 6 L6 18" /></svg>
-            <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>No contact details for you or {name} — not now, and not if they reply.</div>
-          </div>
-        </div>
-
-        <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
-          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>If you&rsquo;d rather not, do nothing. This disappears by itself and {name} can ask again another time.</div>
-        </div>
-
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}><input type="hidden" name="requestId" value={requestId} />
-          <button type="submit" className="btn btn-primary">Send it to {clubName}</button>
-          {/* D-PD-1 (BUZ, 1 Oct): a working No. It writes nothing and goes where the
-              back link and silence already go (D-138). An <a>, never a second form. */}
-          <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Not this one</Link>
-        </form>
+        {/* D-PD-2 (BUZ, 1 Oct): "Change the address" was drawn here as a
+            button with no destination. It comes back when it is built. */}
       </div>
-    </div>
+
+      <div className="card pd-ticks">
+        <div style={{ fontSize: 13.5, fontWeight: 800 }}>What the club receives</div>
+        {[
+          `A link to ${name}'s CV — not a file, and not a copy.`,
+          `You can pause or replace that link later. The club's access stops when you do.`,
+          // "If they reply, it comes to you and <name> together" was here, and
+          // it is false: a club's reply to the §19 email reaches nobody (U-11,
+          // doc 15 §19). Removed, 28 Sep; a replacement line is BUZ's to approve.
+        ].map((t) => (
+          <div key={t} className="pd-tk"><TickGlyph /><div>{t}</div></div>
+        ))}
+        <hr className="pd-hair" />
+        <div className="pd-tk"><CrossGlyph /><div>No contact details for you or {name} — not now, and not if they reply.</div></div>
+      </div>
+
+      <div className="card-sunken pd-info">
+        <InfoGlyph />
+        <div>If you&rsquo;d rather not, do nothing. This disappears by itself and {name} can ask again another time.</div>
+      </div>
+
+      {/* D-PD-0: two equal answers, nothing glows. D-PD-1: the No writes
+          nothing and goes where the back link and silence already go (D-138).
+          An <a>, never a second form: the write suite finds the send form by
+          its requestId field. */}
+      <div className="fl-answer">
+        <form action={act}><input type="hidden" name="requestId" value={requestId} />
+          <button type="submit" className="btn btn-secondary">Send it to {clubName}</button>
+        </form>
+        <Link href="/home" className="btn btn-secondary">Not this one</Link>
+      </div>
+    </ParentPage>
   );
 }

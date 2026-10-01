@@ -6,7 +6,7 @@
 // all: a player cannot type a club in, and nothing else could write it.
 import { db } from '@/lib/db';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
+import { card } from '@/lib/ui';
 import { answerSquadInvitation, leaveSquad, withdrawClaim } from '@/app/squad/actions';
 
 type Row = { club: string; squad: string; age_group: string | null; season: string | null };
@@ -40,11 +40,10 @@ export default async function SquadCard({ personId, firstName, back, mine, said 
   )).rows as { id: string; club: string; squad: string }[];
 
   const they = mine ? 'you' : firstName;
-  const ghost: React.CSSProperties = { height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-      <div style={sectionLabel}>{mine ? 'Where you play' : `Where ${firstName} plays`}</div>
+      <h2 className="sec-h">{mine ? 'Where you play' : `Where ${firstName} plays`}</h2>
 
       {/* Nothing is reported as done unless it was done (N3). A club can be
           suspended between the ask and the answer, and the answer then does
@@ -56,21 +55,26 @@ export default async function SquadCard({ personId, firstName, back, mine, said 
       )}
 
       {invites.map((i) => (
-        <div key={i.id} style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        // A club's invitation is a question, not an action, so its panel has
+        // no green edge (spec D, controls; mockup k-georgia).
+        <div key={i.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 800 }}>{i.club} would like {they === 'you' ? 'you' : they} in {i.squad}</div>
             <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
               Saying yes puts {i.squad} on {mine ? 'your' : `${firstName}’s`} page and lets that club’s coaches for this team read {mine ? 'your' : 'their'} record. Doing nothing is a complete answer.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 9 }}>
-            <form action={answerSquadInvitation} style={{ flex: 1, display: 'flex' }}>
+          {/* D-PD-0: putting a child in a squad gives something away, so Yes
+              and No are the same secondary, the same size, and nothing glows.
+              Both are the forms they always were, fields in the same order. */}
+          <div className="fl-answer">
+            <form action={answerSquadInvitation}>
               <input type="hidden" name="invitationId" value={i.id} /><input type="hidden" name="answer" value="yes" /><input type="hidden" name="back" value={back} />
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Yes, {mine ? 'I play' : `${firstName} plays`} there</button>
+              <button type="submit" className="btn btn-secondary">Yes, {mine ? 'I play' : `${firstName} plays`} there</button>
             </form>
-            <form action={answerSquadInvitation} style={{ display: 'flex' }}>
+            <form action={answerSquadInvitation}>
               <input type="hidden" name="invitationId" value={i.id} /><input type="hidden" name="answer" value="no" /><input type="hidden" name="back" value={back} />
-              <button type="submit" style={ghost}>Not this one</button>
+              <button type="submit" className="btn btn-secondary">Not this one</button>
             </form>
           </div>
         </div>
@@ -84,7 +88,7 @@ export default async function SquadCard({ personId, firstName, back, mine, said 
           </div>
           <form action={leaveSquad}>
             <input type="hidden" name="personId" value={personId} /><input type="hidden" name="back" value={back} />
-            <button type="submit" style={ghost}>Leave</button>
+            <button type="submit" className="console-btn">Leave</button>
           </form>
         </div>
       ) : claim ? (
@@ -95,7 +99,7 @@ export default async function SquadCard({ personId, firstName, back, mine, said 
           </div>
           <form action={withdrawClaim}>
             <input type="hidden" name="personId" value={personId} /><input type="hidden" name="claimId" value={claim.id} /><input type="hidden" name="back" value={back} />
-            <button type="submit" style={ghost}>Cancel</button>
+            <button type="submit" className="console-btn">Cancel</button>
           </form>
         </div>
       ) : (

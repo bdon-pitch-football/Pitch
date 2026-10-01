@@ -11,7 +11,6 @@ import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { deleteEverything, renewLink, replaceLink, setPause, setSendSwitch, switchOffOne } from './actions';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
 import RegisterReaders from '@/components/RegisterReaders';
 import SquadCard from '@/components/SquadCard';
 import WhoLooked from '@/components/WhoLooked';
@@ -19,8 +18,6 @@ import WhoLooked from '@/components/WhoLooked';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Controls', robots: { index: false, follow: false } };
 
-const label = sectionLabel;
-const ghost: React.CSSProperties = { flex: 1, height: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' };
 
 export default async function Controls({ params, searchParams }: {
   params: Promise<{ childId: string }>;
@@ -137,12 +134,12 @@ export default async function Controls({ params, searchParams }: {
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home', label: 'Your family' }} />
         {off && (
-          <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>
+          <div role="status" className="card card-accent" style={{ fontSize: 13, fontWeight: 700, color: T.secondary }}>
             Switched off. That club&rsquo;s link stopped working just now.
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 15, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 900, color: T.secondary }}>{name[0]}</div>
+          <div className="who-tile" style={{ width: 48, height: 48, borderRadius: 15, fontSize: 17 }}>{name[0]}</div>
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>{name}</h1>
           </div>
@@ -152,12 +149,13 @@ export default async function Controls({ params, searchParams }: {
         <SquadCard personId={childId} firstName={name} back={`/g/controls/${childId}`} mine={false} said={squad} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <h2 style={label}>{theirs} link</h2>
-          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <h2 className="sec-h">{theirs} link</h2>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Not a link you can press: ink, mono (spec D). */}
             {link ? (
-              <div style={{ fontSize: 14, fontWeight: 800, color: T.accent, wordBreak: 'break-all' }}>pitchfootball.com.au/p/{link}</div>
+              <div className="pd-link pd-mono">pitchfootball.com.au/p/{link}</div>
             ) : c.token ? (
-              <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/p/{c.token.token_hint ?? '····'}</div>
+              <div className="pd-link pd-mono">pitchfootball.com.au/p/{c.token.token_hint ?? '····'}</div>
             ) : (
               <div style={{ fontSize: 13.5, fontWeight: 700, color: T.muted }}>No live link right now.</div>
             )}
@@ -167,23 +165,24 @@ export default async function Controls({ params, searchParams }: {
                 <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500 }}>Expires {c.token.expires?.trim()} · 90 days from when you made it</div>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <form action={renewLink} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" style={ghost}>Renew</button></form>
-              <form action={replaceLink} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" style={ghost}>Replace</button></form>
+            {/* The charter secondary pair, not a hand-built third button. */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <form action={renewLink} style={{ display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" className="btn btn-secondary">Renew</button></form>
+              <form action={replaceLink} style={{ display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" className="btn btn-secondary">Replace</button></form>
             </div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Replacing it kills the old one immediately. Anyone holding it stops being able to open the page.</div>
           </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <h2 style={label}>Pause it</h2>
-          <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <h2 className="sec-h">Pause it</h2>
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14.5, fontWeight: 800 }}>{name}&rsquo;s page is {c.paused ? 'paused' : 'live'}</div>
               <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Switch it off and every link stops working until you switch it back on. Nothing is deleted.</div>
             </div>
             <form action={setPause}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="paused" value={String(!c.paused)} />
-              <button type="submit" aria-label="Pause toggle" style={{ width: 52, height: 44, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button type="submit" aria-label="Pause toggle" className="pd-switch">
                 <div style={{ width: 46, height: 27, borderRadius: 999, background: c.paused ? T.surface2 : T.accent, display: 'flex', alignItems: 'center', justifyContent: c.paused ? 'flex-start' : 'flex-end', padding: 3, boxSizing: 'border-box' }}>
                   <div style={{ width: 21, height: 21, borderRadius: 999, background: c.paused ? T.muted : T.onAccent }} />
                 </div>
@@ -198,8 +197,8 @@ export default async function Controls({ params, searchParams }: {
             switch — the guardian is already the one who sends. */}
         {c.band === '16_17' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <h2 style={label}>Sending</h2>
-            <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <h2 className="sec-h">Sending</h2>
+            <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14.5, fontWeight: 800 }}>{c.send_off ? 'Sending is off' : `${name} can send their own CV`}</div>
                 <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
@@ -209,7 +208,7 @@ export default async function Controls({ params, searchParams }: {
                 </div>
               </div>
               <form action={setSendSwitch}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="sendOff" value={String(!c.send_off)} />
-                <button type="submit" aria-label="Sending toggle" style={{ width: 52, height: 44, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button type="submit" aria-label="Sending toggle" className="pd-switch">
                   <div style={{ width: 46, height: 27, borderRadius: 999, background: c.send_off ? T.surface2 : T.accent, display: 'flex', alignItems: 'center', justifyContent: c.send_off ? 'flex-start' : 'flex-end', padding: 3, boxSizing: 'border-box' }}>
                     <div style={{ width: 21, height: 21, borderRadius: 999, background: c.send_off ? T.muted : T.onAccent }} />
                   </div>
@@ -226,8 +225,8 @@ export default async function Controls({ params, searchParams }: {
             club or to what address. */}
         {(c.sends as { at: string; club: string | null; recipient: string }[]).length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <h2 style={label}>Where {theirs} CV has been sent</h2>
-            <div style={{ ...card, padding: '4px 14px' }}>
+            <h2 className="sec-h">Where {theirs} CV has been sent</h2>
+            <div className="card" style={{ padding: '4px 14px' }}>
               {(c.sends as { at: string; club: string | null; recipient: string; tokenId: string | null; live: boolean }[]).map((sd, i) => (
                 <div key={`${sd.at}-${sd.recipient}-${i}`} style={{ display: 'flex', gap: 12, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}`, alignItems: 'center' }}>
                   <div style={{ width: 78, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{sd.at}</div>
@@ -261,8 +260,8 @@ export default async function Controls({ params, searchParams }: {
         <WhoLooked viewerId={me as string} personId={childId} name={name} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <h2 style={label}>Everything that&rsquo;s happened</h2>
-          <div style={{ ...card, padding: '6px 14px' }}>
+          <h2 className="sec-h">Everything that&rsquo;s happened</h2>
+          <div className="card" style={{ padding: '6px 14px' }}>
             {(c.timeline as { at: string; event: string }[]).length === 0 && (
               <div style={{ fontSize: 12.5, fontWeight: 500, color: T.muted, padding: '4px 0' }}>
                 Nothing yet beyond your approval. Anything you do here — renewing their link, pausing their page, replying to a club — is written down and shows up in this list.
@@ -277,12 +276,13 @@ export default async function Controls({ params, searchParams }: {
           </div>
         </div>
 
-        <div style={{ background: T.surface, border: `1px solid ${T.red}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="card card-red" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 15, fontWeight: 900, color: T.red }}>Delete everything</div>
           <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{theirs} page, photo, clips and stats. Gone, and not recoverable. No reason needed and nobody will ask you for one.</div>
           <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>We keep one thing: a record that you gave permission and then withdrew it. No football, no photo, no page — just the fact it happened, because we have to be able to show it did.</div>
           <form action={deleteEverything}><input type="hidden" name="childId" value={childId} />
-            <button type="submit" style={{ width: '100%', height: 46, borderRadius: 13, border: `1px solid ${T.red}`, background: 'transparent', color: T.red, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Delete {name}&rsquo;s profile</button>
+            {/* One tap, as D-26 requires: the secondary in the red state. */}
+            <button type="submit" className="btn btn-secondary is-danger">Delete {name}&rsquo;s profile</button>
           </form>
         </div>
       </div>

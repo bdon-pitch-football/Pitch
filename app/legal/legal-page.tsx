@@ -10,7 +10,7 @@ import { T } from '@/lib/palette';
 // heading and sentence is the published text, unaltered.
 
 const LEGAL_CSS = `
-        .legal-doc h1 { font-size: 28px; font-weight: 900; letter-spacing: -.02em; color: var(--ink); line-height: 1.15; }
+        .legal-doc h1 { font-size: 28px; font-weight: 900; letter-spacing: -.015em; color: var(--ink); line-height: 1.15; }
         .legal-doc h2 { font-size: 20px; font-weight: 800; letter-spacing: -.015em; color: var(--ink); margin-top: 2em; }
         .legal-doc h3 { font-size: 16px; font-weight: 800; color: var(--ink); margin-top: 1.6em; }
         .legal-doc strong { color: var(--ink); }
