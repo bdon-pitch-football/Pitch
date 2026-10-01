@@ -183,3 +183,7 @@ Production opened with no club listings, so a club person had nothing to claim a
 
 - Spec A steps 1–6: the shared shells and panels on all 74 pages (builder report `docs/design/reports/2026-10-01-build-base-pass.md`). No words or doors changed (923-view crawl).
 - Approved with the three glows dropped under the one-glow rule: the persona landings' closing button, the unclaimed club page's send button, and a second child's button.
+
+## 1 October: doc 15 §39's recipient (BUZ: "option A, keep going")
+
+- §39 "Your club is verified" goes to the club's administrator who claimed the page, only when the club named them on the call (proved adult address, never the club's published address). The TD-handover case is John's to rule on (`LEO-to-JOHN-PD3-not-now-and-the-s39-recipient-1-oct.md`).
