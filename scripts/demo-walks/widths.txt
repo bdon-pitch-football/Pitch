@@ -1,3 +1,6 @@
+# Every page the run sheet (docs/DEMO-TD.md "The walk") opens, at laptop width
+# and at phone width. No billing page: billing is off (D-163) and /club/billing
+# redirects to /home, which is measured already. Nothing here sends.
 width 1280
 note 1280 · club page
 go /fc/balmoral-fc
@@ -7,6 +10,10 @@ go /trials
 wide
 note 1280 · the demo door
 go /demo
+wide
+note 1280 · what families receive
+click What families receive
+at /dev/outbox
 wide
 go /demo
 click Marina Petrovic
@@ -19,17 +26,32 @@ wide
 note 1280 · /club/register?age=U15
 go /club/register?age=U15
 wide
+note 1280 · a CV off the register
+click Open the CV
+at /club/register/cv/
+wide
+note 1280 · the invitation, before send (nothing is sent)
+go /club/register?status=shortlisted
+click Invite to trial
+at /club/invite/
+wide
 note 1280 · /club/squads
 go /club/squads
 wide
-note 1280 · /club/billing
-go /club/billing
+note 1280 · a squad, with a family waiting
+click U14 Boys
+at /club/squads/
 wide
 note 1280 · /club/page-edit
 go /club/page-edit
 wide
 note 1280 · /club/post-trial
 go /club/post-trial
+wide
+go /demo
+click Alex
+note 1280 · the parent's home, with the invitation
+go /home
 wide
 go /demo
 click M. Harris
@@ -41,6 +63,11 @@ click Sam Kaya
 note 1280 · coach register
 go /coach/register
 wide
+go /demo
+click Pat Nguyen
+note 1280 · the administrator's home
+go /home
+wide
 width 375
 note 375 · club page
 go /fc/balmoral-fc
@@ -50,6 +77,10 @@ go /trials
 wide
 note 375 · the demo door
 go /demo
+wide
+note 375 · what families receive
+click What families receive
+at /dev/outbox
 wide
 go /demo
 click Marina Petrovic
@@ -62,17 +93,32 @@ wide
 note 375 · /club/register?age=U15
 go /club/register?age=U15
 wide
+note 375 · a CV off the register
+click Open the CV
+at /club/register/cv/
+wide
+note 375 · the invitation, before send (nothing is sent)
+go /club/register?status=shortlisted
+click Invite to trial
+at /club/invite/
+wide
 note 375 · /club/squads
 go /club/squads
 wide
-note 375 · /club/billing
-go /club/billing
+note 375 · a squad, with a family waiting
+click U14 Boys
+at /club/squads/
 wide
 note 375 · /club/page-edit
 go /club/page-edit
 wide
 note 375 · /club/post-trial
 go /club/post-trial
+wide
+go /demo
+click Alex
+note 375 · the parent's home, with the invitation
+go /home
 wide
 go /demo
 click M. Harris
@@ -83,4 +129,9 @@ go /demo
 click Sam Kaya
 note 375 · coach register
 go /coach/register
+wide
+go /demo
+click Pat Nguyen
+note 375 · the administrator's home
+go /home
 wide

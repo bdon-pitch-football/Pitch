@@ -54,8 +54,8 @@ waiting on it).
 > one waiting on the U15 Girls and the U18s as well."
 
 **5 · The invitation. This is the moment.** Back to **Register** → filter
-**Shortlisted** → **Invite to trial** on **Deniz** or **Georgia** → read the
-box out before you press:
+**Shortlisted** → **Invite to trial** on **Nate** → read the box out before
+you press:
 
 > "It goes into their Pitch account and their parent's, together. Not an email
 > to the child. You get no phone number and no email address. If they ignore
@@ -125,15 +125,13 @@ trials and nothing they wrote. Then, on `/demo`:
    address on Balmoral's own public notices, never one you typed. Read it out
    of the inbox, put it in, claim.
 5. **Crest & club page** → write the philosophy, the pathway, the year founded,
-   save, then **Squads** → add a team, then **Post a trial**. Open the public
-   page and it is all there.
+   save, then **Squads** → add a team. Open the public page and it is all
+   there. (There is no **Post a trial** yet: a club that has only claimed
+   posts trials after the verification call.)
 
-> "Claiming gets you the page and the trial notices. It cannot make you
-> verified — only the phone call does that, and nothing about a child moves
-> until it happens."
-
-**Say plainly:** today the claim link is not on the public club page — we send
-it to the club. It is on the demo menu so you can show the flow.
+> "Claiming gets you the page and your squads. It cannot make you
+> verified — only the phone call does that, and trial notices and anything
+> about a child wait until it happens."
 
 ---
 

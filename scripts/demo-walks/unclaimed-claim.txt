@@ -1,68 +1,137 @@
+# The club making its own page — docs/DEMO-TD.md, "If he asks how would
+# Balmoral get its own page?". Needs a FRESH demo started with --unclaimed:
+# the claim consumes a single-use link and a single-use code.
+
 note 1 · the compiled listing
 go /demo
 expect Nobody at Balmoral FC has claimed the page yet
 click Balmoral FC’s page
 at /fc/balmoral-fc
-expect Compiled from public information
-absent Our philosophy
+expect Pitch made this page from public information. Balmoral FC has not claimed it.
+expect Claim it
+expect Ask us to update or remove it
+expect U14 & U15 Boys trials
+expect The club’s own notice
+# their trials and nothing they wrote
+absent Verified club
 absent Teams & age groups
+absent The pathway is real
+absent Est. 19
+absent Every junior plays, every junior develops
+wide
+width 375
+go /fc/balmoral-fc
+wide
+width 1280
+
 note 2 · press claim, land on sign in, create the account
 go /demo
 click Claim Balmoral FC
 at /signin
 click Create an account
 at /join
+click Australia
+expect What’s your position?
 click Club
 fill input[placeholder="Your first name"]=Chris
 fill input[type=date]=1979-04-02
 fill input[type=checkbox]=1
 click Continue
 expect Your account
+expect find your club on Pitch and press Claim
 fill input[name=email]=chris@balmoralfc.example.au
 fill input[name=password]=balmoral-demo-2026
 click Create my account
 at /signin
+expect Check your email
+
 note 3 · prove the address from the club's inbox
-go /dev/outbox
+go /demo
+click The club’s inbox
+at /dev/outbox
 expect Confirm your email address
 click pitchfootball.com.au/confirm/
 at /confirm/
 click Yes, it’s me
 at /signin
+expect Address confirmed
 fill input[name=email]=chris@balmoralfc.example.au
 fill input[name=password]=balmoral-demo-2026
 click Sign in
 at /home
-note 4 · the claim code, to the club's own address
-go /claim/balmoral-fc
+expect Welcome, Chris
+
+note 4 · Claim Balmoral FC again — the code goes to the club's own address
+go /demo
+click Claim Balmoral FC
+at /claim/balmoral-fc
 expect Claim Balmoral FC
 expect Unclaimed
-expect football@balmoralfc.example.au
+expect @balmoralfc.example.au
+absent chris@
+expect Claiming can’t make a club verified
+wide
 click Send me the code
+at /claim/balmoral-fc?sent=1
 expect Check the club’s inbox
-go /dev/outbox
+go /demo
+click The club’s inbox
 expect Your code to claim Balmoral FC on Pitch
 grab code=your code is:\s+(\d{6})
+
 note 5 · claim it
 go /claim/balmoral-fc?sent=1
 type code=$code
 click Claim Balmoral FC
 expect Balmoral FC is yours to run
-note 6 · write the club's own page
-go /club/page-edit
+expect waits for verification
+click Go to your club
+at /home
+expect Awaiting verification
+
+note 6 · Crest & club page — write the club's own page
+click Crest & club page
+at /club/page-edit
 expect Your club page
 fill textarea[name=philosophy]=We want every junior at Balmoral to be a better footballer in June than they were in March, and to still be here at eighteen.
 fill input[name=pathway]=MiniRoos to seniors, at one club
 fill input[name=founded]=1958
 click Save
 expect Saved. It’s on your page now
-note 7 · a team and a trial
-go /club/squads
+wide
+
+note 7 · Squads — add a team; a trial waits for the call
+click Squads
+at /club/squads
 fill input[name=name]=U14 Boys
 click Add it
-expect U14 Boys
+expect Squad added
+expect U14 · boys · 2026
+wide
+# claiming cannot post trials: no menu item, and the address goes home
+absent Post a trial
+go /club/post-trial
+at /home
+
 note 8 · the page they just wrote
-go /fc/balmoral-fc
-expect Our philosophy
-expect Teams & age groups
+click Your club page
+at /fc/balmoral-fc
 expect Est. 1958
+expect MiniRoos to seniors, at one club
+expect a better footballer in June than they were in March
+expect Teams & age groups
+expect U14 Boys
+absent has not claimed it
+absent Verified club
+wide
+width 375
+go /fc/balmoral-fc
+wide
+width 1280
+# and what a stranger sees, signed out
+go /home
+click Sign out
+go /fc/balmoral-fc
+expect a better footballer in June than they were in March
+absent has not claimed it
+absent Verified club
