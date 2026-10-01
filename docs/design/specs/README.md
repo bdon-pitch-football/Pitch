@@ -14,13 +14,82 @@
 - the lines listed under "to confirm as they stand": `FAILURE_COPY` as written and the coach page's December promise.
 
 **Still not to build:**
-- **With John first.** D-PD-3 (a real No on `/a`), G-P1 with N-G1 (`/undo` after-states), and HC3 ("call 000"). Build them only once John has answered. Until then, ship those screens without the change.
+- ~~**With John first.** D-PD-3, G-P1 with N-G1, and HC3.~~ **John cleared all three on 1 Oct, with conditions.** See the next section, which BUZ approved for building.
 - **For BUZ with ops.** A-P7.
 - **Not now, or don't build.** A-P2, C-P1, HD1, I-P3, I-P4, F-P6.
 - ~~**Still open, one choice.** `/unsubscribe` "Join again any time."~~ **BUZ, 1 Oct: "Remove the unsubscribe line."** The line "Changed your mind? Join again any time." is removed from `app/unsubscribe/page.tsx` on this branch. The G mockup still draws it; ignore it there.
 - **Billing lines.** The three lines F flagged get re-read before billing is switched on.
 
 **For the register (Leo assigns the number at merge; the latest on both branches is D-173):** "BUZ, 1 Oct 2026: the whole app takes Floodlit (D-173) per `docs/design/specs/`. Consent answers carry equal weight: wherever a press gives something away, Yes and No are the same secondary button and nothing glows, superseding the green Yes in ParentApprovalV2, SendCVGuardian, InterestGuardian, ReapproveChanges, ShareApproval and GuardianReply. On a phone, each seat's one primary sits under its hero on `/home`. The operator console marks green only where work waits. The demo strip is dark with an amber Demo pill. The coach page and the jobs board take `.fl-wide`."
+
+## John's rulings and BUZ's §36 call (1 Oct): all three cleared, so build them
+
+**Source:** `13-Board-Room/JOHN-to-PRODUCT-DESIGN-three-rulings-1-oct.md`. **BUZ, 1 Oct: "Yes to the §36 window change, hand John's rulings to Leo."** The "with John first" items above are now approved, with John's conditions.
+
+### 1 · G-P1: the undo link says whether it worked. **Build this first; John classes it as a defect.**
+
+Today a §36 undo pressed after 24 hours silently does nothing, while the screen looks identical: a live false assurance.
+- **Build G-P1 as specified:**
+  - not-live panel on load (used, lapsed and unknown look identical);
+  - "Done" only when a row was actually revoked;
+  - "Go to sign in" plus the line N-G1;
+  - the "This does not un-send the email" box stays on "Done".
+- **John's addition: timing.** The not-live path does the same work as "Done": the same hashed comparison, the same cost. That way a stopwatch can't tell them apart (D-77, J2). Assert it by diffing two captured responses, as E9 and J40 do. Don't verify it by reading the handler.
+- **BUZ amends U-2: §36's undo lives as long as the link it switches off, matching §37.**
+  - **Code:** in `lib/send-dispatch.ts` (the `undo_token` insert, ~line 175), replace `now() + interval '24 hours'` with the §37 expression, `coalesce((select expires_at from share_token where id = $2), now() + interval '90 days')`.
+  - **Records to amend** (the register moves first):
+    - the U-2 entry ("for 24 hours, may revoke that link…", in `JOHN-to-LEO-doc06-entries.md` and doc 31);
+    - doc 15 §36's header line, "Carries the twenty-four-hour undo.";
+    - doc 14 L17's note;
+    - any test that asserts the 24-hour expiry.
+  - The §36 email body doesn't mention 24 hours, so no message copy changes.
+
+### 2 · D-PD-3: a real "No" on `/a/[id]`
+
+Approved, with John's conditions:
+- **After one confirmed channel,** "Not now" (equal weight with Approve) purges the pending invitation at once, using the same purge as the 14-day job.
+- **Record which channel ended it, and when,** so "who ended it" can be answered (as U-6).
+- **The event is the existing `purged`** with reason `ended_by_recipient`. Don't add a new event. Assert the reason is **unreadable by any club actor** and **never surfaces to the child**.
+- **No message to anyone.** Nobody is a guardian yet. An on-screen confirmation is all there is.
+- **The child's waiting page changes its words, not its timing,** for both endings (expiry and ended): **"This request has closed. You can ask again whenever you like."**
+  - "Expired" goes, because it's untrue when someone ended the request.
+  - An immediate "expired" would let the child infer that a parent said no (D-17, U-1).
+  - This line is new copy, carried by John's ruling and BUZ's hand-over.
+
+### 3 · HC3: "call 000", identical in all three places
+
+- **Change it on the report form, the report-received page and doc 25 so all three read word for word the same.** Use doc 25's sentence, which is John's approved legal text: **"If you believe a child is in immediate danger, call 000."**
+  - The form's closing "In an emergency, call 000." becomes this sentence.
+  - `FAILURE_COPY.urgent` becomes this sentence plus "Pitch is not an emergency service."
+- **Don't add 131 444** to the emergency line.
+- **fp12** moves with it.
+
+## The unclaimed club page: John's D-172 rulings and BUZ's sentence (1 Oct)
+
+**Source:** `13-Board-Room/JOHN-to-PRODUCT-DESIGN-unclaimed-page-three-questions-1-oct.md`.
+**BUZ:** "Yes to the D-172 sentence, hand John's rulings to Leo." The sentence is now in D-172's note in `docs/06-Register.html`. **Copy it to the folder copy at merge.**
+
+**The Floodlit unclaimed page (`/fc/[slug]` when `club_state = 'unclaimed'`) is no longer held.** It goes public when U1–U6 **and** these two new checks hold on the deployed site:
+- **U1b (render):** the `fl-pitch-lines` SVG is byte-identical on two different unclaimed pages, and its stroke is never a club colour.
+- **U5b (layout):** on an unclaimed page at 375×667, the banner's first line ("Pitch made this page from public information. {Club} has not claimed it.") is fully inside the first viewport. Test it with the longest seeded club name.
+
+**Standing guardrails** (now in the register):
+- **The nav on an unclaimed page stays generic:** never the club's name, a link about this club, or a "Claim" button. The claim stays below the banner.
+- **The pitch drawing** stays generic, drawn inline (never a file) and neutral white.
+- **No social proof on an unclaimed page, ever:** no count of clubs "on Pitch", no "clubs near you have claimed", no other clubs' logos.
+
+## Club colours on the player CV: D-174 (BUZ, 1 Oct: "Yes, draft it and hand to Leo")
+
+The register entry is **D-174** in `docs/06-Register.html` on this branch, marked Locked. **Confirm the number at merge** (D-173 is the latest on both branches), set the register version, and copy the entry to the folder copy. John's clearance: `13-Board-Room/JOHN-club-colours-on-the-player-CV-CLEARED-1-oct.md`.
+
+**Before flipping `CV_WEARS_CLUB_COLOURS` to `true`, in this order:**
+1. **Condition 1, a comment** beside `PRESETS` in `lib/club-colours.ts`: colours are only ever the club's own choice, never derived, sampled, averaged or scraped from a crest, photograph, kit or website.
+2. **Condition 2, asserted:** the theme is null unless the current club is verified, and it follows a club change at once. **For an under-16, it changes only when the guardian approves the pending edit** (D-119), never on the pending version.
+3. **Condition 3, the picker line** on `/club/page-edit`, where colours are chosen: **"Your colours appear on your club page, and on the CV of players who list your club as their current club."** This is new copy, carried by D-174.
+4. **Condition 4, render coverage** of the CV with and without a club's colours, and of each clearing case (unverified, suspended, a club change, an under-16's pending change).
+5. **Then flip the flag,** and update perms **cvc1** in the same commit. It currently pins the flag false "until John's ruling is recorded in the register", which is now true. **ctx4** (no colours on any card surface, D-89) stays exactly as it is.
+
+Not cleared: colours on the coach page (needs its own ruling).
 
 ## What is in this folder
 

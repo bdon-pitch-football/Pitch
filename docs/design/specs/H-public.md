@@ -231,6 +231,8 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 
 ## New copy for BUZ (current line → proposed line, why)
 
+> **1 Oct, John + BUZ:** HC3 is cleared. The form, the received page and doc 25 all read "If you believe a child is in immediate danger, call 000." No 131 444. See README, "John's rulings".
+
 | # | Where | Current line | Proposed | Why |
 |---|---|---|---|---|
 | HC1 | Dead link, the third card | "Not signed in as a verified club? Then there is nothing on this page for you, and there is nothing more we will tell you." | **Remove the card.** | The page says "we don't say which" three times: in the reason line, in "That is deliberate…", and here. This card also contradicts the form directly under it, which invites anyone who was sent the link, not only verified clubs. The request-for-verified-clubs variant it was written for "arrives with auth" (LinkState's header). Say it once. If BUZ says no, it stays, drawn as a well. |

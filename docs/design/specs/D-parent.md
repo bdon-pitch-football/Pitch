@@ -408,6 +408,8 @@
 
 ## Product decisions for BUZ (not look; behaviour, numbers, doors)
 
+> **1 Oct, John + BUZ:** PD-3 is cleared with conditions. The child's line for both endings is "This request has closed. You can ask again whenever you like."; the event is `purged` with reason `ended_by_recipient`; record the channel and the time; no message. See README, "John's rulings".
+
 | # | Decision | What it buys | What it costs | Recommendation |
 |---|---|---|---|---|
 | **PD-0** | **Consent answers carry equal weight.** Yes is `.btn-secondary`, never the glowing primary, wherever a press gives something away. This departs from the signed designs (ParentApprovalV2, SendCVGuardian, InterestGuardian, ReapproveChanges, ShareApproval, GuardianReply), which draw Yes as the green primary; the source gives no other reason for it. | A stranger parent sees two answers, not one answer and a footnote. A product whose promise is "nothing happens until you say so" doesn't lean on the yes. | A consent press may convert a little less readily, and nothing measures it (no analytics on these pages, by design). | **Yes** |

@@ -228,6 +228,8 @@ No other new part. The notes are A's **notice** (`card-amber`, `card-accent`); t
 
 ## Product decisions for BUZ (not look; behaviour, numbers, doors)
 
+> **1 Oct, John + BUZ:** G-P1 is cleared. Build it first; it's a defect. The not-live path must match "Done" in timing too. BUZ amended U-2: §36's undo now lives as long as its link. See README, "John's rulings".
+
 | # | Decision | What it buys | What it costs | Recommendation |
 |---|---|---|---|---|
 | **G-P1** | **`/undo` tells the parent what happened.**<br>• On load, a non-live undo token shows one "This link isn't live" panel, the same for used, lapsed and unknown, as `/confirm` does.<br>• After the press, the action redirects to a Done state **only if its update revoked a row**, and otherwise to the not-live panel.<br>• The not-live panel adds one door: "Go to sign in" → `/signin`. | Today a parent presses "Switch it off" and sees the same question again. After 24 hours the press silently does nothing and the club can still open the page. It's the safety email's own promise ("this takes one tap"), and today the screen can't say whether it was kept. | About half a day. The page reads `undo_token` (used / expired). The action checks `rowCount` and redirects (`?done=1`), and the page needs two new states. One new door and one new line (N-G1). It **revises the file's D-77 reading** ("a spent link, a wrong one and a live one all end on the same page"). `/confirm` already draws live versus not-live for a token only its holder has, and that leaks nothing to a stranger, but **John should confirm**. | **Yes, with John.** It's the most valuable thing in this group. |
