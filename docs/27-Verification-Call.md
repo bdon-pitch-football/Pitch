@@ -137,4 +137,4 @@ D-139 already sets the limit: **if manual verification stops being feasible befo
 
 ---
 
-*Doc 27 · Club verification call · v1.0 · 27 Aug 2026 · Leo (CTO) from D-126, D-137, D-139 and John's condition 1 · the log fields here are the source for doc 14 §M.*
+*Doc 27 · Club verification call · v1.1 · 1 Oct 2026 · step 5 (the Technical Director prompt, B2) and the close's email line (§39, only when the sheet says it will send), approved by John on 1 Oct · v1.0 · 27 Aug 2026 · Leo (CTO) from D-126, D-137, D-139 and John's condition 1 · the log fields here are the source for doc 14 §M.*

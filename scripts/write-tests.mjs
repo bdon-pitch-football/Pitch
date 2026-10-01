@@ -2368,7 +2368,7 @@ let realParentPress = null;
     const qApprove = formWith((await ig(`/a/${qA}`)).html, /Approve/);
     const misrouted = await post(`/a/${qA}`, qApprove, { adult: 'on', answer: 'end' });
     check('jr-pd3-w8 (N-3): the No posted into Approve\u2019s form — with the adult tick on — ends the request; nothing is approved, and neither link opens an approval afterwards',
-      [/name="answer" value="end"/.test(mk), misrouted.location.replace(BASE, ''), forms((await ig(`/a/${qA}`)).html).length + forms((await ig(`/a/${qB}`)).html).length],
+      [((t) => /name="answer"/.test(t) && /value="end"/.test(t))(/<button[^>]*form="pd-end"[^>]*>/.exec(mk)?.[0] ?? ''), misrouted.location.replace(BASE, ''), forms((await ig(`/a/${qA}`)).html).length + forms((await ig(`/a/${qB}`)).html).length],
       [true, '/a/closed', 0]);
     const endedNoTick = await post(`/a/${pA}`, endF);
     check('jr-pd3-w7: pressed without the adult tick, it still ends the request — and neither link opens an approval afterwards',

@@ -102,7 +102,7 @@ export async function logCall(formData: FormData) {
          (club_id, called_at, operator, number_called, number_source, answered_by,
           club_confirmed, person_confirmed, incorporated, authority_confirmed,
           outcome, notes, td_name, td_email, suspension_reason, policy_version)
-       values ($1, now(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, '27@v1.0')
+       values ($1, now(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, '27@v1.1')
        returning id`,
       [clubId, f('operator'), f('number_called'), f('number_source'), f('answered_by') || null,
        f('club_confirmed') === 'yes', f('person_confirmed') === 'yes',

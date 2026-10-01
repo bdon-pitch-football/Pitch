@@ -12169,5 +12169,13 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [true, true, []]);
 }
 
+// Doc 27 v1.1 (John, 1 Oct): a logged call records the version of the script
+// it was run against, so the stamp follows the document's own footer.
+{
+  const v27 = /^\*Doc 27 · Club verification call · (v\d+\.\d+) ·/m.exec(srcOf('docs/27-Verification-Call.md'))?.[1];
+  check(`doc27-v: the call sheet stamps each call with doc 27's current version (${v27})`,
+    [v27, (srcOf('app/ops/call/[clubId]/actions.ts').match(/'27@(v\d+\.\d+)'/g) ?? [])], ['v1.1', [`'27@${v27}'`]]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

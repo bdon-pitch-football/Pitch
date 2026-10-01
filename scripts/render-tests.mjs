@@ -3076,12 +3076,15 @@ const georgia = ids.children.georgia;
     const NEG = /not verified|unverified|awaiting verification|pending verification|\bpending\b|\bheld\b|once .{0,30}verified|waiting for the club|waiting on the club/i;
     const PILL = 'Verified club on Pitch';
     // Club-specific text out: its name, suburb and initials, from the tile itself.
-    const strip = (html) => {
+    const strip = (html, known) => {
       let t = vis(form(html) || html);
-      const name = /class="row-t"[^>]*>([^<]*)</.exec(html)?.[1], sub = /class="row-s"[^>]*>([^<]*)</.exec(html)?.[1];
+      const name = /class="row-t"[^>]*>([^<]*)</.exec(html)?.[1] ?? known, sub = /class="row-s"[^>]*>([^<]*)</.exec(html)?.[1];
       const init = /class="club-tile"[^>]*>([^<]*)</.exec(html)?.[1];
       for (const v of [name, sub].filter(Boolean)) t = t.split(v).join('<club>');
       if (init) t = t.split(` ${init} `).join(' <i> ');
+      // The squad picker is the club's own data (C-P8: no field when it has
+      // no squads), not its verification: out too, with its options.
+      t = t.replace(/Which squad[\s\S]*?(?=Where )/, '');
       return t.split(PILL).join('').replace(/\s+/g, ' ').trim();
     };
     const pair = async (who, q = '') => [await get(`/register-interest/${deniz.record_id}?club=${riverside}${q}`, who), await get(`/register-interest/${deniz.record_id}?club=${held}${q}`, who)];
@@ -3092,7 +3095,7 @@ const georgia = ids.children.georgia;
     check('m9-2: a held club\u2019s renders carry no negative and no word about the registration being held — the form, its confirmation and the child\u2019s own',
       [NEG.test(vis(form(pH.html) || pH.html)), NEG.test(vis(form(pHr.html) || pHr.html)), NEG.test(vis(form(cH.html) || cH.html)), /is on .{1,60}register/.test(vis(pHr.html))], [false, false, false, true]);
     check('m9-3: and the held and verified renders differ ONLY by the pill — the same words, rows and doors — on the form, the confirmation and the child\u2019s own',
-      [strip(pV.html) === strip(pH.html), strip(pVr.html) === strip(pHr.html), strip(cV.html) === strip(cH.html)], [true, true, true]);
+      [strip(pV.html) === strip(pH.html), strip(pVr.html, /class="row-t"[^>]*>([^<]*)</.exec(pV.html)?.[1]) === strip(pHr.html, /class="row-t"[^>]*>([^<]*)</.exec(pH.html)?.[1]), strip(cV.html) === strip(cH.html)], [true, true, true]);
   }
   const cReg = await get(`/register-interest/${deniz.record_id}?club=${riverside}`, deniz.child_id);
   const cRegT = vis(form(cReg.html));
