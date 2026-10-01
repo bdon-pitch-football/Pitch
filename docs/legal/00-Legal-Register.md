@@ -51,7 +51,7 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 |---|---|---|---|
 | **18** | **Solicitor Brief (D-27)** | **v1.4** | Fifteen questions for external counsel. Undated, so it does not go stale on the shelf. **Not our answers — our questions.** |
 | **19** | **Privacy Impact Assessment** | **v2.4** | The assessment behind the design. **Four launch-blocking recommendations: 1, 2, 3 and 12.** Re-run on any change to what is collected or who can see it. |
-| **23** | **Retention Statement** | **v1.6** | **Every deletion job implements a row of this table.** If a job and this document disagree, the document is right and the job is a bug. |
+| **23** | **Retention Statement** | **v1.7** | **Every deletion job implements a row of this table.** If a job and this document disagree, the document is right and the job is a bug. |
 | **26** | **Access Model** | **v1.7** | Who can see what, in prose. Doc 14 is the enforceable version; this is the one a human can check it against. |
 | **28** | **Founder IP Assignment Deed** | **v1.2** | **NOT EXECUTED.** Assigns everything made before incorporation to the company. Two blanks, both BUZ's at signing. |
 | **30** | **Open decisions blocking the gate** | **v1.1** | The eleven questions doc 14 declined to answer. Answered at doc 31. |

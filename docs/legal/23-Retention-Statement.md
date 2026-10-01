@@ -1,5 +1,9 @@
 # PITCH — Retention Statement
 
+> **⚠️ v1.7, 1 October 2026 — also: a pending request a parent ends ("No, end this request").** It is deleted at once by the same deletion as the 14-day purge, with the messages sent for it, and only a subjectless `purged` event remains. The SMS meter and STOP rows now say what they keep: a keyed fingerprint, never the number. *An unkeyed sha256 of an Australian mobile was recovered in 168 ms in review; that is the number, not a fingerprint of it.*
+>
+> **⚠️ v1.7, 1 October 2026 — the investigation trail.** Who looked at a child's record, when and under which report **survives the child's erasure**, with the free text wiped and no key reaching the child. *A promise to tell a guardian who looked is worth nothing if the answer is deleted with the record, and the question is asked after something has gone wrong.*
+>
 > **⚠️ v1.6, 1 October 2026 — two records that outlive a child's record, and a sentence that had become untrue.** *Send my CV* now fills in a club's own published address, so a club must be able to stop receiving CVs — and **that stop has to keep working after the family has erased the child**, because the email in the club's inbox does not disappear when the record does. Two records are added, **both kept indefinitely and neither holding anything about any child**. The consent-log section said that after deletion the log was all that remained in Pitch; **after a send that was no longer true**, and it now names these two.
 >
 > **⚠️ v1.5, 7 September 2026 — this version exists to end a version collision, and the collision is worth reading about.**
@@ -74,7 +78,7 @@ Where those pull against each other, the first wins.
 
 | What | How long |
 |---|---|
-| First name, date of birth, guardian contact — nothing else exists at this stage | **14 days.** Purged automatically if no guardian approves. Not archived, not soft-deleted: purged. |
+| First name, date of birth, guardian contact — nothing else exists at this stage | **14 days**, or **at once** when the person it was sent to ends it from its link ("No, end this request"). Purged either way, by the same deletion: not archived, not soft-deleted. **The messages sent for it go with it**: their subject, body and recipient address, and any text still waiting to send. **What survives:** one `purged` event, with no subject, the reason (expired or ended) and the channel the link came by. |
 
 ### A registration of interest
 
@@ -144,7 +148,9 @@ Where those pull against each other, the first wins.
 
 | What | How long |
 |---|---|
-| Email and SMS content | **We do not retain message bodies.** Our providers hold delivery logs to their own schedules; we hold the fact of sending, not the message. |
+| Email and SMS content | **A message's subject and body are cleared when it is sent, or when it finally fails.** Until then they are held only so it can be sent. **The address it went to is kept for 30 days**, so support can answer "did my message arrive?", then cleared; the count of tries stays. Our providers hold their own delivery logs to their own schedules, stated here once they are set. |
+| The SMS spend meter | **Each text's cost and time, kept for the spend cap.** The number it went to is held only as a keyed fingerprint, for the 24-hour sending limit, and dropped after 24 hours. |
+| SMS opt-outs (a STOP reply) | **For as long as Pitch sends SMS**, because a STOP must be honoured. Held only as a **keyed** fingerprint of the number, never the number and never an unkeyed hash. |
 | Consent-funnel events (invitation created, sent, delivered, opened, verified, approved, purged) | **13 months.** One full football season plus a month, which is what makes a year-on-year comparison possible. Then deleted, not aggregated into something that outlives it. |
 
 ### Safety records
@@ -177,7 +183,17 @@ It survives deletion of the record because it is the evidence that we did what w
 | **The stop reference** — the id of a CV that was sent, the address it went to, and when. **No child, no record, no sender, no content, and no key that reaches any of them** | **Kept indefinitely** | **A club's opt-out has to keep working after the family erases the child.** The email sitting in the club's inbox has no expiry, so a stop reference with one would silently stop working and the next CV would arrive at an address that had asked us to stop. *Any period we could choose is one the email outlives, which is the argument for choosing none.* **The recipient address is already on the consent log's send row, so nothing about the child survives that did not survive before.** |
 | **The stop list** — addresses and domains that have asked us to stop, who asked, and when | **Kept indefinitely** | **A stop that expires is not a stop.** |
 
-**A schema rule, not a description:** neither record holds a foreign key to a person, a profile or a send, and no query can join one to a child. **If that ever stops being true, this section is wrong rather than out of date.**
+## Who looked at a child's record, after the child is gone
+
+| What | How long | Why |
+|---|---|---|
+| **The investigation trail** — that a named person looked, when, under which logged report, and which grant allowed it. **The free text of the investigation is wiped with the record; the trail is not** | **Kept after the child's record is erased**, with **no key that reaches the child** | **We promise a guardian a straight answer to "who looked at my child's record and why."** An answer that disappears when the record does is not an answer — *and the question is most likely to be asked after something went wrong, which is exactly when the record is most likely to have been deleted.* |
+
+*Verified against the suite rather than taken on trust: the trail survives an erasure carrying the look, its time, the investigator, the grant and the report id, and losing every word of text.*
+
+---
+
+**A schema rule, not a description:** none of these records holds a foreign key to a person, a profile or a send, and no query can join one to a child. **If that ever stops being true, this section is wrong rather than out of date.**
 
 *Where a family typed an address of their own choosing, that address is what the stop reference holds — an adult's address, kept so that adult can stop us, and nothing more.*
 
@@ -229,4 +245,4 @@ A hold is recorded, is limited to what the hold actually needs, and ends when th
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · retention statement · doc 23 · v1.6 draft · 1 October 2026 · not yet published · every period here is enforced by a job, or it is not a period*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · retention statement · doc 23 · v1.7 draft · 1 October 2026 · not yet published · every period here is enforced by a job, or it is not a period*
