@@ -149,7 +149,7 @@ const sectionTitle = (text: string) => <h2 className="cv-h2">{text}</h2>;
 
 // reportRef: what "Report this page" tells the operator this page was — the
 // hex of the share token's stored hash, never the token itself (0010).
-// clubColours: the current club's own colours (0162, D-173). Worn only while
+// clubColours: the current club's own colours (0163, D-173). Worn only while
 // CV_WEARS_CLUB_COLOURS is on, only when the club is verified (the call,
 // D-126), and never on a card (D-89 — opengraph-image does not read
 // them). The read that supplies them belongs to the tech team (lib/record-read).
