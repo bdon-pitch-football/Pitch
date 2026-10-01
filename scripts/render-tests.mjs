@@ -2421,8 +2421,11 @@ const georgia = ids.children.georgia;
 // the document — head, metadata, body — is hashed. If the coming-soon page
 // is ever changed on purpose, this hash is re-pinned in the same commit, and
 // the failure prints the new one.
+// Re-pinned 1 Oct (full release): the footer's Privacy and Terms links gained
+// a 44px box (min-height/min-width, inline-flex) — the layout check's fixed
+// prose rule found them at 43x14 and 36x14. Not a word or a link changed.
 {
-  const COMING_SOON_SHA256 = '2babb787d72b63796c7a38b0a3f695f1bb1885483c583bec498aaef2928fd2c6';
+  const COMING_SOON_SHA256 = '754764ee7ac0b28a76e2daaaacd72a4c45514b81bca4aad746b4bf604145175b';
   const { createHash } = await import('node:crypto');
   const doc = (html) => html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
