@@ -17,7 +17,7 @@ import { notFound, redirect } from 'next/navigation';
 import PlayerCV from '@/components/cv/PlayerCV';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
-import { assembleCv, type CvData } from '@/lib/record-read';
+import { assembleCv, cvClubColours, wornColours, type CvData } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import { STAT_LABELS, type StatKey } from '@/lib/football';
 import { T } from '@/lib/palette';
@@ -54,7 +54,8 @@ export default async function SquadCv({ params }: { params: Promise<{ squadId: s
     // and the share link cannot drift apart.
     const v = await db.query(`select fn_approved_cv($1) as content`, [recordId]);
     cv = (v.rows[0]?.content as CvData | null) ?? null;
-    if (cv) cv = { ...cv, band: 'u16' };
+    // The club's colours follow the membership too (D-174, 0165).
+    if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(playerId)) };
   } else {
     cv = await assembleCv(recordId, playerId, row.band);
   }
@@ -108,7 +109,7 @@ export default async function SquadCv({ params }: { params: Promise<{ squadId: s
           )}
         </div>
       </div>
-      <PlayerCV p={cv} />
+      <PlayerCV p={cv} {...wornColours(cv)} />
     </>
   );
 }
