@@ -15,7 +15,8 @@ export function QuietShell({ children, wide, door }: { children: ReactNode; wide
     <div className="floodlight has-topbar" style={{ minHeight: '100dvh', color: 'var(--ink)' }}>
       <SiteNav links={[]} signIn={false} />
       <main className="reading" style={{ maxWidth: wide ? 640 : 460, padding: '28px 18px 48px', boxSizing: 'border-box' }}>
-        <div className={door ? 'door' : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>{children}</div>
+        {/* A door takes .door's own column and 18px gap (part 20). */}
+        <div className={door ? 'door' : undefined} style={door ? undefined : { display: 'flex', flexDirection: 'column', gap: 16 }}>{children}</div>
       </main>
     </div>
   );

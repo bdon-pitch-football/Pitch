@@ -2,11 +2,11 @@
 // only ever compared as a hash.
 import { redirect } from 'next/navigation';
 import OpenInBrowser from '@/components/OpenInBrowser';
-import { HeaderMark } from '@/components/Wordmark';
+import { QuietShell } from '@/components/quiet-shell';
+import { GlyphTile } from '@/components/FailureState';
+import { KEY_GLYPH } from '@/components/door-glyphs';
 import { submitNewPassword } from '../actions';
 import { resetLinkLive } from '@/lib/auth';
-import { T } from '@/lib/palette';
-import { card } from '@/lib/ui';
 
 export const metadata = { title: 'Set a new password', robots: { index: false, follow: false } };
 
@@ -21,24 +21,25 @@ export default async function SetPassword({ params, searchParams }: {
   if (!(await resetLinkLive(token))) redirect('/reset?expired=1');
   const act = submitNewPassword;
 
+  // Floodlit (spec G): the door, the key tile, one field, one glowing
+  // primary. The short-password line is the amber notice, announced, and the
+  // field takes the amber edge (A part 19, aria-invalid).
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
-        <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Set a new password</h1>
-        {/* The emailed link most often opens inside the mail app. Setting the
-            password works there; the sign-in that follows would not carry. */}
-        <OpenInBrowser path={`/reset/${token}`} />
-        {short && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Use at least ten characters.</div>}
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}><input type="hidden" name="token" value={token} />
-          <label style={card}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>New password</div>
-            <input name="password" type="password" required minLength={10} style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
-          </label>
-          <button type="submit" className="btn btn-primary">Save it</button>
-          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>This signs you out everywhere else once you sign back in.</div>
-        </form>
-      </div>
-    </div>
+    <QuietShell wide door>
+      <GlyphTile>{KEY_GLYPH}</GlyphTile>
+      <h1 className="pg-title">Set a new password</h1>
+      {/* The emailed link most often opens inside the mail app. Setting the
+          password works there; the sign-in that follows would not carry. */}
+      <OpenInBrowser path={`/reset/${token}`} />
+      {short && <div role="alert" className="card card-amber" style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--secondary)', lineHeight: 1.55 }}>Use at least ten characters.</div>}
+      <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}><input type="hidden" name="token" value={token} />
+        <label className="field">
+          <span className="field-label">New password</span>
+          <input name="password" type="password" required minLength={10} aria-invalid={short ? 'true' : undefined} />
+        </label>
+        <button type="submit" className="btn btn-primary fl-glow">Save it</button>
+        <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.5 }}>This signs you out everywhere else once you sign back in.</div>
+      </form>
+    </QuietShell>
   );
 }

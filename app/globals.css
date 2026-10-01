@@ -928,12 +928,16 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* The site footer (doc 32 B4, B5): the legal person and a report route on
-   every page. Framed pages keep it clear of the phone tab bar. */
+   every page. Framed pages keep it clear of the phone tab bar.
+   Floodlit (H, 1 Oct): its side padding follows .fl-wide (18 / 28 / 40), so
+   its edges line up with the top bar's, and its rule is the bar's hairline. */
 .site-foot {
-  max-width: 1200px; margin: 0 auto; padding: 18px 18px 26px;
+  max-width: var(--wide); margin: 0 auto; padding: 18px 18px 26px; box-sizing: border-box;
   display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: space-between; align-items: center;
-  font-size: 11.5px; font-weight: 500; color: var(--muted); border-top: 1px solid var(--line);
+  font-size: 11.5px; font-weight: 500; color: var(--muted); border-top: 1px solid var(--glass-line);
 }
+@media (min-width: 640px)  { .site-foot { padding-left: 28px; padding-right: 28px; } }
+@media (min-width: 1024px) { .site-foot { padding-left: 40px; padding-right: 40px; } }
 .site-foot nav { display: flex; gap: 4px 14px; flex-wrap: wrap; }
 .site-foot a { color: var(--muted); font-weight: 700; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
 @media (max-width: 1023px) {
@@ -1333,11 +1337,33 @@ h1, h2, h3, h4, h5, h6 {
 .empty-tile.is-compact .empty-t { font-size: 14px; font-weight: 800; margin: 0; }
 .empty-tile.is-compact .empty-b { font-size: 13px; font-weight: 500; color: var(--muted); }
 
+/* 16b · Glyph tile (G, 1 Oct): the first object on every door reached from
+   an email or a text, and on the failure shell. FailureState's tile,
+   extracted (components/FailureState.tsx GlyphTile). Three states: solid while
+   the link asks for something; .is-dashed when it is not live (dashed means
+   "nothing to act on here", Head of Product Design ruling 4); and done, which
+   carries the tick as a child span. The tick is markup, never a data: image. */
+.glyph-tile { position: relative; width: 56px; height: 56px; border-radius: var(--r-card); background: var(--surface-2); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ink); }
+@media (min-width: 640px) { .door .glyph-tile { background: var(--surface-hover); } }
+.glyph-tile.is-dashed { border: 1.5px dashed rgba(255,255,255,.3); background: rgba(255,255,255,.04); color: var(--muted); }
+.glyph-tick { position: absolute; right: -7px; bottom: -7px; width: 24px; height: 24px; border-radius: 999px; background: var(--accent); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px var(--bg); }
+@media (min-width: 640px) { .door .glyph-tick { box-shadow: 0 0 0 3px var(--surface); } }
+
 /* 18 · A button that sits inline on a laptop row: a width, not a third button. */
 .btn-auto { width: auto; padding: 0 22px; }
 
 /* 19 · Field */
-.field[aria-invalid="true"] { border-color: var(--amber); }
+.field[aria-invalid="true"], .field:has(> [aria-invalid="true"]) { border-color: var(--amber); }
+/* 19b · A field well as a choice (H, 1 Oct): a radio inside the well, the
+   whole row the target, 48px. Used on /report. The join proposal's .choice is
+   the big version with an icon; this is the plain one. */
+.field-opt { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-well); background: var(--surface-2); font-size: 13.5px; font-weight: 700; color: var(--secondary); cursor: pointer; box-sizing: border-box; }
+.field-opt input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; flex-shrink: 0; }
+.field-opt:has(input:checked) { border-color: var(--accent); color: var(--ink); }
+.field-opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (min-width: 640px) { .door .field-opt { background: var(--surface-hover); } }
+fieldset.opts { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 
 /* 20 · Door panel: a form is a door. On a phone the 390 artboard is the
    column as drawn; from 640px the form sits in a lifted panel. A list is a

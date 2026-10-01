@@ -2,40 +2,46 @@
 // or not there is an account, because any difference tells a stranger
 // whether an address is registered (doc 15 §10 amendment, D-94 §2).
 import { HeaderMark } from '@/components/Wordmark';
+import { QuietShell } from '@/components/quiet-shell';
+import { GlyphTile } from '@/components/FailureState';
+import { KEY_GLYPH, MAIL_GLYPH } from '@/components/door-glyphs';
 import { requestReset } from './actions';
-import { T } from '@/lib/palette';
-import { card } from '@/lib/ui';
 
 export const metadata = { title: 'Reset your password', robots: { index: false, follow: false } };
 
 export default async function Reset({ searchParams }: { searchParams: Promise<{ sent?: string; expired?: string }> }) {
   const { sent, expired } = await searchParams;
 
+  // Floodlit (spec G): the door. The way back to sign-in is the page
+  // header's back link, in the column at every width (A part 5: SiteNav's
+  // back hides from 1024px). The key tile goes dashed for a finished link;
+  // the sent answer keeps it solid as an envelope and carries NO tick — the
+  // page must not say anything was sent, because the answer is identical
+  // whether or not there is an account (D-94 §2).
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark back={{ href: '/signin', label: 'Sign in' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Reset your password</h1>
-          {expired && <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>That link has been used or has expired. Ask for another one.</div>}
+    <QuietShell wide door>
+      <HeaderMark back={{ href: '/signin', label: 'Sign in' }} />
+      <GlyphTile state={!sent && expired ? 'dead' : 'ask'}>{sent ? MAIL_GLYPH : KEY_GLYPH}</GlyphTile>
+      <h1 className="pg-title">Reset your password</h1>
+      {/* The reason you are here, so it is the amber notice above the form
+          and it is announced. */}
+      {expired && <div role="status" className="card card-amber" style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--secondary)', lineHeight: 1.55 }}>That link has been used or has expired. Ask for another one.</div>}
+      {sent ? (
+        <div role="status" className="card card-accent" style={{ fontSize: 14, fontWeight: 700, color: 'var(--secondary)', lineHeight: 1.55 }}>
+          If there&rsquo;s a Pitch account for that address, a reset link is on its way.
         </div>
-        {sent ? (
-          <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 14, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>
-            If there&rsquo;s a Pitch account for that address, a reset link is on its way.
+      ) : (
+        <form action={requestReset} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <label className="field">
+            <span className="field-label">Email</span>
+            <input name="email" aria-label="Email" type="email" required placeholder="you@example.com" />
+          </label>
+          <button type="submit" className="btn btn-primary fl-glow">Email me a reset link</button>
+          <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.55 }}>
+            If the account belongs to someone under 16, the link goes to their parent — the same as everything else on that record.
           </div>
-        ) : (
-          <form action={requestReset} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <label style={card}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Email</div>
-              <input name="email" aria-label="Email" type="email" required placeholder="you@example.com" style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' }} />
-            </label>
-            <button type="submit" className="btn btn-primary">Email me a reset link</button>
-            <div style={{ ...card, background: T.surface2, fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-              If the account belongs to someone under 16, the link goes to their parent — the same as everything else on that record.
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+        </form>
+      )}
+    </QuietShell>
   );
 }

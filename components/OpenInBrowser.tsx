@@ -5,7 +5,6 @@ import { headers } from 'next/headers';
 import CopyLink from '@/components/cv/CopyLink';
 import { detectInAppBrowser, openInBrowserHref } from '@/lib/in-app-browser';
 import { T } from '@/lib/palette';
-import { card } from '@/lib/ui';
 
 export default async function OpenInBrowser({ path }: { path: string }) {
   const h = await headers();
@@ -20,7 +19,10 @@ export default async function OpenInBrowser({ path }: { path: string }) {
   const browser = found.platform === 'ios' ? 'Safari' : found.platform === 'android' ? 'Chrome' : 'your browser';
 
   return (
-    <div role="note" data-in-app={found.app} style={{ ...card, border: `1px solid ${T.amber}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    // A notice (spec A part 11, spec G): a panel with the amber edge — you are
+    // somewhere that will not keep you signed in, which is a state. Its two
+    // buttons are secondaries, so the page's one green stays its own action.
+    <div role="note" data-in-app={found.app} className="card card-amber" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ fontSize: 13.5, fontWeight: 800 }}>You&rsquo;re inside {found.app}</div>
       <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
         This page works here. But if you sign in here, you&rsquo;ll be signed out again next time you open {browser}. Open it in {browser} to stay signed in.
