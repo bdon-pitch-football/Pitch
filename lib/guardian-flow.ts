@@ -204,6 +204,25 @@ export async function confirmChannel(code: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * "No, end this request" (D-PD-3; John, 1 Oct). A press, never a page load.
+ *
+ * The database decides everything (0167, fn_end_pending_invitation): the code
+ * must be one of the two channel links, at least one channel must have been
+ * confirmed by a press, and the invitation must be neither approved nor held.
+ * Then it runs the SAME deletion as the fourteen-day purge — the row, what its
+ * messages carried, one subjectless `purged` event with the reason and the
+ * channel type — and nothing else. Only the hash leaves this file, as
+ * everywhere else a link is matched. No message goes to anyone: nobody is a
+ * guardian yet. A refusal changes nothing, and the caller treats it as if
+ * nothing had been pressed.
+ */
+export async function endPendingInvitation(code: string): Promise<boolean> {
+  if (!code || code.length > 200) return false;
+  const { rows } = await db.query('select fn_end_pending_invitation($1) as ended', [hashToken(code)]);
+  return rows[0]?.ended === true;
+}
+
 // Approval: the guardian's tap, once both channels are confirmed (D-156) and
 // the guardian has declared they are 18 or over (D-155). One transaction:
 // guardian person + child person + approved guardianship + empty

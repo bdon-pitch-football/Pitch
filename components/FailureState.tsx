@@ -88,7 +88,12 @@ export const FAILURE_COPY = {
     // and the urgent line moves ABOVE the thanks out of the lowest-contrast
     // style on the page.
     heading: 'We’ve received your report',
-    urgent: 'If it concerns a child’s immediate safety, contact your local police first; we are not an emergency service.',
+    // HC3 (John, BUZ, 1 Oct): the form, this page and doc 25 say it word for
+    // word the same — doc 25's sentence. "Your local police" is a research
+    // task set at the moment somebody has least capacity for one; 000 is a
+    // number. In an emergency people do the last thing a screen told them, so
+    // there is one instruction, and no second number beside it (no 131 444).
+    urgent: 'If you believe a child is in immediate danger, call 000. Pitch is not an emergency service.',
     thanks: 'Thanks — we have your report and a person will look at it. We aim to respond within one business day.',
     // The confirmation had no way off it at all: HeaderMark draws the mark and
     // nothing on the left, and the site footer offers Privacy, Terms and

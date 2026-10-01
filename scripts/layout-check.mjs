@@ -89,8 +89,12 @@ const DEEP = {
   // 0160 (30 Sep): the club's stop page is reached only from the CV email.
   // Spec D (1 Oct): the parent's approval page and the child's waiting page
   // are reached only from a text, an email or the child's own phone.
+  // John's rulings (1 Oct): "No, end this request"'s after-state, and the
+  // undo link's not-live panel and Done, all reached only from a press or an
+  // email.
   'signed out': ['/confirm/dev-unproved', '/stop-cvs', `/a/${ids.pendingInvitation}`, '/a/dev-mila-text', '/a/bogus',
-    `/join/waiting/${ids.pendingInvitation}`, '/join/waiting/bogus', '/privacy/family'],
+    `/join/waiting/${ids.pendingInvitation}`, '/join/waiting/bogus', '/privacy/family',
+    '/a/closed', '/undo/never-a-live-undo-link', '/undo/done'],
   parent: [`/squad/${g.child_id}?back=controls`, `/squad/${g.child_id}?club=${riverside}&back=controls`,
     `/build/${ids.children.deniz.record_id}/preview`, `/g/pending/${ids.children.deniz.record_id}`],
   player: [`/squad/${ids.people.jordan}`, `/squad/${ids.people.jordan}?club=${riverside}`],

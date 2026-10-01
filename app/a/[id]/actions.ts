@@ -1,6 +1,6 @@
 'use server';
 import { redirect } from 'next/navigation';
-import { approveInvitation, confirmChannel } from '@/lib/guardian-flow';
+import { approveInvitation, confirmChannel, endPendingInvitation } from '@/lib/guardian-flow';
 
 //
 // FORM FIELDS, NOT bind(). These arrive from a MESSAGE — a parent taps a link
@@ -27,4 +27,18 @@ export async function approve(formData: FormData) {
   // on as few destinations as possible, and a hold is indistinguishable from
   // an approval.
   redirect(result ? `/a/${result.invitationId}/done` : '/');
+}
+
+// "No, end this request" (D-PD-3). Its own form, posting the code and nothing
+// else, after the approve form. Ended: the after-state at a fixed address that
+// ignores the code, so nothing on it — or in the address bar — tells an ended
+// link from an approved one (D-77). Refused (no confirmed channel, approved,
+// held, or not a channel link): back to /a exactly as it was, with no error
+// and nothing that names the reason (John's condition 1). The button renders
+// only after a channel is confirmed, so a refusal means a crafted request,
+// and that person learns nothing new.
+export async function endRequest(formData: FormData) {
+  const code = String(formData.get('code') ?? '');
+  const ended = await endPendingInvitation(code);
+  redirect(ended ? '/a/closed' : `/a/${encodeURIComponent(code)}`);
 }

@@ -1908,6 +1908,14 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   // links identical — never the root 404's "may have been taken down".
   const finText = await ig(`/a/${TEXT}`), finEmail = await ig(`/a/${EMAIL}`);
   const noScript = (h) => plain(h.replace(/<script[\s\S]*?<\/script>/g, ' '));
+  // B1 / F3 (BUZ, 1 Oct): the child's waiting page after the approval is its
+  // own state — not the root 404's "taken down", and not the closed state.
+  const waitingApproved = await ig(`/join/waiting/${inv}`);
+  check('jr-wait-w1: after approval the child’s waiting page says their parent said yes and builds the page — never "closed", never "taken down"',
+    [waitingApproved.status, /Your parent said yes\./.test(plain(waitingApproved.html)),
+     /They build your page from their account, so ask them to start it with you\./.test(plain(waitingApproved.html)),
+     /This request has closed|taken down/.test(noScript(waitingApproved.html))],
+    [200, true, true, false]);
   check('ia3b: and both links are finished — the same page, opening nothing, with no form',
     [finText.status, finEmail.status, /This link doesn.t open anything/.test(plain(finText.html)), forms(finText.html).length + forms(finEmail.html).length,
      /taken down/.test(noScript(finText.html)), noScript(finText.html) === noScript(finEmail.html)],
@@ -2039,6 +2047,92 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const afterSetup = ((await get('/dev/outbox', ids.people.alex)).html.match(/Reset your Pitch password/g) ?? []).length;
   check('D-155: "Email me the link" answers the same and sends nothing to the named account',
     [/sent=1/.test(heldSent.location), afterSetup - beforeSetup], [true, 0]);
+
+  // --- D-PD-3 (John, BUZ, 1 Oct): a parent's "No", pressed as a parent
+  //     presses it, inside Instagram, no cookie, no JavaScript. -------------
+  {
+    const label = /const PD3_END_LABEL = '([^']*)';/.exec(readFileSync(fileURLToPath(new URL('../app/a/[id]/page.tsx', import.meta.url)), 'utf8'))?.[1];
+    const vis = (h) => plain(h.replace(/<script[\s\S]*?<\/script>/g, ' '));
+    const hasNo = (h) => vis(h).includes(label);
+    const outboxCount = async () => ((await get('/dev/outbox', ids.people.alex)).html.match(/doc15\.§/g) ?? []).length;
+    // The No's own action, from Next's manifest: before a channel is
+    // confirmed the page does not render it, and a crafted press is exactly
+    // what condition 1 is about.
+    const endAction = Object.entries(JSON.parse(readFileSync(fileURLToPath(new URL('../.next/dev/server/server-reference-manifest.json', import.meta.url)), 'utf8')).node)
+      .find(([, v]) => v.filename === 'app/a/[id]/actions.ts' && v.exportedName === 'endRequest')?.[0];
+    const crafted = (code) => post(`/a/${code}`, { fields: { [`$ACTION_ID_${endAction}`]: '', code } });
+
+    const odette = await joinPost('startPendingInvitation', { firstName: 'Odette', dob: '2014-06-06', guardianName: 'Ola Parent', guardianPhone: '0400 818 181', guardianEmail: 'ola.parent@example.com' });
+    const odetteId = /\/join\/waiting\/([0-9a-f-]{36})/.exec(odette.location)?.[1];
+    const [oA, oB] = approvalCodes((await get('/dev/outbox', ids.people.alex)).html).slice(0, 2);
+    const fresh = [await ig(`/a/${oA}`), await ig(`/a/${oB}`)];
+    const refused = [await crafted(oA), await crafted(odetteId)];
+    const after = await ig(`/a/${oA}`);
+    check('jr-pd3-w1: before either channel is confirmed there is no No to press, and a crafted press — on the link, or with the invitation id the child holds — returns to /a as it was, the request still open',
+      [Boolean(label && endAction && odetteId && oA && oB), fresh.map((r) => hasNo(r.html)), refused.map((r) => r.location.replace(BASE, '')),
+       Boolean(formWith(after.html, /Yes, it/)), /This link doesn.t open anything/.test(vis(after.html))],
+      [true, [false, false], [`/a/${oA}`, `/a/${odetteId}`], true, false]);
+
+    await post(`/a/${oA}`, formWith(fresh[0].html, /Yes, it/));
+    const s3 = await ig(`/a/${oA}`), s3b = await ig(`/a/${oB}`);
+    const endIn = (h) => forms(h).find((f) => f.submit === label);
+    check('jr-pd3-w2: from the first confirmed channel the No is there, at equal weight — under "One more step" (3), and under the second link’s "Yes, it’s me" (3b) — posting only the code',
+      [/One more step/.test(vis(s3.html)), Boolean(endIn(s3.html)), Boolean(endIn(s3b.html)), Boolean(formWith(s3b.html, /Yes, it/)),
+       Object.keys(endIn(s3.html)?.fields ?? {}).filter((f) => !f.startsWith('$ACTION')),
+       (s3.html.match(new RegExp(`<button type="submit" class="btn btn-secondary"[^>]*>${label}</button>`)) ?? []).length],
+      [true, true, true, true, ['code'], 1]);
+    const boxBefore = await outboxCount();
+    const pressed = await post(`/a/${oA}`, endIn(s3.html));
+    const closedPage = await ig('/a/closed');
+    const deadA = await ig(`/a/${oA}`), deadB = await ig(`/a/${oB}`), never = await ig('/a/no-such-approval-code-jr');
+    check('jr-pd3-w3: the press lands on /a/closed — "This request has closed." and "Nothing was approved, and the details we held are deleted." — and both links now open the one finished page every other cause opens',
+      [pressed.location.replace(BASE, ''), /This request has closed\./.test(vis(closedPage.html)), /Nothing was approved, and the details we held are deleted\./.test(vis(closedPage.html)),
+       /Odette/.test(vis(closedPage.html)), forms(closedPage.html).length,
+       new Set([deadA, deadB, never].map((r) => vis(r.html))).size, /This link doesn.t open anything/.test(vis(deadA.html))],
+      ['/a/closed', true, true, false, 0, 1, true]);
+    check('jr-pd3-w4: and no message went to anyone — nobody is a guardian yet', await outboxCount(), boxBefore);
+    // The child's page for an ended request is the page for an id that never
+    // existed, byte for byte, its own id and the per-request values aside
+    // (John's condition 3; D-17, U-1). Expiry reaches the same branch: the
+    // row is gone either way.
+    // The markup outside Next's flight payload, whose chunk numbering varies
+    // between any two requests in development.
+    const norm = (h, id) => {
+      let out = h.replace(/<script[\s\S]*?<\/script>/g, '');
+      for (const re of [/nonce="([^"]+)"/, /self\.__next_r="([^"]+)"/]) { const v = re.exec(out)?.[1]; if (v) out = out.split(v).join('<r>'); }
+      return out.replace(/\?v=\d+/g, '').split(id).join('<id>');
+    };
+    const ghost = '6f1c0c0e-0000-4000-8000-000000000001';
+    const w1 = await ig(`/join/waiting/${odetteId}`), w2 = await ig(`/join/waiting/${ghost}`);
+    check('jr-pd3-w5: the child’s waiting page for the ended request is byte-identical to one for an id that never existed — "This request has closed. You can ask again whenever you like."',
+      [w1.status, w2.status, norm(w1.html, odetteId) === norm(w2.html, ghost), /This request has closed\. You can ask again whenever you like\./.test(vis(w1.html))],
+      [200, 200, true, true]);
+
+    // Both channels confirmed (state 4): the No sits in the answer pair beside
+    // Approve, belongs to its own form AFTER the approve form, and needs no
+    // adult tick — ending declares nothing.
+    await joinPost('startPendingInvitation', { firstName: 'Petra', dob: '2014-07-07', guardianName: 'Pia Parent', guardianPhone: '0400 828 282', guardianEmail: 'pia.parent@example.com' });
+    const [pA, pB] = approvalCodes((await get('/dev/outbox', ids.people.alex)).html).slice(0, 2);
+    for (const c of [pA, pB]) await post(`/a/${c}`, formWith((await ig(`/a/${c}`)).html, /Yes, it/));
+    const s4 = (await ig(`/a/${pA}`)).html;
+    const approveF = formWith(s4, /Approve/);
+    const endF = forms(s4).find((f) => f !== approveF && 'code' in f.fields && f.submit === '');
+    const mk = s4.replace(/<script[\s\S]*?<\/script>/g, '');
+    check('jr-pd3-w6: with both confirmed, the No is the same secondary in the answer pair, pointing at its own form placed after Approve’s — which a lookup by field still finds first',
+      [Boolean(approveF), Boolean(endF), new RegExp(`<button type="submit" form="pd-end" class="btn btn-secondary"[^>]*>${label}</button>`).test(mk),
+       mk.indexOf('class="fl-answer"') < mk.indexOf('form="pd-end"'), mk.indexOf('id="pd-end"') > mk.lastIndexOf('name="adult"'),
+       // forms() builds fresh objects on every call, so compare positions in one list.
+       ((all) => all.findIndex((f) => 'code' in f.fields) === all.findIndex((f) => /Approve/.test(f.submit)))(forms(s4)),
+       /Not ready\? Do nothing\. If you don.t approve, all of this is deleted after 14 days\./.test(vis(s4))],
+      [true, true, true, true, true, true, true]);
+    const endedNoTick = await post(`/a/${pA}`, endF);
+    check('jr-pd3-w7: pressed without the adult tick, it still ends the request — and neither link opens an approval afterwards',
+      [endedNoTick.location.replace(BASE, ''), forms((await ig(`/a/${pA}`)).html).length + forms((await ig(`/a/${pB}`)).html).length],
+      ['/a/closed', 0]);
+    check('jr-label-w: every /a page served here carries BUZ’s approved label, "No, end this request", and none says "Not now"',
+      [label, [s3, s3b].map((r) => hasNo(r.html)).concat(hasNo(s4)), [fresh[0], s3, s3b, closedPage].some((r) => /Not now/.test(vis(r.html))) || /Not now/.test(vis(s4))],
+      ['No, end this request', [true, true, true], false]);
+  }
 
   // --- Sign-up never takes over an existing account --------------------------
   const takeover = await joinPost('createAccount', { firstName: 'Mallory', dob: '1990-01-01', email: 'priya@example.com', password: 'attacker-password-1' });
@@ -3176,9 +3270,27 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   // The parent presses it. That is the family unmaking their own disclosure.
   const undo = /\/undo\/([A-Za-z0-9_-]{20,})/.exec(after.split('doc15.§37')[1] ?? '')?.[1];
   const undoForm = forms((await get(`/undo/${undo}`, null)).html).find((f) => 'token' in f.fields);
-  await postTo(`/undo/${undo}`, null, undoForm.fields);
+  const pressed = await postTo(`/undo/${undo}`, null, undoForm.fields);
   check('susp-w10: one tap from the email switches that club’s link off, with no sign-in',
     /football@quarrymeadunited\.example\.au[\s\S]{0,200}?Off /.test(await controls()), true);
+  // G-P1 (John, 1 Oct: a live defect). The press says it worked only because
+  // it did: Done is where a press that switched a link off lands, it keeps
+  // the "does not un-send" box, and it offers nothing more to press.
+  const doneAt = pressed.replace(BASE, '');
+  const donePage = await get(doneAt, null);
+  check('jr-undo-w1: the press that switched the link off lands on Done, which says so, keeps "This does not un-send the email", and has no button',
+    [doneAt, donePage.status, /<h1[^>]*>Done<\/h1>/.test(donePage.html),
+     /The club will not be able to open the page any more\./.test(plain(donePage.html)),
+     /This does not un-send the email\./.test(plain(donePage.html)), forms(donePage.html).length],
+    ['/undo/done', 200, true, true, true, 0]);
+  // The same press again: the link is spent, so it switches nothing off and
+  // says so, rather than showing the question again.
+  const again = await postTo(`/undo/${undo}`, null, undoForm.fields);
+  const reopened = await get(`/undo/${undo}`, null);
+  check('jr-undo-w2: pressing the spent link again lands on the not-live panel, never Done — and opening it shows that panel with "Go to sign in"',
+    [again.replace(BASE, ''), /This link isn.t live/.test(plain(reopened.html)), /href="\/signin"[^>]*>Go to sign in/.test(reopened.html),
+     forms(reopened.html).length, /Switch this link off\?/.test(plain(reopened.html))],
+    [`/undo/${undo}`, true, true, 0, false]);
   check('susp-w11: and every other club’s link keeps working — a family is not punished for what a club did',
     /football@elsewhere\.example\.au[\s\S]{0,200}?Switch off/.test(await controls()), true);
 }
@@ -3640,6 +3752,22 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const w0 = await waitingPage();
   check('sms-w4b: the child’s waiting screen says the email went and the text follows — and not that a text was sent (BUZ, 29 Sep)',
     [w0.includes('We’ve emailed your parent. Their text follows shortly.'), w0.includes('Text and email sent')], [true, false]);
+  // F6 / 3q (BUZ, 1 Oct): the parent opens the emailed link while the text
+  // waits. Their status line says the text follows, not "open the link we
+  // texted" — and the No is there, from the first confirmed channel.
+  const ivyEmail = [...new Set([...boxOff.matchAll(/\/a\/([A-Za-z0-9_-]{20,})/g)].map((m) => m[1]))][0];
+  const aPost = async (code, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + `/a/${code}`, { method: 'POST', body: fd, redirect: 'manual' });
+    await r.text();
+  };
+  const yesIvy = forms((await get(`/a/${ivyEmail}`, null)).html).find((f) => /Yes, it/.test(f.submit));
+  if (yesIvy) await aPost(ivyEmail, yesIvy.fields);
+  const q3 = plainOf((await get(`/a/${ivyEmail}`, null)).html);
+  check('jr-3q-w1: with the email confirmed and the text still waiting, /a says "One more step. Your text follows shortly — open the link in it to finish." and not "Open the link we texted"',
+    [Boolean(yesIvy), q3.includes('One more step. Your text follows shortly — open the link in it to finish.'), /Open the link we texted/.test(q3), q3.includes('No, end this request')],
+    [true, true, false, true]);
   const job = async () => { const r = await fetch(BASE + '/api/jobs/outbox'); return r.ok ? (await r.json()).released : null; };
   // Today (brief G's /ops, brief H's tile): the backlog as a count.
   const todayWaiting = async () => {
@@ -3659,6 +3787,9 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const w1 = await waitingPage();
   check('sms-w5c: and the waiting screen stops saying the text is on its way, and says both went',
     [w1.includes('Their text follows shortly.'), w1.includes('Text and email sent')], [false, true]);
+  const q3after = plainOf((await get(`/a/${ivyEmail}`, null)).html);
+  check('jr-3q-w2: and once the text has gone, the emailed link says to open the link we texted, as before',
+    [q3after.includes('Your text follows shortly'), /One more step\. Open the link we texted to you/.test(q3after)], [false, true]);
   check('sms-w6: and the support console’s resend now sends a text straight away', [/\/ops\/support/.test(await resend()), await texts()], [true, 2]);
 
   check('sms-w7: a limit that is not an amount is refused', /error=cap/.test(await pressSwitch('Set this limit', { dollars: 'lots', reason: 'cap drill' })), true);

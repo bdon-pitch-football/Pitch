@@ -54,8 +54,16 @@ Both answers get recorded exactly as given, including "I don't know". **A no, or
 **4 · Say what verification actually turns on.** This is the sentence that sets expectations for everything afterwards:
 > "What this does is switch on your ability to receive players registering interest with the club. Until we've done this call, nothing about any player under 18 reaches you at all — that's true whether or not anyone's paid us."
 
-**5 · Close.**
+**5 · The Technical Director.** The call sheet prompts it (BUZ, 1 Oct):
+> "Before we finish — who's your Technical Director? Ask them to sign up on Pitch with their own email address, not the club's shared one. That's the account that reads the register."
+
+**6 · Close.** Read the line above "Log the call" before you say it. **Promise the email only when the sheet says logging this call as verified emails someone to confirm it.** At a small club the administrator's own account is often the club's published address, and that address never receives it (John, 1 Oct), so the email line would be false.
+
+When the sheet says logging the call emails someone to confirm it:
 > "That's everything. I'll switch it on today and you'll get an email confirming it. If anything changes — you leave the club, someone else takes the role — email me and I'll turn it off the same day."
+
+When the sheet says logging the call sends no email, the sentence ends at "today":
+> "That's everything. I'll switch it on today. If anything changes — you leave the club, someone else takes the role — email me and I'll turn it off the same day."
 
 ---
 

@@ -146,11 +146,11 @@ export async function logCall(formData: FormData) {
       // and it can do exactly one thing: switch off the one link it was
       // minted against (0025, /undo/[token]).
       //
-      // It lives as long as the link it switches off. §36's undo is a
-      // twenty-four-hour window because U-2 says so; §37 has no window in the
-      // ruling, and a button that dies before the link does would be a control
-      // we promised and withdrew — "we have not switched it off for you" is
-      // only honest while the switch still works.
+      // It lives as long as the link it switches off. §37 has no window in
+      // the ruling, and a button that dies before the link does would be a
+      // control we promised and withdrew — "we have not switched it off for
+      // you" is only honest while the switch still works. §36's undo now
+      // lives by the same rule (U-2 as amended, BUZ 1 Oct; lib/send-dispatch).
       const undoRaw = randomBytes(24).toString('base64url');
       await db.query(
         `insert into undo_token (token_hash, share_token_id, issued_to, expires_at)
