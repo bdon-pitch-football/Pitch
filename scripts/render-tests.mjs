@@ -2553,6 +2553,21 @@ const georgia = ids.children.georgia;
   check('slug-r1: a club’s former page address moves for good (308) to its address now — the page and its claim screen',
     [oldFc.status, oldFc.location?.endsWith('/fc/brindlewood-rovers-sc'), oldClaim.status, oldClaim.location?.endsWith('/claim/brindlewood-rovers-sc')],
     [308, true, 308, true]);
+  // John, 1 Oct (Floodlit cleared on D-172). U1b: Pitch's pitch drawing is
+  // generic — byte-identical on every unclaimed page, never derived from the
+  // club. U5-nav: Pitch's nav above the banner is furniture only while it stays
+  // generic — no club name, no link about this club, no claim.
+  const pitchLines = (html) => (html.match(/<svg class="fl-pitch-lines"[\s\S]*?<\/svg>/) ?? [''])[0];
+  const other = (await get('/fc/wrenmoor-wanderers-fc')).html;
+  check('U1b: the drawn pitch lines are Pitch’s own — identical on two different unclaimed pages',
+    [pitchLines(brind.html).length > 0, pitchLines(brind.html) === pitchLines(other)], [true, true]);
+  const navOf = (html) => (html.match(/<header class="fl-nav[\s\S]*?<\/header>/) ?? [''])[0].replace(/<!-- -->/g, '');
+  check('U5-nav: on an unclaimed page Pitch’s nav names no club, links nowhere about it and offers no claim',
+    // "Find your club" (/claim, Pitch's own search) is furniture; a visible
+    // "Claim" or a link to THIS club's claim or page is not.
+    [navOf(brind.html).length > 0, /Brindlewood/i.test(navOf(brind.html)), /brindlewood-rovers-sc|\/claim\//.test(navOf(brind.html)),
+     /\bclaim\b/i.test(navOf(brind.html).replace(/<[^>]*>/g, ' '))],
+    [true, false, false, false]);
   check('D-172: never "partner", "member", "joined", "on Pitch", "verified", "official" or "in association with" on an unclaimed page',
     /\b(partner|member|joined|on Pitch|verified|official|in association with)\b/i.test(bw), false);
 

@@ -931,6 +931,24 @@ await cdp('Network.clearBrowserCookies');
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
 for (const path of ['/', '/jobs']) { await visit(path); await analyticsPass(1280, 'signed out', path); await cspDrain(1280, 'signed out', path); }
 
+// U5b (John, 1 Oct): D-172's banner sits ABOVE THE FOLD — on a small phone
+// (375×667), the banner's first line is wholly inside the first viewport on
+// every unclaimed page, so a long club name can never push it out of sight.
+const foldFails = [];
+await cdp('Emulation.setDeviceMetricsOverride', { width: 375, height: 667, deviceScaleFactor: 1, mobile: true });
+for (const path of ['/fc/brindlewood-rovers-sc', '/fc/kestrelford-athletic-sc', '/fc/wrenmoor-wanderers-fc']) {
+  await visit(path);
+  const r = await eval_(`JSON.stringify((() => {
+    const b = document.querySelector('[data-unclaimed-banner]');
+    if (!b) return { missing: true };
+    const range = document.createRange(); range.selectNodeContents(b);
+    const first = [...range.getClientRects()].filter((x) => x.width > 0).sort((p, q) => p.top - q.top)[0];
+    return { bottom: first ? Math.ceil(first.bottom) : null, vh: window.innerHeight };
+  })())`);
+  if (r.missing || r.bottom === null || r.bottom > r.vh) foldFails.push({ path, ...r });
+}
+await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
+
 stop();
 console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px (${failureChecks} of them failure-path views)`);
 console.log(`analytics    · ${analyticsRead} views read · started in ${analyticsOn} · it may start only for a signed-out visitor on the front door, /trials, /jobs or a club page, and must start there`);
@@ -948,6 +966,8 @@ console.log(`walkthrough  · ${motionChecked} views at 390 and 1280 — a stat t
 for (const f of motionFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 for (const f of labelFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — ${f.labels.length} .field-label not at 10px: ${f.labels.map((l) => `"${l.text}" ${l.size}/${l.weight}`).join(', ')}`);
 for (const f of bodyFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — the page paints ${f.bg}, not --bg ${tokenRgb}`);
+for (const f of foldFails) console.log(`FAIL 375×667 · ${f.path} — ${f.missing ? 'no D-172 banner on the page' : `the banner's first line ends at ${f.bottom}px, below the ${f.vh}px fold`} (U5b)`);
+console.log(`fold         · U5b: the unclaimed banner's first line inside the first screen at 375×667 on 3 unclaimed pages`);
 // One line per distinct control, not one per view: the same component fails on
 // every screen it is on, at every width, and a hundred lines saying so is a
 // wall nobody reads.
@@ -965,7 +985,7 @@ const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what}
   (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
 console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
 for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
-const chromeBad = ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length + motionFails.length;
+const chromeBad = foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length + motionFails.length;
 if (failures.length === 0 && chromeBad === 0) {
   console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, and a Premium tap lands in view');
   process.exit(0);
