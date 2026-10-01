@@ -27,6 +27,7 @@ and **Preview**:
 | `RESEND_API_KEY`, `EMAIL_WEBHOOK_SECRET` | Resend (API keys; Webhooks → signing secret) |
 | `EMAIL_FROM` | `Pitch <hello@send.pitchfootball.com.au>`, the verified sending domain. The code sends it as **Pitch Football** whatever name is here (E3, 1 Oct); only the address is read. |
 | Resend → Domains → `send.pitchfootball.com.au` → Configuration | **Open tracking OFF and click tracking OFF**, before any HTML email sends (spec K, 1 Oct). Every email now carries an HTML part, and with either switch on Resend adds a pixel or rewrites every link — surveillance of a parent reading about their own child (doc 14 J41's reasoning). The code asks for neither; only the dashboard can turn them on. |
+| Twilio → Messaging → Settings → General Settings | **Message Body Redaction ON and Phone Number Redaction ON**, before SMS goes live (John, 1 Oct, N-8). After a text is sent its body and number leave Twilio's console, API and support tools; Twilio's systems keep the unredacted text up to 24 hours. Doc 23 states provider periods only once these are set. |
 | `EMAIL_REPLY_TO` | `burak.donmez@pitch-football.com` (D-169). No help@ inbox. |
 | `NEXT_PUBLIC_SITE_URL` | `https://pitchfootball.com.au` |
 | `TZ` | `Australia/Melbourne` |
