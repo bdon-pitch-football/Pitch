@@ -17,6 +17,8 @@ Leave the browser on **/demo**.
 
 ## The walk — about twelve minutes
 
+**Rehearsing:** step 5 sends a real invitation in the demo, and it can only go once. Rehearse up to the send and stop, or restart the demo after rehearsing (`npm run demo -- "Club FC" …`), so the club sees it work.
+
 **1 · Their page.** `/demo` → *Balmoral FC's page*.
 
 > "This is your club on Pitch, as a family sees it. Trials at the top with the
@@ -27,8 +29,8 @@ Leave the browser on **/demo**.
 This is the screen he is being sold. Let him scroll.
 
 > "A hundred families have put their child in front of you. Sorted into your
-> own teams, because the family picked the team when they registered. Eighty-two
-> you haven't looked at, twelve you've shortlisted, six you've invited."
+> own teams, because the family picked the team when they registered. Seventy-nine
+> you haven't looked at, fifteen you've shortlisted, six you've invited."
 
 Then use the filters in front of him — **U15**, then **GK**, then
 **Shortlisted** — and say what they cost:
@@ -114,10 +116,10 @@ npm run demo -- "Balmoral FC" --suburb Balmoral --state VIC --ground "Balmoral R
 Balmoral starts as the listing we built from their public notices — their
 trials and nothing they wrote. Then, on `/demo`:
 
-1. **Balmoral FC's page** — *"compiled from public information, not affiliated
-   until claimed."*
+1. **Balmoral FC's page** — the banner: *"Pitch made this page from public
+   information. Balmoral FC has not claimed it."*
 2. **Claim Balmoral FC** → it asks you to sign in → **Create an account** →
-   **Club** → your name, a date of birth, `you@balmoralfc.example.au`, a
+   **Australia** → **Club** → your name, a date of birth, `you@balmoralfc.example.au`, a
    password (ten characters).
 3. **The club's inbox** (`/dev/outbox`) → *"Confirm your email address"* → open
    the link in it, press the button, sign in.
@@ -143,10 +145,10 @@ trials and nothing they wrote. Then, on `/demo`:
 - **Any clip.** The façade is right — nothing loads until you press — but there
   is no video behind a made-up link.
 - **The ops console** (`/ops/…`). That is ours, not a club's.
-- **A CV's age.** No CV states an age or a birth year yet. If he asks, say so:
-  *"the age group the family registered for is what you see; the birth year is
-  on the list for the next build."* Do not guess one off a squad name.
-- **A 404.** A dead link is a blank dark page. Use the back button, not a URL.
+- **A CV's age.** A CV shows the age group and the birth quarter (for example
+  "U15 · born Jan–Mar"), never a date of birth. Do not guess an exact age.
+- **A 404.** A dead link shows Pitch's "This page isn't here" page. Use the
+  back button, not a URL.
 
 ## What not to say
 
