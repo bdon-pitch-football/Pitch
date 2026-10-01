@@ -12886,7 +12886,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
      /import \{ COUNT_SENT_BODIES, COUNT_STALE_ADDRESSES, SCRUB_SENT_BODIES \} from '\.\.\/lib\/sent-bodies\.ts';/.test(scrubScript),
      /client\.query\(COUNT_STALE_ADDRESSES\)/.test(scrubScript), (scrubScript.match(/console\.log\(`[^`]*address[^`]*\$\{await stale\(\)\}/g) ?? []).length,
      // the address count is the statement's own: "nobody will send it again" and "ended 30 days ago", word for word
-     Boolean(sb?.COUNT_STALE_ADDRESSES) && sb.COUNT_STALE_ADDRESSES.includes(sb.SCRUB_SENT_BODIES.split('\n')[3]?.trim())
+     Boolean(sb?.COUNT_STALE_ADDRESSES) && sb.COUNT_STALE_ADDRESSES.includes(sb.SCRUB_SENT_BODIES.split('\n').find((l) => l.trim().startsWith('where '))?.trim())
        && [sb.SCRUB_SENT_BODIES, sb.COUNT_STALE_ADDRESSES].every((q) => q.includes("coalesce(sent_at, failed_at, last_attempt_at, created_at) < now() - interval '30 days'"))],
     [true, true, true, true, 2, true]);
 
