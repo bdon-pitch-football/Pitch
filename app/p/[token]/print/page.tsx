@@ -13,7 +13,8 @@ import {
   type PositionCode, type StatKey,
 } from '@/lib/football';
 import PrintButton from './PrintButton';
-import { T } from '@/lib/palette';
+import Wordmark from '@/components/Wordmark';
+import { contextLine } from '@/components/cv/PlayerCV';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,70 +56,97 @@ export default async function PrintCv({ params, searchParams }: {
   // typed in, whatever the rows said.
   const shared = sharedProvenance(tiles);
 
+  const context = contextLine(cv.squad?.ageGroup, cv.birthQuarter);
+  const previousClubs = cv.previousClubs ?? [];
+
+  // THE CARD IN INK (spec C): the one light surface, on named tokens
+  // (--print-*), with the CV's own section heading, the display numeral and
+  // only the charter's five letter-spacings. C-P3 (BUZ, 1 Oct): the sheet a
+  // TD holds on trial day carries what the screen CV carries — the D-84
+  // context line and Football history — from the same read, under the same
+  // rules (never a date of birth; history only when there is any).
   return (
-    <div style={{ background: '#ffffff', color: T.bg, minHeight: '100dvh', padding: '32px 28px', fontFamily: 'inherit' }}>
+    <div className="sheet-page">
       <style>{`@media print { .no-print { display: none !important; } @page { margin: 14mm; } }`}</style>
       <PrintButton />
-      <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: `2px solid ${T.bg}`, paddingBottom: 14 }}>
+      <div className="sheet">
+        <div className="sheet-head">
           <div>
-            <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.02em' }}>{cv.firstName} {cv.lastName}</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#3f5145', marginTop: 4 }}>
+            <div className="sheet-name">{cv.firstName} {cv.lastName}</div>
+            <div className="sheet-l1">
               {cv.positions.join(' · ')}
               {cv.squadNumber ? ` · #${cv.squadNumber}` : ''}{cv.foot ? ` · ${cv.foot} footed` : ''}
             </div>
-            {cv.club && <div style={{ fontSize: 13, color: '#5b6b60', marginTop: 2 }}>{cv.club}{cv.squad?.name ? ` — ${cv.squad.name}` : ''}</div>}
+            {cv.club && <div className="sheet-l2">{cv.club}{cv.squad?.name ? ` — ${cv.squad.name}` : ''}</div>}
+            {context && <div className="sheet-ctx">{context}</div>}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.08em' }}>PITCH</div>
+          <span className="wordmark-ink"><Wordmark size={18} color="var(--print-ink)" /></span>
         </div>
 
         {tiles.length > 0 && (
-          <div style={{ display: 'flex', gap: 34, marginTop: 20 }}>
+          <div className="sheet-stats">
             {tiles.map((t) => (
               <div key={t.key}>
-                <div style={{ fontSize: 30, fontWeight: 900, lineHeight: 1 }}>{t.value}</div>
-                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5b6b60', marginTop: 3 }}>{STAT_LABELS[t.key]}</div>
+                <div className="numeral numeral-m">{t.value}</div>
+                <div className="sheet-nl">{STAT_LABELS[t.key]}</div>
                 {shared ? null : (
-                  <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5b6b60', marginTop: 2 }}>{provenanceLabel(t.provenance)}</div>
+                  <div className="sheet-nl" style={{ marginTop: 2 }}>{provenanceLabel(t.provenance)}</div>
                 )}
               </div>
             ))}
-            {shared && (
-              <div style={{ marginLeft: 'auto', alignSelf: 'flex-end', fontSize: 10.5, color: '#5b6b60', fontWeight: 700 }}>{PROVENANCE_LABELS[shared]}</div>
-            )}
+            {shared && <div className="sheet-src">{PROVENANCE_LABELS[shared]}</div>}
           </div>
         )}
 
         {cv.about && (
-          <div style={{ marginTop: 22 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5b6b60' }}>About</div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.55, marginTop: 5 }}>{cv.about}</div>
+          <div className="sheet-sec">
+            <div className="sheet-h">About</div>
+            <div className="sheet-p">{cv.about}</div>
           </div>
         )}
 
         {cv.achievements.length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5b6b60' }}>Achievements</div>
+          <div className="sheet-sec">
+            <div className="sheet-h">Achievements</div>
             {cv.achievements.map((a) => (
-              <div key={a.title} style={{ fontSize: 13, marginTop: 5 }}>
+              <div key={a.title} className="sheet-i">
                 <b>{a.title}</b>{a.detail ? ` — ${a.detail}` : ''}
               </div>
             ))}
           </div>
         )}
 
+        {/* C-P3: the clubs before this one, most recent first, under the
+            club Pitch holds — exactly as the screen CV draws them, and with
+            the screen CV's own sentence: the earlier clubs are the player's
+            own account (D-72; free text, grants nothing). */}
+        {previousClubs.length > 0 && (
+          <div className="sheet-sec">
+            <div className="sheet-h">Football history</div>
+            {cv.club && (
+              <div className="sheet-i"><b>{cv.club}</b> — {[cv.squad?.name, 'now'].filter(Boolean).join(' · ')}</div>
+            )}
+            {previousClubs.map((e) => (
+              <div key={`${e.orgName}-${e.period ?? ''}`} className="sheet-i">
+                <b>{e.orgName}</b>{e.period ? ` — ${e.period}` : ''}
+              </div>
+            ))}
+            <div className="sheet-note">Earlier clubs are {cv.firstName}&rsquo;s own account of where they played. Only the club at the top is one we hold on Pitch.</div>
+          </div>
+        )}
+
         {otherFootball.length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5b6b60' }}>Other football</div>
+          <div className="sheet-sec">
+            <div className="sheet-h">Other football</div>
             {otherFootball.map((e) => (
-              <div key={e.orgName} style={{ fontSize: 13, marginTop: 5 }}>
+              <div key={e.orgName} className="sheet-i">
                 <b>{e.orgName}</b>{e.period ? ` — ${e.period}` : ''}
               </div>
             ))}
           </div>
         )}
 
-        <div style={{ marginTop: 26, paddingTop: 12, borderTop: '1px solid #d7ded9', fontSize: 10.5, color: '#5b6b60' }}>
+        <div className="sheet-foot">
           pitchfootball.com.au · this page is a live link and the family can switch it off at any time
         </div>
       </div>

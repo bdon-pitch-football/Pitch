@@ -15,7 +15,7 @@ import { HeaderMark } from '@/components/Wordmark';
 import { PlayerFrame } from '@/components/player-shell';
 import { requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
-import { T } from '@/lib/palette';
+import { G } from '@/components/player-parts';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your page', robots: { index: false, follow: false } };
@@ -52,44 +52,46 @@ export default async function Ready({ params }: { params: Promise<{ recordId: st
     <PlayerFrame active="cv">
       <div className="reading h-rise" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center', paddingTop: 10 }}>
-          <div aria-hidden style={{ width: 62, height: 62, borderRadius: 999, background: waiting ? 'rgba(237,161,0,.14)' : 'rgba(61,220,132,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {waiting ? (
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={T.amber} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-            ) : (
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 10 17.5 19 7" /></svg>
-            )}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.05, margin: 0 }}>
-              {waiting ? 'Sent to your parent' : live ? 'Your page is live' : 'Your page is ready'}
-            </h1>
-            <div style={{ fontSize: 14.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>
-              {waiting
-                ? 'They see the change before it goes out. Nothing has moved until they say yes.'
-                : 'Your page goes to a club as a link, so it shows what is on it today.'}
+        {/* A door (spec C): the moment, then what to do with it. */}
+        <div className="door" style={{ gap: 20 }}>
+          <div className="moment">
+            {/* The card's ticket: the approved one-line summary on the card's
+                own gradient, the squad number standing behind it. The badge
+                says done, or waiting (D-119: nothing celebrated for a change
+                a parent has not seen). Decorative: the heading says it. */}
+            <div className="ticket">
+              {r.squad_number ? <div className="cv-num" aria-hidden>{r.squad_number}</div> : null}
+              <div className={waiting ? 'badge wait' : 'badge ok'} aria-hidden>{waiting ? G.clock() : G.tick(16)}</div>
+              {line && <div className="ticket-line">{r.first_name} · {line}</div>}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <h1 className="h-moment">
+                {waiting ? 'Sent to your parent' : live ? 'Your page is live' : 'Your page is ready'}
+              </h1>
+              <div style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--secondary)', lineHeight: 1.5 }}>
+                {waiting
+                  ? 'They see the change before it goes out. Nothing has moved until they say yes.'
+                  : 'Your page goes to a club as a link, so it shows what is on it today.'}
+              </div>
             </div>
           </div>
-          {line && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 999, padding: '9px 15px', fontSize: 13, fontWeight: 800, color: T.ink }}>
-              {r.first_name} · {line}
+
+          {/* The display HINT, never a working URL (D-80): text to read, so
+              ink, not a link's green. */}
+          {live && (
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="panel-h">Your link</div>
+              <div className="link-v">pitchfootball.com.au/p/{r.hint}</div>
+              <div className="c-s2">Switch your link off any time and the club&rsquo;s copy stops working.</div>
             </div>
           )}
-        </div>
 
-        {live && (
-          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted }}>Your link</div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/p/{r.hint}</div>
-            <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>Switch your link off any time and the club&rsquo;s copy stops working.</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {!waiting && canSend && <Link href={`/send/${recordId}`} className="btn btn-primary fl-glow">Send it to a club</Link>}
+            <Link href={`/build/${recordId}/preview`} className="btn btn-secondary">Preview my page</Link>
+            <Link href="/trials" className="btn btn-secondary">Find a trial</Link>
+            <Link href={`/build/${recordId}`} className="textbtn textbtn-block">Keep building</Link>
           </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {!waiting && canSend && <Link href={`/send/${recordId}`} className="btn btn-primary">Send it to a club</Link>}
-          <Link href={`/build/${recordId}/preview`} className="btn btn-secondary">Preview my page</Link>
-          <Link href="/trials" className="btn btn-secondary">Find a trial</Link>
-          <Link href={`/build/${recordId}`} className="btn btn-ghost">Keep building</Link>
         </div>
       </div>
     </PlayerFrame>

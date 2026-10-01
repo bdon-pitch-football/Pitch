@@ -8,8 +8,8 @@ import { HeaderMark } from '@/components/Wordmark';
 import { EXPERIENCE_KIND_LABELS, experienceKindsOffered, PREVIOUS_CLUB } from '@/lib/football';
 import { requireRecordActor } from '@/lib/record-guard';
 import { addAchievement, addExperience, removeAchievement, removeExperience } from './actions';
-import { T } from '@/lib/palette';
-import { fieldLabel } from '@/lib/ui';
+import { buildProgress } from '@/lib/build-progress';
+import { BuildHeader, G } from '@/components/player-parts';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'More about you', robots: { index: false, follow: false } };
@@ -46,120 +46,131 @@ export default async function More({ params }: { params: Promise<{ recordId: str
   const clubs: { id: string; orgName: string; period: string | null }[] = rows[0].clubs;
   const kinds = experienceKindsOffered(rows[0].band);
 
-  const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16 };
-  const label = fieldLabel;
-  const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
-  const section: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
+  const { done, total } = await buildProgress(recordId);
+
+  // Remove in a list is the 44px text button (Head of Product Design ruling 2).
+  const remove = (action: typeof removeExperience, field: string, id: string) => (
+    <form action={action}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name={field} value={id} />
+      <button type="submit" className="textbtn">Remove</button>
+    </form>
+  );
 
   return (
     <PlayerFrame active="cv">
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading build-col" style={{ width: '100%', padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: `/build/${recordId}`, label: 'Back to the CV' }} />
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your football history</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>The clubs you&rsquo;ve been at, what you&rsquo;ve won, and the football outside your club.</div>
-        </div>
+        {/* C-P2 (BUZ, 1 Oct): the builder's header on all three steps. */}
+        <BuildHeader recordId={recordId} title="Your football history" sub="The clubs you’ve been at, what you’ve won, and the football outside your club." done={done} total={total} here="Achievements" />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={section}>Clubs before this one</div>
-          {clubs.map((e) => (
-            <div key={e.id} style={{ ...card, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 11 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 800 }}>{e.orgName}</div>
-                {e.period && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}</div>}
-              </div>
-              <form action={removeExperience}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="experienceId" value={e.id} />
-                <button type="submit" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
-              </form>
+        {/* Three lists on the page, each a Panel list, each add form a panel
+            under its list. No primary on this page, so nothing glows. */}
+        <section className="c-gap">
+          <h2 className="sec-h">Clubs before this one</h2>
+          {clubs.length > 0 && (
+            <div className="card rows">
+              {clubs.map((e) => (
+                <div key={e.id} className="row">
+                  <div className="row-main">
+                    <div className="row-t" style={{ fontSize: 13.5 }}>{e.orgName}</div>
+                    {e.period && <div className="row-s" style={{ fontSize: 12 }}>{e.period}</div>}
+                  </div>
+                  {remove(removeExperience, 'experienceId', e.id)}
+                </div>
+              ))}
             </div>
-          ))}
-          <form action={addExperience} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
+          )}
+          <form action={addExperience} className="card cv-edit-stack"><input type="hidden" name="recordId" value={recordId} />
             <input type="hidden" name="kind" value={PREVIOUS_CLUB} />
-            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={label}>Club</div>
-              <input style={input} name="orgName" aria-label="Where" placeholder="e.g. Ashvale Lions FC" required maxLength={80} />
+            <label className="field">
+              <span className="field-label">Club</span>
+              <input name="orgName" aria-label="Where" placeholder="e.g. Ashvale Lions FC" required maxLength={80} />
             </label>
-            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={label}>Years — optional</div>
-              <input style={input} name="period" aria-label="When" placeholder="e.g. 2022–2024" maxLength={40} />
+            <label className="field">
+              <span className="field-label">Years — optional</span>
+              <input name="period" aria-label="When" placeholder="e.g. 2022–2024" maxLength={40} />
             </label>
-            <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add a club</button>
+            {/* N3 (BUZ, 1 Oct): the "＋" character goes; a stroke plus sits in
+                the button. Same words. */}
+            <button type="submit" className="btn btn-secondary" style={{ gap: 8 }}>{G.plus()}Add a club</button>
           </form>
-          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+          <div className="c-help" style={{ lineHeight: 1.55 }}>
             Your club now is the one you registered with — it&rsquo;s already at the top of your page. These are the ones before it, in your own words. Typing a club here does not tell them anything and does not let them see your page.
           </div>
-        </div>
+        </section>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={section}>Achievements</div>
-          {achievements.map((a) => (
-            <div key={a.id} style={{ ...card, padding: '13px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 800 }}>{a.title}</div>
-                {a.detail && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{a.detail}</div>}
-              </div>
-              <form action={removeAchievement}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="achievementId" value={a.id} />
-                <button type="submit" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
-              </form>
+        <section className="c-gap">
+          <h2 className="sec-h">Achievements</h2>
+          {achievements.length > 0 && (
+            <div className="card rows">
+              {achievements.map((a) => (
+                <div key={a.id} className="row">
+                  <div className="row-main">
+                    <div className="row-t" style={{ fontSize: 13.5 }}>{a.title}</div>
+                    {a.detail && <div className="row-s" style={{ fontSize: 12 }}>{a.detail}</div>}
+                  </div>
+                  {remove(removeAchievement, 'achievementId', a.id)}
+                </div>
+              ))}
             </div>
-          ))}
-          <form action={addAchievement} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
-            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={label}>Achievement</div>
-              <input style={input} name="title" aria-label="Achievement" placeholder="e.g. U15 League — Runners up" required maxLength={80} />
+          )}
+          <form action={addAchievement} className="card cv-edit-stack"><input type="hidden" name="recordId" value={recordId} />
+            <label className="field">
+              <span className="field-label">Achievement</span>
+              <input name="title" aria-label="Achievement" placeholder="e.g. U15 League — Runners up" required maxLength={80} />
             </label>
-            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={label}>When / where — optional</div>
-              <input style={input} name="detail" aria-label="When or where" placeholder="e.g. 2026 season" maxLength={80} />
+            <label className="field">
+              <span className="field-label">When / where — optional</span>
+              <input name="detail" aria-label="When or where" placeholder="e.g. 2026 season" maxLength={80} />
             </label>
-            <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add achievement</button>
+            <button type="submit" className="btn btn-secondary" style={{ gap: 8 }}>{G.plus()}Add achievement</button>
           </form>
-        </div>
+        </section>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={section}>Other football</div>
-          {other.map((e) => (
-            <div key={e.id} style={{ ...card, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 11 }}>
-              <div style={{ background: 'rgba(61,220,132,.12)', color: T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>{EXPERIENCE_KIND_LABELS[e.kind as keyof typeof EXPERIENCE_KIND_LABELS]}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 800 }}>{e.orgName}</div>
-                {e.period && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}</div>}
-              </div>
-              <form action={removeExperience}><input type="hidden" name="recordId" value={recordId} /><input type="hidden" name="experienceId" value={e.id} />
-                <button type="submit" style={{ minHeight: 44, minWidth: 44, padding: '0 6px', background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>Remove</button>
-              </form>
+        <section className="c-gap">
+          <h2 className="sec-h">Other football</h2>
+          {other.length > 0 && (
+            <div className="card rows">
+              {other.map((e) => (
+                <div key={e.id} className="row">
+                  {/* The kind is a fact, so a neutral Pill, not a green tag. */}
+                  <span className="pill nodot">{EXPERIENCE_KIND_LABELS[e.kind as keyof typeof EXPERIENCE_KIND_LABELS]}</span>
+                  <div className="row-main">
+                    <div className="row-t" style={{ fontSize: 13.5 }}>{e.orgName}</div>
+                    {e.period && <div className="row-s" style={{ fontSize: 12 }}>{e.period}</div>}
+                  </div>
+                  {remove(removeExperience, 'experienceId', e.id)}
+                </div>
+              ))}
             </div>
-          ))}
-          <form action={addExperience} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><input type="hidden" name="recordId" value={recordId} />
-            <div style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={label}>Kind</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {/* .chip.pick, the product's own radio chip (globals.css, and
-                    the same idiom as /club/post-trial) rather than a hand-rolled
-                    copy of it. These were 28px tall against the charter's 44px
-                    floor at every width, AND had no checked state at all — six
-                    identical pills where one of them is already selected. The
-                    class carries both. `kinds` (D-161) decides which of them a
-                    band is offered; that is merged in untouched. */}
-                {kinds.map((k, i) => (
-                  <label key={k} className="chip pick">
-                    <input type="radio" name="kind" value={k} defaultChecked={i === 0} />
-                    {EXPERIENCE_KIND_LABELS[k]}
-                  </label>
-                ))}
-              </div>
+          )}
+          <form action={addExperience} className="card cv-edit-stack"><input type="hidden" name="recordId" value={recordId} />
+            <div className="field-label">Kind</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {/* .chip.pick, the product's own radio chip (globals.css, and
+                  the same idiom as /club/post-trial) rather than a hand-rolled
+                  copy of it. These were 28px tall against the charter's 44px
+                  floor at every width, AND had no checked state at all — six
+                  identical pills where one of them is already selected. The
+                  class carries both. `kinds` (D-161) decides which of them a
+                  band is offered; that is merged in untouched. */}
+              {kinds.map((k, i) => (
+                <label key={k} className="chip pick">
+                  <input type="radio" name="kind" value={k} defaultChecked={i === 0} />
+                  {EXPERIENCE_KIND_LABELS[k]}
+                </label>
+              ))}
             </div>
-            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={label}>Where</div>
-              <input style={input} name="orgName" aria-label="Where" placeholder="e.g. Melbourne Futsal U15" required maxLength={80} />
+            <label className="field">
+              <span className="field-label">Where</span>
+              <input name="orgName" aria-label="Where" placeholder="e.g. Melbourne Futsal U15" required maxLength={80} />
             </label>
-            <label style={{ ...card, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={label}>When — optional</div>
-              <input style={input} name="period" aria-label="When" placeholder="e.g. Summer 2025–26" maxLength={40} />
+            <label className="field">
+              <span className="field-label">When — optional</span>
+              <input name="period" aria-label="When" placeholder="e.g. Summer 2025–26" maxLength={40} />
             </label>
-            <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add other football</button>
+            <button type="submit" className="btn btn-secondary" style={{ gap: 8 }}>{G.plus()}Add other football</button>
           </form>
-        </div>
+        </section>
       </div>
     </PlayerFrame>
   );

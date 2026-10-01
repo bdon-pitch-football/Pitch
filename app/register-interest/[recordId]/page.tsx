@@ -12,25 +12,20 @@ import { HeaderMark } from '@/components/Wordmark';
 import InterestForm from './InterestForm';
 import { requireRecordActor } from '@/lib/record-guard';
 import { sendState } from '@/lib/send-state';
-import { T } from '@/lib/palette';
+import { TopBarShell } from '@/components/console-shell';
+import { Outcome } from '@/components/player-parts';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Register interest', robots: { index: false, follow: false } };
 
-const Status = ({ dot, kicker, title, children }: { dot: string; kicker: string; title: string; children: React.ReactNode }) => (
-  <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+// The outcomes: the same Notice as Send's (spec C), under the Top bar.
+const Status = ({ tone, kicker, title, children }: { tone: 'accent' | 'amber' | 'muted'; kicker: string; title: string; children: React.ReactNode }) => (
+  <TopBarShell>
     <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
       <HeaderMark back={{ href: '/home' }} />
-      <div style={{ borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <div style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
-          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.82)' }}>{kicker}</div>
-        </div>
-        <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>{title}</h1>
-        <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{children}</div>
-      </div>
+      <Outcome tone={tone} kicker={kicker} title={title}>{children}</Outcome>
     </div>
-  </div>
+  </TopBarShell>
 );
 
 export default async function RegisterInterest({ params, searchParams }: {
@@ -71,7 +66,7 @@ export default async function RegisterInterest({ params, searchParams }: {
 
   if (state.mode === 'off') {
     return (
-      <Status dot={T.muted} kicker="Sending is off" title="Sending is off on your account">
+      <Status tone="muted" kicker="Sending is off" title="Sending is off on your account">
         Your CV can&rsquo;t go to a club from here at the moment. If you want it back on, talk to your parent.
       </Status>
     );
@@ -79,7 +74,7 @@ export default async function RegisterInterest({ params, searchParams }: {
 
   if (state.mode === 'self' && registered) {
     return (
-      <Status dot={T.accent} kicker="On the register" title={`You’re on ${c.name}’s register.`}>
+      <Status tone="accent" kicker="On the register" title={`You’re on ${c.name}’s register.`}>
         {trial ? `For ${trial.title}, ${trial.date}. ` : ''}If the club wants you at a trial, it invites you through Pitch.
       </Status>
     );
@@ -87,7 +82,7 @@ export default async function RegisterInterest({ params, searchParams }: {
 
   if (state.mode === 'ask' && asked) {
     return (
-      <Status dot={T.amber} kicker="Waiting on your parent" title={`Asked. Nothing has gone to ${c.name} yet.`}>
+      <Status tone="amber" kicker="Waiting on your parent" title={`Asked. Nothing has gone to ${c.name} yet.`}>
         Your parent reads it and presses send. It&rsquo;s the same for every club.
       </Status>
     );
@@ -106,6 +101,7 @@ export default async function RegisterInterest({ params, searchParams }: {
   const preselectSquad = squads.some((s) => s.id === squadParam) ? squadParam : undefined;
 
   return (
+    <TopBarShell>
     <InterestForm
       recordId={recordId}
       club={{ id: c.id, name: c.name, suburb: c.suburb ?? '' }}
@@ -116,5 +112,6 @@ export default async function RegisterInterest({ params, searchParams }: {
       band={state.band}
       trial={trial ? { id: trial.id, title: trial.title, date: trial.date } : undefined}
     />
+    </TopBarShell>
   );
 }

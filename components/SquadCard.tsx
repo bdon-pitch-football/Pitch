@@ -5,8 +5,6 @@
 // the middle one — a confirmed membership — which is why this card exists at
 // all: a player cannot type a club in, and nothing else could write it.
 import { db } from '@/lib/db';
-import { T } from '@/lib/palette';
-import { card } from '@/lib/ui';
 import { answerSquadInvitation, leaveSquad, withdrawClaim } from '@/app/squad/actions';
 
 type Row = { club: string; squad: string; age_group: string | null; season: string | null };
@@ -42,14 +40,14 @@ export default async function SquadCard({ personId, firstName, back, mine, said 
   const they = mine ? 'you' : firstName;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+    <div className="c-gap">
       <h2 className="sec-h">{mine ? 'Where you play' : `Where ${firstName} plays`}</h2>
 
       {/* Nothing is reported as done unless it was done (N3). A club can be
           suspended between the ask and the answer, and the answer then does
           not go through. */}
       {said === 'error' && (
-        <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 12.5, fontWeight: 700, color: T.secondary, lineHeight: 1.5 }}>
+        <div role="alert" className="card card-amber c-say">
           That didn&rsquo;t go through. Nothing changed &mdash; try again, and if it keeps happening the club may no longer be on Pitch.
         </div>
       )}
@@ -57,10 +55,10 @@ export default async function SquadCard({ personId, firstName, back, mine, said 
       {invites.map((i) => (
         // A club's invitation is a question, not an action, so its panel has
         // no green edge (spec D, controls; mockup k-georgia).
-        <div key={i.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div key={i.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>{i.club} would like {they === 'you' ? 'you' : they} in {i.squad}</div>
-            <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
+            <div className="row-t" style={{ fontSize: 15 }}>{i.club} would like {they === 'you' ? 'you' : they} in {i.squad}</div>
+            <div className="c-s2" style={{ marginTop: 3 }}>
               Saying yes puts {i.squad} on {mine ? 'your' : `${firstName}’s`} page and lets that club’s coaches for this team read {mine ? 'your' : 'their'} record. Doing nothing is a complete answer.
             </div>
           </div>
@@ -80,11 +78,13 @@ export default async function SquadCard({ personId, firstName, back, mine, said 
         </div>
       ))}
 
+      {/* List rows (spec A part 13): "Leave" and "Cancel" are the table-row
+          button, not a hand-built third button. */}
       {now ? (
-        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>{now.club}</div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{[now.squad, now.season].filter(Boolean).join(' · ')} · on {mine ? 'your' : 'their'} page</div>
+        <div className="card row">
+          <div className="row-main">
+            <div className="row-t" style={{ fontSize: 15 }}>{now.club}</div>
+            <div className="row-s">{[now.squad, now.season].filter(Boolean).join(' · ')} · on {mine ? 'your' : 'their'} page</div>
           </div>
           <form action={leaveSquad}>
             <input type="hidden" name="personId" value={personId} /><input type="hidden" name="back" value={back} />
@@ -92,10 +92,10 @@ export default async function SquadCard({ personId, firstName, back, mine, said 
           </form>
         </div>
       ) : claim ? (
-        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>Waiting on {claim.club}</div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>{claim.squad} · it shows on the page once they confirm it</div>
+        <div className="card row">
+          <div className="row-main">
+            <div className="row-t" style={{ fontSize: 15 }}>Waiting on {claim.club}</div>
+            <div className="row-s">{claim.squad} · it shows on the page once they confirm it</div>
           </div>
           <form action={withdrawClaim}>
             <input type="hidden" name="personId" value={personId} /><input type="hidden" name="claimId" value={claim.id} /><input type="hidden" name="back" value={back} />
@@ -103,13 +103,12 @@ export default async function SquadCard({ personId, firstName, back, mine, said 
           </form>
         </div>
       ) : (
-        <a href={`/squad/${personId}${back.startsWith('/g/') ? '?back=controls' : ''}`} className="lift"
-          style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none', color: T.ink, minHeight: 56 }}>
-          <span>
-            <span style={{ display: 'block', fontSize: 15, fontWeight: 800 }}>Add {mine ? 'your' : 'their'} club</span>
-            <span style={{ display: 'block', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Pick the club and team {they === 'you' ? 'you play' : `${firstName} plays`} for. They confirm it, and the page shows it.</span>
+        <a href={`/squad/${personId}${back.startsWith('/g/') ? '?back=controls' : ''}`} className="card row lift">
+          <span className="row-main">
+            <span className="row-t" style={{ fontSize: 15 }}>Add {mine ? 'your' : 'their'} club</span>
+            <span className="row-s">Pick the club and team {they === 'you' ? 'you play' : `${firstName} plays`} for. They confirm it, and the page shows it.</span>
           </span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 6 l6 6 -6 6" /></svg>
+          <span className="row-chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 6 l6 6 -6 6" /></svg></span>
         </a>
       )}
     </div>

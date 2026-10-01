@@ -153,8 +153,11 @@ const sectionTitle = (text: string) => <h2 className="cv-h2">{text}</h2>;
 // CV_WEARS_CLUB_COLOURS is on, only when the club is verified (the call,
 // D-126), and never on a card (D-89 — opengraph-image does not read
 // them). The read that supplies them belongs to the tech team (lib/record-read).
-export default function PlayerCV({ p, reportRef, clubColours, clubState }: {
-  p: PlayerFixture; reportRef?: string; clubColours?: Partial<ClubColours> | null; clubState?: string;
+// above: what the family's own preview puts under the nav bar — the way back
+// and the "Preview" notice (spec C, one header). The token page never passes
+// it, so the page a club opens is unchanged.
+export default function PlayerCV({ p, reportRef, clubColours, clubState, above }: {
+  p: PlayerFixture; reportRef?: string; clubColours?: Partial<ClubColours> | null; clubState?: string; above?: React.ReactNode;
 }) {
   const initials = `${p.firstName[0]}${p.lastName[0] ?? ''}`;
   // The name is sized by its longest word and the card's own width, so a long
@@ -189,6 +192,7 @@ export default function PlayerCV({ p, reportRef, clubColours, clubState }: {
           tokenised page it is not a link and there is no sign-in: the only
           link out is "Report this page". */}
       <SiteNav signIn={false} homeLink={false} />
+      {above}
       {/* A container, so the card lays itself out by the room it is given,
           not by the screen — the site preview puts it in a phone frame. */}
       <div className="cv-root"><div className="fl-wide cv-grid">

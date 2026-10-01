@@ -67,11 +67,22 @@ async function billingSwitch(on) {
 }
 await billingSwitch(false);
 
+// A control that names its form (form="<id>") belongs to THAT form wherever it
+// sits in the page — the HTML rule a browser posts by. The CV builder's Number
+// and Preferred foot sit on the card, outside the story form (the photo
+// upload is its own form and forms cannot nest), and join it with form="cv"
+// (spec C, 1 Oct). Read by nesting alone, a post from this suite would have
+// left them out and blanked a player's number and foot, which no browser does.
+const CONTROL = /<input\b[^>]*>|<select\b[^>]*>[\s\S]*?<\/select>|<textarea\b[^>]*>[\s\S]*?<\/textarea>/g;
+const formAttr = (tag) => /\sform="([^"]*)"/.exec(tag.slice(0, tag.indexOf('>') + 1))?.[1];
 /** Every <form> on a page, with the fields a browser would send. */
 function forms(html) {
   const out = [];
   for (const m of html.matchAll(/<form([^>]*)>([\s\S]*?)<\/form>/g)) {
-    const body = m[2];
+    const id = /\sid="([^"]+)"/.exec(m[1])?.[1];
+    const outside = html.slice(0, m.index) + html.slice(m.index + m[0].length);
+    const body = m[2].replace(CONTROL, (c) => (formAttr(c) !== undefined && formAttr(c) !== id ? '' : c))
+      + (id ? [...outside.matchAll(CONTROL)].map((c) => c[0]).filter((c) => formAttr(c) === id).join('') : '');
     // Most forms post to the page they are rendered on, which is how a
     // server action works. The upload forms do not — they carry an explicit
     // action="/coach/edit/photo" and post to a dedicated route. Posting
@@ -1218,6 +1229,15 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('gk-w9: and the page shows no clean-sheets tile at all',
     /Clean sheets/i.test(zeroPage), false);
   await save({ ...zeroed.fields, stat_clean_sheets: real });
+
+  // Spec C (1 Oct): Number and Preferred foot sit on the card, outside the
+  // story form, and join it with form="cv". Every save above was the form as
+  // a browser posts it; had either control not joined the form, his number
+  // and foot would have been posted as nothing and blanked.
+  const after = await state();
+  check('pl-fl-w1: after five saves from the builder his number and foot are still his — the card’s controls posted with the form',
+    [after.fields.squadNumber, /<select[^>]*name="foot"[^>]*>[\s\S]*?<option selected="" value="Right">|<option value="Right" selected=""/.test(after.html)
+      || /<select[^>]*name="foot"[^>]*>[\s\S]*?<option selected="">Right<\/option>/.test(after.html)], ['1', true]);
 }
 
 // ---------------------------------------------------------------------------
