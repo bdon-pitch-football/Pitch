@@ -135,19 +135,24 @@ Done in this order, each production step by BUZ's own hand, each checked by Leo:
 6. **Under-18s** open the day 1a clears (if BUZ chooses to launch adults,
    coaches and clubs first).
 
-## 5 · The push carrying 0167–0169 (John's batch): the order (safety review S-5, 2 Oct)
+## 5 · The push carrying 0167–0170 (John's batch and addenda): the order (safety review S-5, 2 Oct)
 
-The new code calls functions only 0169 creates, so the migrations go first —
+The new code calls functions only 0169 and 0170 create (the hourly outbox job
+calls `fn_sms_forget_numbers`, 0170, before anything else, so without it the
+job fails every run and nothing waiting is released), so the migrations go first —
 and in the gap before the new code serves, the old code keeps the body of
 every message it sends.
 
 1. `NUMBER_HASH_KEY` set in Production and Preview (§2; the build refuses without it).
 2. `select count(*) from sms_opt_out` = 0 (0169 stops itself otherwise).
-3. Apply 0167 → 0168 → 0169.
+3. Apply 0167 → 0168 → 0169 → 0170. `apply-migrations.mjs` prints 0169's
+   notice, `0169 §4: cleared N message row(s).` — a count only. Keep that
+   line with John's note of 2 Oct (he approved the clean-up after the fact).
 4. Push the code straight away.
 5. Straight after the deploy, clear what the old code kept in the gap — plan,
-   then apply, then plan again, which must read 0 (counts only; the same
-   statement 0169 ran, and the outbox sweep runs it every hour from now on):
+   then apply, then plan again, which must read 0 (counts only, with the
+   addresses past 30 days counted separately; the same statement 0169 ran,
+   and the outbox sweep runs it every hour from now on):
    `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/scrub-sent-bodies.mjs --ca supabase/prod-ca.crt` (add `--apply` for the second run).
 6. `select count(*) from sms_opt_out` = 0 again.
 

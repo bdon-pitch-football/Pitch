@@ -4196,6 +4196,40 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 }
 
 // ---------------------------------------------------------------------------
+// John's addenda (2 Oct, §5) / doc 14 E15, pressed as the family presses it.
+// Alex is Nate's parent, and Nate is seventeen: for a 16–17 the player shares
+// and the guardian sees. Alex is not offered "Get the share link" for Nate,
+// and a crafted press goes home and mints nothing — the same answer a
+// stranger's press gets. Georgia is fifteen, so Alex's press for her still
+// mints a link (the control: the rule is the 16–17's alone). Here, while
+// Alex's session is live: the block after this one signs him out.
+// ---------------------------------------------------------------------------
+{
+  const alex = ids.people.alex, marina = ids.people.marina, nate = ids.children.nate, georgia = ids.children.georgia;
+  const GET = 'Get the share link';
+  const offered = async (rec) => forms((await get(`/g/pending/${rec}?done=1`, alex)).html).find((f) => f.submit === GET) ?? null;
+  const press = async (rec, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ ...fields, recordId: rec })) fd.append(k, v);
+    const r = await fetch(`${BASE}/g/pending/${rec}?done=1`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return [r.status, (r.headers.get('location') ?? '').replace(BASE, '')];
+  };
+  // What a parent sees of a child's link on their controls: the newest live
+  // link and its expiry. A link minted for Nate would be the newest.
+  const linkCard = async (child) => (await get(`/g/controls/${child}`, alex)).html
+    .split(/<h2 class="sec-h">(?:[^<]|<!-- -->)*link<\/h2>/)[1]?.split('<h2 class="sec-h">')[0] ?? null;
+  const form = await offered(georgia.record_id);
+  const before = await linkCard(nate.child_id);
+  const alexNate = form ? await press(nate.record_id, alex, form.fields) : null;
+  const strangerNate = form ? await press(nate.record_id, marina, form.fields) : null;
+  check('E15c: a 16–17’s parent is not offered "Get the share link" on /g/pending, and a crafted press goes home and mints nothing — answered exactly as a stranger’s press is; for their under-16 the same press still mints one',
+    [Boolean(form), Boolean(await offered(nate.record_id)), alexNate, strangerNate, before !== null && (await linkCard(nate.child_id)) === before,
+     form ? (await press(georgia.record_id, alex, form.fields))[1].startsWith(`/g/pending/${georgia.record_id}?done=1&link=`) : null],
+    [true, false, [303, '/home'], [303, '/home'], true, true]);
+}
+
+// ---------------------------------------------------------------------------
 // A parent gets the other person out (0062; QA's F1 and F2, 28 Sept).
 //
 // The four properties the bug hunt measured false, pressed through the product

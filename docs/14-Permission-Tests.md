@@ -157,6 +157,7 @@ The core table. **Read as: this actor, on a player in this age band, gets this.*
 | E12 | OG/social card for a u16 token | First name + surname initial, positions, number, stats only. **No surname, no club, no age group, no region** (D-89) |
 | E13 | OG card for 18+ | Full detail |
 | E14 | OG card requested for a dead token | Generic Pitch card. Never a cached identity |
+| E15 | 16–17, `guardian` presses "Get the share link" on `/g/pending` | **Denied** (John, 2 Oct; the principle of N-10): for a 16–17 the player shares and the guardian sees. No token is created, nothing is logged, and the press answers like any other refusal. The guardian keeps everything else this file gives them. Asserted by the database (`fn_record_author`) |
 
 ---
 

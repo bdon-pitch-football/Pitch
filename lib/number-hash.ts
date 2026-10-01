@@ -19,8 +19,17 @@
 // STOP from "+61400818181". Hashing what each side happened to hold made
 // them two numbers, so a STOP never matched the number we text. Both are
 // reduced to the one international form first: spaces, dashes, dots and
-// brackets go, and an Australian number written nationally (0…) or without
-// its plus (61…) is written +61…. Anything else is hashed as it stands.
+// brackets go, and an Australian mobile written nationally (04…), without
+// its plus (614…) or with it (+614…) is written +614….
+//
+// AND IT IS THE NUMBER WE TEXT (John, 2 Oct, §5: "normalise to E.164 (+61)
+// before sending"). The same function hands Twilio its `To` (lib/messaging
+// dispatch), reads the STOP webhook's `From` and makes the fingerprint, so
+// the number sent to, the number heard from and the number recognised are
+// one string. Australian mobiles only (D-63: accounts are Australia-only, and
+// every number we text was typed into an Australian sign-up as 04…). Anything
+// else — a landline, an overseas number, too few digits — is not a number we
+// text: null, and every caller refuses it, the way /join refuses it.
 import { createHmac } from 'node:crypto';
 
 const DEV_KEY = 'pitch-dev-number-hash-key-not-a-secret';
@@ -36,16 +45,18 @@ export function numberHashKey(
   return k || DEV_KEY;
 }
 
-/** The one form a number is hashed in. */
-export function normaliseNumber(n: string): string {
+/** The one form a number takes — sent to, heard from and hashed: an
+ *  Australian mobile in E.164 (+614…), or null for anything else. */
+export function normaliseNumber(n: string): string | null {
   const s = n.replace(/[\s\-().]/g, '');
-  if (/^0\d{9}$/.test(s)) return `+61${s.slice(1)}`;
-  if (/^61\d{9}$/.test(s)) return `+${s}`;
-  return s;
+  const m = /^(?:\+61|61|0)(4\d{8})$/.exec(s);
+  return m ? `+61${m[1]}` : null;
 }
 
-/** HMAC-SHA256 of the number under the key, or null with no key. */
+/** HMAC-SHA256 of the number under the key, or null with no key or no
+ *  number we would text. */
 export function keyedNumberHash(n: string, key: string | null): Buffer | null {
-  if (!key) return null;
-  return createHmac('sha256', key).update(normaliseNumber(n)).digest();
+  const e164 = normaliseNumber(n);
+  if (!key || !e164) return null;
+  return createHmac('sha256', key).update(e164).digest();
 }

@@ -26,6 +26,12 @@ export default async function Support({ searchParams }: { searchParams: Promise<
 
   // Invitation state ONLY: first name, when it was created, whether it was
   // approved, and which channels were tried. No record, no stats, no club.
+  //
+  // The messages are counted by the parent's address, and by the invitation
+  // they were sent for. An address is kept 30 days after its message ended
+  // and then blanked (lib/sent-bodies; John, 2 Oct, §3: "The try count
+  // stays"), so past that a message is still counted by its invitation, and
+  // a blanked address never matches anything.
   const rows = q
     ? (await db.query(
         `select pi.id, pi.first_name, pi.guardian_name,
@@ -35,7 +41,8 @@ export default async function Support({ searchParams }: { searchParams: Promise<
            pi.sms_confirmed_at is not null as sms_ok, pi.email_confirmed_at is not null as email_ok,
            (select count(*)::int from message_outbox mo
             where mo.message_key in ('doc15.§1', 'doc15.§2')
-              and mo.to_address in (pi.guardian_phone, pi.guardian_email)) as messages
+              and (mo.invitation_id = pi.id
+                   or (mo.to_address <> '' and mo.to_address in (pi.guardian_phone, pi.guardian_email)))) as messages
          from pending_invitation pi
          where pi.id::text = $1 or lower(pi.guardian_email) = lower($1) or pi.guardian_phone = $1
          order by pi.created_at desc limit 10`,
