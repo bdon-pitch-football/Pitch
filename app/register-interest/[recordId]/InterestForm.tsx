@@ -14,7 +14,7 @@ import { composeInterest } from './actions';
 
 export default function InterestForm({ recordId, club, squads, cvPositions, preselectSquad, mode, band, firstName, trial }: {
   recordId: string;
-  club: { id: string; name: string; suburb: string };
+  club: { id: string; name: string; suburb: string; verified: boolean };
   squads: { id: string; name: string }[];
   cvPositions: string[];
   preselectSquad?: string;
@@ -56,6 +56,11 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
               <div>
                 <div className="row-t" style={{ fontSize: 15 }}>{club.name}</div>
                 <div className="row-s" style={{ fontSize: 12 }}>{club.suburb}</div>
+                {/* N-8 (b), John's M9 ruling (1 Oct): the parent's tile carries
+                    /g/interest's pill under /g/interest's rule — only the
+                    positive, only when verified, never a negative, never a word
+                    about the registration. The child's own view has none. */}
+                {parent && club.verified && <div style={{ marginTop: 4 }}><span className="pill pill-live">Verified club on Pitch</span></div>}
                 {trial && <div className="trial-l">{G.cal()}For {trial.title} · {trial.date}</div>}
               </div>
             </div>

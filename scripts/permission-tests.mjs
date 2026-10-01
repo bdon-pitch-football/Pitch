@@ -12143,5 +12143,31 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [true, true, true, true]);
 }
 
+// C-P4 safety review N-5: positions reach the club (the register, the CV) and
+// pass no note filter, so only the ten (D-92) are ever written — on every
+// register door and on the CV builder. The schema leaves the domain to TS.
+{
+  const reg = codeOnly(srcOf('app/register-interest/[recordId]/actions.ts')), cv = codeOnly(srcOf('lib/cv-build.ts'));
+  check('pos-n5: a register door and the CV builder keep only the ten positions — free text is dropped before it is written',
+    [/const positions = \[\.\.\.new Set\([\s\S]{0,160}\.filter\(\(v\) => v in POSITIONS\)\.slice\(0, 3\)/.test(reg),
+     /const positions = \[\.\.\.new Set\([\s\S]{0,120}\.filter\(\(v\) => v in POSITIONS\)\.slice\(0, MAX_POSITIONS\)/.test(cv),
+     (reg.match(/formData\.get\('positions'\)/g) ?? []).length],
+    [true, true, 1]);
+}
+
+// John's M9 ruling (1 Oct) on "Verified club on Pitch": only ever the
+// positive, from club_state = 'verified', and no negative counterpart on any
+// family-facing surface — /g/interest, the register door, the club page.
+{
+  const NEG = /not verified|unverified|awaiting verification|pending verification/i;
+  const files = ['app/g/interest/[requestId]/page.tsx', 'app/register-interest/[recordId]/page.tsx', 'app/register-interest/[recordId]/InterestForm.tsx', 'app/fc/[slug]/page.tsx'];
+  const gi = codeOnly(srcOf(files[0])), rf = codeOnly(srcOf(files[2]));
+  check('m9-s1: the pill renders only on club_state = verified (on /g/interest and the parent\u2019s register tile), and no family-facing source carries a negative counterpart',
+    [/\{r\.club_state === 'verified' && <div><span className="pill pill-live">Verified club on Pitch<\/span><\/div>\}/.test(gi),
+     /\{parent && club\.verified && <div[^>]*><span className="pill pill-live">Verified club on Pitch<\/span><\/div>\}/.test(rf),
+     files.filter((f) => NEG.test(srcOf(f)))],
+    [true, true, []]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

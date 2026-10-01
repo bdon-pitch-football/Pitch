@@ -55,8 +55,8 @@ export default async function RegisterInterest({ params, searchParams }: {
   const cp = clubParam && isUuid(clubParam) ? clubParam : null;
   const club = await db.query(
     cp
-      ? `select id, name, suburb from club where id = $1 and club_state in ('claimed','verified')`
-      : `select id, name, suburb from club where club_state = 'verified' order by created_at limit 1`,
+      ? `select id, name, suburb, club_state from club where id = $1 and club_state in ('claimed','verified')`
+      : `select id, name, suburb, club_state from club where club_state = 'verified' order by created_at limit 1`,
     cp ? [cp] : [],
   );
   if (club.rows.length === 0) notFound();
@@ -118,7 +118,7 @@ export default async function RegisterInterest({ params, searchParams }: {
     <TopBarShell>
     <InterestForm
       recordId={recordId}
-      club={{ id: c.id, name: c.name, suburb: c.suburb ?? '' }}
+      club={{ id: c.id, name: c.name, suburb: c.suburb ?? '', verified: c.club_state === 'verified' }}
       squads={squads}
       preselectSquad={preselectSquad}
       cvPositions={rec.rows[0].positions ?? []}

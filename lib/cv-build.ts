@@ -6,7 +6,7 @@
 //    until the guardian approves the change. No job ever auto-publishes.
 import 'server-only';
 import { db } from './db';
-import { MAX_POSITIONS, STAT_KEYS, type StatKey } from './football';
+import { MAX_POSITIONS, POSITIONS, STAT_KEYS, type StatKey } from './football';
 import { editWaitingEmail } from './messages';
 import { send } from './messaging';
 
@@ -21,7 +21,9 @@ export interface CvDraft {
 }
 
 export async function saveCvDraft(recordId: string, draft: CvDraft): Promise<void> {
-  const positions = draft.positions.slice(0, MAX_POSITIONS);
+  // Only the ten positions (D-92): the schema leaves the domain to TS, and a
+  // posted value is text a club reads on the CV (C-P4 safety review N-5).
+  const positions = [...new Set(draft.positions.map((v) => v.trim().toUpperCase()))].filter((v) => v in POSITIONS).slice(0, MAX_POSITIONS);
   const client = await db.connect();
   try {
     await client.query('begin');

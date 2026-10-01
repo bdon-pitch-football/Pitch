@@ -3066,6 +3066,34 @@ const georgia = ids.children.georgia;
   check('C-P4-r10: the parent\u2019s Send says "Deniz\u2019s CV", "Deniz\u2019s page" and "Deniz\u2019s link" (BUZ\u2019s words); the child\u2019s own view keeps "your"',
     [P_LINES.map((l) => pSendT.includes(l)), C_LINES.map((l) => pSendT.includes(l)), C_LINES.map((l) => cSendT.includes(l)), P_LINES.map((l) => cSendT.includes(l))],
     [[true, true, true], [false, false, false], [true, true, true], [false, false, false]]);
+  // N-8 (b), John's M9 ruling (1 Oct): "Verified club on Pitch" on the
+  // parent's tile only when verified — only the positive, never a negative,
+  // never a word about the registration. A held club's render and a verified
+  // club's differ ONLY by the pill: on the parent's form and its confirmation,
+  // and on the child's own (which has no pill at all).
+  {
+    const held = ids.heldClub;
+    const NEG = /not verified|unverified|awaiting verification|pending verification|\bpending\b|\bheld\b|once .{0,30}verified|waiting for the club|waiting on the club/i;
+    const PILL = 'Verified club on Pitch';
+    // Club-specific text out: its name, suburb and initials, from the tile itself.
+    const strip = (html) => {
+      let t = vis(form(html) || html);
+      const name = /class="row-t"[^>]*>([^<]*)</.exec(html)?.[1], sub = /class="row-s"[^>]*>([^<]*)</.exec(html)?.[1];
+      const init = /class="club-tile"[^>]*>([^<]*)</.exec(html)?.[1];
+      for (const v of [name, sub].filter(Boolean)) t = t.split(v).join('<club>');
+      if (init) t = t.split(` ${init} `).join(' <i> ');
+      return t.split(PILL).join('').replace(/\s+/g, ' ').trim();
+    };
+    const pair = async (who, q = '') => [await get(`/register-interest/${deniz.record_id}?club=${riverside}${q}`, who), await get(`/register-interest/${deniz.record_id}?club=${held}${q}`, who)];
+    const [pV, pH] = await pair(alex), [pVr, pHr] = await pair(alex, '&registered=1'), [cV, cH] = await pair(deniz.child_id);
+    check('m9-1: the parent\u2019s tile carries "Verified club on Pitch" for a verified club and nothing in its place for a held one; the child\u2019s own view has it for neither',
+      [pV.status, pH.status, vis(pV.html).includes(PILL), vis(pH.html).includes(PILL), vis(cV.html).includes(PILL), vis(cH.html).includes(PILL)],
+      [200, 200, true, false, false, false]);
+    check('m9-2: a held club\u2019s renders carry no negative and no word about the registration being held — the form, its confirmation and the child\u2019s own',
+      [NEG.test(vis(form(pH.html) || pH.html)), NEG.test(vis(form(pHr.html) || pHr.html)), NEG.test(vis(form(cH.html) || cH.html)), /is on .{1,60}register/.test(vis(pHr.html))], [false, false, false, true]);
+    check('m9-3: and the held and verified renders differ ONLY by the pill — the same words, rows and doors — on the form, the confirmation and the child\u2019s own',
+      [strip(pV.html) === strip(pH.html), strip(pVr.html) === strip(pHr.html), strip(cV.html) === strip(cH.html)], [true, true, true]);
+  }
   const cReg = await get(`/register-interest/${deniz.record_id}?club=${riverside}`, deniz.child_id);
   const cRegT = vis(form(cReg.html));
   const RI_CHILD = ['Register your interest', 'keep a register of players who want to be there', 'Where you’d play', 'Filled in from your CV',

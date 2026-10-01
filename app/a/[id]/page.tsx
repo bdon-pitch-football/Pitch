@@ -185,7 +185,7 @@ export default async function Approval({ params, searchParams }: { params: Promi
               {!teen && <div className="pd-small" style={{ textAlign: 'center' }}>Approving accepts the Terms &amp; Privacy Policy on {name}&rsquo;s behalf, and you can undo it any time.</div>}
             </div>
             <div className="pd-cell">
-              <button type="submit" form={END_FORM} className="btn btn-secondary">{PD3_END_LABEL}</button>
+              <button type="submit" form={END_FORM} className="btn btn-secondary" name="answer" value="end">{PD3_END_LABEL}</button>
               <div className="card-sunken pd-info sec">
                 <ClockGlyph />
                 <div>{teen

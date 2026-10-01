@@ -19,6 +19,11 @@ export async function confirmIt(formData: FormData) {
 }
 
 export async function approve(formData: FormData) {
+  // Safety review N-3 (1 Oct): the No sits inside this form's markup and
+  // reaches its own form through the `form` attribute. A browser that ignored
+  // the attribute would post the No HERE — so the No carries answer=end, and
+  // a press that says "end" ends, never approves. Nothing else posts it.
+  if (formData.get('answer') === 'end') return endRequest(formData);
   const code = String(formData.get('code') ?? '');
   const adultDeclared = formData.get('adult') === 'on';
   if (!adultDeclared) redirect(`/a/${encodeURIComponent(code)}?adult=1`);

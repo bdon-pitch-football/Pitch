@@ -2359,6 +2359,17 @@ let realParentPress = null;
        ((all) => all.findIndex((f) => 'code' in f.fields) === all.findIndex((f) => /Approve/.test(f.submit)))(forms(s4)),
        /Not ready\? Do nothing\. If you don.t approve, all of this is deleted after 14 days\./.test(vis(s4))],
       [true, true, true, true, true, true, true]);
+    // Safety review N-3: a browser that ignored the `form` attribute would post
+    // the No into Approve's form. It carries answer=end, and Approve's own
+    // action ends on it — the press ends the request, it never approves.
+    await joinPost('startPendingInvitation', { firstName: 'Quill', dob: '2014-08-08', guardianName: 'Qa Parent', guardianPhone: '0400 838 383', guardianEmail: 'qa.parent@example.com' });
+    const [qA, qB] = approvalCodes((await get('/dev/outbox', ids.people.alex)).html).slice(0, 2);
+    for (const c of [qA, qB]) await post(`/a/${c}`, formWith((await ig(`/a/${c}`)).html, /Yes, it/));
+    const qApprove = formWith((await ig(`/a/${qA}`)).html, /Approve/);
+    const misrouted = await post(`/a/${qA}`, qApprove, { adult: 'on', answer: 'end' });
+    check('jr-pd3-w8 (N-3): the No posted into Approve\u2019s form — with the adult tick on — ends the request; nothing is approved, and neither link opens an approval afterwards',
+      [/name="answer" value="end"/.test(mk), misrouted.location.replace(BASE, ''), forms((await ig(`/a/${qA}`)).html).length + forms((await ig(`/a/${qB}`)).html).length],
+      [true, '/a/closed', 0]);
     const endedNoTick = await post(`/a/${pA}`, endF);
     check('jr-pd3-w7: pressed without the adult tick, it still ends the request — and neither link opens an approval afterwards',
       [endedNoTick.location.replace(BASE, ''), forms((await ig(`/a/${pA}`)).html).length + forms((await ig(`/a/${pB}`)).html).length],

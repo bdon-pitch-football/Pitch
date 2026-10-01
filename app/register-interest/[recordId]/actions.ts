@@ -18,6 +18,7 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { legalStamp } from '@/lib/legal-stamp';
+import { POSITIONS } from '@/lib/football';
 import { signupHoldEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 import { isUuid } from '@/lib/ids';
@@ -37,7 +38,11 @@ export async function composeInterest(formData: FormData) {
   const clubId = String(formData.get('clubId') ?? '');
   const squadRaw = String(formData.get('squadId') ?? '');
   const trialRaw = String(formData.get('trialId') ?? '');
-  const positions = String(formData.get('positions') ?? '').split(',').filter(Boolean).slice(0, 3);
+  // Only the ten positions (D-92), never free text: whatever is posted here
+  // reaches the club's register, and it does not pass the note filter (C-P4
+  // safety review N-5). Unknown values are dropped, as post-trial drops them.
+  const positions = [...new Set(String(formData.get('positions') ?? '').split(',').map((v) => v.trim().toUpperCase()))]
+    .filter((v) => v in POSITIONS).slice(0, 3);
   const note = String(formData.get('note') ?? '').trim().slice(0, 140);
   if (!isUuid(clubId)) redirect(`/register-interest/${recordId}?error=1`);
 
