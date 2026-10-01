@@ -1,5 +1,7 @@
 # PITCH — Retention Statement
 
+> **⚠️ v1.6, 1 October 2026 — two records that outlive a child's record, and a sentence that had become untrue.** *Send my CV* now fills in a club's own published address, so a club must be able to stop receiving CVs — and **that stop has to keep working after the family has erased the child**, because the email in the club's inbox does not disappear when the record does. Two records are added, **both kept indefinitely and neither holding anything about any child**. The consent-log section said that after deletion the log was all that remained in Pitch; **after a send that was no longer true**, and it now names these two.
+>
 > **⚠️ v1.5, 7 September 2026 — this version exists to end a version collision, and the collision is worth reading about.**
 >
 > **There are two different documents both stamped v1.4.** One is mine, dated 3 September, which fixed a version stamp in the body. The other is the build's, dated 7 September, which applied my U-7 ruling. **Neither knew about the other**, because my complete pack was sitting in the Board Room unplaced while the ruling was applied straight to the live file.
@@ -162,7 +164,22 @@ Every approval, withdrawal, share, outside-contact attempt, terms acceptance and
 
 It survives deletion of the record because it is the evidence that we did what we said we would. We cannot prove we deleted something by deleting the proof.
 
-**What it does not contain:** any football content. No stats, no assessments, no photographs, no highlight links, no free text. A consent log entry says that a named guardian approved a named child's profile on a date, at a policy version — and, where a send occurred, **who it was sent to**. It holds the fact and the recipient of a disclosure. It never holds the message, and it never holds anything about the child's football. Once the record is deleted, that is all that remains anywhere in Pitch, other than a coach's anonymised count.
+**What it does not contain:** any football content. No stats, no assessments, no photographs, no highlight links, no free text. A consent log entry says that a named guardian approved a named child's profile on a date, at a policy version — and, where a send occurred, **who it was sent to**. It holds the fact and the recipient of a disclosure. It never holds the message, and it never holds anything about the child's football. Once the record is deleted, that and **the two stop records below** are all that remains anywhere in Pitch, other than a coach's anonymised count. *Corrected at v1.6: the sentence previously said the consent log was all that remained, and after a send that is no longer true.*
+
+---
+
+## Stopping a club receiving CVs — two records that outlive the child's
+
+**Neither holds anything about any child, and neither can be joined to one.**
+
+| What | How long | Why |
+|---|---|---|
+| **The stop reference** — the id of a CV that was sent, the address it went to, and when. **No child, no record, no sender, no content, and no key that reaches any of them** | **Kept indefinitely** | **A club's opt-out has to keep working after the family erases the child.** The email sitting in the club's inbox has no expiry, so a stop reference with one would silently stop working and the next CV would arrive at an address that had asked us to stop. *Any period we could choose is one the email outlives, which is the argument for choosing none.* **The recipient address is already on the consent log's send row, so nothing about the child survives that did not survive before.** |
+| **The stop list** — addresses and domains that have asked us to stop, who asked, and when | **Kept indefinitely** | **A stop that expires is not a stop.** |
+
+**A schema rule, not a description:** neither record holds a foreign key to a person, a profile or a send, and no query can join one to a child. **If that ever stops being true, this section is wrong rather than out of date.**
+
+*Where a family typed an address of their own choosing, that address is what the stop reference holds — an adult's address, kept so that adult can stop us, and nothing more.*
 
 ---
 
@@ -212,4 +229,4 @@ A hold is recorded, is limited to what the hold actually needs, and ends when th
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · retention statement · doc 23 · v1.5 draft · 7 September 2026 · not yet published · every period here is enforced by a job, or it is not a period*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · retention statement · doc 23 · v1.6 draft · 1 October 2026 · not yet published · every period here is enforced by a job, or it is not a period*

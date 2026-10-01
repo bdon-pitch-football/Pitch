@@ -41,7 +41,7 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 |---|---|---|---|---|
 | **20** | **Privacy Policy — adult** | **v2.8** | `/privacy` · **live** | Adults, clubs, coaches |
 | **21** | **Privacy Policy — child** | **v2.6** | `/privacy/family` · **shown inside the guardian approval flow, not merely linked** | A child, and a parent at the moment they decide |
-| **22** | **Terms of Service** | **v2.1** | `/terms` · **live** · Schedule A at club checkout, before Stripe (D-136) | Everyone; Schedule A by clubs |
+| **22** | **Terms of Service** | **v2.2** | `/terms` · **live** · Schedule A at club checkout, before Stripe (D-136) | Everyone; Schedule A by clubs |
 | **24** | **Code of Conduct** | **v1.4** | `/conduct` | Adults who can write about others |
 | **25** | **Complaints and Takedown** | **v1.4** | `/report/policy` (Part 1), linked from the `/report` form · **reachable without an account, from any page** | Anyone, including a stranger |
 
@@ -51,8 +51,8 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 |---|---|---|---|
 | **18** | **Solicitor Brief (D-27)** | **v1.4** | Fifteen questions for external counsel. Undated, so it does not go stale on the shelf. **Not our answers — our questions.** |
 | **19** | **Privacy Impact Assessment** | **v2.4** | The assessment behind the design. **Four launch-blocking recommendations: 1, 2, 3 and 12.** Re-run on any change to what is collected or who can see it. |
-| **23** | **Retention Statement** | **v1.5** | **Every deletion job implements a row of this table.** If a job and this document disagree, the document is right and the job is a bug. |
-| **26** | **Access Model** | **v1.6** | Who can see what, in prose. Doc 14 is the enforceable version; this is the one a human can check it against. |
+| **23** | **Retention Statement** | **v1.6** | **Every deletion job implements a row of this table.** If a job and this document disagree, the document is right and the job is a bug. |
+| **26** | **Access Model** | **v1.7** | Who can see what, in prose. Doc 14 is the enforceable version; this is the one a human can check it against. |
 | **28** | **Founder IP Assignment Deed** | **v1.2** | **NOT EXECUTED.** Assigns everything made before incorporation to the company. Two blanks, both BUZ's at signing. |
 | **30** | **Open decisions blocking the gate** | **v1.1** | The eleven questions doc 14 declined to answer. Answered at doc 31. |
 | **31** | **Rulings on doc 30** | **v1.1** | A ruling on each. **Three went against the built default.** Nothing binds until BUZ numbers it in doc 06. |
@@ -66,7 +66,7 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 
 Consent is recorded against a **policy version**, and this is what makes "we did what we promised" provable rather than asserted.
 
-**The identifier is `doc@version`** — currently `20@v2.8`, `21@v2.6`, `22@v2.1`. It is stored on the consent row, never a timestamp alone and never a URL. **`repo/lib/consent.ts` holds it, and it is bumped in the same commit that changes what `/privacy` serves — never separately, in either direction.**
+**The identifier is `doc@version`** — currently `20@v2.8`, `21@v2.6`, `22@v2.2`. It is stored on the consent row, never a timestamp alone and never a URL. **`repo/lib/consent.ts` holds it, and it is bumped in the same commit that changes what `/privacy` serves — never separately, in either direction.**
 
 **Three rules, all cheap now and expensive later:**
 
@@ -77,6 +77,8 @@ Consent is recorded against a **policy version**, and this is what makes "we did
 **The materiality ruling on the record (John, 7 September):** doc 20 v2.5 and v2.6 are **not material for re-asking purposes.** The only consents against `20@v2.4` are waitlist registrations — an adult giving an email address. Nothing in those versions changes what those people agreed to, because none of it existed for them to agree to. **The first guardian approval is where materiality starts to bite.**
 
 **The materiality ruling on the record (John, doc 35 rulings 1 and 3, dated 28 September 2026):** removing the drafting preamble from what is served is **not material**, and **no guardian is re-asked**, because nothing in the agreement changed. **The version still bumps**, so that every consent row names exactly the text that was shown: doc 20 **v2.8**, doc 21 **v2.6**, doc 22 **v2.0**, doc 24 **v1.4**, doc 25 **v1.4**, each newer than any version previously recorded for it anywhere (doc 22 is v2.0 because v1.9 had been recorded in the document while this table said v1.8). These are the published versions, and their footers no longer say otherwise.
+
+**The materiality ruling on the record (John, 1 October 2026): doc 22 v2.2 is not material, and nobody is re-asked.** Clause 5.6 widens from trial notices to unclaimed club pages. It narrows what Pitch may publish about a club and adds an obligation on Pitch (removal within one business day of a request); it changes no right, duty, price or use of data of anyone who accepted `22@v2.1`. **The version bumps** so that every new consent row names exactly the text that was shown. **A note against me:** the first draft of this change was synced over newer copies of docs 00 and 22 on 30 September, and this register went backwards again on 1 October when doc 23 v1.6 was placed. **Before any legal sync, the root copy must be at least as new as the app's, file by file** (`git -C repo log -1 -- docs/legal/<file>`).
 
 **Still recommended and not yet built:** store a **SHA-256 of the rendered document, or the commit it was served from, on the consent row** beside the version. A version string is an assertion until it is bound to content — and **it cannot be added retrospectively to rows that already exist.**
 
