@@ -23,7 +23,6 @@ import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { requireOperator } from '@/lib/ops-guard';
 import { clubsScreensShown } from '@/lib/ops-policy';
 import { T } from '@/lib/palette';
-import { card } from '@/lib/ui';
 import { StateChip } from './chip';
 import { dismissClubRequest } from './actions';
 
@@ -45,10 +44,12 @@ export default async function OpsClubs({ searchParams }: { searchParams: Promise
   return (
     <OpsConsole active="clubs">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
+        {/* Green marks the work (I-P1a, BUZ 1 Oct): "Add a club" is the primary
+            only when no club is asking; while one is, its own "Add" is. */}
         <OpsHeader title="Clubs"
-          action={<Link href="/ops/clubs/new" className="console-btn console-btn-primary">Add a club</Link>} />
+          action={<Link href="/ops/clubs/new" className={asks.length > 0 ? 'console-btn' : 'console-btn console-btn-primary'}>Add a club</Link>} />
         {asks.length > 0 && (
-          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12, border: `1px solid ${T.amber}` }}>
+          <div className="card card-amber" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <h2 style={{ fontSize: 14, fontWeight: 800 }}>Clubs asking to be added</h2>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: T.secondary, lineHeight: 1.55 }}>
               Check the email address is on the club&rsquo;s own website before you add it. The claim code goes there.
@@ -70,13 +71,12 @@ export default async function OpsClubs({ searchParams }: { searchParams: Promise
             })}
           </div>
         )}
-        <form role="search" style={{ ...card, display: 'flex', gap: 10 }}>
-          <input name="q" aria-label="Club name or suburb" defaultValue={q} placeholder="Club name or suburb"
-            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }} />
+        <form role="search" className="ops-search">
+          <input name="q" aria-label="Club name or suburb" defaultValue={q} placeholder="Club name or suburb" className="ops-input" />
           <button type="submit" className="console-btn">Search</button>
         </form>
         {rows.length === 0 ? (
-          <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>Nothing matches that.</div>
+          <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">Nothing matches that.</div></div>
         ) : (
           <div className="ops-table">
             <div className="ops-head ops-clubrow" aria-hidden>

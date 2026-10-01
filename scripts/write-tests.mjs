@@ -2198,8 +2198,11 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('g32-14: the suppressed parent can no longer open Nate\'s controls (the same answer as a child that is not theirs)', ctl.status !== 200 && !/Nate/.test(txt(ctl.html)), true);
   check('g32-15: and Nate still exists, with his page', title((await get('/p/dev-nate', null)).html) !== dead, true);
   const again = await get(`/ops/reports?parent=${encodeURIComponent('guardian@example.com')}`, op);
+  // Floodlit (spec I, BUZ 1 Oct): the state is a pill beside the name, where it
+  // was " · suppressed" in the name's own line, so it is read from the pill —
+  // the suppressed (amber) one, on Nate's panel.
   check('g32-16: the link shows as suppressed, restorable, with the court-order removal beside it',
-    /Parent of Nate · suppressed/.test(txt(again.html)) && forms(again.html).some((f) => /Restore access/.test(f.submit)) && forms(again.html).some((f) => /Remove permanently/.test(f.submit)), true);
+    />Parent of Nate<\/div><span class="pill pill-wait">suppressed<\/span>/.test(again.html.replace(/<!--[\s\S]*?-->/g, '')) && forms(again.html).some((f) => /Restore access/.test(f.submit)) && forms(again.html).some((f) => /Remove permanently/.test(f.submit)), true);
   // The I spec (1 Oct) read the page's !revoked as letting a suppressed link
   // draw the suppress form. It never could: 0049's check constraint makes a
   // suppressed link a revoked one. Pinned here, so the form stays off if that
@@ -2583,8 +2586,18 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('ks-w2: and changed nothing', title((await get(FIXTURE, null)).html), jordanLive);
   check('ks-w3: the pause switches on', /done=paused/.test(await drive('Pause every shared link', { reason: 'write-test drill' })), true);
   check('ks-w4: a live link now shows the dead-link page (D-77)', title((await get(FIXTURE, null)).html), deadTitle);
+  // Floodlit (spec I, BUZ 1 Oct): when something is switched off, the switch
+  // that brings it back is the screen's one glow; on a normal night nothing
+  // glows. Read from the served page in both states, in the markup outside
+  // Next's payload.
+  const glows = (h) => [...h.replace(/<script[\s\S]*?<\/script>/g, ' ').matchAll(/<button[^>]*class="([^"]*\bfl-glow\b[^"]*)"[^>]*>([^<]*)<\/button>/g)].map((m) => m[2]);
+  const pausedPage = (await get('/ops/switches', op)).html.replace(/<!--[\s\S]*?-->/g, '');
+  check('op-w1: paused, the one glow is "Switch shared links back on", and the panel says Paused in an amber pill on an amber edge',
+    [glows(pausedPage), /<form[^>]*class="card card-amber"[^>]*>(?:(?!<\/form>)[\s\S])*?<span class="pill pill-wait">Paused<\/span>/.test(pausedPage)],
+    [['Switch shared links back on'], true]);
   check('ks-w5: switching back on works', /done=resumed/.test(await drive('Switch shared links back on', { reason: 'drill over' })), true);
   check('ks-w6: and the same link is live again', title((await get(FIXTURE, null)).html), jordanLive);
+  check('op-w2: back on, nothing on the switches page glows', glows((await get('/ops/switches', op)).html), []);
   const log = (await get('/ops/switches', op)).html;
   check('ks-w7: the switch log names the reason', /write-test drill/.test(log) && /drill over/.test(log), true);
 
@@ -3468,6 +3481,11 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 
   check('sms-w1: switching SMS off with no reason is refused', /error=reason/.test(await pressSwitch('Switch SMS off', { reason: '' })), true);
   check('sms-w2: with a reason, SMS goes off', /done=sms-off/.test(await pressSwitch('Switch SMS off', { reason: 'sms drill' })), true);
+  // Floodlit (spec I): with SMS off and links on, "Switch SMS back on" is the
+  // screen's one glow.
+  check('op-w3: SMS off, the one glow on the switches page is "Switch SMS back on"',
+    [...(await get('/ops/switches', op)).html.replace(/<script[\s\S]*?<\/script>/g, ' ').matchAll(/<button[^>]*class="[^"]*\bfl-glow\b[^"]*"[^>]*>([^<]*)<\/button>/g)].map((m) => m[1]),
+    ['Switch SMS back on']);
 
   // A child's sign-up, posted as a browser with no JavaScript would (the
   // form is a client component, so its action id comes from Next's manifest).

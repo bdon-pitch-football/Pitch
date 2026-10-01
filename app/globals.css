@@ -389,6 +389,46 @@ select.ops-input option { background: var(--surface-2); color: var(--ink); }
 .ops-seg input:checked + span { background: var(--surface-hover); color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
 .ops-seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -3px; }
 
+/* FLOODLIT, THE CONSOLE (spec I, BUZ 1 Oct): new shared parts, as the spec
+   gives them. A form in the console is one panel; its groups are divided by
+   hairlines, not separate cards. */
+.ops-panel { display: flex; flex-direction: column; padding: 4px 16px; }
+.ops-sec { display: flex; flex-direction: column; gap: 11px; padding: 16px 0; }
+.ops-sec + .ops-sec { border-top: 1px solid var(--line); }
+/* The console search: a 44px well and its button (Clubs, Lookup, Reports' parent search). */
+.ops-search { display: flex; gap: 10px; align-items: center; }
+.ops-search .ops-input { flex: 1; min-width: 0; }
+/* A column that stays in view beside a long one (Reports, Switches, the call sheet's claim). */
+@media (min-width: 1024px) { .ops-aside-sticky { position: sticky; top: 18px; } }
+/* The call sheet at a laptop: the claim and the TD beside the form; DOM order claim, TD, form.
+   (Not used yet: app/ops/call is being changed by another builder; the spec's
+   parts are here so that page's restyle is markup only.) */
+.call-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; grid-template-areas: "claim" "td" "form"; }
+.call-grid > * { min-width: 0; }
+@media (min-width: 1024px) { .call-grid { grid-template-columns: minmax(0, 1fr) 320px; grid-template-areas: "form claim" "form td" "form ."; align-items: start; } }
+/* One club: the listing on the left, its trials on the right; DOM order
+   doors, listing, stop, trials, remove. Below 1024 that DOM order IS the
+   drawn order, so the column is a flex column: a grid's named rows would
+   leave an 18px gap for every part a club does not have (no address held,
+   no listing once claimed). At a laptop the gaps are margins for the same
+   reason — an empty row then costs nothing. */
+.club-grid { display: flex; flex-direction: column; gap: 18px; }
+.club-grid > * { min-width: 0; }
+@media (min-width: 1024px) {
+  .club-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; column-gap: 18px; row-gap: 0;
+    grid-template-areas: "doors trials" "listing trials" "stop trials" "remove trials" ". trials"; align-items: start; }
+  .club-grid > :not(.ga-trials) { margin-bottom: 18px; }
+}
+.ga-claim { grid-area: claim; } .ga-td { grid-area: td; } .ga-form { grid-area: form; }
+.ga-doors { grid-area: doors; } .ga-listing { grid-area: listing; } .ga-stop { grid-area: stop; } .ga-trials { grid-area: trials; } .ga-remove { grid-area: remove; }
+/* Rows in one table card (spec I): a Lookup result and a switch-log entry,
+   which were each a card of their own. */
+.ops-inv { display: flex; flex-direction: column; gap: 9px; padding: 14px; }
+.ops-log { display: flex; flex-direction: column; gap: 4px; padding: 13px 14px; }
+.ops-inv + .ops-inv, .ops-log + .ops-log { border-top: 1px solid var(--line); }
+/* A form well that is a textarea keeps the well and grows with its rows. */
+textarea.ops-input { height: auto; min-height: 44px; padding: 10px 13px; line-height: 1.5; resize: vertical; }
+
 /* TODAY'S TILES. Two across on a phone, four at the table width, the
    signed laptop row. */
 .ops-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

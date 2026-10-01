@@ -5,6 +5,8 @@
 //
 // Brief G (29 Sep): the signed title row and pill, and the charter's console
 // button in place of three hand-drawn outlines. Nothing it shows changed.
+// Floodlit (spec I, BUZ 1 Oct): the rule a well, the search .ops-search, the
+// results rows in one table card, the status A's pill. Nothing it shows changed.
 //
 // Called "Lookup" on screen, as in OpsLookup.dc.html (BUZ, 29 Sep, "yes to
 // the four"), so the rail, this title and Today's "Open in lookup" agree. The
@@ -45,44 +47,51 @@ export default async function Support({ searchParams }: { searchParams: Promise<
     <OpsConsole active="support">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <OpsHeader title="Lookup" sub="Invitation state and resend. That is the whole console." />
-        <div style={{ background: T.surface, border: `1px solid ${T.red}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 3 L22 20 H2 Z" /><path d="M12 9.5 v4.5" /><circle cx="12" cy="16.8" r="0.6" fill={T.red} /></svg>
+        {/* The standing rule is a well, not a state (I-P1b, BUZ 1 Oct): the lock
+            glyph, the bold first sentence in ink, no red. */}
+        <div className="card-sunken" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
           <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
             <b style={{ color: T.ink }}>You cannot read a child&rsquo;s record from here, and there is no screen that lets you.</b> No impersonation, no record access. Every action you take is logged with your name.
           </div>
         </div>
-        <form style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 10 }}>
-          <input name="q" aria-label="Invitation id, guardian email or mobile" defaultValue={q ?? ''} placeholder="Invitation id, guardian email or mobile" style={{ flex: 1, background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }} />
+        <form className="ops-search">
+          <input name="q" aria-label="Invitation id, guardian email or mobile" defaultValue={q ?? ''} placeholder="Invitation id, guardian email or mobile" className="ops-input" />
           <button type="submit" className="console-btn">Look up</button>
         </form>
         {q && rows.length === 0 && (
-          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 13, color: T.muted, fontWeight: 500 }}>Nothing matches that.</div>
+          <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">Nothing matches that.</div></div>
         )}
-        {rows.map((r) => (
-          <div key={r.id} className="lift" style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontSize: 15, fontWeight: 800 }}>{r.first_name}</div>
-              {/* The signed status pill (OpsVerification.dc.html). */}
-              <div style={{ background: T.surface2, color: r.approved ? T.accent : r.held ? T.red : T.amber, borderRadius: 999, padding: '7px 14px', fontSize: 12, fontWeight: 700 }}>
-                {r.approved ? 'Approved' : r.held ? 'Held' : 'Waiting on the guardian'}
+        {/* Results are rows in one table card (spec I), the status a pill:
+            Approved live, Held stopped, Waiting on the guardian waiting. */}
+        {rows.length > 0 && (
+          <div className="ops-table">
+            {rows.map((r) => (
+              <div key={r.id} className="ops-inv">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 15, fontWeight: 800 }}>{r.first_name}</div>
+                  <span className={r.approved ? 'pill pill-live' : r.held ? 'pill pill-stop' : 'pill pill-wait'}>
+                    {r.approved ? 'Approved' : r.held ? 'Held' : 'Waiting on the guardian'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Asked {r.guardian_name ?? 'a guardian'} · created {r.created} · {r.messages} message{r.messages === 1 ? '' : 's'} queued</div>
+                {!r.approved && !r.held && (
+                  <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Text {r.sms_ok ? 'confirmed' : 'not confirmed yet'} · Email {r.email_ok ? 'confirmed' : 'not confirmed yet'}</div>
+                )}
+                {r.held && (
+                  // D-155: the email named an account under 18. Nothing was linked and
+                  // nobody was told. It purges at 14 days like any unapproved invitation.
+                  <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>Held: the parent&rsquo;s email belongs to an account under 18, so nothing was linked. The family sees an ordinary approval. It deletes itself after 14 days.</div>
+                )}
+                {!r.approved && !r.held && (
+                  <form action={resendApproval}><input type="hidden" name="invitationId" value={r.id} />
+                    <button type="submit" className="console-btn">Resend the approval request</button>
+                  </form>
+                )}
               </div>
-            </div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Asked {r.guardian_name ?? 'a guardian'} · created {r.created} · {r.messages} message{r.messages === 1 ? '' : 's'} queued</div>
-            {!r.approved && !r.held && (
-              <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Text {r.sms_ok ? 'confirmed' : 'not confirmed yet'} · Email {r.email_ok ? 'confirmed' : 'not confirmed yet'}</div>
-            )}
-            {r.held && (
-              // D-155: the email named an account under 18. Nothing was linked and
-              // nobody was told. It purges at 14 days like any unapproved invitation.
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>Held: the parent&rsquo;s email belongs to an account under 18, so nothing was linked. The family sees an ordinary approval. It deletes itself after 14 days.</div>
-            )}
-            {!r.approved && !r.held && (
-              <form action={resendApproval}><input type="hidden" name="invitationId" value={r.id} />
-                <button type="submit" className="console-btn">Resend the approval request</button>
-              </form>
-            )}
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </OpsConsole>
   );

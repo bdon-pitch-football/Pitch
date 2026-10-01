@@ -17,7 +17,6 @@ import { db } from '@/lib/db';
 import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { requireOperator } from '@/lib/ops-guard';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Today', robots: { index: false, follow: false } };
@@ -43,12 +42,16 @@ const HELD_WAITING_TEXTS = ['Texts waiting for SMS', 'parents\u2019 approval req
 // Parts of a line, with every zero left out (D-162).
 const line = (parts: [number, string][]) => parts.filter(([n]) => n > 0).map(([n, w]) => `${n} ${w}`).join(' · ');
 
+// A tile is a panel (spec I, BUZ 1 Oct): the label, then the value, then the
+// line, with the label div directly followed by the value div — the render
+// suite's ops-r2 and the write suite read a tile that way. The value is the
+// display numeral at 34px (`numeral numeral-m`, exactly: the zero sweep reads
+// that string), coloured only when the number is that state.
 function Tile({ label, value, colour, sub }: { label: string; value: number; colour?: string; sub?: string }) {
   return (
-    <div data-ops-tile={label} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-      <div style={sectionLabel}>{label}</div>
-      <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.04em', color: colour ?? T.ink, lineHeight: 1 }}>{value}</div>
-      {sub ? <div style={{ fontSize: 11.5, fontWeight: 700, color: T.muted, lineHeight: 1.4 }}>{sub}</div> : null}
+    <div data-ops-tile={label} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+      <div className="panel-h">{label}</div><div className="numeral numeral-m" style={colour ? { color: colour } : undefined}>{value}</div>
+      {sub ? <div style={{ fontSize: 11.5, fontWeight: 700, color: T.muted, lineHeight: 1.55 }}>{sub}</div> : null}
     </div>
   );
 }
@@ -91,14 +94,20 @@ export default async function OpsToday() {
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <OpsHeader title="Today" sub={`${todayLine()} · Australia/Melbourne`} />
         {tiles.length > 0 && <div className="ops-tiles">{tiles}</div>}
+        {/* N-I2 (BUZ, 1 Oct): with every count at zero every tile is omitted
+            (D-162), and the page read as broken. One line, never a 0. */}
+        {tiles.length === 0 && (
+          <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">Nothing yet today.</div></div>
+        )}
 
         {failures.length > 0 && (
-          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             <h2 style={{ fontSize: 14, fontWeight: 800 }}>Delivery failures — last 24 hours</h2>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>
               These are the ones worth acting on. A guardian who never received the SMS reads as &ldquo;the parent ignored us&rdquo; everywhere else in the funnel.
             </div>
-            <div className="ops-table">
+            {/* A panel in a panel steps up a surface and casts no second shadow (A §9). */}
+            <div className="ops-table" style={{ boxShadow: 'none', background: 'var(--surface-2)' }}>
               <div className="ops-head ops-fail" aria-hidden>
                 <div>Channel</div><div>When</div><div>Provider said</div><div />
               </div>
@@ -114,7 +123,8 @@ export default async function OpsToday() {
           </div>
         )}
 
-        <div style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        {/* The count rule is something you read, so it is a well (spec I). */}
+        <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden>
             <circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><circle cx="12" cy="7.8" r="0.6" fill={T.muted} />
           </svg>

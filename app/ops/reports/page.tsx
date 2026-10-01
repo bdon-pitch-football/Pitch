@@ -16,7 +16,6 @@ import { db } from '@/lib/db';
 import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { requireOperator } from '@/lib/ops-guard';
 import { T } from '@/lib/palette';
-import { card, fieldLabel, sectionLabel } from '@/lib/ui';
 import {
   closeReport, hideCoachPage, holdRecord, releaseHold, releaseSignupHold,
   removeGuardianPermanently, restoreGuardian, suppressGuardian,
@@ -34,10 +33,8 @@ const CONCERN: Record<string, string> = {
 const KIND: Record<string, string> = {
   player_cv: 'A player’s page', coach_cv: 'A coach page', club_page: 'A club page', trial_notice: 'A trial notice', other: 'Not stated',
 };
-const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 // A fact in the signed report's wells: a 44px well, the value on one line.
 const fact: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, minHeight: 44, display: 'flex', alignItems: 'center', padding: '10px 13px', boxSizing: 'border-box', fontSize: 13.5, fontWeight: 700, color: T.ink, overflowWrap: 'anywhere' };
-const well: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' };
 const when = (d: string) => new Date(d).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Melbourne' }).replace('Sept', 'Sep');
 const DONE: Record<string, string> = {
   held: 'The page is hidden. Nothing was deleted.', released: 'Released.', closed: 'Report closed.', coach: 'The coach page is down.',
@@ -80,32 +77,42 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
      order by c.first_name`, [email],
   )).rows as { guardian_id: string; child_id: string; child: string; revoked: boolean; suppressed: boolean; suppressed_reason: string | null }[] : [];
 
+  // Every empty list is A's empty tile with its existing sentence (spec I).
+  const Empty = ({ children }: { children: React.ReactNode }) => (
+    <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">{children}</div></div>
+  );
+  // A notice's words (spec I: done is the accent notice, an error the amber).
+  const notice: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5 };
+  const small: React.CSSProperties = { fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 };
+
   return (
     <OpsConsole active="reports">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <OpsHeader title="Reports" sub={<>A person reads every report. Nothing here opens a child&rsquo;s record, and nothing here deletes one.</>} />
-        {done && DONE[done] && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>{DONE[done]}</div>}
-        {error && ERR[error] && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>{ERR[error]}</div>}
+        {done && DONE[done] && <div role="status" className="card card-accent" style={notice}>{DONE[done]}</div>}
+        {error && ERR[error] && <div role="alert" className="card card-amber" style={notice}>{ERR[error]}</div>}
 
         <div className="player-grid">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h2 style={sectionLabel}>Open reports</h2>
-            {reports.length === 0 && <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>No open reports.</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <h2 className="sec-h">Open reports</h2>
+            {reports.length === 0 && <Empty>No open reports.</Empty>}
+            {/* The three safety concerns sort first and carry the amber edge: a
+                state, read first. */}
             {reports.map((r) => (
-              <div key={r.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11, border: `1px solid ${r.concern === 'other' ? T.line : T.amber}` }}>
+              <div key={r.id} className={r.concern === 'other' ? 'card' : 'card card-amber'} style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{CONCERN[r.concern] ?? r.concern}</div>
                 <div className="ops-facts">
-                  <div className="ops-fact"><div style={sectionLabel}>Report</div><div style={fact}>received {when(r.created_at)}</div></div>
-                  <div className="ops-fact"><div style={sectionLabel}>About</div><div style={fact}>
+                  <div className="ops-fact"><div className="panel-h">Report</div><div style={fact}>received {when(r.created_at)}</div></div>
+                  <div className="ops-fact"><div className="panel-h">About</div><div style={fact}>
                     {KIND[r.subject_kind] ?? r.subject_kind}
                     {r.subject_kind !== 'player_cv' && r.subject_ref !== 'unknown' ? ` · ${r.subject_ref}` : ''}
                     {r.subject_kind === 'player_cv' && !r.record_id ? ' · page not identified' : ''}
                   </div></div>
-                  {r.reporter_email && <div className="ops-fact"><div style={sectionLabel}>From</div><div style={fact}>{r.reporter_email}</div></div>}
+                  {r.reporter_email && <div className="ops-fact"><div className="panel-h">From</div><div style={fact}>{r.reporter_email}</div></div>}
                 </div>
                 {r.reason && (
                   <>
-                    <div style={sectionLabel}>What they wrote</div>
+                    <div className="panel-h">What they wrote</div>
                     <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: 13, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.reason}</div>
                   </>
                 )}
@@ -119,7 +126,7 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
                   : (
                     <form action={holdRecord} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <input type="hidden" name="reportId" value={r.id} />
-                      <label style={well}><div style={fieldLabel}>Why</div><input name="reason" style={input} placeholder="Report under review" maxLength={300} /></label>
+                      <label className="ops-field"><span className="panel-h">Why</span><input className="ops-input" name="reason" placeholder="Report under review" maxLength={300} /></label>
                       <button type="submit" className="btn btn-secondary">Hide this page while I look</button>
                     </form>
                   ))}
@@ -128,9 +135,9 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
                     <button type="submit" className="btn btn-secondary">Take the coach page down</button>
                   </form>
                 )}
-                <form action={closeReport} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <form action={closeReport} className="ops-search">
                   <input type="hidden" name="reportId" value={r.id} />
-                  <select name="outcome" aria-label="Outcome" defaultValue="" required style={{ ...well, color: T.ink, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, minHeight: 44, flex: 1 }}>
+                  <select name="outcome" aria-label="Outcome" defaultValue="" required className="ops-input">
                     <option value="" disabled>Outcome…</option>
                     <option value="removed">Removed</option>
                     <option value="no_action">No action needed</option>
@@ -142,25 +149,28 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
             ))}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h2 style={sectionLabel}>Hidden pages</h2>
-            {holds.length === 0 && <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>Nothing is hidden.</div>}
-            {holds.map((h) => (
-              <form key={h.id} action={releaseHold} style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <input type="hidden" name="holdId" value={h.id} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, overflowWrap: 'anywhere' }}>{h.reason ?? 'Report under review'}</div>
-                  <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Since {when(h.created_at)}{h.held_by ? ` · ${h.held_by}` : ''}</div>
-                </div>
-                <button type="submit" className="console-btn">Show it again</button>
-              </form>
-            ))}
+          <div className="ops-aside-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <h2 className="sec-h">Hidden pages</h2>
+            {holds.length === 0 ? <Empty>Nothing is hidden.</Empty> : (
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                {holds.map((h, i) => (
+                  <form key={h.id} action={releaseHold} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px', borderTop: i > 0 ? `1px solid ${T.line}` : undefined }}>
+                    <input type="hidden" name="holdId" value={h.id} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, overflowWrap: 'anywhere' }}>{h.reason ?? 'Report under review'}</div>
+                      <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Since {when(h.created_at)}{h.held_by ? ` · ${h.held_by}` : ''}</div>
+                    </div>
+                    <button type="submit" className="console-btn">Show it again</button>
+                  </form>
+                ))}
+              </div>
+            )}
 
-            <h2 style={{ ...sectionLabel, marginTop: 8 }}>Age checks</h2>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>An adult account that named a junior squad. Hidden from clubs until you look. A person always decides.</div>
-            {signupHolds.length === 0 && <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>Nobody is held.</div>}
+            <h2 className="sec-h" style={{ marginTop: 8 }}>Age checks</h2>
+            <div style={small}>An adult account that named a junior squad. Hidden from clubs until you look. A person always decides.</div>
+            {signupHolds.length === 0 && <Empty>Nobody is held.</Empty>}
             {signupHolds.map((p) => (
-              <form key={p.id} action={releaseSignupHold} style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <form key={p.id} action={releaseSignupHold} className="card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="hidden" name="personId" value={p.id} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 800 }}>{p.first_name}</div>
@@ -170,29 +180,29 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
               </form>
             ))}
 
-            <h2 style={{ ...sectionLabel, marginTop: 8 }}>One parent&rsquo;s access</h2>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
+            <h2 className="sec-h" style={{ marginTop: 8 }}>One parent&rsquo;s access</h2>
+            <div style={small}>
               For a family safety matter. Suppress first: it stops that parent seeing or doing anything, and deletes nothing. Point the family to 1800RESPECT (1800 737 732). Remove permanently only on a court order.
             </div>
-            <form style={{ ...card, display: 'flex', gap: 10 }}>
-              <input name="parent" aria-label="Parent's email" defaultValue={parent ?? ''} placeholder="The parent's email" style={{ ...input, fontWeight: 500 }} />
+            <form className="ops-search">
+              <input name="parent" aria-label="Parent's email" defaultValue={parent ?? ''} placeholder="The parent's email" className="ops-input" />
               <button type="submit" className="console-btn">Find</button>
             </form>
-            {email && links.length === 0 && <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>No parent account with that email.</div>}
+            {email && links.length === 0 && <Empty>No parent account with that email.</Empty>}
+            {/* Each child link is a panel with its state as a pill (spec I):
+                active, suppressed or removed. */}
             {links.map((l) => (
-              <div key={l.child_id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 800 }}>
-                  Parent of {l.child}
-                  <span style={{ fontSize: 12, color: l.suppressed ? T.amber : l.revoked ? T.muted : T.accent, fontWeight: 700 }}>
-                    {' · '}{l.suppressed ? 'suppressed' : l.revoked ? 'removed' : 'active'}
-                  </span>
+              <div key={l.child_id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 800 }}>Parent of {l.child}</div>
+                  <span className={l.suppressed ? 'pill pill-wait' : l.revoked ? 'pill' : 'pill pill-live'}>{l.suppressed ? 'suppressed' : l.revoked ? 'removed' : 'active'}</span>
                 </div>
                 {l.suppressed_reason && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflowWrap: 'anywhere' }}>{l.suppressed_reason}</div>}
                 {!l.revoked && (
                   <form action={suppressGuardian} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <input type="hidden" name="guardianId" value={l.guardian_id} />
                     <input type="hidden" name="childId" value={l.child_id} />
-                    <label style={well}><div style={fieldLabel}>Why</div><input name="reason" style={input} required minLength={3} maxLength={300} /></label>
+                    <label className="ops-field"><span className="panel-h">Why</span><input className="ops-input" name="reason" required minLength={3} maxLength={300} /></label>
                     <button type="submit" className="btn btn-secondary">Suppress this parent&rsquo;s access</button>
                   </form>
                 )}
@@ -203,10 +213,11 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
                       <input type="hidden" name="childId" value={l.child_id} />
                       <button type="submit" className="btn btn-secondary">Restore access</button>
                     </form>
-                    <form action={removeGuardianPermanently} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {/* Irreversible is what red means: the page's only red panel. */}
+                    <form action={removeGuardianPermanently} className="card card-red" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <input type="hidden" name="guardianId" value={l.guardian_id} />
                       <input type="hidden" name="childId" value={l.child_id} />
-                      <label style={well}><div style={fieldLabel}>Court order reference</div><input name="courtOrder" style={input} required minLength={4} maxLength={120} /></label>
+                      <label className="ops-field"><span className="panel-h">Court order reference</span><input className="ops-input" name="courtOrder" required minLength={4} maxLength={120} /></label>
                       <button type="submit" className="btn btn-secondary" style={{ borderColor: T.red, color: T.red }}>Remove permanently</button>
                     </form>
                   </>
