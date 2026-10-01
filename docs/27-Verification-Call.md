@@ -55,7 +55,7 @@ Both answers get recorded exactly as given, including "I don't know". **A no, or
 > "What this does is switch on your ability to receive players registering interest with the club. Until we've done this call, nothing about any player under 18 reaches you at all — that's true whether or not anyone's paid us."
 
 **5 · Close.**
-> "That's everything. I'll switch it on today. If anything changes — you leave the club, someone else takes the role — email me and I'll turn it off the same day."
+> "That's everything. I'll switch it on today and you'll get an email confirming it. If anything changes — you leave the club, someone else takes the role — email me and I'll turn it off the same day."
 
 ---
 

@@ -2881,14 +2881,38 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const call = { operator: 'BUZ', number_called: '03 9000 0500', number_source: 'FV club directory',
     answered_by: 'Committee', club_confirmed: 'yes', person_confirmed: 'yes',
     incorporated: 'yes', authority_confirmed: 'yes', notes: 'write-test drill' };
+  // Doc 15 §39 (0166), read off the outbox the way the operator's call
+  // would have left it: each message, its address, and its words. Quarrymead
+  // has never been verified, so every §39 naming it came from a press below.
+  const outbox = async () => words((await get('/dev/outbox', op)).html).split(/(?=doc15\.§)/)
+    .map((m) => ({ key: /^doc15\.§[^\s]+/.exec(m)?.[0], to: /^\S+ → (\S+)/.exec(m)?.[1], text: m }));
+  const verifiedMails = async () => (await outbox()).filter((m) => m.key === 'doc15.§39' && m.text.includes('We spoke to Quarrymead United'));
+  const melbDay = () => new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Melbourne' });
   await send(sheet, { ...call, outcome: 'not_verified', td_name: 'Nobody Atall', td_email: 'nobody@example.com' });
   check('td-w3: a call that did not verify the club records no technical director either',
     /None recorded/.test(words((await get(sheet, op)).html)), true);
+  check('ve-w1: JOHN — a call recorded "not verified" sends nobody §39', (await verifiedMails()).length, 0);
 
   // The real thing: verified, and the person the club named. Casey Duarte's
   // address is the one nobody has proved yet (dev seed), so this is the
   // recorded-but-not-yet-active state.
+  // The day is read either side of the press, so a press that straddles
+  // Melbourne's midnight is not a failure (L34).
+  const dayBefore = melbDay();
   await send(sheet, { ...call, outcome: 'verified', td_name: 'Casey Duarte', td_email: 'unproved@example.com' });
+  const dayAfter = melbDay();
+  const mails = await verifiedMails();
+  const body = /We spoke to[\s\S]*?— Pitch/.exec(mails[0]?.text ?? '')?.[0] ?? '';
+  const day = [dayBefore, dayAfter].find((d) => body.includes(`on ${d},`)) ?? null;
+  check('ve-w2: the verified call sends §39 once, to the administrator the club named on it, at their own address, dated today in Melbourne',
+    [mails.length, mails[0]?.to, /Quarrymead United is verified on Pitch/.test(mails[0]?.text ?? ''), Boolean(day)],
+    [1, 'quarrymead@example.com', true, true]);
+  check('ve-w3: JOHN — never to the club’s published address',
+    (await outbox()).some((m) => m.key === 'doc15.§39' && /quarrymeadunited\.example\.au/i.test(m.to ?? '')), false);
+  check('ve-w4: JOHN — no guardian or player receives it: not the parent, not the adult player, not the 16–17, not the Technical Director the call named',
+    (await outbox()).some((m) => m.key === 'doc15.§39' && ['guardian@example.com', 'player@example.com', 'nate@example.com', 'unproved@example.com'].includes(m.to)), false);
+  check('ve-w5: JOHN — its body carries no digit but the date',
+    [body.length > 0, /\d/.test(body.replace(day ?? '\u0000', ''))], [true, false]);
   const recorded = words((await get(sheet, op)).html);
   check('td-w4: the call records the person, by name, against the operator who took it',
     [/Casey Duarte/.test(recorded), /unproved@example\.com/.test(recorded), /Recorded by BUZ/.test(recorded)], [true, true, true]);
@@ -2908,6 +2932,19 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     [/Active\./.test(live), /Waiting on their account/.test(live)], [true, false]);
   check('td-w6b: and the queue agrees',
     /Technical Director Casey Duarte · active · recorded by BUZ/.test(words((await get('/ops/verification', op)).html)), true);
+
+  // JOHN 4, through the real sheet: every other way out of verified sends
+  // nobody §39, and a verified call afterwards sends it again — once per
+  // verification. It leaves Quarrymead verified with Casey live, as the
+  // suspension block below expects.
+  for (const [outcome, cls] of [['suspended', 'administrative'], ['takedown', ''], ['not_verified', '']]) {
+    await send(sheet, { ...call, outcome, suspension_reason: cls });
+    check(`ve-w6: JOHN — a call recorded "${outcome.replace('_', ' ')}" sends nobody §39`, (await verifiedMails()).length, 1);
+  }
+  await send(sheet, { ...call, outcome: 'verified', td_name: 'Casey Duarte', td_email: 'unproved@example.com' });
+  check('ve-w7: a re-verification sends §39 again, once, to the same named administrator — and Casey is still the live Technical Director',
+    [(await verifiedMails()).map((m) => m.to), /Technical Director Casey Duarte · active/.test(words((await get('/ops/verification', op)).html))],
+    [['quarrymead@example.com', 'quarrymead@example.com'], true]);
 }
 
 // ---------------------------------------------------------------------------
