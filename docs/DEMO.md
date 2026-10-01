@@ -48,7 +48,7 @@ half a minute later your browser opens at **http://localhost:3030/demo**.
   their trials and nothing they wrote — and you claim it live: find the page,
   *Claim your club*, the code we email to the club's own address (it lands in
   the demo's own inbox), create the account, claim, then write the philosophy,
-  the pathway, the year founded, add a team and post a trial. **It is a
+  the pathway, the year founded, add a team (posting trials waits for the verification call). **It is a
   separate run** — the claimed club with its register and its teams is the
   other one, so pick the story before you start, and see `DEMO-TD.md`.
 - **Starting clean:** every start is a fresh demo. Press **Ctrl+C** in

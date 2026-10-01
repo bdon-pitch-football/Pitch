@@ -1,12 +1,24 @@
+# The meeting — docs/DEMO-TD.md, "The walk", steps 1 to 8, in order.
+# Needs a FRESH claimed demo: step 5 presses send on Nate's invitation, and a
+# second pass on the same demo finds it already sent.
+
 note 1 · their page
 go /demo
 click Balmoral FC’s page
 at /fc/balmoral-fc
 expect Verified club
-expect Trials
+absent has not claimed it
+# trials at the top with the date
+expect U14 & U15 Boys trials
+# teams from MiniRoos to seniors, girls' teams on their own rows
 expect Teams & age groups
+expect MiniRoos U9
+expect U15 Girls
+# the pathway wall, and families go on the register from here
 expect The pathway is real
-note 2 · the register
+expect Want to play here?
+
+note 2 · the register, then U15 → GK → Shortlisted
 go /demo
 click Marina Petrovic
 at /home
@@ -14,45 +26,120 @@ click Register
 at /club/register
 expect Interest register
 expect Every under-16 here was put on this register by a parent
-go /club/register?age=U15&pos=GK&status=shortlisted
-expect shown
+expect All ages · 100
+click U15 ·
+at /club/register?age=U15
+click GK
+click Shortlisted ·
+expect 1 of 100 shown
+expect Gus
+
 note 3 · one CV
-go /club/register?age=U13
+go /club/register
+click U13 ·
 click Open the CV
+at /club/register/cv/
 expect Self-reported
 expect About
+expect Highlights
+expect Football history
 expect Parent-approved
 expect There is no way to reply to a family through Pitch
+
 note 4 · a team, with a family waiting on it
-go /club/squads
+go /home
+click Squads
+at /club/squads
 click U14 Boys
+at /club/squads/
 expect In this squad
 expect Goalkeepers
 expect says they play here
-note 5 · the invitation
-go /club/register?status=shortlisted
-expect Shortlisted
+expect Yes, they play here
+# "There's one waiting on the U15 Girls and the U18s as well."
+go /club/squads
+click U15 Girls
+expect says they play here
+go /club/squads
+click U18 Boys
+expect says they play here
+
+note 5 · the invitation — Register → Shortlisted → Invite to trial on Nate
+# The dev server builds a route the first time it is opened, and on a fresh
+# demo the click below read the register again before the invitation page had
+# built (1 Oct: 85/94, then 94/94 on the same demo). Open the route once at an
+# address that holds nobody (DEMO-TD's own "click through every step once"),
+# and check it gives nothing away.
+go /club/invite/00000000-0000-0000-0000-000000000000
+expect This page isn’t here
+go /home
+click Register
+click Shortlisted ·
+expect Nate
+# Narrowed to Nate's row so the walk presses HIS invitation, not the first one
+# on the list: he registered with the club, not a squad, and he keeps goal.
+click No squad named
+click GK
+expect 1 of 100 shown
+click Invite to trial
+at /club/invite/
+expect Invite Nate
+expect Into Nate’s Pitch account and their parent’s
+expect You get no phone number and no email address
+expect Silence is an allowed answer
+click Send it to Nate and their parent
+expect Invitation sent to Nate
+# Switch seat → Alex (parent): the invitation is there
+go /demo
+click Alex
+at /home
+expect Balmoral FC would like Nate at a trial
+# /demo → What families receive: the newest message says something is waiting,
+# and nothing in it names the club or the child
+go /demo
+click What families receive
+at /dev/outbox
+grab notice=^[^→]*→ ([^\n]+)\n[^\n]+\nSomething is waiting in your Pitch account\n(?:(?!Nate|Balmoral)[^→])*→
+
 note 6 · the held register
 go /demo
 click M. Harris
 at /home
 expect Awaiting verification
 click Register
-expect waiting
+at /club/register
+expect 42 waiting
 expect Registrations are held until your club is verified
+absent Open the CV
+
 note 7 · coach and administrator
 go /demo
 click Sam Kaya
+at /home
 click Registrations
 at /coach/register
 expect For the teams your club brought you in for
+expect All teams · 14
+expect U14 Boys · 9
+expect U15 Girls · 5
 absent Invite to trial
+absent Shortlist
+expect Inviting a family is for your technical director
 go /demo
 click Pat Nguyen
 at /home
+expect The register is Marina’s
 absent On your register
-note 8 · billing
+# no Register in the menu, and the address does not open it either
+go /club/register
+at /home
+
+note 8 · what it costs — no screen for this one (D-163, billing off)
 go /demo
 click Marina Petrovic
+at /home
+absent Plan & billing
+absent $54
+absent $329
 go /club/billing
-expect The Interest Register
+at /home

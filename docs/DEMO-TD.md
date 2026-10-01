@@ -17,6 +17,8 @@ Leave the browser on **/demo**.
 
 ## The walk — about twelve minutes
 
+**Rehearsing:** step 5 sends a real invitation in the demo, and it can only go once. Rehearse up to the send and stop, or restart the demo after rehearsing (`npm run demo -- "Club FC" …`), so the club sees it work.
+
 **1 · Their page.** `/demo` → *Balmoral FC's page*.
 
 > "This is your club on Pitch, as a family sees it. Trials at the top with the
@@ -27,8 +29,8 @@ Leave the browser on **/demo**.
 This is the screen he is being sold. Let him scroll.
 
 > "A hundred families have put their child in front of you. Sorted into your
-> own teams, because the family picked the team when they registered. Eighty-two
-> you haven't looked at, twelve you've shortlisted, six you've invited."
+> own teams, because the family picked the team when they registered. Seventy-nine
+> you haven't looked at, fifteen you've shortlisted, six you've invited."
 
 Then use the filters in front of him — **U15**, then **GK**, then
 **Shortlisted** — and say what they cost:
@@ -54,8 +56,8 @@ waiting on it).
 > one waiting on the U15 Girls and the U18s as well."
 
 **5 · The invitation. This is the moment.** Back to **Register** → filter
-**Shortlisted** → **Invite to trial** on **Deniz** or **Georgia** → read the
-box out before you press:
+**Shortlisted** → **Invite to trial** on **Nate** → read the box out before
+you press:
 
 > "It goes into their Pitch account and their parent's, together. Not an email
 > to the child. You get no phone number and no email address. If they ignore
@@ -114,10 +116,10 @@ npm run demo -- "Balmoral FC" --suburb Balmoral --state VIC --ground "Balmoral R
 Balmoral starts as the listing we built from their public notices — their
 trials and nothing they wrote. Then, on `/demo`:
 
-1. **Balmoral FC's page** — *"compiled from public information, not affiliated
-   until claimed."*
+1. **Balmoral FC's page** — the banner: *"Pitch made this page from public
+   information. Balmoral FC has not claimed it."*
 2. **Claim Balmoral FC** → it asks you to sign in → **Create an account** →
-   **Club** → your name, a date of birth, `you@balmoralfc.example.au`, a
+   **Australia** → **Club** → your name, a date of birth, `you@balmoralfc.example.au`, a
    password (ten characters).
 3. **The club's inbox** (`/dev/outbox`) → *"Confirm your email address"* → open
    the link in it, press the button, sign in.
@@ -125,15 +127,13 @@ trials and nothing they wrote. Then, on `/demo`:
    address on Balmoral's own public notices, never one you typed. Read it out
    of the inbox, put it in, claim.
 5. **Crest & club page** → write the philosophy, the pathway, the year founded,
-   save, then **Squads** → add a team, then **Post a trial**. Open the public
-   page and it is all there.
+   save, then **Squads** → add a team. Open the public page and it is all
+   there. (There is no **Post a trial** yet: a club that has only claimed
+   posts trials after the verification call.)
 
-> "Claiming gets you the page and the trial notices. It cannot make you
-> verified — only the phone call does that, and nothing about a child moves
-> until it happens."
-
-**Say plainly:** today the claim link is not on the public club page — we send
-it to the club. It is on the demo menu so you can show the flow.
+> "Claiming gets you the page and your squads. It cannot make you
+> verified — only the phone call does that, and trial notices and anything
+> about a child wait until it happens."
 
 ---
 
@@ -145,10 +145,10 @@ it to the club. It is on the demo menu so you can show the flow.
 - **Any clip.** The façade is right — nothing loads until you press — but there
   is no video behind a made-up link.
 - **The ops console** (`/ops/…`). That is ours, not a club's.
-- **A CV's age.** No CV states an age or a birth year yet. If he asks, say so:
-  *"the age group the family registered for is what you see; the birth year is
-  on the list for the next build."* Do not guess one off a squad name.
-- **A 404.** A dead link is a blank dark page. Use the back button, not a URL.
+- **A CV's age.** A CV shows the age group and the birth quarter (for example
+  "U15 · born Jan–Mar"), never a date of birth. Do not guess an exact age.
+- **A 404.** A dead link shows Pitch's "This page isn't here" page. Use the
+  back button, not a URL.
 
 ## What not to say
 
