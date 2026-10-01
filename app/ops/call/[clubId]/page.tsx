@@ -11,6 +11,15 @@
 // already on this screen or is in the signed design; the posted fields, their
 // values and the actions are unchanged.
 //
+// Floodlit, spec I (I-P2; BUZ: "Yes", 1 Oct): the six stacked cards are one
+// form panel (.card.ops-panel) whose sections are .ops-sec, divided by
+// hairlines. At a laptop (.call-grid, ≥1024) the claim and the Technical
+// Director sit in a 320px aside beside the form, the claim pinned, so "Do not
+// mention that number on the call" stays in view while the call goes on. The
+// DOM order is claim → TD → form, and that is the phone's order. "Log the
+// call" carries the screen's one glow. Markup only: no word, field, name or
+// value moved.
+//
 // It now also records the club's Technical Director (BUZ, 23 Sep): D-93 says
 // the role is granted by the club and confirmed at club verification, and
 // since 0054 closed the self-declared TD at claim, this call is the only
@@ -27,15 +36,12 @@ import { confirmTdName, endTd, logCall } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
 import { isUuid } from '@/lib/ids';
 import { T } from '@/lib/palette';
-import { card as cardStyle, fieldLabel as label, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Verification call', robots: { index: false, follow: false } };
 
-const card: React.CSSProperties = { background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 4 };
-const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', padding: 0, width: '100%' };
-// A section of the sheet: the signed card, a head, and what goes under it.
-const section: React.CSSProperties = { ...cardStyle, display: 'flex', flexDirection: 'column', gap: 11 };
+// A panel in the column (the claim, the TD): the signed card, its parts stacked.
+const stack = (gap: number): React.CSSProperties => ({ display: 'flex', flexDirection: 'column', gap });
 const guide: React.CSSProperties = { fontSize: 12.5, fontWeight: 700, color: T.secondary, lineHeight: 1.55 };
 const hint: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, color: T.muted, lineHeight: 1.55 };
 const star = <span style={{ color: T.red }}> *</span>;
@@ -46,7 +52,7 @@ function Field({ name, label: text, required, placeholder, type, note }: {
 }) {
   return (
     <label className="ops-field">
-      <span style={sectionLabel}>{text}{required ? star : null}</span>
+      <span className="panel-h">{text}{required ? star : null}</span>
       <input className="ops-input" name={name} type={type} required={required} placeholder={placeholder} />
       {note ? <span style={hint}>{note}</span> : null}
     </label>
@@ -61,7 +67,7 @@ function Field({ name, label: text, required, placeholder, type, note }: {
 function Choice({ name, label: text, note, options, unset }: { name: string; label: string; note: string; options: string[]; unset?: boolean }) {
   return (
     <fieldset className="ops-choice">
-      <legend style={sectionLabel}>{text}</legend>
+      <legend className="panel-h">{text}</legend>
       <div className="ops-seg">
         {options.map((o, i) => (
           <label key={o}>
@@ -148,8 +154,11 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
       <div className="console ops-sheet" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <OpsHeader title={`Call sheet — ${c.name}`} back={{ href: '/ops/verification', label: 'The queue' }}
           sub={`${[c.suburb, c.state].filter(Boolean).join(' ')}${c.contact_email ? ` · ${c.contact_email}` : ''}`} />
+        {/* I-P2: the grid places the three; the DOM keeps claim → TD → form,
+            which is the order a phone reads them in. */}
+        <div className="call-grid">
         {c.claimant && c.claimed_at ? (
-          <div style={section}>
+          <div className="card ga-claim ops-aside-sticky" style={stack(11)}>
             <div style={{ fontSize: 14, fontWeight: 800 }}>{c.name}</div>
             <div style={guide}>
               Claimed {longDay(c.claimed_at)} by {c.claimant}.
@@ -159,8 +168,8 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
             </div>
           </div>
         ) : null}
-        <div style={{ ...section, gap: 4 }}>
-          <div style={{ ...sectionLabel, marginBottom: 4 }}>Technical Director</div>
+        <div className="card ga-td" style={stack(4)}>
+          <div className="panel-h" style={{ marginBottom: 4 }}>Technical Director</div>
           {td ? (
             <>
               <div style={{ fontSize: 14, fontWeight: 800 }}>{td.td_name}</div>
@@ -171,7 +180,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                   product named the person who held it. */}
               {td.account_name ? (
                 <>
-                  <div style={{ ...label, marginTop: 6 }}>The account holding that address</div>
+                  <div className="field-label" style={{ marginTop: 6 }}>The account holding that address</div>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{td.account_name}</div>
                   <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{td.account_email}</div>
                   {/* 0121: the role no longer goes to this account on the
@@ -185,6 +194,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                   ) : null}
                 </>
               ) : null}
+              {/* The state line keeps its colours: they are states (spec I). */}
               <div style={{ fontSize: 12.5, color: td.club_mailbox ? T.red : td.ended_at ? T.secondary : td.active ? T.accent : T.amber, fontWeight: 700, lineHeight: 1.5, marginTop: 6 }}>
                 {td.club_mailbox
                   ? `This is the club's own contact address, not a person's, so nobody holds the role. Recorded by ${td.recorded_by} on ${day(td.recorded_at)}. Ring the club back and record the Technical Director's own address.`
@@ -214,9 +224,9 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
               {td.active ? (
                 <form action={endTd} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                   <input type="hidden" name="clubId" value={clubId} />
-                  <label style={{ ...card, background: T.surface2 }}>
-                    <div style={label}>Why</div>
-                    <input style={input} name="reason" required minLength={3} maxLength={500} />
+                  <label className="ops-field">
+                    <span className="panel-h">Why</span>
+                    <input className="ops-input" name="reason" required minLength={3} maxLength={500} />
                   </label>
                   <button type="submit" className="btn btn-secondary">End this Technical Director&rsquo;s access</button>
                 </form>
@@ -228,16 +238,19 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
             </div>
           )}
         </div>
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}><input type="hidden" name="clubId" value={clubId} />
-          <div style={section}>
+        {/* The form is one panel; its sections are divided by hairlines. */}
+        <form action={act} className="card ops-panel ga-form"><input type="hidden" name="clubId" value={clubId} />
+          <div className="ops-sec">
             <div className="ops-pair">
               <Field name="operator" label="Operator" required placeholder="Your name" note="The human. Named, every time. Never “system”, never “admin”." />
               <Field name="answered_by" label="Answered by" note="Name and role as they gave it." />
             </div>
           </div>
 
-          <div style={section}>
-            <div style={{ ...sectionLabel, color: T.red }}>The number — find it yourself</div>
+          <div className="ops-sec">
+            {/* Ink, not red (I-P1b): red is a state, and the bold sentence
+                under it carries the weight. */}
+            <div className="panel-h" style={{ color: T.ink }}>The number — find it yourself</div>
             <div style={guide}>
               <b style={{ color: T.ink }}>Ring the number you found. Never the number on the claim form.</b> Ringing the claimant&rsquo;s own number confirms only that they own the phone they wrote down.
             </div>
@@ -248,8 +261,8 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
             <div style={hint}>A blank here invalidates the call and the flag cannot be set.</div>
           </div>
 
-          <div style={section}>
-            <div style={sectionLabel}>The four questions</div>
+          <div className="ops-sec">
+            <div className="panel-h">The four questions</div>
             <div className="ops-pair">
               <Choice name="club_confirmed" label="Club confirmed" note="Is this the club?" options={['yes', 'no']} unset />
               <Choice name="person_confirmed" label="Person confirmed" note="Did they independently name the claimant?" options={['yes', 'no']} unset />
@@ -266,10 +279,10 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                 is off (D-163), so it promised a flag nothing raises. */}
           </div>
 
-          <div style={section}>
+          <div className="ops-sec">
             <div className="ops-pair">
               <label className="ops-field">
-                <span style={sectionLabel}>Outcome{star}</span>
+                <span className="panel-h">Outcome{star}</span>
                 <select className="ops-input" name="outcome" required defaultValue="">
                   <option value="">Choose one</option>
                   <option value="verified">verified</option>
@@ -294,7 +307,7 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
                   the label's second sentence out of the label and under the
                   control, word for word. */}
               <label className="ops-field">
-                <span style={sectionLabel}>Why</span>
+                <span className="panel-h">Why</span>
                 <select className="ops-input" name="suspension_reason" defaultValue="">
                   <option value="">Choose one</option>
                   <option value="child_safety">A child-safety reason — families are told</option>
@@ -309,9 +322,11 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
             </div>
           </div>
 
-          <div style={section}>
-            <div style={sectionLabel}>Technical Director</div>
-            <div style={guide} data-td-ask><i>&ldquo;{TD_ASK}&rdquo;</i></div>
+          <div className="ops-sec">
+            <div className="panel-h">Technical Director</div>
+            {/* B2: a line for BUZ to say, set as the sheet's other spoken
+                lines are, with the .ops-say rule on its left. Not a field. */}
+            <div className="ops-say" style={guide} data-td-ask><i>&ldquo;{TD_ASK}&rdquo;</i></div>
             <div className="ops-pair">
               <Field name="td_name" label="Name" placeholder="Full name" note="The name they gave you on the call. Recorded only when the outcome is verified." />
               <Field name="td_email" label="Email address" type="email" placeholder="name@club.example.au" note="As the club gave it." />
@@ -321,15 +336,19 @@ export default async function CallSheet({ params }: { params: Promise<{ clubId: 
             </div>
           </div>
 
-          <div style={section}>
-            <div style={sectionLabel}>Notes</div>
+          <div className="ops-sec">
+            <div className="panel-h">Notes</div>
             <textarea className="ops-input" aria-label="Notes" style={{ height: 'auto', minHeight: 62, padding: '12px 13px', fontWeight: 500, lineHeight: 1.6, resize: 'vertical' }} rows={3} name="notes" />
             <div style={hint}>Anything that felt off belongs here even if you verified anyway.</div>
           </div>
 
-          <div style={guide} data-s39={s39To ? 'will' : 'wont'}>{s39Line(s39To)}</div>
-          <button type="submit" className="btn btn-primary">Log the call</button>
+          {/* The §39 line, then the press: the screen's one glow. */}
+          <div className="ops-sec">
+            <div style={guide} data-s39={s39To ? 'will' : 'wont'}>{s39Line(s39To)}</div>
+            <button type="submit" className="btn btn-primary fl-glow">Log the call</button>
+          </div>
         </form>
+        </div>
       </div>
     </OpsConsole>
   );
