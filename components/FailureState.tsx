@@ -98,13 +98,28 @@ export const FAILURE_COPY = {
   },
 } as const;
 
-/** The 56px glyph tile LinkState opens with. Stroke SVG only — never emoji.
- *  At the charter's card radius: 18 was not a charter value (spec A part 22). */
-function GlyphTile({ children }: { children: ReactNode }) {
+/** The 56px glyph tile: the failure shell's, LinkState's, and the first object
+ *  on every door reached from an email or a text (spec G, `.glyph-tile` in
+ *  globals.css). Stroke SVG only — never emoji. At the charter's card radius:
+ *  18 was not a charter value (spec A part 22).
+ *
+ *  Three states, and the state is the CALLER's, never derived here:
+ *    ask  — solid: the link asks for something (and the failure shell);
+ *    done — solid with the tick: what was asked is done;
+ *    dead — dashed: the link is not live, nothing to act on here (Head of
+ *           Product Design ruling 4).
+ *  On a D-77 surface the caller passes one constant, so the tile cannot
+ *  differ between kinds of dead link. */
+export function GlyphTile({ state = 'ask', children }: { state?: 'ask' | 'done' | 'dead'; children: ReactNode }) {
   return (
     <div>
-      <div style={{ width: 56, height: 56, borderRadius: 'var(--r-card)', background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className={state === 'dead' ? 'glyph-tile is-dashed' : 'glyph-tile'}>
         {children}
+        {state === 'done' && (
+          <span className="glyph-tick" aria-hidden>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--on-accent)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 12.5 l4 4 L18 8" /></svg>
+          </span>
+        )}
       </div>
     </div>
   );
@@ -118,7 +133,9 @@ function GlyphTile({ children }: { children: ReactNode }) {
  * Floodlit (spec A part 22): the logo-only top bar (top right on a phone, top
  * left from 1024px, D-173 (3)), the page title and the well, and the way
  * out's primary carries the screen's one glow (set by the caller). The mark
- * is not a link — it never was here, and a link to / would be a new door.
+ * links home (HD2, BUZ 1 Oct): a way off every accident page. It is the one
+ * door the bar adds, and it is the same on every failure screen, so it can
+ * say nothing about what was missing.
  */
 export default function FailureState({ kind, glyph, heading, reason, why, children }: {
   kind: 'not-found' | 'error';
@@ -130,7 +147,7 @@ export default function FailureState({ kind, glyph, heading, reason, why, childr
 }) {
   return (
     <div data-failure={kind} className="floodlight has-topbar" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', flexDirection: 'column' }}>
-      <SiteNav links={[]} signIn={false} homeLink={false} />
+      <SiteNav links={[]} signIn={false} />
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <GlyphTile>{glyph}</GlyphTile>
         <div className="pg-titles">

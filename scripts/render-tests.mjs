@@ -2311,9 +2311,117 @@ const georgia = ids.children.georgia;
   // ---- the page this one was modelled on -----------------------------------
   {
     const dead = await get('/p/dev-expired');
+    // Floodlit H (1 Oct, README "Suites that will move"): "Ask the family" is
+    // the screen's one primary and carries the glow, so its class is
+    // `btn btn-primary fl-glow`. The class may grow; it must still be a primary.
     check('fp14: the D-77 dead-link page carries the Pitch mark and a primary action',
-      [/TCH/.test(dead.html), /class="btn btn-primary"[^>]*>Ask the family/.test(dead.html)], [true, true]);
+      [/TCH/.test(dead.html), /class="btn btn-primary[^"]*"[^>]*>Ask the family/.test(dead.html)], [true, true]);
   }
+}
+
+// ===========================================================================
+// FLOODLIT G AND H (BUZ, 1 Oct) — the doors a link from a message opens
+// (/confirm, /reset, /reset/[token], /unsubscribe, /stop-cvs) and the public
+// extras (/report, the legal template, 404/500, the dead link, the footer).
+// Read off what the product serves. The words are pinned elsewhere; these pin
+// the parts and the doors the spec fixed, and that nothing varies where D-77
+// says it must not.
+// ===========================================================================
+{
+  const body = (h) => h.replace(/^[\s\S]*?<body[^>]*>/, '').replace(/<script[\s\S]*?<\/script>/g, ' ');
+  const tile = (h) => /<div class="(glyph-tile[^"]*)">/.exec(body(h))?.[1] ?? null;
+  const ticked = (h) => /class="glyph-tick"/.test(body(h));
+  const brandLinked = (h) => /<a href="\/" class="fl-nav-brand"/.test(body(h));
+  const glows = (h) => (body(h).match(/\bclass="[^"]*\bfl-glow\b[^"]*"/g) ?? []).length;
+
+  // gh-1: the one glow. Each ask has exactly one glowing primary; a panel
+  // with nothing to do has none.
+  const views = {};
+  for (const path of ['/confirm/dev-unproved', '/confirm/never-existed-at-all', '/reset', '/reset?expired=1', '/reset?sent=1',
+    '/reset/dev-reset', '/reset/dev-reset?short=1', '/unsubscribe', '/stop-cvs', '/stop-cvs?done=1', '/report', '/report?done=1',
+    '/p/dev-expired', '/p/dev-revoked', '/p/dev-expired?asked=1', '/no-such-page', '/privacy']) views[path] = (await get(path)).html;
+  check('gh-1: one glowing primary on every ask, none where there is nothing to press (G/H, ruling 1)',
+    Object.fromEntries(Object.entries(views).map(([p, h]) => [p, glows(h)])),
+    { '/confirm/dev-unproved': 1, '/confirm/never-existed-at-all': 0, '/reset': 1, '/reset?expired=1': 1, '/reset?sent=1': 0,
+      '/reset/dev-reset': 1, '/reset/dev-reset?short=1': 1, '/unsubscribe': 0, '/stop-cvs': 1, '/stop-cvs?done=1': 0, '/report': 1,
+      '/report?done=1': 0, '/p/dev-expired': 1, '/p/dev-revoked': 1, '/p/dev-expired?asked=1': 0, '/no-such-page': 1, '/privacy': 0 });
+
+  // gh-2: the glyph tile says what happened — solid while the link asks,
+  // dashed when it is not live, the tick only where something was done. The
+  // reset "sent" answer carries NO tick: it is the same for every address.
+  check('gh-2: the glyph tile is solid on an ask, dashed on a dead link, ticked only when done (spec G)',
+    [tile(views['/confirm/dev-unproved']), tile(views['/confirm/never-existed-at-all']), tile(views['/reset']), tile(views['/reset?expired=1']),
+     tile(views['/reset?sent=1']), ticked(views['/reset?sent=1']), tile(views['/unsubscribe']), ticked(views['/unsubscribe']),
+     tile(views['/stop-cvs']), ticked(views['/stop-cvs']), ticked(views['/stop-cvs?done=1']), ticked(views['/confirm/dev-unproved'])],
+    ['glyph-tile', 'glyph-tile is-dashed', 'glyph-tile', 'glyph-tile is-dashed', 'glyph-tile', false, 'glyph-tile is-dashed', false,
+     'glyph-tile', false, true, false]);
+
+  // gh-3: the door on the logo. It links home everywhere here (Head of
+  // Product Design ruling 1; HD2 for /report and the 404) except the dead
+  // link, which keeps the live CV's unlinked bar so a live link and a dead
+  // one never differ in their chrome.
+  check('gh-3: the logo links home on every G door, /report and the 404, and never on the dead link',
+    Object.fromEntries(['/confirm/dev-unproved', '/confirm/never-existed-at-all', '/reset', '/reset/dev-reset', '/p/dev-expired',
+      '/report', '/report?done=1', '/no-such-page', '/unsubscribe', '/stop-cvs'].map((p) => [p, brandLinked(views[p])])),
+    { '/confirm/dev-unproved': true, '/confirm/never-existed-at-all': true, '/reset': true, '/reset/dev-reset': true, '/p/dev-expired': false,
+      '/report': true, '/report?done=1': true, '/no-such-page': true, '/unsubscribe': true, '/stop-cvs': true });
+
+  // gh-4: one door panel per access page, and the reset back link sits in
+  // the column (A part 5), so it is there at every width.
+  const doors = (h) => (body(h).match(/<div class="door"/g) ?? []).length;
+  check('gh-4: every G page and /report is one door panel, and /reset keeps "Sign in" in the column',
+    [doors(views['/confirm/dev-unproved']), doors(views['/reset']), doors(views['/reset/dev-reset']), doors(views['/unsubscribe']),
+     doors(views['/stop-cvs']), doors(views['/report']), doors(views['/report?done=1']),
+     /<a href="\/signin" class="pg-back"/.test(body(views['/reset'])), /fl-nav-back/.test(body(views['/reset']))],
+    [1, 1, 1, 1, 1, 1, 1, true, false]);
+
+  // gh-5: D-77. A used, a lapsed and a never-existed confirm token draw one
+  // panel; three kinds of dead share link draw one body apart from the
+  // token in the form; and HC1's third card is gone from every one of them.
+  const strip = (h, tok) => body(h).replace(new RegExp(tok, 'g'), 'TOKEN').replace(/<!-- -->/g, '');
+  const otherDead = (await get('/confirm/another-token-that-never-was')).html;
+  const randomTok = 'gh5-' + Date.now().toString(36);
+  const randomDead = (await get(`/p/${randomTok}`)).html;
+  const HC1 = 'Not signed in as a verified club?';
+  check('gh-5: dead confirm and share links draw one body each, whatever the token (D-77), and HC1\'s third card is gone',
+    [strip(views['/confirm/never-existed-at-all'], 'never-existed-at-all') === strip(otherDead, 'another-token-that-never-was'),
+     strip(views['/p/dev-expired'], 'dev-expired') === strip(views['/p/dev-revoked'], 'dev-revoked'),
+     strip(views['/p/dev-expired'], 'dev-expired') === strip(randomDead, randomTok),
+     [views['/p/dev-expired'], views['/p/dev-expired?asked=1'], randomDead].some((h) => body(h).includes(HC1))],
+    [true, true, true, false]);
+
+  // gh-6: /report's choices are wells you can tap whole, and the form posts
+  // exactly the fields it did (doc 32 A5): the four values, "other" checked.
+  const rep = body(views['/report']);
+  const opts = [...rep.matchAll(/<label class="field-opt"><input type="radio" name="concern"([^>]*)>/g)]
+    .map((m) => `${/value="([a-z_]+)"/.exec(m[1])?.[1]}${/\bchecked\b/.test(m[1]) ? '*' : ''}`);
+  const names = [...rep.matchAll(/<(?:input|textarea)[^>]*name="([A-Za-z]+)"/g)].map((m) => m[1]).filter((n) => !n.startsWith('$'));
+  check('gh-6: /report draws four .field-opt choices with "other" checked, and posts the same named fields',
+    [opts, [...new Set(names)].sort()],
+    [['child_account', 'own_child', 'family_safety', 'other*'], ['concern', 'reason', 'reporterEmail', 'subjectKind', 'subjectRef']]);
+
+  // gh-7: the urgent line on the received page is a "needs you" state — the
+  // amber notice, never the green edge of an action — and still comes first.
+  const urgentEl = /<div class="([^"]*)"[^>]*>[^<]*(?:immediate safety|immediate danger)/.exec(body(views['/report?done=1']))?.[1];
+  check('gh-7: /report?done=1 carries its urgent line as the amber notice, not the accent', urgentEl, 'card card-amber');
+
+  // gh-8: the legal template — no faked italic, nothing outside the five
+  // letter-spacings, an empty key/value header row hidden; markup untouched
+  // (leg-r4 and leg-r6 read it).
+  const legalCss = /<div class="legal-doc"[^>]*>[\s\S]*?<\/div><style>([\s\S]*?)<\/style>/.exec(views['/privacy'])?.[1] ?? '';
+  check('gh-8: the legal template sets no italic and no off-charter letter-spacing, and hides an empty header row (spec H)',
+    [legalCss.length > 500, /font-style:\s*italic/.test(legalCss), (legalCss.match(/letter-spacing:\s*([^;]+)/g) ?? []).filter((l) => !/var\(--ls-/.test(l)),
+     /\.legal-doc em \{ font-style: normal/.test(legalCss), /thead:has\(th:empty\) \{ display: none; \}/.test(legalCss)],
+    [true, false, [], true, true]);
+
+  // gh-9: Head of Product Design ruling 5 — on /unsubscribe and /stop-cvs the
+  // title and its one line are the page title (.pg-titles: 26px at the
+  // charter's title spacing, the line as .pg-sub), not a 28px h1 at -.02em.
+  const titled = (h) => /<div class="pg-titles"><h1 class="pg-title">[^<]+<\/h1><p class="pg-sub"[^>]*>[^<]+<\/p><\/div>/.test(body(h).replace(/<!-- -->/g, ''));
+  check('gh-9: /unsubscribe and /stop-cvs (ask and done) carry their title and line as the page title, and no -.02em is left',
+    [titled(views['/unsubscribe']), titled(views['/stop-cvs']), titled(views['/stop-cvs?done=1']),
+     ['/unsubscribe', '/stop-cvs', '/stop-cvs?done=1'].some((p) => /letter-spacing:-\.02em/.test(body(views[p])))],
+    [true, true, true, false]);
 }
 
 // ===========================================================================

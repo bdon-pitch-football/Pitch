@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { QuietShell } from '@/components/quiet-shell';
-import { T } from '@/lib/palette';
+import { GlyphTile } from '@/components/FailureState';
+import { CV_OFF_GLYPH } from '@/components/door-glyphs';
 import { stopCvs } from './actions';
 
 // Where the CV email's opt-out lands (doc 15 §19; John, 30 Sep §2). Opening
@@ -17,8 +18,6 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-const h1: React.CSSProperties = { fontSize: 28, fontWeight: 900, letterSpacing: '-.02em', margin: 0 };
-const body: React.CSSProperties = { fontSize: 14.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6, margin: 0 };
 
 export default async function StopCvsPage({
   searchParams,
@@ -30,21 +29,32 @@ export default async function StopCvsPage({
   const requestId = typeof r === 'string' ? r.slice(0, 64) : '';
   const sig = typeof t === 'string' ? t.slice(0, 64) : '';
 
+  // Floodlit (spec G): the quiet shell as a door, `wide` so it is the same
+  // width as /signin; the title and its line are the page title (it was 28px
+  // at -.02em; Head of Product Design ruling 5).
+  // The tick tile on done, which every outcome lands on. The ask and the
+  // done screen are each one constant body, whatever the link said.
   return (
-    <QuietShell>
+    <QuietShell wide door>
       {done ? (
         <>
-          <h1 style={h1}>Done</h1>
-          <p style={body}>Pitch won’t send CVs to this address again.</p>
+          <GlyphTile state="done">{CV_OFF_GLYPH}</GlyphTile>
+          <div className="pg-titles">
+            <h1 className="pg-title">Done</h1>
+            <p className="pg-sub" style={{ margin: 0 }}>Pitch won’t send CVs to this address again.</p>
+          </div>
         </>
       ) : (
         <>
-          <h1 style={h1}>Stop CVs to this address?</h1>
-          <p style={body}>Pitch won’t send CVs to this address again. Families can still contact the club in other ways.</p>
-          <form action={stopCvs} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+          <GlyphTile>{CV_OFF_GLYPH}</GlyphTile>
+          <div className="pg-titles">
+            <h1 className="pg-title">Stop CVs to this address?</h1>
+            <p className="pg-sub" style={{ margin: 0 }}>Pitch won’t send CVs to this address again. Families can still contact the club in other ways.</p>
+          </div>
+          <form action={stopCvs} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <input type="hidden" name="r" value={requestId} />
             <input type="hidden" name="t" value={sig} />
-            <button type="submit" className="btn btn-primary">Stop them</button>
+            <button type="submit" className="btn btn-primary fl-glow">Stop them</button>
           </form>
         </>
       )}
