@@ -37,6 +37,15 @@
    - our words, never the club's prose;
    - none of the banned words (D-85, D-108).
 
+## The one command (BUZ, 1 Oct)
+
+Scheduled runs touch production **only** through `scripts/trials-desk.sh`, so one allow-list entry covers every run and no run stalls on a prompt at 5:30am:
+
+- `trials-desk.sh prepare notices|sweep`: makes the run folder, exports the board, and for `notices` splits it into two halves (whole clubs). The last line printed is the run folder.
+- `trials-desk.sh finish <run folder>`: the dead-link check, then the checked `changes.csv` in **safe** scope, logged to `apply.log`. It refuses a folder outside `trials-daily/`, and applies nothing if the checker didn't write `changes.csv`.
+
+The steps below are what the script does underneath.
+
 ## The runs
 
 **Every 3 hours, 7am–9pm, notices only.** Only clubs that have a live notice are re-read:
