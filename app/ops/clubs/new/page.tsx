@@ -12,7 +12,6 @@ import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { requireOperator } from '@/lib/ops-guard';
 import { clubsScreensShown } from '@/lib/ops-policy';
 import { T } from '@/lib/palette';
-import { card } from '@/lib/ui';
 import { addClub } from '../actions';
 import { ListingFields } from '../listing-fields';
 
@@ -32,18 +31,25 @@ export default async function AddClub({ searchParams }: {
     <OpsConsole active="clubs">
       <div className="console ops-sheet" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <OpsHeader title="Add a club" back={{ href: '/ops/clubs', label: 'Clubs' }} />
-        {error && (
-          <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>
-            {error === 'dup' ? 'A club with that name and suburb is already listed.' : 'Fill in the name, suburb, state and where you found it.'}
-          </div>
-        )}
-        <form action={addClub} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <ListingFields c={asked} />
-            {request && <input type="hidden" name="request" value={request} />}
-          </div>
-          <button type="submit" className="btn btn-primary">Add a club</button>
-        </form>
+        {/* Floodlit (spec I, BUZ 1 Oct): one form panel in the reading width,
+            with the one glowing primary. The fields and the prefill are as
+            they were. */}
+        <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {error && (
+            <div role="alert" className="card card-amber" style={{ fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5 }}>
+              {error === 'dup' ? 'A club with that name and suburb is already listed.' : 'Fill in the name, suburb, state and where you found it.'}
+            </div>
+          )}
+          <form action={addClub} className="card ops-panel">
+            <div className="ops-sec">
+              <ListingFields c={asked} />
+              {request && <input type="hidden" name="request" value={request} />}
+            </div>
+            <div className="ops-sec" style={{ paddingBottom: 18 }}>
+              <button type="submit" className="btn btn-primary fl-glow">Add a club</button>
+            </div>
+          </form>
+        </div>
       </div>
     </OpsConsole>
   );

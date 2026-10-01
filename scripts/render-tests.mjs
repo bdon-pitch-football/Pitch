@@ -860,6 +860,83 @@ const georgia = ids.children.georgia;
     const out = await get('/ops/clubs', null);
     check('cur-r7: signed out, the directory is not there to read', [out.status, out.location?.endsWith('/signin')], [307, true]);
   }
+  // Floodlit, the operator console (spec I; BUZ 1 Oct: I-P1 a, b and c, I-P2,
+  // N-I1, N-I2). Read from the served pages, outside the two navs: a table is
+  // one lifted card, every state is A's pill, every empty list is the empty
+  // tile, every standing rule is a well with no red, a form is one panel, and
+  // green marks only the row where work is waiting. Nothing it shows or can do
+  // changed — the crawl is diffed for that; these pin the parts.
+  {
+    const op = ids.people.marina;
+    const page = async (path) => (await get(path, op)).html.replace(/<!--[\s\S]*?-->/g, '').replace(/<nav[\s\S]*?<\/nav>/g, ' ').replace(/<script[\s\S]*?<\/script>/g, ' ');
+    const RED = /var\(--red\)|#e37776/i;
+    const sunken = (h) => /<div class="card-sunken"[^>]*>([\s\S]*?)<\/div><\/div>/.exec(h)?.[0] ?? '';
+    const inputsOff = (h) => [...h.matchAll(/<(input|select|textarea)\b([^>]*)>/g)]
+      .filter((m) => !/type="(hidden|radio|checkbox|submit)"/.test(m[2]) && !/\bclass="[^"]*\bops-input\b/.test(m[2]))
+      .map((m) => /name="([^"]*)"/.exec(m[2])?.[1] ?? m[1]);
+
+    const today = await page('/ops');
+    const tiles = [...today.matchAll(/<div data-ops-tile="([^"]+)" class="card"[^>]*><div class="panel-h">[^<]*<\/div><div class="numeral numeral-m"[^>]*>([^<]*)<\/div>/g)].map((m) => m[1]);
+    check(`op-r1: Today's tiles are panels with the label then the 34px numeral, the count rule is a well, and the quiet-day line is absent while there are counts (${tiles.length} tiles)`,
+      [tiles.length >= 3, tiles.length === (today.match(/data-ops-tile="/g) ?? []).length,
+       /Everything on this page is a count\./.test(sunken(today)), /Nothing yet today\./.test(today)], [true, true, true, false]);
+
+    const ver = await page('/ops/verification');
+    const vrows = [...ver.matchAll(/<div class="ops-row[^"]*">([\s\S]*?)(?=<div class="ops-row|$)/g)].map((m) => m[1]);
+    const vstate = (r) => /<span class="(pill pill-(?:wait|live|stop))">/.exec(r)?.[1] ?? 'none';
+    const vgreen = (r) => /class="console-btn console-btn-primary"/.test(r);
+    check(`op-r2: the queue's states are pills, and only a row awaiting its call carries the green button (I-P1a) (${vrows.length} rows)`,
+      [vrows.length >= 2, vrows.filter((r) => vstate(r) === 'none').length,
+       vrows.filter((r) => vgreen(r) !== (vstate(r) === 'pill pill-wait')).length, vrows.some(vgreen)], [true, 0, 0, true]);
+    check('op-r3: the queue\u2019s standing rule is a well with the sentence in ink, and no red (I-P1b)',
+      [/Nothing about a person under 18 reaches any club on this list until you have made the call\./.test(sunken(ver)), RED.test(sunken(ver))], [true, false]);
+
+    const look = await page(`/ops/support?q=${ids.pendingInvitation}`);   // the seed's waiting invitation
+    const inv = [...look.matchAll(/<div class="ops-inv">([\s\S]*?)(?=<div class="ops-inv">|$)/g)].map((m) => m[1]);
+    check(`op-r4: Lookup's rule is a well with no red; its results are rows in one table card, each status a pill; the resend still posts invitationId (${inv.length} rows)`,
+      [/You cannot read a child.s record from here/.test(sunken(look)), RED.test(sunken(look)), (look.match(/class="ops-table"/g) ?? []).length,
+       inv.length >= 1, inv.filter((r) => !/<span class="pill pill-(live|stop|wait)">(Approved|Held|Waiting on the guardian)<\/span>/.test(r)).length,
+       /<form class="ops-search"/.test(look), inputsOff(look), inv.filter((r) => /Resend the approval request/.test(r)).every((r) => /name="invitationId"/.test(r))],
+      [true, false, 1, true, 0, true, [], true]);
+    const lookNone = await page('/ops/support?q=nothing-matches');
+    check('op-r4b: and no match is the empty tile', /<div class="card empty"><span class="empty-tile"[^>]*><\/span><div class="empty-t">Nothing matches that\.<\/div><\/div>/.test(lookNone), true);
+
+    const rep = await page('/ops/reports');
+    const repParent = await page('/ops/reports?parent=nobody%40example.com');
+    const empties = (h) => [...h.matchAll(/<div class="card empty"><span class="empty-tile"[^>]*><\/span><div class="empty-t">([^<]*)<\/div><\/div>/g)].map((m) => m[1]);
+    check(`op-r5: on the reports desk every empty list is the empty tile with its own sentence, every field is the console's well, and nothing is red-edged (${empties(rep).join(' | ')})`,
+      [empties(rep).filter((e) => ['Nothing is hidden.', 'Nobody is held.'].includes(e)).length, empties(repParent).includes('No parent account with that email.'),
+       inputsOff(rep), /card-red/.test(rep), /<div class="player-grid">[\s\S]*<div class="ops-aside-sticky"/.test(rep)], [2, true, [], false, true]);
+
+    const sw = await page('/ops/switches');
+    check('op-r6: each switch states itself in a pill, every field is the console\u2019s well (the textarea too), the log is one table card or the empty tile, and on a normal night nothing glows',
+      [(sw.match(/<span class="pill pill-(?:live|wait)">(?:On|Paused|Off)<\/span>/g) ?? []).length >= 2, inputsOff(sw), /<textarea[^>]*class="ops-input"/.test(sw),
+       /class="ops-table"|<div class="empty-t">Nothing has been switched\.<\/div>/.test(sw), /fl-glow/.test(sw)], [true, [], true, true, false]);
+
+    const dir = await page('/ops/clubs');
+    const chips = [...dir.matchAll(/<span data-club-state="([a-z]+)" class="([^"]+)">([^<]*)<\/span>/g)].map((m) => [m[1], m[2], m[3]]);
+    const want = { unclaimed: ['pill', 'Unclaimed'], claimed: ['pill pill-wait', 'Awaiting call'], verified: ['pill pill-live', 'Verified'], suspended: ['pill pill-stop', 'Suspended'] };
+    check(`op-r7: the directory's states are pills that keep data-club-state, the search is the console's, and with no club asking "Add a club" is the one green (${chips.length} pills)`,
+      [chips.length >= 4, chips.filter(([st, cls, w]) => !want[st] || want[st][0] !== cls || want[st][1] !== w).length,
+       /<form role="search" class="ops-search">/.test(dir), (dir.match(/console-btn-primary/g) ?? []).length, /<a(?=[^>]*\bclass="console-btn console-btn-primary")(?=[^>]*\bhref="\/ops\/clubs\/new")[^>]*>Add a club</.test(dir)],
+      [true, 0, true, 1, true]);
+
+    const wg = await page(`/ops/clubs/${ids.clubs['westgate-rangers']}`);
+    check('op-r8: an unclaimed club is two jobs in a grid — the listing one panel with the state pill in the title, its trials their own column',
+      [/<div class="club-grid">/.test(wg), (wg.match(/<form[^>]*class="card ops-panel ga-listing"/g) ?? []).length, /class="ga-trials"/.test(wg),
+       /<span data-club-state="unclaimed" class="pill">Unclaimed<\/span>/.test(wg), inputsOff(wg)], [true, 1, true, true, []]);
+    const kw = await page(`/ops/clubs/${ids.clubs['kingsway-rovers']}`);
+    check('op-r8b: a verified club with no notice of Pitch\u2019s has one job, so no grid and no empty Trials column (D-162)',
+      [/club-grid/.test(kw), /ga-trials/.test(kw), />Trials</.test(kw)], [false, false, false]);
+
+    for (const [name, path] of [['Post a trial', `/ops/clubs/${ids.clubs['westgate-rangers']}/trial`], ['Add a club', '/ops/clubs/new']]) {
+      const f = await page(path);
+      check(`op-r9: ${name} is one form panel in the 640 reading width, every field the console's well, and the one glow on its primary`,
+        [(f.match(/<form[^>]*class="card ops-panel"/g) ?? []).length, /max-width:640px/.test(f), inputsOff(f), /field-label/.test(f),
+         [...f.matchAll(/<button[^>]*class="btn btn-primary fl-glow"[^>]*>([^<]*)</g)].map((m) => m[1])],
+        [1, true, [], false, [name === 'Post a trial' ? 'Post it' : 'Add a club']]);
+    }
+  }
   // D-154 — the administrator's frame and walls. The same subset rule, and
   // the register itself is not one of her doors at a verified club.
   {

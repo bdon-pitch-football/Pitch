@@ -82,9 +82,9 @@ export default async function OpsVerification() {
   const awaiting = rows.filter((r) => r.club_state === 'claimed').length;
   const heldTotal = rows.filter((r) => r.club_state === 'claimed').reduce((s, r) => s + r.held, 0);
 
+  // The state is A's pill (spec I, I-P1c, BUZ 1 Oct): the same three words.
   const chip = (state: string) => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', background: T.surface2, borderRadius: 999, padding: '7px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
-      color: state === 'verified' ? T.accent : state === 'suspended' ? T.red : T.amber }}>
+    <span className={state === 'verified' ? 'pill pill-live' : state === 'suspended' ? 'pill pill-stop' : 'pill pill-wait'}>
       {state === 'verified' ? 'Verified' : state === 'suspended' ? 'Suspended' : 'Awaiting call'}
     </span>
   );
@@ -98,18 +98,19 @@ export default async function OpsVerification() {
             awaiting > 0 ? `${awaiting} club${awaiting === 1 ? '' : 's'} awaiting a call` : null,
             heldTotal > 0 ? `${heldTotal} registration${heldTotal === 1 ? '' : 's'} held` : null,
           ].filter(Boolean).join(' · ')} />
-        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden><path d="M12 8.5 v5" /><circle cx="12" cy="17" r="0.6" fill={T.red} /><path d="M10.3 3.6 L2.6 17.4 A1.9 1.9 0 0 0 4.3 20.3 H19.7 A1.9 1.9 0 0 0 21.4 17.4 L13.7 3.6 a1.9 1.9 0 0 0 -3.4 0 Z" /></svg>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.4 }}>Nothing about a person under 18 reaches any club on this list until you have made the call.</div>
-            <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 700, lineHeight: 1.55, marginTop: 2 }}>Held registrations are hidden from the club entirely — it sees a count and nothing else.</div>
+        {/* The standing rule is a well, not a state (I-P1b, BUZ 1 Oct): no red
+            triangle and no red; the shield-check glyph, the first sentence in ink. */}
+        <div className="card-sunken" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden><path d="M12 3 19 6v5c0 4.6-2.9 8.1-7 10-4.1-1.9-7-5.4-7-10V6Z" /><path d="m9 12 2 2 4-4.5" /></svg>
+          <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 700, lineHeight: 1.55 }}>
+            <b style={{ color: T.ink, fontWeight: 800 }}>Nothing about a person under 18 reaches any club on this list until you have made the call.</b>{' '}Held registrations are hidden from the club entirely — it sees a count and nothing else.
           </div>
         </div>
         {/* N-I1 (BUZ, 1 Oct): with no club claimed, verified or suspended the
             table head was drawn over nothing and read as a failed load. A
             sentence instead, never a zero (D-162). */}
         {rows.length === 0 ? (
-          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 13, color: T.secondary, fontWeight: 500 }}>No club has claimed its page yet.</div>
+          <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">No club has claimed its page yet.</div></div>
         ) : (
         <div className="ops-table">
           <div className="ops-head" aria-hidden>
@@ -141,8 +142,10 @@ export default async function OpsVerification() {
                   : '—'}
               </div>
               <div className="ops-status">{chip(r.club_state)}</div>
+              {/* Green marks the work (I-P1a, BUZ 1 Oct): the button is the
+                  primary only on a row awaiting its call. */}
               <div className="ops-action">
-                <Link href={`/ops/call/${r.id}`} className="console-btn console-btn-primary">Open call sheet</Link>
+                <Link href={`/ops/call/${r.id}`} className={r.club_state === 'claimed' ? 'console-btn console-btn-primary' : 'console-btn'}>Open call sheet</Link>
               </div>
             </div>
           ))}

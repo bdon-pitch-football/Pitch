@@ -11091,8 +11091,29 @@ const componentFilesAll = [];
 
   // Defect 27: no table head over nothing on /ops/verification.
   const verif = codeOnly(srcOf('app/ops/verification/page.tsx'));
+  // Floodlit (spec I, BUZ 1 Oct): the sentence sits in A's empty tile (N-I1),
+  // so it is read there — and the table, head and all, is still only the
+  // other branch.
   check('dfx-I-27: /ops/verification with no club draws a sentence, not a table head over nothing',
-    [/\{rows\.length === 0 \? \(\s*<div[^>]*>No club has claimed its page yet\.<\/div>\s*\) : \(\s*<div className="ops-table">/.test(verif)], [true]);
+    [/\{rows\.length === 0 \? \(\s*<div className="card empty"><span className="empty-tile" aria-hidden \/><div className="empty-t">No club has claimed its page yet\.<\/div><\/div>\s*\) : \(\s*<div className="ops-table">/.test(verif)], [true]);
+
+  // Floodlit, the operator console (spec I, BUZ 1 Oct): two states the seed
+  // never renders, so they are read from the source. N-I2: a day with every
+  // count at zero shows one line in the empty tile — only then, so it can never
+  // sit beside a count, and never as a 0 (D-162). And the one glow on the
+  // switches: with links paused AND SMS off, only the links' way back glows
+  // (the first in reading order); with neither off, nothing does.
+  const todayCode = codeOnly(srcOf('app/ops/page.tsx'));
+  check('op-s1: Today’s quiet-day line (N-I2) is the empty tile, drawn only when every tile was omitted, and nowhere else',
+    [/\{tiles\.length === 0 && \(\s*<div className="card empty"><span className="empty-tile" aria-hidden \/><div className="empty-t">Nothing yet today\.<\/div><\/div>\s*\)\}/.test(todayCode),
+     (todayCode.match(/Nothing yet today\./g) ?? []).length], [true, 1]);
+  const swCode = codeOnly(srcOf('app/ops/switches/page.tsx'));
+  check('op-s2: the switches page glows only on a way back, and never twice: SMS’s way back glows only while links are not paused',
+    [/const glowLinks = paused;/.test(swCode), /const glowSms = state\.sms_off && !paused;/.test(swCode),
+     (swCode.match(/fl-glow/g) ?? []).length,
+     /className=\{paused \? \(glowLinks \? 'btn btn-primary fl-glow' : 'btn btn-primary'\) : 'btn btn-secondary'\}/.test(swCode),
+     /className=\{state\.sms_off \? \(glowSms \? 'btn btn-primary fl-glow' : 'btn btn-primary'\) : 'btn btn-secondary'\}/.test(swCode)],
+    [true, true, 2, true, true]);
 
   // Defect 24 (F-N1): "just narrowed" only when a filter narrowed something.
   const reg = codeOnly(srcOf('app/club/register/page.tsx'));

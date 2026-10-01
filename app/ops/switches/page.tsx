@@ -10,12 +10,10 @@ import { REVOKE_ALL_PHRASE } from '@/lib/ops-policy';
 import { revokeAllLinks, setLinksPaused, setSmsCap, setSmsOff } from './actions';
 import { effectiveSmsCapCents, smsCapCents } from '@/lib/sms-policy';
 import { T } from '@/lib/palette';
-import { card, fieldLabel, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Emergency switches', robots: { index: false, follow: false } };
 
-const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 const ACTION: Record<string, string> = {
   links_paused: 'Paused every shared link',
   links_resumed: 'Switched shared links back on',
@@ -59,79 +57,82 @@ export default async function Switches({ searchParams }: { searchParams: Promise
   const smsLimit = effectiveSmsCapCents(envCap, state.sms_cap);
   const labelOf = (a: string) => ACTION[a] ?? (SMS_SHOWN ? SMS_ACTION[a] : undefined) ?? a;
 
+  // Floodlit (spec I, BUZ 1 Oct). Each switch is a panel and its state a
+  // pill; a field is the console's labelled 44px well; the log is rows in one
+  // table card. THE GLOW: nothing glows on a normal night. When something is
+  // off, the switch that brings it back is the screen's one glowing primary —
+  // the links first, in reading order, if both are off.
+  const notice: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5 };
+  const body: React.CSSProperties = { fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 };
+  const glowLinks = paused;
+  const glowSms = state.sms_off && !paused;
+  const Why = () => (
+    <label className="ops-field"><span className="panel-h">Why</span>
+      <input name="reason" className="ops-input" required minLength={3} maxLength={500} placeholder="What happened" /></label>
+  );
+
   return (
     <OpsConsole active="switches">
       <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
-        {/* The operator's title row (brief G). The switches below are as
-            they were: they read well at 375, and BUZ uses them there. */}
+        {/* The operator's title row (brief G). BUZ uses these at 375, at night. */}
         <OpsHeader title="Emergency switches" sub="For the night something has gone wrong. Every switch is logged with your name and your reason." />
 
-        {done === 'paused' && <div role="status" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Every shared link is paused.</div>}
-        {done === 'resumed' && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Shared links are back on.</div>}
-        {done === 'revoked' && <div role="status" style={{ ...card, border: `1px solid ${T.red}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>{Number(n ?? 0)} links switched off. {Number(told ?? 0)} families and players emailed.</div>}
-        {error === 'reason' && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Say why. It goes in the log.</div>}
-        {error === 'family' && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Nothing was switched off. Write the sentence families will read.</div>}
-        {error === 'confirm' && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Nothing was switched off. Type the words exactly as shown.</div>}
-        {SMS_SHOWN && done === 'sms-off' && <div role="status" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>SMS is off. No texts will go out.</div>}
-        {SMS_SHOWN && done === 'sms-on' && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>SMS is back on.</div>}
-        {SMS_SHOWN && done === 'cap-set' && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>The new limit applies from the next text.</div>}
-        {SMS_SHOWN && done === 'cap-cleared' && <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>The limit is back to the one set in Vercel.</div>}
-        {SMS_SHOWN && error === 'cap' && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Nothing was changed. Type the limit in dollars, more than zero.</div>}
-        {SMS_SHOWN && error === 'cap-ceiling' && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Nothing was changed. That is above the limit set in Vercel. Raise it there if it has to go up.</div>}
+        {done === 'paused' && <div role="status" className="card card-amber" style={notice}>Every shared link is paused.</div>}
+        {done === 'resumed' && <div role="status" className="card card-accent" style={notice}>Shared links are back on.</div>}
+        {done === 'revoked' && <div role="status" className="card card-red" style={notice}>{Number(n ?? 0)} links switched off. {Number(told ?? 0)} families and players emailed.</div>}
+        {error === 'reason' && <div role="alert" className="card card-amber" style={notice}>Say why. It goes in the log.</div>}
+        {error === 'family' && <div role="alert" className="card card-amber" style={notice}>Nothing was switched off. Write the sentence families will read.</div>}
+        {error === 'confirm' && <div role="alert" className="card card-amber" style={notice}>Nothing was switched off. Type the words exactly as shown.</div>}
+        {SMS_SHOWN && done === 'sms-off' && <div role="status" className="card card-amber" style={notice}>SMS is off. No texts will go out.</div>}
+        {SMS_SHOWN && done === 'sms-on' && <div role="status" className="card card-accent" style={notice}>SMS is back on.</div>}
+        {SMS_SHOWN && done === 'cap-set' && <div role="status" className="card card-accent" style={notice}>The new limit applies from the next text.</div>}
+        {SMS_SHOWN && done === 'cap-cleared' && <div role="status" className="card card-accent" style={notice}>The limit is back to the one set in Vercel.</div>}
+        {SMS_SHOWN && error === 'cap' && <div role="alert" className="card card-amber" style={notice}>Nothing was changed. Type the limit in dollars, more than zero.</div>}
+        {SMS_SHOWN && error === 'cap-ceiling' && <div role="alert" className="card card-amber" style={notice}>Nothing was changed. That is above the limit set in Vercel. Raise it there if it has to go up.</div>}
 
         <div className="player-grid">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={sectionLabel}>Pause shared links</div>
-            <form action={setLinksPaused} style={{ ...card, border: `1px solid ${paused ? T.amber : T.line}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <h2 className="sec-h">Pause shared links</h2>
+            <form action={setLinksPaused} className={paused ? 'card card-amber' : 'card'} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <input type="hidden" name="paused" value={paused ? 'off' : 'on'} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ background: paused ? 'rgba(237,161,0,.14)' : 'rgba(61,220,132,.14)', color: paused ? T.amber : T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  {paused ? 'Paused' : 'On'}
-                </div>
+                <span className={paused ? 'pill pill-wait' : 'pill pill-live'}>{paused ? 'Paused' : 'On'}</span>
                 <div style={{ fontSize: 13, color: T.secondary, fontWeight: 700 }}>{state.live} live {state.live === 1 ? 'link' : 'links'}</div>
               </div>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+              <div style={body}>
                 {paused
                   ? 'Every player’s shared link shows the same page a dead link does. Switch it back on and every link that was working works again.'
                   : 'Pausing makes every player’s shared link show the same page a dead link does, until you switch it back on. Nothing is lost. Coach and club pages stay up.'}
               </div>
-              <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
-                <div style={fieldLabel}>Why</div>
-                <input name="reason" style={input} required minLength={3} maxLength={500} placeholder="What happened" />
-              </label>
-              <button type="submit" className={paused ? 'btn btn-primary' : 'btn btn-secondary'}>{paused ? 'Switch shared links back on' : 'Pause every shared link'}</button>
+              <Why />
+              <button type="submit" className={paused ? (glowLinks ? 'btn btn-primary fl-glow' : 'btn btn-primary') : 'btn btn-secondary'}>{paused ? 'Switch shared links back on' : 'Pause every shared link'}</button>
             </form>
 
-            <div style={{ ...sectionLabel, marginTop: 8 }}>Switch off every link</div>
-            <form action={revokeAllLinks} style={{ ...card, border: `1px solid ${T.red}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+            <h2 className="sec-h" style={{ marginTop: 8 }}>Switch off every link</h2>
+            <form action={revokeAllLinks} className="card card-red" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={body}>
                 <b style={{ color: T.ink }}>This can&rsquo;t be undone.</b> Every live link stops working for good. Each family has to send a new one. Their timeline says Pitch switched it off, and they get an email. Use it when links may have got into the wrong hands.
               </div>
-              <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
-                <div style={fieldLabel}>Why</div>
-                <input name="reason" style={input} required minLength={3} maxLength={500} placeholder="What happened" />
+              <Why />
+              <label className="ops-field">
+                <span className="panel-h">What families will read</span>
+                <textarea name="familyReason" className="ops-input" required minLength={10} maxLength={300} rows={3} placeholder="One plain sentence about what happened. No names, no clubs, no guesses." style={{ fontWeight: 500 }} />
+                <span style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Every guardian and every player 16 or over whose link goes is emailed, with this sentence in the middle.</span>
               </label>
-              <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
-                <div style={fieldLabel}>What families will read</div>
-                <textarea name="familyReason" required minLength={10} maxLength={300} rows={3} placeholder="One plain sentence about what happened. No names, no clubs, no guesses." style={{ ...input, fontWeight: 500, resize: 'vertical', lineHeight: 1.5 }} />
-                <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500, lineHeight: 1.5, marginTop: 4 }}>Every guardian and every player 16 or over whose link goes is emailed, with this sentence in the middle.</div>
-              </label>
-              <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
-                <div style={fieldLabel}>Type {REVOKE_ALL_PHRASE}</div>
-                <input name="confirm" style={input} required autoComplete="off" spellCheck={false} />
+              <label className="ops-field">
+                <span className="panel-h">Type {REVOKE_ALL_PHRASE}</span>
+                <input name="confirm" className="ops-input" required autoComplete="off" spellCheck={false} />
               </label>
               <button type="submit" className="btn btn-secondary" style={{ borderColor: T.red, color: T.red }}>Switch off every link</button>
             </form>
 
             {SMS_SHOWN && (
               <>
-                <div style={{ ...sectionLabel, marginTop: 8 }}>SMS</div>
-                <form action={setSmsOff} style={{ ...card, border: `1px solid ${smsOff ? T.amber : T.line}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <h2 className="sec-h" style={{ marginTop: 8 }}>SMS</h2>
+                <form action={setSmsOff} className={smsOff ? 'card card-amber' : 'card'} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <input type="hidden" name="off" value={state.sms_off ? 'off' : 'on'} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ background: smsOff ? 'rgba(237,161,0,.14)' : 'rgba(61,220,132,.14)', color: smsOff ? T.amber : T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                      {smsOff ? 'Off' : 'On'}
-                    </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span className={smsOff ? 'pill pill-wait' : 'pill pill-live'}>{smsOff ? 'Off' : 'On'}</span>
                     <div style={{ fontSize: 13, color: T.secondary, fontWeight: 700 }}>
                       {/* D-162: the absence is said in words, not as $0.00 (BUZ,
                           29 Sep, "yes to the four"). Any other amount as it is. */}
@@ -139,43 +140,34 @@ export default async function Switches({ searchParams }: { searchParams: Promise
                         : smsLimit !== null ? `${money(state.sms_spent)} of ${money(smsLimit)} spent this month` : `${money(state.sms_spent)} spent this month`}
                     </div>
                   </div>
-                  <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                  <div style={body}>
                     {envKill
                       ? 'SMS is switched off in Vercel, so it stays off whatever you press here.'
                       : smsOff
                         ? 'No texts are going out. A parent waiting to approve a child cannot finish until SMS is back on.'
                         : 'Switching SMS off stops every text Pitch sends until you switch it back on — including the approval texts parents need, so no child can be approved while it is off. Email keeps working.'}
                   </div>
-                  <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
-                    <div style={fieldLabel}>Why</div>
-                    <input name="reason" style={input} required minLength={3} maxLength={500} placeholder="What happened" />
-                  </label>
-                  <button type="submit" className={state.sms_off ? 'btn btn-primary' : 'btn btn-secondary'}>{state.sms_off ? 'Switch SMS back on' : 'Switch SMS off'}</button>
+                  <Why />
+                  <button type="submit" className={state.sms_off ? (glowSms ? 'btn btn-primary fl-glow' : 'btn btn-primary') : 'btn btn-secondary'}>{state.sms_off ? 'Switch SMS back on' : 'Switch SMS off'}</button>
                 </form>
 
-                <form action={setSmsCap} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                <form action={setSmsCap} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={body}>
                     {envCap !== null
                       ? `The limit set in Vercel is ${money(envCap)} a month. You can lower it here, never raise it. A new limit applies from the next text.`
                       : 'No limit is set in Vercel. In production that means no text is sent at all, whatever you set here.'}
                   </div>
-                  <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
-                    <div style={fieldLabel}>Monthly limit, in dollars</div>
-                    <input name="dollars" style={input} inputMode="decimal" autoComplete="off" placeholder={state.sms_cap !== null ? (state.sms_cap / 100).toFixed(2) : '20.00'} />
+                  <label className="ops-field">
+                    <span className="panel-h">Monthly limit, in dollars</span>
+                    <input name="dollars" className="ops-input" inputMode="decimal" autoComplete="off" placeholder={state.sms_cap !== null ? (state.sms_cap / 100).toFixed(2) : '20.00'} />
                   </label>
-                  <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
-                    <div style={fieldLabel}>Why</div>
-                    <input name="reason" style={input} required minLength={3} maxLength={500} placeholder="What happened" />
-                  </label>
+                  <Why />
                   <button type="submit" className="btn btn-secondary">Set this limit</button>
                 </form>
                 {state.sms_cap !== null && (
-                  <form action={setSmsCap} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <form action={setSmsCap} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <input type="hidden" name="clear" value="on" />
-                    <label style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'block' }}>
-                      <div style={fieldLabel}>Why</div>
-                      <input name="reason" style={input} required minLength={3} maxLength={500} placeholder="What happened" />
-                    </label>
+                    <Why />
                     <button type="submit" className="btn btn-secondary">Go back to the limit set in Vercel</button>
                   </form>
                 )}
@@ -183,17 +175,21 @@ export default async function Switches({ searchParams }: { searchParams: Promise
             )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={sectionLabel}>Switch log</div>
+          <div className="ops-aside-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <h2 className="sec-h">Switch log</h2>
             {log.length === 0 ? (
-              <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 500 }}>Nothing has been switched.</div>
-            ) : log.map((e, i) => (
-              <div key={i} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 800 }}>{labelOf(e.action)}{e.links_affected != null ? ` · ${e.links_affected}` : ''}{e.sms_cap_cents != null ? ` · ${money(e.sms_cap_cents)}` : ''}</div>
-                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.at} · {e.operator_email}</div>
-                <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{e.reason}</div>
+              <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-t">Nothing has been switched.</div></div>
+            ) : (
+              <div className="ops-table">
+                {log.map((e, i) => (
+                  <div key={i} className="ops-log">
+                    <div style={{ fontSize: 13.5, fontWeight: 800 }}>{labelOf(e.action)}{e.links_affected != null ? ` · ${e.links_affected}` : ''}{e.sms_cap_cents != null ? ` · ${money(e.sms_cap_cents)}` : ''}</div>
+                    <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.at} · {e.operator_email}</div>
+                    <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{e.reason}</div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>

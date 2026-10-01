@@ -24,13 +24,10 @@ import { clubsScreensShown } from '@/lib/ops-policy';
 import { isUuid } from '@/lib/ids';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
 import { saveNotice } from '../../actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Post a trial', robots: { index: false, follow: false } };
-
-const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
 type Notice = { id: string; title: string; trial_on: string; time_venue: string; competition_gender: string | null;
                 position_needs: string[]; age_groups: string[]; source_url: string; registered: boolean };
@@ -67,73 +64,83 @@ export default async function OpsTrial({ params, searchParams }: {
     </label>
   );
 
+  // Floodlit (spec I, BUZ 1 Oct): one form panel in the reading width (a form
+  // is a door), its sections divided by hairlines, every field the console's
+  // labelled 44px well — the same field as the call sheet and the listing. The
+  // names, values and chips are unchanged.
+  const hint: React.CSSProperties = { fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 };
+
   return (
     <OpsConsole active="clubs">
-      <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
+      <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 40px 18px', boxSizing: 'border-box' }}>
         <OpsHeader title={editing ? 'Change a trial' : 'Post a trial'} sub={c.name} back={{ href: `/ops/clubs/${c.id}`, label: c.name }} />
-        <form action={saveNotice} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <input type="hidden" name="clubId" value={c.id} />
-          {editing && <input type="hidden" name="notice_id" value={editing.id} />}
+        <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 18 }}>
           {error && (
-            <div role="alert" style={{ ...card, border: '1px solid var(--amber)', fontSize: 13, fontWeight: 700, color: T.secondary }}>
+            <div role="alert" className="card card-amber" style={{ fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5 }}>
               {error === 'ages' ? 'Pick at least one age group, so families can find it.'
                 : error === 'source' ? 'Paste the address of the club’s own notice, starting https://'
                 : error === 'refused' ? 'This club has claimed its page or been verified since, so that is the club’s to do now.'
                 : 'Fill in the title, date, time and ground.'}
             </div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={card}>
-              <div className="field-label">Where you found it</div>
-              <input style={{ ...input, fontWeight: 500, fontSize: 13.5, overflowWrap: 'anywhere' }} name="source_url" aria-label="Where you found it" type="url" required
-                placeholder="https://" defaultValue={editing?.source_url} />
-            </label>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={sectionLabel}>Which squad</div>
-            <label style={card}><div className="field-label">Notice title</div><input style={input} name="title" aria-label="Notice title" placeholder="U14 & U15 Boys trials" defaultValue={editing?.title} required /></label>
-            <fieldset style={{ ...card, border: `1px solid ${T.line}`, margin: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <legend className="field-label" style={{ padding: 0, float: 'left', marginBottom: 2 }}>Age groups — pick every one it&rsquo;s for</legend>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, clear: 'both' }}>
-                {ages.map((a) => <Pick key={a.code} type="checkbox" name="ages" value={a.code} title={a.label} on={hasAge(a.code)}>{a.code}</Pick>)}
-              </div>
-            </fieldset>
-            <fieldset style={{ ...card, border: `1px solid ${T.line}`, margin: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <legend className="field-label" style={{ padding: 0, float: 'left', marginBottom: 2 }}>Competition</legend>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, clear: 'both' }}>
-                {[['boys', 'Boys'], ['girls', 'Girls'], ['men', 'Men'], ['women', 'Women'], ['', 'Open to all']].map(([v, t]) => (
-                  <Pick key={v || 'open'} type="radio" name="gender" value={v} on={editing ? (editing.competition_gender ?? '') === v : undefined}>{t}</Pick>
-                ))}
-              </div>
-            </fieldset>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={sectionLabel}>When and where</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <label style={{ ...card, flex: 1, minWidth: 0 }}><div className="field-label">Date</div><input style={input} name="trial_on" aria-label="Date" type="date" defaultValue={editing?.trial_on} readOnly={editing?.registered} required /></label>
-              <label style={{ ...card, flex: 1, minWidth: 0 }}><div className="field-label">Time</div><input style={input} name="time" aria-label="Time" placeholder="9:00 AM" defaultValue={editing ? editTime : undefined} required /></label>
+          <form action={saveNotice} className="card ops-panel">
+            <input type="hidden" name="clubId" value={c.id} />
+            {editing && <input type="hidden" name="notice_id" value={editing.id} />}
+            <div className="ops-sec">
+              <label className="ops-field">
+                <span className="panel-h">Where you found it</span>
+                <input className="ops-input" style={{ fontWeight: 500 }} name="source_url" aria-label="Where you found it" type="url" required
+                  placeholder="https://" defaultValue={editing?.source_url} />
+              </label>
             </div>
-            {editing?.registered && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>People have registered for this date, so it stays as it is.</div>}
-            <label style={card}><div className="field-label">Ground</div><input style={input} name="ground" aria-label="Ground" placeholder="Riverside Park, Pitch 2" defaultValue={editing ? editGround.join(' · ') : undefined} required /></label>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={sectionLabel}>Positions you&rsquo;re short of</div>
-            <fieldset style={{ ...card, border: `1px solid ${T.line}`, margin: 0 }}>
-              <legend className="field-label" style={{ padding: 0, float: 'left', marginBottom: 9 }}>Pick any — none for an open trial</legend>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 7, clear: 'both' }}>
-                {(Object.keys(POSITIONS) as PositionCode[]).map((code) => (
-                  <Pick key={code} type="checkbox" name="positions" value={code} title={POSITIONS[code].label} on={Boolean(editing?.position_needs.includes(code))}>{code}</Pick>
-                ))}
+            <div className="ops-sec">
+              <div className="panel-h">Which squad</div>
+              <label className="ops-field"><span className="panel-h">Notice title</span><input className="ops-input" name="title" aria-label="Notice title" placeholder="U14 & U15 Boys trials" defaultValue={editing?.title} required /></label>
+              <fieldset className="ops-choice">
+                <legend className="panel-h">Age groups — pick every one it&rsquo;s for</legend>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  {ages.map((a) => <Pick key={a.code} type="checkbox" name="ages" value={a.code} title={a.label} on={hasAge(a.code)}>{a.code}</Pick>)}
+                </div>
+              </fieldset>
+              <fieldset className="ops-choice">
+                <legend className="panel-h">Competition</legend>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  {[['boys', 'Boys'], ['girls', 'Girls'], ['men', 'Men'], ['women', 'Women'], ['', 'Open to all']].map(([v, t]) => (
+                    <Pick key={v || 'open'} type="radio" name="gender" value={v} on={editing ? (editing.competition_gender ?? '') === v : undefined}>{t}</Pick>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+            <div className="ops-sec">
+              <div className="panel-h">When and where</div>
+              <div className="ops-pair">
+                <label className="ops-field"><span className="panel-h">Date</span><input className="ops-input" name="trial_on" aria-label="Date" type="date" defaultValue={editing?.trial_on} readOnly={editing?.registered} required /></label>
+                <label className="ops-field"><span className="panel-h">Time</span><input className="ops-input" name="time" aria-label="Time" placeholder="9:00 AM" defaultValue={editing ? editTime : undefined} required /></label>
               </div>
-            </fieldset>
-          </div>
-          <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>It comes down by itself the day after the trial, so nobody turns up to something that already happened.</div>
-          </div>
-          <button type="submit" className="btn btn-primary">{editing ? 'Save changes' : 'Post it'}</button>
-          {editing && <a href={`/ops/clubs/${c.id}`} className="btn btn-ghost">Cancel</a>}
-        </form>
+              {editing?.registered && <div style={hint}>People have registered for this date, so it stays as it is.</div>}
+              <label className="ops-field"><span className="panel-h">Ground</span><input className="ops-input" name="ground" aria-label="Ground" placeholder="Riverside Park, Pitch 2" defaultValue={editing ? editGround.join(' · ') : undefined} required /></label>
+            </div>
+            <div className="ops-sec">
+              <div className="panel-h">Positions you&rsquo;re short of</div>
+              <fieldset className="ops-choice">
+                <legend style={hint}>Pick any — none for an open trial</legend>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 7 }}>
+                  {(Object.keys(POSITIONS) as PositionCode[]).map((code) => (
+                    <Pick key={code} type="checkbox" name="positions" value={code} title={POSITIONS[code].label} on={Boolean(editing?.position_needs.includes(code))}>{code}</Pick>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+            <div className="ops-sec" style={{ paddingBottom: 18 }}>
+              <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>
+                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>It comes down by itself the day after the trial, so nobody turns up to something that already happened.</div>
+              </div>
+              <button type="submit" className="btn btn-primary fl-glow">{editing ? 'Save changes' : 'Post it'}</button>
+              {editing && <a href={`/ops/clubs/${c.id}`} className="btn btn-ghost">Cancel</a>}
+            </div>
+          </form>
+        </div>
       </div>
     </OpsConsole>
   );
