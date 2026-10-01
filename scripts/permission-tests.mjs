@@ -11305,5 +11305,20 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
      /CATALOGUE_KEYS = \[[\s\S]*?'doc15\.§39'/.test(msgSrc), /clubVerifiedEmail\(/.test(act)], [true, true, true]);
 }
 
+// Walkthrough B1/B2 (BUZ, 1 Oct). A guardian can start an under-16's page —
+// a door on controls, and the preview of a page with no approved version yet
+// offers the way in instead of a 404 — and the drafts BUZ still has to
+// confirm live in one module that a release cannot leave in place.
+{
+  const controls = codeOnly(srcOf('app/g/controls/[childId]/page.tsx'));
+  const preview = codeOnly(srcOf('app/build/[recordId]/preview/page.tsx'));
+  check('wt-b1a: the child\u2019s controls page has a door to build the child\u2019s page',
+    /href=\{`\/build\/\$\{c\.record_id\}`\}[^>]*>Build \{name\}&rsquo;s page</.test(controls), true);
+  check('wt-b1b: an under-16 with no approved version gets the empty preview and the build door, not notFound()',
+    [/if \(!cv && r\.band === 'u16'\)/.test(preview), /\{PREVIEW_EMPTY_TITLE\}/.test(preview), />Build \{r\.first_name\}&rsquo;s page</.test(preview)], [true, true, true]);
+  const pending = /export const STILL_TO_CONFIRM = \[([^\]]*)\]/.exec(codeOnly(srcOf('lib/to-confirm.ts')))?.[1].trim() ?? '';
+  check(`tc1: no draft wording waits for BUZ in lib/to-confirm.ts (still to confirm: ${pending || 'none'})`, pending, '');
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

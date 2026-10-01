@@ -2685,6 +2685,13 @@ const georgia = ids.children.georgia;
   const nextFor = async (who) => (await get('/home', who)).html.replace(/<!-- -->/g, '').replace(/&amp;/g, '&');
   check('ap4: a player is never shown another age group’s trial as their next trial — Jordan (22) and Nate (17) see no U14 & U15 trial',
     [/U14 & U15 Boys/.test(await nextFor(ids.people.jordan)), /U14 & U15 Boys/.test(await nextFor(ids.people.nate))], [false, false]);
+  // BUZ, 1 Oct (walkthrough fix 2): one account of verification on the claim
+  // page — the call, to a number we find ourselves; Football Victoria's
+  // register and the duplicate "Only the phone call does that" are gone.
+  const claimForm = (await get('/claim/westgate-rangers', ids.people.robin)).html.replace(/<!-- -->/g, '');
+  check('wt2: the claim page says verification is the phone call, once — never Football Victoria\u2019s register',
+    [/Verified status is separate:<\/b> we ring Westgate Rangers on a number we find ourselves, and that call is what unlocks trial notices and anything to do with players\./.test(claimForm),
+     /Football Victoria/.test(claimForm), /Only the phone call does that/.test(claimForm)], [true, false, false]);
   check('D-172: never "partner", "member", "joined", "on Pitch", "verified", "official" or "in association with" on an unclaimed page',
     /\b(partner|member|joined|on Pitch|verified|official|in association with)\b/i.test(bw), false);
 

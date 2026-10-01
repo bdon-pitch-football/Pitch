@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
+import { SHARED_ADDRESS_WARNING } from '@/lib/to-confirm';
 import { HeaderMark } from '@/components/Wordmark';
 import { claimClub, requestClaimCode } from './actions';
 import { T } from '@/lib/palette';
@@ -43,6 +44,11 @@ export default async function ClaimClub({ params, searchParams }: {
     notFound();
   }
   const c = rows[0];
+  // B2 (BUZ, 1 Oct): someone who claimed while signed in with the club's own
+  // shared (published) address is told the register needs the TD's own
+  // account. Compared case-insensitively; nothing is shown otherwise.
+  const myEmail = (await db.query('select email from person where id = $1', [me])).rows[0]?.email as string | undefined;
+  const shared = Boolean(myEmail && c.contact_email && myEmail.trim().toLowerCase() === String(c.contact_email).trim().toLowerCase());
 
   // A club that is not unclaimed is done, whether or not the caller arrived
   // with ?taken=1. This used to depend on the query string, so opening the
@@ -55,6 +61,7 @@ export default async function ClaimClub({ params, searchParams }: {
           <HeaderMark />
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>{claimed ? `${c.name} is yours to run.` : 'This page has already been claimed.'}</div>
           {claimed && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You can edit the page now. Posting trials, and anything to do with players, waits for verification — a phone call from us. We ring {c.name} on a number we find ourselves, so let the club know to expect us.</div>}
+          {claimed && shared && <div className="card-sunken" style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{SHARED_ADDRESS_WARNING}</div>}
           {/* The claimed screen was a dead end (30 Sep preview). */}
           {claimed && <Link href="/home" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Go to your club</Link>}
         </div>
@@ -168,11 +175,10 @@ export default async function ClaimClub({ params, searchParams }: {
           </div>
           <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
-            <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Claiming gets you the page and your squads. <b style={{ color: T.ink }}>Verified status is separate</b> — a person here checks your club against Football Victoria&rsquo;s register, and it&rsquo;s what unlocks trial notices and anything to do with players.</div>
+            <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Claiming gets you the page and your squads. <b style={{ color: T.ink }}>Verified status is separate:</b> we ring {c.name} on a number we find ourselves, and that call is what unlocks trial notices and anything to do with players.</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
             <button type="submit" className="btn btn-primary">Send me the code</button>
-            <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 500, color: T.muted, textAlign: 'center', lineHeight: 1.5 }}>Claiming can&rsquo;t make a club verified. Only the phone call does that.</div>
           </div>
         </form>
       </div>
