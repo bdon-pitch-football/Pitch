@@ -55,7 +55,7 @@ export default async function GuardianInterest({ params, searchParams }: {
         {/* D-F3 (BUZ, 1 Oct): there is no page called Manage. The control,
             "Take off this register", is on the child's controls, reached from
             Your family. */}
-        <div className="pd-body">You can take {name} off the register any time from Your family. Their access ends when you do.</div>
+        <div className="pd-body">You can take {name} off the register any time from {name}&rsquo;s controls. Their access ends when you do.</div>
       </ParentPage>
     );
   }

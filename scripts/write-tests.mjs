@@ -1357,8 +1357,10 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     await postTo(`/g/interest/${rid}`, parent, formOn(page, (f) => 'requestId' in f.fields), {});
     // D-F3 (1 Oct): there is no page called Manage.
     const sentPage = decode((await get(`/g/interest/${rid}`, parent)).html.replace(/<!--[\s\S]*?-->/g, ''));
-    check('dfx-D-F3: once sent, it says where to take the child off — Your family, not a "Manage page" that does not exist',
-      [/is on Kingsway Rovers FC.s register/.test(sentPage), sentPage.includes('from Your family'), /Manage page/.test(sentPage)], [true, true, false]);
+    // BUZ, 1 Oct (copy fix 5): the Take-off control is on the child's controls page.
+    check('dfx-D-F3: once sent, it says where to take the child off — the child\u2019s controls, not "Your family" or a "Manage page" that does not exist',
+      [/is on Kingsway Rovers FC.s register/.test(sentPage), /off the register any time from \S+\u2019s controls\. Their access ends when you do\./.test(sentPage),
+       sentPage.includes('from Your family'), /Manage page/.test(sentPage)], [true, true, false, false]);
   }
   html = (await get('/club/register', club)).html;
   const denizReg = inviteLinkFor(html, 'Deniz');

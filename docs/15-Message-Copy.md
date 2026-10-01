@@ -955,7 +955,7 @@ Sent once, when an operator logs a call as **verified** (doc 27). **To:** the pe
 
 > We spoke to **Riverside FC** on **1 October 2026**, and the club is now verified on Pitch. Any registrations held for the club are now on the register for the club's Technical Director to read, and the club can post trial notices.
 >
-> If anything changes — you leave the club, or someone else takes the role — email burak.donmez@pitch-football.com and we'll turn it off the same day.
+> If anything changes — you leave the club, or someone else takes the role — email burak.donmez@pitch-football.com and we'll turn off the club's verification the same day.
 >
 > — Pitch
 
@@ -965,4 +965,4 @@ Sent once, when an operator logs a call as **verified** (doc 27). **To:** the pe
 
 ---
 
-*v1.3 · 1 Oct 2026 · §34's last paragraph corrected (no trial notices before verification, D-90 as amended; the call goes to a number we find ourselves, doc 27), §36's undo window updated (U-2 as amended) and §39 added, on BUZ's call from John's ruling of 1 Oct. Built on the app's copy, which was newer than the root. v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep. §1b and §2b added the same day (D-155 as amended). §12 rewritten the same day on BUZ's approval, so it promises nothing Stage 2 delivers.*
+*v1.4 · 1 Oct 2026 · §39's last paragraph names what is turned off ("the club's verification"), on BUZ's call after the pre-build copy check; BUZ keeps the same-day promise. v1.3 · 1 Oct 2026 · §34's last paragraph corrected (no trial notices before verification, D-90 as amended; the call goes to a number we find ourselves, doc 27), §36's undo window updated (U-2 as amended) and §39 added, on BUZ's call from John's ruling of 1 Oct. Built on the app's copy, which was newer than the root. v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep. §1b and §2b added the same day (D-155 as amended). §12 rewritten the same day on BUZ's approval, so it promises nothing Stage 2 delivers.*

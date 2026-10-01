@@ -551,7 +551,7 @@ export const clubVerifiedEmail = (clubName: string, date: string): Composed => (
   body:
 `We spoke to ${clubName} on ${date}, and the club is now verified on Pitch. Any registrations held for the club are now on the register for the club's Technical Director to read, and the club can post trial notices.
 
-If anything changes — you leave the club, or someone else takes the role — email ${HELP} and we'll turn it off the same day.
+If anything changes — you leave the club, or someone else takes the role — email ${HELP} and we'll turn off the club's verification the same day.
 
 — Pitch`,
 });
