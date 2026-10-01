@@ -12991,5 +12991,24 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [true, true]);
 }
 
+// Doc 23 v1.7 (John, 2 Oct): an address is kept 30 days, then cleared — and a
+// text that waited for SMS carries the number again as a keyed fingerprint
+// (0120). It goes with the address (Leo, 2 Oct; John's option (a)), to a blank
+// that matches no number; a younger row keeps both.
+{
+  const { SCRUB_SENT_BODIES } = await import('../lib/sent-bodies.ts');
+  const fp = createHash('sha256').update('fp-30d-test').digest();
+  const mk = async (days) => (await db.query(
+    `insert into message_outbox (message_key, channel, to_address, body, number_hash, queued_for_sms_at, released_at, sent_at, created_at)
+     values ('doc15.§1', 'sms', '+61400999000', '', $1, now() - make_interval(days => $2::int), now() - make_interval(days => $2::int),
+             now() - make_interval(days => $2::int), now() - make_interval(days => $2::int)) returning id`, [fp, days])).rows[0].id;
+  const old = await mk(31), young = await mk(5);
+  await db.query(SCRUB_SENT_BODIES);
+  await db.query(SCRUB_SENT_BODIES); // idempotent
+  const row = async (id) => (await db.query(`select to_address, encode(number_hash, 'hex') as h from message_outbox where id = $1`, [id])).rows[0];
+  check('fp-30d: past 30 days a sent text keeps neither its address nor a fingerprint of the number; inside 30 days it keeps both, for support',
+    [await row(old), await row(young)], [{ to_address: '', h: '00' }, { to_address: '+61400999000', h: fp.toString('hex') }]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

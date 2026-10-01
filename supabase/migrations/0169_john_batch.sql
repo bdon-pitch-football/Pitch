@@ -235,9 +235,10 @@ declare n int;
 begin
 update message_outbox
    set body = '', subject = null,
-       to_address = case when coalesce(sent_at, failed_at, last_attempt_at, created_at) < now() - interval '30 days' then '' else to_address end
+       to_address = case when coalesce(sent_at, failed_at, last_attempt_at, created_at) < now() - interval '30 days' then '' else to_address end,
+       number_hash = case when number_hash is not null and coalesce(sent_at, failed_at, last_attempt_at, created_at) < now() - interval '30 days' then '\x00'::bytea else number_hash end
  where (sent_at is not null or failed_at is not null or attempts >= 6)
-   and (body <> '' or subject is not null or (to_address <> '' and coalesce(sent_at, failed_at, last_attempt_at, created_at) < now() - interval '30 days'));
+   and (body <> '' or subject is not null or ((to_address <> '' or number_hash <> '\x00'::bytea) and coalesce(sent_at, failed_at, last_attempt_at, created_at) < now() - interval '30 days'));
   get diagnostics n = row_count;
   raise notice '0169 §4: cleared % message row(s).', n;
 end $$;

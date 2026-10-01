@@ -40,11 +40,17 @@ const ENDED_30_DAYS_AGO = `coalesce(sent_at, failed_at, last_attempt_at, created
 // Nobody will send it again.
 const ENDED = `(sent_at is not null or failed_at is not null or attempts >= 6)`;
 
+// A text that waited for SMS also carries a keyed fingerprint of the number
+// (0120: a queued text must keep one). It is the address in another form, so
+// it goes with the address at 30 days — to a fixed blank fingerprint, which
+// matches no number and keeps the constraint and the statement idempotent
+// (Leo, 2 Oct, John's option (a): doc 23's "then cleared" is then true).
 export const SCRUB_SENT_BODIES = `update message_outbox
    set body = '', subject = null,
-       to_address = case when ${ENDED_30_DAYS_AGO} then '' else to_address end
+       to_address = case when ${ENDED_30_DAYS_AGO} then '' else to_address end,
+       number_hash = case when number_hash is not null and ${ENDED_30_DAYS_AGO} then '\\x00'::bytea else number_hash end
  where ${ENDED}
-   and (body <> '' or subject is not null or (to_address <> '' and ${ENDED_30_DAYS_AGO}))`;
+   and (body <> '' or subject is not null or ((to_address <> '' or number_hash <> '\\x00'::bytea) and ${ENDED_30_DAYS_AGO}))`;
 
 /** How many rows SCRUB_SENT_BODIES would clear: its own predicate, counted. */
 export const COUNT_SENT_BODIES = `select count(*)::int as n from message_outbox
@@ -53,4 +59,4 @@ ${SCRUB_SENT_BODIES.slice(SCRUB_SENT_BODIES.indexOf(' where '))}`;
 /** Of those, how many still hold an address past its 30 days. */
 export const COUNT_STALE_ADDRESSES = `select count(*)::int as n from message_outbox
  where ${ENDED}
-   and to_address <> '' and ${ENDED_30_DAYS_AGO}`;
+   and (to_address <> '' or number_hash <> '\\x00'::bytea) and ${ENDED_30_DAYS_AGO}`;
