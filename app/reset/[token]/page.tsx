@@ -17,7 +17,7 @@ export default async function SetPassword({ params, searchParams }: {
   const { token } = await params;
   const { short } = await searchParams;
   // G-P2 (BUZ, 1 Oct): a used, replaced or expired link says so before a
-  // password is typed into it — the same page the press lands on (0163).
+  // password is typed into it — the same page the press lands on (0164).
   if (!(await resetLinkLive(token))) redirect('/reset?expired=1');
   const act = submitNewPassword;
 

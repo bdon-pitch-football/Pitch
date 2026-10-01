@@ -3139,7 +3139,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const two = await resetsTo('admin@example.com');
   check('sess-w12: two presses put two links in the inbox', two.length - linksBefore, 2);
   const older = two[1].resetToken, newer = two[0].resetToken;
-  // G-P2 (0163): a dead link no longer draws the form at all, so the press is
+  // G-P2 (0164): a dead link no longer draws the form at all, so the press is
   // made with the form the live link draws and the dead link's token in it —
   // the action, not the page, is what must refuse it.
   const liveForm = submit((await raw(`/reset/${newer}`, null)).html, /Save it/);

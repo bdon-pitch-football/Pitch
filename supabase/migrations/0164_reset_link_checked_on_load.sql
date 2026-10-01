@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0163 — a password-reset link is checked when it is opened, not after a new
+-- 0164 — a password-reset link is checked when it is opened, not after a new
 -- password has been typed into it (G-P2; BUZ approved the Floodlit specs'
 -- "Recommended yes" defect fixes, 1 Oct).
 --
