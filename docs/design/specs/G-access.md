@@ -153,7 +153,7 @@
 - **Parts:** **quiet shell** with `door` and `wide` (A §21). `wide` is needed so the door is the same 560/640 as `/signin`; the default 460 would make these two doors narrower than the other three. Also page title and `.glyph-tile`.
   - **Type fix:** the title goes from 28px at `-.02em` to the page title (26px, `--ls-title`), because −0.02em is not one of the five letter-spacings.
 - **Copy:** verbatim: "You're off the list." · "We won't email you. That's the whole action — there was nothing else to remove." · "Changed your mind? Join again any time." · "That link didn't work." · "The unsubscribe link may have been cut short by your mail app. Try copying the whole link from the email, or reply to any email from us and we'll take you off by hand."
-  - "Join again any time." is **flagged**, not rewritten (C-G1 below).
+  - "Join again any time." is **flagged**, not rewritten (C-G1 below). **BUZ, 1 Oct: removed.** The whole line "Changed your mind? Join again any time." is gone from the page; the mockup predates the decision.
 - **Must not change:** one click unsubscribes. There is no confirmation step and no retention question (doc 29 §5). It works with no account.
 - **Done when:**
   - [ ] No `PitchWordmark` in the page. The top bar's logo is a link to `/`.

@@ -17,7 +17,7 @@
 - **With John first.** D-PD-3 (a real No on `/a`), G-P1 with N-G1 (`/undo` after-states), and HC3 ("call 000"). Build them only once John has answered. Until then, ship those screens without the change.
 - **For BUZ with ops.** A-P7.
 - **Not now, or don't build.** A-P2, C-P1, HD1, I-P3, I-P4, F-P6.
-- **Still open, one choice.** `/unsubscribe` "Join again any time." needs either removing or pointing somewhere true. Until BUZ picks, it stays as it is.
+- ~~**Still open, one choice.** `/unsubscribe` "Join again any time."~~ **BUZ, 1 Oct: "Remove the unsubscribe line."** The line "Changed your mind? Join again any time." is removed from `app/unsubscribe/page.tsx` on this branch. The G mockup still draws it; ignore it there.
 - **Billing lines.** The three lines F flagged get re-read before billing is switched on.
 
 **For the register (Leo assigns the number at merge; the latest on both branches is D-173):** "BUZ, 1 Oct 2026: the whole app takes Floodlit (D-173) per `docs/design/specs/`. Consent answers carry equal weight: wherever a press gives something away, Yes and No are the same secondary button and nothing glows, superseding the green Yes in ParentApprovalV2, SendCVGuardian, InterestGuardian, ReapproveChanges, ShareApproval and GuardianReply. On a phone, each seat's one primary sits under its hero on `/home`. The operator console marks green only where work waits. The demo strip is dark with an amber Demo pill. The coach page and the jobs board take `.fl-wide`."

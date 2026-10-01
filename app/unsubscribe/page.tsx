@@ -33,9 +33,6 @@ export default async function UnsubscribePage({
           <p style={{ fontSize: 14.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6, margin: 0 }}>
             We won’t email you. That’s the whole action — there was nothing else to remove.
           </p>
-          <p style={{ fontSize: 13, color: T.muted, fontWeight: 600, margin: 0 }}>
-            Changed your mind? <a href="/">Join again any time.</a>
-          </p>
         </>
       ) : (
         <>
