@@ -34,15 +34,13 @@ export default async function Build({ params, searchParams }: { params: Promise<
           console width as well — belt and braces, because the next page to
           add a second block would have done the same thing. */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-        <BuildForm record={JSON.parse(JSON.stringify(rows[0]))} saved={saved === '1'} photoBad={photo === 'bad'} />
-        {/* Where they play (0052): a club on a CV is a confirmed membership,
-            and this is the only place a family can start one. */}
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-          <div className="reading" style={{ width: '100%', padding: '0 18px 30px 18px', boxSizing: 'border-box' }}>
-            <SquadCard personId={rows[0].person_id as string} firstName={rows[0].first_name as string}
-              back={`/build/${recordId}`} mine={actor === rows[0].person_id} said={squad} />
-          </div>
-        </div>
+        <BuildForm record={JSON.parse(JSON.stringify(rows[0]))} saved={saved === '1'} photoBad={photo === 'bad'}>
+          {/* Where they play (0052): a club on a CV is a confirmed membership,
+              and this is the only place a family can start one. Last in the
+              column, under Save (spec C, the 390 order). */}
+          <SquadCard personId={rows[0].person_id as string} firstName={rows[0].first_name as string}
+            back={`/build/${recordId}`} mine={actor === rows[0].person_id} said={squad} />
+        </BuildForm>
       </div>
     </PlayerFrame>
   );

@@ -9,7 +9,6 @@
 // interest in a paid feature. Two rows, the most any screen carries.
 import { tapPremium } from './premium-actions';
 import { T } from '@/lib/palette';
-import { card } from '@/lib/ui';
 
 const ROWS = [
   ['unlimited_clips', 'Unlimited clips'],
@@ -23,20 +22,20 @@ export default function PremiumRows({ on, tapped }: { on: 'clips' | 'coach'; tap
     // the top edge.
     <form id="premium" action={tapPremium} style={{ display: 'flex', flexDirection: 'column', gap: 8, scrollMarginTop: 24 }}>
       <input type="hidden" name="on" value={on} />
+      {/* Spec C (1 Oct): each row is a panel with a neutral Pill and a muted
+          "Coming soon" — green is an action, and neither is one (D-173 (4)).
+          Both words stay bare inside their own element (prem-r1 counts them). */}
       {ROWS.map(([feature, title]) => (
-        <button key={feature} type="submit" name="feature" value={feature} style={{
-          ...card, display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 44,
-          textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: T.secondary,
-        }}>
+        <button key={feature} type="submit" name="feature" value={feature} className="card prem">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
             <rect x="4" y="10.5" width="16" height="10" rx="2" /><path d="M8 10.5 V7.5 A4 4 0 0 1 16 7.5 V10.5" />
           </svg>
-          <span style={{ fontSize: 13, fontWeight: 700, color: T.secondary, minWidth: 0 }}>{title}</span>
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.accent, background: 'rgba(61,220,132,.12)', borderRadius: 999, padding: '3px 8px', flexShrink: 0 }}>Premium</span>
-          <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', color: T.accent, flexShrink: 0 }}>Coming soon</span>
+          <span className="prem-t">{title}</span>
+          <span className="pill nodot">Premium</span>
+          <span className="prem-end">Coming soon</span>
         </button>
       ))}
-      <div role={tapped ? 'status' : undefined} style={{ fontSize: 11.5, color: tapped ? T.secondary : T.muted, textAlign: 'center', fontWeight: tapped ? 700 : 500 }}>
+      <div role={tapped ? 'status' : undefined} className="foot-s">
         {tapped ? 'Premium is coming. You’re first in line.' : 'Tap a locked feature to be first in line.'}
       </div>
     </form>

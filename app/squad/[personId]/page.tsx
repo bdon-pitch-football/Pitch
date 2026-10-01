@@ -9,8 +9,8 @@ import { HeaderMark } from '@/components/Wordmark';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
 import { getSessionPersonId } from '@/lib/session';
-import { T } from '@/lib/palette';
-import { card, fieldLabel } from '@/lib/ui';
+import { TopBarShell } from '@/components/console-shell';
+import { G } from '@/components/player-parts';
 import { askToJoinSquad } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -58,69 +58,91 @@ export default async function ChooseSquad({ params, searchParams }: {
   )).rows as { id: string; name: string; age_group: string | null; competition_gender: string | null; season: string }[] : [];
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+    // A flow, so the Top bar (spec A part 5). A list is a page: no door.
+    <TopBarShell>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: backTo, label: 'Back' }} />
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{mine ? 'Where do you play?' : `Where does ${who.first_name} play?`}</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
+        <div className="pg-titles">
+          <h1 className="pg-title">{mine ? 'Where do you play?' : `Where does ${who.first_name} play?`}</h1>
+          <div className="pg-sub" style={{ fontSize: 13.5, lineHeight: 1.5 }}>
             Pick the club and the team. The club confirms it, and then {mine ? 'your' : `${who.first_name}’s`} page shows it.
           </div>
         </div>
 
-        {error && <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That didn’t go through. You may have asked this club already.</div>}
+        {error && <div role="alert" className="card card-amber c-say">That didn’t go through. You may have asked this club already.</div>}
 
         {!picked ? (
           <>
-            <form method="get" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+            {/* The light search field from / and /claim ("Find your club" is
+                the same words there): one object wherever a family looks for
+                a club. A GET form, so it searches with no JavaScript. */}
+            <form method="get" className="c-gap">
               {carry && <input type="hidden" name="back" value="controls" />}
-              <label className="field"><span className="field-label">Find your club</span>
-                <input id="club-search" name="q" defaultValue={search} placeholder="Type a club’s name" maxLength={60} />
-              </label>
-              <button type="submit" className="btn btn-secondary">Search</button>
+              <label htmlFor="club-search" className="field-label">Find your club</label>
+              <div className="fl-search" style={{ maxWidth: 'none' }}>
+                <span className="fl-search-field">
+                  <span style={{ display: 'flex', color: '#5b6b62' }}>{G.search()}</span>
+                  <input id="club-search" name="q" defaultValue={search} placeholder="Type a club’s name" maxLength={60} />
+                </span>
+                <button type="submit" className="btn btn-secondary">Search</button>
+              </div>
             </form>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <div style={fieldLabel}>{search ? 'Clubs that match' : 'Clubs on Pitch'}</div>
+            <section className="c-gap">
+              <h2 className="sec-h">{search ? 'Clubs that match' : 'Clubs on Pitch'}</h2>
               {clubs.length === 0 ? (
-                <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
-                  No club by that name yet. Clubs appear here once they’ve joined Pitch and we’ve verified them by phone.
+                // Dashed means "not yet" (spec A part 16).
+                <div className="card empty">
+                  <span className="empty-tile" aria-hidden />
+                  <div className="empty-b">No club by that name yet. Clubs appear here once they’ve joined Pitch and we’ve verified them by phone.</div>
                 </div>
-              ) : clubs.map((c) => (
-                <a key={c.id} href={`/squad/${personId}?club=${c.id}${carry}`} className="lift"
-                  style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none', color: T.ink, minHeight: 44 }}>
-                  <span>
-                    <span style={{ display: 'block', fontSize: 15, fontWeight: 800 }}>{c.name}</span>
-                    <span style={{ display: 'block', fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{[c.suburb, c.state].filter(Boolean).join(' ')}</span>
-                  </span>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 6 l6 6 -6 6" /></svg>
-                </a>
-              ))}
-            </div>
+              ) : (
+                <div className="card rows">
+                  {/* Each row stays an <a href="?club="> with the club's name as
+                      its first text (clubs1, clubs2). */}
+                  {clubs.map((c) => (
+                    <a key={c.id} href={`/squad/${personId}?club=${c.id}${carry}`} className="row">
+                      <span className="row-main">
+                        <span className="row-t" style={{ fontSize: 15 }}>{c.name}</span>
+                        <span className="row-s">{[c.suburb, c.state].filter(Boolean).join(' ')}</span>
+                      </span>
+                      <span className="row-chev">{G.chev()}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </section>
           </>
         ) : (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <div style={fieldLabel}>{picked.name} — which team?</div>
+            <section className="c-gap">
+              <h2 className="sec-h">{picked.name} — which team?</h2>
               {squads.length === 0 ? (
-                <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
-                  {picked.name} hasn’t added its teams yet. Ask them to add yours, and come back.
+                <div className="card empty">
+                  <span className="empty-tile" aria-hidden />
+                  <div className="empty-b">{picked.name} hasn’t added its teams yet. Ask them to add yours, and come back.</div>
                 </div>
-              ) : squads.map((s) => (
-                <form key={s.id} action={askToJoinSquad}>
-                  <input type="hidden" name="personId" value={personId} />
-                  <input type="hidden" name="squadId" value={s.id} />
-                  <input type="hidden" name="back" value={backTo} />
-                  <button type="submit" className="lift" style={{ ...card, width: '100%', textAlign: 'left', cursor: 'pointer', color: T.ink, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 56 }}>
-                    <span>
-                      <span style={{ display: 'block', fontSize: 15, fontWeight: 800 }}>{s.name}</span>
-                      <span style={{ display: 'block', fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{[s.age_group, s.competition_gender, s.season].filter(Boolean).join(' · ')}</span>
-                    </span>
-                    <span style={{ fontSize: 12.5, fontWeight: 800, color: T.accent }}>Ask them</span>
-                  </button>
-                </form>
-              ))}
-            </div>
-            <a href={`/squad/${personId}${carry ? '?back=controls' : ''}`} className="btn btn-ghost">A different club</a>
+              ) : (
+                <div className="card rows">
+                  {/* Each team is a List row that is a submit button, ending in
+                      the action word (green, because it is the action). */}
+                  {squads.map((s) => (
+                    <form key={s.id} action={askToJoinSquad} className="sq-row">
+                      <input type="hidden" name="personId" value={personId} />
+                      <input type="hidden" name="squadId" value={s.id} />
+                      <input type="hidden" name="back" value={backTo} />
+                      <button type="submit" className="row">
+                        <span className="row-main">
+                          <span className="row-t" style={{ fontSize: 15 }}>{s.name}</span>
+                          <span className="row-s">{[s.age_group, s.competition_gender, s.season].filter(Boolean).join(' · ')}</span>
+                        </span>
+                        <span className="row-end">Ask them</span>
+                      </button>
+                    </form>
+                  ))}
+                </div>
+              )}
+            </section>
+            <a href={`/squad/${personId}${carry ? '?back=controls' : ''}`} className="textbtn textbtn-block">A different club</a>
           </>
         )}
 
@@ -128,6 +150,6 @@ export default async function ChooseSquad({ params, searchParams }: {
           The club sees the name and the team you picked, and nothing else, until they confirm it. If they don’t, nothing happens and nobody is told.
         </div>
       </div>
-    </div>
+    </TopBarShell>
   );
 }

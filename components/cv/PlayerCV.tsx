@@ -157,8 +157,11 @@ const sectionTitle = (text: string) => <h2 className="cv-h2">{text}</h2>;
 // its way back, and the verify offers (F, 1 Oct). It renders in the CV's own
 // 1200 column under the one nav bar, so the back link's left edge is the
 // card's, at every width. A slot, not a door: PlayerCV adds nothing to it.
-export default function PlayerCV({ p, reportRef, clubColours, clubState, head }: {
-  p: PlayerFixture; reportRef?: string; clubColours?: Partial<ClubColours> | null; clubState?: string; head?: React.ReactNode;
+// above: what the family's own preview puts under the nav bar — the way back
+// and the "Preview" notice (spec C, one header). The token page passes
+// neither, so the page a club opens from a link is unchanged.
+export default function PlayerCV({ p, reportRef, clubColours, clubState, head, above }: {
+  p: PlayerFixture; reportRef?: string; clubColours?: Partial<ClubColours> | null; clubState?: string; head?: React.ReactNode; above?: React.ReactNode;
 }) {
   const initials = `${p.firstName[0]}${p.lastName[0] ?? ''}`;
   // The name is sized by its longest word and the card's own width, so a long
@@ -193,6 +196,7 @@ export default function PlayerCV({ p, reportRef, clubColours, clubState, head }:
           tokenised page it is not a link and there is no sign-in: the only
           link out is "Report this page". */}
       <SiteNav signIn={false} homeLink={false} />
+      {above}
       {/* A container, so the card lays itself out by the room it is given,
           not by the screen — the site preview puts it in a phone frame. */}
       <div className="cv-root">{head && <div className="fl-wide cv-head">{head}</div>}<div className="fl-wide cv-grid">

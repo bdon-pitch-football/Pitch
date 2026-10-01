@@ -1189,6 +1189,226 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 1024px) { .door { max-width: 640px; margin-top: 48px; padding: 34px 36px 36px; } }
 
 /* ===========================================================================
+   PLAYER SCREENS (C, 1 Oct) — the CV builder, Send my CV, the share card,
+   register interest, where you play, SquadCard, /manage and the print CV:
+   docs/design/specs/C-player.md and the mockup floodlit-player.html. One
+   idea: everything a player MAKES is the player card (the builder draws the
+   card's fields on the card's own gradient, "ready" shows its ticket, the
+   share card's shapes are card silhouettes, the print CV is the card in ink);
+   everything a player ASKS is a door, and every list is on the page.
+   Restyle only: no word, field, door or rule moves here.
+   --------------------------------------------------------------------------- */
+:root {
+  /* The card's own gradient: the same values PlayerCV draws for a card with
+     no club colours, named for the builder's card, the ticket and the share
+     card's silhouettes. Never a club's colours (D-89: not on a card, not on a
+     preview of one). */
+  --cv-hero-bg: radial-gradient(120% 70% at 20% -10%, #2a6a49 0%, #1f5a3d 30%, transparent 72%), linear-gradient(180deg, #173a29 0%, #0b120e 100%);
+  /* The one light surface (the charter's print sheet): the literals the
+     print page used, named. */
+  --print-paper: #ffffff;
+  --print-ink:   #0b120e;
+  --print-2:     #3f5145;
+  --print-muted: #5b6b60;
+  --print-line:  #d7ded9;
+}
+
+/* A 44px text button ("Remove"): the way to take one thing out of a list
+   (Head of Product Design ruling 2; spec E's rule, verbatim). The block
+   variant is the way out under a door's primary ("Cancel", "Keep building",
+   "A different club"): the same text button across the column. */
+.textbtn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 6px; font-size: 12px; font-weight: 700; color: var(--muted); background: none; border: 0; cursor: pointer; font-family: inherit; flex-shrink: 0; }
+.textbtn:hover { color: var(--secondary); }
+.textbtn-block { display: flex; width: 100%; font-size: 14px; text-decoration: none; }
+
+/* A Pill that names a kind rather than a state carries no dot. */
+.pill.nodot::before { display: none; }
+
+/* "You are here" on a chip (the build steps): a place, never an action. */
+.chip[aria-current="page"] { background: var(--here); border-color: transparent; color: var(--ink); font-weight: 800; }
+
+/* A Notice's kicker takes its state's colour; the dot follows it. */
+.k-accent { color: var(--accent); }
+.k-amber  { color: var(--amber); }
+.k-muted  { color: var(--muted); }
+.k-purple { color: var(--purple); }
+/* An outcome's title and body inside a Notice (Send, Register interest, the
+   share card). Kicker, title and body follow each other with nothing between,
+   so a suite reading them as one string still does (sc-r4, sc-r5). */
+.c-notice { display: flex; flex-direction: column; gap: 8px; padding: 18px 16px; }
+.notice-h { font-size: 22px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.2; }
+.notice-b { font-size: 13.5px; font-weight: 500; color: var(--secondary); line-height: 1.55; }
+/* A one-line Notice: "Saved.", a refusal, an error. */
+.c-say  { font-size: 13px; font-weight: 700; color: var(--secondary); line-height: 1.5; }
+.c-help { font-size: 12px; font-weight: 500; color: var(--muted); line-height: 1.5; }
+.c-s2   { font-size: 12.5px; font-weight: 500; color: var(--secondary); line-height: 1.5; }
+.c-gap  { display: flex; flex-direction: column; gap: 9px; }
+.c-mono, .field input.c-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* The who-sends row: a panel with a glyph tile. Purple when the parent is the
+   one who presses send (the guardian state); neutral otherwise. */
+.who { display: flex; align-items: flex-start; gap: 12px; }
+.who .row-ic { color: var(--secondary); }
+.who .row-ic.guard { background: rgba(171,135,224,.16); color: var(--purple); }
+
+/* The checklist: what the club gets, what's on the card, what the register
+   shows. A cross is "not given", not danger: no red. */
+.checks { display: flex; flex-direction: column; gap: 10px; }
+.checks-t { font-size: 13.5px; font-weight: 800; color: var(--ink); }
+.check { display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; font-weight: 500; line-height: 1.5; color: var(--secondary); }
+.check > svg { flex-shrink: 0; margin-top: 2px; color: var(--secondary); }
+.check.no > svg { color: var(--muted); }
+.checks > hr { height: 1px; border: 0; margin: 2px 0; background: var(--line); }
+
+/* The ten-position picker (build, register interest). */
+.pos-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.pos { width: 100%; min-height: 44px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; padding: 6px 0; font-family: inherit; font-size: 12.5px; font-weight: 800; background: transparent; border: 1px solid var(--line); color: var(--muted); cursor: pointer; }
+.pos[aria-pressed="true"] { background: rgba(61,220,132,.14); border-color: transparent; color: var(--accent); }
+.pos.lead { background: var(--accent); color: var(--on-accent); font-weight: 900; }   /* build only: choice 1 */
+.pos > i { font-style: normal; font-size: 9px; font-weight: 900; opacity: .6; margin-right: 3px; }   /* build only: the order number */
+.pos-line { font-size: 12.5px; font-weight: 700; color: var(--secondary); line-height: 1.45; }
+.pos-line.none { color: var(--placeholder); }
+
+/* THE BUILDER. The header (title, Preview, progress, the step chips) is the
+   same on all three steps (C-P2). The progress fill is --secondary: a fact,
+   not an action. */
+.build-col { display: flex; flex-direction: column; gap: 18px; }
+.build-top { display: flex; flex-direction: column; gap: 12px; }
+.build-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.prog { display: flex; flex-direction: column; gap: 7px; }
+.prog-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.prog-n { font-size: 12px; font-weight: 800; color: var(--secondary); }
+.prog-bar { height: 6px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.prog-bar > i { display: block; height: 6px; border-radius: var(--r-pill); background: var(--secondary); transition: width .3s var(--ease); }
+.build-steps { display: flex; flex-wrap: wrap; gap: 7px; }
+.build-grid { display: flex; flex-direction: column; gap: 18px; }
+/* The card floats; what follows it paints over its shadow, not under it. */
+.build-grid > * { position: relative; }
+.build-story { display: flex; flex-direction: column; gap: 18px; }
+/* C-P1 (two columns from 1024px) is not this round: the builder stays the
+   one 640 column, the card above the form, at every width. */
+
+/* The card as an editing surface (build step 1): the five fields the card
+   draws, on the card's own gradient, the squad number standing behind them. */
+.cv-edit { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 16px; padding: 20px 16px 18px; border-radius: var(--r-hero); background: var(--cv-hero-bg); border: 1px solid rgba(255,255,255,.08); box-shadow: var(--shadow-float); }
+.cv-edit > * { position: relative; }
+.cv-edit > .cv-num { position: absolute; font-size: 260px; }
+.cv-edit .cv-avatar { border-radius: var(--r-hero); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.cv-edit .cv-avatar.dash { border: 1.5px dashed rgba(255,255,255,.3); background: rgba(255,255,255,.04); box-shadow: none; color: rgba(255,255,255,.62); }
+.cv-edit .field { background: rgba(0,0,0,.28); border-color: rgba(255,255,255,.12); }
+.cv-edit .field:focus-within { border-color: var(--accent); }
+.cv-edit .field-label { color: rgba(255,255,255,.72); }
+.cv-edit .filefield { background: rgba(0,0,0,.22); border-color: rgba(255,255,255,.3); }
+.cv-edit .filefield-hint { color: rgba(255,255,255,.62); }
+.cv-edit .pos { border-color: rgba(255,255,255,.16); color: rgba(255,255,255,.72); }
+.cv-edit .pos[aria-pressed="true"] { border-color: transparent; color: var(--accent); background: rgba(61,220,132,.16); }
+.cv-edit .pos.lead { color: var(--on-accent); background: var(--accent); }
+.cv-edit .pos-line { color: rgba(255,255,255,.84); }
+.cv-edit .pos-line.none { color: rgba(255,255,255,.62); }
+.cv-edit .photo-row { display: flex; align-items: center; gap: 14px; }
+.cv-edit .photo-t { font-size: 14.5px; font-weight: 800; }
+.cv-edit .photo-s { font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,.72); }
+.cv-edit .name-v { font-size: 22px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.15; }
+.cv-edit .hint-r { font-size: 9.5px; font-weight: 700; color: rgba(255,255,255,.62); }
+.cv-edit .num-in { text-align: center; font-size: 22px; font-weight: 900; }
+.cv-edit-two { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; }
+.cv-edit-stack { display: flex; flex-direction: column; gap: 8px; }
+/* The stats heading keeps its own line; the hint drops under it at 390. */
+.hint-line { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; column-gap: 12px; row-gap: 3px; }
+.hint-line > .sec-h { flex: 1; white-space: nowrap; }
+.hint-line > .h { font-size: 11px; font-weight: 800; color: var(--secondary); white-space: nowrap; }
+.stats4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.stat-in { background: var(--fl-surface); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-card); padding: 0 6px; display: flex; flex-direction: column; align-items: center; }
+.stat-in input { background: transparent; border: 0; color: var(--ink); text-align: center; font-family: inherit; font-size: 19px; font-weight: 900; min-height: 44px; width: 100%; padding: 0; }
+.stat-in input::placeholder { color: var(--placeholder); }
+.stat-in button { min-height: 44px; width: 100%; background: none; border: 0; cursor: pointer; font-family: inherit; font-size: 9px; font-weight: 700; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--accent); }
+.stat-in.off { opacity: .45; }
+.stat-in.off button { color: var(--muted); }
+
+/* Highlights: the clip panel (a neutral play mark: nothing plays here) and
+   the two quiet Premium rows (adults only, D-82). */
+.clip-ed { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+.clip-ed-p { height: 88px; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #1a2820, #101a14); color: rgba(255,255,255,.72); font-size: 11px; font-weight: 800; letter-spacing: var(--ls-caps); text-transform: uppercase; }
+.clip-ed-p.alt { background: linear-gradient(135deg, #182018, #101a14); }
+.clip-ed-c { padding: 6px 6px 6px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.empty-tile.c-glyph { display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.prem { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 12px 14px; text-align: left; cursor: pointer; font-family: inherit; color: var(--secondary); }
+.prem-t { font-size: 13px; font-weight: 700; color: var(--secondary); min-width: 0; }
+.prem-end { margin-left: auto; flex-shrink: 0; font-size: 10px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); }
+.foot-s { font-size: 11.5px; font-weight: 500; color: var(--muted); text-align: center; }
+.foot-s[role="status"] { color: var(--secondary); font-weight: 700; }
+
+/* Ready: the card's ticket. */
+.moment { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+/* Later siblings paint over the ticket's floating shadow, not under it. */
+.moment > * { position: relative; }
+.ticket { position: relative; overflow: hidden; width: 100%; box-sizing: border-box; min-height: 110px; padding: 22px 18px; display: flex; align-items: center; justify-content: center; border-radius: var(--r-card); background: var(--cv-hero-bg); border: 1px solid rgba(255,255,255,.08); box-shadow: var(--shadow-float); }
+.ticket .cv-num { font-size: 190px; top: -18px; right: -8px; }
+.ticket-line { position: relative; display: inline-flex; align-items: center; background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.12); border-radius: var(--r-pill); padding: 9px 15px; font-size: 13px; font-weight: 800; }
+.ticket .badge { position: absolute; right: 12px; top: 12px; width: 30px; height: 30px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px rgba(11,18,14,.6); }
+.ticket .badge.ok { background: var(--accent); color: var(--on-accent); }
+.ticket .badge.wait { background: var(--amber); color: var(--on-accent); }
+.h-moment { color: var(--ink); font-size: 30px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.05; }
+/* A link hint is text to read, not a link: ink, monospace. */
+.link-v { font-size: 14px; font-weight: 800; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+
+/* Preview: the way back and the Preview notice under the CV's own nav bar. */
+.pv-strip { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; }
+@media (min-width: 1024px) { .pv-strip { flex-direction: row; align-items: flex-start; gap: 18px; padding-top: 18px; } .pv-strip > .card { flex: 1; } }
+
+/* The share card: three shapes, drawn as card silhouettes — never rendered
+   from the record (D-101), no text inside, no club colours (D-89). */
+.shapes { display: flex; gap: 8px; }
+.shape { flex: 1; position: relative; cursor: pointer; }
+.shape > input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.shape-in { min-height: 44px; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 12px 8px; border-radius: var(--r-card); background: var(--fl-surface); border: 1px solid var(--line); box-shadow: var(--shadow-card); }
+.shape:has(> input:checked) .shape-in { border: 1.5px solid var(--accent); padding: 11.5px 7.5px; }
+.shape:has(> input:focus-visible) .shape-in { outline: 2px solid var(--accent); outline-offset: 2px; }
+.shape-n { font-size: 12px; font-weight: 700; color: var(--secondary); }
+.shape:has(> input:checked) .shape-n { font-weight: 900; color: var(--ink); }
+.sil { position: relative; overflow: hidden; border-radius: 6px; background: var(--cv-hero-bg); border: 1px solid rgba(255,255,255,.12); }
+.sil::before { content: ''; position: absolute; right: -4px; top: -6px; width: 55%; height: 70%; border: 1.5px solid rgba(255,255,255,.12); border-radius: 40% 40% 8px 8px; }
+.sil > i { position: absolute; left: 12%; display: block; border-radius: 2px; background: rgba(255,255,255,.55); }
+.sil > i.b2 { background: rgba(255,255,255,.3); }
+.sil > i.c { border-radius: 3px; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.2); }
+.sil > i.n { background: rgba(255,255,255,.75); }
+@media (min-width: 640px) { .door .shape-in { background: var(--surface-2); box-shadow: none; } }
+
+/* Register interest: the club it is about, and the trial as a fact. */
+.club-tile { width: 44px; height: 44px; border-radius: var(--r-well); background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: var(--secondary); flex-shrink: 0; }
+.trial-l { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; font-weight: 800; color: var(--secondary); }
+
+/* Where do you play: a team row is a submit button inside its own form. */
+.rows > .sq-row + .sq-row { border-top: 1px solid var(--line); }
+.sq-row { margin: 0; }
+.sq-row > .row { width: 100%; background: none; border: 0; text-align: left; cursor: pointer; font-family: inherit; }
+.sq-row > .row:hover { background: rgba(255,255,255,.04); }
+
+/* The print sheet: the card in ink. Every letter-spacing is one of the five. */
+.sheet-page { background: var(--print-paper); color: var(--print-ink); min-height: 100dvh; padding: 26px 20px 34px; box-sizing: border-box; }
+@media (min-width: 640px) { .sheet-page { padding: 32px 28px 40px; } }
+.sheet-bar { max-width: 760px; margin: 0 auto 18px; display: flex; justify-content: flex-end; }
+.sheet { max-width: 760px; margin: 0 auto; color: var(--print-ink); }
+.sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid var(--print-ink); padding-bottom: 14px; }
+.sheet-name { font-size: 34px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.05; }
+.sheet-l1 { font-size: 14px; font-weight: 700; color: var(--print-2); margin-top: 6px; }
+.sheet-l2 { font-size: 13px; font-weight: 500; color: var(--print-muted); margin-top: 2px; }
+.sheet-ctx { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 800; color: var(--print-2); }
+.sheet .wordmark-ink { color: var(--print-ink); flex-shrink: 0; }
+.sheet-stats { display: flex; align-items: flex-end; gap: 34px; flex-wrap: wrap; margin-top: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--print-line); }
+.sheet-n { font-size: 34px; font-weight: 900; letter-spacing: var(--ls-numeral); line-height: .92; font-variant-numeric: tabular-nums; }
+.sheet-nl { margin-top: 5px; font-size: 10.5px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--print-muted); }
+.sheet-src { margin-left: auto; font-size: 10.5px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--print-muted); }
+.sheet-sec { margin-top: 20px; }
+.sheet-h { display: flex; align-items: center; gap: 12px; margin-bottom: 7px; font-size: 11px; font-weight: 800; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--print-muted); }
+.sheet-h::after { content: ''; flex: 1; height: 1px; background: var(--print-line); }
+.sheet-p { font-size: 13.5px; line-height: 1.55; }
+.sheet-i { font-size: 13px; margin-top: 5px; line-height: 1.45; }
+.sheet-note { font-size: 11.5px; margin-top: 7px; line-height: 1.5; color: var(--print-muted); }
+.sheet-foot { margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--print-line); font-size: 10.5px; color: var(--print-muted); }
+@media print { .sheet-page { padding: 0; min-height: 0; } }
+
+/* ===========================================================================
    THE CLUB DEMO (J, 1 Oct; J-P1 and J-P2 approved by BUZ) — the strip and
    /demo. docs/design/specs/J-demo.md, mockup floodlit-access-ops-demo.html.
    Exists on screen only under `npm run demo` (lib/demo).

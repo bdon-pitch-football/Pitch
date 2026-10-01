@@ -2,14 +2,10 @@
 // RegisterInterest.dc.html form body — copy verbatim for the under-16 variant.
 // The self-registering lines (16–17, 18+) are new, awaiting BUZ (D-153).
 import { useState } from 'react';
-import Link from 'next/link';
 import { HeaderMark } from '@/components/Wordmark';
+import { Check, G, TextLink, Who } from '@/components/player-parts';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { composeInterest } from './actions';
-import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
-
-const label = sectionLabel;
 
 export default function InterestForm({ recordId, club, squads, cvPositions, preselectSquad, mode, band, trial }: {
   recordId: string;
@@ -30,123 +26,99 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
     setPositions((p) => (p.includes(code) ? p.filter((c) => c !== code) : p.length < 3 ? [...p, code] : p));
   const act = composeInterest;
 
-  const Row = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
-      {ok
-        ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
-        : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M6 6 L18 18 M18 6 L6 18" /></svg>}
-      <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{children}</div>
-    </div>
-  );
-
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+    // A flow, so the page wraps this in the Top bar (spec A part 5), not the
+    // seat frame; the form is a door.
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Register your interest</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{club.name} keep a register of players who want to be there. Put your name on it and they have your CV when they&rsquo;re looking.</div>
-        </div>
-        <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}><input type="hidden" name="recordId" value={recordId} />
+        <form action={act} className="door" style={{ marginTop: 0 }}><input type="hidden" name="recordId" value={recordId} />
+          <div className="pg-titles">
+            <h1 className="pg-title">Register your interest</h1>
+            <div className="pg-sub">{club.name} keep a register of players who want to be there. Put your name on it and they have your CV when they&rsquo;re looking.</div>
+          </div>
           <input type="hidden" name="clubId" value={club.id} />
           <input type="hidden" name="positions" value={positions.join(',')} />
           {trial && <input type="hidden" name="trialId" value={trial.id} />}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div className="c-gap">
             <div className="field-label">Interested in</div>
-            <div style={{ ...card, border: `1px solid ${T.accent}`, display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 13, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: T.secondary, flexShrink: 0 }}>{club.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</div>
+            {/* The club is a fact here, not an action: no green edge, and the
+                trial line is secondary text with a calendar glyph. */}
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="club-tile">{club.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800 }}>{club.name}</div>
-                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{club.suburb}</div>
-                {trial && <div style={{ fontSize: 12, color: T.accent, fontWeight: 800, marginTop: 2 }}>For {trial.title} · {trial.date}</div>}
+                <div className="row-t" style={{ fontSize: 15 }}>{club.name}</div>
+                <div className="row-s" style={{ fontSize: 12 }}>{club.suburb}</div>
+                {trial && <div className="trial-l">{G.cal()}For {trial.title} · {trial.date}</div>}
               </div>
             </div>
           </div>
           {/* C-P8 (BUZ, 1 Oct): a club with no squads offered a select of one
               "—". No field at all then; it posted nothing either way. */}
           {squads.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div className="field-label">Which squad</div>
-            <div style={card}>
+            <label className="field">
+              <span className="field-label">Which squad</span>
               <select name="squadId" aria-label="Which squad" defaultValue={preselectSquad ?? ''}>
                 <option value="">—</option>
                 {squads.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
-            </div>
-          </div>
+            </label>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div className="c-gap">
             <div className="field-label">Where you&rsquo;d play</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 6 }}>
+            {/* The shared picker: on is tinted, no lead and no order numbers,
+                because this form keeps no order. */}
+            <div className="pos-grid">
               {(Object.keys(POSITIONS) as PositionCode[]).map((code) => {
                 const on = positions.includes(code);
                 return (
-                  <button type="button" key={code} onClick={() => toggle(code)} aria-label={POSITIONS[code].label} aria-pressed={on} title={POSITIONS[code].label} style={{
-                    width: '100%', minHeight: 44, borderRadius: 999, padding: '7px 0', fontSize: 12, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
-                    background: on ? 'rgba(61,220,132,.14)' : 'transparent',
-                    color: on ? T.accent : T.muted,
-                    border: on ? '1px solid transparent' : `1px solid ${T.line}`,
-                  }}>{code}</button>
+                  <button type="button" key={code} onClick={() => toggle(code)} aria-label={POSITIONS[code].label} aria-pressed={on} title={POSITIONS[code].label} className="pos">{code}</button>
                 );
               })}
             </div>
-            <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 600, color: positions.length ? T.secondary : T.muted, lineHeight: 1.45 }}>
+            <div aria-live="polite" className={positions.length ? 'pos-line' : 'pos-line none'}>
               {positions.length
                 ? (Object.keys(POSITIONS) as PositionCode[]).filter((c) => positions.includes(c)).map((c) => POSITIONS[c].label).join(' · ')
                 : 'Not sure what a code means? Tap it and the full name shows here.'}
             </div>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Filled in from your CV. Change it if you&rsquo;d play somewhere else for this club.</div>
+            <div className="c-help">Filled in from your CV. Change it if you&rsquo;d play somewhere else for this club.</div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div className="c-gap">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <div className="field-label">One line, if you want</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: T.muted }}>{note.length} / 140</div>
+              <div className="c-help" style={{ fontSize: 11, fontWeight: 700 }}>{note.length} / 140</div>
             </div>
-            <div style={card}>
-              <textarea name="note" aria-label="One line, if you want" value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="Right-footed 10. Happy anywhere across the front three." style={{ background: 'transparent', border: 'none', color: T.ink, fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, fontFamily: 'inherit', width: '100%', resize: 'vertical', minHeight: 40 }} />
-            </div>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{self ? `Football only. ${club.name} read it on their register.` : 'Football only. Your parent reads this before it goes anywhere.'}</div>
+            <label className="field">
+              <textarea name="note" aria-label="One line, if you want" value={note} onChange={(e) => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="Right-footed 10. Happy anywhere across the front three." style={{ minHeight: 40 }} />
+            </label>
+            <div className="c-help">{self ? `Football only. ${club.name} read it on their register.` : 'Football only. Your parent reads this before it goes anywhere.'}</div>
           </div>
-          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
-            <Row ok>A link to your CV — the live page, not a copy of it.</Row>
-            <Row ok>Your name, your age, your club, the squad, where you&rsquo;d play, and your one line — what a coach picks a squad on.</Row>
-            <div style={{ height: 1, background: T.line }} />
-            <Row ok={false}>Not your birthday, your phone, your email, your address or your school.</Row>
-            <Row ok={false}>Take yourself off and the link stops working the same minute.</Row>
+          <div className="card-sunken checks">
+            <Check ok>A link to your CV — the live page, not a copy of it.</Check>
+            <Check ok>Your name, your age, your club, the squad, where you&rsquo;d play, and your one line — what a coach picks a squad on.</Check>
+            <hr />
+            <Check ok={false}>Not your birthday, your phone, your email, your address or your school.</Check>
+            <Check ok={false}>Take yourself off and the link stops working the same minute.</Check>
           </div>
           {self ? (
-            <div style={{ borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(61,220,132,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
-            </div>
-            <div>
-              <div style={{ fontSize: 14.5, fontWeight: 900 }}>This goes straight on their register</div>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{band === '16_17' ? 'Your parent can see which clubs you are on. ' : ''}If {club.name} want you at a trial, they invite you through Pitch.</div>
-            </div>
-          </div>
+            <Who icon={G.tick(18)} title="This goes straight on their register">
+              {band === '16_17' ? 'Your parent can see which clubs you are on. ' : ''}If {club.name} want you at a trial, they invite you through Pitch.
+            </Who>
           ) : (
-          <div style={{ borderRadius: 18, background: 'var(--hero)', border: `1px solid ${T.line}`, padding: 17, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(164,121,226,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="2.6" /><circle cx="16.5" cy="9.5" r="2" /><path d="M4.5 20 c0-3 2-5 4.5-5 s4.5 2 4.5 5 M14 20 c0-2.4 1.2-4 2.5-4 s2.5 1.6 2.5 4" /></svg>
-            </div>
-            <div>
-              <div style={{ fontSize: 14.5, fontWeight: 900 }}>Your parent sends this one</div>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>You&rsquo;re under 16, so we ask your parent to read it and press send. It&rsquo;s the same for every club.</div>
-            </div>
-          </div>
+            <Who guard icon={G.people()} title="Your parent sends this one">
+              You&rsquo;re under 16, so we ask your parent to read it and press send. It&rsquo;s the same for every club.
+            </Who>
           )}
-          <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>Being on a register isn&rsquo;t a trial spot and it isn&rsquo;t a decision, so there is nothing here to be turned down from. You stay on it until you take yourself off — this season, and the next one.</div>
+          <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, color: 'var(--muted)' }}>
+            {G.info()}
+            <div className="c-help" style={{ fontSize: 12.5, lineHeight: 1.55 }}>Being on a register isn&rsquo;t a trial spot and it isn&rsquo;t a decision, so there is nothing here to be turned down from. You stay on it until you take yourself off — this season, and the next one.</div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <button type="submit" className="btn btn-primary">{self ? 'Put me on the register' : 'Ask my parent to send it'}</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button type="submit" className="btn btn-primary fl-glow">{self ? 'Put me on the register' : 'Ask my parent to send it'}</button>
             {/* C-P5 (BUZ, 1 Oct): Cancel goes home, as it does on /send. It was a
                 div that went nowhere. */}
-            <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Cancel</Link>
+            <TextLink href="/home">Cancel</TextLink>
           </div>
         </form>
       </div>
-    </div>
   );
 }

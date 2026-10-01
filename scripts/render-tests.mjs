@@ -2979,8 +2979,11 @@ const georgia = ids.children.georgia;
   // C-P6 (defect 18): a refused photo says so. 8 MB is the route's own cap.
   const bad = await get(`/build/${deniz.record_id}?photo=bad`, alex);
   const plainBuild = await get(`/build/${deniz.record_id}`, alex);
-  check('dfx-C-P6: /build?photo=bad says the photo did not upload; without it, nothing',
-    [bad.status, has(bad.html, 'upload. Try a JPG or PNG under 8 MB.'), has(plainBuild.html, 'upload. Try a JPG or PNG under 8 MB.')], [200, true, false]);
+  // The words are the ones /coach/edit and /club/page-edit already say for
+  // the same refusal (BUZ, 1 Oct), and the old line is gone.
+  check('dfx-C-P6: /build?photo=bad says the file did not work; without it, nothing',
+    [bad.status, has(bad.html, 'That file didn’t work. A PNG or JPEG under 8MB.'), has(plainBuild.html, 'A PNG or JPEG under 8MB.'),
+     has(bad.html, 'Try a JPG or PNG under 8 MB.')], [200, true, false, false]);
 
   // E3 (defect 20): the coach editor's order. The add-role form sits under its
   // roles and the banner under the photo; the JSX had nested the banner,
@@ -3345,6 +3348,114 @@ const georgia = ids.children.georgia;
   check('fc12: the squad CV’s way back is A’s page header in the CV column, to the player’s row on the sheet',
     [new RegExp(`<div class="fl-wide cv-head"><div class="pg-head"><a href="/club/squads/${full?.s}#p-${scv}" class="pg-back">`).test(scvPage),
      full ? full.h.includes(`id="p-${scv}"`) : false, (scvPage.match(/<nav\b/g) ?? []).length], [true, true, 1]);
+}
+
+// ---------------------------------------------------------------------------
+// pl-fl — THE PLAYER'S SCREENS, FLOODLIT (spec C, BUZ 1 Oct). Restyle only:
+// these pin what the restyle must keep true and what it was for.
+// ---------------------------------------------------------------------------
+{
+  const nate = ids.children.nate;
+  const jordan = ids.people.jordan;
+  const markup = (h) => h.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, ' ');
+  const jRec = /\/build\/([0-9a-f-]{36})/.exec((await get('/home', jordan)).html)?.[1] ?? 'none';
+  const build = markup((await get(`/build/${nate.record_id}`, nate.child_id)).html);
+
+  // The photo upload is its own form and forms cannot nest, so Number and
+  // Preferred foot sit on the card and join the story form with form="cv".
+  // A control that is neither inside form#cv nor names it is a field a
+  // browser does not post, and a save would blank it.
+  const story = /<form[^>]*\sid="cv"[^>]*>([\s\S]*?)<\/form>/.exec(build)?.[1] ?? null;
+  const posted = (name) => {
+    const tag = new RegExp(`<(input|select)[^>]*\\sname="${name}"[^>]*>`).exec(build)?.[0] ?? '';
+    return Boolean(tag) && (/\sform="cv"/.test(tag) || (story ?? '').includes(tag));
+  };
+  check('pl-fl1: the builder’s story form is form#cv, and Number and Preferred foot are posted with it (inside it, or form="cv")',
+    [story !== null, posted('squadNumber'), posted('foot'), /name="stat_apps"/.test(story ?? ''), /name="about"/.test(story ?? '')],
+    [true, true, true, true, true]);
+  check('pl-fl2: the five card fields sit on the card (.cv-edit), on the gradient token, the squad number behind them decorative',
+    [/class="cv-edit"/.test(build), /<div class="cv-num" aria-hidden="true">1<\/div>/.test(build), /radial-gradient/.test(build)],
+    [true, true, false]);
+
+  // C-P2: the builder's header on all three steps; the progress fill and the
+  // current step are facts, never green.
+  const steps = [];
+  for (const sfx of ['', '/clips', '/more']) {
+    const h = markup((await get(`/build/${nate.record_id}${sfx}`, nate.child_id)).html);
+    const nav = /<nav class="build-steps"[^>]*>([\s\S]*?)<\/nav>/.exec(h)?.[1] ?? '';
+    steps.push([/\d of 6 done/.test(text(h).join(' ')), (nav.match(/aria-current="page"/g) ?? []).length,
+      (nav.match(/<a [^>]*href="\/build\//g) ?? []).length, /class="prog-bar"/.test(h)]);
+  }
+  check('pl-fl3: /build, /clips and /more each carry "N of 6 done" and the three step chips, one of them "you are here" (C-P2)',
+    steps, [[true, 1, 2, true], [true, 1, 2, true], [true, 1, 2, true]]);
+
+  // N3 and N4 (BUZ, 1 Oct): no "＋" character; "Make a fresh link" once.
+  const clipsH = await get(`/build/${jRec}/clips`, jordan), moreH = await get(`/build/${jRec}/more`, jordan);
+  const sendH = await get(`/send/${jRec}`, jordan);
+  check('pl-fl4: no "＋" on Highlights or history, and "Make a fresh link" is said once (the button)',
+    [/＋/.test(text(clipsH.html).join(' ')), /＋/.test(text(moreH.html).join(' ')), has(clipsH.html, 'Add another clip'),
+     text(sendH.html).filter((l) => l === 'Make a fresh link').length],
+    [false, false, true, 1]);
+
+  // Send, register interest and the share card: no --hero gradient, nothing
+  // red (a cross is "not given", not danger), one glow on a compose screen.
+  const redOrHero = (h) => /var\(--hero\)|var\(--red\)|#e37776|#e34948/i.test(markup(h));
+  const glows = (h) => (markup(h).match(/\bfl-glow\b/g) ?? []).length;
+  const screens = [
+    ['/send compose', `/send/${nate.record_id}?club=brindlewood-rovers-sc`, nate.child_id, 1],
+    ['/send under 16', `/send/${deniz.record_id}`, deniz.child_id, 1],
+    ['/send sent', `/send/${jRec}?sent=1`, jordan, 0],
+    ['/send not sent', `/send/${nate.record_id}?club=wrenmoor-wanderers-fc`, nate.child_id, 0],
+    ['/register-interest', `/register-interest/${nate.record_id}?club=${ids.clubs['riverside-fc']}`, nate.child_id, 1],
+    ['/register-interest asked', `/register-interest/${deniz.record_id}?club=${ids.clubs['riverside-fc']}&asked=1`, deniz.child_id, 0],
+    ['/share-card', `/share-card/${nate.record_id}`, nate.child_id, 1],
+    ['/share-card asked', `/share-card/${nate.record_id}?asked=1`, nate.child_id, 0],
+    ['/build/ready waiting', `/build/${deniz.record_id}/ready`, deniz.child_id, 0],
+  ];
+  const seen = [];
+  for (const [what, path, who, want] of screens) {
+    const r = await get(path, who);
+    seen.push([what, r.status, redOrHero(r.html), glows(r.html) === want]);
+  }
+  check('pl-fl5: the send, register and share screens draw no --hero and no red, and glow only where there is a primary to press',
+    seen, screens.map(([what]) => [what, 200, false, true]));
+
+  // D-101 / D-89: the silhouettes are drawn, never rendered from the record.
+  const card = markup((await get(`/share-card/${nate.record_id}`, nate.child_id)).html);
+  const sils = [...card.matchAll(/<div class="sil"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => m[1]);
+  check('pl-fl6: the share card’s three shapes are silhouettes with no text in them, and the chosen tile follows a real radio',
+    [sils.length, sils.every((b) => b.replace(/<i [^>]*><\/i>/g, '').trim() === ''), (card.match(/<input type="radio" name="shape"/g) ?? []).length],
+    [3, true, 3]);
+  const asked = await get(`/share-card/${nate.record_id}?asked=1`, nate.child_id);
+  check('pl-fl7: the share card’s "asked" is the same Notice as Send’s: kicker, title, body, in that order',
+    text(asked.html).join(' ').includes('Waiting on your parent Asked. Nothing has been made yet. Your parent sees the exact card'), true);
+
+  // The print CV: the card in ink, C-P3, the charter's spacings, the Wordmark.
+  const pr = await get('/p/dev-nate/print'), pj = await get('/p/dev-jordan/print'), pd = await get('/p/dev-deniz/print');
+  const spacing = (h) => [...markup(h).matchAll(/letter-spacing:\s*([^;"]+)/g)].map((m) => m[1].trim())
+    .filter((v) => !['0.14em', '0.06em', '0.02em', '-0.015em', '-0.04em', '-.035em'].includes(v));
+  check('pl-fl8: the 16–17 print sheet carries the context line and Football history, under the CV’s rules (C-P3)',
+    [pr.status, has(pr.html, 'U18 · born Apr–Jun'), order(pr.html, 'Achievements', 'Football history'), order(pr.html, 'Football history', 'Other football'),
+     has(pr.html, 'Ashvale Lions FC'), has(pr.html, 'own account of where they played')],
+    [200, true, true, true, true, true]);
+  check('pl-fl9: the adult’s sheet carries his history and no junior context line; the under-16’s carries no date of birth',
+    [has(pj.html, 'Crestmoor SC'), /\bborn\b/.test(text(pj.html).join(' ')), /\b(19|20)\d\d-\d\d-\d\d\b/.test(text(pd.html).join(' '))],
+    [true, false, false]);
+  check('pl-fl10: every letter-spacing on the print sheets is one of the five, and "PITCH" is the Wordmark, not typed',
+    [[pr, pj, pd].flatMap((r) => spacing(r.html)), [pr, pj, pd].some((r) => text(r.html).includes('PITCH'))], [[], false]);
+
+  // The preview has one nav bar, and the way back sits under it.
+  const pv = markup((await get(`/build/${nate.record_id}/preview`, nate.child_id)).html);
+  check('pl-fl11: the preview has one nav bar, with the way back and the Preview notice under it',
+    [(pv.match(/<header class="fl-nav/g) ?? []).length, pv.indexOf('<header class="fl-nav') < pv.indexOf('Back to editing'), /class="pv-strip"/.test(pv)],
+    [1, true, true]);
+
+  // /manage: the Quiet shell's top bar carries the logo; no literal colour,
+  // no 600 weight, no -0.02em.
+  const mg = markup((await get('/manage?t=0123456789abcdef0123')).html);
+  check('pl-fl12: /manage sits in the Quiet shell door with the Page title, and none of its old literals',
+    [/class="floodlight has-topbar"/.test(mg), /class="pg-title"/.test(mg), /#0a110d|font-weight:\s*600|-\.02em|-0\.02em/.test(mg)],
+    [true, true, false]);
 }
 
 // ---------------------------------------------------------------------------
