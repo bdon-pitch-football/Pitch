@@ -40,7 +40,7 @@ The parts, from `app/globals.css` (FLOODLIT and THE PLAYER CARD sections), `comp
 
 ## How to work
 
-- Read source, not old screenshots. The captures in `docs/design/screens/` (24 Sep) are older than the 28 Sep surface stack.
+- Read source, not old screenshots. The captures in `docs/design/screens/` (24 Sep) are older than the current surface stack.
 - Don't start a dev server and don't run the suites. The disk is tight and six seats are working at once. Work from source.
 - Build on earlier approved thinking where it exists (`docs/design/mockups/*.html`, `docs/design/reports/*`), but Floodlit wins where they differ.
 - Group A (the shells) is specified in parallel with the others. Groups C to J design the page **inside** the shell and refer to shell parts by the names in `specs/A-shells-and-homes.md`, or describe what they assume. If a group needs a **new shared part**, name it under "New shared parts" with a proposed class name. The Head of Product Design reconciles these across groups.

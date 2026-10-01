@@ -403,7 +403,7 @@ These are **proposed for the Head of Product Design to reconcile** with A and th
 @media (max-width: 1023px) { .cc-split .cc-only-wide { display: none; } }
 @media (min-width: 1024px) { .cc-split .cc-only-narrow { display: none; } }
 
-/* A door inside the console frame sits beside the rail, not mid-window (the D-147 15 Sep rule, for A's door). */
+/* A door inside the console frame sits beside the rail, not mid-window (the D-147 rule, for A's door). */
 @media (min-width: 1024px) { .console-frame .door { margin-left: 0; margin-top: 0; } }
 
 /* The register bucket title row. */

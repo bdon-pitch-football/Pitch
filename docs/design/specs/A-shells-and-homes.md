@@ -31,7 +31,7 @@ Then point `.fl-nav` at `var(--glass)` and `var(--glass-line)`. The nav bar look
 
 This is `Frame` in `components/console-shell.tsx`, with `.console-frame` and `.seat-frame`.
 
-- The geometry is unchanged. On a phone it is one column. From 1024px it is a 232px **rail** plus content, max 1200px (D-147, amended 16 Sep and 28 Sep).
+- The geometry is unchanged. On a phone it is one column. From 1024px it is a 232px **rail** plus content, max 1200px (D-147, as amended).
 - **Change:** every seat's frame paints `.floodlight`, so it is no longer a prop. The club frame was the only one that could render without it. `ClubConsole`'s `floodlight` prop becomes a no-op (keep the prop until the callers are cleaned up).
 
 ### 2. Seat bar (phone, below 1024px)
@@ -185,7 +185,7 @@ export const card: CSSProperties = { background: 'var(--fl-surface)', border: `1
 
 This is `.card-sunken`, and it is unchanged: `--surface-sunken`, a hairline, **no shadow**. It is for text you read: explanations, notes, the "why".
 
-Disclosure goes down; action goes up (28 Sep). A well never gets the card shadow.
+Disclosure goes down; action goes up (the surface-stack rule). A well never gets the card shadow.
 
 ### 11. Notice
 
@@ -682,7 +682,7 @@ The mockup draws every state below at 390 and 1280: `docs/design/mockups/floodli
   - **Signed out:** the top bar, then a **door panel** with "Welcome back", its line and Sign in (**primary, glowing**).
 - **Laptop:** the top bar with the logo top left. A 640 reading column, centred (no frame, no rail). The signed-out door panel is lifted from 640px.
 - **Glow:** none on the brand-new home: nothing tells us which door is Robin's (P5).
-- **Must not change:** no new door; Sign out stays on the screen (it is the one home with no bar, BUZ 28 Sep).
+- **Must not change:** no new door; Sign out stays on the screen (it is the one home with no bar, BUZ's rule).
 - **Done when:**
   1. the logo is top left at 1280 and top right at 390, and there is one logo;
   2. the four rows are one panel with identical hrefs;

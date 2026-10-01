@@ -88,4 +88,4 @@ The comment says "No links on a tokenised page — the reader was handed one lin
 - **Honesty.** There is no age or identity claim, no free/paid claim, no coming-soon promise and no invented control. Provenance labels still name the club and never a coach.
 - **Checks run:**
   - `npm run -s test:perms`: **1948 passed, 0 failed**. That includes `ban1` (no D-108 words on any screen), `url1`, `hist10`–`hist13`. `hist13` now reads `.cv-rise` from `globals.css`, where the rule moved; the property checked is the same.
-  - `python3 scripts/corpus-check.py`: **1 failure, not from this change.** S2 flags '15 Sep' in `docs/design/reports/2026-10-01-floodlit-safety-review.md`. That file is committed at HEAD and is not in this diff.
+  - `python3 scripts/corpus-check.py`: **1 failure, not from this change.** S2 flags a dated history note in `docs/design/reports/2026-10-01-floodlit-safety-review.md`. That file is committed at HEAD and is not in this diff.
