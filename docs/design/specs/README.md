@@ -14,13 +14,55 @@
 - the lines listed under "to confirm as they stand": `FAILURE_COPY` as written and the coach page's December promise.
 
 **Still not to build:**
-- **With John first.** D-PD-3 (a real No on `/a`), G-P1 with N-G1 (`/undo` after-states), and HC3 ("call 000"). Build them only once John has answered. Until then, ship those screens without the change.
+- ~~**With John first.** D-PD-3, G-P1 with N-G1, and HC3.~~ **John cleared all three on 1 Oct, with conditions.** See the next section, which BUZ approved for building.
 - **For BUZ with ops.** A-P7.
 - **Not now, or don't build.** A-P2, C-P1, HD1, I-P3, I-P4, F-P6.
 - ~~**Still open, one choice.** `/unsubscribe` "Join again any time."~~ **BUZ, 1 Oct: "Remove the unsubscribe line."** The line "Changed your mind? Join again any time." is removed from `app/unsubscribe/page.tsx` on this branch. The G mockup still draws it; ignore it there.
 - **Billing lines.** The three lines F flagged get re-read before billing is switched on.
 
 **For the register (Leo assigns the number at merge; the latest on both branches is D-173):** "BUZ, 1 Oct 2026: the whole app takes Floodlit (D-173) per `docs/design/specs/`. Consent answers carry equal weight: wherever a press gives something away, Yes and No are the same secondary button and nothing glows, superseding the green Yes in ParentApprovalV2, SendCVGuardian, InterestGuardian, ReapproveChanges, ShareApproval and GuardianReply. On a phone, each seat's one primary sits under its hero on `/home`. The operator console marks green only where work waits. The demo strip is dark with an amber Demo pill. The coach page and the jobs board take `.fl-wide`."
+
+## John's rulings and BUZ's §36 call (1 Oct): all three cleared, so build them
+
+**Source:** `13-Board-Room/JOHN-to-PRODUCT-DESIGN-three-rulings-1-oct.md`. **BUZ, 1 Oct: "Yes to the §36 window change, hand John's rulings to Leo."** The "with John first" items above are now approved, with John's conditions.
+
+### 1 · G-P1: the undo link says whether it worked. **Build this first; John classes it as a defect.**
+
+Today a §36 undo pressed after 24 hours silently does nothing, while the screen looks identical: a live false assurance.
+- **Build G-P1 as specified:**
+  - not-live panel on load (used, lapsed and unknown look identical);
+  - "Done" only when a row was actually revoked;
+  - "Go to sign in" plus the line N-G1;
+  - the "This does not un-send the email" box stays on "Done".
+- **John's addition: timing.** The not-live path does the same work as "Done": the same hashed comparison, the same cost. That way a stopwatch can't tell them apart (D-77, J2). Assert it by diffing two captured responses, as E9 and J40 do. Don't verify it by reading the handler.
+- **BUZ amends U-2: §36's undo lives as long as the link it switches off, matching §37.**
+  - **Code:** in `lib/send-dispatch.ts` (the `undo_token` insert, ~line 175), replace `now() + interval '24 hours'` with the §37 expression, `coalesce((select expires_at from share_token where id = $2), now() + interval '90 days')`.
+  - **Records to amend** (the register moves first):
+    - the U-2 entry ("for 24 hours, may revoke that link…", in `JOHN-to-LEO-doc06-entries.md` and doc 31);
+    - doc 15 §36's header line, "Carries the twenty-four-hour undo.";
+    - doc 14 L17's note;
+    - any test that asserts the 24-hour expiry.
+  - The §36 email body doesn't mention 24 hours, so no message copy changes.
+
+### 2 · D-PD-3: a real "No" on `/a/[id]`
+
+Approved, with John's conditions:
+- **After one confirmed channel,** "Not now" (equal weight with Approve) purges the pending invitation at once, using the same purge as the 14-day job.
+- **Record which channel ended it, and when,** so "who ended it" can be answered (as U-6).
+- **The event is the existing `purged`** with reason `ended_by_recipient`. Don't add a new event. Assert the reason is **unreadable by any club actor** and **never surfaces to the child**.
+- **No message to anyone.** Nobody is a guardian yet. An on-screen confirmation is all there is.
+- **The child's waiting page changes its words, not its timing,** for both endings (expiry and ended): **"This request has closed. You can ask again whenever you like."**
+  - "Expired" goes, because it's untrue when someone ended the request.
+  - An immediate "expired" would let the child infer that a parent said no (D-17, U-1).
+  - This line is new copy, carried by John's ruling and BUZ's hand-over.
+
+### 3 · HC3: "call 000", identical in all three places
+
+- **Change it on the report form, the report-received page and doc 25 so all three read word for word the same.** Use doc 25's sentence, which is John's approved legal text: **"If you believe a child is in immediate danger, call 000."**
+  - The form's closing "In an emergency, call 000." becomes this sentence.
+  - `FAILURE_COPY.urgent` becomes this sentence plus "Pitch is not an emergency service."
+- **Don't add 131 444** to the emergency line.
+- **fp12** moves with it.
 
 ## What is in this folder
 
