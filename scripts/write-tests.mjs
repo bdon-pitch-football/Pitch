@@ -1033,9 +1033,12 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('x0i: AND THE GUARDIAN IS TOLD, with the address it went to (§22)',
     to(box, 22, 'guardian@example.com') && box.includes('today, at teen@send.example'), true);
 
-  // Under 16 — Deniz, 14. doc 14 L1: composed, never transmitted.
-  const df = await sendForm(parent, deniz.record_id);
-  const dLoc = await postSend(parent, deniz.record_id, df, 'Child Test FC', 'child@send.example');
+  // Under 16 — Deniz, 14. doc 14 L1: composed, never transmitted. L1 is the
+  // child composing (`self`), so Deniz composes it in his own seat. It used to
+  // be posted as the parent, which until C-P4 read the same screen; a parent
+  // composing here now sends it themselves (C-P4-w, below).
+  const df = await sendForm(deniz.child_id, deniz.record_id);
+  const dLoc = await postSend(deniz.child_id, deniz.record_id, df, 'Child Test FC', 'child@send.example');
   box = await outbox();
   check('x0j: an under-16’s send is asked for, not sent (L1)', dLoc.includes('asked=1'), true);
   check('x0k: nothing reaches the club until a guardian presses send', to(box, 19, 'child@send.example'), false);
@@ -1096,9 +1099,10 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   };
   const linksOf = async () => { const t = plain((await get(`/send/${nate.record_id}`, nate.child_id)).html); return t.slice(t.indexOf('Your links')); };
 
-  // A child composes for their parent BEFORE the club asks us to stop.
-  const denizForm = await filledForm(parent, deniz.record_id);
-  const denizLoc = await post(`/send/${deniz.record_id}`, parent, denizForm);
+  // A child composes for their parent BEFORE the club asks us to stop — in
+  // the child's own seat (C-P4: a parent composing sends it themselves).
+  const denizForm = await filledForm(deniz.child_id, deniz.record_id);
+  const denizLoc = await post(`/send/${deniz.record_id}`, deniz.child_id, denizForm);
   const box0 = await outbox();
   const ask = /\/g\/send\/([0-9a-f-]{36})/.exec(box0.slice(box0.indexOf(`It goes to: ${CLUB}`)))?.[1];
   const gForm = ask && forms((await get(`/g/send/${ask}`, parent)).html).find((f) => 'requestId' in f.fields);
@@ -1145,7 +1149,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('sc-w5: a self-send typed by hand to another address at that club is refused with nothing created — no send, no email to anyone, nothing on the player’s list',
     [typedLoc, box2.includes('coach@brindlewoodrovers.example.au'), await linksOf() === linksBefore],
     [`/send/${nate.record_id}?blocked=1`, false, true]);
-  const denizAgain = await post(`/send/${deniz.record_id}`, parent, denizForm);
+  const denizAgain = await post(`/send/${deniz.record_id}`, deniz.child_id, denizForm);
   check('sc-w6: and an under-16’s compose to it is refused before anything is asked of the parent',
     [denizAgain, (await outbox()).split(`It goes to: ${CLUB}`).length - 1], [`/send/${deniz.record_id}?blocked=1`, 1]);
   const gPage = plain((await get(`/g/send/${ask}`, parent)).html);
@@ -1414,9 +1418,11 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     decode((await get(`/club/invite/${nateReg}`, club)).html).includes('Nate replied'), true);
 
   // ---- Under 16 — Deniz ------------------------------------------------------
-  const denizRec = ids.children.deniz.record_id;
-  html = (await get(regPath(denizRec), parent)).html;
-  res = await postTo(regPath(denizRec), parent, formOn(html, (f) => 'trialId' in f.fields), {});
+  // Deniz composes it in his own seat (doc 14 N1); a parent composing here
+  // since C-P4 puts him on the register themselves (C-P4-w, below).
+  const denizRec = ids.children.deniz.record_id, denizSeat = ids.children.deniz.child_id;
+  html = (await get(regPath(denizRec), denizSeat)).html;
+  res = await postTo(regPath(denizRec), denizSeat, formOn(html, (f) => 'trialId' in f.fields), {});
   check('f1: an under-16’s interest waits for the parent', res.location.includes('asked=1'), true);
   const interestReq = [...(await get('/home', parent)).html.matchAll(/href="\/g\/interest\/([0-9a-f-]{36})"/g)].map((m) => m[1]);
   for (const rid of interestReq) {
@@ -1520,6 +1526,131 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   await postTo(`/g/controls/${georgia}`, parent, await (pauseForm('false'))());
   check('p19f: switched back on, the links return',
     doorsTo((await get('/club/register', club)).html)?.includes(`/club/register/cv/${gReg}`), true);
+}
+
+// ---------------------------------------------------------------------------
+// C-P4 · A PARENT SENDS FOR THEIR UNDER-16 THEMSELVES, AND IT IS THE APPROVAL.
+// (BUZ, 1 Oct.) From the club page a parent opened Send or Register interest
+// for their under-16 and got the child's screen: the request it made came
+// back to them by email, to approve. Now the parent's press does it. The
+// promise is that it does EXACTLY what that approval did — the same messages
+// to the same people, the same consent row, the same link on the parent's
+// list, the same row on the club's register — so each path is walked here
+// side by side and compared whole: the old one (the child asks, the parent
+// approves on /g/send or /g/interest) against the parent's one press. Only
+// the approval's own output is compared: the child's ask, and the §20 that
+// asks the parent, are what the parent's press removes, and it is checked
+// that they are gone.
+// ---------------------------------------------------------------------------
+{
+  const alex = ids.people.alex, deniz = ids.children.deniz, georgia = ids.children.georgia;
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&#39;/g, "'").replace(/&rsquo;/g, '’').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+  const post = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return (r.headers.get('location') ?? '').replace(BASE, '');
+  };
+  // The outbox, one card per message — channel, key, address, subject and
+  // body — with the minute it was queued taken out.
+  const cards = async () => (await get('/dev/outbox', alex)).html.replace(/<script[\s\S]*?<\/script>/g, ' ')
+    .split('class="lift"').slice(1).map((c) => plain('<' + c.slice(0, c.indexOf('</pre>'))).replace(/\b\d{2} [A-Z][a-z]{2} \d{2}:\d{2}\b/, ''));
+  const fresh = (before, after) => after.filter((c) => !before.includes(c));
+  // What differs between two sends by design: the club, its address, and the
+  // three secrets minted for each (the link, the stop reference, any undo).
+  const norm = (list, club, addr) => list.map((c) => c.split(addr).join('<address>').split(club).join('<club>')
+    .replace(/\/p\/[A-Za-z0-9_-]{20,}/g, '/p/<link>').replace(/stop-cvs\?r=[0-9a-f-]{36}&t=[A-Za-z0-9_-]{43}/g, 'stop-cvs?<stop>')
+    .replace(/\/undo\/[A-Za-z0-9_-]{20,}/g, '/undo/<undo>')).sort();
+  const n = (t, x) => t.split(x).length - 1;
+
+  // ---- Send: Deniz, 14 -------------------------------------------------------
+  const sendForm = async (who) => forms((await get(`/send/${deniz.record_id}`, who)).html).find((f) => f.visible.some((v) => v.name === 'clubName'));
+  const log = async (kid) => plain((await get(`/g/controls/${kid}`, alex)).html);
+  const homeAsks = async () => ((await get('/home', alex)).html.match(/href="\/g\/(send|interest)\/[0-9a-f-]{36}"/g) ?? []).length;
+  const SENT = 'Deniz’s CV was sent to a club', ASKED = 'Deniz asked you to send their CV';
+  const A = { club: 'Approval Path FC', addr: 'approval@cp4.example.au' }, D = { club: 'Direct Path FC', addr: 'direct@cp4.example.au' };
+
+  const c0 = await cards(), l0 = await log(deniz.child_id);
+  await post(`/send/${deniz.record_id}`, deniz.child_id, { ...(await sendForm(deniz.child_id)).fields, clubName: A.club, address: A.addr });
+  const c1 = await cards(), l1 = await log(deniz.child_id);
+  const ask = /\/g\/send\/([0-9a-f-]{36})/.exec(fresh(c0, c1).find((c) => c.includes(`It goes to: ${A.addr}`)) ?? '')?.[1];
+  const gForm = ask ? forms((await get(`/g/send/${ask}`, alex)).html).find((f) => 'requestId' in f.fields) : null;
+  const approvedLoc = gForm ? await post(`/g/send/${ask}`, alex, gForm.fields) : '';
+  const c2 = await cards(), l2 = await log(deniz.child_id), h2 = await homeAsks();
+  const viaApproval = fresh(c1, c2);
+
+  const pForm = await sendForm(alex);
+  const directLoc = await post(`/send/${deniz.record_id}`, alex, { ...pForm.fields, clubName: D.club, address: D.addr });
+  const c3 = await cards(), l3 = await log(deniz.child_id), h3 = await homeAsks();
+  const viaParent = fresh(c2, c3);
+
+  check('C-P4-w0 setup: the old path still works — Deniz asks, the parent is asked by email (§20), and sends it from /g/send',
+    [Boolean(ask), n(l1, ASKED) - n(l0, ASKED), approvedLoc, viaApproval.some((c) => c.includes(`doc15.§19 → ${A.addr}`))],
+    [true, 1, `/g/send/${ask}?sent=1`, true]);
+  check('C-P4-w1: the parent sends their under-16’s CV in one press — it lands on "Sent", and the club gets it (§19)',
+    [directLoc, viaParent.some((c) => c.includes(`doc15.§19 → ${D.addr}`))], [`/send/${deniz.record_id}?sent=1`, true]);
+  check('C-P4-w2: and the press sends exactly what /g/send’s approval sends — the same messages to the same people, word for word (the club, its address and the link aside)',
+    [viaParent.length > 0, norm(viaParent, D.club, D.addr)], [true, norm(viaApproval, A.club, A.addr)]);
+  check('C-P4-w3: nobody is asked: no §20, nothing waiting on the parent’s home, and no "Deniz asked you" in the log',
+    [viaParent.filter((c) => /It goes to:|doc15\.§20/.test(c)).length, h3 - h2, n(l3, ASKED) - n(l2, ASKED)], [0, 0, 0]);
+  check('C-P4-w4: the same consent row as the approval, one "Deniz’s CV was sent to a club" each, and both clubs on the parent’s list of where it went, each with its switch',
+    [n(l2, SENT) - n(l1, SENT), n(l3, SENT) - n(l2, SENT), l3.includes(`${A.club} <${A.addr}> Switch off`), l3.includes(`${D.club} <${D.addr}> Switch off`)],
+    [1, 1, true, true]);
+  const linkIn = (list, addr) => /\/p\/([A-Za-z0-9_-]{20,})/.exec(list.find((c) => c.includes(`doc15.§19 → ${addr}`)) ?? '')?.[1];
+  const [pa, pd] = [await get(`/p/${linkIn(viaApproval, A.addr)}`, null), await get(`/p/${linkIn(viaParent, D.addr)}`, null)];
+  check('C-P4-w5: and the club opens the same CV from either link',
+    [pa.status, pd.status, plain(pd.html) === plain(pa.html), plain(pd.html).includes('Deniz')], [200, 200, true, true]);
+
+  // ---- Register interest: Georgia, 15, on Kingsway Rovers FC's register ----
+  // Not Riverside's: H2 (D-170) later counts every Riverside registration
+  // Georgia's leaving takes with her, and two more there would be this
+  // block's, not the product's (L32).
+  const kingsway = ids.clubs['kingsway-rovers'], dana = ids.people.dana;
+  const regPath = `/register-interest/${georgia.record_id}?club=${kingsway}`;
+  const regIds = async () => [...(await get('/club/register', dana)).html.matchAll(/id="r-([0-9a-f-]{36})"/g)].map((m) => m[1]);
+  // A row on the TD's register, and the squad it sits under, with its own id
+  // taken out; and the club's view of the CV it opens.
+  const rowOf = async (rid) => {
+    const h = (await get('/club/register', dana)).html.replace(/<script[\s\S]*?<\/script>/g, ' ');
+    const at = h.indexOf(`id="r-${rid}"`);
+    if (at < 0) return null;
+    const ends = [h.indexOf('id="r-', at + 10), h.indexOf('class="reg-bucket"', at)].filter((x) => x > 0);
+    const bucket = /reg-bucket-t">([^<]*)</.exec(h.slice(h.lastIndexOf('class="reg-bucket"', at)))?.[1];
+    return [bucket, h.slice(at, Math.min(...ends, at + 6000)).split(rid).join('<registration>')];
+  };
+  const cvOf = async (rid) => plain((await get(`/club/register/cv/${rid}`, dana)).html).split(rid).join('<registration>');
+  const RLOG = 'Georgia went onto a club register';
+  const kidForm = forms((await get(regPath, georgia.child_id)).html).find((f) => 'clubId' in f.fields);
+  // Kingsway keeps no squads, so there is no squad to choose (C-P8).
+  const choice = { positions: 'CM,AM', note: 'Two-footed. Sees the pass early.' };
+
+  const r0 = await regIds();
+  const g0 = new Set([...(await get('/home', alex)).html.matchAll(/href="\/g\/interest\/([0-9a-f-]{36})"/g)].map((m) => m[1]));
+  const kidLoc = await post(regPath, georgia.child_id, { ...kidForm.fields, ...choice });
+  const rid = [...(await get('/home', alex)).html.matchAll(/href="\/g\/interest\/([0-9a-f-]{36})"/g)].map((m) => m[1]).find((x) => !g0.has(x));
+  const iForm = rid ? forms((await get(`/g/interest/${rid}`, alex)).html).find((f) => 'requestId' in f.fields) : null;
+  const gl1 = await log(georgia.child_id), m1 = await cards();
+  const iLoc = iForm ? await post(`/g/interest/${rid}`, alex, iForm.fields) : '';
+  const r1 = await regIds(), gl2 = await log(georgia.child_id), m2 = await cards(), hi2 = await homeAsks();
+  const regA = r1.filter((x) => !r0.includes(x));
+
+  const parentForm = forms((await get(regPath, alex)).html).find((f) => 'clubId' in f.fields);
+  const parentLoc = await post(regPath, alex, { ...parentForm.fields, ...choice });
+  const r2 = await regIds(), gl3 = await log(georgia.child_id), m3 = await cards(), hi3 = await homeAsks();
+  const regD = r2.filter((x) => !r1.includes(x));
+
+  check('C-P4-w6 setup: the old path still works — Georgia asks, and the parent registers it from /g/interest',
+    [/asked=1/.test(kidLoc), Boolean(rid), iLoc, regA.length], [true, true, `/g/interest/${rid}?sent=1`, 1]);
+  check('C-P4-w6: the parent puts their under-16 on the register in one press, and the club’s register shows her',
+    [parentLoc, regD.length], [`/register-interest/${georgia.record_id}?club=${kingsway}&registered=1`, 1]);
+  const [rowA, rowD] = [await rowOf(regA[0]), await rowOf(regD[0])];
+  check('C-P4-w7: exactly as the approval path does — the same row in the same place on the TD’s register, and the same CV behind it',
+    [rowD !== null, rowD, await cvOf(regD[0])], [true, rowA, await cvOf(regA[0])]);
+  check('C-P4-w8: the same consent row as the approval ("Georgia went onto a club register", one each), no message either way, and nothing left waiting on the parent’s home',
+    [n(gl2, RLOG) - n(gl1, RLOG), n(gl3, RLOG) - n(gl2, RLOG), fresh(m1, m2), fresh(m2, m3), hi3 - hi2], [1, 1, [], [], 0]);
 }
 
 // ---------------------------------------------------------------------------
@@ -2347,6 +2478,76 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 }
 
 // ---------------------------------------------------------------------------
+// C-P4 · THE PARENT'S PRESS IS THE PARENT'S ALONE. The same two forms the
+// parent sends and registers from, posted field for field by somebody else:
+// another family's parent (Mila's, signed in by the block that approved her),
+// a coach at Deniz's club (Sam; the permission suite's C-P4-2 has a coach who
+// reads his record in full), the club's TD, and the
+// parent themselves once an operator has suppressed their link to Deniz (a
+// suppressed link is a revoked one, 0049). Each must land where a stranger
+// lands and change nothing (L12): no message to the address, no row on the
+// club's register, nothing in the parent's log. Then the link is restored,
+// and the same post from the parent does send — or "nothing" proved nothing.
+// ---------------------------------------------------------------------------
+{
+  const alex = ids.people.alex, marina = ids.people.marina, sam = ids.people.sam, deniz = ids.children.deniz;
+  const riverside = ids.clubs['riverside-fc'];
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&#39;/g, "'").replace(/&rsquo;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const postWith = async (cookie, path, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: cookie ? { cookie } : {} });
+    await r.text();
+    return { location: (r.headers.get('location') ?? '').replace(BASE, ''), cookie: (r.headers.getSetCookie?.() ?? []).find((c) => c.startsWith('pitch_session=')) };
+  };
+  const signin = forms((await get('/signin', null)).html).find((f) => /^Sign in$/.test(f.submit));
+  const priya = (await postWith(null, '/signin', { ...signin.fields, email: 'priya@example.com', password: 'parent-password-2468' })).cookie?.split(';')[0];
+  const priyaHome = priya ? plain(await (await fetch(BASE + '/home', { headers: { cookie: priya } })).text()) : '';
+
+  const sendPath = `/send/${deniz.record_id}`, regPath = `/register-interest/${deniz.record_id}?club=${riverside}`;
+  // Not from Brindlewood's page: the 0160 block stopped that club for the run.
+  const sendFields = { ...forms((await get(sendPath, alex)).html).find((f) => f.visible.some((v) => v.name === 'clubName')).fields,
+    clubName: 'Intruder Test FC', address: 'intruder@cp4.example.au' };
+  const regFields = { ...forms((await get(regPath, alex)).html).find((f) => 'clubId' in f.fields).fields, positions: 'GK', note: 'Not posted by his family.' };
+  const state = async () => {
+    const box = plain((await get('/dev/outbox', marina)).html), reg = plain((await get('/club/register', marina)).html);
+    const log = plain((await get(`/g/controls/${deniz.child_id}`, alex)).html);
+    return [box.includes('intruder@cp4.example.au'), reg.includes('Not posted by his family.'),
+      n(log, 'Deniz’s CV was sent to a club'), n(log, 'Deniz went onto a club register')];
+  };
+  const n = (t, x) => t.split(x).length - 1;
+  const both = async (cookie) => [(await postWith(cookie, sendPath, sendFields)).location, (await postWith(cookie, regPath, regFields)).location];
+
+  const before = await state();
+  const stranger = await both(priya);
+  const coach = await both(cookieFor(sam));
+  const td = await both(cookieFor(marina));
+  const after = await state();
+  check('C-P4-w9 setup: Mila’s parent is signed in, and is somebody else’s parent',
+    [Boolean(priya), priyaHome.includes('Mila'), priyaHome.includes('Deniz')], [true, true, false]);
+  check('C-P4-w9: another family’s parent, a coach at Deniz’s club and the club’s TD posting the parent’s two forms are sent home, and nothing is sent, registered or logged',
+    [stranger, coach, td, after], [['/home', '/home'], ['/home', '/home'], ['/home', '/home'], before]);
+
+  // The parent, with their link to Deniz suppressed by an operator.
+  const op = marina;
+  const opForms = async () => forms((await get(`/ops/reports?parent=${encodeURIComponent('guardian@example.com')}`, op)).html);
+  const sup = (await opForms()).find((f) => /Suppress this parent/.test(f.submit) && f.fields.childId === deniz.child_id);
+  if (sup) await postWith(cookieFor(op), '/ops/reports', { ...sup.fields, reason: 'C-P4 revoked-guardian check' });
+  const revoked = await both(cookieFor(alex));
+  const restore = (await opForms()).find((f) => /Restore access/.test(f.submit) && f.fields.childId === deniz.child_id);
+  if (restore) await postWith(cookieFor(op), '/ops/reports', restore.fields);
+  // Read once the link is back: while it is revoked the parent cannot open
+  // Deniz's controls at all, which is g32-14's point and not this one.
+  const afterRevoked = await state();
+  check('C-P4-w10: a parent whose link to Deniz has been revoked posting the same two forms gets nothing either',
+    [Boolean(sup), revoked, afterRevoked], [true, ['/home', '/home'], before]);
+  const restored = await postWith(cookieFor(alex), sendPath, sendFields);
+  check('C-P4-w11: restored, the same post from the parent sends — so the "nothing" above was the server saying no',
+    [Boolean(restore), restored.location, (await state())[0]], [true, `/send/${deniz.record_id}?sent=1`, true]);
+}
+
+// ---------------------------------------------------------------------------
 // "Take off this register" (D-108; doc 14 N7): a parent, or a 16-17 for
 // themselves. The club's list loses the row; the club is told nothing.
 // ---------------------------------------------------------------------------
@@ -3125,8 +3326,9 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   // way: the child asks, the parent checks the address and presses send
   // (D-91, D-99). The second send is the family that must NOT be touched.
   const sendTo = async (clubName, address) => {
-    const sendForm = forms((await get(`/send/${kid.record_id}`, parent)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
-    await postTo(`/send/${kid.record_id}`, parent, { ...sendForm.fields, clubName, address });
+    // The child asks, in her own seat; the parent then presses send on /g/send.
+    const sendForm = forms((await get(`/send/${kid.record_id}`, kid.child_id)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+    await postTo(`/send/${kid.record_id}`, kid.child_id, { ...sendForm.fields, clubName, address });
     // The outbox is newest first; the §20 that names this address carries
     // the parent's own confirm link.
     const text = await box();
@@ -3204,11 +3406,13 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   // above; twelve presses reach the limit from anywhere short of it.
   for (let i = 0; i < 12; i++) {
     const address = `press-${i}@addressbar.example.au`;
-    const sendForm = forms((await get(`/send/${kid.record_id}`, parent)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+    // Georgia composes each one in her own seat; the press measured is the
+    // parent's on /g/send (a parent composing on /send sends it there, C-P4).
+    const sendForm = forms((await get(`/send/${kid.record_id}`, kid.child_id)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
     if (!sendForm) break;
     const fd = new FormData();
     for (const [k, v] of Object.entries({ ...sendForm.fields, clubName: 'Addressbar FC', address })) fd.append(k, v);
-    await (await fetch(BASE + `/send/${kid.record_id}`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(parent) } })).text();
+    await (await fetch(BASE + `/send/${kid.record_id}`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(kid.child_id) } })).text();
     const text = await box();
     const ask = /\/g\/send\/([0-9a-f-]{36})/.exec(text.slice(text.indexOf(`It goes to: ${address}`)))?.[1];
     const gSend = ask && forms((await get(`/g/send/${ask}`, parent)).html).find((f) => 'requestId' in f.fields);

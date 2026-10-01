@@ -92,7 +92,12 @@ const DEEP = {
   'signed out': ['/confirm/dev-unproved', '/stop-cvs', `/a/${ids.pendingInvitation}`, '/a/dev-mila-text', '/a/bogus',
     `/join/waiting/${ids.pendingInvitation}`, '/join/waiting/bogus', '/privacy/family'],
   parent: [`/squad/${g.child_id}?back=controls`, `/squad/${g.child_id}?club=${riverside}&back=controls`,
-    `/build/${ids.children.deniz.record_id}/preview`, `/g/pending/${ids.children.deniz.record_id}`],
+    `/build/${ids.children.deniz.record_id}/preview`, `/g/pending/${ids.children.deniz.record_id}`,
+    // C-P4 (1 Oct): the parent's own Send and Register interest for their
+    // under-16, reached from a club page's buttons, and where each lands.
+    `/send/${ids.children.deniz.record_id}?club=brindlewood-rovers-sc`, `/send/${ids.children.deniz.record_id}?sent=1`,
+    `/register-interest/${ids.children.deniz.record_id}?club=${riverside}`,
+    `/register-interest/${ids.children.deniz.record_id}?club=${riverside}&registered=1`],
   player: [`/squad/${ids.people.jordan}`, `/squad/${ids.people.jordan}?club=${riverside}`],
   // 0160: "Send my CV" from a club's page — the address filled in with its
   // line underneath, and a club that asked Pitch to stop.

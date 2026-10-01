@@ -5,6 +5,11 @@
 // turned down from.
 //
 // Which screen renders is lib/send-state — the same gate the action reads.
+//
+// C-P4 (BUZ, 1 Oct, after the copy check): a confirmed parent who opens this
+// for their under-16 — the club page's "Register {first}'s interest" — puts
+// them on the register from here, in the approved words, rather than reading
+// the child's and approving their own request. The child's view is unchanged.
 import { notFound, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
@@ -80,6 +85,15 @@ export default async function RegisterInterest({ params, searchParams }: {
     );
   }
 
+  // C-P4: /g/interest's own after-words, under the same Notice.
+  if (state.mode === 'guardian' && registered) {
+    return (
+      <Status tone="accent" kicker="On the register" title={`${state.firstName} is on ${c.name}’s register.`}>
+        You can take {state.firstName} off the register any time from {state.firstName}&rsquo;s controls. Their access ends when you do.
+      </Status>
+    );
+  }
+
   if (state.mode === 'ask' && asked) {
     return (
       <Status tone="amber" kicker="Waiting on your parent" title={`Asked. Nothing has gone to ${c.name} yet.`}>
@@ -110,6 +124,7 @@ export default async function RegisterInterest({ params, searchParams }: {
       cvPositions={rec.rows[0].positions ?? []}
       mode={state.mode}
       band={state.band}
+      firstName={state.firstName}
       trial={trial ? { id: trial.id, title: trial.title, date: trial.date } : undefined}
     />
     </TopBarShell>
