@@ -1302,6 +1302,41 @@ const georgia = ids.children.georgia;
   check('t5b: and Mixed is not a way in (D-68 as amended)', /gender=mixed/.test(all), false);
 }
 
+// The board, Floodlit (D-173 as extended 1 Oct; BUZ: "Yes to all" to P1-P4
+// and N1). Signed out it wears the public nav bar the front door and the club
+// pages link to it from (P2); signed in it stays in the seat's own frame. Each
+// row's one action is on the charter's two buttons, never a third (a 44px
+// pill). A board FILTERED to nothing keeps its filters, its note and the
+// approved line, in one element, and offers no doors — those are the empty
+// board's alone (P3, P4), and the empty board itself is pressed at the end of
+// the write suite, the one place every notice comes off.
+{
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+  const out = plain((await get('/trials', null)).html);
+  const pub = /<nav[^>]*aria-label="Pitch"[^>]*>([\s\S]*?)<\/nav>/.exec(out)?.[1] ?? '';
+  const mine = plain((await get('/trials', ids.people.jordan)).html);
+  check('tb1: signed out, the board wears the public nav — Find your club, Trials marked as this page, Sign in — and a player sees it in their own frame, not under it (P2)',
+    [/href="\/claim"[^>]*>Find your club</.test(pub), /href="\/trials"[^>]*aria-current="page"[^>]*>Trials<|aria-current="page"[^>]*href="\/trials"[^>]*>Trials</.test(pub),
+     /href="\/signin"[^>]*>Sign in</.test(out), /<nav[^>]*aria-label="Pitch"/.test(mine), /<nav[^>]*aria-label="Player"/.test(mine)],
+    [true, true, true, false, true]);
+  const doors = [...out.matchAll(/<a[^>]*href="\/fc\/[^"]+#play"[^>]*>/g)].map((m) => m[0]);
+  check(`tb2: every listing's one action is a charter button — "I’m interested" the primary, "Send my CV" the secondary (${doors.length} listings)`,
+    [doors.length >= 3, doors.filter((a) => !/class="btn btn-(primary fl-glow|secondary)"/.test(a)).length,
+     /class="btn btn-primary fl-glow"[^>]*href="\/fc\/[^"]+\?trial=[0-9a-f-]{36}#play"[^>]*>I’m interested</.test(out),
+     /class="btn btn-secondary"[^>]*href="\/fc\/[^"?]+#play"[^>]*>Send my CV</.test(out)],
+    [true, 0, true, true]);
+  const none = plain((await get('/trials?gender=girls&pos=GK', null)).html);
+  check('tb3: filtered to nothing, the board keeps its filters and its note, and says the approved line as one sentence in one element',
+    [/(\d+) trials?</.exec(none)?.[1], /<details[^>]*class="[^"]*trial-filters/.test(none), none.includes('Positions wanted'),
+     none.includes('the button on each listing tells you which'),
+     /<p><b>No trials listed for that yet\.<\/b> An empty week is honest — we only list what a club has posted or published itself\.<\/p>/.test(none),
+     none.includes('No trials listed yet.')],
+    ['0', true, true, true, true, false]);
+  check('tb4: the two doors are the empty board\'s alone — not on a board with trials, not on one filtered to nothing (P4)',
+    [out, none].map((h) => [h.includes('Build a CV first — it is what the club reads'), h.includes('Claim your club page'), h.includes('For clubs &amp; technical directors')]),
+    [[false, false, false], [false, false, false]]);
+}
+
 // A link a screen SHOWS is a promise — a coach pastes it, a TD prints it.
 // Four screens showed pitchfootball.com.au/<name>, which does not exist: the
 // pages live at /c/<name> and /fc/<name>. Every full link shown must open.

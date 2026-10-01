@@ -11,6 +11,9 @@ import Wordmark from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { T } from '@/lib/palette';
 import PublicAnalytics from '@/components/PublicAnalytics';
+import SiteNav from '@/components/floodlit/SiteNav';
+import TrialRow from '@/components/floodlit/TrialRow';
+import { getSessionPersonId } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,23 +103,22 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
     pos && { key: 'pos', label: `${pos} wanted`, clear: href({ pos: null }) },
   ].filter(Boolean) as { key: string; label: string; clear: string }[];
 
-  const groupLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.muted };
   const Chip = ({ to, on, children, title }: { to: string; on: boolean; children: React.ReactNode; title?: string }) => (
     <Link href={to} className="chip" aria-pressed={on} title={title}>{children}</Link>
   );
   // A link, not a control, like the club's register: every filtered view has
   // its own address, works with no JavaScript, and can be sent to a parent.
   const groups = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="tb-filters">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        <div style={groupLabel}>Age group</div>
+        <div className="kicker">Age group</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           <Chip to={href({ age: null })} on={!age}>Any age</Chip>
           {agesHere.filter((a) => shows(count({ age: a }), age === a)).map((a) => <Chip key={a} to={href({ age: age === a ? null : a })} on={age === a}>{a === 'SEN' ? 'Seniors' : a}<span className="chip-count">{count({ age: a })}</span></Chip>)}
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        <div style={groupLabel}>Competition</div>
+        <div className="kicker">Competition</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           <Chip to={href({ gender: null })} on={!gender}>All</Chip>
           {GENDERS.filter(([v]) => shows(count({ gender: v }), gender === v)).map(([v, t]) => <Chip key={v} to={href({ gender: gender === v ? null : v })} on={gender === v}>{t}<span className="chip-count">{count({ gender: v })}</span></Chip>)}
@@ -124,7 +126,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
       </div>
       {statesHere.length > 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div style={groupLabel}>State</div>
+          <div className="kicker">State</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             <Chip to={href({ state: null })} on={!state}>Both</Chip>
             {statesHere.filter((k) => shows(count({ state: k }), state === k)).map((k) => <Chip key={k} to={href({ state: state === k ? null : k })} on={state === k}>{STATES[k]}<span className="chip-count">{count({ state: k })}</span></Chip>)}
@@ -133,7 +135,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
       )}
       {posHere.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div style={groupLabel}>Positions wanted</div>
+          <div className="kicker">Positions wanted</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             <Chip to={href({ pos: null })} on={!pos}>Any</Chip>
             {posHere.filter((c) => shows(count({ pos: c }), pos === c)).map((c) => <Chip key={c} to={href({ pos: pos === c ? null : c })} on={pos === c} title={POSITIONS[c].label}>{c}<span className="chip-count">{count({ pos: c })}</span></Chip>)}
@@ -143,108 +145,126 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
     </div>
   );
 
+  // P3 (BUZ, 1 Oct): a board with no trials at all shows only what is true
+  // of it — no filters (there is nothing to filter) and no note about "the
+  // button on each listing". A board filtered to nothing keeps both, so the
+  // choice can be seen and taken off. P4: the empty board is not a dead end —
+  // a signed-out visitor is offered the two doors, in words already approved
+  // on the club page and the club landing. One primary, and it is the club's.
+  const boardEmpty = upcoming.length === 0;
+  const me = await getSessionPersonId();
+  const doors = boardEmpty && !me;
+
+  const board = (
+    <main className="fl-wide tb">
+      {/* Signed in, the seat's frame has no bar across the top, so the logo
+          stays where every screen has had it. Signed out, it is in the nav. */}
+      {me && <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>}
+      <div className="tb-head">
+        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15 }}>Trials board</h1>
+        <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Club trials listed below, by trial date.</div>
+      </div>
+
+      <div className={boardEmpty ? 'tb-body tb-bare' : 'tb-body'}>
+        {!boardEmpty && (
+          <aside className="tb-rail" aria-label="Filters">
+            {/* Phone: the four groups fold into one Filters button, and what
+                is chosen stays on screen as chips you can take off one at a
+                time. <details> opens and closes with no JavaScript. From 768
+                the groups sit open in a card; from 1024 of board, beside the
+                list as a rail (P1). */}
+            <details className="m-only trial-filters">
+              <summary className="chip" style={{ alignSelf: 'flex-start', cursor: 'pointer', listStyle: 'none' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M3 6h18M6 12h12M10 18h4" /></svg>
+                Filters
+                {active.length > 0 && <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: T.accent, color: T.onAccent, fontSize: 10.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{active.length}</span>}
+              </summary>
+              <div className="fl-card" style={{ marginTop: 10 }}>{groups}</div>
+            </details>
+            <div className="d-only fl-card">{groups}</div>
+          </aside>
+        )}
+
+        <div className="tb-list" style={boardEmpty ? { width: '100%' } : undefined}>
+          <div className="tb-countrow">
+            {active.map((a) => (
+              <Link key={a.key} href={a.clear} className="chip" aria-pressed="true" aria-label={`Remove ${a.label}`}>
+                {a.label}
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+              </Link>
+            ))}
+            <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 700, color: T.muted, padding: '0 4px' }}>
+              {listings.length} {listings.length === 1 ? 'trial' : 'trials'}
+            </div>
+            {active.length > 1 && <Link href="/trials" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', padding: '0 4px' }}>Clear</Link>}
+          </div>
+
+          {!boardEmpty && (
+            <div className="card-sunken tb-how">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>
+              <div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which.{lastChecked ? ` Last checked ${lastChecked}.` : ''}</div>
+            </div>
+          )}
+
+          {/* The empty line is ONE element, its first sentence set as a title
+              inside it, so it still reads as one sentence. N1 (BUZ, 1 Oct):
+              "No trials listed yet." when nothing is chosen; the approved
+              "No trials listed for that yet." when something is. */}
+          {listings.length === 0 && (boardEmpty ? (
+            <div className="fl-card tb-emptyb">
+              <div className="tb-art" aria-hidden><div className="fl-dash" /><div className="fl-dash" /><div className="fl-dash" /></div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+                <p><b>{active.length ? 'No trials listed for that yet.' : 'No trials listed yet.'}</b> An empty week is honest — we only list what a club has posted or published itself.</p>
+                {doors && <Link href="/join" className="btn btn-secondary tb-fam">Build a CV first — it is what the club reads</Link>}
+              </div>
+            </div>
+          ) : (
+            <div className="fl-card tb-empty">
+              <div className="fl-dash" aria-hidden />
+              <p><b>No trials listed for that yet.</b> An empty week is honest — we only list what a club has posted or published itself.</p>
+            </div>
+          ))}
+          {doors && (
+            <div className="fl-card tb-clubdoor">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+                <span className="kicker" style={{ color: T.amber }}>For clubs &amp; technical directors</span>
+                <h2>Put your trials where families can find them.</h2>
+              </div>
+              <Link href="/claim" className="btn btn-primary fl-glow">Claim your club page</Link>
+            </div>
+          )}
+
+          {/* A club on Pitch — claimed or verified — has a register, and the
+              row offers it, as the club's own page does; a claimed club carries
+              no label, as its own page carries none (D-90, D-126, doc 14 M9).
+              An unclaimed club's row says plainly it was compiled. John, 30
+              Sep: a notice Pitch compiled links to the club's own notice. */}
+          {listings.map((l) => (
+            <TrialRow key={l.id} id={l.id} day={l.day} mon={l.mon}
+              title={`${l.club_name} · ${l.title.replace(' trials', '')}`} timeVenue={l.time_venue}
+              listed={l.listed} checked={l.checked}
+              notice={l.source !== 'club' && l.source_url ? l.source_url : null}
+              clubState={l.club_state} slug={l.public_slug} />
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+
+  // P2 (BUZ, 1 Oct): signed out, the board wears the public nav bar, as the
+  // front door and the club pages that link to it do. Signed in, it stays in
+  // the seat's own frame, as it always has (D-147 as amended 16 Sep).
   // One of the four pages analytics may count (lib/analytics-scope).
   return (
     <>
-    <TrialsFrame>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Wordmark size={20} /></div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Trials board</h1>
-            <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>Club trials listed below, by trial date.</div>
-          </div>
-        </div>
-
-        {/* Phone: the four groups fold into one Filters button, and what is
-            chosen stays on screen as chips you can take off one at a time.
-            <details> opens and closes with no JavaScript. At a laptop there is
-            room, so the groups sit open in a card instead. */}
-        <details className="m-only trial-filters">
-          <summary className="chip" style={{ alignSelf: 'flex-start', cursor: 'pointer', listStyle: 'none' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M3 6h18M6 12h12M10 18h4" /></svg>
-            Filters
-            {active.length > 0 && <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: T.accent, color: T.onAccent, fontSize: 10.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{active.length}</span>}
-          </summary>
-          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', marginTop: 10 }}>{groups}</div>
-        </details>
-        <div className="d-only" style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' }}>{groups}</div>
-
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7, marginTop: -4 }}>
-          {active.map((a) => (
-            <Link key={a.key} href={a.clear} className="chip" aria-pressed="true" aria-label={`Remove ${a.label}`}>
-              {a.label}
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
-            </Link>
-          ))}
-          <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 700, color: T.muted, padding: '0 4px' }}>
-            {listings.length} {listings.length === 1 ? 'trial' : 'trials'}
-          </div>
-          {active.length > 1 && <Link href="/trials" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', padding: '0 4px' }}>Clear</Link>}
-        </div>
-        <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '13px 14px', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: T.muted, lineHeight: 1.5 }}>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which.{lastChecked ? ` Last checked ${lastChecked}.` : ''}</div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {listings.length === 0 && (
-            <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-              No trials listed for that yet. An empty week is honest — we only list what a club has posted or published itself.
-            </div>
-          )}
-          {listings.map((l) => {
-            const verified = l.club_state === 'verified';
-            // The same test the club page uses (app/fc/[slug]): a club that has
-            // claimed its page has a register, verified or not. The board sent a
-            // claimed club's families to "Send my CV" while its own page offered
-            // the register — two answers to one question. One button now: the
-            // family registers interest, and until the club is verified it sees
-            // a count and nothing else (D-90, D-126). Nor is the family told the
-            // club is unverified (doc 14 M9), so a claimed club carries neither
-            // label, exactly as its own page shows neither.
-            const onPitch = verified || l.club_state === 'claimed';
-            return (
-              <div key={l.club_name + l.title} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'center', gap: 13 }}>
-                <div style={{ background: verified ? 'rgba(61,220,132,.12)' : T.surface2, borderRadius: verified ? 11 : 12, padding: '7px 10px', textAlign: 'center', flexShrink: 0 }}>
-                  <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: verified ? T.accent : T.muted }}>{l.mon}</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1 }}>{l.day}</div>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800 }}>{l.club_name} · {l.title.replace(' trials', '')}</div>
-                  <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{l.time_venue}</div>
-                  <div style={{ fontSize: 10, color: T.muted, fontWeight: 700 }}>Listed {l.listed} · checked {l.checked}</div>
-                  {/* John, 30 Sep: a notice Pitch compiled links to the club's own
-                      notice — the club's, never styled as a Pitch action. */}
-                  {l.source !== 'club' && l.source_url && (
-                    <a href={l.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: T.secondary, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>The club&rsquo;s own notice</a>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, gap: 8 }}>
-                    {verified || !onPitch ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <div style={{ width: 6, height: 6, borderRadius: 999, background: verified ? T.accent : T.placeholder }} />
-                        <div style={{ fontSize: 10.5, fontWeight: verified ? 800 : 700, color: verified ? T.accent : T.muted }}>
-                          {verified ? 'On Pitch — verified club' : 'Unclaimed listing · register via club'}
-                        </div>
-                      </div>
-                    ) : <div />}
-                    {/* These were two styled boxes that did nothing when pressed — the
-                        board's only call to action, dead for every family. They
-                        open the club's page at its door now: the register of a
-                        club on Pitch, carrying this trial so the club can invite
-                        to it (D-153), or an unclaimed club's "send my CV". */}
-                    {l.public_slug && (onPitch ? (
-                      <Link href={`/fc/${l.public_slug}?trial=${l.id}#play`} style={{ background: T.accent, color: T.onAccent, borderRadius: 999, padding: '0 14px', minHeight: 44, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 900, textDecoration: 'none', flexShrink: 0 }}>I&rsquo;m interested</Link>
-                    ) : (
-                      <Link href={`/fc/${l.public_slug}#play`} style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 999, padding: '0 14px', minHeight: 44, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>Send my CV</Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+    {me ? (
+      <TrialsFrame><div className="tb-root">{board}</div></TrialsFrame>
+    ) : (
+      <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', flexDirection: 'column' }}>
+        <SiteNav links={[{ href: '/claim', label: 'Find your club' }, { href: '/trials', label: 'Trials', current: true }]} />
+        <div className="tb-root">{board}</div>
       </div>
-    </TrialsFrame>
+    )}
     <PublicAnalytics />
     </>
   );
