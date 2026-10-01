@@ -3477,6 +3477,71 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   await logCall(westgate, { outcome: 'suspended', suspension_reason: '' });
   check('susp-ad-w3: suspended with no class, the notice Pitch compiled is off the board and off its page too — whoever posted it',
     await shown(...W), [false, false, false]);
+
+  // ---- the empty board (BUZ, 1 Oct: P3, P4, N1) --------------------------------------
+  // Last, because it takes every notice off the board: each club still listing
+  // one is suspended through the call sheet, as Kingsway and Westgate were.
+  // The seed always lists trials, so this is the one place the board most
+  // visitors see at launch — no trials at all — can be read.
+  // P3: no filters (nothing to filter) and no note about "the button on each
+  // listing". N1: "No trials listed yet." when nothing is chosen, in one
+  // element with the rest of the sentence. P4: a signed-out visitor is offered
+  // two doors in words already approved — a family builds its CV (/join, the
+  // secondary), a club claims its page (/claim, the one primary on the
+  // screen). A signed-in seat sees the board in its frame, with no doors.
+  {
+    // Loud, never silent (safety review N1): a listed club the fixtures do not
+    // know, or whose call sheet has no outcome form, is a counted FAIL — never
+    // a skip, and never a crash that stops the suite before its summary.
+    try {
+      const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+      const listed = [...new Set([...(await get('/trials', null)).html.matchAll(/href="\/fc\/([a-z0-9-]+)(?:\?trial=[0-9a-f-]{36})?#play"/g)].map((m) => m[1]))];
+      const missed = [];
+      for (const slug of listed) {
+        const clubId = ids.clubs[slug];
+        if (!clubId) { missed.push(`${slug}: not a seeded club`); continue; }
+        try {
+          const r = await logCall(clubId, { outcome: 'suspended', suspension_reason: 'administrative' });
+          if (r.status >= 400) missed.push(`${slug}: the call sheet answered ${r.status}`);
+        } catch (e) { missed.push(`${slug}: the call sheet could not be pressed (${e.message})`); }
+      }
+      check(`empty-w0a: every club listing a notice was suspended through its call sheet (${missed.join('; ') || 'all were'})`, missed, []);
+      const out = plain((await get('/trials', null)).html);
+      const line = /<p><b>No trials listed yet\.<\/b> An empty week is honest — we only list what a club has posted or published itself\.<\/p>/;
+      check(`empty-w0: with every club that listed a notice suspended (${listed.join(', ') || 'none listed'}), the board is empty`,
+        [listed.length > 0, /(\d+) trials?</.exec(out)?.[1], /href="\/fc\/[^"]+#play"/.test(out)], [true, '0', false]);
+      check('empty-w1: the empty board shows no filters and no note about buttons that are not there, and says "No trials listed yet." as one sentence in one element (P3, N1)',
+        [/trial-filters/.test(out), ['Age group', 'Competition', 'Positions wanted'].filter((g) => out.includes(g)), out.includes('the button on each listing'),
+         line.test(out), out.includes('No trials listed for that yet.')],
+        [false, [], false, true, false]);
+      check('empty-w2: signed out, it offers the two doors — "Build a CV first" to /join as the secondary, "Claim your club page" to /claim as the one primary on the screen (P4)',
+        [/href="\/join"[^>]*class="btn btn-secondary[^"]*"[^>]*>Build a CV first — it is what the club reads<|class="btn btn-secondary[^"]*"[^>]*href="\/join"[^>]*>Build a CV first — it is what the club reads</.test(out),
+         /href="\/claim"[^>]*class="btn btn-primary[^"]*"[^>]*>Claim your club page<|class="btn btn-primary[^"]*"[^>]*href="\/claim"[^>]*>Claim your club page</.test(out),
+         out.includes('For clubs &amp; technical directors'), out.includes('Put your trials where families can find them.'),
+         (out.match(/class="btn btn-primary/g) ?? []).length],
+        [true, true, true, true, 1]);
+      // The doors are a visitor's (P4), so every kind of signed-in seat is
+      // read (safety review N2): a player (Nate — by here Jordan has a child
+      // linked and sits in the Parent frame, as on /home), a guardian (Jordan,
+      // in that Parent frame) and a club seat (Marina, TD — no seat frame).
+      // A rule that keyed the doors off the frame instead of the session would
+      // show them to the club seat; this is where that is caught.
+      const seats = [['a player', ids.children.nate.child_id, 'Player'], ['a guardian', ids.people.jordan, 'Parent'], ['a club TD', op, null]];
+      for (const [label, who, frame] of seats) {
+        const inside = plain((await get('/trials', who)).html);
+        const frames = ['Player', 'Parent', 'Coach'].filter((f) => new RegExp(`<nav[^>]*aria-label="${f}"`).test(inside));
+        check(`empty-w3: signed in as ${label}, the empty board is in ${frame ? `the ${frame} frame` : 'no seat frame'}, with the line and neither door — the doors are a visitor's`,
+          [frames, line.test(inside), /trial-filters/.test(inside), inside.includes('Build a CV first'), inside.includes('Claim your club page')],
+          [frame ? [frame] : [], true, false, false, false]);
+      }
+      const old = plain((await get('/trials?gender=girls', null)).html);
+      check('empty-w4: an old link filtered to something on the empty board keeps its choice to take off, and says the approved line for a choice',
+        [/aria-label="Remove Girls"/.test(old), old.includes('<b>No trials listed for that yet.</b>'), old.includes('No trials listed yet.')],
+        [true, true, false]);
+    } catch (e) {
+      check(`empty-w: the empty-board block ran to its end (${e.message})`, false, true);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
