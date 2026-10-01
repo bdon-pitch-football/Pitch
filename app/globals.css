@@ -694,6 +694,20 @@ select { min-height: 44px; }
 @media (min-width: 1024px) {
   .home-grid, .player-grid { grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; }
 }
+/* A-P1 (BUZ, 1 Oct): on a phone each seat's one primary sits directly under
+   its hero (the player's Send, the coach's Edit my coach CV, the TD's
+   Register). The DOM order IS the phone order — .hg-top (the hero), .hg-lead
+   (the primary), .hg-main, .hg-aside — so nothing reorders on a phone. From
+   1024px named areas put the primary back at the head of the aside, so the
+   laptop is unchanged. */
+.home-grid.hg-p1 { gap: 14px; }
+@media (min-width: 1024px) {
+  .home-grid.hg-p1 { grid-template-columns: minmax(0, 1fr) 320px; grid-template-areas: "top lead" "top aside" "main aside"; grid-template-rows: auto auto 1fr; column-gap: 18px; row-gap: 14px; }
+  .hg-top { grid-area: top; }
+  .hg-lead { grid-area: lead; }
+  .hg-main { grid-area: main; }
+  .hg-aside { grid-area: aside; }
+}
 
 /* ---------------------------------------------------------------------------
    THE SEAT BAR — the phone half of a seat's frame (D-147, amended 16 Sep).
@@ -1113,7 +1127,9 @@ h1, h2, h3, h4, h5, h6 {
 .pill-wrap::before { margin-top: 4px; }
 
 /* 13 · List row, step row, door list */
-.row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 12px 14px; color: var(--ink); text-decoration: none; }
+/* border-box: the app has no global box-sizing, so a content-box 56px row
+   with its 12px padding drew 80px tall (found building the homes, 1 Oct). */
+.row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 12px 14px; box-sizing: border-box; color: var(--ink); text-decoration: none; }
 .row:hover { color: var(--ink); }
 .rows > .row + .row { border-top: 1px solid var(--line); }
 .rows > .row:hover { background: rgba(255,255,255,.04); }

@@ -170,6 +170,14 @@ async function reach(who, extra = []) {
       // seat met Jordan's forms first — ks-w0, sq2 and sq3 went red exactly as
       // brief K recorded (L32).
       if (h === '/' || h === '/claim' || h.startsWith('/?') || h.startsWith('/claim?')) continue;
+      // Nor, for the parent, B1's door "Build {first}'s page" (1 Oct). The
+      // parent seat walks first, so following it let the parent claim the
+      // builder's forms before the player did, and the sweep pressed them on
+      // a child's record instead of Jordan's own — ks-w0, sq2 and sq3 went red
+      // (L32: a page is a fixture). The builder is pressed as the player, as
+      // it was before the door existed; the door itself is walked by hm9 and
+      // hm-w2b, and the parent can open what it points at (hm9b, hm-w2b).
+      if (who === ids.people.alex && /^\/build\/[0-9a-f-]{36}$/.test(h)) continue;
       if (!seen.has(h)) queue.push(h);
     }
   }
@@ -393,6 +401,17 @@ async function post(path, who, form) {
   check('tde-w6: the row is gone, and a second press ends nobody',
     [/Technical Director Marina Petrovic/.test(words((await get('/club/roles', pat)).html)),
      forms((await get('/club/roles', pat)).html).some((f) => /^End their access/.test(f.submit))], [false, false]);
+  // B2 (BUZ, 1 Oct): with no Technical Director holding an account, the
+  // administrator's home says so in one muted line — the constant the page
+  // renders — and no longer says whose the register is.
+  {
+    const noTd = /ADMIN_NO_TD_LINE = '([^']+)'/.exec(readFileSync(fileURLToPath(new URL('../lib/home-copy.ts', import.meta.url)), 'utf8'))?.[1] ?? 'missing';
+    const patRaw = (await get('/home', pat)).html.replace(/<script[\s\S]*?<\/script>/g, ' ');
+    const patHome = words(patRaw);
+    check('hm-w4: once the TD’s access ends, the administrator reads that no Technical Director has an account — an amber notice directly under Post a trial notice — and not whose the register is',
+      [noTd !== 'missing', patRaw.includes(`>Post a trial notice</a><div role="status" class="card card-amber" data-no-td="true" style="font-size:13.5px;font-weight:700;color:#eef5f0;line-height:1.5">${noTd}</div>`),
+       /The register is Marina/.test(patHome)], [true, true, false]);
+  }
 
   // ---- what the operator sees afterwards ----------------------------------------
   const queue = (await get('/ops/verification', op)).html;
@@ -1652,6 +1671,17 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 
   const samHome = (await get('/home', sam)).html;
   check('c3: the coach sees the club’s request on their own home screen', strip(samHome).includes('wants you as their coach for U13 Girls'), true);
+  // Spec A (coach), Head of Product Design 1 Oct: accepting joins the coach
+  // to a club, so Accept and Not now take D-PD-0's equal weight — the same
+  // secondary, still the forms they were — and the one glow stays on Edit my
+  // coach CV, with or without an invitation.
+  {
+    const m = samHome.replace(/<script[\s\S]*?<\/script>/g, ' ');
+    check('hm-w1: the coach’s invitation answers are the same secondary, and the glow stays on Edit my coach CV',
+      [[...m.matchAll(/<button type="submit" class="([^"]*)"[^>]*>(Accept|Not now)</g)].map((x) => `${x[2]}|${x[1]}`),
+       [...m.matchAll(/class="[^"]*\bfl-glow\b[^"]*"[^>]*>([^<]*)</g)].map((x) => x[1])],
+      [['Accept|btn btn-secondary', 'Not now|btn btn-secondary'], ['Edit my coach CV']]);
+  }
   const acceptForm = forms(samHome).find((f) => f.fields.answer === 'accept');
   await postForm('/home', sam, acceptForm);
   check('c4: accepted, the new team is on their registrations page',
@@ -2012,6 +2042,24 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const tessRec = /\/build\/([0-9a-f-]{36})/.exec(tessHome)?.[1];
   check('t16e: until the parent confirms, Tess sees "Waiting on your parent" and has no Send door',
     /Waiting on your parent/.test(tessHome) && !/href="\/send\//.test(tessHome), true);
+  // Spec A (16–17, "Done when" 1): the waiting notice takes the primary's
+  // place under the hero (A-P1) and nothing glows, because the screen's only
+  // primary is unavailable. A page with no squad number draws no ghost numeral.
+  {
+    const m = tessHome.replace(/<script[\s\S]*?<\/script>/g, ' ');
+    check('hm-w3: with no parent confirmed, the waiting notice sits under the hero, nothing glows, and no ghost numeral is drawn without a number',
+      [/class="hg-lead"><div role="status" class="card card-amber"/.test(m), /fl-glow/.test(m), /class="cv-num"/.test(m)], [true, false, false]);
+    // F5 (BUZ, 1 Oct): Tess's request is open, so the notice is the waiting
+    // one — never "This request has closed." — and its line matches what
+    // happened to the text: "We've texted…" once it went, the approved queued
+    // line while it waits for SMS (D-168). This seed's dev SMS decides which.
+    const ask = /data-parent-ask="([a-z-]+)"/.exec(m)?.[1] ?? 'none';
+    const texted = /We(?:’|&#x27;|&rsquo;)ve texted and emailed them to confirm they(?:’|&#x27;|&rsquo;)re your parent\./.test(m);
+    const queued = /We(?:’|&#x27;|&rsquo;)ve emailed them, and their text follows shortly\. Once they do, you can send\./.test(m);
+    check(`hm-w3c: an open request shows the waiting notice whose line matches the text’s state, and never the closed line (${ask})`,
+      [['asked', 'text-queued'].includes(ask), ask === 'asked' ? [texted, queued] : [queued, texted], /This request has closed\./.test(m)],
+      [true, [true, false], false]);
+  }
   const tessSend = await fetch(BASE + `/send/${tessRec}`, { redirect: 'manual', headers: { cookie: tessCookie } });
   check('t16f: and the send screen sends Tess home', tessSend.status >= 300 && tessSend.status < 400, true);
   // C-P7 (1 Oct): /build/ready offered her "Send it to a club", which bounced.
@@ -2033,6 +2081,8 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('t16h: confirming lands on "You confirmed you\'re Tess\'s parent"', /You confirmed you.re Tess.s parent/.test(tessDonePage) && /Confirmed by you on/.test(tessDonePage), true);
   const tessHome2 = await (await fetch(BASE + '/home', { headers: { cookie: tessCookie } })).text();
   check('t16i: and now Tess can send', /href="\/send\//.test(tessHome2) && !/Waiting on your parent/.test(tessHome2), true);
+  check('hm-w3b: and once the parent confirms, Send my CV to a club is the one glow',
+    [...tessHome2.replace(/<script[\s\S]*?<\/script>/g, ' ').matchAll(/class="[^"]*\bfl-glow\b[^"]*"[^>]*>([^<]*)</g)].map((x) => x[1]), ['Send my CV to a club']);
   const tessReady2 = await (await fetch(BASE + `/build/${tessRec}/ready`, { headers: { cookie: tessCookie } })).text();
   check('dfx-C-P7b: and her "page ready" screen offers it again, to /send',
     new RegExp(`href="/send/${tessRec}"[^>]*>Send it to a club<`).test(tessReady2), true);
@@ -3405,6 +3455,24 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const approve = forms((await get(`/a/${codes[0]}`, null)).html).find((f) => /Approve/.test(f.submit));
   const done = approve ? await postForm(`/a/${codes[0]}`, { ...approve.fields, adult: 'on' }) : '';
   check('funnel-w1: and approves', /\/a\/[0-9a-f-]+\/done/.test(done), true);
+  // N1 (BUZ, 1 Oct): Jordan is now a parent whose one child was just
+  // approved — no link, no register, nothing waiting. The page says so in the
+  // dashed "not yet" tile (an empty space reads as a failed load), and with
+  // nothing to do nothing glows.
+  {
+    const m = (await get('/home', guardian)).html.replace(/<script[\s\S]*?<\/script>/g, ' ');
+    // B1 (spec A): with nothing waiting and an under-16 with no page yet, the
+    // child's "Build {first}'s page" is the screen's one glow.
+    check('hm-w2: a parent with nothing waiting reads “Nothing is waiting on you.” in the dashed tile, and the one glow is Build Ivy’s page',
+      [/<div class="card empty"><div class="empty-tile" aria-hidden="true"><\/div><div><span class="empty-t">Nothing is waiting on you\.<\/span>/.test(m),
+       [...m.replace(/<!-- -->/g, '').matchAll(/class="[^"]*\bfl-glow\b[^"]*"[^>]*>([^<]*)</g)].map((x) => x[1].replace(/&#x27;|&rsquo;/g, '’')),
+       /Waiting on you/.test(m), /class="numeral/.test(m)], [true, ['Build Ivy’s page'], false, false]);
+    // B1 (live defect, BUZ 1 Oct): the parent of a just-approved under-16 has
+    // a door to start the page, and it opens the builder for them.
+    const build = /<a (?=[^>]*href="(\/build\/[0-9a-f-]{36})")(?=[^>]*class="btn btn-(?:primary|secondary)[^"]*")[^>]*>Build (?:<!-- -->)?Ivy(?:<!-- -->)?(?:&#x27;|&rsquo;|’)s page</.exec(m)?.[1] ?? null;
+    check('hm-w2b: and the child’s card offers “Build Ivy’s page”, which opens the builder for the parent',
+      [Boolean(build), build ? (await get(build, guardian)).status : null], [true, 200]);
+  }
   const childId = /\/g\/controls\/([0-9a-f-]{36})/.exec((await get('/home', guardian)).html)?.[1];
   const log = childId ? plainText((await get(`/g/controls/${childId}`, guardian)).html) : [];
   const at = (line) => log.findIndex((l) => l === line);

@@ -3,51 +3,55 @@
 // expiry, register count) and the priority ladder of waiting cards.
 // Player seat: their page as it stands today, then the build actions.
 // Signed-out: one quiet prompt. Copy stays verbatim to the signed screens.
+//
+// FLOODLIT (spec A, the homes; BUZ approved 1 Oct). Every seat's home is the
+// same three layers, built only from the shell parts in globals.css:
+//   1. who and where you are — the HERO PANEL;
+//   2. the one thing to do next — the lead notice, or the screen's single
+//      glowing primary (.fl-glow, Head of Product Design ruling 1);
+//   3. everything else as quiet rows — the centred grey menu cards are one
+//      DOOR LIST, with the same doors, words and conditions.
+// A-P1 (approved): on a phone each seat's one primary sits directly under its
+// hero. The DOM order is the phone order (.hg-top, .hg-lead, .hg-main,
+// .hg-aside); from 1024px named grid areas put the primary back at the head
+// of the aside, so the laptop is unchanged. No query below changed for this.
 import Link from 'next/link';
 import { SUPPORT_EMAIL } from '@/lib/support';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
-import { POSITIONS, type PositionCode } from '@/lib/football';
 import { answerCoachInvite } from '@/app/coach/invite/actions';
 import { PlayerFrame, GuardianFrame } from '@/components/player-shell';
 import RegisterReaders from '@/components/RegisterReaders';
 import RegisterPaused from '@/components/RegisterPaused';
 import WhileYouWereAway from '@/components/WhileYouWereAway';
 import SquadCard from '@/components/SquadCard';
-import { ClubConsole, CoachConsole } from '@/components/console-shell';
+import { ClubConsole, CoachConsole, TopBarShell, ICONS, type IconKey } from '@/components/console-shell';
 import CopyLink from '@/components/cv/CopyLink';
 import { billingEnabled, PRICES } from '@/lib/billing';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
+import { ADMIN_NO_TD_LINE } from '@/lib/home-copy';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Home', robots: { index: false, follow: false } };
 
-const label = sectionLabel;
-
-// framed: the page sits inside a seat's frame, which already paints the
-// floodlight and fills the height — so the Shell brings only its column.
-const Shell = ({ children, framed }: { children: React.ReactNode; framed?: boolean }) => framed ? (
-  <div className="h-rise reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-    <HeaderMark />
-    {children}
-  </div>
-) : (
-  <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-    <style>{`
-      @keyframes homeRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-      .h-rise > * { animation: homeRise .55s cubic-bezier(.22,1,.36,1) both; }
-      .h-rise > *:nth-child(2) { animation-delay: .06s } .h-rise > *:nth-child(3) { animation-delay: .12s }
-      .h-rise > *:nth-child(4) { animation-delay: .18s } .h-rise > *:nth-child(5) { animation-delay: .24s }
-      @media (prefers-reduced-motion: reduce) { .h-rise > * { animation: none } }
-    `}</style>
-    <div className="h-rise reading" style={{ width: '100%', minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+// The two homes with no seat — signed out, and an account with nothing on it
+// yet — render outside a frame, so they take the TOP BAR (spec A part 5): the
+// logo top right on a phone, top left from 1024px, and .has-topbar hides the
+// column's own mark so there is one logo at every width. The reading column
+// is 640 from 1024px, centred. Its old inline <style> block (homeRise) is
+// gone: globals.css has carried the same rules since 16 Sep.
+const Shell = ({ children }: { children: React.ReactNode }) => (
+  <TopBarShell>
+    <div className="h-rise reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
       <HeaderMark />
       {children}
     </div>
-  </div>
+  </TopBarShell>
 );
+
+// A framed home's column: `console h-rise` and the home grid inside it.
+const COLUMN: React.CSSProperties = { width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' };
 
 const StatusRow = ({ color, path, children }: { color: string; path: string; children: React.ReactNode }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -56,17 +60,61 @@ const StatusRow = ({ color, path, children }: { color: string; path: string; chi
   </div>
 );
 
+// The row's way on (spec A part 13): a chevron where the row has no end word.
+const Chev = () => (
+  <span className="row-chev">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+  </span>
+);
+
+// One row of a DOOR LIST: the frame's own glyph, the door's word, and its end
+// word or a chevron. The same href and label the centred card carried.
+type DoorParts = { icon: IconKey; label: string; sub?: string; end?: React.ReactNode };
+const DoorInner = ({ icon, label, sub, end }: DoorParts) => (
+  <>
+    <span className="row-ic">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{ICONS[icon]}</svg>
+    </span>
+    <span className="row-main">
+      <span className="row-t">{label}</span>
+      {sub && <span className="row-s">{sub}</span>}
+    </span>
+    {end ? <span className="row-end">{end}</span> : <Chev />}
+  </>
+);
+const Door = ({ href, ...parts }: DoorParts & { href: string }) => (
+  <Link href={href} className="row"><DoorInner {...parts} /></Link>
+);
+
+// The approved TRIAL ROW, date first (the club page's and the board's day
+// numeral and month), sized for a home panel. The date is decoration for a
+// screen reader, as it was: the title and the time say it in words.
+const TrialLine = ({ day, month, first, children, end }: { day: string; month: string; first: boolean; children: React.ReactNode; end?: React.ReactNode }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '40px minmax(0, 1fr) auto', columnGap: 12, alignItems: 'center', ...(first ? {} : { borderTop: `1px solid ${T.line}`, paddingTop: 12 }) }}>
+    <div aria-hidden style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div className="numeral fl-trial-day">{day}</div>
+      <div className="fl-trial-mon" style={{ textTransform: 'uppercase' }}>{month}</div>
+    </div>
+    <div style={{ minWidth: 0 }}>{children}</div>
+    {end ?? <span />}
+  </div>
+);
+
 export default async function Home({ searchParams }: { searchParams: Promise<{ taken?: string; squad?: string }> }) {
   const { taken, squad } = await searchParams;
   const personId = await getSessionPersonId();
   if (!personId) {
+    // A form is a door (spec A part 20): the two lines and Sign in sit in one
+    // door panel from 640px. Sign in is the only primary, so it glows.
     return (
       <Shell>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome back</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>One account, whichever seat you hold.</div>
+        <div className="door">
+          <div className="pg-titles">
+            <h1 className="pg-title">Welcome back</h1>
+            <div className="pg-sub">One account, whichever seat you hold.</div>
+          </div>
+          <Link href="/signin" className="btn btn-primary fl-glow">Sign in</Link>
         </div>
-        <Link href="/signin" className="btn btn-primary">Sign in</Link>
       </Shell>
     );
   }
@@ -271,10 +319,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     // D-162: a zero is never rendered as a value or a count — it is omitted.
     // A squad with no confirmed players in October and a squad nobody has
     // filled in are not the same thing, and "0" makes them identical.
+    // The numeral keeps `numeral numeral-m` exactly: the zero sweep reads it.
     const tile = (n: number, word: string, color: string) => n > 0 ? (
       <div>
         <div className="numeral numeral-m" style={{ color }}>{n}</div>
-        <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{word}</div>
+        <div className="stat-l">{word}</div>
       </div>
     ) : null;
 
@@ -313,6 +362,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       [personId, clubSeat.id],
     )).rows as { reader_id: string; reader_name: string | null; role_label: string; scope: 'whole' | 'squads' | 'none'; squad_names: string[]; since: string | null }[] : [];
     const theTd = canDo.find((r) => r.scope === 'whole');
+    // B2: is there a Technical Director with an account? A technical_director
+    // membership is only ever attached to a person whose own email is proved
+    // (0100, fn_attach_recorded_td), so a TD row in the database's answer
+    // above IS a TD with an account. No new query.
+    const hasTd = canDo.some((r) => r.role_label === 'Technical Director');
     const plan = !isTd ? (await db.query(
       `select fn_register_payment_state($1, c.id) as pay_state, c.plan,
          to_char(c.current_period_end at time zone 'Australia/Melbourne', 'FMDD Mon') as renews
@@ -323,257 +377,305 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     const canDoLine = (r: typeof canDo[number]) =>
       r.scope === 'whole' ? 'Technical Director — the register, and the club\u2019s development record'
       : r.scope === 'squads' ? `Coach — the registrations for ${r.squad_names.join(' and ')}${r.since ? `, since ${r.since}` : ''}`
-      : r.role_label === 'Club administrator' ? 'Club administrator — the page, squads, notices, coaching roles and the plan. No registrations.'
+      // Live copy fix 1 (BUZ, 1 Oct): there is no plan while billing is off
+      // (D-163), so "and the plan" returns only with the switch.
+      : r.role_label === 'Club administrator' ? (billing
+        ? 'Club administrator — the page, squads, notices, coaching roles and the plan. No registrations.'
+        : 'Club administrator — the page, squads, notices and coaching roles. No registrations.')
       : `${r.role_label} — no registrations.`;
 
-    return (
-      <ClubConsole active="home" floodlight>
-        <div className="console h-rise" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-          <HeaderMark />
-          <div className="player-grid">
-          <div>
-            <div className="sheen" style={{ borderRadius: 22, background: 'var(--hero)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-                <div aria-hidden style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', border: '1.5px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 20, flexShrink: 0 }}>{clubSeat.name[0]}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h1 style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15, margin: 0 }}>{clubSeat.name}</h1>
-                  <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500, marginTop: 3 }}>
-                    {me.first_name} · {isTd ? 'Technical Director' : 'Club administrator'}
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: verified ? T.accent : T.amber }} />
-                <div style={{ fontSize: 11.5, fontWeight: 800, color: verified ? T.accent : T.amber }}>
-                  {verified ? 'Verified club' : 'Awaiting verification — registrations are held'}
-                </div>
-              </div>
-              {verified && isTd && onRegister > 0 && (
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24, flexWrap: 'wrap' }}>
-                  <div>
-                    <div className="numeral numeral-l" style={{ color: T.ink }}>{onRegister}</div>
-                    <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>On your register</div>
-                  </div>
-                  {tile(counts.new ?? 0, 'New', T.accent)}
-                  {tile(counts.shortlisted ?? 0, 'Shortlisted', T.amber)}
-                  {tile(counts.invited ?? 0, 'Invited', T.purple)}
-                </div>
-              )}
-              {/* The administrator's numbers. Squads, notices and roles are the
-                  club's own furniture — no registration, no count of children,
-                  nothing about anybody under 18. Each is omitted at zero
-                  (D-162) rather than printed as a 0 beside a label. */}
-              {verified && !isTd && admin && (
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
-                  {admin.squads > 0 && (
-                    <div>
-                      <div className="numeral numeral-l" style={{ color: T.ink }}>{admin.squads}</div>
-                      <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{admin.squads === 1 ? 'Squad you run' : 'Squads you run'}</div>
-                    </div>
-                  )}
-                  {tile(admin.trials_live, 'Trials live', T.accent)}
-                  {tile(openRoles, openRoles === 1 ? 'Coaching role open' : 'Coaching roles open', T.secondary)}
-                </div>
-              )}
-              {verified && !isTd && theTd?.reader_name && (
-                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.62)', fontWeight: 500, lineHeight: 1.6 }}>
-                  The register is {theTd.reader_name.split(' ')[0]}&rsquo;s. You keep the club&rsquo;s page, its squads, its notices.
-                </div>
-              )}
-              {/* D-162: the held count is a fact about absence when it is zero,
-                  and a fact about absence belongs in words, not as a 0. */}
-              {!verified && (
-                <div style={{ fontSize: 17, fontWeight: 900 }}>
-                  {clubSeat.register_count > 0 ? `${clubSeat.register_count} waiting` : 'Nobody is waiting yet'}
-                </div>
-              )}
+    // FLOODLIT (spec A): one hero for every club seat — the crest initial, the
+    // club, who you are, the club's state as a PILL, and the numbers this seat
+    // is entitled to as a STAT ROW (the TD's register totals in their state
+    // colours; the administrator's furniture in ink; before verification the
+    // held count and nothing else, D-126).
+    const tdHome = verified && isTd;
+    const hero = (
+      <div className="hero-panel sheen">
+        <div className="hero-id">
+          <div aria-hidden className="hero-av">{clubSeat.name[0]}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 className="hero-h">{clubSeat.name}</h1>
+            <div className="hero-m">
+              {me.first_name} · {isTd ? 'Technical Director' : 'Club administrator'}
             </div>
-
-            {/* A-P7 (BUZ, 1 Oct, option A): an unverified club is told what
-                happens next — a call, to a number we find ourselves — and its
-                one glow is the step that moves it forward. Register stays, as
-                a secondary, so no door is lost (D-147). */}
-            {!verified && (
-              <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <h2 style={label}>What happens next</h2>
-                <div style={{ fontSize: 14.5, fontWeight: 900 }}>A short phone call with us</div>
-                <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>We ring {clubSeat.name} on a number we find ourselves, not one you give us. Let the club know to expect us.</div>
-                <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`A good time to ring ${clubSeat.name}`)}`} className="btn btn-primary fl-glow">Email us a good time to ring</a>
-                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflowWrap: 'anywhere' }}>{SUPPORT_EMAIL}</div>
-              </div>
-            )}
-
-            {/* The one accent action on an administrator's screen. Before this
-                there was none: six identical grey buttons and nowhere for the
-                eye to land. */}
-            {verified && !isTd && (
-              <Link href="/club/post-trial" className="btn btn-primary">Post a trial notice</Link>
-            )}
-
-            {verified && isTd && (counts.new ?? 0) > 0 && (
-              <Link href="/club/register?status=new" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none', border: `1px solid ${T.accent}` }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>{counts.new} new on the register</div>
-                  <div style={{ fontSize: 12.5, fontWeight: 500, color: T.muted }}>Open a CV, shortlist, or invite to a trial.</div>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
-              </Link>
-            )}
-
-            {verified && (
-              <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <h2 style={label}>Coming up</h2>
-                {trials.length === 0 ? (
-                  <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, lineHeight: 1.5 }}>No trials coming up. Post one and it goes on your club page and the trials board the same minute.</div>
-                ) : trials.map((t) => (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div aria-hidden style={{ width: 46, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: T.surface2, borderRadius: 12, padding: '7px 0' }}>
-                      <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.accent }}>{t.month}</div>
-                      <div className="tnum" style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: T.ink }}>{t.day}</div>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 800 }}>{t.title}</div>
-                      <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{t.time_venue}</div>
-                    </div>
-                    {isTd && t.interested > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, flexShrink: 0 }}>{t.interested} interested</div>}
-                  </div>
-                ))}
-                {!isTd && trials.length > 0 && (
-                  <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>A notice comes off the board by itself the day after its date. Nobody has to remember.</div>
-                )}
-              </div>
-            )}
-
-            {/* What a family cannot see yet. Two things, and the block is
-                absent when neither is missing — never a completeness score,
-                and never an empty prompt (D-74's objection to the three
-                dropped club-page blocks, and D-162's). */}
-            {!isTd && admin && (admin.no_crest || admin.no_philosophy) && (
-              <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <h2 style={label}>What a family cannot see yet</h2>
-                {admin.no_crest && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 800 }}>Your crest</div>
-                      <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>The page shows an initial where the crest goes.</div>
-                    </div>
-                    <Link href="/club/page-edit" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Add it</Link>
-                  </div>
-                )}
-                {admin.no_crest && admin.no_philosophy && <hr style={{ height: 1, background: T.line, border: 'none', margin: 0 }} />}
-                {admin.no_philosophy && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 800 }}>How the club plays</div>
-                      <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>The section is left out rather than shown empty.</div>
-                    </div>
-                    <Link href="/club/page-edit" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Write it</Link>
-                  </div>
-                )}
-                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>Two things, not a score. A club page with nothing missing is not a better club.</div>
-              </div>
-            )}
-
-            {pageUrl && isTd && (
-              <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{pageUrl}</div>
-                  <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>Your club page · public</div>
-                </div>
-                <CopyLink url={`https://${pageUrl}`} label="Copy" compact />
-              </div>
-            )}
           </div>
-
-          <div>
-            {/* D-154: a named person reads the register — the TD. An administrator
-                keeps the club's page, squads, trials and billing, and before
-                verification the waiting count, which holds no child's details. */}
-            {(isTd || !verified) && (
-              <Link href="/club/register" className={verified ? 'btn btn-primary' : 'btn btn-secondary'}>Register</Link>
+        </div>
+        <span className={verified ? 'pill pill-live' : 'pill pill-wait pill-wrap'} style={{ alignSelf: 'flex-start' }}>
+          {verified ? 'Verified club' : 'Awaiting verification — registrations are held'}
+        </span>
+        {verified && isTd && onRegister > 0 && (
+          <div className="stat-row" style={{ gap: 24 }}>
+            <div>
+              <div className="numeral numeral-l" style={{ color: T.ink }}>{onRegister}</div>
+              <div className="stat-l">On your register</div>
+            </div>
+            {tile(counts.new ?? 0, 'New', T.accent)}
+            {tile(counts.shortlisted ?? 0, 'Shortlisted', T.amber)}
+            {tile(counts.invited ?? 0, 'Invited', T.purple)}
+          </div>
+        )}
+        {/* The administrator's numbers. Squads, notices and roles are the
+            club's own furniture — no registration, no count of children,
+            nothing about anybody under 18. Each is omitted at zero (D-162)
+            rather than printed as a 0 beside a label, and all three are ink:
+            they are facts, not actions or states. */}
+        {verified && !isTd && admin && (admin.squads > 0 || admin.trials_live > 0 || openRoles > 0) && (
+          <div className="stat-row">
+            {admin.squads > 0 && (
+              <div>
+                <div className="numeral numeral-l" style={{ color: T.ink }}>{admin.squads}</div>
+                <div className="stat-l">{admin.squads === 1 ? 'Squad you run' : 'Squads you run'}</div>
+              </div>
             )}
-            {/* THE TECHNICAL DIRECTOR'S RAIL, unchanged. It repeats the sidebar
-                too and that is a separate proposal; the administrator's is the
-                one BUZ asked for, because for her the rail WAS the screen. */}
-            {isTd ? (
-              <>
-                {verified && (
-                  <Link href="/club/post-trial" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Post a trial</Link>
-                )}
-                <Link href="/club/squads" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Squads</Link>
-                <Link href="/club/page-edit" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Crest &amp; club page</Link>
-                <Link href="/club/roles" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: T.secondary }}>Coaching roles</div>
-                  {openRoles > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.accent }}>{openRoles} open</div>}
-                </Link>
-                {clubSeat.public_slug && (
-                  <Link href={`/fc/${clubSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Your club page</Link>
-                )}
-                {billing && (
-                  <Link href="/club/billing" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Plan &amp; billing</Link>
-                )}
-              </>
-            ) : (
-              <>
-                {/* The club's public state, not a second copy of the sidebar.
-                    Every door here is still in the frame beside it (D-147: the
-                    rail is a second way to the same doors, never a new one). */}
-                {pageUrl && (
-                  <div className="card-sunken" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-                    <h2 style={label}>Your club page</h2>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{pageUrl}</div>
-                    <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-                      <CopyLink url={`https://${pageUrl}`} label="Copy the link" compact />
-                      <Link href={`/fc/${clubSeat.public_slug}`} style={{ height: 44, padding: '0 16px', borderRadius: 999, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Open it</Link>
-                    </div>
-                    <hr style={{ height: 1, background: T.line, border: 'none', margin: 0 }} />
-                    <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6 }}>
-                      Public and live.{admin && admin.trials_live > 0 ? ' Your trial notices are on it and on the trials board.' : ''}
-                    </div>
-                  </div>
-                )}
+            {tile(admin.trials_live, 'Trials live', T.ink)}
+            {tile(openRoles, openRoles === 1 ? 'Coaching role open' : 'Coaching roles open', T.ink)}
+          </div>
+        )}
+        {verified && !isTd && theTd?.reader_name && (
+          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.62)', fontWeight: 500, lineHeight: 1.6 }}>
+            The register is {theTd.reader_name.split(' ')[0]}&rsquo;s. You keep the club&rsquo;s page, its squads, its notices.
+          </div>
+        )}
 
-                {/* The safety story on the screen an administrator meets first,
-                    and the only place D-93's split is said out loud to the
-                    person it constrains. The database's answer, not this
-                    page's (L23). */}
-                {canDo.length > 0 && (
-                  <div className="card-sunken" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-                    <h2 style={label}>Who can do what here</h2>
-                    {canDo.map((r, i) => (
-                      <div key={r.reader_id} style={{ borderTop: i === 0 ? undefined : `1px solid ${T.line}`, paddingTop: i === 0 ? 0 : 11 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 800, color: r.reader_id === personId ? T.accent : T.ink }}>
-                          {r.reader_id === personId ? 'You' : r.reader_name ?? 'A club member'}
-                        </div>
-                        <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, marginTop: 2, lineHeight: 1.5 }}>{canDoLine(r)}</div>
-                      </div>
-                    ))}
-                    <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>
-                      A treasurer who sends the invoices should not be able to read a child&rsquo;s development notes. That is on purpose.
-                    </div>
-                  </div>
-                )}
+        {/* D-162: the held count is a fact about absence when it is zero,
+            and a fact about absence belongs in words, not as a 0. Above zero
+            it is the hero's one stat: the numeral and the word "waiting". */}
+        {!verified && (clubSeat.register_count > 0 ? (
+          <div className="stat-row">
+            <div>
+              <div className="numeral numeral-l" style={{ color: T.ink }}>{clubSeat.register_count}</div>
+              <div className="stat-l">waiting</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 17, fontWeight: 900 }}>Nobody is waiting yet</div>
+        ))}
+      </div>
+    );
 
-                {/* D-163: no price anywhere while billing is off — by rule, from
-                    the same switch as the sidebar's door, not by the accident of
-                    fn_register_payment_state answering 'free' (A-P8). */}
-                {billing && plan?.pay_state === 'active' && (
-                  <Link href="/club/billing" className="card-sunken lift" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 6, textDecoration: 'none' }}>
-                    <h2 style={label}>Plan</h2>
-                    <div style={{ fontSize: 13.5, fontWeight: 800, color: T.ink }}>
-                      {(plan.plan === 'register_annual' ? PRICES.register_annual : PRICES.register_monthly).label}
-                      {plan.renews ? ` · next charge ${plan.renews.trim()}` : ''}
-                    </div>
-                    <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>The receipt is addressed to the club, not to you, so it can be reimbursed without an argument.</div>
+    // A-P7 (BUZ, 1 Oct, option A): an unverified club is told what happens
+    // next — a call, to a number we find ourselves — and its one glow is the
+    // step that moves it forward. Register stays, as a secondary, so no door
+    // is lost (D-147).
+    const whatNext = !verified && (
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h2 className="panel-h">What happens next</h2>
+        <div style={{ fontSize: 14.5, fontWeight: 900 }}>A short phone call with us</div>
+        <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>We ring {clubSeat.name} on a number we find ourselves, not one you give us. Let the club know to expect us.</div>
+        <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`A good time to ring ${clubSeat.name}`)}`} className="btn btn-primary fl-glow">Email us a good time to ring</a>
+        <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, overflowWrap: 'anywhere' }}>{SUPPORT_EMAIL}</div>
+      </div>
+    );
+
+    // Coming up: the approved trial row, date first. Empty, it is the dashed
+    // "not yet" tile with its sentence as ONE element (ah12c reads it whole).
+    const comingUp = verified && (
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <h2 className="panel-h">Coming up</h2>
+        {trials.length === 0 ? (
+          <div className="empty" style={{ padding: '4px 0 0 0' }}>
+            <div className="empty-tile" aria-hidden />
+            <div className="empty-b">No trials coming up. Post one and it goes on your club page and the trials board the same minute.</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {trials.map((t, i) => (
+              <TrialLine key={t.id} day={t.day} month={t.month} first={i === 0}
+                end={isTd && t.interested > 0 ? <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, flexShrink: 0 }}>{t.interested} interested</div> : undefined}>
+                <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.3 }}>{t.title}</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{t.time_venue}</div>
+              </TrialLine>
+            ))}
+          </div>
+        )}
+        {!isTd && trials.length > 0 && (
+          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>A notice comes off the board by itself the day after its date. Nobody has to remember.</div>
+        )}
+      </div>
+    );
+
+    // What a family cannot see yet. Two things, and the block is absent when
+    // neither is missing — never a completeness score, and never an empty
+    // prompt (D-74's objection to the three dropped club-page blocks, and
+    // D-162's). Each is a list row ending in its own word.
+    const missing = !isTd && admin && (admin.no_crest || admin.no_philosophy) && (
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <h2 className="panel-h">What a family cannot see yet</h2>
+        <div className="rows">
+          {admin.no_crest && (
+            <Link href="/club/page-edit" className="row" style={{ padding: '10px 0' }}>
+              <span className="row-main">
+                <span className="row-t" style={{ fontSize: 13.5 }}>Your crest</span>
+                <span className="row-s" style={{ fontSize: 12 }}>The page shows an initial where the crest goes.</span>
+              </span>
+              <span className="row-end">Add it</span>
+            </Link>
+          )}
+          {admin.no_philosophy && (
+            <Link href="/club/page-edit" className="row" style={{ padding: '10px 0' }}>
+              <span className="row-main">
+                <span className="row-t" style={{ fontSize: 13.5 }}>How the club plays</span>
+                <span className="row-s" style={{ fontSize: 12 }}>The section is left out rather than shown empty.</span>
+              </span>
+              <span className="row-end">Write it</span>
+            </Link>
+          )}
+        </div>
+        <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>Two things, not a score. A club page with nothing missing is not a better club.</div>
+      </div>
+    );
+
+    const linkPanel = pageUrl && isTd && (
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{pageUrl}</div>
+          <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>Your club page · public</div>
+        </div>
+        <CopyLink url={`https://${pageUrl}`} label="Copy" compact />
+      </div>
+    );
+
+    // THE TECHNICAL DIRECTOR'S DOORS: the six centred grey menu cards are one
+    // door list, with the same hrefs, labels and conditions. It still repeats
+    // the sidebar — dropping it is A-P2, which is "not now" — but quietly.
+    const doors = isTd && (
+      <div className="card rows doors">
+        {verified && <Door href="/club/post-trial" icon="trials" label="Post a trial" />}
+        <Door href="/club/squads" icon="children" label="Squads" />
+        <Door href="/club/page-edit" icon="crest" label="Crest & club page" />
+        <Door href="/club/roles" icon="roles" label="Coaching roles" end={openRoles > 0 ? <>{openRoles} open</> : undefined} />
+        {clubSeat.public_slug && <Door href={`/fc/${clubSeat.public_slug}`} icon="page" label="Your club page" />}
+        {/* D-163: the same switch as the sidebar's door (perms free5d). */}
+        {billing && (
+          <Link href="/club/billing" className="row"><DoorInner icon="card" label="Plan & billing" /></Link>
+        )}
+      </div>
+    );
+
+    // The administrator's aside: the club's public state, not a second copy
+    // of the sidebar. Every door here is still in the frame beside it (D-147:
+    // the rail is a second way to the same doors, never a new one).
+    const adminAside = !isTd && (
+      <>
+        {pageUrl && (
+          <div className="card-sunken" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <h2 className="panel-h">Your club page</h2>
+            <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{pageUrl}</div>
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+              <CopyLink url={`https://${pageUrl}`} label="Copy the link" compact />
+              {/* Was a 44px, 999-radius outlined link — a third button style.
+                  The charter's secondary now, the same word and href. */}
+              <Link href={`/fc/${clubSeat.public_slug}`} className="btn btn-secondary btn-auto" style={{ padding: '0 16px' }}>Open it</Link>
+            </div>
+            <hr style={{ height: 1, background: T.line, border: 'none', margin: 0 }} />
+            <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6 }}>
+              Public and live.{admin && admin.trials_live > 0 ? ' Your trial notices are on it and on the trials board.' : ''}
+            </div>
+          </div>
+        )}
+
+        {/* The safety story on the screen an administrator meets first, and
+            the only place D-93's split is said out loud to the person it
+            constrains. The database's answer, not this page's (L23). */}
+        {canDo.length > 0 && (
+          <div className="card-sunken" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <h2 className="panel-h">Who can do what here</h2>
+            {canDo.map((r, i) => (
+              <div key={r.reader_id} style={{ borderTop: i === 0 ? undefined : `1px solid ${T.line}`, paddingTop: i === 0 ? 0 : 11 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: r.reader_id === personId ? T.accent : T.ink }}>
+                  {r.reader_id === personId ? 'You' : r.reader_name ?? 'A club member'}
+                </div>
+                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, marginTop: 2, lineHeight: 1.5 }}>{canDoLine(r)}</div>
+              </div>
+            ))}
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>
+              A treasurer who sends the invoices should not be able to read a child&rsquo;s development notes. That is on purpose.
+            </div>
+          </div>
+        )}
+
+        {/* D-163: no price anywhere while billing is off — by rule, from the
+            same switch as the sidebar's door, not by the accident of
+            fn_register_payment_state answering 'free' (A-P8). */}
+        {billing && plan?.pay_state === 'active' && (
+          <Link href="/club/billing" className="card-sunken lift" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 6, textDecoration: 'none' }}>
+            <h2 className="panel-h">Plan</h2>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: T.ink }}>
+              {(plan.plan === 'register_annual' ? PRICES.register_annual : PRICES.register_monthly).label}
+              {plan.renews ? ` · next charge ${plan.renews.trim()}` : ''}
+            </div>
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>The receipt is addressed to the club, not to you, so it can be reimbursed without an argument.</div>
+          </Link>
+        )}
+        {billing && plan && (plan.pay_state === 'grace' || plan.pay_state === 'suspended') && (
+          <RegisterPaused state={plan.pay_state} billingLink />
+        )}
+      </>
+    );
+
+    return (
+      <ClubConsole active="home">
+        <div className="console h-rise" style={COLUMN}>
+          <HeaderMark />
+          {tdHome ? (
+            // The verified TD (A-P1): hero, then Register — the seat's one
+            // primary — then what is new, what is coming up, and the page.
+            // D-154: a named person reads the register, the TD.
+            <div className="home-grid hg-p1">
+              <div className="hg-top">{hero}</div>
+              <div className="hg-lead">
+                <Link href="/club/register" className="btn btn-primary fl-glow">Register</Link>
+              </div>
+              <div className="hg-main">
+                {(counts.new ?? 0) > 0 && (
+                  <Link href="/club/register?status=new" className="card card-accent row fl-float lift">
+                    <span className="row-main">
+                      <span className="row-t">{counts.new} new on the register</span>
+                      <span className="row-s">Open a CV, shortlist, or invite to a trial.</span>
+                    </span>
+                    <Chev />
                   </Link>
                 )}
-                {billing && plan && (plan.pay_state === 'grace' || plan.pay_state === 'suspended') && (
-                  <RegisterPaused state={plan.pay_state} billingLink />
+                {comingUp}
+                {linkPanel}
+              </div>
+              <div className="hg-aside">{doors}</div>
+            </div>
+          ) : (
+            // The administrator (the one accent action, Post a trial notice,
+            // already sits under the hero) and the unverified club.
+            <div className="home-grid">
+              <div>
+                {hero}
+                {whatNext}
+                {verified && !isTd && (
+                  <Link href="/club/post-trial" className="btn btn-primary fl-glow">Post a trial notice</Link>
                 )}
-              </>
-            )}
-          </div>
-          </div>
+                {/* B2 (BUZ, 1 Oct; spec A, mockup #ad-notd): after verification
+                    the TD may never be told to sign up. While no TD has an
+                    account, an amber notice directly under the one primary
+                    says so — a state, so no button and no glow — and the
+                    hero has no "The register is…" line to name nobody.
+                    Nothing is sent to anyone. */}
+                {verified && !isTd && !hasTd && (
+                  <div role="status" className="card card-amber" data-no-td style={{ fontSize: 13.5, fontWeight: 700, color: T.ink, lineHeight: 1.5 }}>{ADMIN_NO_TD_LINE}</div>
+                )}
+                {comingUp}
+                {missing}
+                {linkPanel}
+              </div>
+              <div>
+                {/* Before verification the waiting count, which holds no
+                    child's details — a secondary since A-P7. */}
+                {!verified && (
+                  <Link href="/club/register" className="btn btn-secondary">Register</Link>
+                )}
+                {doors}
+                {adminAside}
+              </div>
+            </div>
+          )}
         </div>
       </ClubConsole>
     );
@@ -601,25 +703,25 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     const todo = steps.filter((x) => !x.done).slice(0, 2);
     return (
       <CoachConsole active="home">
-        <div className="console h-rise" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+        <div className="console h-rise" style={COLUMN}>
           <HeaderMark />
-          <div className="player-grid">
-          <div>
-            <div className="sheen" style={{ borderRadius: 22, background: 'var(--hero)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+          <div className="home-grid hg-p1">
+          <div className="hg-top">
+            <div className="hero-panel sheen">
+              <div className="hero-id">
                 {me.photo_path ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={me.photo_path} alt="" width={52} height={52} className="avatar-ring" style={{ borderRadius: 16, objectFit: 'cover', flexShrink: 0 }} />
+                  <img src={me.photo_path} alt="" width={52} height={52} className="hero-av avatar-ring" />
                 ) : (
-                  <div aria-hidden style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 19, flexShrink: 0 }}>{me.first_name[0]}</div>
+                  <div aria-hidden className="hero-av">{me.first_name[0]}</div>
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h1 style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15, margin: 0 }}>Your coach page</h1>
-                  <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500, marginTop: 3 }}>{me.first_name}{coachSeat.club ? ` · ${coachSeat.club}` : ''}</div>
+                  <h1 className="hero-h">Your coach page</h1>
+                  <div className="hero-m">{me.first_name}{coachSeat.club ? ` · ${coachSeat.club}` : ''}</div>
                 </div>
               </div>
               {url ? (
-                <div style={{ background: 'rgba(11,18,14,.5)', border: `1px solid ${T.line}`, borderRadius: 12, padding: '8px 8px 8px 13px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="hero-well">
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{url}</div>
                     <div style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,.6)' }}>Public · paste it wherever you talk to clubs and families</div>
@@ -630,14 +732,26 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: 'rgba(255,255,255,.7)', lineHeight: 1.5 }}>{coachSeat.adult ? 'Your page gets its own link once you publish it.' : 'Your coach page can go public once you turn 18.'}</div>
               )}
             </div>
+          </div>
 
+          {/* The coach's one primary, and the screen's one glow — with or
+              without an invitation (spec A; A-P1 puts it under the hero). */}
+          <div className="hg-lead">
+            <Link href="/coach/edit" className="btn btn-primary fl-glow">Edit my coach CV</Link>
+          </div>
+
+          <div className="hg-main">
+            {/* A club's invitation is a purple notice, lifted. Accepting joins
+                the coach to a club, so Accept and Not now take D-PD-0's equal
+                weight: the same secondary, the same width, and neither glows
+                (Head of Product Design, 1 Oct). Both are the forms they were. */}
             {coachSeat.invites.map((inv) => (
-              <div key={inv.id} style={{ ...card, border: `1.5px solid ${T.accent}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div key={inv.id} className="card card-purple fl-float" style={{ borderWidth: 1.5, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ fontSize: 14.5, fontWeight: 800 }}>{inv.club} wants you as their coach for {inv.teams.join(', ')}</div>
                 <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>You&rsquo;ll be able to read the registrations for those teams. You won&rsquo;t be able to invite a family or change anything, and every one you open is recorded.</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <form action={answerCoachInvite} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="inviteId" value={inv.id} /><input type="hidden" name="answer" value="accept" />
-                    <button type="submit" className="btn btn-primary">Accept</button>
+                    <button type="submit" className="btn btn-secondary">Accept</button>
                   </form>
                   <form action={answerCoachInvite} style={{ flex: 1, display: 'flex' }}><input type="hidden" name="inviteId" value={inv.id} /><input type="hidden" name="answer" value="decline" />
                     <button type="submit" className="btn btn-secondary">Not now</button>
@@ -646,9 +760,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               </div>
             ))}
 
-            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                <h2 style={label}>Your page</h2>
+                <h2 className="panel-h">Your page</h2>
                 {/* D-162: "0 of 6 done" prints a zero as a value. The bar
                     below says the same thing without it. */}
                 {done > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{done} of {steps.length} done</div>}
@@ -659,9 +773,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               {todo.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {todo.map((t) => (
-                    <Link key={t.label} href="/coach/edit" className="lift" style={{ display: 'flex', alignItems: 'center', gap: 11, minHeight: 44, background: T.surface2, borderRadius: 12, padding: '0 12px', textDecoration: 'none' }}>
-                      <div style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: T.ink }}>{t.label}</div>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+                    <Link key={t.label} href="/coach/edit" className="row-step lift">
+                      <span style={{ flex: 1 }}>{t.label}</span>
+                      <Chev />
                     </Link>
                   ))}
                 </div>
@@ -671,28 +785,23 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             </div>
 
             {coachSeat.register_teams > 0 && (
-              <Link href="/coach/register" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: T.ink }}>Registrations for your teams</div>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{coachSeat.register_team_names.join(' · ')}</div>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+              <Link href="/coach/register" className="card row lift">
+                <span className="row-main">
+                  <span className="row-t" style={{ fontSize: 14 }}>Registrations for your teams</span>
+                  <span className="row-s" style={{ fontSize: 12 }}>{coachSeat.register_team_names.join(' · ')}</span>
+                </span>
+                <Chev />
               </Link>
             )}
           </div>
 
-          <div>
-            <Link href="/coach/edit" className="btn btn-primary">Edit my coach CV</Link>
-            {coachSeat.public_slug && (
-              <Link href={`/c/${coachSeat.public_slug}`} className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>See my public page</Link>
-            )}
-            {coachSeat.register_teams > 0 && (
-              <Link href="/coach/register" className="lift" style={{ ...card, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Registrations</Link>
-            )}
-            <Link href="/jobs" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: T.secondary }}>Coaching roles at clubs</div>
-              {coachSeat.open_roles > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.accent }}>{coachSeat.open_roles} open</div>}
-            </Link>
+          {/* The three aside cards are one door list, with the same hrefs. */}
+          <div className="hg-aside">
+            <div className="card rows doors">
+              {coachSeat.public_slug && <Door href={`/c/${coachSeat.public_slug}`} icon="page" label="See my public page" />}
+              {coachSeat.register_teams > 0 && <Door href="/coach/register" icon="register" label="Registrations" />}
+              <Door href="/jobs" icon="roles" label="Coaching roles at clubs" end={coachSeat.open_roles > 0 ? <>{coachSeat.open_roles} open</> : undefined} />
+            </div>
           </div>
           </div>
         </div>
@@ -735,26 +844,44 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     // this page's, and doc 34 rule 6 (who may see a read receipt) is untouched.
     const awaySince = (await db.query('select fn_note_arrival($1) as since', [personId])).rows[0].since as string | null;
 
+    // F5 (BUZ approved the words, 1 Oct): a 16–17 whose parent has not
+    // confirmed (0048). Their own request is the open pending_invitation that
+    // names them (child_id); this reads only whether one is open and whether
+    // its text is still waiting for SMS (D-168, fn_invitation_sms_queued) —
+    // nothing about the parent. No open request means it has CLOSED, and the
+    // two endings (the parent ended it, or 14 days passed) read the same: the
+    // purge leaves nothing to tell them apart, and the words must not either
+    // (D-17, U-1). The re-ask door is not drawn until John rules (F5).
+    const parentAsk = me.band === '16_17' && !me.has_guardian ? ((await db.query(
+      `select fn_invitation_sms_queued(pi.id) as text_queued from pending_invitation pi
+        where pi.child_id = $1 and pi.approved_at is null
+        order by pi.created_at desc limit 1`,
+      [personId],
+    )).rows[0] as { text_queued: boolean } | undefined) ?? 'closed' : null;
+
     return (
       <PlayerFrame active="home">
-        <div className="console h-rise" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+        <div className="console h-rise" style={COLUMN}>
           <HeaderMark />
-          <div className="player-grid">
-          <div>
+          <div className="home-grid hg-p1">
+          <div className="hg-top">
           {awaySince && <WhileYouWereAway viewerId={personId as string} since={awaySince} />}
-          <div className="sheen" style={{ borderRadius: 22, background: 'var(--hero)', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
+          {/* The player-card variant of the hero: the CV's own ghost squad
+              number (.cv-num, reused as is), drawn only when there is one. */}
+          <div className="hero-panel sheen">
+            {pg?.squad_number ? <span className="cv-num" aria-hidden>{pg.squad_number}</span> : null}
+            <div className="hero-id" style={{ alignItems: 'flex-start' }}>
               {me.photo_path ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={me.photo_path} alt="" width={52} height={52} className="avatar-ring" style={{ borderRadius: 16, objectFit: 'cover', flexShrink: 0 }} />
+                <img src={me.photo_path} alt="" width={52} height={52} className="hero-av avatar-ring" />
               ) : (
-                <div aria-hidden style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 19, flexShrink: 0 }}>{me.first_name[0]}</div>
+                <div aria-hidden className="hero-av">{me.first_name[0]}</div>
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15, margin: 0 }}>
+                <h1 className="hero-h">
                   {live ? 'Your page is live' : 'Your page'}
                 </h1>
-                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.7)', fontWeight: 500, marginTop: 3 }}>
+                <div className="hero-m">
                   {[
                     (pg?.positions ?? []).join(' · ') || null,
                     pg?.squad_number ? `#${pg.squad_number}` : null,
@@ -762,13 +889,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                   ].filter(Boolean).join(' · ') || 'No positions picked yet'}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: live ? 'rgba(61,220,132,.16)' : 'rgba(255,255,255,.1)', borderRadius: 999, padding: '5px 10px', flexShrink: 0 }}>
-                <div aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: live ? T.accent : T.muted }} />
-                <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: live ? T.accent : 'rgba(255,255,255,.75)' }}>{live ? 'Live' : 'Not sent yet'}</div>
-              </div>
+              {/* A status fact, never a control. Not sent yet is neutral: it
+                  is a fact, not a warning. */}
+              <span className={live ? 'pill pill-live' : 'pill'}>{live ? 'Live' : 'Not sent yet'}</span>
             </div>
             {live ? (
-              <div style={{ background: 'rgba(11,18,14,.5)', border: `1px solid ${T.line}`, borderRadius: 12, padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div className="hero-well" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: T.accent }}>pitchfootball.com.au/p/{pg?.link?.token_hint ?? '····'}</div>
                 <div style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,.6)' }}>
                   {pg?.link?.expires ? `Live · expires ${pg.link.expires.trim()}` : 'Live · no expiry'}
@@ -780,22 +906,58 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               </div>
             )}
           </div>
+          </div>
 
-          {me.my_invitation && (
-            <Link href={`/g/invite/${me.my_invitation.id}`} className="lift" style={{ ...card, border: `1px solid ${T.purple}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
-              <div>
-                <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>{me.my_invitation.club} would like you at a trial</div>
-                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
-                  {me.my_invitation.draft ? 'Your reply is with your parent to approve.' : me.band === '18plus' ? 'Reply when you are ready — or don’t.' : 'Your parent can see it too.'}
+          {/* The seat's one primary, directly under the hero on a phone
+              (A-P1), at the head of the aside on a laptop. */}
+          <div className="hg-lead">
+            {parentAsk === 'closed' ? (
+              // F5: the request has closed, for either ending. Not "waiting",
+              // and nothing that says which ending it was.
+              <div role="status" className="card card-amber" data-parent-ask="closed" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, lineHeight: 1.5 }}>This request has closed. You can ask again whenever you like.</div>
+              </div>
+            ) : parentAsk ? (
+              // 0048: a 16–17 sends only once a parent has confirmed. The
+              // screen's only primary is unavailable, so nothing glows. While
+              // the text still waits for SMS, "We've texted" would be untrue
+              // (D-168), so the approved queued line says what did happen.
+              <div role="status" className="card card-amber" data-parent-ask={parentAsk.text_queued ? 'text-queued' : 'asked'} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>Waiting on your parent</div>
+                <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
+                  {parentAsk.text_queued
+                    ? 'We\u2019ve emailed them, and their text follows shortly. Once they do, you can send.'
+                    : <>We&rsquo;ve texted and emailed them to confirm they&rsquo;re your parent. Once they do, you can send your CV to clubs. Keep building your page in the meantime.</>}
                 </div>
               </div>
-              <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
+            ) : (
+              <Link href={`/send/${rec}`} className="btn btn-primary fl-glow">Send my CV to a club</Link>
+            )}
+            {/* Main.dc.html's second button. /share-card had no link from
+                anywhere (D-164). A share card is an under-18's, approved as an
+                image by their parent (D-101) — so it is offered where there is
+                a confirmed parent to approve it, and to nobody else. */}
+            {me.band !== '18plus' && me.has_guardian && (
+              <Link href={`/share-card/${rec}`} className="btn btn-secondary">Share my CV</Link>
+            )}
+          </div>
+
+          <div className="hg-main">
+          {me.my_invitation && (
+            <Link href={`/g/invite/${me.my_invitation.id}`} className="card card-purple row lift">
+              <span className="row-main">
+                <span className="row-t">{me.my_invitation.club} would like you at a trial</span>
+                <span className="row-s">
+                  {me.my_invitation.draft ? 'Your reply is with your parent to approve.' : me.band === '18plus' ? 'Reply when you are ready — or don’t.' : 'Your parent can see it too.'}
+                </span>
+              </span>
+              <span className="row-end">Open</span>
             </Link>
           )}
 
-          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-              <h2 style={label}>Your page</h2>
+              <h2 className="panel-h">Your page</h2>
               {done > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: T.secondary }}>{done} of {steps.length} done</div>}
             </div>
             <div aria-hidden style={{ height: 6, borderRadius: 999, background: T.surface2, overflow: 'hidden' }}>
@@ -804,9 +966,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             {todo.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {todo.map((t) => (
-                  <Link key={t.label} href={t.href} className="lift" style={{ display: 'flex', alignItems: 'center', gap: 11, minHeight: 44, background: T.surface2, borderRadius: 12, padding: '0 12px', textDecoration: 'none' }}>
-                    <div style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: T.ink }}>{t.label}</div>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+                  <Link key={t.label} href={t.href} className="row-step lift">
+                    <span style={{ flex: 1 }}>{t.label}</span>
+                    <Chev />
                   </Link>
                 ))}
               </div>
@@ -821,55 +983,29 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           <SquadCard personId={personId as string} firstName={me.first_name as string} back="/home" mine said={squad} />
 
           {next && (
-            <Link href="/trials" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', gap: 13, textDecoration: 'none' }}>
-              <div aria-hidden style={{ width: 46, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: T.surface2, borderRadius: 12, padding: '7px 0' }}>
-                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.accent }}>{next.month}</div>
-                <div className="tnum" style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: T.ink }}>{next.day}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: T.ink }}>{next.club} · {next.title}</div>
+            <Link href="/trials" className="card lift" style={{ display: 'block', textDecoration: 'none', color: T.ink }}>
+              <TrialLine day={next.day} month={next.month} first end={<Chev />}>
+                <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.3, color: T.ink }}>{next.club} · {next.title}</div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{next.time_venue}</div>
                 <div style={{ fontSize: 11.5, fontWeight: 800, color: T.accent, marginTop: 2 }}>You are on their register</div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+              </TrialLine>
             </Link>
           )}
-
           </div>
 
-          <div>
-            {me.band === '16_17' && !me.has_guardian ? (
-              // 0048: a 16–17 sends only once a parent has confirmed.
-              <div role="status" style={{ ...card, border: `1px solid ${T.amber}`, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ fontSize: 14, fontWeight: 800 }}>Waiting on your parent</div>
-                <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>
-                  We&rsquo;ve texted and emailed them to confirm they&rsquo;re your parent. Once they do, you can send your CV to clubs. Keep building your page in the meantime.
-                </div>
-              </div>
-            ) : (
-              <Link href={`/send/${rec}`} className="btn btn-primary">Send my CV to a club</Link>
-            )}
-            {/* Main.dc.html's second button. /share-card had no link from
-                anywhere (D-164). A share card is an under-18's, approved as an
-                image by their parent (D-101) — so it is offered where there is
-                a confirmed parent to approve it, and to nobody else. */}
-            {me.band !== '18plus' && me.has_guardian && (
-              <Link href={`/share-card/${rec}`} className="btn btn-secondary">Share my CV</Link>
-            )}
-            <div style={{ display: 'flex', gap: 9 }}>
-              <Link href={`/build/${rec}`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Build your CV</Link>
-              <Link href="/trials" className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Trials near you</Link>
-            </div>
-            <div style={{ display: 'flex', gap: 9 }}>
-              <Link href={`/build/${rec}/clips`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Highlights</Link>
-              <Link href={`/build/${rec}/more`} className="lift" style={{ ...card, flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: T.secondary, textDecoration: 'none' }}>Achievements</Link>
+          <div className="hg-aside">
+            {/* The four menu cards are one door list: the same four hrefs and
+                labels, each with the frame's own glyph. */}
+            <div className="card rows doors">
+              <Door href={`/build/${rec}`} icon="cv" label="Build your CV" />
+              <Door href="/trials" icon="trials" label="Trials near you" />
+              <Door href={`/build/${rec}/clips`} icon="clip" label="Highlights" />
+              <Door href={`/build/${rec}/more`} icon="star" label="Achievements" />
             </div>
             {/* doc 34 rule 6 (0047): a player 16 or over sees who read their
                 registrations; an under-16's parent sees it on their controls. */}
             {me.band !== 'u16' && (me.my_registers > 0 || Boolean(taken)) && (
-              <div style={{ marginTop: 16 }}>
-                <RegisterReaders viewerId={personId as string} personId={personId as string} name={null} back="/home" taken={Boolean(taken)} />
-              </div>
+              <RegisterReaders viewerId={personId as string} personId={personId as string} name={null} back="/home" taken={Boolean(taken)} />
             )}
           </div>
           </div>
@@ -886,48 +1022,35 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   // These are the doors that actually work for an account with nothing on
   // it. Nothing here is aspirational: each one is a page that exists.
   if (children.length === 0) {
+    // Four doors in one door list, each with its glyph, its one-line reason
+    // and its approved end word. Nothing glows: nothing on the page says
+    // which door is this person's (A-P5 would; it needs a stored field).
     return (
       <Shell>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Welcome, {me.first_name}</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Your account is set up. Here is what you can do with it.</div>
+        <div className="pg-titles">
+          <h1 className="pg-title">Welcome, {me.first_name}</h1>
+          <div className="pg-sub" style={{ lineHeight: 1.55 }}>Your account is set up. Here is what you can do with it.</div>
         </div>
 
-        <Link href="/coach/edit" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
-          <div>
-            <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Build a coach CV</div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Your roles, your licences, one link to send</div>
-          </div>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Start</div>
-        </Link>
+        {/* A-P5 (approved) leads with the role picked at /join. Nothing stores
+            that role yet (it is one adult-only field, D-25, for the tech
+            team), so for an account with no stored role — every account that
+            lands here today: a coach account has a coach page and a player
+            one a record — "Find your club" goes first (live copy fix 3,
+            BUZ 1 Oct). An order change only; no new words. */}
+        <div className="card rows">
+          {/* A new club account lands here with no seat until it claims (30 Sep). */}
+          <Door href="/claim" icon="crest" label="Here for a club? Find your club" sub="Search for it and claim its page" end="Open" />
+          <Door href="/coach/edit" icon="cv" label="Build a coach CV" sub="Your roles, your licences, one link to send" end="Start" />
+          <Door href="/trials" icon="trials" label="Trials near you" sub="Every notice we hold, by date" end="Open" />
+          <Door href="/jobs" icon="roles" label="Coaching roles at clubs" sub="Nothing here is ranked or recommended" end="Open" />
+        </div>
 
-        <Link href="/trials" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
-          <div>
-            <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Trials near you</div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Every notice we hold, by date</div>
-          </div>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
-        </Link>
-
-        <Link href="/jobs" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
-          <div>
-            <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Coaching roles at clubs</div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Nothing here is ranked or recommended</div>
-          </div>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
-        </Link>
-
-        {/* A new club account lands here with no seat until it claims (30 Sep). */}
-        <Link href="/claim" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
-          <div>
-            <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Here for a club? Find your club</div>
-            <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Search for it and claim its page</div>
-          </div>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
-        </Link>
-
+        {/* A-P6 (BUZ, 1 Oct): "tell us" was a dead end — there was nothing on
+            the page to tell us with. It is a mailto to the one user-facing
+            address; every other word of the line is unchanged. */}
         <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-          Adding a child and building a player CV are not on this screen yet — tell us which you came for and we will point you at it.
+          Adding a child and building a player CV are not on this screen yet — <a href={`mailto:${SUPPORT_EMAIL}`}>tell us</a> which you came for and we will point you at it.
         </div>
         {/* This screen is the one home with no shell and therefore no bar, so
             it carries the way out itself. Every other seat gets it from the
@@ -953,6 +1076,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   // here anybody can defend. Before this the cards came out grouped by type
   // and three of the four carried a full-width accent button, so nothing led
   // and the quiet one was quiet for no reason.
+  //
+  // Tone (spec A, look only): a club's trial invitation is purple; a send,
+  // a registration, a page edit and a squad invitation are amber — anything
+  // else waiting. Green is an action and never marks a wait (D-173 (4)).
   type Waiting = { key: string; kind: 'invite' | 'send' | 'interest' | 'edit';
                    at: string; href: string; tone: string; title: string; body?: string; cta: string };
   const waiting: Waiting[] = [
@@ -969,21 +1096,21 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     })),
     ...children.filter((c) => c.sendRequest).map((c) => ({
       key: c.sendRequest!.id, kind: 'send' as const, at: c.sendRequest!.at,
-      href: `/g/send/${c.sendRequest!.id}`, tone: T.accent,
+      href: `/g/send/${c.sendRequest!.id}`, tone: T.amber,
       title: `${c.firstName} wants to send a CV to ${/^(.*) </.exec(c.sendRequest!.destination ?? '')?.[1] ?? 'a club'}`,
       body: 'Nothing has been sent. Check the address and it goes; do nothing and the request disappears on its own.',
       cta: 'Review it',
     })),
     ...children.filter((c) => c.interestRequest).map((c) => ({
       key: c.interestRequest!.id, kind: 'interest' as const, at: c.interestRequest!.at,
-      href: `/g/interest/${c.interestRequest!.id}`, tone: T.purple,
+      href: `/g/interest/${c.interestRequest!.id}`, tone: T.amber,
       title: `${c.firstName} wants to go on ${c.interestRequest!.club}\u2019s register`,
       body: `There\u2019s a line about ${c.firstName}, in ${c.firstName}\u2019s own words. Read it before it goes — you can change it.`,
       cta: 'Read it',
     })),
     ...children.filter((c) => c.hasPending && c.pendingAt).map((c) => ({
       key: `edit-${c.id}`, kind: 'edit' as const, at: c.pendingAt!,
-      href: `/g/pending/${c.recordId}`, tone: T.accent,
+      href: `/g/pending/${c.recordId}`, tone: T.amber,
       title: `${c.firstName} changed the page`,
       body: 'Until you approve it, every club holding the link still reads the old version.',
       cta: 'Review it',
@@ -1004,7 +1131,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     )).rows as { id: string; at: string; club: string; squad: string; first_name: string; child_id: string }[])
       .map((r) => ({
         key: r.id, kind: 'invite' as const, at: r.at,
-        href: `/g/controls/${r.child_id}`, tone: T.accent,
+        href: `/g/controls/${r.child_id}`, tone: T.amber,
         title: `${r.club} would like ${r.first_name} in ${r.squad}`,
         body: `Saying yes puts the team on ${r.first_name}\u2019s page and lets that team\u2019s coaches read their record. Doing nothing is a complete answer.`,
         cta: 'Review it',
@@ -1027,15 +1154,50 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   // (D-65 as amended by D-81).
   const awaySince = (await db.query('select fn_note_arrival($1) as since', [personId])).rows[0].since as string | null;
 
-  // Guardian seat — inside the parent's frame (D-147, amended 16 Sep).
+  // B1 (live defect; BUZ, 1 Oct): nothing linked a parent to /build, so an
+  // approved under-16's page could never be started. Each child card gets the
+  // door "Build {first}'s page" — drawn only where the DATABASE says this
+  // parent may act on the record: fn_record_actor, the very question /build's
+  // guard asks (requireRecordActor). An adult child's record is their own
+  // (D-49), so their card never shows a door that would bounce. Record ids
+  // in, the subset out — no child's details are read here.
+  //
+  // Spec A (B1): the door is an UNDER-16's only — a 16–17 or an adult builds
+  // their own page — and while that child has no approved page and nothing
+  // waits in the queue, it is the screen's one glowing primary (the real next
+  // step); otherwise a secondary. "No approved page" is the same fact the
+  // preview reads (no profile_version approved, D-119): a yes/no, never the
+  // page's content.
+  const buildable = new Map(((await db.query(
+    `select dr.id::text as id,
+       exists(select 1 from profile_version pv where pv.record_id = dr.id and pv.status = 'approved') as has_page
+     from development_record dr join person p on p.id = dr.person_id
+     where dr.id = any($2::uuid[]) and fn_age_band(p.dob) = 'u16'
+       and fn_record_actor($1, dr.id) = 'guardian'`,
+    [personId, children.map((c) => c.recordId).filter((x): x is string => Boolean(x))],
+  )).rows as { id: string; has_page: boolean }[]).map((r) => [r.id, r.has_page]));
+  // The one child whose door glows, if any: the first under-16 with no page,
+  // and only when nothing is waiting on the parent.
+  const glowFor = waiting.length === 0
+    ? children.find((c) => c.recordId && buildable.get(c.recordId) === false)?.id ?? null
+    : null;
+
+  // Guardian seat — inside the parent's frame (D-147, amended 16 Sep). It
+  // joins the home grid (spec A): what is waiting in the main column and the
+  // children in the 320px aside from 1024px, so what is waiting and who it is
+  // about sit side by side. On a phone the order is the source order, and the
+  // children are last.
   return (
     <GuardianFrame active="home">
-    <Shell framed>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Your family</h1>
-        <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everything about your children on Pitch, and every control over it, is here.</div>
+      <div className="console h-rise" style={COLUMN}>
+      <HeaderMark />
+      <div className="pg-titles">
+        <h1 className="pg-title">Your family</h1>
+        <div className="pg-sub">Everything about your children on Pitch, and every control over it, is here.</div>
       </div>
 
+      <div className="home-grid">
+      <div>
       {awaySince && <WhileYouWereAway viewerId={personId as string} since={awaySince} />}
 
       {/* The state of things, in three numbers. Nothing here is new data —
@@ -1047,65 +1209,77 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           parent with no live link at all was shown "0 Links active" beside a
           child who has never been sent anywhere. Each tile is omitted at zero
           and the whole hero is omitted when there is nothing to put in it —
-          the child cards below say the same things in words. */}
+          the child cards below say the same things in words. Amber marks the
+          one number that is a state; the other two are ink. */}
       {(linksActive > 0 || expiringSoon > 0 || clubsHolding > 0) && (
-        <div style={{ borderRadius: 22, background: 'var(--hero)', padding: '20px 20px 18px 20px', display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
-          {linksActive > 0 && (
-            <div>
-              <div className="numeral numeral-m" style={{ color: T.ink }}>{linksActive}</div>
-              <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{linksActive === 1 ? 'Link active' : 'Links active'}</div>
-            </div>
-          )}
-          {expiringSoon > 0 && (
-            <div>
-              <div className="numeral numeral-m" style={{ color: T.amber }}>{expiringSoon}</div>
-              <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>Expiring in 30 days</div>
-            </div>
-          )}
-          {clubsHolding > 0 && (
-            <div>
-              <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{clubsHolding}</div>
-              <div className="kicker" style={{ marginTop: 4, color: 'rgba(255,255,255,.55)' }}>{clubsHolding === 1 ? 'Club register' : 'Club registers'}</div>
-            </div>
-          )}
+        <div className="hero-panel">
+          <div className="stat-row">
+            {linksActive > 0 && (
+              <div>
+                <div className="numeral numeral-m" style={{ color: T.ink }}>{linksActive}</div>
+                <div className="stat-l">{linksActive === 1 ? 'Link active' : 'Links active'}</div>
+              </div>
+            )}
+            {expiringSoon > 0 && (
+              <div>
+                <div className="numeral numeral-m" style={{ color: T.amber }}>{expiringSoon}</div>
+                <div className="stat-l">Expiring in 30 days</div>
+              </div>
+            )}
+            {clubsHolding > 0 && (
+              <div>
+                <div className="numeral numeral-m" style={{ color: T.ink }}>{clubsHolding}</div>
+                <div className="stat-l">{clubsHolding === 1 ? 'Club register' : 'Club registers'}</div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Oldest first, and only the top one carries the accent button. Three
-          primary buttons in a row is the same as none. */}
-      {waiting.map((w, i) => (
-        <div key={w.key} className={i === 0 ? 'sheen' : 'lift'} style={{
-          borderRadius: 18, padding: 17, display: 'flex', flexDirection: 'column', gap: 12,
-          background: i === 0 ? 'var(--hero)' : T.surface,
-          border: `1px solid ${i === 0 ? w.tone : T.line}`,
+      {/* Oldest first, and only the top one carries the primary — the
+          screen's one glow — on a lifted notice with its tone edge. Three
+          primary buttons in a row is the same as none. With nothing waiting
+          the page says so, in the dashed "not yet" tile (N1, BUZ 1 Oct): an
+          empty space reads as a page that failed to load. */}
+      {waiting.length === 0 ? (
+        <div className="card empty">
+          <div className="empty-tile" aria-hidden />
+          <div><span className="empty-t">Nothing is waiting on you.</span></div>
+        </div>
+      ) : waiting.map((w, i) => (
+        <div key={w.key} className={i === 0 ? 'card fl-float' : 'card'} style={{
+          padding: i === 0 ? '16.5px 15.5px' : '17px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+          ...(i === 0 ? { border: `1.5px solid ${w.tone}` } : {}),
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 999, background: w.tone }} />
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: w.tone }}>Waiting on you</div>
-            <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: T.muted }}>{waitedFor(w.at)}</div>
+            <span className="notice-k" style={{ color: w.tone }}>Waiting on you</span>
+            <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: T.muted }}>{waitedFor(w.at)}</span>
           </div>
           <div style={{ fontSize: 17, fontWeight: 900, lineHeight: 1.2 }}>{w.title}</div>
           {w.body && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>{w.body}</div>}
-          <Link href={w.href} className={i === 0 ? 'btn btn-primary' : 'btn btn-secondary'}>{w.cta}</Link>
+          <Link href={w.href} className={i === 0 ? 'btn btn-primary fl-glow' : 'btn btn-secondary'}>{w.cta}</Link>
         </div>
       ))}
 
       {/* The public trials board shipped in launch scope (D-74, D-90) and
           NOTHING IN THE PRODUCT LINKED TO IT — it existed and no user could
           find it. This is a parent's entry point; the player seat has the
-          same link below its build cards. */}
-      <Link href="/trials" className="lift" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
-        <div>
-          <div style={{ fontSize: 14.5, fontWeight: 900, color: T.ink }}>Trials near you</div>
-          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Every notice we hold, newest first</div>
-        </div>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>Open</div>
+          same link in its door list. N2 (BUZ, 1 Oct): the board is in trial-
+          date order, so "newest first" was untrue — the approved line the
+          brand-new home already uses replaces it. */}
+      <Link href="/trials" className="card row lift">
+        <span className="row-main">
+          <span className="row-t">Trials near you</span>
+          <span className="row-s">Every notice we hold, by date</span>
+        </span>
+        <span className="row-end">Open</span>
       </Link>
+      </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <h2 id="children" style={label}>Your children</h2>
+      <div>
+        <h2 id="children" className="sec-h">Your children</h2>
         {children.map((c) => (
-          <div key={c.id} className="lift" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div key={c.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {c.photo ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -1120,13 +1294,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               {c.linkExpiry && <StatusRow color={T.accent} path="M10 13 a4 4 0 0 1 0-6 l3-3 a4 4 0 0 1 6 6 l-1.5 1.5 M14 11 a4 4 0 0 1 0 6 l-3 3 a4 4 0 0 1-6-6 l1.5-1.5">Link active · expires {c.linkExpiry.trim()}</StatusRow>}
               {c.registers > 0 && <StatusRow color={T.muted} path="M4 6 h16 M4 12 h16 M4 18 h10">On {c.registers} club register{c.registers === 1 ? '' : 's'}</StatusRow>}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Link href={`/g/controls/${c.id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Manage</Link>
+            {/* Manage was a hand-built 46px button; it is the charter's
+                secondary now — the same word, the same href. B1's door sits
+                directly above it. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {c.recordId && buildable.has(c.recordId) && (
+                <Link href={`/build/${c.recordId}`} className={c.id === glowFor ? 'btn btn-primary fl-glow' : 'btn btn-secondary'}>Build {c.firstName}&rsquo;s page</Link>
+              )}
+              <Link href={`/g/controls/${c.id}`} className="btn btn-secondary">Manage</Link>
             </div>
           </div>
         ))}
       </div>
-    </Shell>
+      </div>
+      </div>
     </GuardianFrame>
   );
 }
