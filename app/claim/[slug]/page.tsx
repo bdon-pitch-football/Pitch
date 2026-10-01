@@ -108,7 +108,7 @@ export default async function ClaimClub({ params, searchParams }: {
               <div style={card}>
                 <div style={{ fontSize: 15, fontWeight: 800 }}>Club administrator</div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: T.muted, lineHeight: 1.5 }}>
-                  You run the page, the teams and the trial notices. <b style={{ color: T.secondary }}>An administrator never reads a player&rsquo;s development record, by any route.</b> Technical Director is confirmed on the verification call, never chosen on a form.
+                  You run the page and the teams, and the trial notices once your club is verified. <b style={{ color: T.secondary }}>An administrator never reads a player&rsquo;s development record, by any route.</b> Technical Director is confirmed on the verification call, never chosen on a form.
                 </div>
               </div>
             </div>
@@ -168,7 +168,7 @@ export default async function ClaimClub({ params, searchParams }: {
           </div>
           <div className="card-sunken" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
-            <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Claiming gets you the page and trial notices. <b style={{ color: T.ink }}>Verified status is separate</b> — a person here checks your club against Football Victoria&rsquo;s register, and it&rsquo;s what unlocks anything to do with players.</div>
+            <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Claiming gets you the page and your squads. <b style={{ color: T.ink }}>Verified status is separate</b> — a person here checks your club against Football Victoria&rsquo;s register, and it&rsquo;s what unlocks trial notices and anything to do with players.</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
             <button type="submit" className="btn btn-primary">Send me the code</button>

@@ -866,3 +866,235 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 1023px) {
   body:has(.seat-tabs) .site-foot { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ===========================================================================
+   FLOODLIT (D-173, BUZ 1 Oct 2026). Night Match with the lights on. Five
+   charter changes, all approved together:
+     1. Depth: two soft shadows, card and floating. The surface step and the
+        hairline still do most of the work; the shadow says "this is an object
+        you can pick up", which a hairline alone never said on a phone.
+     2. Width: the front door and the club page use the laptop — 1200px, not
+        the 640px reading column. Every other reading surface keeps 640.
+     3. The logo sits top left in a nav bar from 1024px; top right on a phone.
+     4. Colour has one job each: green is an action, a club's own colours are
+        its identity (claimed clubs only, D-172), amber/purple/red are states.
+     5. Say it once. One line on the screen, the detail behind a disclosure.
+   Nothing below changes a token the rest of the product reads.
+   --------------------------------------------------------------------------- */
+:root {
+  --shadow-card:  0 1px 0 rgba(255,255,255,.05) inset, 0 18px 40px -16px rgba(0,0,0,.75);
+  --shadow-float: 0 1px 0 rgba(255,255,255,.07) inset, 0 28px 60px -18px rgba(0,0,0,.9);
+  --shadow-accent: 0 10px 26px -8px rgba(61,220,132,.55);
+  --fl-surface: linear-gradient(180deg, #1f2e26 0%, #1a271f 100%);
+  --wide: 1200px;
+}
+.fl-wide { width: 100%; max-width: var(--wide); margin: 0 auto; padding-left: 18px; padding-right: 18px; box-sizing: border-box; }
+@media (min-width: 640px) { .fl-wide { padding-left: 28px; padding-right: 28px; } }
+@media (min-width: 1024px) { .fl-wide { padding-left: 40px; padding-right: 40px; } }
+
+.fl-card { background: var(--fl-surface); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-card); }
+.fl-float { box-shadow: var(--shadow-float); }
+.fl-card.lift:hover { box-shadow: var(--shadow-float); }
+.btn-primary.fl-glow { box-shadow: var(--shadow-accent); }
+.btn-primary.fl-glow:hover { box-shadow: 0 14px 32px -8px rgba(61,220,132,.7); }
+
+/* The nav bar. Phone: the way back on the left, the logo on the right (the
+   24 Aug rule, kept on a phone). From 1024px: the logo leads, links follow. */
+.fl-nav { position: sticky; top: 0; z-index: 30; background: rgba(11,18,14,.72); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,255,255,.06); }
+.fl-nav-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 60px; }
+.fl-nav-brand { order: 2; display: inline-flex; align-items: center; min-height: 44px; }
+.fl-nav-left { order: 1; display: flex; align-items: center; gap: 4px; }
+/* D-147: the same links at every width — never hidden on a phone. */
+@media (max-width: 639px) { .fl-nav-in { gap: 4px; } .fl-nav-link { padding: 0 8px; font-size: 13px; } .fl-nav-links + .fl-nav-left { margin-right: auto; } .fl-nav-links { margin-right: 0; } }
+.fl-nav-links { order: 1; display: flex; gap: 0; margin-right: auto; }
+.fl-nav-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--secondary); }
+.fl-nav-link:hover { color: var(--ink); background: rgba(255,255,255,.05); }
+.fl-nav-link[aria-current="page"] { color: var(--ink); }
+@media (min-width: 1024px) {
+  .fl-nav-brand { order: 1; }
+  .fl-nav-left { order: 3; }
+  .fl-nav-links { order: 2; gap: 2px; margin-left: 12px; margin-right: auto; }
+  .fl-nav-back { display: none; }
+}
+.fl-nav-overlay { position: absolute; left: 0; right: 0; top: 0; background: linear-gradient(180deg, rgba(7,13,10,.55), rgba(7,13,10,0)); border-bottom: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* The entry hero: a photograph from the match-night set, darkened to the page
+   at its foot so the words sit on the page, not on the picture. */
+.fl-hero { position: relative; overflow: hidden; background-color: var(--bg); background-size: cover; background-position: var(--fl-pos, 60% 30%); }
+.fl-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7,13,10,.82) 0%, rgba(7,13,10,.45) 38%, rgba(7,13,10,0) 65%), linear-gradient(180deg, rgba(7,13,10,.55) 0%, rgba(7,13,10,.08) 30%, rgba(7,13,10,.82) 78%, var(--bg) 100%); }
+.fl-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, var(--fl-tint, rgba(61,220,132,0)) 0%, rgba(0,0,0,0) 55%); mix-blend-mode: soft-light; }
+.fl-hero-in { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; min-height: 560px; padding-top: 96px; padding-bottom: 32px; gap: 14px; }
+.fl-hero h1 { font-size: clamp(38px, 7vw, 76px); line-height: .98; font-weight: 900; letter-spacing: -0.015em; max-width: 13ch; margin: 0; }
+.fl-hero-text { font-size: 16.5px; line-height: 1.55; color: var(--secondary); font-weight: 500; max-width: 46ch; }
+.fl-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; max-width: 560px; }
+.fl-hero-actions .btn { width: auto; padding: 0 26px; }
+@media (max-width: 639px) {
+  .fl-hero { background-size: auto 62%; background-position: var(--fl-pos-m, 62% 56px); background-repeat: no-repeat; }
+  .fl-hero::before { background: linear-gradient(180deg, rgba(7,13,10,.5) 0%, rgba(7,13,10,0) 18%, rgba(7,13,10,.75) 46%, var(--bg) 62%); }
+  .fl-hero-in { min-height: 620px; }
+  .fl-hero-actions .btn { width: 100%; }
+}
+
+.fl-search { position: relative; display: flex; gap: 8px; max-width: 560px; }
+.fl-search-field { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 16px; border-radius: 16px; background: #eef5f0; box-shadow: var(--shadow-float); }
+.fl-search-field input { flex: 1; min-width: 0; height: 44px; border: 0; background: transparent; color: #0b120e; font-size: 16.5px; font-weight: 700; font-family: inherit; }
+.fl-search-field input::placeholder { color: #5b6b62; font-weight: 500; }
+.fl-search .btn { width: auto; height: 58px; padding: 0 22px; border-radius: 16px; }
+
+.fl-grid-2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.fl-grid-3 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 768px) { .fl-grid-2 { grid-template-columns: 1fr 1fr; } .fl-grid-3 { grid-template-columns: repeat(3, 1fr); } }
+
+/* The four ways in, as photographs. */
+.fl-doors { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 640px) { .fl-doors { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1024px) { .fl-doors { grid-template-columns: repeat(4, 1fr); } }
+.fl-door { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-height: 176px; padding: 18px; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background-color: var(--surface); background-size: cover; background-position: center; box-shadow: var(--shadow-card); color: var(--ink); text-decoration: none; }
+.fl-door::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7,13,10,.1) 0%, rgba(7,13,10,.88) 70%); transition: background .2s var(--ease); }
+.fl-door:hover { color: var(--ink); }
+.fl-door:hover::before { background: linear-gradient(180deg, rgba(7,13,10,0) 0%, rgba(7,13,10,.8) 70%); }
+.fl-door > * { position: relative; }
+@media (min-width: 1024px) { .fl-door { min-height: 280px; } }
+
+/* The club page's two columns: the dated things on the left, who the club is
+   on the right. One column below 1024. */
+.fl-club-body { display: grid; grid-template-columns: 1fr; gap: 22px; padding-top: 24px; padding-bottom: 40px; }
+@media (min-width: 1024px) { .fl-club-body { grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; } .fl-sticky { position: sticky; top: 84px; } }
+.fl-main, .fl-aside { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+
+.fl-pitch-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.fl-rise { animation: rise .45s var(--ease) both; }
+@media (prefers-reduced-motion: reduce) { .fl-rise { animation: none; } }
+@media (max-width: 1023px) { .fl-aside-first-m { order: -1; } }
+
+/* ===========================================================================
+   THE PLAYER CARD — the public CV, Floodlit (D-173 as extended 1 Oct: the CV
+   takes the 1200px layout, and a claimed club's colours when cleared).
+   Phone: the card runs full-bleed, the story under it. From 1024px: the card
+   is a sticky 440px column on the left and the story scrolls on the right.
+   --------------------------------------------------------------------------- */
+.cv-root { container-type: inline-size; }
+.cv-grid { display: grid; grid-template-columns: minmax(0, 1fr); padding-left: 0; padding-right: 0; }
+.cv-cardcol { min-width: 0; }
+.cv-hero { position: relative; overflow: hidden; padding: 28px 18px 22px 18px; container-type: inline-size; line-height: 1.4; }
+.cv-story { display: flex; flex-direction: column; gap: 34px; padding: 28px 18px 32px 18px; min-width: 0; line-height: 1.4; }
+@container (min-width: 640px) { .cv-hero { padding: 30px 28px 24px 28px; } .cv-story { padding-left: 28px; padding-right: 28px; } }
+@container (min-width: 1024px) {
+  .cv-grid { grid-template-columns: 440px minmax(0, 1fr); gap: 36px; align-items: start; padding-left: 40px; padding-right: 40px; padding-top: 12px; padding-bottom: 40px; }
+  .cv-cardcol { position: sticky; top: 76px; }
+  .cv-hero { border-radius: 26px; border: 1px solid rgba(255,255,255,.08); box-shadow: var(--shadow-float); padding: 30px 26px 26px 26px; }
+  .cv-story { padding: 6px 0 0 0; }
+}
+.cv-num { position: absolute; right: -14px; top: -26px; font-size: 300px; font-weight: 900; letter-spacing: -0.04em; line-height: .8; color: transparent; -webkit-text-stroke: 2px rgba(255,255,255,.1); pointer-events: none; font-variant-numeric: tabular-nums; }
+.cv-avatar { width: 92px; height: 92px; border-radius: 26px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 14px 30px -10px rgba(0,0,0,.6); flex-shrink: 0; }
+.cv-name { position: relative; margin: 18px 0 0 0; font-size: clamp(26px, min(13cqi, calc((100cqi - 48px) / (var(--name-len, 8) * 0.64))), 54px); font-weight: 900; line-height: .98; letter-spacing: -0.015em; text-wrap: balance; overflow-wrap: anywhere; hyphens: manual; }
+.cv-context { position: relative; display: inline-flex; align-self: flex-start; margin-top: 12px; height: 28px; align-items: center; padding: 0 11px; border-radius: 999px; background: rgba(255,255,255,.1); font-size: 12.5px; font-weight: 800; letter-spacing: 0.02em; }
+.cv-hero > .cv-context { display: flex; width: fit-content; }
+.cv-chips { position: relative; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.cv-chip { height: 30px; padding: 0 11px; border-radius: 9px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 800; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.1); }
+.cv-stats { position: relative; margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.12); }
+.cv-stats .drill-row > * + * .cv-tile { border-left: 1px solid rgba(255,255,255,.12); border-radius: 0 12px 12px 0; }
+.cv-tile { padding: 6px 12px 8px 12px; min-width: 0; height: 100%; border-radius: 12px; }
+.cv-stats .drill-row > :first-child .cv-tile { margin-left: -12px; }
+.cv-stats .drill-tile:has(> .drill-in:checked) .cv-tile { background: rgba(255,255,255,.1); }
+.cv-tile-num { font-size: 52px; font-weight: 900; letter-spacing: -0.04em; line-height: .95; font-variant-numeric: tabular-nums; }
+.cv-h2 { display: flex; align-items: center; gap: 12px; margin: 0 0 14px 0; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.cv-h2::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.cv-about { font-size: 18px; line-height: 1.5; font-weight: 500; color: var(--ink); max-width: 40ch; }
+.cv-timeline { position: relative; padding-left: 26px; }
+.cv-timeline::before { content: ''; position: absolute; left: 6px; top: 10px; bottom: 10px; width: 2px; background: linear-gradient(180deg, var(--accent), rgba(255,255,255,.1) 40%); }
+.cv-stop { position: relative; padding: 4px 0 18px 0; }
+.cv-stop:last-child { padding-bottom: 0; }
+.cv-stop::before { content: ''; position: absolute; left: -26px; top: 8px; width: 14px; height: 14px; border-radius: 999px; background: var(--bg); border: 2px solid var(--muted); box-sizing: border-box; }
+.cv-stop-now::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px rgba(61,220,132,.18); }
+/* A short screen: a pinned card could hold an opened provenance well below
+   the fold, so under 700px of height the card scrolls with the page (safety
+   review N4). The card with a well open is 683px from the top, so a 720px
+   laptop still keeps it pinned (audit, 1 Oct). */
+@media (max-height: 700px) { .cv-cardcol { position: static !important; } }
+/* Complete at rest: the card rises into place, it never fades in. */
+.cv-rise { animation: cvRise .5s var(--ease) both; }
+@keyframes cvRise { from { transform: translateY(8px); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cv-rise { animation: none; } }
+
+/* ===========================================================================
+   THE TRIALS BOARD — Floodlit (D-173 as extended 1 Oct: the board takes the
+   1200px layout with a filter rail, the nav bar when signed out, and an
+   empty board hides its filters and offers the two doors).
+   The board is its own container, so the same markup lays out by the room
+   it is given: the whole window signed out, the space beside a seat's rail
+   signed in. Phone: the 390 order as drawn — title, filters, what is chosen
+   and the count, the how-it-works note, the listings. From 768 a row puts
+   its button beside it. From 1024 of board the filters are a sticky rail.
+   --------------------------------------------------------------------------- */
+.tb-root { container-type: inline-size; width: 100%; min-width: 0; }
+.tb { display: flex; flex-direction: column; gap: 16px; padding-top: 22px; padding-bottom: 44px; }
+.tb-head { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.tb-body { display: flex; flex-direction: column; gap: 16px; }
+.tb-list { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tb-filters { display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 18px 16px; }
+.tb-countrow { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.tb-how { display: flex; align-items: flex-start; gap: 9px; padding: 13px 14px; font-size: 11.5px; font-weight: 700; color: var(--muted); line-height: 1.5; }
+@container (min-width: 1024px) {
+  .tb { padding-top: 34px; }
+  .tb-body { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
+  .tb-rail { position: sticky; top: 84px; }
+  .tb-body.tb-bare { display: flex; }
+}
+/* A short window: a pinned rail could hold chips below the fold. */
+@media (max-height: 700px) { .tb-rail { position: static; } }
+
+/* THE TRIAL ROW — the club page's row (app/fc/[slug]): the date leads, the
+   same 28px numeral and month, the stamps under the title. The row's one
+   action is the charter's primary or secondary, never a third button. */
+.fl-trial { display: grid; grid-template-columns: 54px minmax(0, 1fr); column-gap: 14px; padding: 16px 16px 14px 16px; }
+.fl-trial-date { text-align: center; padding-top: 2px; }
+.fl-trial-day { font-size: 28px; color: var(--ink); }
+.fl-trial-mon { font-size: 10px; font-weight: 900; letter-spacing: var(--ls-label); color: var(--accent); margin-top: 5px; }
+.fl-trial-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fl-trial-title { font-size: 16px; font-weight: 800; line-height: 1.3; }
+.fl-trial-meta { font-size: 13px; color: var(--muted); font-weight: 500; }
+.fl-trial-stamp { display: flex; align-items: center; flex-wrap: wrap; column-gap: 12px; font-size: 11px; font-weight: 700; color: var(--muted); }
+.fl-trial-stamp > span { min-height: 22px; display: inline-flex; align-items: center; }
+/* The club's own notice: the club's link, never a Pitch action (John, 30
+   Sep) — underlined secondary text with an external mark. The mark is drawn
+   by the stylesheet so the link's words stay the link's only content. */
+.fl-own { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; font-size: 11.5px; font-weight: 700; color: var(--secondary); text-decoration: underline; text-decoration-color: rgba(185,200,191,.4); text-underline-offset: 3px; }
+.fl-own::after { content: ''; width: 12px; height: 12px; flex-shrink: 0; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6'/%3E%3Cpath d='M20 4 11 13'/%3E%3Cpath d='M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6'/%3E%3Cpath d='M20 4 11 13'/%3E%3Cpath d='M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/%3E%3C/svg%3E") center / contain no-repeat; }
+.fl-trial-foot { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.fl-trial-foot.solo { justify-content: flex-end; }
+.fl-trial-foot .btn { width: auto; padding: 0 18px; flex-shrink: 0; }
+/* The glow is the screen's one primary (Head of Product Design, 1 Oct): a
+   row's "I'm interested" is the solid primary, with no glow and no hover
+   glow, so four rows do not compete with each other. */
+.fl-trial-foot .btn-primary.fl-glow, .fl-trial-foot .btn-primary.fl-glow:hover { box-shadow: none; }
+.fl-trial-state { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: var(--accent); min-width: 0; }
+.fl-trial-state::before { content: ''; width: 6px; height: 6px; border-radius: 999px; background: var(--accent); flex-shrink: 0; }
+.fl-trial-state.un { color: var(--muted); font-weight: 700; }
+.fl-trial-state.un::before { background: var(--placeholder); }
+@container (min-width: 768px) {
+  .fl-trial { grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; padding: 18px 20px; }
+  .fl-trial-foot { grid-column: 3; grid-row: 1; flex-direction: column; align-items: flex-end; justify-content: center; gap: 8px; margin: 0; padding: 0 0 0 16px; border-top: 0; }
+}
+
+/* The empty board. Dashed means "not yet" — the unclaimed crest's language,
+   where a date would be. */
+.fl-dash { border: 1.5px dashed rgba(255,255,255,.3); border-radius: var(--r-well); background: rgba(255,255,255,.04); width: 54px; height: 62px; flex-shrink: 0; }
+.tb-empty { display: flex; align-items: flex-start; gap: 14px; padding: 18px 16px; }
+.tb-empty p, .tb-emptyb p { margin: 0; font-size: 13.5px; color: var(--secondary); font-weight: 500; line-height: 1.55; }
+.tb-empty p b { display: block; font-size: 16px; font-weight: 800; color: var(--ink); margin-bottom: 4px; }
+.tb-art { display: flex; gap: 10px; }
+.tb-art .fl-dash:nth-child(2) { opacity: .6; }
+.tb-art .fl-dash:nth-child(3) { opacity: .3; }
+.tb-emptyb { display: flex; flex-direction: column; gap: 16px; padding: 26px 20px 24px 20px; }
+.tb-fam { text-align: center; }
+.tb-emptyb p { font-size: 14px; line-height: 1.6; max-width: 52ch; }
+.tb-emptyb p b { display: block; font-size: 20px; font-weight: 900; letter-spacing: var(--ls-title); color: var(--ink); margin-bottom: 6px; line-height: 1.2; }
+.tb-clubdoor { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+.tb-clubdoor h2 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.2; }
+@container (min-width: 768px) {
+  .tb-fam { width: auto; align-self: flex-start; padding: 0 22px; }
+  .tb-clubdoor { flex-direction: row; align-items: center; justify-content: space-between; gap: 24px; padding: 24px 26px; }
+  .tb-clubdoor .btn { width: auto; padding: 0 26px; flex-shrink: 0; }
+}
+@container (min-width: 1024px) { .tb-emptyb { flex-direction: row; align-items: center; gap: 28px; padding: 30px; } }

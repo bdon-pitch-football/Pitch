@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch — Floodlit spec C: the player's screens</title>
+<style>
+@font-face{font-family:Archivo;font-weight:500;src:url(../../../assets/fonts/Archivo-500.ttf)}
+@font-face{font-family:Archivo;font-weight:700;src:url(../../../assets/fonts/Archivo-700.ttf)}
+/* No 800 file in assets/fonts: 800 renders from the 900 file in this mockup only. The app loads the real 800. */
+@font-face{font-family:Archivo;font-weight:800 900;src:url(../../../assets/fonts/Archivo-900.ttf)}
+
+/* ---- the real tokens: app/globals.css :root (28 Sep stack) + FLOODLIT + A's three ---- */
+:root{
+  --bg:#0b120e;--surface:#1d2b23;--surface-2:#25332c;--surface-sunken:#15201a;--line:#32463b;
+  --ink:#eef5f0;--secondary:#b9c8bf;--muted:#8a9d92;--placeholder:#909994;
+  --accent:#3ddc84;--on-accent:#06130c;--amber:#eda100;--purple:#ab87e0;--red:#e37776;
+  --surface-hover:#2b3c34;--line-hover:#384e42;
+  --hero:linear-gradient(160deg,#24543c 0%,#1f3d2e 60%,#1d3126 100%);
+  --r-hero:22px;--r-card:16px;--r-well:12px;--r-btn:14px;--r-pill:999px;
+  --ls-caps:.14em;--ls-label:.06em;--ls-button:.02em;--ls-title:-.015em;--ls-numeral:-.04em;
+  --card-pad:15px 14px;--ease:cubic-bezier(.22,1,.36,1);
+  --shadow-card:0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -16px rgba(0,0,0,.75);
+  --shadow-float:0 1px 0 rgba(255,255,255,.07) inset,0 28px 60px -18px rgba(0,0,0,.9);
+  --shadow-accent:0 10px 26px -8px rgba(61,220,132,.55);
+  --fl-surface:linear-gradient(180deg,#1f2e26 0%,#1a271f 100%);
+  /* spec A */
+  --glass:rgba(11,18,14,.72);--glass-line:rgba(255,255,255,.06);--here:rgba(255,255,255,.08);
+  /* NEW (spec C): the card's own gradient, today a literal inside PlayerCV.tsx */
+  --cv-hero-bg:radial-gradient(120% 70% at 20% -10%,#2a6a49 0%,#1f5a3d 30%,transparent 72%),linear-gradient(180deg,#173a29 0%,#0b120e 100%);
+  /* NEW (spec C): the print sheet, today literals inside the print page */
+  --print-paper:#ffffff;--print-ink:#0b120e;--print-2:#3f5145;--print-muted:#5b6b60;--print-line:#d7ded9;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+
+/* ---- the presentation board (not the product) ---- */
+body{background:#050907;color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500}
+.doc{max-width:1180px;margin:0 auto;padding:40px 28px 8px}
+.doc h1{font-size:34px;font-weight:900;letter-spacing:var(--ls-title);margin:6px 0 10px;line-height:1.1}
+.doc p{font-size:15px;line-height:1.62;color:var(--secondary);margin:0 0 10px;max-width:80ch}
+.doc b{color:var(--ink)}
+.doc code,.state-h code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--accent)}
+.kick{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.idx{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
+.idx a{font-size:12.5px;font-weight:700;color:var(--secondary);border:1px solid var(--line);border-radius:999px;padding:0 12px;min-height:34px;display:inline-flex;align-items:center;text-decoration:none}
+.idx a:hover{color:var(--ink);border-color:var(--muted)}
+.idx-g{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted);margin-top:14px}
+.zoomctl{display:inline-flex;align-items:center;gap:9px;margin-top:10px;font-size:13px;font-weight:700;color:var(--secondary);min-height:44px;cursor:pointer}
+.zoomctl input{width:17px;height:17px;accent-color:var(--accent)}
+.state{padding:34px 28px 10px;border-top:1px solid #16211b;margin-top:26px}
+.state-h{max-width:1180px;margin:0 auto 14px;display:flex;flex-direction:column;gap:6px}
+.state-h h2{font-size:22px;font-weight:900;letter-spacing:var(--ls-title);margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.state-h p{font-size:13.5px;line-height:1.6;color:var(--secondary);margin:0;max-width:100ch}
+.state-h p b{color:var(--ink)}
+.tg{border-radius:999px;padding:4px 9px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap}
+.tg-ok{background:rgba(61,220,132,.14);color:var(--accent)}
+.tg-dec{background:rgba(237,161,0,.14);color:var(--amber)}
+.tg-now{background:rgba(227,119,118,.14);color:var(--red)}
+.pair{display:flex;gap:28px;align-items:flex-start;justify-content:center;flex-wrap:wrap;margin:0 auto 22px}
+.pair-l{max-width:1180px;margin:0 auto 8px;font-size:12.5px;font-weight:800;color:var(--secondary)}
+.fr{display:flex;flex-direction:column;gap:8px}
+.fr-l{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.fr-l span{font-weight:700;letter-spacing:0;text-transform:none}
+.f390{width:390px;flex:none;container-type:inline-size;border-radius:22px;overflow:hidden;border:1px solid #1d2a23}
+.f1280{width:1280px;flex:none;container-type:inline-size;border-radius:22px;overflow:hidden;border:1px solid #1d2a23;zoom:.56}
+body:has(#actual:checked) .f1280{zoom:1}
+
+/* =================== THE PRODUCT (scoped to .scr) =================== */
+.scr{position:relative;background:var(--bg);color:var(--ink);font-family:Archivo,system-ui,-apple-system,sans-serif;font-weight:500;min-height:844px;display:flex;flex-direction:column;line-height:1.4}
+.scr a{color:var(--accent);text-decoration:none}
+.scr :where(h1,h2,h3,p){margin:0;font-size:inherit;font-weight:inherit}
+.scr input,.scr select,.scr button,.scr textarea{font-family:inherit}
+@container (min-width:1024px){.scr{min-height:900px}}
+.flood{background:var(--bg) radial-gradient(ellipse 130% 85% at 50% -25%,#17422e 0%,#10281c 42%,#0b120e 78%) no-repeat;background-size:100% 900px}
+
+/* ---- Top bar (A part 5 = SiteNav, logo only) ---- */
+.fl-wide{width:100%;max-width:1200px;margin:0 auto;padding-left:18px;padding-right:18px}
+@container (min-width:640px){.fl-wide{padding-left:28px;padding-right:28px}}
+@container (min-width:1024px){.fl-wide{padding-left:40px;padding-right:40px}}
+.fl-nav{position:relative;z-index:30;background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-line)}
+.fl-nav-in{display:flex;align-items:center;justify-content:flex-end;gap:16px;min-height:60px}
+@container (min-width:1024px){.fl-nav-in{justify-content:flex-start}}
+.fl-nav-brand{display:inline-flex;align-items:center;min-height:44px}
+.wm{display:inline-flex;align-items:center;font-weight:900;font-size:20px;letter-spacing:-.035em;color:var(--ink);line-height:1}
+.wm svg{height:.715em;width:auto;margin:0 -.085em;display:block}
+.has-topbar .pg-head-mark{display:none}
+.has-topbar .pg-head:not(:has(.pg-back)){display:none}
+
+/* ---- Frame, rail, seat bar (A parts 1-4) ---- */
+.app{display:flex;flex-direction:column}
+.frame{display:flex;flex-direction:column;flex:1;width:100%}
+.rail{display:none}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);background:var(--glass);border-top:1px solid var(--glass-line);margin-top:auto}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:60px;font-size:10px;font-weight:700;letter-spacing:var(--ls-button);color:var(--muted)!important}
+.tab-ic{display:flex;align-items:center;justify-content:center;width:52px;height:28px;border-radius:999px}
+.tab[aria-current=page]{color:var(--ink)!important;font-weight:800}
+.tab[aria-current=page] .tab-ic{background:var(--here)}
+@container (min-width:1024px){
+  .frame{flex-direction:row;max-width:1200px;margin:0 auto}
+  .rail{display:flex;flex-direction:column;gap:2px;width:232px;flex:none;padding:18px 14px 22px 18px;background:var(--glass);border-right:1px solid var(--glass-line);min-height:900px}
+  .tabs{display:none}
+  .app .pg-head-mark{display:none}
+  .app .pg-head:not(:has(.pg-back)){display:none}
+}
+.rail-mark{display:flex;align-items:center;min-height:44px;padding:0 10px;margin-bottom:10px}
+.seat-card{display:flex;flex-direction:column;gap:10px;padding:14px 12px;margin:0 0 14px;border-radius:var(--r-card);background:var(--fl-surface);border:1px solid var(--line);box-shadow:var(--shadow-card)}
+.seat-card-id{display:flex;align-items:center;gap:11px;min-width:0}
+.seat-av{width:40px;height:40px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--secondary);flex-shrink:0}
+.seat-card-name{font-size:14.5px;font-weight:900;line-height:1.25}
+.seat-card-role{font-size:12px;font-weight:500;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail-link{display:flex;align-items:center;gap:11px;min-height:44px;padding:0 12px;border-radius:var(--r-well);font-size:14px;font-weight:700;color:var(--secondary)!important}
+.rail-link[aria-current=page]{background:var(--here);color:var(--ink)!important}
+.rail-out{margin-top:auto}
+
+/* ---- Page header, title, headings (A parts 6-8) ---- */
+.pg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:24px}
+.pg-back{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin:-10px 0;padding-right:8px;font-size:13px;font-weight:700;color:var(--muted)!important}
+.pg-titles{display:flex;flex-direction:column;gap:6px}
+.pg-title{font-size:26px;font-weight:900;letter-spacing:var(--ls-title);line-height:1.15}
+.pg-sub{font-size:14px;font-weight:500;color:var(--secondary);line-height:1.55}
+.sec-h{display:flex;align-items:center;gap:12px;font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+.sec-h::after{content:'';flex:1;height:1px;background:var(--line)}
+.panel-h{font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--muted)}
+
+/* ---- the reading column and the door (A part 20) ---- */
+.col{width:100%;max-width:560px;margin:0 auto;padding:22px 18px 30px;display:flex;flex-direction:column;gap:18px}
+@container (min-width:1024px){.col{max-width:640px}.app .col{margin:0}}
+.door{width:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+@container (min-width:640px){.door{margin-top:10px;padding:28px 28px 30px;background:var(--fl-surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-float)}}
+@container (min-width:1024px){.door{max-width:640px;padding:34px 36px 36px}}
+@container (min-width:640px){.door .field{background:var(--surface-hover)}.door .card,.door .card-sunken{background:var(--surface-2);box-shadow:none}}
+
+/* ---- surfaces (A parts 9-11) ---- */
+.card{background:var(--fl-surface);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad);box-shadow:var(--shadow-card)}
+.card .card{background:var(--surface-2);box-shadow:none}
+.card-sunken{background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--card-pad)}
+.card-accent{border-color:var(--accent)}
+.card-amber{border-color:var(--amber)}
+.card-purple{border-color:var(--purple)}
+.notice-k{display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase}
+.notice-k::before{content:'';width:8px;height:8px;border-radius:999px;background:currentColor;flex-shrink:0}
+.k-amber{color:var(--amber)}.k-accent{color:var(--accent)}.k-muted{color:var(--muted)}.k-purple{color:var(--purple)}
+.fl-float{box-shadow:var(--shadow-float)}
+.notice-h{font-size:22px;font-weight:900;letter-spacing:var(--ls-title);line-height:1.2}
+.notice-b{font-size:13.5px;font-weight:500;color:var(--secondary);line-height:1.55}
+.say{font-size:13px;font-weight:700;color:var(--secondary);line-height:1.5}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:9.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;white-space:nowrap;background:rgba(255,255,255,.1);color:var(--secondary);flex-shrink:0}
+.pill::before{content:'';width:6px;height:6px;border-radius:999px;background:currentColor}
+.pill.nodot::before{display:none}
+.rows{padding:0;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 14px;color:var(--ink)!important}
+.rows>.row+.row{border-top:1px solid var(--line)}
+.row-ic{width:36px;height:36px;border-radius:var(--r-well);background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--secondary)}
+.row-ic.guard{background:rgba(171,135,224,.16);color:var(--purple)}
+.row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.row-t{font-size:14.5px;font-weight:800;color:var(--ink);line-height:1.3}
+.row-s{font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.45;overflow-wrap:anywhere}
+.row-s2{font-size:12.5px;font-weight:500;color:var(--secondary);line-height:1.5}
+.row-end{flex-shrink:0;font-size:12.5px;font-weight:800;color:var(--accent)}
+.row-chev{flex-shrink:0;color:var(--muted)}
+.empty{display:flex;align-items:flex-start;gap:14px;padding:16px 14px}
+.empty-tile{border:1.5px dashed rgba(255,255,255,.3);border-radius:var(--r-well);background:rgba(255,255,255,.04);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.empty>.empty-tile{width:46px;height:54px}
+.empty-t{display:block;font-size:14.5px;font-weight:800;color:var(--ink);margin-bottom:3px}
+.empty-b{font-size:12.5px;font-weight:500;color:var(--secondary);line-height:1.55}
+
+/* ---- buttons (charter two + A's rules) ---- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--r-btn);letter-spacing:var(--ls-button);width:100%;border:none;cursor:pointer;white-space:nowrap}
+.btn-primary{height:50px;font-size:15px;font-weight:800;background:var(--accent);color:var(--on-accent)!important}
+.btn-secondary{height:46px;font-size:14px;font-weight:700;background:var(--surface-2);color:var(--ink)!important;border:1px solid var(--line)}
+.btn-auto{width:auto;padding:0 22px}
+.fl-glow{box-shadow:var(--shadow-accent)}
+.textbtn{display:flex;align-items:center;justify-content:center;min-height:44px;font-size:14px;font-weight:700;color:var(--muted)!important;background:none;border:none;width:100%}
+.textbtn.dead{cursor:default}
+.console-btn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 14px;border-radius:var(--r-well);font-size:13px;font-weight:700;letter-spacing:var(--ls-button);white-space:nowrap;background:var(--surface-2);color:var(--ink)!important;border:1px solid var(--line);flex-shrink:0}
+.chip{height:44px;border-radius:999px;padding:0 14px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;white-space:nowrap;background:var(--surface-2);border:1px solid var(--line);color:var(--secondary)!important}
+.chip[aria-current=page]{background:var(--here);border-color:transparent;color:var(--ink)!important;font-weight:800}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)!important;font-weight:800}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+
+/* ---- fields (A part 19) ---- */
+.field{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-well);padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.field[aria-invalid=true]{border-color:var(--amber)}
+.field-label{font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.field input,.field select,.field textarea{background:transparent;border:none;color:var(--ink);font-size:14.5px;font-weight:700;padding:0;width:100%;min-height:24px;outline:none}
+.field textarea{font-weight:500;line-height:1.5;resize:none}
+.field input::placeholder,.field textarea::placeholder{color:var(--placeholder);font-weight:500}
+.field .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important}
+.field select{appearance:none;min-height:24px}
+.help{font-size:12px;color:var(--muted);font-weight:500;line-height:1.5}
+.stack{display:flex;flex-direction:column;gap:8px}
+.gap9{display:flex;flex-direction:column;gap:9px}
+.two{display:grid;grid-template-columns:92px 1fr;gap:8px}
+
+/* ---- NEW shared: the checklist (send, share card, register interest, and /g/send) ---- */
+.checks{display:flex;flex-direction:column;gap:10px}
+.check{display:flex;align-items:flex-start;gap:10px;font-size:12.5px;color:var(--secondary);font-weight:500;line-height:1.5}
+.check svg{flex-shrink:0;margin-top:2px;color:var(--secondary)}
+.check.no svg{color:var(--muted)}
+.checks hr{height:1px;background:var(--line);border:0;margin:2px 0}
+.checks-t{font-size:13.5px;font-weight:800;color:var(--ink)}
+
+/* ---- NEW shared: position picker (build, register interest) ---- */
+.pos-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.pos{min-height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;border:1px solid var(--line);background:transparent;color:var(--muted);width:100%}
+.pos[aria-pressed=true]{background:rgba(61,220,132,.14);color:var(--accent);border-color:transparent}
+.pos.lead{background:var(--accent);color:var(--on-accent);font-weight:900}
+.pos i{font-style:normal;font-size:9px;font-weight:900;opacity:.6;margin-right:3px}
+.pos-line{font-size:12.5px;font-weight:700;color:var(--secondary);line-height:1.45}
+.pos-line.none{color:var(--placeholder)}
+
+/* ---- THE PLAYER CARD (globals) — used by the preview ---- */
+.cv-root{container-type:inline-size}
+.cv-grid{display:grid;grid-template-columns:minmax(0,1fr)}
+.cv-hero{position:relative;overflow:hidden;padding:28px 18px 22px;background:var(--cv-hero-bg)}
+.cv-story{display:flex;flex-direction:column;gap:34px;padding:28px 18px 32px;min-width:0}
+@container (min-width:640px){.cv-hero{padding:30px 28px 24px}.cv-story{padding-left:28px;padding-right:28px}}
+@container (min-width:1024px){
+  .cv-grid{grid-template-columns:440px minmax(0,1fr);gap:36px;align-items:start;padding:12px 40px 40px}
+  .cv-hero{border-radius:var(--r-hero);border:1px solid rgba(255,255,255,.08);box-shadow:var(--shadow-float);padding:30px 26px 26px}
+  .cv-story{padding:6px 0 0}
+}
+.cv-num{position:absolute;right:-14px;top:-26px;font-size:300px;font-weight:900;letter-spacing:-.04em;line-height:.8;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.1);pointer-events:none}
+.cv-avatar{width:92px;height:92px;border-radius:var(--r-hero);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 30px -10px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:32px;flex-shrink:0}
+.cv-name{position:relative;margin:18px 0 0;font-size:clamp(26px,11cqi,54px);font-weight:900;line-height:.98;letter-spacing:-.015em}
+.cv-context{position:relative;display:flex;width:fit-content;margin-top:12px;height:28px;align-items:center;padding:0 11px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12.5px;font-weight:800;letter-spacing:.02em}
+.cv-chips{position:relative;display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.cv-chip{height:30px;padding:0 11px;border-radius:9px;display:inline-flex;align-items:center;font-size:13px;font-weight:800;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.1)}
+.cv-stats{position:relative;margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,.12)}
+.cv-tiles{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+.cv-tile{padding:6px 12px 8px}
+.cv-tile+.cv-tile{border-left:1px solid rgba(255,255,255,.12)}
+.cv-tile:first-child{padding-left:0}
+.cv-tile-num{font-size:52px;font-weight:900;letter-spacing:-.04em;line-height:.95;font-variant-numeric:tabular-nums}
+.cv-tile-l{font-size:10.5px;font-weight:800;letter-spacing:.06em;color:rgba(255,255,255,.72);text-transform:uppercase;margin-top:6px}
+.cv-h2{display:flex;align-items:center;gap:12px;margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.cv-h2::after{content:'';flex:1;height:1px;background:var(--line)}
+.cv-about{font-size:18px;line-height:1.5;font-weight:500;max-width:40ch}
+.fl-grid-2{display:grid;grid-template-columns:1fr;gap:12px}
+@container (min-width:768px){.fl-grid-2{grid-template-columns:1fr 1fr}}
+.cv-timeline{position:relative;padding-left:26px}
+.cv-timeline::before{content:'';position:absolute;left:6px;top:10px;bottom:10px;width:2px;background:linear-gradient(180deg,var(--accent),rgba(255,255,255,.1) 40%)}
+.cv-stop{position:relative;padding:4px 0 18px}
+.cv-stop:last-child{padding-bottom:0}
+.cv-stop::before{content:'';position:absolute;left:-26px;top:8px;width:14px;height:14px;border-radius:999px;background:var(--bg);border:2px solid var(--muted)}
+.cv-stop.now::before{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 4px rgba(61,220,132,.18)}
+.clip{border-radius:var(--r-card);overflow:hidden;background:var(--fl-surface);border:1px solid var(--line);box-shadow:var(--shadow-card)}
+.clip-p{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a2820,#101a14)}
+.clip-p.alt{background:linear-gradient(135deg,#182018,#101a14)}
+.clip-play{width:48px;height:48px;border-radius:999px;background:rgba(61,220,132,.92);display:flex;align-items:center;justify-content:center}
+.clip-c{padding:12px 14px}
+.clip-t{font-size:16px;font-weight:900;letter-spacing:-.015em;line-height:1.2}
+
+/* ---- NEW (spec C): the preview strip, under the nav bar ---- */
+.pv-strip{display:flex;flex-direction:column;gap:10px;padding-top:14px}
+@container (min-width:1024px){.pv-strip{flex-direction:row;align-items:flex-start;gap:18px;padding-top:18px}.pv-strip .card{flex:1}}
+
+/* ---- NEW (spec C): the builder's card — the fields that ARE the card, on the card ---- */
+.cv-edit{position:relative;overflow:hidden;border-radius:var(--r-hero);background:var(--cv-hero-bg);border:1px solid rgba(255,255,255,.08);box-shadow:var(--shadow-float);padding:20px 16px 18px;display:flex;flex-direction:column;gap:16px}
+.cv-edit>*{position:relative}
+.cv-edit .cv-num{position:absolute;font-size:260px}
+.cv-edit .field{background:rgba(0,0,0,.28);border-color:rgba(255,255,255,.12)}
+.cv-edit .field-label{color:rgba(255,255,255,.72)}
+.cv-edit .pos{border-color:rgba(255,255,255,.16);color:rgba(255,255,255,.72)}
+.cv-edit .pos[aria-pressed=true]{border-color:transparent;color:var(--accent);background:rgba(61,220,132,.16)}
+.cv-edit .pos.lead{color:var(--on-accent);background:var(--accent)}
+.cv-edit .pos-line{color:rgba(255,255,255,.84)}
+.cv-edit .pos-line.none{color:rgba(255,255,255,.62)}
+.photo-row{display:flex;align-items:center;gap:14px}
+.photo-t{font-size:14.5px;font-weight:800}
+.photo-s{font-size:12.5px;font-weight:500;color:rgba(255,255,255,.72)}
+.cv-edit .cv-avatar.dash{border:1.5px dashed rgba(255,255,255,.3);background:rgba(255,255,255,.04);box-shadow:none;color:rgba(255,255,255,.62)}
+.filefield{border:1px dashed rgba(255,255,255,.3);border-radius:var(--r-well);background:rgba(0,0,0,.22);padding:16px 14px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.filefield-title{font-size:14px;font-weight:800}
+.filefield-hint{font-size:12px;font-weight:500;color:rgba(255,255,255,.62)}
+.name-v{font-size:22px;font-weight:900;letter-spacing:var(--ls-title);line-height:1.15}
+.hint-r{font-size:9.5px;font-weight:700;color:rgba(255,255,255,.62)}
+.num-in{text-align:center;font-size:22px!important;font-weight:900!important}
+.build-top{display:flex;flex-direction:column;gap:12px}
+.build-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.prog{display:flex;flex-direction:column;gap:7px}
+.prog-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.prog-n{font-size:12px;font-weight:800;color:var(--secondary)}
+.prog-bar{height:6px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.prog-bar i{display:block;height:6px;border-radius:999px;background:var(--secondary)}
+.build-grid{display:flex;flex-direction:column;gap:18px}
+.build-story{display:flex;flex-direction:column;gap:18px}
+.col-wide{max-width:560px}
+@container (min-width:1024px){
+  .col-wide{max-width:1000px}
+  .build-grid{display:grid;grid-template-columns:400px minmax(0,1fr);gap:28px;align-items:start}
+  .build-cardcol{position:sticky;top:18px}
+}
+.stats4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.stat-in{background:var(--fl-surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:0 6px;display:flex;flex-direction:column;align-items:center}
+.stat-in input{background:transparent;border:0;color:var(--ink);text-align:center;font-size:19px;font-weight:900;min-height:44px;width:100%;outline:none}
+.stat-in input::placeholder{color:var(--placeholder)}
+.stat-in button{min-height:44px;width:100%;background:none;border:0;font-size:9px;font-weight:700;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--accent)}
+.stat-in.off{opacity:.45}
+.stat-in.off button{color:var(--muted)}
+.hint-line{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;column-gap:12px;row-gap:3px}
+.hint-line .h{font-size:11px;font-weight:800;color:var(--secondary);white-space:nowrap}
+
+/* ---- clips ---- */
+.clipe{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.clipe-p{height:88px;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#1a2820,#101a14);color:rgba(255,255,255,.72);font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase}
+.clipe-p.alt{background:linear-gradient(135deg,#182018,#101a14)}
+.clipe-c{padding:6px 6px 6px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.rm{min-height:44px;min-width:44px;padding:0 8px;background:none;border:0;color:var(--muted);font-size:12.5px;font-weight:700}
+.prem{display:flex;align-items:center;gap:10px;min-height:44px;padding:12px 14px}
+.prem-t{font-size:13px;font-weight:700;color:var(--secondary)}
+.prem-end{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.foot-s{font-size:11.5px;font-weight:500;color:var(--muted);text-align:center}
+
+/* ---- ready ---- */
+.moment{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.ticket{position:relative;overflow:hidden;width:100%;border-radius:var(--r-card);background:var(--cv-hero-bg);border:1px solid rgba(255,255,255,.08);box-shadow:var(--shadow-float);padding:22px 18px;display:flex;align-items:center;justify-content:center;min-height:110px}
+.ticket .cv-num{font-size:190px;top:-18px;right:-8px}
+.ticket-line{position:relative;display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:9px 15px;font-size:13px;font-weight:800}
+.badge{position:absolute;right:12px;top:12px;width:30px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px rgba(11,18,14,.6)}
+.badge.ok{background:var(--accent);color:var(--on-accent)}
+.badge.wait{background:var(--amber);color:var(--on-accent)}
+.h-moment{color:var(--ink);font-size:30px;font-weight:900;letter-spacing:var(--ls-title);line-height:1.05}
+.link-v{font-size:14px;font-weight:800;color:var(--ink);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
+
+/* ---- share card: the three shapes, drawn (never rendered from the record) ---- */
+.shapes{display:flex;gap:8px}
+.shape{flex:1;position:relative;cursor:pointer}
+.shape input{position:absolute;opacity:0;inset:0;margin:0}
+.shape-in{background:var(--fl-surface);border:1px solid var(--line);border-radius:var(--r-card);padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:9px;min-height:44px;box-shadow:var(--shadow-card)}
+.shape:has(input:checked) .shape-in{border:1.5px solid var(--accent);padding:11.5px 7.5px}
+.shape-n{font-size:12px;font-weight:700;color:var(--secondary)}
+.shape:has(input:checked) .shape-n{font-weight:900;color:var(--ink)}
+.sil{position:relative;overflow:hidden;border-radius:6px;background:var(--cv-hero-bg);border:1px solid rgba(255,255,255,.12)}
+.sil::before{content:'';position:absolute;right:-4px;top:-6px;width:55%;height:70%;border:1.5px solid rgba(255,255,255,.12);border-radius:40% 40% 8px 8px}
+.sil i{position:absolute;left:12%;display:block;border-radius:2px;background:rgba(255,255,255,.55)}
+.sil i.b2{background:rgba(255,255,255,.3)}
+.sil i.c{border-radius:3px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.2)}
+.sil i.n{background:rgba(255,255,255,.75)}
+
+/* ---- club tile (register interest) ---- */
+.club-tile{width:44px;height:44px;border-radius:var(--r-well);background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:var(--secondary);flex-shrink:0}
+.trial-l{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:var(--secondary);margin-top:3px}
+
+/* ---- the light search field (FLOODLIT .fl-search) ---- */
+.fl-search{display:flex;gap:8px;width:100%}
+.fl-search-field{flex:1;min-width:0;display:flex;align-items:center;gap:10px;height:58px;padding:0 16px;border-radius:16px;background:#eef5f0;box-shadow:var(--shadow-float);color:#5b6b62}
+.fl-search-field input{flex:1;min-width:0;height:44px;border:0;background:transparent;color:#0b120e;font-size:16.5px;font-weight:700;outline:none}
+.fl-search-field input::placeholder{color:#5b6b62;font-weight:500}
+.fl-search .btn{width:auto;height:58px;padding:0 22px;border-radius:16px}
+
+/* ---- print (the one light surface) ---- */
+.paper{background:var(--print-paper);color:var(--print-ink);min-height:844px;padding:26px 20px 34px}
+@container (min-width:640px){.paper{padding:32px 28px 40px}}
+.sheet{max-width:760px;margin:0 auto}
+.sheet-bar{max-width:760px;margin:0 auto 18px;display:flex;justify-content:flex-end}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid var(--print-ink);padding-bottom:14px}
+.sheet-name{font-size:34px;font-weight:900;letter-spacing:var(--ls-title);line-height:1.05}
+.sheet-l1{font-size:14px;font-weight:700;color:var(--print-2);margin-top:6px}
+.sheet-l2{font-size:13px;font-weight:500;color:var(--print-muted);margin-top:2px}
+.sheet .wm{color:var(--print-ink);font-size:18px}
+.sheet-stats{display:flex;align-items:flex-end;gap:34px;flex-wrap:wrap;margin-top:20px;padding-bottom:16px;border-bottom:1px solid var(--print-line)}
+.sheet-n{font-size:34px;font-weight:900;letter-spacing:var(--ls-numeral);line-height:.92;font-variant-numeric:tabular-nums}
+.sheet-nl{font-size:10.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--print-muted);margin-top:5px}
+.sheet-src{margin-left:auto;font-size:10.5px;font-weight:800;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--print-muted)}
+.sheet-sec{margin-top:20px}
+.sheet-h{display:flex;align-items:center;gap:12px;font-size:11px;font-weight:800;letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--print-muted);margin-bottom:7px}
+.sheet-h::after{content:'';flex:1;height:1px;background:var(--print-line)}
+.sheet-p{font-size:13.5px;line-height:1.55}
+.sheet-i{font-size:13px;margin-top:5px;line-height:1.45}
+.sheet-foot{margin-top:26px;padding-top:12px;border-top:1px solid var(--print-line);font-size:10.5px;color:var(--print-muted)}
+.sheet .dec{outline:2px dashed var(--amber);outline-offset:4px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="doc">
+<div class="kick">Pitch · Floodlit specs · group C · 1 Oct 2026 · for the Head of Product Design, then Leo's build team</div>
+<h1>The player's screens: the CV builder, Send my CV, the share card, register interest, where you play, /manage and the print CV</h1>
+<p><b>One idea: everything a player makes is the player card.</b> The public CV is now a card (approved, <code>components/cv/PlayerCV.tsx</code>). The builder is where that card gets made, so its first step draws the card-making fields <i>on</i> the card: the photo, the name, the positions, the number and the foot, on the card's own gradient, with the squad number standing behind them as it does on the CV. The preview shows the card itself under one header. "Your page is ready" shows the card's ticket. The share card's three shapes are drawn as card silhouettes, never rendered from the record. The print CV is the card in ink. Everything else a player does is a question or a list, so it follows the approved house rule: <b>a form is a door, a list is a page</b>.</p>
+<p><b>The parts are spec A's</b> (<code>specs/A-shells-and-homes.md</code>): Frame, Seat bar, Rail with the rail mark, Top bar, Page header, Page title, Section heading, Panel heading, Panel, Well, Notice, Pill, List row, Empty tile, Buttons with the one glow, Field, Door panel and Quiet shell. The parts this group adds are listed in the spec under "New shared parts": <code>--cv-hero-bg</code>, <code>.cv-edit</code>, <code>.checks</code>, <code>.pos-grid</code>, <code>.notice-h</code>, <code>.pv-strip</code> and the print tokens.</p>
+<p><b>Fixed and kept:</b> every word is verbatim from the source. The fields, the doors and the order on the 390 artboard are unchanged. D-89: no club colours on the share card, and its shapes carry no record data. D-80: the preview and the print read through the paths they use today. D-82: the two quiet Premium rows show on the adult's Highlights only. D-163: no price anywhere. D-172: nothing on the send screen draws an unclaimed club. The seed is used throughout: Jordan Abebe (18+), Nate Halloran (16–17), Deniz Yılmaz (14), Alex Fixture (Deniz's parent), Robin Newman (a new sign-up), and the clubs Kingsway Rovers FC, Brindlewood Rovers SC, Riverside FC and Northern United SC.</p>
+<p><span class="tg tg-ok">green</span> works under the rules as they stand. <span class="tg tg-dec">amber</span> needs a decision from BUZ (numbered P1–P9, as in <code>specs/C-player.md</code>). <span class="tg tg-now">red</span> is something wrong today, drawn as it is.</p>
+<label class="zoomctl"><input type="checkbox" id="actual"> Show the 1280 artboards at actual size</label>
+<div id="index"></div>
+</div>
+<div id="board"></div>
+
+<script>
+/* One markup string per artboard, placed in BOTH frames: the 390 and the 1280 are
+   the same HTML, and only the frame's width (a CSS container) differs (D-147). */
+const WM = '<span class="wm" aria-hidden="true">P<svg viewBox="0 0 74 97" fill="none"><line x1="37" y1="6.5" x2="37" y2="90.5" stroke="#3ddc84" stroke-width="13" stroke-linecap="round"/><circle cx="37" cy="48.5" r="32" fill="none" stroke="#3ddc84" stroke-width="10"/></svg>TCH</span>';
+const P = {
+  back:'<path d="M15 5 L8 12 L15 19"/>', chev:'<path d="M9 6 l6 6 -6 6"/>',
+  home:'<path d="M4 11.5 12 4l8 7.5"/><path d="M6 10.5V20h12v-9.5"/>',
+  cv:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  trials:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>',
+  send:'<path d="M21 4 3 11l7 3 3 7 8-17Z"/>',
+  more:'<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>',
+  eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  cam:'<path d="M5 8 h2.5 l1.5-2 h6 l1.5 2 H19 a1.5 1.5 0 0 1 1.5 1.5 v8 A1.5 1.5 0 0 1 19 19 H5 a1.5 1.5 0 0 1-1.5-1.5 v-8 A1.5 1.5 0 0 1 5 8 Z"/><circle cx="12" cy="13" r="3.2"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', play:'<path d="M8 5 L19 12 L8 19 Z"/>',
+  lock:'<rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5 V7.5 A4 4 0 0 1 16 7.5 V10.5"/>',
+  tick:'<path d="M5 12.5 l4.5 4.5 L19 7"/>', cross:'<path d="M6 6 L18 18 M18 6 L6 18"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  people:'<circle cx="9" cy="8" r="2.6"/><circle cx="16.5" cy="9.5" r="2"/><path d="M4.5 20 c0-3 2-5 4.5-5 s4.5 2 4.5 5 M14 20 c0-2.4 1.2-4 2.5-4 s2.5 1.6 2.5 4"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 7.5 v5"/><path d="M12 16.2h.01"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>',
+  shield:'<path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z"/><path d="M9 12 L11 14 L15 9.5"/>',
+  trophy:'<path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9"/>',
+  star:'<path d="M12 3 L14.6 8.6 L20.5 9.3 L16.2 13.4 L17.4 19.3 L12 16.3 L6.6 19.3 L7.8 13.4 L3.5 9.3 L9.4 8.6 Z"/>',
+};
+const ic = (k, s = 18, w = 2.1, st = '') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${st ? ` style="${st}"` : ''}>${P[k]}</svg>`;
+
+/* ---- shells ---- */
+const NAV = `<header class="fl-nav"><div class="fl-wide fl-nav-in"><span class="fl-nav-brand">${WM}</span></div></header>`;
+function player(o, body) {
+  const items = [['home', 'Home'], ['cv', 'My CV'], ['trials', 'Trials']];
+  if (o.send !== false) items.push(['send', 'Send']);
+  const rail = `<nav class="rail" aria-label="Player"><div class="rail-mark">${WM}</div><div class="seat-card"><div class="seat-card-id"><div class="seat-av">${o.name[0]}</div><div style="min-width:0"><div class="seat-card-name">${o.name}</div>${o.club ? `<div class="seat-card-role">${o.club}</div>` : ''}</div></div></div>` +
+    items.map(([k, l]) => `<a class="rail-link" ${k === o.active ? 'aria-current="page"' : ''}>${ic(k, 18)}${l}</a>`).join('') +
+    `<a class="rail-link rail-out">Sign out</a></nav>`;
+  const tabs3 = items.length > 3 ? items.slice(0, 3) : items;
+  const inRest = items.length > 3 && items.slice(3).some(([k]) => k === o.active);
+  const tabs = `<nav class="tabs" aria-label="Player bar">` + tabs3.map(([k, l]) => `<a class="tab" ${k === o.active ? 'aria-current="page"' : ''}><span class="tab-ic">${ic(k, 21)}</span><span>${l}</span></a>`).join('') +
+    `<a class="tab" ${inRest ? 'aria-current="page"' : ''}><span class="tab-ic">${ic('more', 21)}</span><span>More</span></a></nav>`;
+  return `<div class="scr flood app"><div class="frame">${rail}<div class="main">${body}</div></div>${tabs}</div>`;
+}
+const topbar = (body) => `<div class="scr flood has-topbar">${NAV}${body}</div>`;
+const head = (back) => `<div class="pg-head">${back ? `<a class="pg-back">${ic('back', 15, 2.4)}${back}</a>` : '<span></span>'}<span class="pg-head-mark">${WM}</span></div>`;
+const titles = (t, s) => `<div class="pg-titles"><h1 class="pg-title">${t}</h1>${s ? `<p class="pg-sub">${s}</p>` : ''}</div>`;
+const notice = (k, kc, h, b, edge = '') => `<div class="card fl-float ${edge}" role="status" style="display:flex;flex-direction:column;gap:8px;padding:18px 16px"><div class="notice-k ${kc}">${k}</div><h1 class="notice-h">${h}</h1><div class="notice-b">${b}</div></div>`;
+const check = (ok, t) => `<div class="check${ok ? '' : ' no'}">${ic(ok ? 'tick' : 'cross', 15, 2.4)}<div>${t}</div></div>`;
+const who = (guard, iconKey, t, s) => `<div class="card" style="display:flex;align-items:flex-start;gap:12px"><div class="row-ic${guard ? ' guard' : ''}">${ic(iconKey, 18, 2)}</div><div class="row-main"><div class="row-t">${t}</div><div class="row-s2">${s}</div></div></div>`;
+const field = (label, input, opts = {}) => `<label class="field"${opts.bad ? ' aria-invalid="true"' : ''}><span class="field-label">${label}</span>${input}</label>`;
+const POS = ['GK', 'RB', 'CB', 'LB', 'DM', 'CM', 'AM', 'RW', 'LW', 'ST'];
+const posGrid = (chosen, numbered) => `<div class="pos-grid">${POS.map((c) => { const i = chosen.indexOf(c); return `<button type="button" class="pos${numbered && i === 0 ? ' lead' : ''}" aria-pressed="${i >= 0}">${numbered && i >= 0 ? `<i>${i + 1}</i>` : ''}${c}</button>`; }).join('')}</div>`;
+
+/* ================= the states ================= */
+const S = [];
+const st = (o) => S.push(o);
+
+/* ---------- /build/[recordId] ---------- */
+function buildPage(o) {
+  const statsHtml = [['Appearances', 'apps'], ['Goals', 'goals'], ['Assists', 'assists'], ['Clean sheets', 'clean_sheets']]
+    .map(([l, k]) => `<div class="stat-in${o.surfaced.includes(k) ? '' : ' off'}"><input aria-label="${l}" placeholder="—" value="${o.stats[k] ?? ''}"><button type="button" aria-pressed="${o.surfaced.includes(k)}">${l}</button></div>`).join('');
+  const photo = o.photo
+    ? `<div class="cv-avatar">${o.initials}</div>`
+    : `<div class="cv-avatar dash">${ic('cam', 24, 2)}</div>`;
+  return player({ name: o.first, club: o.club, active: 'cv', send: o.send }, `
+<div class="col col-wide">
+  ${head('Back')}
+  <div class="build-top">
+    <div class="build-head">${titles('Build your CV', 'Two minutes. Edit anything later.')}<a class="chip" style="flex-shrink:0">${ic('eye', 15, 2.2)}Preview</a></div>
+    <div class="prog"><div class="prog-row"><div class="panel-h">Your page</div><div class="prog-n" aria-live="polite">${o.done} of 6 done</div></div><div class="prog-bar" aria-hidden="true"><i style="width:${Math.round(o.done / 6 * 100)}%"></i></div></div>
+    <nav class="chips" aria-label="Build steps"><a class="chip" aria-current="page">Your football</a><a class="chip">Highlights</a><a class="chip">Achievements</a></nav>
+  </div>
+  ${o.saved ? `<div class="card ${o.pending ? 'card-purple' : 'card-accent'} say" role="status">Saved. ${o.pending ? 'Your parent will see this change before it goes out.' : ''}</div>` : ''}
+  <div class="build-grid">
+    <div class="build-cardcol">
+      <div class="cv-edit" aria-label="Your card">
+        ${o.num ? `<div class="cv-num" aria-hidden="true">${o.num}</div>` : ''}
+        <form class="stack" style="gap:12px">
+          <div class="photo-row">${photo}<div style="flex:1;min-width:0"><div class="photo-t">Add profile photo</div><div class="photo-s">Optional, but every good CV has one.</div></div></div>
+          <label class="filefield"><span class="filefield-title">${o.photo ? 'Choose a new photo' : 'Choose a photo'}</span><span class="filefield-hint">JPG or PNG.</span></label>
+        </form>
+        <div class="stack" style="gap:3px"><div class="field-label">Full name</div><div class="name-v">${o.first} ${o.last}</div></div>
+        <div class="stack">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="field-label">Positions</div><div class="hint-r">Up to 3 · tap to order</div></div>
+          ${posGrid(o.positions, true)}
+          <div class="pos-line${o.positions.length ? '' : ' none'}" aria-live="polite">${o.positions.length ? o.posLine : 'Not sure what a code means? Tap it and the full name shows here.'}</div>
+        </div>
+        <div class="two">
+          ${field('Number', `<input class="num-in" placeholder="—" value="${o.num}" form="cv">`)}
+          ${field('Preferred foot', `<select form="cv"><option>${o.foot || '—'}</option></select>`)}
+        </div>
+      </div>
+    </div>
+    <form id="cv" class="build-story">
+      <div class="gap9"><h2 class="sec-h">About</h2>
+        ${field('About', `<textarea rows="3" placeholder="Right-footed 10 who plays between the lines. Working on my weak foot and pressing triggers…">${o.about}</textarea>`).replace('<span class="field-label">About</span>', '')}
+      </div>
+      <div class="gap9">
+        <div class="hint-line"><h2 class="sec-h" style="flex:1;white-space:nowrap">Season stats · self-reported</h2><div class="h">Tap a name to show or hide it</div></div>
+        <div class="stats4">${statsHtml}</div>
+      </div>
+      <button class="btn btn-primary fl-glow" type="submit">Save &amp; preview</button>
+      <div class="gap9"><h2 class="sec-h">Where you play</h2>${o.squad}</div>
+    </form>
+  </div>
+</div>`);
+}
+const sqNone = (mine, name) => `<a class="card row" style="padding:12px 14px"><div class="row-main"><div class="row-t" style="font-size:15px">Add ${mine ? 'your' : 'their'} club</div><div class="row-s">Pick the club and team ${mine ? 'you play' : `${name} plays`} for. They confirm it, and the page shows it.</div></div><span class="row-chev">${ic('chev', 18, 2)}</span></a>`;
+const sqNow = (club, line, mine) => `<div class="card row" style="padding:12px 14px"><div class="row-main"><div class="row-t" style="font-size:15px">${club}</div><div class="row-s">${line} · on ${mine ? 'your' : 'their'} page</div></div><button class="console-btn">Leave</button></div>`;
+const sqWait = (club, squad) => `<div class="card row" style="padding:12px 14px"><div class="row-main"><div class="row-t" style="font-size:15px">Waiting on ${club}</div><div class="row-s">${squad} · it shows on the page once they confirm it</div></div><button class="console-btn">Cancel</button></div>`;
+const sqInvite = (club, squad, mine, name) => `<div class="card card-accent" style="display:flex;flex-direction:column;gap:12px"><div><div class="row-t" style="font-size:15px">${club} would like ${mine ? 'you' : name} in ${squad}</div><div class="row-s2" style="margin-top:3px">Saying yes puts ${squad} on ${mine ? 'your' : `${name}’s`} page and lets that club’s coaches for this team read ${mine ? 'your' : 'their'} record. Doing nothing is a complete answer.</div></div><div style="display:flex;gap:9px;flex-wrap:wrap"><button class="btn btn-primary" style="flex:1 1 180px">Yes, ${mine ? 'I play' : `${name} plays`} there</button><button class="btn btn-secondary" style="flex:0 1 auto;width:auto;padding:0 18px">Not this one</button></div></div>`;
+const sqErr = `<div class="card card-amber say" role="alert" style="font-weight:700">That didn’t go through. Nothing changed — try again, and if it keeps happening the club may no longer be on Pitch.</div>`;
+
+st({ g: 'Build', id: 'b-new', t: 'The builder, first visit (Robin, 18+, 0 of 6)', tags: [['ok', 'rules as they stand at 390'], ['dec', 'P1 two columns from 1024']],
+  p: 'A record created at sign-up is bare. <b>The five fields that make the card sit on the card</b> (<code>.cv-edit</code>, the CV hero’s own gradient): the dashed photo tile says “not yet”, the ten codes wait, the number is a blank placeholder (never a 0, D-70). The progress bar is <code>--secondary</code> and the current step is the “you are here” pill (spec A: green is an action, never a place). <b>At 1280 (P1)</b> the card holds the left column, sticky, exactly where the CV puts it, and the rest of the form runs down the right. If BUZ says no to P1, the 1280 is the 390 column at 640, unchanged. The stats default to the outfield set for an unset position (D-105).',
+  a: [buildPage({ first: 'Robin', last: 'Newman', club: null, initials: 'RN', done: 0, positions: [], posLine: '', num: '', foot: '', about: '', stats: {}, surfaced: ['apps', 'goals', 'assists'], squad: sqNone(true) })] });
+st({ g: 'Build', id: 'b-saved', t: 'The builder after Save, 5 of 6 (Nate, 16–17, keeper)', tags: [['ok', 'D-105 keeper set'], ['dec', 'P1']],
+  p: '“Saved.” is a Notice with the accent edge. The keeper’s set is on (Appearances, Clean sheets); Goals and Assists are dimmed, not hidden, so the player can switch them on (pv-r2 reads <code>aria-pressed</code> on these four buttons, and their text stays bare). The squad number stands behind the card, as on the CV. Where you play is a List row with <code>.console-btn</code> “Leave”, not the hand-built 44px/11px-radius ghost.',
+  a: [buildPage({ first: 'Nate', last: 'Halloran', club: 'Northern United SC', initials: 'NH', done: 5, saved: true, positions: ['GK'], posLine: '1 Goalkeeper', num: '1', foot: 'Right', about: 'Reserve keeper pushing for the starting spot. Comfortable playing out under pressure, strong on crosses. Working on my distribution range and commanding the six-yard box.', stats: { apps: 22, clean_sheets: 7 }, surfaced: ['apps', 'clean_sheets'], squad: sqNow('Northern United SC', 'U18 Boys · 2026', true) })] });
+st({ g: 'Build', id: 'b-pending', t: 'An under-16 saves while a change waits (Deniz)', tags: [['ok', 'D-119'], ['dec', 'P1']],
+  p: 'The same “Saved.” line with its second sentence, and the Notice edge turns <b>purple</b> because the change is now the parent’s to see (purple is the guardian state). Nothing else on the screen moves.',
+  a: [buildPage({ first: 'Deniz', last: 'Yılmaz', club: 'Riverside FC', initials: 'DY', done: 5, saved: true, pending: true, positions: ['AM', 'LW'], posLine: '1 Attacking midfielder · 2 Left wing', num: '10', foot: 'Right', about: 'Right-footed 10 who plays between the lines. Two-footed now — weak-foot finishing every Thursday since March.', stats: { apps: 18, goals: 11, assists: 7 }, surfaced: ['apps', 'goals', 'assists'], squad: sqNow('Riverside FC', 'U15 Boys · 2026', true) })] });
+st({ g: 'Build', id: 'b-squad', t: 'Where you play: every state of the card (SquadCard)', tags: [['ok', 'doors unchanged']],
+  p: 'Nothing yet → asked and waiting → in a squad → a club has asked → it didn’t go through. The club’s ask is a Notice with the accent edge; “Not this one” becomes the charter secondary (it was a hand-built 44px ghost at radius 11). “Cancel” and “Leave” are <code>.console-btn</code>. The last pair is the parent’s view of the same card (Alex, for Deniz).',
+  a: [player({ name: 'Nate', club: 'Northern United SC', active: 'cv' }, `<div class="col"><h2 class="sec-h">Where you play</h2>${sqNone(true)}${sqWait('Riverside FC', 'U18 Boys')}${sqNow('Northern United SC', 'U18 Boys · 2026', true)}${sqInvite('Riverside FC', 'U18 Boys', true)}${sqErr}<h2 class="sec-h" style="margin-top:10px">Where Deniz plays</h2>${sqInvite('Riverside FC', 'U15 Boys', false, 'Deniz')}${sqNone(false, 'Deniz')}</div>`)] });
+
+/* ---------- clips ---------- */
+function clipsPage(o) {
+  const cards = o.clips.map((c, i) => `<div class="card clipe"><div class="clipe-p${i % 2 ? ' alt' : ''}">${ic('play', 16, 2)}${c.src}</div><div class="clipe-c"><div style="min-width:0"><div class="row-t" style="font-size:13.5px">${c.t}</div><div class="row-s" style="font-size:11.5px">${c.src} · added ${c.d}</div></div><button class="rm" aria-label="Remove clip">Remove</button></div></div>`).join('');
+  return player({ name: o.first, club: o.club, active: 'cv' }, `
+<div class="col">
+  ${head('Back to the CV')}
+  ${titles('Highlights', 'Paste a link from YouTube, Instagram or Veo. No uploading, no waiting.')}
+  ${o.error ? `<div class="card card-amber say" role="alert">That link isn’t from YouTube, Instagram or Veo — check it and try again.</div>` : ''}
+  ${o.full ? `<div class="card card-amber say" role="alert">All ${o.cap} clip slots are used. Swap a clip out to add this one.</div>` : ''}
+  <form class="door" style="gap:10px">
+    ${field('Video link', `<input placeholder="https://veo.co/matches/…">`, { bad: o.error })}
+    ${field('Title', `<input placeholder="e.g. vs Northern Utd — 2 goals">`)}
+    <button class="btn btn-primary fl-glow">Add highlight</button>
+  </form>
+  <div class="gap9" style="gap:10px">
+    <h2 class="sec-h">Your clips · ${o.clips.length} of ${o.cap} used</h2>
+    ${cards}
+    ${o.clips.length < o.cap ? `<div class="card empty"><div class="empty-tile">${ic('plus', 18, 2)}</div><div><span class="empty-t">Add another clip</span><span class="empty-b">${o.adult ? 'Three clips, free' : 'Ten clips, free'}</span></div></div>` : ''}
+  </div>
+  <div class="foot-s">Swap a clip out any time.</div>
+  ${o.adult ? `<div class="stack"><div class="card prem">${ic('lock', 15, 2, 'color:var(--muted);flex-shrink:0')}<span class="prem-t">Unlimited clips</span><span class="pill nodot">Premium</span><span class="prem-end">Coming soon</span></div><div class="card prem">${ic('lock', 15, 2, 'color:var(--muted);flex-shrink:0')}<span class="prem-t">See who viewed your CV</span><span class="pill nodot">Premium</span><span class="prem-end">Coming soon</span></div><div class="foot-s"${o.tapped ? ' role="status" style="color:var(--secondary);font-weight:700"' : ''}>${o.tapped ? 'Premium is coming. You’re first in line.' : 'Tap a locked feature to be first in line.'}</div></div>` : ''}
+</div>`);
+}
+st({ g: 'Highlights', id: 'c-adult', t: 'Highlights, 18+ (Jordan, 2 of 3)', tags: [['ok', 'D-120, D-82 two quiet rows']],
+  p: '<b>A form is a door, a list is a page:</b> the two fields and “Add highlight” lift onto the door panel from 640; the clips stay on the page under a Section heading. The not-yet slot is the Empty tile (a stroke plus, not the “＋” character). The clip poster’s play mark is neutral here, because nothing plays on this screen (it was a green button that did nothing). Premium keeps its two rows and moves to a neutral Pill: green is an action, and “Coming soon” is not one.',
+  a: [clipsPage({ first: 'Jordan', club: 'Marchfield City FC', adult: true, cap: 3, clips: [{ t: 'Season highlights 2026', src: 'YouTube', d: '14 Sep' }, { t: 'Movement & finishing reel', src: 'YouTube', d: '12 Sep' }] })] });
+st({ g: 'Highlights', id: 'c-full', t: 'Highlights, full, after a tap on Premium (Jordan, 3 of 3)', tags: [['ok', '?full=1 · ?first=1']],
+  p: 'The amber Notice keeps its words. With every slot used, the Empty tile goes. After a tap on a locked row the line under them becomes the status.',
+  a: [clipsPage({ first: 'Jordan', club: 'Marchfield City FC', adult: true, cap: 3, full: true, tapped: true, clips: [{ t: 'Season highlights 2026', src: 'YouTube', d: '14 Sep' }, { t: 'Movement & finishing reel', src: 'YouTube', d: '12 Sep' }, { t: 'vs Crestmoor SC — hat-trick', src: 'Veo', d: '29 Sep' }] })] });
+st({ g: 'Highlights', id: 'c-minor', t: 'Highlights, under 18, with a refused link (Nate, 3 of 10)', tags: [['ok', 'D-88 ten, free · no paid surface']],
+  p: 'Clean for a minor: no Premium rows, no “first in line” (prem-r5). The refused link marks the Video link field amber (<code>aria-invalid</code>) under the approved line.',
+  a: [clipsPage({ first: 'Nate', club: 'Northern United SC', cap: 10, error: true, clips: [{ t: 'Shot-stopping & sweeping 2026', src: 'YouTube', d: '20 Sep' }, { t: 'Penalty save — Metro League', src: 'YouTube', d: '13 Sep' }, { t: 'Distribution reel', src: 'YouTube', d: '6 Sep' }] })] });
+
+/* ---------- more ---------- */
+function morePage(o) {
+  const rows = (items) => items.length ? `<div class="card rows">${items.map((e) => `<div class="row">${e.kind ? `<span class="pill nodot">${e.kind}</span>` : ''}<div class="row-main"><div class="row-t" style="font-size:13.5px">${e.t}</div>${e.s ? `<div class="row-s" style="font-size:12px">${e.s}</div>` : ''}</div><button class="rm">Remove</button></div>`).join('')}</div>` : '';
+  const kinds = (o.adult ? ['Futsal', 'School', 'Representative', 'NTC', 'Tournament', 'Other'] : ['Futsal', 'Representative', 'NTC', 'Tournament', 'Other']);
+  return player({ name: o.first, club: o.club, active: 'cv' }, `
+<div class="col">
+  ${head('Back to the CV')}
+  ${titles('Your football history', 'The clubs you’ve been at, what you’ve won, and the football outside your club.')}
+  <section class="gap9"><h2 class="sec-h">Clubs before this one</h2>${rows(o.clubs)}
+    <form class="card stack">${field('Club', '<input placeholder="e.g. Ashvale Lions FC">')}${field('Years — optional', '<input placeholder="e.g. 2022–2024">')}<button class="btn btn-secondary">${ic('plus', 16, 2.2)}Add a club</button></form>
+    <div class="help">Your club now is the one you registered with — it’s already at the top of your page. These are the ones before it, in your own words. Typing a club here does not tell them anything and does not let them see your page.</div>
+  </section>
+  <section class="gap9"><h2 class="sec-h">Achievements</h2>${rows(o.ach)}
+    <form class="card stack">${field('Achievement', '<input placeholder="e.g. U15 League — Runners up">')}${field('When / where — optional', '<input placeholder="e.g. 2026 season">')}<button class="btn btn-secondary">${ic('plus', 16, 2.2)}Add achievement</button></form>
+  </section>
+  <section class="gap9"><h2 class="sec-h">Other football</h2>${rows(o.other)}
+    <form class="card stack"><div class="field-label">Kind</div><div class="chips">${kinds.map((k, i) => `<label class="chip${i === 0 ? ' on' : ''}">${k}</label>`).join('')}</div>${field('Where', '<input placeholder="e.g. Melbourne Futsal U15">')}${field('When — optional', '<input placeholder="e.g. Summer 2025–26">')}<button class="btn btn-secondary">${ic('plus', 16, 2.2)}Add other football</button></form>
+  </section>
+</div>`);
+}
+st({ g: 'History', id: 'm-teen', t: 'Your football history, under 18 (Nate)', tags: [['ok', 'D-72 · D-161 no School chip']],
+  p: 'Three lists on the page, each a Panel list (<code>.card.rows</code>) with “Remove” in reach, and each add form a Panel under its list. The three add buttons become the charter secondary with a stroke plus (they were a hand-built third button with a “＋” character). The kind is a neutral Pill, not a green tag. No primary on this page, so no glow. The D-72 sentence stays in view: it is the one a family needs before typing a club’s name.',
+  a: [morePage({ first: 'Nate', club: 'Northern United SC', clubs: [{ t: 'Ashvale Lions FC', s: '2022–2024' }, { t: 'Barrowfield Juniors', s: '2018–2021' }], ach: [{ t: 'NPL U18 squad — 2 seasons', s: '2025 and 2026' }, { t: 'Golden Glove, Metro League', s: 'Northern United SC, 2025' }], other: [{ kind: 'Representative', t: 'Victorian Country carnival', s: '2026' }, { kind: 'Futsal', t: 'Brunswick Futsal U18', s: 'Summer 2025–26' }] })] });
+st({ g: 'History', id: 'm-adult', t: 'Your football history, 18+, nothing added yet (Robin)', tags: [['ok', 'School offered to an adult']],
+  p: 'Empty lists render nothing, not an empty frame; the add form is the first thing under each heading. An adult is offered School (A19).',
+  a: [morePage({ first: 'Robin', club: null, adult: true, clubs: [], ach: [], other: [] })] });
+
+/* ---------- preview ---------- */
+function cvCard(o) {
+  const map = `<svg viewBox="0 0 100 62" width="132" height="82" aria-hidden="true" style="flex-shrink:0"><rect x="1" y="1" width="98" height="60" rx="6" fill="rgba(0,0,0,.2)" stroke="rgba(255,255,255,.3)" stroke-width="1.3"/><line x1="50" y1="1" x2="50" y2="61" stroke="rgba(255,255,255,.3)" stroke-width="1.3"/><circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.3"/><rect x="1" y="17" width="12" height="28" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.1"/><rect x="87" y="17" width="12" height="28" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.1"/>${o.dots.map(([x, y], i) => `<circle cx="${x}" cy="${y * .62}" r="${i ? 4 : 5.5}" fill="${i ? 'rgba(255,255,255,.55)' : '#3ddc84'}"/>`).join('')}</svg>`;
+  return `<div class="cv-root"><div class="fl-wide cv-grid" style="padding-left:0;padding-right:0">
+  <div><section class="cv-hero"><div class="cv-num" aria-hidden="true">${o.num}</div>
+    <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:14px"><div class="cv-avatar">${o.initials}</div>${map}</div>
+    <h1 class="cv-name">${o.name}</h1><div class="cv-context">${o.context}</div>
+    <div class="cv-chips">${o.pos.map((c, i) => `<span class="cv-chip" style="${i ? 'background:rgba(255,255,255,.12)' : 'color:#3ddc84;border-color:#3ddc84'}">${c}</span>`).join('')}<span class="cv-chip">#${o.num}</span><span class="cv-chip">${o.foot} footed</span></div>
+    <div style="position:relative;display:flex;align-items:center;gap:9px;margin-top:14px"><span style="width:28px;height:28px;border-radius:8px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900">${o.clubI}</span><div style="font-size:14px;color:rgba(255,255,255,.84);font-weight:700;line-height:1.3">${o.club}<div style="font-size:12.5px;color:rgba(255,255,255,.62);font-weight:500">${o.loc}</div></div></div>
+    <div style="position:relative;display:flex;margin-top:14px"><div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.3);border-radius:999px;padding:5px 11px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.78)">${ic('shield', 11, 2.4, 'color:#3ddc84')}<span>Parent-approved</span></div></div>
+    <div class="cv-stats"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.66)">Season 2026</div><div style="font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:3px 9px">Self-reported</div></div>
+      <div class="cv-tiles">${o.stats.map(([n, l, a]) => `<div class="cv-tile"><div class="cv-tile-num" style="color:${a ? '#3ddc84' : 'var(--ink)'}">${n}</div><div class="cv-tile-l">${l}</div></div>`).join('')}</div></div>
+  </section></div>
+  <div class="cv-story">
+    <section><h2 class="cv-h2">About</h2><div class="cv-about">${o.about}</div></section>
+    <section><h2 class="cv-h2">Highlights</h2><div class="fl-grid-2">${o.clips.map((t, i) => `<div class="clip"><div class="clip-p${i % 2 ? ' alt' : ''}"><div class="clip-play">${ic('play', 16, 2, 'color:#06130c;fill:#06130c')}</div></div><div class="clip-c"><div class="clip-t">${t}</div></div></div>`).join('')}</div></section>
+    <section><h2 class="cv-h2">Achievements</h2><div class="fl-grid-2">${o.ach.map(([t, d], i) => `<div class="card" style="display:flex;align-items:center;gap:14px;padding:16px"><div class="row-ic" style="width:44px;height:44px">${ic(i ? 'star' : 'trophy', 20, 2)}</div><div><div style="font-size:15.5px;font-weight:800">${t}</div><div class="row-s">${d}</div></div></div>`).join('')}</div></section>
+    <section><h2 class="cv-h2">Football history</h2><div class="cv-timeline"><div class="cv-stop now"><div style="font-size:16px;font-weight:800">${o.club.split(' — ')[0]}</div><div class="row-s">${o.club.split(' — ')[1]} · now</div></div>${o.hist.map(([t, d]) => `<div class="cv-stop"><div style="font-size:16px;font-weight:800;color:var(--secondary)">${t}</div><div class="row-s">${d}</div></div>`).join('')}</div></section>
+    <div style="padding:16px 18px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03);display:flex;flex-direction:column;gap:6px;max-width:680px"><div style="font-size:13.5px;font-weight:800;color:var(--secondary)">There is no way to reply to a family through Pitch.</div><div style="font-size:13px;color:var(--muted);line-height:1.55">At any tier, for anybody — it is the same rule for every under-18 on here. If you want ${o.first} at a trial, post it on Pitch: families register their interest from your trial, and that is where you can invite them. It goes to ${o.first} and their parent together, and a record is kept.</div></div>
+    <a style="display:flex;justify-content:center;align-items:center;min-height:44px;font-size:11.5px;color:var(--muted);font-weight:700">Report this page</a>
+  </div></div></div>`;
+}
+const NATE_CV = { first: 'Nate', name: 'Nate Halloran', initials: 'NH', num: 1, context: 'U18 · born Apr–Jun', pos: ['GK'], dots: [[8, 50]], foot: 'Right', clubI: 'NU', club: 'Northern United SC — U18 Boys', loc: 'Preston VIC', stats: [[22, 'Appearances', 0], [7, 'Clean sheets', 1]], about: 'Reserve keeper pushing for the starting spot. Comfortable playing out under pressure, strong on crosses. Working on my distribution range and commanding the six-yard box.', clips: ['Shot-stopping & sweeping 2026', 'Penalty save — Metro League', 'Distribution reel'], ach: [['NPL U18 squad — 2 seasons', '2025 and 2026'], ['Golden Glove, Metro League', 'Northern United SC, 2025']], hist: [['Ashvale Lions FC', '2022–2024'], ['Barrowfield Juniors', '2018–2021']] };
+const DENIZ_CV = { first: 'Deniz', name: 'Deniz Yılmaz', initials: 'DY', num: 10, context: 'U15 · born Jan–Mar', pos: ['AM', 'LW'], dots: [[68, 50], [74, 16]], foot: 'Right', clubI: 'R', club: 'Riverside FC — U15 Boys', loc: 'Brunswick VIC', stats: [[18, 'Appearances', 0], [11, 'Goals', 1], [7, 'Assists', 0]], about: 'Right-footed 10 who plays between the lines. Two-footed finisher, working on pressing triggers and weak-foot delivery.', clips: ['Season highlights 2026', 'vs Northern Utd — full performance'], ach: [['U15 League — Runners up', '2026 season'], ['Players’ Player of the Year', 'Riverside FC, 2025']], hist: [['Elderslie Juniors SC', '2019–2023']] };
+const previewPage = (o, strip) => `<div class="scr" style="background:var(--bg)">${NAV}<div class="fl-wide">${strip}</div>${cvCard(o)}</div>`;
+st({ g: 'Preview', id: 'p-self', t: 'Preview my page (Nate)', tags: [['ok', 'D-80 unchanged: requireRecordActor, live assembly'], ['ok', 'one header']],
+  p: 'Today the back link and the banner sit <b>above</b> the CV’s own nav bar, so the page has two headers, and at 1280 a 640px banner floats over a 1200px card. Now PlayerCV takes an <code>above</code> slot: the nav bar comes first, then the way back and the Preview Notice inside <code>.fl-wide</code>, aligned with the card’s grid. The CV under it is the real card, untouched. The token page never passes <code>above</code>.',
+  a: [previewPage(NATE_CV, `<div class="pv-strip"><a class="pg-back" style="margin:0;align-self:flex-start">${ic('back', 15, 2.4)}Back to editing</a><div class="card card-accent" role="status" style="display:flex;flex-direction:column;gap:3px;padding:12px 14px"><div class="notice-k k-accent">Preview</div><div style="font-size:13.5px;font-weight:700;line-height:1.45">This is exactly what a club sees when you send your page.</div></div></div>`)] });
+st({ g: 'Preview', id: 'p-parent', t: 'A parent previews their under-16, with a change waiting (Alex for Deniz)', tags: [['ok', 'D-119 approved snapshot'], ['ok', 'pv4–pv6']],
+  p: 'The parent sees the <b>approved</b> page (never the pending edit), the waiting line and “Review the changes” on its own 44px row. The Notice edge is purple because the next move is the parent’s.',
+  a: [previewPage(DENIZ_CV, `<div class="pv-strip"><a class="pg-back" style="margin:0;align-self:flex-start">${ic('back', 15, 2.4)}Back to Deniz</a><div class="card card-purple" role="status" style="display:flex;flex-direction:column;gap:3px;padding:12px 14px"><div class="notice-k k-accent">Preview</div><div style="font-size:13.5px;font-weight:700;line-height:1.45">This is exactly what a club sees when Deniz’s page is sent.</div><div style="font-size:12.5px;color:var(--secondary);line-height:1.5">Deniz’s latest changes are waiting for you. Clubs see this version until you approve them.</div><a style="display:inline-flex;align-items:center;min-height:44px;align-self:flex-start;font-size:13px;font-weight:800">Review the changes</a></div></div>`)] });
+
+/* ---------- ready ---------- */
+function readyPage(o) {
+  return player({ name: o.first, club: o.club, active: 'cv' }, `
+<div class="col">
+  ${head(null)}
+  <div class="door" style="gap:20px">
+    <div class="moment">
+      <div class="ticket"><div class="cv-num" aria-hidden="true">${o.num}</div><div class="badge ${o.waiting ? 'wait' : 'ok'}" aria-hidden="true">${ic(o.waiting ? 'clock' : 'tick', 16, 2.6)}</div><div class="ticket-line">${o.line}</div></div>
+      <div class="stack" style="gap:8px"><h1 class="h-moment">${o.waiting ? 'Sent to your parent' : o.live ? 'Your page is live' : 'Your page is ready'}</h1><p style="font-size:14.5px;color:var(--secondary);line-height:1.5">${o.waiting ? 'They see the change before it goes out. Nothing has moved until they say yes.' : 'Your page goes to a club as a link, so it shows what is on it today.'}</p></div>
+    </div>
+    ${o.live ? `<div class="card" style="display:flex;flex-direction:column;gap:4px"><div class="panel-h">Your link</div><div class="link-v">pitchfootball.com.au/p/${o.hint}</div><div class="row-s2">Switch your link off any time and the club’s copy stops working.</div></div>` : ''}
+    <div class="stack" style="gap:9px">
+      ${o.waiting ? '' : `<a class="btn btn-primary fl-glow">Send it to a club</a>`}
+      <a class="btn btn-secondary">Preview my page</a>
+      <a class="btn btn-secondary">Find a trial</a>
+      <a class="textbtn">Keep building</a>
+    </div>
+  </div>
+</div>`);
+}
+st({ g: 'Ready', id: 'r-ready', t: 'Your page is ready (Jordan, all six done, not sent yet)', tags: [['ok', 'says “ready” until a token exists (D-80)']],
+  p: 'The moment is the card’s <b>ticket</b>: the approved one-line summary on the card’s own gradient, the number behind it, and an accent tick badge (the claim’s “done” language). It sits on the door panel from 640. One glowing primary; “Keep building” is the 44px text button (the flagged ghost, unchanged in role).',
+  a: [readyPage({ first: 'Jordan', club: 'Marchfield City FC', num: 9, line: 'Jordan · ST · LW · #9 · 2 clips' })] });
+st({ g: 'Ready', id: 'r-live', t: 'Your page is live (Jordan, after a send)', tags: [['ok', 'hint only, never a working URL']],
+  p: 'The link hint is <b>ink</b>, not green: it is text to read, not a link (the real token is stored hashed and is never shown here).',
+  a: [readyPage({ first: 'Jordan', club: 'Marchfield City FC', num: 9, live: true, hint: 'k7Qx·Fp2c', line: 'Jordan · ST · LW · #9 · 2 clips' })] });
+st({ g: 'Ready', id: 'r-wait', t: 'Sent to your parent (Deniz, an under-16 edit waiting)', tags: [['ok', 'D-119: nothing celebrated that hasn’t happened'], ['now', 'P7: an unconfirmed 16–17 is offered Send here']],
+  p: 'Amber clock badge, no Send button. <b>Red, today:</b> a 16–17 whose parent hasn’t confirmed (0048) finishes their page and is offered “Send it to a club”, which lands on /send and is bounced to /home. /home hides that button for exactly this state; this screen should too (P7).',
+  a: [readyPage({ first: 'Deniz', club: 'Riverside FC', num: 10, waiting: true, line: 'Deniz · AM · LW · #10 · 2 clips' })] });
+
+/* ---------- send ---------- */
+function sendPage(o) {
+  const prefilled = o.club && o.addr;
+  return (o.parent ? (b) => topbar(b) : (b) => player({ name: o.first, club: o.seatClub, active: 'send' }, b))(`
+<div class="col">
+  ${head('Back')}
+  <form class="door">
+    ${titles('Send my CV', 'Pick who it goes to. Your CV goes as a link, so it always shows what’s on your page today.')}
+    ${o.error ? `<div class="card card-amber say" role="alert">Check the club name and the email address — a wrong address just goes nowhere.</div>` : ''}
+    <div class="gap9"><div class="panel-h">Sending to</div>
+      ${field('Club', `<input placeholder="e.g. Northern United SC" value="${o.club || ''}">`, { bad: o.error })}
+      ${field('Their email address', `<input class="mono" placeholder="football@theclub.com.au" value="${o.addr || ''}">`, { bad: o.error })}
+      <div class="help">${prefilled ? `The address ${o.club} publishes on its own website, checked 30 September. Change it if you have a better one.` : 'From the club’s own trial notice. Check it’s right — a wrong address just goes nowhere.'}</div>
+    </div>
+    <div class="card-sunken checks"><div class="checks-t">What the club gets</div>${check(1, 'A link to your CV — the same page you’d send anyone.')}${check(0, 'If you switch your link off, it stops working for them.')}${check(0, 'Not your phone number, your email or your address. They never get those.')}</div>
+    ${o.ask ? who(true, 'people', 'Your parent sends this one', 'You’re under 16, so we ask your parent to check the address and press send. It’s the same for every club.')
+      : who(false, 'send', 'You send this yourself', `${o.teen ? 'Your parent is told each time you send. ' : ''}Switch the link off later and the club’s copy stops working.`)}
+    <div class="stack" style="gap:10px"><button class="btn btn-primary fl-glow">${o.ask ? 'Ask my parent to send it' : 'Send it now'}</button><a class="textbtn">Cancel</a></div>
+  </form>
+  ${o.links || ''}
+</div>`);
+}
+const linksAdult = `<section class="gap9" id="links"><h2 class="sec-h">Your links</h2>
+  <div class="card rows">
+    <div class="row"><div class="row-main"><div class="row-t" style="font-size:14px">Kingsway Rovers FC</div><div class="row-s">25 Sep 2026 · football@kingswayrovers.example.au</div></div><button class="console-btn">Switch off</button></div>
+    <div class="row"><div class="row-main"><div class="row-t" style="font-size:14px">Tarrowvale City FC</div><div class="row-s">29 Sep 2026</div><div class="row-s2">This one didn’t go. You can send it again later.</div></div></div>
+    <div class="row"><div class="row-main"><div class="row-t" style="font-size:14px">Brindlewood Rovers SC</div><div class="row-s">18 Sep 2026 · info@brindlewoodrovers.example.au</div></div><span class="row-s" style="font-weight:700;flex-shrink:0">Switched off</span></div>
+  </div>
+  <form class="card stack" style="gap:10px"><div class="checks-t">Make a fresh link</div><div class="row-s2">Every link you’ve sent stops working straight away, and you get a new one to share. Clubs that had your old link won’t be able to open it.</div><button class="btn btn-secondary">Make a fresh link</button></form>
+</section>`;
+const linksEmpty = `<section class="gap9" id="links"><h2 class="sec-h">Your links</h2>
+  <div class="card empty"><div class="empty-tile">${ic('send', 16, 2)}</div><div><span class="empty-t">You haven’t sent your CV to a club yet.</span></div></div>
+  <form class="card stack" style="gap:10px"><div class="checks-t">Make a fresh link</div><div class="row-s2">Every link you’ve sent stops working straight away, and you get a new one to share. Clubs that had your old link won’t be able to open it.</div><button class="btn btn-secondary">Make a fresh link</button></form>
+</section>`;
+const linksFresh = `<section class="gap9" id="links"><h2 class="sec-h">Your links</h2>
+  <div class="card card-accent stack" role="status" style="gap:8px"><div class="checks-t">Your fresh link</div><div class="link-v" style="font-size:13px">pitchfootball.com.au/p/k7Qx2mVw9RtLa0Hs4NcYe8Fp2c</div><button class="btn btn-secondary">Copy the link</button><div class="help">Copy it now. We only show it this once. Every link you had before has stopped working.</div></div>
+  <div class="card rows">
+    <div class="row"><div class="row-main"><div class="row-t" style="font-size:14px">Kingsway Rovers FC</div><div class="row-s">25 Sep 2026 · football@kingswayrovers.example.au</div></div><span class="row-s" style="font-weight:700;flex-shrink:0">Switched off</span></div>
+    <div class="row"><div class="row-main"><div class="row-t" style="font-size:14px">Brindlewood Rovers SC</div><div class="row-s">18 Sep 2026 · info@brindlewoodrovers.example.au</div></div><span class="row-s" style="font-weight:700;flex-shrink:0">Switched off</span></div>
+  </div>
+  <form class="card stack" style="gap:10px"><div class="checks-t">Make a fresh link</div><div class="row-s2">Every link you’ve sent stops working straight away, and you get a new one to share. Clubs that had your old link won’t be able to open it.</div><button class="btn btn-secondary">Make a fresh link</button></form>
+</section>`;
+st({ g: 'Send', id: 's-adult', t: 'Send my CV, 18+ (Jordan), with his links', tags: [['ok', 'D-99 · never a number (John, 17 Sep)']],
+  p: 'The compose is a <b>door</b>; “Your links” is a <b>list</b> on the page under it. “Sending to” heads both wells, and each well names its own field (the address well had no label inside it). “What the club gets” is a Well: text you read. Ticks are <code>--secondary</code>, crosses <code>--muted</code>: a cross here means “not given”, which is not the red danger state. The held send reads as one that didn’t go, with no figure. Switch off is <code>.console-btn</code>.',
+  a: [sendPage({ first: 'Jordan', seatClub: 'Marchfield City FC', links: linksAdult })] });
+st({ g: 'Send', id: 's-teen', t: 'From a club’s page, 16–17 (Nate → Brindlewood Rovers SC, unclaimed)', tags: [['ok', '0160 address in full, with where it came from'], ['ok', 'D-172 nothing drawn for the club']],
+  p: 'The club’s name and published address are filled in and stay editable. The club is unclaimed, so the screen draws no crest, tile or colour for it: only the name the family is sending to. “Your parent is told each time you send.” leads the who-sends line. His links are empty, so the Empty tile shows.',
+  a: [sendPage({ first: 'Nate', seatClub: 'Northern United SC', teen: true, club: 'Brindlewood Rovers SC', addr: 'info@brindlewoodrovers.example.au', links: linksEmpty })] });
+st({ g: 'Send', id: 's-ask', t: 'An under-16 composes for their parent (Deniz → Brindlewood Rovers SC)', tags: [['ok', 'D-91: the child composes, the parent sends'], ['now', 'P4: the parent reaches this same screen']],
+  p: 'The who-sends row turns purple and the one primary is “Ask my parent to send it”. No “Your links” (an under-16 never holds a link). <b>Red, today:</b> the club page gives a parent “Send Deniz’s CV to Brindlewood Rovers SC”, which opens this screen <i>as the child sees it</i>, so the parent reads “Ask my parent to send it” and then approves their own request from an email (second pair). See P4.',
+  a: [sendPage({ first: 'Deniz', seatClub: 'Riverside FC', ask: true, club: 'Brindlewood Rovers SC', addr: 'info@brindlewoodrovers.example.au' }), sendPage({ first: 'Deniz', parent: true, ask: true, club: 'Brindlewood Rovers SC', addr: 'info@brindlewoodrovers.example.au' })],
+  al: ['Deniz, in his own seat', 'Alex (his parent), from the club page: the same words, addressed to the child'] });
+st({ g: 'Send', id: 's-error', t: 'A refused address, and a fresh link (Nate · Jordan)', tags: [['ok', '?error=1 · ?link=']],
+  p: 'The refusal marks both wells amber, because the one approved line names both. The fresh link is an accent Notice at the top of the list, shown once, with the charter secondary for “Copy the link” (CopyLink was hand-built at the same values).',
+  a: [sendPage({ first: 'Nate', seatClub: 'Northern United SC', teen: true, error: true, club: 'Brindlewood Rovers', addr: 'info@brindlewoodrovers', links: linksEmpty }), player({ name: 'Jordan', club: 'Marchfield City FC', active: 'send' }, `<div class="col">${head('Back')}${linksFresh}</div>`)],
+  al: ['?error=1 (Nate)', '?link=… (Jordan; the compose door above it is unchanged and cropped here)'] });
+st({ g: 'Send', id: 's-out', t: 'The four outcomes: asked, sent, sending is off, not sent', tags: [['ok', 'L6 · L38 · 0160'], ['ok', 'sc-r4 reads kicker, title, body in order']],
+  p: 'One part: the Notice, lifted (<code>.fl-float</code>), with the state on the kicker’s dot: amber waiting, accent sent, muted off and not sent. They were four green hero gradients, so “Sending is off” and “Not sent” were painted in the action colour. The kicker, the title and the body stay one after the other with nothing between them (sc-r4 and sc-r5 read them as one string). A limited send lands on “Sent.” exactly as a real one does (L38: nothing on it depends on a row being written).',
+  a: [player({ name: 'Deniz', club: 'Riverside FC', active: 'send' }, `<div class="col">${head('Back')}${notice('Waiting on your parent', 'k-amber', 'Asked. Nothing has been sent yet.', 'Your parent checks the address and presses send. It’s the same for every club.', 'card-amber')}</div>`),
+      player({ name: 'Jordan', club: 'Marchfield City FC', active: 'send' }, `<div class="col">${head('Back')}${notice('Sent', 'k-accent', 'Sent. It’s gone to the club as a link.', 'That’s everything on your side. Switch your link off any time and the club’s copy stops working.')}</div>`),
+      player({ name: 'Nate', club: 'Northern United SC', active: 'send' }, `<div class="col">${head('Back')}${notice('Sending is off', 'k-muted', 'Sending is off on your account', 'Your CV can’t be sent from here at the moment. If you want it back on, talk to your parent.')}</div>`),
+      player({ name: 'Nate', club: 'Northern United SC', active: 'send' }, `<div class="col">${head('Back')}${notice('Not sent', 'k-muted', 'We can’t send to this club through Pitch', 'Nothing has been sent.')}</div>`)],
+  al: ['?asked=1 (Deniz)', '?sent=1 (Jordan)', 'switched off by the parent (Nate)', 'a club that asked Pitch to stop (Nate → Wrenmoor Wanderers FC)'] });
+
+/* ---------- share card ---------- */
+const sil = (w, h) => `<div class="sil" style="width:${w}px;height:${h}px"><i style="top:${Math.round(h * .16)}px;width:${Math.round(w * .28)}px;height:${Math.round(w * .28)}px;border-radius:4px" class="b2"></i><i class="n" style="top:${Math.round(h * .5)}px;width:${Math.round(w * .56)}px;height:4px"></i><i class="c" style="top:${Math.round(h * .62)}px;width:${Math.round(w * .2)}px;height:6px"></i><i class="c" style="top:${Math.round(h * .62)}px;left:${Math.round(w * .38)}px;width:${Math.round(w * .16)}px;height:6px"></i><i class="b2" style="top:${Math.round(h * .8)}px;width:${Math.round(w * .7)}px;height:3px"></i></div>`;
+st({ g: 'Share card', id: 'sc-compose', t: 'Share my CV: pick a shape (Nate, 16–17)', tags: [['ok', 'D-89 no club colours, no locator'], ['ok', 'D-101 nothing generated here'], ['now', 'P5 Cancel goes nowhere']],
+  p: 'The three shapes are drawn as <b>card silhouettes</b> on the card’s own gradient: a photo block, a name bar, two chip shapes and a stats rule. They carry <b>no record data at all</b>, because generating a preview is generating the image before a parent has said yes (D-101). The chosen shape follows the real radio through <code>:has(input:checked)</code>. Today the first shape is drawn as chosen whatever is picked. The Pitch green is the only colour on them; a club’s colours never go on a card (D-89). <b>Red, today:</b> “Cancel” is a <code>div</code> with no destination (P5).',
+  a: [topbar(`<div class="col">${head('Back')}<form class="door">${titles('Share my CV', 'Pitch makes you a card. You post it wherever you like — Instagram, Snap, a group chat, anywhere.')}
+    <div class="gap9"><div class="panel-h">Pick a shape</div><div class="shapes"><label class="shape"><input type="radio" name="shape" checked><div class="shape-in">${sil(34, 60)}<div class="shape-n">Story</div></div></label><label class="shape"><input type="radio" name="shape"><div class="shape-in">${sil(52, 52)}<div class="shape-n">Square</div></div></label><label class="shape"><input type="radio" name="shape"><div class="shape-in">${sil(64, 34)}<div class="shape-n">Landscape</div></div></label></div></div>
+    <div class="card-sunken checks"><div class="checks-t">What’s on it</div>${check(1, 'Your first name and the letter your surname starts with. Nothing more of your name.')}${check(1, 'Your positions, your number and the numbers you chose to show.')}${check(0, 'Not your club, not your age group, not where you live, not your face.')}${check(0, 'No link back to your page. Someone who likes it has to come and find Pitch themselves.')}</div>
+    ${who(true, 'people', 'Your parent sees it first', 'They look at the actual card and say yes. Then it’s yours to post wherever you want.')}
+    <div class="stack" style="gap:10px"><button class="btn btn-primary fl-glow">Ask my parent to approve it</button><span class="textbtn dead">Cancel</span></div></form></div>`)] });
+st({ g: 'Share card', id: 'sc-asked', t: 'Share card asked', tags: [['ok', 'D-101'], ['dec', 'approved words, new place']],
+  p: 'The same Notice as every other “asked” in this group. The kicker “Waiting on your parent” is the approved line from /send, reused here (listed for copy check). Title and body are verbatim.',
+  a: [topbar(`<div class="col">${head('Back')}${notice('Waiting on your parent', 'k-amber', 'Asked. Nothing has been made yet.', 'Your parent sees the exact card and says yes. Then it’s yours to post wherever you want.', 'card-amber')}</div>`)] });
+
+/* ---------- register interest ---------- */
+function interestPage(o) {
+  return topbar(`<div class="col">${head('Back')}<form class="door">
+  ${titles('Register your interest', `${o.club} keep a register of players who want to be there. Put your name on it and they have your CV when they’re looking.`)}
+  <div class="gap9"><div class="field-label">Interested in</div><div class="card" style="display:flex;align-items:center;gap:12px"><div class="club-tile">${o.ini}</div><div><div class="row-t" style="font-size:15px">${o.club}</div><div class="row-s" style="font-size:12px">${o.suburb}</div>${o.trial ? `<div class="trial-l">${ic('cal', 13, 2.2)}For ${o.trial}</div>` : ''}</div></div></div>
+  ${field('Which squad', `<select><option>${o.squad || '—'}</option></select>`)}
+  <div class="gap9"><div class="field-label">Where you’d play</div>${posGrid(o.pos, false)}<div class="pos-line" aria-live="polite">${o.posLine}</div><div class="help">Filled in from your CV. Change it if you’d play somewhere else for this club.</div></div>
+  <div class="gap9"><div style="display:flex;justify-content:space-between;align-items:baseline"><div class="field-label">One line, if you want</div><div class="help" style="font-weight:700;font-size:11px">0 / 140</div></div>${field('One line, if you want', '<textarea rows="2" placeholder="Right-footed 10. Happy anywhere across the front three."></textarea>').replace('<span class="field-label">One line, if you want</span>', '')}<div class="help">${o.ask ? 'Football only. Your parent reads this before it goes anywhere.' : `Football only. ${o.club} read it on their register.`}</div></div>
+  <div class="card-sunken checks">${check(1, 'A link to your CV — the live page, not a copy of it.')}${check(1, 'Your name, your age, your club, the squad, where you’d play, and your one line — what a coach picks a squad on.')}<hr>${check(0, 'Not your birthday, your phone, your email, your address or your school.')}${check(0, 'Take yourself off and the link stops working the same minute.')}</div>
+  ${o.ask ? who(true, 'people', 'Your parent sends this one', 'You’re under 16, so we ask your parent to read it and press send. It’s the same for every club.') : who(false, 'tick', 'This goes straight on their register', `${o.teen ? 'Your parent can see which clubs you are on. ' : ''}If ${o.club} want you at a trial, they invite you through Pitch.`)}
+  <div class="card-sunken" style="display:flex;gap:10px;align-items:flex-start">${ic('info', 17, 2, 'color:var(--muted);flex-shrink:0;margin-top:1px')}<div class="help" style="font-size:12.5px;line-height:1.55">Being on a register isn’t a trial spot and it isn’t a decision, so there is nothing here to be turned down from. You stay on it until you take yourself off — this season, and the next one.</div></div>
+  <div class="stack" style="gap:10px"><button class="btn btn-primary fl-glow">${o.ask ? 'Ask my parent to send it' : 'Put me on the register'}</button><span class="textbtn dead">Cancel</span></div>
+</form></div>`);
+}
+st({ g: 'Register interest', id: 'ri-adult', t: 'Register your interest, 18+, from a trial (Jordan → Kingsway Rovers FC)', tags: [['ok', 'D-108 words'], ['now', 'P5 Cancel goes nowhere'], ['now', 'P8 Which squad with no squads']],
+  p: 'A door with one glowing primary. The trial line under the club is <code>--secondary</code> with a calendar glyph (it was green text, and it is not an action). The positions use the shared picker (<code>.pos-grid</code>): on is tinted, no lead fill, because this form keeps no order. The club is verified, so its initials tile is fine to draw; a claimed club’s own colours could go on this tile (identity, D-173), but the page doesn’t read them today, so it is not drawn. <b>Red, today:</b> Kingsway has no squads, so “Which squad” offers only “—” (P8), and “Cancel” goes nowhere (P5).',
+  a: [interestPage({ club: 'Kingsway Rovers FC', ini: 'KR', suburb: 'Brunswick West', trial: 'U16–U18 and Seniors trials · Sun 25 Oct', pos: ['LW', 'ST'], posLine: 'Left wing · Striker' })] });
+st({ g: 'Register interest', id: 'ri-teen', t: 'Register your interest, 16–17 (Nate → Riverside FC, a squad chosen on the club page)', tags: [['ok', 'doc 14 N4']],
+  p: '“Your parent can see which clubs you are on.” leads the who-registers line. The squad arrives preselected from the club page’s chip.',
+  a: [interestPage({ club: 'Riverside FC', ini: 'RF', suburb: 'Brunswick', squad: 'U18 Boys', teen: true, pos: ['GK'], posLine: 'Goalkeeper' })] });
+st({ g: 'Register interest', id: 'ri-ask', t: 'An under-16 asks their parent (Deniz → Riverside FC)', tags: [['ok', 'D-91 · D-153'], ['now', 'P4 the parent reaches this screen too']],
+  p: 'The purple who-sends row, the parent-reads help line and “Ask my parent to send it”. The same parent problem as on Send (P4): the club page’s “Register Deniz’s interest” opens this screen as the child sees it.',
+  a: [interestPage({ club: 'Riverside FC', ini: 'RF', suburb: 'Brunswick', squad: 'U15 Boys', ask: true, pos: ['AM', 'LW'], posLine: 'Attacking midfielder · Left wing' })] });
+st({ g: 'Register interest', id: 'ri-out', t: 'The three outcomes: on the register, asked, sending is off', tags: [['ok', 'the Send outcomes’ Notice, same part']],
+  p: 'The same Notice as Send. Its words are this page’s own.',
+  a: [topbar(`<div class="col">${head('Back')}${notice('On the register', 'k-accent', 'You’re on Kingsway Rovers FC’s register.', 'For U16–U18 and Seniors trials, Sun 25 Oct. If the club wants you at a trial, it invites you through Pitch.')}</div>`),
+      topbar(`<div class="col">${head('Back')}${notice('Waiting on your parent', 'k-amber', 'Asked. Nothing has gone to Riverside FC yet.', 'Your parent reads it and presses send. It’s the same for every club.', 'card-amber')}</div>`),
+      topbar(`<div class="col">${head('Back')}${notice('Sending is off', 'k-muted', 'Sending is off on your account', 'Your CV can’t go to a club from here at the moment. If you want it back on, talk to your parent.')}</div>`)],
+  al: ['?registered=1 (Jordan)', '?asked=1 (Deniz)', 'switched off (Nate)'] });
+
+/* ---------- squad ---------- */
+const clubRows = [['Kingsway Rovers FC', 'Brunswick West VIC'], ['Marchfield City FC', 'Coburg VIC'], ['Northern United SC', 'Preston VIC'], ['Riverside FC', 'Brunswick VIC'], ['Saltmarsh Rovers FC', 'Altona VIC'], ['Tarrowvale City FC', 'Hoppers Crossing VIC']];
+const sqSearch = (q) => `<form class="gap9"><div class="field-label">Find your club</div><div class="fl-search"><label class="fl-search-field">${ic('search', 18, 2.2)}<input placeholder="Type a club’s name" value="${q || ''}"></label><button class="btn btn-secondary">Search</button></div></form>`;
+const sqNote = `<div class="card-sunken help" style="font-size:12.5px;color:var(--secondary);line-height:1.55">The club sees the name and the team you picked, and nothing else, until they confirm it. If they don’t, nothing happens and nobody is told.</div>`;
+st({ g: 'Where you play', id: 'sq-list', t: 'Where do you play? (Nate)', tags: [['ok', 'clubs are organisations, never people (D-126)'], ['ok', 'clubs1/2: each row stays an anchor']],
+  p: 'A list is a page. The search is the <b>light field from <code>/</code> and <code>/claim</code></b> (“Find your club” is the same words there), so a family types into the same object everywhere they look for a club. The clubs are one Panel list with a chevron per row; each row stays an <code>&lt;a href="?club="&gt;</code> with the name as its first text (clubs1/clubs2 read it).',
+  a: [topbar(`<div class="col">${head('Back')}${titles('Where do you play?', 'Pick the club and the team. The club confirms it, and then your page shows it.')}${sqSearch()}<section class="gap9"><h2 class="sec-h">Clubs on Pitch</h2><div class="card rows">${clubRows.map(([n, s]) => `<a class="row"><div class="row-main"><div class="row-t" style="font-size:15px">${n}</div><div class="row-s">${s}</div></div><span class="row-chev">${ic('chev', 18, 2)}</span></a>`).join('')}</div></section>${sqNote}</div>`)] });
+st({ g: 'Where you play', id: 'sq-none', t: 'No club by that name (Nate searches “Glenmarsh”)', tags: [['ok', 'Empty tile']],
+  p: 'The empty answer is the Empty tile panel: dashed means “not yet”. Its words are the approved line, in one element.',
+  a: [topbar(`<div class="col">${head('Back')}${titles('Where do you play?', 'Pick the club and the team. The club confirms it, and then your page shows it.')}${sqSearch('Glenmarsh')}<section class="gap9"><h2 class="sec-h">Clubs that match</h2><div class="card empty"><div class="empty-tile"></div><div class="empty-b">No club by that name yet. Clubs appear here once they’ve joined Pitch and we’ve verified them by phone.</div></div></section>${sqNote}</div>`)] });
+st({ g: 'Where you play', id: 'sq-teams', t: 'Which team? (Nate picks Riverside FC)', tags: [['ok', 'Ask them = the row’s action word']],
+  p: 'Each team is a List row that is a submit button, ending in the accent word “Ask them” (green, because it is the action). “A different club” is the 44px text button.',
+  a: [topbar(`<div class="col">${head('Back')}${titles('Where do you play?', 'Pick the club and the team. The club confirms it, and then your page shows it.')}<section class="gap9"><h2 class="sec-h">Riverside FC — which team?</h2><div class="card rows">${[['MiniRoos U9', 'U9 · boys · 2026'], ['Seniors Women', 'SEN · women · 2026'], ['U13 Boys', 'U13 · boys · 2026'], ['U15 Boys', 'U15 · boys · 2026'], ['U16 Boys', 'U16 · boys · 2026'], ['U18 Boys', 'U18 · boys · 2026'], ['U21 Men', 'U21 · men · 2026']].map(([n, s]) => `<button class="row" style="width:100%;background:none;border:0;border-top:1px solid var(--line);text-align:left;cursor:pointer"><div class="row-main"><div class="row-t" style="font-size:15px">${n}</div><div class="row-s">${s}</div></div><span class="row-end">Ask them</span></button>`).join('')}</div></section><a class="textbtn">A different club</a>${sqNote}</div>`)] });
+st({ g: 'Where you play', id: 'sq-parent', t: 'A parent, for their child: a club with no teams, after a failed ask (Alex for Deniz)', tags: [['ok', 'the parent’s words'], ['ok', '?error=1']],
+  p: '“Where does Deniz play?” and “Back” to the controls. The refusal is an amber Notice. A club with no teams is the Empty tile, with the approved line.',
+  a: [topbar(`<div class="col">${head('Back')}${titles('Where does Deniz play?', 'Pick the club and the team. The club confirms it, and then Deniz’s page shows it.')}<div class="card card-amber say" role="alert">That didn’t go through. You may have asked this club already.</div><section class="gap9"><h2 class="sec-h">Kingsway Rovers FC — which team?</h2><div class="card empty"><div class="empty-tile"></div><div class="empty-b">Kingsway Rovers FC hasn’t added its teams yet. Ask them to add yours, and come back.</div></div></section><a class="textbtn">A different club</a>${sqNote}</div>`)] });
+
+/* ---------- manage ---------- */
+const quiet = (body) => `<div class="scr flood has-topbar">${NAV}<div class="col" style="max-width:460px"><div class="door" style="gap:16px">${body}</div></div></div>`;
+const manageForm = (o) => `${titles('Your waitlist details.', `An email and who you are — that’s the whole record. Change either below.${o.unsub ? ' You’re currently unsubscribed, so nothing will be sent either way.' : ''}`)}
+  ${o.saved ? `<div class="card card-accent say" role="status">Saved.</div>` : ''}${o.err ? `<div class="card card-amber say" role="alert">${o.err}</div>` : ''}
+  <form class="stack" style="gap:12px">${field('Email', '<input type="email" value="sam.parent@example.com">', { bad: !!o.err })}${field('I’m here as', '<select><option>Parent</option></select>')}<button class="btn btn-primary fl-glow">Save</button></form>
+  <p class="help" style="font-size:12.5px">Want off the list entirely? <a style="font-weight:700">Unsubscribe in one click.</a></p>`;
+st({ g: '/manage', id: 'mg', t: '/manage: saved, refused, and a broken link', tags: [['ok', 'A part 21 Quiet shell, 460 kept'], ['ok', 'no account, token only (doc 29 §5)']],
+  p: 'Spec A’s Quiet shell: the Top bar carries the logo (right on a phone, left from 1024), so the in-column <code>PitchWordmark</code> goes, and it was top left on a phone. The form is a door with <code>.field</code> wells (the inputs were 52px literals on <code>#0a110d</code>, a colour below the page). “Save” is the charter primary (it was 54px). The title moves onto Page title: 26px at −0.015em (it was 28px at −0.02em, not one of the five spacings), and the 600 weight becomes 700. The refusal is amber, as sign-in’s is (it was a red literal).',
+  a: [quiet(manageForm({ saved: true })), quiet(manageForm({ err: 'That address is already on the list.', unsub: true })), quiet(`${titles('That link didn’t work.', 'The manage link may have been cut short by your mail app. Try copying the whole link from the email, or reply to any email from us and we’ll sort it by hand.')}`)],
+  al: ['?saved=1', '?e=taken, while unsubscribed', 'no token, or a token that matches nothing'] });
+
+/* ---------- print ---------- */
+function printPage(o) {
+  return `<div class="scr paper"><div class="sheet-bar"><button class="btn btn-primary btn-auto">Save as PDF</button></div><div class="sheet">
+  <div class="sheet-head"><div><div class="sheet-name">${o.name}</div><div class="sheet-l1">${o.l1}</div><div class="sheet-l2">${o.l2}</div>${o.ctx ? `<div class="sheet-l2 dec" style="display:inline-block;margin-top:6px;font-weight:800;color:var(--print-2)">${o.ctx}</div>` : ''}</div>${WM}</div>
+  <div class="sheet-stats">${o.stats.map(([n, l]) => `<div><div class="sheet-n">${n}</div><div class="sheet-nl">${l}</div></div>`).join('')}<div class="sheet-src">Self-reported</div></div>
+  <div class="sheet-sec"><div class="sheet-h">About</div><div class="sheet-p">${o.about}</div></div>
+  <div class="sheet-sec"><div class="sheet-h">Achievements</div>${o.ach.map(([t, d]) => `<div class="sheet-i"><b>${t}</b> — ${d}</div>`).join('')}</div>
+  ${o.hist ? `<div class="sheet-sec dec"><div class="sheet-h">Football history</div>${o.hist.map(([t, d]) => `<div class="sheet-i"><b>${t}</b>${d ? ` — ${d}` : ''}</div>`).join('')}</div>` : ''}
+  <div class="sheet-sec"><div class="sheet-h">Other football</div>${o.other.map(([t, d]) => `<div class="sheet-i"><b>${t}</b> — ${d}</div>`).join('')}</div>
+  <div class="sheet-foot">pitchfootball.com.au · this page is a live link and the family can switch it off at any time</div>
+</div></div>`;
+}
+st({ g: 'Print', id: 'pr-nate', t: 'The print CV, 16–17 (/p/dev-nate/print)', tags: [['ok', 'D-121 free · D-80 same read path · D-77 dead link = LinkState'], ['dec', 'P3 the dashed parts']],
+  p: '<b>The card in ink.</b> The one light surface keeps its look and gets named tokens (<code>--print-*</code>, the same literals it uses today). Its headings become the CV’s own Section heading (label and hairline), its numbers the display numeral at 34px with −0.04em, and every letter-spacing one of the five (it used 0.09em, 0.08em and −0.02em). The typed “PITCH” becomes the Wordmark. “Save as PDF” is the charter primary (it was a hand-built dark button). <b>P3 (amber, dashed on the sheet):</b> the context line and Football history, which the screen CV carries and the print omits. A dead token still renders LinkState, unchanged.',
+  a: [printPage({ name: 'Nate Halloran', l1: 'GK · #1 · Right footed', l2: 'Northern United SC — U18 Boys', ctx: 'U18 · born Apr–Jun', stats: [[22, 'Appearances'], [7, 'Clean sheets']], about: 'Reserve keeper pushing for the starting spot. Comfortable playing out under pressure, strong on crosses. Working on my distribution range and commanding the six-yard box.', ach: [['NPL U18 squad — 2 seasons', '2025 and 2026'], ['Golden Glove, Metro League', 'Northern United SC, 2025']], hist: [['Northern United SC', 'U18 Boys · now'], ['Ashvale Lions FC', '2022–2024'], ['Barrowfield Juniors', '2018–2021']], other: [['Victorian Country carnival', '2026'], ['Brunswick Futsal U18', 'Summer 2025–26']] })] });
+st({ g: 'Print', id: 'pr-jordan', t: 'The print CV, 18+ (/p/dev-jordan/print), as the rules stand', tags: [['ok', 'an adult keeps School (D-161)']],
+  p: 'Without P3: no context line (an adult has no junior age group anyway) and no history block. School shows for an adult.',
+  a: [printPage({ name: 'Jordan Abebe', l1: 'ST · LW · #9 · Left footed', l2: 'Marchfield City FC — Seniors Men', stats: [[24, 'Appearances'], [16, 'Goals'], [6, 'Assists']], about: 'Left-footed nine who runs the channel and finishes early. Four seasons of senior football, looking for a step up in level for 2027.', ach: [['Golden Boot — State League 2', 'Marchfield City FC, 2026'], ['Promotion winners', '2025 season']], other: [['FV State League All-Stars', '2026'], ['Riverside University 1st XI', '2023–2025']] })] });
+
+/* ---------- render ---------- */
+const board = document.getElementById('board');
+const groups = [...new Set(S.map((s) => s.g))];
+document.getElementById('index').innerHTML = groups.map((g) => `<div class="idx-g">${g}</div><div class="idx">${S.filter((s) => s.g === g).map((s) => `<a href="#${s.id}">${s.t.split(' (')[0]}</a>`).join('')}</div>`).join('');
+let n = 0;
+board.innerHTML = S.map((s) => {
+  n += 1;
+  return `<section class="state" id="${s.id}"><div class="state-h"><h2>${n} · ${s.t} ${s.tags.map(([k, l]) => `<span class="tg tg-${k}">${l}</span>`).join(' ')}</h2><p>${s.p}</p></div>` +
+    s.a.map((html, i) => `${s.al ? `<div class="pair-l">${s.al[i]}</div>` : ''}<div class="pair"><div class="fr"><div class="fr-l">390</div><div class="f390">${html}</div></div><div class="fr"><div class="fr-l">1280 <span>(shown at 56% — tick “actual size” above for 100%)</span></div><div class="f1280">${html}</div></div></div>`).join('') +
+    `</section>`;
+}).join('');
+</script>
+</body>
+</html>

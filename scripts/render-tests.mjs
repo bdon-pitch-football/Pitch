@@ -1302,6 +1302,41 @@ const georgia = ids.children.georgia;
   check('t5b: and Mixed is not a way in (D-68 as amended)', /gender=mixed/.test(all), false);
 }
 
+// The board, Floodlit (D-173 as extended 1 Oct; BUZ: "Yes to all" to P1-P4
+// and N1). Signed out it wears the public nav bar the front door and the club
+// pages link to it from (P2); signed in it stays in the seat's own frame. Each
+// row's one action is on the charter's two buttons, never a third (a 44px
+// pill). A board FILTERED to nothing keeps its filters, its note and the
+// approved line, in one element, and offers no doors — those are the empty
+// board's alone (P3, P4), and the empty board itself is pressed at the end of
+// the write suite, the one place every notice comes off.
+{
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+  const out = plain((await get('/trials', null)).html);
+  const pub = /<nav[^>]*aria-label="Pitch"[^>]*>([\s\S]*?)<\/nav>/.exec(out)?.[1] ?? '';
+  const mine = plain((await get('/trials', ids.people.jordan)).html);
+  check('tb1: signed out, the board wears the public nav — Find your club, Trials marked as this page, Sign in — and a player sees it in their own frame, not under it (P2)',
+    [/href="\/claim"[^>]*>Find your club</.test(pub), /href="\/trials"[^>]*aria-current="page"[^>]*>Trials<|aria-current="page"[^>]*href="\/trials"[^>]*>Trials</.test(pub),
+     /href="\/signin"[^>]*>Sign in</.test(out), /<nav[^>]*aria-label="Pitch"/.test(mine), /<nav[^>]*aria-label="Player"/.test(mine)],
+    [true, true, true, false, true]);
+  const doors = [...out.matchAll(/<a[^>]*href="\/fc\/[^"]+#play"[^>]*>/g)].map((m) => m[0]);
+  check(`tb2: every listing's one action is a charter button — "I’m interested" the primary, "Send my CV" the secondary (${doors.length} listings)`,
+    [doors.length >= 3, doors.filter((a) => !/class="btn btn-(primary fl-glow|secondary)"/.test(a)).length,
+     /class="btn btn-primary fl-glow"[^>]*href="\/fc\/[^"]+\?trial=[0-9a-f-]{36}#play"[^>]*>I’m interested</.test(out),
+     /class="btn btn-secondary"[^>]*href="\/fc\/[^"?]+#play"[^>]*>Send my CV</.test(out)],
+    [true, 0, true, true]);
+  const none = plain((await get('/trials?gender=girls&pos=GK', null)).html);
+  check('tb3: filtered to nothing, the board keeps its filters and its note, and says the approved line as one sentence in one element',
+    [/(\d+) trials?</.exec(none)?.[1], /<details[^>]*class="[^"]*trial-filters/.test(none), none.includes('Positions wanted'),
+     none.includes('the button on each listing tells you which'),
+     /<p><b>No trials listed for that yet\.<\/b> An empty week is honest — we only list what a club has posted or published itself\.<\/p>/.test(none),
+     none.includes('No trials listed yet.')],
+    ['0', true, true, true, true, false]);
+  check('tb4: the two doors are the empty board\'s alone — not on a board with trials, not on one filtered to nothing (P4)',
+    [out, none].map((h) => [h.includes('Build a CV first — it is what the club reads'), h.includes('Claim your club page'), h.includes('For clubs &amp; technical directors')]),
+    [[false, false, false], [false, false, false]]);
+}
+
 // A link a screen SHOWS is a promise — a coach pastes it, a TD prints it.
 // Four screens showed pitchfootball.com.au/<name>, which does not exist: the
 // pages live at /c/<name> and /fc/<name>. Every full link shown must open.
@@ -2316,21 +2351,25 @@ const georgia = ids.children.georgia;
     for (const h of hrefs) { const r = await get(h); if (r.status !== 200) dead.push(`${r.status} ${h}`); }
     check(`fd2: every link on the front door resolves (${[...hrefs].sort().join(' ')})${dead.length ? ' — DEAD: ' + dead.join(', ') : ''}`,
       [hrefs.size >= 7, dead], [true, []]);
-    check('fd2b: the ways in are there — sign up, trials without an account, sign in, and the player, coach and club landings',
-      ['/join', '/trials', '/signin', '/?for=player', '/?for=coach', '/?for=club'].every((h) => hrefs.has(h)), true);
+    check('fd2b: the ways in are there — find your club, sign up, trials without an account, sign in, and all four landings',
+      ['/join', '/trials', '/signin', '/claim', '/?for=player', '/?for=parent', '/?for=coach', '/?for=club'].every((h) => hrefs.has(h)), true);
     // BUZ, 29 Sep ("recommended on all"): the parent's row says what a parent
-    // does, in /join's approved chip words, and goes to /join — whose parent
-    // door explains that the child starts and the parent approves.
+    // does, in /join's approved chip words. BUZ, 1 Oct (D-173): every persona
+    // has its own way in, so it now opens the parent's landing, whose button
+    // is the way to /join.
     const parentRow = /<a[^>]*href="([^"]*)"[^>]*>(?:(?!<\/a>)[\s\S])*?A parent(?:(?!<\/a>)[\s\S])*?<\/a>/.exec(served['/'].html);
-    check('fd2c: the chooser\u2019s parent row reads "Approve and see their record" and leads to /join',
-      [parentRow?.[1] ?? null, parentRow ? text(parentRow[0]).includes('Approve and see their record') : false,
-       has(served['/'].html, 'Set up and control your child’s profile')], ['/join', true, false]);
+    check('fd2c: the chooser\u2019s parent row reads "Approve and see their record" and leads to the parent\u2019s own landing',
+      [parentRow?.[1]?.replace(/&amp;/g, '&') ?? null, parentRow ? text(parentRow[0]).includes('Approve and see their record') : false,
+       has(served['/'].html, 'Set up and control your child’s profile')], ['/?for=parent', true, false]);
 
     // No price, and none of D-163's retired phrases, on any of the five.
+    // BUZ, 1 Oct: "For clubs · free" — free said bare is allowed on the
+    // front door (the 28 Sep rule: say free bare, never with an end date or a
+    // condition). "Free at launch", "free until…" and "free for now" stay barred.
     const retired = [];
     for (const [path, r] of Object.entries(served)) {
       for (const line of text(r.html)) {
-        const m = /\$\s?\d|\bfree\b|at launch|for now|\blimited\b|first (eleven|\d+) clubs|Founding XI|December|inc GST|a month|\/yr|\bPro\b/i.exec(line);
+        const m = /\$\s?\d|\bfree (at|until|for)\b|at launch|for now|\blimited\b|first (eleven|\d+) clubs|Founding XI|December|inc GST|a month|\/yr|\bPro\b/i.exec(line);
         if (m) retired.push(`${path}: ${line.slice(0, 70)}`);
       }
     }
@@ -2349,11 +2388,12 @@ const georgia = ids.children.georgia;
       const markup = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, '');
       const h1 = text(/<h1\b[^>]*>([\s\S]*?)<\/h1>/.exec(markup)?.[1] ?? '').join(' ');
       return [h1, ...Object.entries(TITLES).map(([seat, title]) =>
-        // The parent's row goes to /join (BUZ, 29 Sep), the others to their landing.
-        text(new RegExp(`<a\\b[^>]*href="${seat === 'parent' ? '/join' : `/\\?for=${seat}`}"[^>]*>([\\s\\S]*?)</a>`).exec(markup)?.[1] ?? '').includes(title))];
+        // Every persona opens its own landing (BUZ, 1 Oct, D-173).
+        text(new RegExp(`<a\\b[^>]*href="/\\?for=${seat}"[^>]*>([\\s\\S]*?)</a>`).exec(markup)?.[1] ?? '').includes(title))];
     };
-    const want = ['Somebody should be writing this down.', true, true, true, true];
-    check('fd5: with the switch on, / serves its heading and the four ways in (player, parent, coach, club) as HTML text, to a browser and to a crawler, before any script runs',
+    // The heading is club-first (D-173): clubs are the one audience (BUZ, 28 Sep).
+    const want = ['Your club’s page might already be built.', true, true, true, true];
+    check('fd5: with the switch on, / serves its club-first heading and the four ways in (player, parent, coach, club) as HTML text, to a browser and to a crawler, before any script runs',
       [asHtml(served['/'].html), asHtml(crawler)], [want, want]);
   } finally {
     await frontDoorSwitch(false);
@@ -2486,7 +2526,12 @@ const georgia = ids.children.georgia;
   const bannerAt = brind.html.indexOf('data-unclaimed-banner');
   check('U5: the banner is there, in body-text size, before anything else on the page is offered',
     [bannerAt > 0, brind.html.replace(/<!-- -->/g, '').includes('Pitch made this page from public information. Brindlewood Rovers SC has not claimed it.'),
-     /data-unclaimed-banner="" style="font-size:14px/.test(brind.html), bannerAt < Math.max(brind.html.indexOf('>Trials<'), brind.html.length)],
+     // Before anything the page OFFERS (safety review N2, 1 Oct): the old
+     // form, Math.max(indexOf, length), was always the page length, so it
+     // could not fail. Pitch's own nav bar sits above the club's name and is
+     // not an offer from the club; asked of John in 13-Board-Room.
+     /data-unclaimed-banner="" style="font-size:14px/.test(brind.html),
+     ['>Trials</h2>', 'Want to play here?', 'This is our club'].map((w) => brind.html.indexOf(w)).filter((i) => i >= 0).every((i) => bannerAt < i)],
     [true, true, true, true]);
   check('U6: the take-it-down door is on the page and needs no account — it is /report',
     [/href="\/report\?page=%2Ffc%2Fbrindlewood-rovers-sc"[^>]*>Ask us to update or remove it</.test(brind.html), (await get('/report?page=%2Ffc%2Fbrindlewood-rovers-sc')).status],

@@ -155,6 +155,13 @@ async function reach(who, extra = []) {
       // him off the product for every check after it (L32: a page is a
       // fixture). The render suite reads both pages; this one presses forms.
       if (h === '/conduct' || h === '/report/policy') continue;
+      // Nor the two ways in the Floodlit nav bar (D-173, 1 Oct) put on every
+      // club page: the logo's `/` and "Find your club" `/claim`. Each holds
+      // only a GET search, which the render suite reads (fd2, the /claim
+      // checks); followed here they spent two of the 60 pages and moved which
+      // seat met Jordan's forms first — ks-w0, sq2 and sq3 went red exactly as
+      // brief K recorded (L32).
+      if (h === '/' || h === '/claim' || h.startsWith('/?') || h.startsWith('/claim?')) continue;
       if (!seen.has(h)) queue.push(h);
     }
   }
@@ -2534,6 +2541,31 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const af = forms(html3).find((x) => 'alumniId' in x.fields);
   await send(td, af, { alumniId: nicoId });
   check('ce13: and the TD can take it down', (await pub()).includes('Nico P.'), false);
+
+  // Club colours (0160, D-173, BUZ 1 Oct).
+  const rawPub = async () => (await get('/fc/riverside-fc', null)).html;
+  const colourForm = forms((await get('/club/page-edit', td)).html).find((x) => x.visible.some((v) => v.name === 'primary'));
+  check('cc1: the editor has the club colours form', Boolean(colourForm), true);
+  await send(td, colourForm, { preset: '0' });
+  let raw = await rawPub();
+  check('cc2: the TD picks a pair and the page wears it — the trim runs under the hero and the month on a trial',
+    [/border-bottom:5px solid #f2b134/.test(raw), (raw.match(/color:#f2b134/g) ?? []).length > 0], [true, true]);
+  await send(admin, colourForm, { preset: 'custom', primary: '#0F3F86', secondary: '#ffffff' });
+  raw = await rawPub();
+  check('cc3: the administrator can set the club\u2019s own two colours (upper case is taken as the same colour)',
+    /border-bottom:5px solid #ffffff/.test(raw), true);
+  const badHex = await send(td, colourForm, { preset: 'custom', primary: 'red', secondary: '#ffffff' });
+  const noPick = await send(td, colourForm, { preset: '99' });
+  check('cc4: a colour that is not a colour, or a pair that does not exist, is refused, not guessed',
+    [/colours=bad/.test(badHex.location), /colours=bad/.test(noPick.location), /border-bottom:5px solid #ffffff/.test(await rawPub())], [true, true, true]);
+  await send(coach, colourForm, { preset: '4' });
+  await send(parent, colourForm, { preset: '4' });
+  check('cc5: a coach or a parent posting the same form changes nothing', /border-bottom:5px solid #ffffff/.test(await rawPub()), true);
+  const clearForm = forms((await get('/club/page-edit', td)).html).find((x) => /Pitch green/.test(x.submit ?? ''));
+  await send(td, clearForm, {});
+  check('cc6: and the club can go back to Pitch green', [Boolean(clearForm), /border-bottom:5px solid/.test(await rawPub())], [true, false]);
+  const unclaimedRaw = (await get('/fc/westgate-rangers', null)).html;
+  check('cc7: an unclaimed page never wears club colours', /border-bottom:5px solid/.test(unclaimedRaw), false);
 }
 
 // ---- who is in each squad (0052, D-158) ------------------------------------
@@ -3474,6 +3506,71 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   await logCall(westgate, { outcome: 'suspended', suspension_reason: '' });
   check('susp-ad-w3: suspended with no class, the notice Pitch compiled is off the board and off its page too — whoever posted it',
     await shown(...W), [false, false, false]);
+
+  // ---- the empty board (BUZ, 1 Oct: P3, P4, N1) --------------------------------------
+  // Last, because it takes every notice off the board: each club still listing
+  // one is suspended through the call sheet, as Kingsway and Westgate were.
+  // The seed always lists trials, so this is the one place the board most
+  // visitors see at launch — no trials at all — can be read.
+  // P3: no filters (nothing to filter) and no note about "the button on each
+  // listing". N1: "No trials listed yet." when nothing is chosen, in one
+  // element with the rest of the sentence. P4: a signed-out visitor is offered
+  // two doors in words already approved — a family builds its CV (/join, the
+  // secondary), a club claims its page (/claim, the one primary on the
+  // screen). A signed-in seat sees the board in its frame, with no doors.
+  {
+    // Loud, never silent (safety review N1): a listed club the fixtures do not
+    // know, or whose call sheet has no outcome form, is a counted FAIL — never
+    // a skip, and never a crash that stops the suite before its summary.
+    try {
+      const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+      const listed = [...new Set([...(await get('/trials', null)).html.matchAll(/href="\/fc\/([a-z0-9-]+)(?:\?trial=[0-9a-f-]{36})?#play"/g)].map((m) => m[1]))];
+      const missed = [];
+      for (const slug of listed) {
+        const clubId = ids.clubs[slug];
+        if (!clubId) { missed.push(`${slug}: not a seeded club`); continue; }
+        try {
+          const r = await logCall(clubId, { outcome: 'suspended', suspension_reason: 'administrative' });
+          if (r.status >= 400) missed.push(`${slug}: the call sheet answered ${r.status}`);
+        } catch (e) { missed.push(`${slug}: the call sheet could not be pressed (${e.message})`); }
+      }
+      check(`empty-w0a: every club listing a notice was suspended through its call sheet (${missed.join('; ') || 'all were'})`, missed, []);
+      const out = plain((await get('/trials', null)).html);
+      const line = /<p><b>No trials listed yet\.<\/b> An empty week is honest — we only list what a club has posted or published itself\.<\/p>/;
+      check(`empty-w0: with every club that listed a notice suspended (${listed.join(', ') || 'none listed'}), the board is empty`,
+        [listed.length > 0, /(\d+) trials?</.exec(out)?.[1], /href="\/fc\/[^"]+#play"/.test(out)], [true, '0', false]);
+      check('empty-w1: the empty board shows no filters and no note about buttons that are not there, and says "No trials listed yet." as one sentence in one element (P3, N1)',
+        [/trial-filters/.test(out), ['Age group', 'Competition', 'Positions wanted'].filter((g) => out.includes(g)), out.includes('the button on each listing'),
+         line.test(out), out.includes('No trials listed for that yet.')],
+        [false, [], false, true, false]);
+      check('empty-w2: signed out, it offers the two doors — "Build a CV first" to /join as the secondary, "Claim your club page" to /claim as the one primary on the screen (P4)',
+        [/href="\/join"[^>]*class="btn btn-secondary[^"]*"[^>]*>Build a CV first — it is what the club reads<|class="btn btn-secondary[^"]*"[^>]*href="\/join"[^>]*>Build a CV first — it is what the club reads</.test(out),
+         /href="\/claim"[^>]*class="btn btn-primary[^"]*"[^>]*>Claim your club page<|class="btn btn-primary[^"]*"[^>]*href="\/claim"[^>]*>Claim your club page</.test(out),
+         out.includes('For clubs &amp; technical directors'), out.includes('Put your trials where families can find them.'),
+         (out.match(/class="btn btn-primary/g) ?? []).length],
+        [true, true, true, true, 1]);
+      // The doors are a visitor's (P4), so every kind of signed-in seat is
+      // read (safety review N2): a player (Nate — by here Jordan has a child
+      // linked and sits in the Parent frame, as on /home), a guardian (Jordan,
+      // in that Parent frame) and a club seat (Marina, TD — no seat frame).
+      // A rule that keyed the doors off the frame instead of the session would
+      // show them to the club seat; this is where that is caught.
+      const seats = [['a player', ids.children.nate.child_id, 'Player'], ['a guardian', ids.people.jordan, 'Parent'], ['a club TD', op, null]];
+      for (const [label, who, frame] of seats) {
+        const inside = plain((await get('/trials', who)).html);
+        const frames = ['Player', 'Parent', 'Coach'].filter((f) => new RegExp(`<nav[^>]*aria-label="${f}"`).test(inside));
+        check(`empty-w3: signed in as ${label}, the empty board is in ${frame ? `the ${frame} frame` : 'no seat frame'}, with the line and neither door — the doors are a visitor's`,
+          [frames, line.test(inside), /trial-filters/.test(inside), inside.includes('Build a CV first'), inside.includes('Claim your club page')],
+          [frame ? [frame] : [], true, false, false, false]);
+      }
+      const old = plain((await get('/trials?gender=girls', null)).html);
+      check('empty-w4: an old link filtered to something on the empty board keeps its choice to take off, and says the approved line for a choice',
+        [/aria-label="Remove Girls"/.test(old), old.includes('<b>No trials listed for that yet.</b>'), old.includes('No trials listed yet.')],
+        [true, true, false]);
+    } catch (e) {
+      check(`empty-w: the empty-board block ran to its end (${e.message})`, false, true);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

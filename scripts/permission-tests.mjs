@@ -16,6 +16,7 @@ import { analyticsAllowed, analyticsBeforeSend } from '../lib/analytics-scope.ts
 import { POSITIONS as POSITIONS_TS } from '../lib/football.ts';
 import { CLUBS_WORDS_APPROVED as CLUBS_WORDS_APPROVED_TS, clubsScreensShown as clubsScreensShownTS } from '../lib/ops-policy.ts';
 import { RULINGS } from './rulings.mjs';
+import { clubTheme, contrast, PRESETS } from '../lib/club-colours.ts';
 import { createHash, createHmac } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -4779,7 +4780,7 @@ check('club video: the section is omitted when the club has none',
 check('club banner: the render flag is derived from the stored path and nothing else',
   /const hasBanner = Boolean\(c\.banner_path\)/.test(clubPageSrc), true);
 check('club banner: omitted when absent, so an empty page never shows a slot',
-  /\{hasBanner && \(/.test(clubPageSrc), true);
+  /\{hasBanner && (!unclaimed && )?\(/.test(clubPageSrc), true);
 
 // The crest and banner routes are the player-photo route's twins and must
 // keep its D-94 §7 controls.
@@ -5161,7 +5162,9 @@ check('hist12: a stat tile renders its own value and holds no other — no state
   [/>\{value\}</.test(tileSrc), /useState|useEffect|useLayoutEffect|requestAnimationFrame|setInterval|setTimeout/.test(tileSrc)], [true, false]);
 check('hist13: and under prefers-reduced-motion neither the rise nor the settle moves',
   [/prefers-reduced-motion: reduce\)[\s\S]{0,200}\.settle[\s\S]{0,40}animation: none/.test(srcOf('app/globals.css')),
-    /prefers-reduced-motion: reduce\) \{ \.cv-rise[^}]*animation: none/.test(srcOf('components/cv/PlayerCV.tsx'))], [true, true]);
+    // The card's rise moved into globals.css with the Floodlit player card
+    // (D-173, 1 Oct); the property is the same, so the check follows it.
+    /prefers-reduced-motion: reduce\) \{ \.cv-rise[^}]*animation: none/.test(srcOf('app/globals.css'))], [true, true]);
 
 // A coach's licences and results are SELF-DECLARED (0029) and must stay
 // visibly apart from the WWCC, which is the one credential on that page a
@@ -9167,7 +9170,9 @@ const componentFilesAll = [];
   // accident (D-163 as amended): no price, no date, no "at launch", "for now",
   // "limited" or "first X clubs", and nothing from the Founding XI.
   const fdSrc = codeOnly(srcOf('components/front-door/FrontDoor.tsx'));
-  const fdHeld = [/\$\s?\d/, /\bfree\b/i, /at launch/i, /for now/i, /\blimited\b/i, /first (eleven|\d+)/i, /Founding XI/i, /December/, /September/, /inc GST/i, /\/yr/, /\bPro\b/]
+  // BUZ, 1 Oct: "For clubs · free" — free said bare is allowed; free with a
+  // condition or an end date is still held (the 28 Sep rule).
+  const fdHeld = [/\$\s?\d/, /\bfree (at|until|for)\b/i, /at launch/i, /for now/i, /\blimited\b/i, /first (eleven|\d+)/i, /Founding XI/i, /December/, /September/, /inc GST/i, /\/yr/, /\bPro\b/]
     .filter((re) => re.test(fdSrc)).map(String);
   check(`fd-p3: the front door's source carries none of the held lines (${fdHeld.join(' ') || 'none'})`, fdHeld, []);
 
@@ -9187,9 +9192,25 @@ const componentFilesAll = [];
     Object.entries(served).filter(([k, v]) => /dob|birth(?!Quarter)|year|age$/i.test(k) || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v))).map(([k]) => k), []);
   // D-89: the card surfaces read no quarter and no age group — the band's own
   // rule, applied to the marker that narrows a child further.
+  const cvSrcAll = () => codeOnly(srcOf('components/cv/PlayerCV.tsx'));
   const cardSurfaces = ['app/p/[token]/opengraph-image.tsx', 'app/g/card/[cardId]/image/route.tsx', 'lib/cv-meta.ts'];
   check('ctx4: the Open Graph image, the share card and the link-preview text never read the quarter or the context line (D-89)',
     cardSurfaces.filter((f) => /birthQuarter|contextLine|fn_birth_quarter|born /.test(codeOnly(srcOf(f)))), []);
+  // D-89 and D-173 (1 Oct): a club's colours are the club's identity, so no
+  // card surface — cached for good by every platform — may ever read them.
+  check('ctx4b: and none of them reads a club\u2019s colours',
+    cardSurfaces.filter((f) => /club-colours|colour_primary|colour_secondary|clubTheme/.test(codeOnly(srcOf(f)))), []);
+  // BUZ said yes to a CV wearing its club's colours (1 Oct) and was told John
+  // would see it first. Until his ruling is in the register the switch stays
+  // off; turning it on is a one-line change that also flips this check.
+  const coloursSrc = codeOnly(srcOf('lib/club-colours.ts'));
+  const johnCleared = /CV club colours[^<]{0,80}John[^<]{0,40}cleared/i.test(srcOf('docs/06-Register.html'));
+  check('cvc1: a player\u2019s CV wears no club colours until John\u2019s ruling is recorded in the register',
+    // The switch must equal the ruling: off with no ruling recorded, and on
+    // only once it is. Either one moving alone fails.
+    /export const CV_WEARS_CLUB_COLOURS = (true|false)/.exec(coloursSrc)?.[1], String(johnCleared));
+  check('cvc2: and when it does, only a verified club\u2019s (D-126)',
+    /CV_WEARS_CLUB_COLOURS && p\.club && clubState === 'verified'/.test(cvSrcAll()), true);
   const cvSrc = codeOnly(srcOf('components/cv/PlayerCV.tsx'));
   check('ctx5: the CV draws the marker from the age group and the quarter only — never p.dob — and only for a "U<n>" group',
     [/contextLine\(p\.squad\.ageGroup, p\.birthQuarter\)/.test(cvSrc), /p\.dob/.test(cvSrc), /\^U\\d\{1,2\}\$/.test(cvSrc)], [true, false, true]);
@@ -10511,6 +10532,43 @@ const componentFilesAll = [];
   const where25 = /`(\/[a-z/]+)`/.exec(row25.split('|')[4] ?? '')?.[1];
   check(`legl1: the legal register says doc 25 is served at /report/policy, and that page exists (${where25})`,
     [where25, readdirSync(fileURLToPath(new URL('../app/report/policy', import.meta.url))).includes('page.tsx')], ['/report/policy', true]);
+}
+
+// ---------------------------------------------------------------------------
+// Club colours (0162, D-173, BUZ 1 Oct). A claimed club's own colours; never
+// on an unclaimed page (D-172), and never at the cost of reading the page.
+// ---------------------------------------------------------------------------
+{
+  const refused = async (sql, params) => { try { await db.query(sql, params); return false; } catch { return true; } };
+  const u = (await db.query(`insert into club (name, club_state) values ('Colour Unclaimed SC','unclaimed') returning id`)).rows[0].id;
+  const c = (await db.query(`insert into club (name, club_state) values ('Colour Claimed FC','claimed') returning id`)).rows[0].id;
+  check('col1: an unclaimed club cannot hold colours at all — the database refuses them (D-172)',
+    await refused(`update club set colour_primary = '#7a1f35', colour_secondary = '#f2b134' where id = $1`, [u]), true);
+  check('col2: a claimed club can',
+    await refused(`update club set colour_primary = '#7a1f35', colour_secondary = '#f2b134' where id = $1`, [c]), false);
+  check('col3: half a pair, a name, upper case or a short hex is refused',
+    [await refused(`update club set colour_primary = '#7a1f35', colour_secondary = null where id = $1`, [c]),
+     await refused(`update club set colour_primary = 'red', colour_secondary = '#ffffff' where id = $1`, [c]),
+     await refused(`update club set colour_primary = '#7A1F35', colour_secondary = '#ffffff' where id = $1`, [c]),
+     await refused(`update club set colour_primary = '#fff', colour_secondary = '#ffffff' where id = $1`, [c])],
+    [true, true, true, true]);
+  check('col4: a club with colours cannot be put back to unclaimed without losing them in the same statement',
+    [await refused(`update club set club_state = 'unclaimed' where id = $1`, [c]),
+     await refused(`update club set club_state = 'unclaimed', colour_primary = null, colour_secondary = null where id = $1`, [c])],
+    [true, false]);
+  const pair = { primary: '#7a1f35', secondary: '#f2b134' };
+  check('col5: the page gets no theme for an unclaimed or suspended club, whatever it holds',
+    [clubTheme(pair, 'unclaimed'), clubTheme(pair, 'suspended'), clubTheme(pair, 'claimed') !== null, clubTheme(pair, 'verified') !== null],
+    [null, null, true, true]);
+  // Every preset and the worst a club could pick: white text holds 4.5:1 on
+  // the hero, and the trim stays visible (3:1) on the page and the hero's end.
+  const worst = [...PRESETS, { primary: '#ffffff', secondary: '#ffffff' }, { primary: '#ffff00', secondary: '#fff5cc' },
+    { primary: '#000000', secondary: '#000000' }, { primary: '#0b120e', secondary: '#0c130f' }, { primary: '#3ddc84', secondary: '#3ddc84' }];
+  const bad = worst.filter((p) => {
+    const t = clubTheme(p, 'claimed');
+    return !t || contrast('#eef5f0', t.hero) < 4.5 || contrast(t.trim, '#0b120e') < 3 || contrast(t.trim, t.heroDeep) < 3 || contrast(t.onTrim, t.trim) < 3;
+  }).map((p) => `${p.primary}/${p.secondary}`);
+  check(`col6: whatever a club picks, its name stays readable and its trim stays visible (${bad.join(', ') || 'all pass'})`, bad, []);
 }
 
 // --- "Send my CV" fills in the club's own address, and a club that asks is

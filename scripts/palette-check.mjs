@@ -225,5 +225,14 @@ console.log(`info ${inline} token colours still written as raw hex (next layer):
   else ok(`section labels: ${shaped.length} rule(s) with the charter\u2019s shape, every one at 0.14em (${shaped.map((r) => r.sel).join(', ')})`);
 }
 
+// D-147 constraint 3, on the Floodlit nav (safety review M1, 1 Oct): the
+// nav's links are the way to Find your club and Trials, so no width may hide
+// them. Any rule that sets .fl-nav-links to display:none fails here.
+{
+  const hidden = [...css.matchAll(/([^{}]*\.fl-nav-links[^{}]*)\{([^}]*)\}/g)].filter((m) => /display\s*:\s*none/.test(m[2]));
+  if (hidden.length) fail(`nav: .fl-nav-links is hidden by "${hidden[0][1].trim()}" — the same links at every width (D-147)`);
+  else ok('nav: the Floodlit nav links are never hidden at any width (D-147)');
+}
+
 console.log(failures ? `\n${failures} failed` : '\nALL GREEN');
 process.exit(failures ? 1 : 0);
