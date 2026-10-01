@@ -1,5 +1,6 @@
 // InterestGuardian.dc.html — copy verbatim. The guardian reads exactly what
 // the child wrote before it reaches any club's register.
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
@@ -54,7 +55,10 @@ export default async function GuardianInterest({ params, searchParams }: {
         <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
           <HeaderMark back={{ href: '/home', label: 'Your family' }} />
           <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.015em' }}>{name} is on {r.club_name}&rsquo;s register.</h1>
-          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You can take {name} off the register any time from the Manage page. Their access ends when you do.</div>
+          {/* D-F3 (BUZ, 1 Oct): there is no page called Manage. The control,
+              "Take off this register", is on the child's controls, reached from
+              Your family. */}
+          <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>You can take {name} off the register any time from Your family. Their access ends when you do.</div>
         </div>
       </div>
     );
@@ -94,7 +98,8 @@ export default async function GuardianInterest({ params, searchParams }: {
               </>
             )}
           </div>
-          <div style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>Edit what {name} wrote</div>
+          {/* D-PD-2 (BUZ, 1 Oct): "Edit what {name} wrote" was drawn here as a
+              button with no destination. It comes back when it is built. */}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -145,7 +150,9 @@ export default async function GuardianInterest({ params, searchParams }: {
 
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}><input type="hidden" name="requestId" value={requestId} />
           <button type="submit" className="btn btn-primary">Register {name}&rsquo;s interest</button>
-          <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Not this one</div>
+          {/* D-PD-1 (BUZ, 1 Oct): a working No. It writes nothing and goes where the
+              back link and silence already go (D-138). An <a>, never a second form. */}
+          <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Not this one</Link>
         </form>
       </div>
     </div>

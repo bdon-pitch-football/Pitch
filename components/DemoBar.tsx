@@ -4,9 +4,11 @@ import { T } from '@/lib/palette';
 
 export default function DemoBar() {
   return (
-    <div role="note" style={{ background: T.accent, color: T.onAccent, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.02em', padding: '7px 18px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, flexWrap: 'wrap', textAlign: 'center' }}>
+    <div role="note" style={{ background: T.accent, color: T.onAccent, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.02em', padding: '0 18px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, flexWrap: 'wrap', textAlign: 'center' }}>
       <span>Demo · every person here is made up</span>
-      <a href="/demo" style={{ color: T.onAccent, textDecoration: 'underline', textUnderlineOffset: 3, minHeight: 24, display: 'inline-flex', alignItems: 'center' }}>Switch seat</a>
+      {/* 44px, the charter's floor at every width (J spec, 1 Oct). It was 24px.
+          The strip lost its 7px padding so it grows by 16px, not 30. */}
+      <a href="/demo" style={{ color: T.onAccent, textDecoration: 'underline', textUnderlineOffset: 3, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Switch seat</a>
     </div>
   );
 }

@@ -641,7 +641,9 @@ try {
 // out, because these are the five forms a stranger meets — the sign-in
 // password, the sign-up consent, the child-safety report, a new password, and
 // the D-77 request-access form on a link that is no longer live.
-const RING_PAGES = ['/signin', '/join', '/report', '/reset', '/reset/dev-none', '/p/dev-expired'];
+// /reset/dev-reset is the seeded live link (dev-db.mts): since G-P2 a dead
+// one goes straight to /reset?expired=1, so dev-none no longer drew the form.
+const RING_PAGES = ['/signin', '/join', '/report', '/reset', '/reset/dev-reset', '/p/dev-expired'];
 let ringChecked = 0;
 await cdp('Network.clearBrowserCookies');
 for (const width of [390, 1280]) {

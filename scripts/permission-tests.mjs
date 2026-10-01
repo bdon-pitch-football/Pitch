@@ -8993,9 +8993,12 @@ const componentFilesAll = [];
     await land(t, null);
     check('land4: a 16–17’s invitation lands on their own consent log, and a channel we did not send is not recorded',
       [(await landed(t))[0]?.subject_id, (await landed(t))[0]?.channel], [teen, null]);
-    check('land5: the approval page is what calls it, after the finished-link 404',
+    // D-PD-4 (1 Oct): the finished link is LinkState's words at 200 now, not
+    // the root 404 — still answered before anything is written.
+    check('land5: the approval page is what calls it, after the finished-link answer',
       (() => { const a = codeOnly(srcOf('app/a/[id]/page.tsx'));
-        return a.indexOf('notFound()') > -1 && a.indexOf('notFound()') < a.indexOf('recordGuardianLanded('); })(), true);
+        const fin = a.indexOf('if (!inv || inv.approved_at || inv.held_at) return <FinishedLink />;');
+        return fin > -1 && fin < a.indexOf('recordGuardianLanded('); })(), true);
   }
 
   // A LINK PREVIEW IS NOT A PARENT (Leo, 28 Sep). A forwarded approval link is
@@ -10825,6 +10828,89 @@ const componentFilesAll = [];
   check('slug-4: the former-address table has row-level security on and no policies (L26)',
     [(await db.query(`select relrowsecurity as r from pg_class where relname = 'club_slug_former'`)).rows[0].r,
      (await db.query(`select count(*)::int as n from pg_policies where tablename = 'club_slug_former'`)).rows[0].n], [true, 0]);
+}
+
+// --- dfx: the live defects the Head of Product Design found (docs/design/
+//     specs/README.md on design/player-cv; BUZ, 1 Oct). The rules a page's
+//     source must keep, and the one database answer the fixes added (0164).
+//     Each was run against the code before its fix.
+{
+  // A-P8 (defect 1): no price while billing is off, by rule — the Plan block
+  // and the payment notice on the administrator's home ask the same switch as
+  // the sidebar's door, instead of relying on fn_register_payment_state
+  // answering 'free'.
+  const home = codeOnly(srcOf('app/home/page.tsx'));
+  check('dfx-A-P8: the administrator’s Plan block, the only place /home prints a price, and its payment notice are drawn only with billing on',
+    [/\{billing && plan\?\.pay_state === 'active' && \(\s*<Link href="\/club\/billing"[\s\S]{0,600}PRICES\.register_annual/.test(home),
+     /\{billing && plan && \(plan\.pay_state === 'grace' \|\| plan\.pay_state === 'suspended'\) && \(\s*<RegisterPaused/.test(home),
+     (home.match(/PRICES\./g) ?? []).length], [true, true, 2]);
+
+  // A-P9 (defect 3): the operator's Home door is the console, not /home.
+  check('dfx-A-P9: the operator console’s Home door goes to /ops',
+    /\{ key: 'home', href: '\/ops', label: 'Home'/.test(codeOnly(srcOf('components/console-shell.tsx'))), true);
+
+  // D-PD-1 (defect 4): "Not this one" is a link home on all four answer
+  // screens — /g/card has no seeded card, so its source is read here; the
+  // render suite reads the other three as served.
+  for (const f of ['app/g/card/[cardId]/page.tsx', 'app/g/send/[requestId]/page.tsx', 'app/g/interest/[requestId]/page.tsx', 'app/g/pending/[recordId]/page.tsx']) {
+    const src = codeOnly(srcOf(f));
+    check(`dfx-PD-1s: ${f.split('/')[2]} — "Not this one" is <Link href="/home">, never a div, and no second form`,
+      [/<Link href="\/home"[^>]*>Not this one<\/Link>/.test(src), /<div[^>]*>Not this one<\/div>/.test(src), (src.match(/<form /g) ?? []).length <= 2],
+      [true, false, true]);
+  }
+
+  // G-P2 (defect 11): the reset link is checked when it is opened. The page
+  // asks before it draws the form, and the database's answer agrees with the
+  // one the press uses, for every state, and opening never uses a link.
+  const resetPage = codeOnly(srcOf('app/reset/[token]/page.tsx'));
+  check('dfx-G-P2: /reset/[token] asks whether the link is live before it draws a password field',
+    resetPage.indexOf("if (!(await resetLinkLive(token))) redirect('/reset?expired=1');") > -1
+      && resetPage.indexOf('resetLinkLive(token)') < resetPage.indexOf('name="password"'), true);
+  {
+    const who = (await db.query(`insert into person (first_name, last_name, dob, email) values ('Resetta','Fixture','1990-01-01','resetta.dfx@example.com') returning id`)).rows[0].id;
+    const mk = async (raw, expires = "now() + interval '1 hour'") =>
+      db.query(`insert into auth_reset (person_id, token_hash, expires_at) values ($1, $2, ${expires})`, [who, sha(raw)]);
+    const live = async (raw) => (await db.query('select fn_auth_reset_live($1) as l', [sha(raw)])).rows[0].l;
+    // In this order, because each new link revokes the person's other live
+    // ones (0062's one-live trigger): the newest is the only live one.
+    await mk('dfx-reset-expired', "now() - interval '1 minute'");
+    await mk('dfx-reset-old');
+    await mk('dfx-reset-new');
+    const before = [await live('dfx-reset-new'), await live('dfx-reset-old'), await live('dfx-reset-expired'), await live('dfx-never-a-reset-link')];
+    const stillUnused = (await db.query(`select count(*)::int as n from auth_reset where person_id = $1 and used_at is not null`, [who])).rows[0].n;
+    const used = (await db.query('select fn_use_auth_reset($1) as p', [sha('dfx-reset-new')])).rows[0].p;
+    check('dfx-G-P2b: fn_auth_reset_live says live for the newest link only — replaced, expired and never-existed are not — and asking uses nothing',
+      [before, stillUnused, used === who, await live('dfx-reset-new')], [[true, false, false, false], 0, true, false]);
+    await db.query('delete from auth_reset where person_id = $1', [who]);
+    await db.query('delete from person where id = $1', [who]);
+  }
+
+  // Defect 25: "Infinity% of sent". No share is printed of nothing sent.
+  check('dfx-I-25: /ops prints "% of sent" only when something was sent today',
+    /sub=\{t\.approvals_sent > 0 \? `\$\{Math\.round\(\(100 \* t\.approved\) \/ t\.approvals_sent\)\}% of sent` : undefined\}/.test(codeOnly(srcOf('app/ops/page.tsx'))), true);
+
+  // Defect 27: no table head over nothing on /ops/verification.
+  const verif = codeOnly(srcOf('app/ops/verification/page.tsx'));
+  check('dfx-I-27: /ops/verification with no club draws a sentence, not a table head over nothing',
+    [/\{rows\.length === 0 \? \(\s*<div[^>]*>No club has claimed its page yet\.<\/div>\s*\) : \(\s*<div className="ops-table">/.test(verif)], [true]);
+
+  // Defect 24 (F-N1): "just narrowed" only when a filter narrowed something.
+  const reg = codeOnly(srcOf('app/club/register/page.tsx'));
+  check('dfx-F-N1: an empty register says nobody has registered yet; "just narrowed" is said only when there were rows to narrow',
+    [/\{all\.length === 0 && \(\s*<div[^>]*>\s*Nobody has registered interest in your trials yet\./.test(reg),
+     /\{all\.length > 0 && buckets\.length === 0 && \(\s*<div[^>]*>\s*Nobody matches that yet\./.test(reg)], [true, true]);
+
+  // Defect 28: the demo strip's one control meets the 44px floor.
+  const bar = codeOnly(srcOf('components/DemoBar.tsx'));
+  const barMin = Number(/<a href="\/demo" style=\{\{[^}]*minHeight: (\d+)/.exec(bar)?.[1] ?? 0);
+  check(`dfx-J-28: the demo strip’s "Switch seat" is at least 44px tall (${barMin}px)`, barMin >= 44, true);
+
+  // C-P9 (defect 13): the press refuses an adult as the page does, before
+  // any request row is written.
+  const cardAct = codeOnly(srcOf('app/share-card/[recordId]/actions.ts'));
+  check('dfx-C-P9b: asking for a share card sends an adult home before a request is written',
+    cardAct.indexOf("if (band === '18plus') redirect('/home');") > -1
+      && cardAct.indexOf("if (band === '18plus') redirect('/home');") < cardAct.indexOf('insert into share_card_approval'), true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

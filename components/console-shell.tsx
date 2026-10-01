@@ -294,7 +294,10 @@ export async function OpsConsole({ active, children }: {
     // "Lookup", the signed design's word (BUZ, 29 Sep); the address is unchanged.
     { key: 'support', href: '/ops/support', label: 'Lookup', icon: 'help' },
     { key: 'switches', href: '/ops/switches', label: 'Emergency switches', short: 'Switches', icon: 'power' },
-    { key: 'home', href: '/home', label: 'Home', icon: 'home' },
+    // A-P9 (BUZ, 1 Oct): an operator's Home is the console. /home has no
+    // operator branch, so an operator holding no other seat fell through to
+    // the brand-new welcome ("Build a coach CV").
+    { key: 'home', href: '/ops', label: 'Home', icon: 'home' },
   ];
   // The signed head keeps its own sizes (14px/800 over 11.5px/700); the
   // address wraps rather than truncates, as it always has.

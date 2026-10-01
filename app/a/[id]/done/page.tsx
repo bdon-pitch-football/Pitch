@@ -1,9 +1,9 @@
 // Post-approval landing — GuardianHome.dc.html, reduced to what exists
 // after a first approval: the family header and the child card with its
 // approved line. Grows into the full guardian dashboard.
-import { notFound } from 'next/navigation';
 import { getInvitationForParentPage } from '@/lib/guardian-flow';
 import { HeaderMark } from '@/components/Wordmark';
+import { FinishedLink } from '@/components/cv/LinkState';
 import { T } from '@/lib/palette';
 import { card } from '@/lib/ui';
 import { SUPPORT_EMAIL } from '@/lib/support';
@@ -19,7 +19,9 @@ export default async function Done({ params, searchParams }: { params: Promise<{
   const { sent } = await searchParams;
   const inv = await getInvitationForParentPage(id);
   // A hold (D-155) reads exactly as an approval: same page, same words.
-  if (!inv || !(inv.approved_at || inv.held_at)) notFound();
+  // Anything else is a link that opens nothing, said in LinkState's words at
+  // 200 rather than the root 404's (D-PD-4).
+  if (!inv || !(inv.approved_at || inv.held_at)) return <FinishedLink />;
 
   // What the parent can do next depends on whether their account can be
   // signed in to yet. Only yes/no leaves the database — never the address.

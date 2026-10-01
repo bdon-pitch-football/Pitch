@@ -10,7 +10,6 @@
 // me — continue" confirms that channel. Opening the page confirms nothing.
 // Reached by the invitation id (the child's "Show them my page"), it carries
 // no channel and says where the two links are.
-import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { ageOn } from '@/lib/age';
 import { recordGuardianLanded, resolveApprovalLink } from '@/lib/guardian-flow';
@@ -19,6 +18,7 @@ import { approve, confirmIt } from './actions';
 import { card } from '@/lib/ui';
 import { LegalBody } from '@/app/legal/legal-page';
 import { HeaderMark } from '@/components/Wordmark';
+import { FinishedLink } from '@/components/cv/LinkState';
 import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
@@ -44,8 +44,10 @@ export default async function Approval({ params, searchParams }: { params: Promi
   const { adult } = await searchParams;
   const code = decodeURIComponent(id);
   const inv = await resolveApprovalLink(code);
-  // Approved and held (D-155) read the same: the link is finished.
-  if (!inv || inv.approved_at || inv.held_at) notFound();
+  // Approved and held (D-155) read the same: the link is finished. So do
+  // purged and never-existed, and all four say it at 200 in LinkState's
+  // words, not the root 404's "taken down" (D-PD-4).
+  if (!inv || inv.approved_at || inv.held_at) return <FinishedLink />;
   // The consent funnel's middle state (D-78): the parent reached the page.
   // Once per invitation, and it confirms nothing — confirming is still a
   // press (D-156). Read the function for what this can and cannot claim.

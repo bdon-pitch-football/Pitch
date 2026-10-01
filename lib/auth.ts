@@ -164,6 +164,16 @@ export async function consumeReset(token: string): Promise<string | null> {
   return (rows[0]?.person_id as string | null) ?? null;
 }
 
+// Whether a reset link would still work, asked when /reset/[token] opens so
+// nobody types a new password into a dead link (G-P2, 0163). Reads only;
+// opening a link never uses it. consumeReset still decides, at the press.
+export async function resetLinkLive(token: string): Promise<boolean> {
+  if (!token || token.length > 200) return false;
+  const { rows } = await db.query('select fn_auth_reset_live($1) as live',
+    [createHash('sha256').update(token).digest()]);
+  return rows[0]?.live === true;
+}
+
 // A device we have not seen before (doc 15 §33). Never an IP, never a city.
 export async function isNewDevice(personId: string, userAgent: string): Promise<boolean> {
   const hash = createHash('sha256').update(`${personId}:${userAgent}`).digest();

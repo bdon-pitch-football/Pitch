@@ -320,7 +320,15 @@ export default async function Register({ searchParams }: {
               )}
             </div>
 
-            {buckets.length === 0 && (
+            {/* F-N1 (BUZ, 1 Oct): with nobody on the register at all, nothing
+                was narrowed, so it says the trials branch's approved line
+                instead. "Just narrowed" is kept for a filter that empties it. */}
+            {all.length === 0 && (
+              <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+                Nobody has registered interest in your trials yet. <Link href="/club/post-trial" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Post a trial</Link> and families register from it.
+              </div>
+            )}
+            {all.length > 0 && buckets.length === 0 && (
               <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
                 Nobody matches that yet. <Link href="/club/register" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Show everyone</Link> — the list is the same list, just narrowed.
               </div>

@@ -531,7 +531,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                   </div>
                 )}
 
-                {plan?.pay_state === 'active' && (
+                {/* D-163: no price anywhere while billing is off — by rule, from
+                    the same switch as the sidebar's door, not by the accident of
+                    fn_register_payment_state answering 'free' (A-P8). */}
+                {billing && plan?.pay_state === 'active' && (
                   <Link href="/club/billing" className="card-sunken lift" style={{ padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 6, textDecoration: 'none' }}>
                     <h2 style={label}>Plan</h2>
                     <div style={{ fontSize: 13.5, fontWeight: 800, color: T.ink }}>
@@ -541,7 +544,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
                     <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.6 }}>The receipt is addressed to the club, not to you, so it can be reimbursed without an argument.</div>
                   </Link>
                 )}
-                {plan && (plan.pay_state === 'grace' || plan.pay_state === 'suspended') && (
+                {billing && plan && (plan.pay_state === 'grace' || plan.pay_state === 'suspended') && (
                   <RegisterPaused state={plan.pay_state} billingLink />
                 )}
               </>
