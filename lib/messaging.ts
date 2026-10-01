@@ -20,7 +20,6 @@
 // Credit is prepaid, never a card on file — that is an account setting, not
 // code, and it is on the launch checklist.
 import 'server-only';
-import { createHash } from 'node:crypto';
 import { after } from 'next/server';
 import { db } from './db';
 import { CATALOGUE_KEYS, DRAFT_KEYS, HELD_KEYS, type Composed } from './messages';
@@ -28,6 +27,7 @@ import { sendEmail, sendSms } from './providers';
 import { replyToFor } from './reply-policy';
 import { renderEmail } from './email-html';
 import { isDemo } from './demo';
+import { keyedNumberHash, numberHashKey } from './number-hash';
 import { effectiveSmsCapCents, smsCanSend, smsCapCents, smsProviderConfigured, smsSwitchedOff } from './sms-policy';
 
 const KEYS = new Set<string>(CATALOGUE_KEYS);
@@ -56,7 +56,7 @@ export type SendResult =
   // `waiting`: written, and held until SMS can send (0120). Not sent, so the
   // spine is not told a text went — fn_sms_release tells it when one does.
   | { queued: true; id: string; waiting?: true }
-  | { queued: false; reason: 'not_in_catalogue' | 'not_approved' | 'held' | 'sms_killed' | 'sms_no_cap' | 'sms_rate_limited' | 'sms_cap_reached' | 'no_address' | 'sms_opted_out' };
+  | { queued: false; reason: 'not_in_catalogue' | 'not_approved' | 'held' | 'sms_killed' | 'sms_no_cap' | 'sms_no_key' | 'sms_rate_limited' | 'sms_cap_reached' | 'no_address' | 'sms_opted_out' };
 
 /**
  * How a phone number is recognised without being stored.
@@ -65,8 +65,12 @@ export type SendResult =
  * webhook all have to agree on this byte for byte — a second copy of it
  * somewhere else is a STOP that silently never matches, which is the failure
  * mode you find out about from a complaint.
+ *
+ * Keyed (HMAC-SHA256 under NUMBER_HASH_KEY), never a plain sha256 (John,
+ * 1 Oct, §5.2): lib/number-hash. NULL in production with no key, and every
+ * caller treats null as "no SMS": nothing is queued, sent or recorded.
  */
-export const numberHash = (n: string) => createHash('sha256').update(n.replace(/\s/g, '')).digest();
+export const numberHash = (n: string): Buffer | null => keyedNumberHash(n, numberHashKey());
 
 /**
  * Queue one message.
@@ -103,6 +107,12 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
     const { rows: sw } = await db.query('select sms_off, sms_cap_cents from fn_sms_switch()');
 
     const h = numberHash(to.address);
+    // No key, no SMS (§5.2): production without NUMBER_HASH_KEY cannot
+    // recognise a number, so it can neither honour a STOP nor count three a
+    // day — and it never falls back to a plain hash. Refused, with the
+    // reason, before anything is written; a waiting text cannot be queued
+    // without its fingerprint either.
+    if (!h) return { queued: false, reason: 'sms_no_key' };
     // STOP means stop. Doc 15 §15 promises "we won't text this number again"
     // and until 0031 there was nowhere to record that anybody had said it, so
     // the promise was unenforceable. It is checked BEFORE the meter, because
@@ -227,9 +237,18 @@ export async function dispatch(
     ? await sendSms(address, body)
     : await sendEmail(address, subject, mail.text, replyToFor(messageKey, process.env.EMAIL_REPLY_TO), mail.html);
 
+  // Doc 23: "We do not retain message bodies" (John, 1 Oct, §5.1; 0169). The
+  // body and subject are cleared the moment the provider has the message,
+  // and the moment it is refused for good: nothing reads them after that.
+  // What stays is what the receipts and the funnel read — the provider id,
+  // channel, key, subject person and invitation — and the address, which
+  // the support console counts tries by. A transient failure keeps its body
+  // for the retry. Development never dispatches, so its outbox keeps every
+  // word: /dev/outbox is the inbox the suites read.
   if (result.ok) {
     await db.query(
-      `update message_outbox set sent_at = now(), provider_id = $2 where id = $1 and sent_at is null`,
+      `update message_outbox set sent_at = now(), provider_id = $2, body = '', subject = null
+       where id = $1 and sent_at is null`,
       [id, result.providerId],
     );
     return true;
@@ -239,7 +258,10 @@ export async function dispatch(
   // retrying it; a transient one is left for the next run.
   await db.query(
     `update message_outbox set failed_at = case when $3 then now() else null end,
-       failure_reason = $2 where id = $1`,
+       failure_reason = $2,
+       body = case when $3 then '' else body end,
+       subject = case when $3 then null else subject end
+     where id = $1`,
     [id, result.reason, result.permanent],
   );
   return false;
@@ -275,6 +297,22 @@ export async function releaseWaitingTexts(batch = 50): Promise<ReleasedText[]> {
       { sid: process.env.SMS_ACCOUNT_SID, key: process.env.SMS_API_KEY, from: process.env.SMS_LONG_NUMBER }, isDemo()),
   });
   if (!canSend) return [];
+  // §5.2 (0169): a text that waited from before the STOP list was keyed
+  // carries a plain hash, which no keyed STOP or meter row will ever match.
+  // A waiting text still holds its address, so it is re-keyed from it here,
+  // before anything is released — and with no key nothing is released.
+  const key = numberHashKey();
+  if (!key) return [];
+  const { rows: waiting } = await db.query(
+    `select id, to_address, number_hash from message_outbox
+     where queued_for_sms_at is not null and released_at is null and failed_at is null and sent_at is null`,
+  );
+  for (const w of waiting as { id: string; to_address: string; number_hash: Buffer }[]) {
+    const h = keyedNumberHash(w.to_address, key);
+    if (h && !h.equals(w.number_hash)) {
+      await db.query('update message_outbox set number_hash = $2 where id = $1', [w.id, h]);
+    }
+  }
   const limit = effectiveSmsCapCents(cap, sw[0]?.sms_cap_cents);
   const { rows } = await db.query(
     'select id, message_key, to_address, body from fn_sms_release($1,$2,$3,$4)',

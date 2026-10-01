@@ -7,7 +7,7 @@
 import { notFound } from 'next/navigation';
 import { PlayerFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
-import { requireRecordActor } from '@/lib/record-guard';
+import { requireRecordAuthor } from '@/lib/record-guard';
 import { HeaderMark } from '@/components/Wordmark';
 import { CLIP_LIMIT_ADULT_FREE, CLIP_LIMIT_UNDER_18 } from '@/lib/football';
 import { addClip, removeClip } from './actions';
@@ -26,7 +26,7 @@ export default async function Clips({ params, searchParams }: {
   searchParams: Promise<{ error?: string; full?: string; first?: string }>;
 }) {
   const { recordId } = await params;
-  await requireRecordActor(recordId);
+  await requireRecordAuthor(recordId);
   const { error, full, first } = await searchParams;
   const { rows } = await db.query(
     `select fn_age_band(p.dob) as band,

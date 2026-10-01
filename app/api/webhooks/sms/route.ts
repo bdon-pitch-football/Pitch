@@ -39,7 +39,12 @@ export async function POST(request: Request) {
   const word = (params.Body ?? '').trim().toUpperCase().replace(/[^A-Z]/g, '');
   if (!from) return NextResponse.json({ ok: true });
 
+  // Keyed (§5.2, lib/number-hash). With no key there is no way to recognise
+  // the number, so the STOP cannot be recorded — and with no key no SMS goes
+  // either (lib/messaging). Answered as unavailable, exactly like a missing
+  // webhook secret, so Twilio's log shows a failure rather than a success.
   const h = numberHash(from);
+  if (!h) return NextResponse.json({ ok: false }, { status: 503 });
   if (['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'].includes(word)) {
     await db.query(
       `insert into sms_opt_out (number_hash) values ($1)

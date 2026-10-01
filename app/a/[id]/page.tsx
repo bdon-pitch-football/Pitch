@@ -53,8 +53,9 @@ function EndForm({ code }: { code: string }) {
     </form>
   );
 }
-// Pressed from under the status card (state 3) or the second link's "Yes,
-// it's me" (3b): the same secondary, full width, and its own form.
+// Pressed from under "Yes, it's me" on a link not yet confirmed (F15, and 3b)
+// or from under the status card (state 3): the same secondary, full width,
+// and its own form — a POST, so opening the link ends nothing.
 function EndButton({ code }: { code: string }) {
   return (
     <form action={endRequest}>
@@ -85,10 +86,12 @@ export default async function Approval({ params, searchParams }: { params: Promi
   const here = inv.channel;
   const confirmedHere = here === 'sms' ? inv.sms_confirmed : here === 'email' ? inv.email_confirmed : false;
   const bothConfirmed = inv.sms_confirmed && inv.email_confirmed;
-  // D-PD-3: the No is offered from the first confirmed channel, on either
-  // link — never by the invitation id, which the child holds, and never
-  // before a press. The database checks all of this again (0167).
-  const mayEnd = here !== null && (inv.sms_confirmed || inv.email_confirmed);
+  // D-PD-3 as F15 left it (John, 1 Oct): the No is offered on either link,
+  // confirmed or not — the person at a mistyped number holds an unconfirmed
+  // link, and they are the one who most needs to say no. Never by the
+  // invitation id, which the child holds. The database checks this again
+  // (0167), and records whether the link pressed had been confirmed.
+  const mayEnd = here !== null;
   // 3q (F6; BUZ, 1 Oct): the email is confirmed and the parent's text is still
   // waiting for SMS (D-168, 0120). "Open the link we texted to you" would be
   // untrue — there is no text yet — so the status line says it follows. The
@@ -152,7 +155,9 @@ export default async function Approval({ params, searchParams }: { params: Promi
             <div className="pd-body">First, tell us this {here === 'sms' ? 'text' : 'email'} reached you.</div>
             <button type="submit" className="btn btn-primary fl-glow">Yes, it&rsquo;s me &mdash; continue</button>
           </form>
-          {/* 3b: the other channel is confirmed already, so the No is here. */}
+          {/* F15: the No is here before any press, on either link — the
+              person at a wrong number can say no without first saying
+              "Yes, it's me". */}
           {mayEnd && <EndButton code={code} />}
         </>
       ) : !bothConfirmed ? (

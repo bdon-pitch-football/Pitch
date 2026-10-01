@@ -6,7 +6,7 @@ import { PlayerFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { EXPERIENCE_KIND_LABELS, experienceKindsOffered, PREVIOUS_CLUB } from '@/lib/football';
-import { requireRecordActor } from '@/lib/record-guard';
+import { requireRecordAuthor } from '@/lib/record-guard';
 import { addAchievement, addExperience, removeAchievement, removeExperience } from './actions';
 import { buildProgress } from '@/lib/build-progress';
 import { BuildHeader, G } from '@/components/player-parts';
@@ -17,15 +17,15 @@ export const metadata = { title: 'More about you', robots: { index: false, follo
 export default async function More({ params }: { params: Promise<{ recordId: string }> }) {
   const { recordId } = await params;
   // Was `if (production) notFound()` — a deploy flag standing in for a
-  // permission check. It is the record's own actor or their guardian, and
-  // nobody else, in every environment.
-  await requireRecordActor(recordId);
+  // permission check. It is the record's owner, or the guardian of an
+  // under-16 (N-10, 0169), and nobody else, in every environment.
+  await requireRecordAuthor(recordId);
   // The band comes from the database (fn_age_band, derived from the date of
   // birth at read time, never stored — D-49) because it decides which kinds
   // this record may be offered: no school for an under-18 (D-161).
   //
   // The list itself is NOT filtered, deliberately. This is the family's own
-  // editor, behind requireRecordActor, and an entry written before the rule
+  // editor, behind requireRecordAuthor, and an entry written before the rule
   // is their own words: it renders nowhere public any more, and they keep the
   // one control over it that matters — Remove. Nothing here deletes a row.
   const { rows } = await db.query(

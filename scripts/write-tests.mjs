@@ -2300,12 +2300,31 @@ let realParentPress = null;
     const odetteId = /\/join\/waiting\/([0-9a-f-]{36})/.exec(odette.location)?.[1];
     const [oA, oB] = approvalCodes((await get('/dev/outbox', ids.people.alex)).html).slice(0, 2);
     const fresh = [await ig(`/a/${oA}`), await ig(`/a/${oB}`)];
-    const refused = [await crafted(oA), await crafted(odetteId)];
+    const refused = [await crafted(odetteId)];
     const after = await ig(`/a/${oA}`);
-    check('jr-pd3-w1: before either channel is confirmed there is no No to press, and a crafted press — on the link, or with the invitation id the child holds — returns to /a as it was, the request still open',
+    // MOVED with F15 (John, 1 Oct): before either channel is confirmed both
+    // links now offer the No (it was [false, false]), and a press on a link is
+    // no longer refused — jb-f15-w1 presses one. What is still refused is the
+    // crafted press with the invitation id the child holds, and opening a link
+    // still ends nothing.
+    check('jr-pd3-w1: before either channel is confirmed both links offer the No, and a crafted press with the invitation id the child holds returns to /a as it was — and opening the links ended nothing, the request still open',
       [Boolean(label && endAction && odetteId && oA && oB), fresh.map((r) => hasNo(r.html)), refused.map((r) => r.location.replace(BASE, '')),
        Boolean(formWith(after.html, /Yes, it/)), /This link doesn.t open anything/.test(vis(after.html))],
-      [true, [false, false], [`/a/${oA}`, `/a/${odetteId}`], true, false]);
+      [true, [true, true], [`/a/${odetteId}`], true, false]);
+
+    // F15: the person at a mistyped number. They open the text, never press
+    // "Yes, it's me", and press the No straight from the unconfirmed page.
+    const rhea = await joinPost('startPendingInvitation', { firstName: 'Rhea', dob: '2014-05-05', guardianName: 'Not Her Parent', guardianPhone: '0400 848 484', guardianEmail: 'wrong.number.jb@example.com' });
+    const rheaId = /\/join\/waiting\/([0-9a-f-]{36})/.exec(rhea.location)?.[1];
+    const [rA, rB] = approvalCodes((await get('/dev/outbox', ids.people.alex)).html).slice(0, 2);
+    const rPage = await ig(`/a/${rA}`);
+    const rNo = forms(rPage.html).find((f) => f.submit === label);
+    const rBox = await outboxCount();
+    const rPressed = rNo ? await post(`/a/${rA}`, rNo) : { location: '' };
+    check('jb-f15-w1: on a link nobody confirmed, the No is there beside "Yes, it’s me" and ends the request — /a/closed, both links finished, no message to anyone',
+      [Boolean(rheaId && rA && rB), Boolean(formWith(rPage.html, /Yes, it/)), Boolean(rNo), rNo?.method, rPressed.location.replace(BASE, ''),
+       [await ig(`/a/${rA}`), await ig(`/a/${rB}`)].map((r) => /This link doesn.t open anything/.test(vis(r.html))), await outboxCount()],
+      [true, true, true, 'post', '/a/closed', [true, true], rBox]);
 
     await post(`/a/${oA}`, formWith(fresh[0].html, /Yes, it/));
     const s3 = await ig(`/a/${oA}`), s3b = await ig(`/a/${oB}`);
@@ -2368,7 +2387,9 @@ let realParentPress = null;
     const qApprove = formWith((await ig(`/a/${qA}`)).html, /Approve/);
     const misrouted = await post(`/a/${qA}`, qApprove, { adult: 'on', answer: 'end' });
     check('jr-pd3-w8 (N-3): the No posted into Approve\u2019s form — with the adult tick on — ends the request; nothing is approved, and neither link opens an approval afterwards',
-      [/name="answer" value="end"/.test(mk), misrouted.location.replace(BASE, ''), forms((await ig(`/a/${qA}`)).html).length + forms((await ig(`/a/${qB}`)).html).length],
+      // Either attribute order: React writes this button's value before its
+      // name (seen 2 Oct), and the order is React's, not the product's.
+      [/<button[^>]*(name="answer"[^>]*value="end"|value="end"[^>]*name="answer")[^>]*>/.test(mk), misrouted.location.replace(BASE, ''), forms((await ig(`/a/${qA}`)).html).length + forms((await ig(`/a/${qB}`)).html).length],
       [true, '/a/closed', 0]);
     const endedNoTick = await post(`/a/${pA}`, endF);
     check('jr-pd3-w7: pressed without the adult tick, it still ends the request — and neither link opens an approval afterwards',
@@ -3586,9 +3607,17 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   // The parent presses it. That is the family unmaking their own disclosure.
   const undo = /\/undo\/([A-Za-z0-9_-]{20,})/.exec(after.split('doc15.§37')[1] ?? '')?.[1];
   const undoForm = forms((await get(`/undo/${undo}`, null)).html).find((f) => 'token' in f.fields);
+  // The family's history, from its heading to the delete panel (L11).
+  const history = async () => (await controls()).split('Everything that’s happened')[1]?.split('Delete everything')[0] ?? '';
+  const switchedOff = async () => ((await history()).match(/One club’s link was switched off/g) ?? []).length;
+  const offBefore = await switchedOff();
   const pressed = await postTo(`/undo/${undo}`, null, undoForm.fields);
   check('susp-w10: one tap from the email switches that club’s link off, with no sign-in',
     /football@quarrymeadunited\.example\.au[\s\S]{0,200}?Off /.test(await controls()), true);
+  // §6 (John, 1 Oct): "The undo writes no consent event: it should." The
+  // family's history now says so, in its existing words for a switched-off link.
+  check('jb-undo-w1: and the family history records it — one more "One club’s link was switched off", pressed by the guardian it was sent to',
+    [Boolean(await history()), (await switchedOff()) - offBefore], [true, 1]);
   // G-P1 (John, 1 Oct: a live defect). The press says it worked only because
   // it did: Done is where a press that switched a link off lands, it keeps
   // the "does not un-send" box, and it offers nothing more to press.
@@ -3742,6 +3771,110 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('bw6: the club is still on no plan — nothing was taken and nothing was agreed',
     /Choose how you pay/.test(back) && !/On your statement/.test(back), true);
   await billingSwitch(false);
+}
+
+// ---------------------------------------------------------------------------
+// John's batch (1 Oct): N-10 and F14, pressed as the family presses them.
+//   · N-10 / R12: Alex is Nate's parent, and Nate is seventeen. His page is
+//     his: Alex cannot open its editors or post to them — and keeps the
+//     controls and the preview.
+//   · F14: Alex edits Georgia's page (fifteen). It publishes at once as the
+//     approved version, nobody is emailed that anything waits, and the history
+//     says "Alex changed the page." Georgia's own edit still waits on Alex.
+// ---------------------------------------------------------------------------
+{
+  const alex = ids.people.alex, nate = ids.children.nate, georgia = ids.children.georgia;
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&#39;|&rsquo;/g, '’').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
+  const unhtml = (t) => t.replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const formOf = async (path, who) => {
+    const { html } = await get(path, who);
+    const form = forms(html).find((f) => 'positions' in f.fields);
+    if (!form) return null;
+    const fields = { ...form.fields };
+    for (const v of form.visible) {
+      if (v.file) continue;
+      fields[v.name] = v.type === 'select' ? (v.options?.[0] ?? '') : (v.value ?? '');
+    }
+    fields.about = unhtml(/<textarea[^>]*name="about"[^>]*>([\s\S]*?)<\/textarea>/.exec(html)?.[1] ?? '');
+    return fields;
+  };
+  const postAs = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
+  };
+  const box = async () => words((await get('/dev/outbox', alex)).html);
+  // The outbox page shows the newest fifty, newest first, so "what was sent
+  // since" is read off its top rather than counted across a moving window.
+  const newest = async (k) => [...(await box()).matchAll(/doc15\.§(\w+) → (\S+)/g)].slice(0, k).map((m) => `§${m[1]} → ${m[2]}`);
+
+  // ---- N-10 ----
+  const nateBuild = `/build/${nate.record_id}`;
+  const opened = async (path, who) => {
+    const r = await fetch(BASE + path, { redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return [r.status, (r.headers.get('location') ?? '').replace(BASE, '')];
+  };
+  const doors = [];
+  for (const p of [nateBuild, `${nateBuild}/clips`, `${nateBuild}/more`]) doors.push(await opened(p, alex));
+  const nateForm = await formOf(nateBuild, nate.child_id);
+  const aboutBefore = nateForm?.about;
+  const crafted = nateForm ? await postAs(nateBuild, alex, { ...nateForm, about: 'Written by a parent — must not land (N-10).' }) : { status: 0, location: '' };
+  const clipForm = forms((await get(`${nateBuild}/clips`, nate.child_id)).html).find((f) => f.visible.some((v) => v.name === 'url'));
+  const clipTry = clipForm ? await postAs(`${nateBuild}/clips`, alex, { ...clipForm.fields, url: 'https://www.youtube.com/watch?v=n10parent', title: 'N-10 parent clip' }) : { location: '' };
+  check('R12: Alex, a 16–17’s parent, cannot open Nate’s editors (page, clips, more — each sends him home) or write to them: a crafted save and a crafted clip both go home and change nothing',
+    [Boolean(nateForm), doors, crafted.location, clipTry.location,
+     (await formOf(nateBuild, nate.child_id))?.about === aboutBefore,
+     words((await get(`${nateBuild}/clips`, nate.child_id)).html).includes('N-10 parent clip')],
+    [true, [[307, '/home'], [307, '/home'], [307, '/home']], '/home', '/home', true, false]);
+  check('jb-n10-w1: and Alex keeps everything else for Nate: his controls and the preview of his page both open',
+    [(await get(`/g/controls/${nate.child_id}`, alex)).status, (await get(`${nateBuild}/preview`, alex)).status], [200, 200]);
+  const nTop = await newest(3);
+  check('jb-n10-w2: while Nate still writes his own page — and, a 16–17\u2019s edit waiting on nobody (doc 14 R8), no "edit waiting" email goes to his parent',
+    [(await postAs(nateBuild, nate.child_id, nateForm)).status, JSON.stringify(await newest(3)) === JSON.stringify(nTop)], [303, true]);
+
+  // ---- F14 ----
+  const gBuild = `/build/${georgia.record_id}`;
+  const history = async () => words((await get(`/g/controls/${georgia.child_id}`, alex)).html).split('Everything that’s happened')[1]?.split('Delete everything')[0] ?? '';
+  const count = (t, s) => t.split(s).length - 1;
+  const preview = async () => words((await get(`${gBuild}/preview`, alex)).html);
+  const h0 = await history(), top0 = await newest(3);
+  const gForm = await formOf(gBuild, alex);
+  const ALEX_ABOUT = 'Two-footed left back who loves to overlap — edited by her parent (F14).';
+  const saved = gForm ? await postAs(gBuild, alex, { ...gForm, about: ALEX_ABOUT }) : { status: 0 };
+  const h1 = await history();
+  check('jb-f14-w1: a parent’s own edit to an under-16’s page publishes at once — the preview a club sees carries it, nothing is waiting on /g/pending, and no "an edit is waiting" email goes to anyone',
+    [Boolean(gForm), saved.status, (await preview()).includes(ALEX_ABOUT), words((await get(`/g/pending/${georgia.record_id}`, alex)).html).includes('Nothing is waiting on you.'),
+     JSON.stringify(await newest(3)) === JSON.stringify(top0)],
+    [true, 303, true, true, true]);
+  check('jb-f14-w2: and the family history says "Alex changed the page." — BUZ’s line, the guardian’s first name — and never "Georgia submitted a change" for it',
+    [count(h1, 'Alex changed the page.') - count(h0, 'Alex changed the page.'), count(h1, 'Georgia submitted a change') - count(h0, 'Georgia submitted a change')],
+    [1, 0]);
+  // Georgia's own edit still waits on her parent, exactly as before.
+  const kForm = await formOf(gBuild, georgia.child_id);
+  const KID_ABOUT = 'I also play futsal on Fridays (Georgia’s own edit).';
+  const kSaved = kForm ? await postAs(gBuild, georgia.child_id, { ...kForm, about: KID_ABOUT }) : { status: 0 };
+  const h2 = await history();
+  check('jb-f14-w3: the child’s own edit still waits: the club’s preview keeps the parent’s version, /g/pending has it, the history says "Georgia submitted a change", and her parent gets the one "edit waiting" email',
+    [kSaved.status, (await preview()).includes(ALEX_ABOUT), (await preview()).includes(KID_ABOUT),
+     words((await get(`/g/pending/${georgia.record_id}`, alex)).html).includes('Nothing is waiting on you.'),
+     count(h2, 'Georgia submitted a change') - count(h1, 'Georgia submitted a change'),
+     (await newest(1))[0], JSON.stringify((await newest(4)).slice(1)) === JSON.stringify(top0)],
+    [303, true, false, false, 1, '§30 → guardian@example.com', true]);
+  const top2 = await newest(3);
+  // And with her edit waiting, a parent's edit publishes nothing unreviewed:
+  // it joins the waiting change (the restrictive answer, pending John).
+  const pForm = await formOf(gBuild, alex);
+  const JOINED = 'Left back. Both feet. (Parent, while Georgia’s edit waits.)';
+  const pSaved = pForm ? await postAs(gBuild, alex, { ...pForm, about: JOINED }) : { status: 0 };
+  const h3 = await history();
+  check('jb-f14-w4: while the child’s edit waits, the parent’s edit joins it and publishes nothing — the preview is unchanged, no new history line, no email',
+    [pSaved.status, (await preview()).includes(ALEX_ABOUT), (await preview()).includes(JOINED), count(h3, 'Alex changed the page.') - count(h2, 'Alex changed the page.'),
+     JSON.stringify(await newest(3)) === JSON.stringify(top2)],
+    [303, true, false, 0, true]);
 }
 
 // ---------------------------------------------------------------------------

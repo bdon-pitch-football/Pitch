@@ -208,11 +208,11 @@ export async function confirmChannel(code: string): Promise<boolean> {
  * "No, end this request" (D-PD-3; John, 1 Oct). A press, never a page load.
  *
  * The database decides everything (0167, fn_end_pending_invitation): the code
- * must be one of the two channel links, at least one channel must have been
- * confirmed by a press, and the invitation must be neither approved nor held.
- * Then it runs the SAME deletion as the fourteen-day purge — the row, what its
- * messages carried, one subjectless `purged` event with the reason and the
- * channel type — and nothing else. Only the hash leaves this file, as
+ * must be one of the two channel links — confirmed or not (F15) — and the
+ * invitation must be neither approved nor held. Then it runs the SAME
+ * deletion as the fourteen-day purge — the row, what its messages carried,
+ * one subjectless `purged` event with the reason, the channel type and
+ * whether that link had been confirmed — and nothing else. Only the hash leaves this file, as
  * everywhere else a link is matched. No message goes to anyone: nobody is a
  * guardian yet. A refusal changes nothing, and the caller treats it as if
  * nothing had been pressed.

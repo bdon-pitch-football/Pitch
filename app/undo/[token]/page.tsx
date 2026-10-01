@@ -39,13 +39,25 @@ export const metadata = { title: 'Undo', robots: { index: false, follow: false }
 
 const hashOf = (token: string) => createHash('sha256').update(token).digest();
 
-// Live means the press would switch a link off: the undo is unused and in
-// date, and the link it points at is still on. The same predicate the press
+// Live means the press would switch a link off: the undo is unused, the
+// link it points at is still on, and in date. The same predicate the press
 // uses below, so the page never asks a question whose answer is "nothing".
+//
+// IN DATE IS THE LINK'S DATE (John, 1 Oct, §6: "the undo follows the link").
+// The undo is minted with its link's expiry (U-2 as amended), but Renew gives
+// the SAME link another 90 days (app/g/controls renewLink) and the undo kept
+// the date it was minted with — so a renewed link outlived its undo, and the
+// family held a button for a link that was still live and could no longer
+// switch it off: §36's false assurance again. So the undo asks the link's own
+// expiry, read now, and its own only for a link that has none. Renew keeps
+// the link's id, so the link it was minted against IS the link that now
+// stands in for the one that was sent; Replace switches that link off, and
+// the new one is not the club's.
 async function undoIsLive(token: string): Promise<boolean> {
   const { rows } = await db.query(
-    `select (u.id is not null and u.used_at is null and u.expires_at > now()
-             and st.id is not null and st.revoked_at is null) as live
+    `select (u.id is not null and u.used_at is null
+             and st.id is not null and st.revoked_at is null
+             and coalesce(st.expires_at, u.expires_at) > now()) as live
      from (select $1::bytea as token_hash) asked
      left join undo_token u on u.token_hash = asked.token_hash
      left join share_token st on st.id = u.share_token_id`,
@@ -64,21 +76,39 @@ async function revoke(formData: FormData) {
   // and switch off the link it points at if that is still on. "Done" is the
   // count of links this press switched off, and nothing else — a press on a
   // spent, lapsed or unknown link switches off nothing and says so.
+  //
+  // In date by the link's own expiry, as the load asks (§6, above). And a
+  // switch-off is written down (John, 1 Oct, §6: "The undo writes no consent
+  // event: it should"): the controls' own switch-off row (lib/link-switch) —
+  // share_revoked, kind 'one', the link and the club it went to — with the
+  // guardian the undo was sent to as its actor and the child as its subject,
+  // so the family history shows "One club's link was switched off". Written
+  // only when a link actually went off, in the same statement.
   const { rows } = await db.query(
     `with asked as (select $1::bytea as token_hash),
      spent as (
        update undo_token u set used_at = now()
-       from asked
-       where u.token_hash = asked.token_hash and u.used_at is null and u.expires_at > now()
-       returning u.share_token_id
+       from asked, share_token lk
+       where u.token_hash = asked.token_hash and u.used_at is null
+         and lk.id = u.share_token_id and coalesce(lk.expires_at, u.expires_at) > now()
+       returning u.share_token_id, u.issued_to
      ),
      off as (
        update share_token st set revoked_at = now()
        from spent
        where st.id = spent.share_token_id and st.revoked_at is null
-       returning st.id
+       returning st.id, st.record_id, spent.issued_to
+     ),
+     logged as (
+       insert into consent_event (event, actor_id, subject_id, detail)
+       select 'share_revoked', off.issued_to, dr.person_id,
+              jsonb_build_object('kind', 'one', 'token_id', off.id, 'club_name',
+                (select sl.club_name from fn_send_log(off.issued_to, dr.person_id) sl where sl.token_id = off.id limit 1),
+                'by', 'undo')
+       from off join development_record dr on dr.id = off.record_id
+       returning id
      )
-     select count(*)::int as revoked from off`,
+     select (select count(*)::int from off) as revoked`,
     [hashOf(token)],
   );
   redirect(rows[0]?.revoked === 1 ? '/undo/done' : `/undo/${encodeURIComponent(token)}`);

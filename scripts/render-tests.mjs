@@ -3927,12 +3927,25 @@ const georgia = ids.children.georgia;
      has(closed[0].html, 'This request has closed.'), has(closed[0].html, 'Nothing was approved, and the details we held are deleted.'),
      /<form|<button/.test(markupOnly(closed[0].html)), /Mila/.test(vis(closed[0].html))],
     [[200, 200, 200], 1, true, true, false, false]);
-  // Before any channel is pressed there is no No to press (the seed's Mila:
-  // neither link confirmed). The label is the one constant (jr-label).
+  // MOVED with F15 (John, 1 Oct): before any channel is pressed (the seed's
+  // Mila: neither link confirmed) BOTH links now offer the No — the person at
+  // a mistyped number holds an unconfirmed link. The invitation id, which the
+  // child holds, still offers none. The label is the one constant (jr-label).
   const label = /const PD3_END_LABEL = '([^']*)';/.exec(readFileSync(fileURLToPath(new URL('../app/a/[id]/page.tsx', import.meta.url)), 'utf8'))?.[1];
   const fresh = [await get('/a/dev-mila-text'), await get('/a/dev-mila-email'), await get(`/a/${ids.pendingInvitation}`)];
-  check('jr-pd3-r2: before a channel is confirmed, neither link nor the invitation id offers the No — and no /a page says "Not now"',
-    [Boolean(label), fresh.map((r) => has(r.html, label)), fresh.some((r) => /Not now/.test(vis(r.html)))], [true, [false, false, false], false]);
+  check('jr-pd3-r2: before a channel is confirmed, both links offer the No and the invitation id does not — and no /a page says "Not now"',
+    [Boolean(label), fresh.map((r) => has(r.html, label)), fresh.some((r) => /Not now/.test(vis(r.html)))], [true, [true, true, false], false]);
+  // F15: the No is a press, never a load. On each unconfirmed link it sits in
+  // its own POST form carrying the code and nothing else, under "Yes, it's
+  // me"; and opening the links (twice, above and here) ended nothing.
+  const noForm = (h) => [...markupOnly(h).matchAll(/<form([^>]*)>([\s\S]*?)<\/form>/g)].find((m) => m[2].includes(`>${label}</button>`));
+  const again = [await get('/a/dev-mila-text'), await get('/a/dev-mila-email')];
+  check('jb-f15-r1: on an unconfirmed link the No is its own POST form, after "Yes, it’s me", posting only the code — and opening either link again ends nothing: both still ask "Yes, it’s me"',
+    [fresh.slice(0, 2).map((r) => { const f = noForm(r.html); return [Boolean(f), /method="post"/i.test(f?.[1] ?? ''),
+       [...(f?.[2] ?? '').matchAll(/<input[^>]*name="([^"]+)"/g)].map((m) => m[1]).filter((x) => !x.startsWith('$ACTION')),
+       markupOnly(r.html).indexOf('Yes, it’s me') < markupOnly(r.html).indexOf(`>${label}</button>`)]; }),
+     again.map((r) => r.status === 200 && has(r.html, 'Yes, it’s me — continue'))],
+    [[[true, true, ['code'], true], [true, true, ['code'], true]], [true, true]]);
 
   // HC3: one sentence, three places, word for word — doc 25 read as served (L16).
   const SENTENCE = 'If you believe a child is in immediate danger, call 000.';

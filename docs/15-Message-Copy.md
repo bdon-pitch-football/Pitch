@@ -183,7 +183,7 @@ Triggered when someone with a dead link asks for access.
 
 > Thanks — we have your report about **[page]** and a person will look at it.
 >
-> We aim to respond within one business day. If it concerns a child's immediate safety, contact your local police first; we are not an emergency service.
+> We aim to respond within one business day. If you believe a child is in immediate danger, call 000. Pitch is not an emergency service.
 >
 > — Pitch · burak.donmez@pitch-football.com
 
@@ -970,4 +970,4 @@ Sent once, when an operator logs a call as **verified** (doc 27). **To:** the pe
 
 ---
 
-*v1.4 · 1 Oct 2026 · §39's last paragraph names what is turned off ("the club's verification"), on BUZ's call after the pre-build copy check; BUZ keeps the same-day promise. v1.3 · 1 Oct 2026 · §34's last paragraph corrected (no trial notices before verification, D-90 as amended; the call goes to a number we find ourselves, doc 27), §36's undo window updated (U-2 as amended) and §39 added, on BUZ's call from John's ruling of 1 Oct. Built on the app's copy, which was newer than the root. v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep. §1b and §2b added the same day (D-155 as amended). §12 rewritten the same day on BUZ's approval, so it promises nothing Stage 2 delivers.*
+*v1.5 · 1 Oct 2026 · §7's urgent line made word-for-word the same as the report form, the report-received page and doc 25 (HC3; John, 1 Oct). v1.4 · 1 Oct 2026 · §39's last paragraph names what is turned off ("the club's verification"), on BUZ's call after the pre-build copy check; BUZ keeps the same-day promise. v1.3 · 1 Oct 2026 · §34's last paragraph corrected (no trial notices before verification, D-90 as amended; the call goes to a number we find ourselves, doc 27), §36's undo window updated (U-2 as amended) and §39 added, on BUZ's call from John's ruling of 1 Oct. Built on the app's copy, which was newer than the root. v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep. §1b and §2b added the same day (D-155 as amended). §12 rewritten the same day on BUZ's approval, so it promises nothing Stage 2 delivers.*

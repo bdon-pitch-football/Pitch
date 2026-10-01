@@ -218,3 +218,7 @@ Parent view only; the player's own view keeps its words.
 Row 3 is /g/send's approved "No contact details for you or {first} — not now, and not if they reply." (N-8 (a)). The tab title is N5's "Send {first}'s CV". "Verified club on Pitch" (N-8 (b)) waits for John (M9).
 
 BUZ, 1 Oct: "fix the photo gap in this release" (safety review S-3, part 1).
+
+## 1 Oct — F14's family history line (BUZ, via Leo, on John's batch)
+
+- A guardian's own edit to an under-16's page, in the family history on `/g/controls`: **"{guardian first name} changed the page."** Guardian's first name only. It replaces the reused approved-change line, which was a stopgap, and is never "{child} submitted a change". (Builder: john-batch; checks jb-f14-w2, jb-f14-r1.)

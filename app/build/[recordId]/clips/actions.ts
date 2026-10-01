@@ -6,7 +6,8 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { CLIP_LIMIT_ADULT_FREE, CLIP_LIMIT_UNDER_18 } from '@/lib/football';
-import { requireRecordActor } from '@/lib/record-guard';
+import { publishGuardianChange } from '@/lib/cv-build';
+import { requireRecordAuthor } from '@/lib/record-guard';
 
 const HOSTS = /^(https:\/\/)(www\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
 
@@ -18,7 +19,7 @@ const HOSTS = /^(https:\/\/)(www\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.
 export async function addClip(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
   // Never trust the record id in the URL (D-94 §3).
-  await requireRecordActor(recordId);
+  const { personId, actor } = await requireRecordAuthor(recordId);
   const url = String(formData.get('url') ?? '').trim();
   const title = String(formData.get('title') ?? '').trim();
   if (!HOSTS.test(url) || !title) redirect(`/build/${recordId}/clips?error=1`);
@@ -49,6 +50,8 @@ export async function addClip(formData: FormData) {
   } finally {
     client.release();
   }
+  // F14: a guardian's own change to an under-16's page is its own approval.
+  if (actor === 'guardian') await publishGuardianChange(recordId, personId);
   redirect(`/build/${recordId}/clips`);
 }
 
@@ -56,7 +59,8 @@ export async function removeClip(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
   const clipId = String(formData.get('clipId') ?? '');
   // Never trust the record id in the URL (D-94 §3).
-  await requireRecordActor(recordId);
-  await db.query(`delete from highlight where id = $1 and record_id = $2`, [clipId, recordId]);
+  const { personId, actor } = await requireRecordAuthor(recordId);
+  const gone = await db.query(`delete from highlight where id = $1 and record_id = $2`, [clipId, recordId]);
+  if (actor === 'guardian' && gone.rowCount) await publishGuardianChange(recordId, personId);
   redirect(`/build/${recordId}/clips`);
 }

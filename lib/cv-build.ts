@@ -4,11 +4,17 @@
 // 2. For an under-16 the saved draft becomes/updates the PENDING profile
 //    version. The approved version — what a link-holder sees — is untouched
 //    until the guardian approves the change. No job ever auto-publishes.
+// 3. Unless the guardian made it (F14; John, 1 Oct): "D-119 exists so that a
+//    child's edit returns to a guardian. It was never meant to make a
+//    guardian approve themselves." A guardian's own change publishes as the
+//    approved version at once, with that guardian as the actor, and nobody
+//    is emailed that something waits — nothing does.
 import 'server-only';
 import { db } from './db';
 import { MAX_POSITIONS, POSITIONS, STAT_KEYS, type StatKey } from './football';
 import { editWaitingEmail } from './messages';
 import { send } from './messaging';
+import type { RecordActor } from './record-guard';
 
 export interface CvDraft {
   positions: string[];
@@ -20,10 +26,18 @@ export interface CvDraft {
   season: string;
 }
 
-export async function saveCvDraft(recordId: string, draft: CvDraft): Promise<void> {
+// `author` is who the database said may write this record
+// (requireRecordAuthor, 0169): the child themselves, or an under-16's
+// guardian. It decides only what happens to an under-16's versions.
+export async function saveCvDraft(recordId: string, draft: CvDraft, author: { personId: string; actor: RecordActor }): Promise<void> {
   // Only the ten positions (D-92): the schema leaves the domain to TS, and a
   // posted value is text a club reads on the CV (C-P4 safety review N-5).
   const positions = [...new Set(draft.positions.map((v) => v.trim().toUpperCase()))].filter((v) => v in POSITIONS).slice(0, MAX_POSITIONS);
+  // Only a child's own under-16 edit waits on a guardian, so only that one
+  // tells a guardian it is waiting (doc 15 §30). A 16–17's or an adult's
+  // edit publishes and waits on nobody (D-119, doc 14 R8), and a guardian's
+  // own edit is its own approval (F14).
+  let waitsOnGuardian = false;
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -56,7 +70,11 @@ export async function saveCvDraft(recordId: string, draft: CvDraft): Promise<voi
       `select fn_age_band(p.dob) as band from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
       [recordId],
     );
-    if (band.rows[0]?.band === 'u16') {
+    if (band.rows[0]?.band === 'u16' && author.actor === 'guardian') {
+      // F14: the guardian's own edit is its own approval.
+      await publishWith(client, recordId, author.personId, draft.season);
+    } else if (band.rows[0]?.band === 'u16') {
+      waitsOnGuardian = true;
       const content = await buildSnapshot(client, recordId, draft.season);
       await client.query(
         `insert into profile_version (record_id, content, status)
@@ -82,6 +100,7 @@ export async function saveCvDraft(recordId: string, draft: CvDraft): Promise<voi
 
   // doc 15 §30: tell the guardian an edit is waiting. Once — there is no
   // reminder and no timeout that publishes it (doc 14 §R7).
+  if (!waitsOnGuardian) return;
   const g = await db.query(
     `select p2.email, c.first_name from development_record dr
      join person c on c.id = dr.person_id
@@ -130,6 +149,57 @@ export async function approvePendingVersion(recordId: string, guardianId: string
 }
 
 type Client = { query: (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> };
+
+/**
+ * Publish a guardian's own change to an under-16's page (F14; John, 1 Oct).
+ *
+ * The page as it stands now becomes the approved version — what every
+ * link-holder reads (D-119) — with this guardian as the approver, and the
+ * family history says "{guardian first name} changed the page." (BUZ, 1 Oct).
+ * No message to anyone: the guardian who made it is not told it waits, and
+ * the other guardian gets exactly what they get when one guardian approves
+ * a child's edit, which is no message (D-51).
+ *
+ * The database decides (fn_publish_guardian_change, 0169): it publishes only
+ * for a person fn_record_author calls this under-16's guardian, and returns
+ * null for anyone else. If a change of the CHILD'S is still waiting, nothing
+ * publishes: the guardian's change joins the pending version, which the
+ * guardian approves as before — the draft is one draft, so publishing now
+ * would publish the child's change unreviewed with it. That is the more
+ * restrictive answer, chosen until John rules on it (report, 1 Oct).
+ *
+ * Call it AFTER the change is written, outside any open transaction (L1).
+ * Every editor of a guardian's change calls it: the build form, clips,
+ * achievements and other football, and the photo (S-3, called from
+ * app/build/[recordId]/photo/route.ts by its own builder).
+ */
+export async function publishGuardianChange(
+  recordId: string, guardianId: string, season = '2026',
+): Promise<'published' | 'pending' | null> {
+  const client = await db.connect();
+  try {
+    await client.query('begin');
+    const result = await publishWith(client, recordId, guardianId, season);
+    await client.query('commit');
+    return result;
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// The step itself, on a transaction the caller holds: the snapshot, then the
+// database's answer about what happens to it.
+async function publishWith(client: Client, recordId: string, guardianId: string, season: string) {
+  const content = await buildSnapshot(client, recordId, season);
+  const { rows } = await client.query(
+    'select fn_publish_guardian_change($1, $2, $3::jsonb) as r',
+    [recordId, guardianId, JSON.stringify(content)],
+  );
+  return (rows[0]?.r ?? null) as 'published' | 'pending' | null;
+}
 
 // The renderable snapshot (same shape PlayerCV consumes).
 async function buildSnapshot(client: Client, recordId: string, season: string) {

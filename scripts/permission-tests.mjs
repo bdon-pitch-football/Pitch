@@ -5011,9 +5011,11 @@ const recordIdSurfaces = routeFiles
   .sort();
 check('act11: the recordId surfaces are discovered, not listed by hand',
   recordIdSurfaces.length >= 11, true);
+// MOVED with N-10 (0169): the /build editors ask the narrower author
+// question, requireRecordAuthor, which counts as checking who is asking.
 for (const f of recordIdSurfaces) {
   const src = readFileSync(fileURLToPath(new URL('../' + f, import.meta.url)), 'utf8');
-  check(`act11: ${f} checks who is asking`, /require?RecordActor|recordActor\(/.test(src), true);
+  check(`act11: ${f} checks who is asking`, /require?RecordActor|recordActor\(|requireRecordAuthor\(/.test(src), true);
 }
 
 // D-119: the child never approves their own edit.
@@ -11808,20 +11810,45 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const outboxTotal = async () => count('select count(*)::int as n from message_outbox');
 
   // ---- condition 1: a refusal changes nothing ----
-  const none = await invite('Juniper');                                   // no channel pressed
+  // MOVED with F15 (John, 1 Oct): "no channel confirmed" was the first
+  // refusal here, and it is no longer one — the holder of either link may end
+  // the request, confirmed or not (jb-f15-1 below). Every other refusal stands
+  // as it was, and 1b still proves a refusal changes nothing.
   const heldInv = await invite('Hazel', { sms: true, held: true });       // D-155
   const approvedInv = await invite('Aster', { approved: true });
   const byId = await invite('Ivy', { email: true });                      // one channel — but asked by the invitation id
+  const unpressedById = await invite('Wren');                             // no channel pressed, asked by the invitation id
   const boxBefore = await outboxTotal();
-  const refusals = [await ended('jr-Juniper-sms'), await ended('jr-Juniper-email'), await ended('jr-Hazel-sms'), await ended('jr-Aster-email'),
-    await ended(byId.id), await ended('never-a-link'), await ended(null)];
-  check('jr-pd3-1: it refuses — no channel confirmed (either link), a held request, an approved one, the invitation id the child holds, a string that is no link, and nothing at all',
-    refusals, [false, false, false, false, false, false, false]);
+  const refusals = [await ended('jr-Hazel-sms'), await ended('jr-Aster-email'),
+    await ended(byId.id), await ended(unpressedById.id), await ended('never-a-link'), await ended(null)];
+  check('jr-pd3-1: it refuses — a held request, an approved one, the invitation id the child holds (one channel confirmed, or none), a string that is no link, and nothing at all',
+    refusals, [false, false, false, false, false, false]);
   check('jr-pd3-1b: and a refusal changes nothing: every row is still there, nothing was written to the log, and no message moved',
-    [await exists(none), await exists(heldInv), await exists(approvedInv), await exists(byId),
-     (await purges(none)).length + (await purges(heldInv)).length + (await purges(approvedInv)).length + (await purges(byId)).length,
-     await outboxTotal(), await count(`select count(*)::int as n from message_outbox where invitation_id = $1 and body <> ''`, [none.id])],
+    [await exists(heldInv), await exists(approvedInv), await exists(byId), await exists(unpressedById),
+     (await purges(heldInv)).length + (await purges(approvedInv)).length + (await purges(byId)).length + (await purges(unpressedById)).length,
+     await outboxTotal(), await count(`select count(*)::int as n from message_outbox where invitation_id = $1 and body <> ''`, [unpressedById.id])],
     [true, true, true, true, 0, boxBefore, 2]);
+
+  // ---- F15 (John, 1 Oct): either link ends it, confirmed or not ----
+  // The person at a mistyped number holds a link nobody confirmed, and is the
+  // one who most needs to say no. Red on the old function, which refused.
+  const none = await invite('Juniper');                                   // no channel pressed
+  const t15 = await one('select now() as t');
+  const juniperEnded = await ended('jr-Juniper-sms');
+  const jEv = await purges(none);
+  check('jb-f15-1: the holder of an UNCONFIRMED link ends the request — no press on either channel first — and the event says the link was not confirmed',
+    [juniperEnded, await exists(none), jEv.length, Object.keys(jEv[0]?.detail ?? {}).sort(),
+     jEv[0]?.detail?.reason, jEv[0]?.detail?.channel, jEv[0]?.detail?.confirmed, jEv[0]?.subject_id ?? null, jEv[0]?.actor_id ?? null,
+     Math.abs(new Date(jEv[0]?.at) - new Date(t15.t)) < 60000],
+    [true, false, 1, ['channel', 'confirmed', 'invitation_id', 'reason'], 'ended_by_recipient', 'sms', false, null, null, true]);
+  check('jb-f15-1b: and the deletion is the same one: name, date of birth and contact gone, every message emptied, nothing identifying in the event',
+    [await count(`select count(*)::int as n from pending_invitation where first_name = 'Juniper' or guardian_email = $1`, [none.addr]),
+     (await messagesOf(none)).map((r) => [r.body, r.subject, r.to_address]),
+     /juniper|0400/i.test(JSON.stringify(jEv[0]?.detail ?? {}))],
+    [0, [['', null, ''], ['', null, '']], false]);
+  const opal = await invite('Opal', { sms: true });
+  check('jb-f15-2: a press on a link that WAS confirmed records confirmed: true — the flag is that link’s own, never the other one’s',
+    [await ended('jr-Opal-sms'), (await purges(opal))[0]?.detail?.channel, (await purges(opal))[0]?.detail?.confirmed], [true, 'sms', true]);
 
   // ---- one confirmed channel is enough, from either link ----
   // 3b: the email was confirmed; the press comes through the texted link.
@@ -11831,10 +11858,12 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('jr-pd3-2: with ONE channel confirmed, the No ends the request — here pressed on the other link (state 3b)', await ended('jr-Mira-sms'), true);
   const ev = await purges(mira);
   // ---- condition 2: the channel type and the time, and nothing that identifies the person ----
-  check('jr-pd3-3: it writes the existing purged event once — no subject, no actor — with the reason, the channel TYPE of the link pressed, and its own time',
+  // MOVED with F15: the event carries one more key, `confirmed` — here false,
+  // because the texted link Mira's parent pressed was the unconfirmed one.
+  check('jr-pd3-3: it writes the existing purged event once — no subject, no actor — with the reason, the channel TYPE of the link pressed, whether that link was confirmed, and its own time',
     [ev.length, ev[0]?.subject_id ?? null, ev[0]?.actor_id ?? null, Object.keys(ev[0]?.detail ?? {}).sort(),
-     ev[0]?.detail?.reason, ev[0]?.detail?.channel, Math.abs(new Date(ev[0]?.at) - new Date(t0.t)) < 60000],
-    [1, null, null, ['channel', 'invitation_id', 'reason'], 'ended_by_recipient', 'sms', true]);
+     ev[0]?.detail?.reason, ev[0]?.detail?.channel, ev[0]?.detail?.confirmed, Math.abs(new Date(ev[0]?.at) - new Date(t0.t)) < 60000],
+    [1, null, null, ['channel', 'confirmed', 'invitation_id', 'reason'], 'ended_by_recipient', 'sms', false, true]);
   const detailText = JSON.stringify(ev[0]?.detail ?? {});
   const hexOf = (b) => Buffer.from(b).toString('hex');
   check('jr-pd3-4: and nothing that identifies the person: not the address, not the number, not the name, and not a hash of any of them',
@@ -11852,17 +11881,19 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('jr-pd3-6: and no message to anyone — nobody is a guardian yet (John): the press adds nothing to the outbox',
     await outboxTotal(), before);
   const nova = await invite('Nova', { sms: true });
-  check('jr-pd3-2b: the other way round too — the text confirmed, the press on the emailed link — and the event says "email"',
-    [await ended('jr-Nova-email'), (await purges(nova))[0]?.detail?.channel], [true, 'email']);
+  check('jr-pd3-2b: the other way round too — the text confirmed, the press on the emailed link — and the event says "email", not confirmed',
+    [await ended('jr-Nova-email'), (await purges(nova))[0]?.detail?.channel, (await purges(nova))[0]?.detail?.confirmed], [true, 'email', false]);
   check('jr-pd3-2c: a second press on a link already ended is a refusal, and writes nothing more', [await ended('jr-Nova-email'), (await purges(nova)).length], [false, 1]);
 
   // ---- one deletion, two ways to trigger it ----
   const old = await invite('Willow', { days: 15 });
   await db.query('select fn_purge_pending()');
   const oldEv = await purges(old);
-  check('jr-purge-1: the fourteen-day job now goes through the same deletion: the row gone, its messages emptied the same way, and its event says no reason',
-    [await exists(old), (await messagesOf(old)).map((r) => [r.body, r.subject, r.to_address]), oldEv.length, Object.keys(oldEv[0]?.detail ?? {})],
-    [false, [['', null, ''], ['', null, '']], 1, ['invitation_id']]);
+  // MOVED (Leo, 1 Oct, on doc 23 v1.7: the surviving event carries "the
+  // reason (expired or ended)"): the job's event now names its reason.
+  check('jr-purge-1: the fourteen-day job now goes through the same deletion: the row gone, its messages emptied the same way, and its event says why — "expired"',
+    [await exists(old), (await messagesOf(old)).map((r) => [r.body, r.subject, r.to_address]), oldEv.length, Object.keys(oldEv[0]?.detail ?? {}).sort(), oldEv[0]?.detail?.reason],
+    [false, [['', null, ''], ['', null, '']], 1, ['invitation_id', 'reason'], 'expired']);
   const deleters = (await db.query(
     `select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and prosrc ~* 'delete\\s+from\\s+pending_invitation' order by 1`)).rows.map((r) => r.proname);
@@ -12167,6 +12198,242 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
      /\{parent && club\.verified && <div[^>]*><span className="pill pill-live">Verified club on Pitch<\/span><\/div>\}/.test(rf),
      files.filter((f) => NEG.test(srcOf(f)))],
     [true, true, []]);
+}
+
+// ---------------------------------------------------------------------------
+// John's batch of 1 Oct (BUZ: "John, take the batch"), all `jb-`:
+//   · N-10 / doc 14 R12: a guardian may not write a 16–17's record (0169,
+//     fn_record_author), and keeps everything else doc 14 gives them;
+//   · F14: a guardian's own edit to an under-16's page is its own approval
+//     (fn_publish_guardian_change), named in the family history;
+//   · §6: the undo follows its link through a renewal, and writes the
+//     switch-off on the family's history;
+//   · §5.2: the STOP list's fingerprint is keyed, and production with no key
+//     sends no SMS;
+//   · §5.1: a sent message keeps no body;
+//   · doc 15 v1.5 §7.
+// ---------------------------------------------------------------------------
+{
+  const one = async (sql, args = []) => (await db.query(sql, args)).rows[0];
+  const n = async (sql, args = []) => (await one(sql, args)).n;
+  const author = async (who, rec) => (await one('select fn_record_author($1,$2) as a', [who, rec])).a;
+
+  // ---- N-10 / R12 ----
+  check('R12: a guardian of a 16–17 may not write their record (N-10) — while the 16–17 writes their own, and an under-16’s two guardians still write theirs',
+    [await author(ID.guardian, REC.nate), await author(ID.nate, REC.nate), await author(ID.guardian, REC.deniz), await author(ID.guardian2, REC.deniz),
+     await author(ID.deniz, REC.deniz), await author(ID.guardian, REC.georgia)],
+    [null, 'self', 'guardian', 'guardian', 'self', 'guardian']);
+  check('R12b: nor may anyone else: a revoked guardian, a lapsed one at 18, the squad coach, the TD, the club administrator, nobody',
+    [await author(ID.exGuardian, REC.deniz), await author(ID.guardian, REC.marcus), await author(ID.coachV, REC.deniz),
+     await author(ID.td, REC.nate), await author(ID.clubAdmin, REC.nate), await author(null, REC.nate), await author(ID.guardian, null)],
+    [null, null, null, null, null, null, null]);
+  // Only authorship goes. What doc 14 gives a 16–17's guardian is asked of
+  // fn_record_actor and the read functions, none of which moved.
+  check('R12c: and the 16–17’s guardian keeps everything else: still their guardian to the record (send log, share card, invitations, controls), full read with the consent log, and the off-switch on sending',
+    [await recActor(ID.guardian, REC.nate), await level(ID.guardian, ID.nate),
+     /v_band = 'u16'|u16/.test(await procSrc('fn_record_actor'))],
+    ['guardian', 'full', false]);
+  // Every /build editor asks the author question; the read surfaces keep the
+  // actor question, so a 16–17's parent still previews the page and opens
+  // their controls. The photo route is another builder's (S-3) — named here so
+  // it is not forgotten, and checked by its own suite.
+  const editors = ['app/build/[recordId]/page.tsx', 'app/build/[recordId]/actions.ts', 'app/build/[recordId]/clips/page.tsx',
+    'app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/page.tsx', 'app/build/[recordId]/more/actions.ts'];
+  const readers = ['app/build/[recordId]/preview/page.tsx', 'app/build/[recordId]/ready/page.tsx', 'app/g/pending/[recordId]/page.tsx',
+    'app/g/pending/[recordId]/actions.ts', 'app/share-card/[recordId]/page.tsx', 'app/share-card/[recordId]/actions.ts',
+    'app/register-interest/[recordId]/page.tsx', 'app/register-interest/[recordId]/actions.ts', 'app/send/[recordId]/page.tsx', 'app/send/[recordId]/actions.ts'];
+  check('jb-n10-1: every /build editor (page and actions: the form, clips, achievements and other football) asks fn_record_author through requireRecordAuthor, and none still asks the actor question',
+    editors.map((f) => [/requireRecordAuthor\(recordId\)/.test(codeOnly(srcOf(f))), /requireRecordActor\(|recordActor\(/.test(codeOnly(srcOf(f)))]),
+    editors.map(() => [true, false]));
+  check('jb-n10-2: and every surface a 16–17’s guardian keeps — preview, ready, pending, share card, register, send — still asks requireRecordActor, unchanged',
+    readers.filter((f) => !/requireRecordActor\(|recordActor\(/.test(codeOnly(srcOf(f)))), []);
+  const guard = codeOnly(srcOf('lib/record-guard.ts'));
+  check('jb-n10-3: requireRecordAuthor asks the database (fn_record_author), sends no session to /signin and anything else to /home — the same two answers as requireRecordActor',
+    [/select fn_record_author\(\$1,\$2\) as actor/.test(guard), /export async function requireRecordAuthor[\s\S]*?redirect\('\/signin'\)[\s\S]*?redirect\('\/home'\)/.test(guard)],
+    [true, true]);
+
+  // ---- F14 ----
+  const kid = crypto.randomUUID(), rec = crypto.randomUUID(), gA = crypto.randomUUID(), gB = crypto.randomUUID();
+  const teen = crypto.randomUUID(), teenRec = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Ffion',$2), ($3,'Gareth',$4), ($5,'Hedda',$4), ($6,'Tegan',$7)`,
+    [kid, yearsAgo(13), gA, yearsAgo(40), gB, teen, yearsAgo(17)]);
+  await db.query(`insert into development_record (id, person_id, about) values ($1,$2,'Left back.'), ($3,$4,'Keeper.')`, [rec, kid, teenRec, teen]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now()), ($3,$2,now()), ($1,$4,now())`, [gA, kid, gB, teen]);
+  await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,'{"about":"Left back."}','approved',$2,now())`, [rec, gB]);
+  const box0 = await n('select count(*)::int as n from message_outbox');
+  const published = (await one(`select fn_publish_guardian_change($1,$2,'{"about":"Left back, both feet."}'::jsonb) as r`, [rec, gA])).r;
+  const versions = (await db.query(`select status, content->>'about' as about, approved_by, created_by from profile_version where record_id = $1 order by created_at`, [rec])).rows;
+  const evs = (await db.query(`select event, actor_id, subject_id, detail from consent_event where detail->>'record_id' = $1`, [rec])).rows;
+  check('jb-f14-1: a guardian’s own change to an under-16’s page publishes as the approved version at once, approved by that guardian; the old one is superseded and nothing waits',
+    [published, versions.map((v) => [v.status, v.about]), versions.find((v) => v.status === 'approved')?.approved_by === gA,
+     versions.find((v) => v.status === 'approved')?.created_by === gA],
+    ['published', [['superseded', 'Left back.'], ['approved', 'Left back, both feet.']], true, true]);
+  check('jb-f14-1b: recorded once, with that guardian as the actor and the child as the subject — an approval of kind guardian_edit, never "submitted"',
+    [evs.map((e) => [e.event, e.actor_id === gA, e.subject_id === kid, e.detail.kind]), evs.some((e) => e.event === 'edit_submitted')],
+    [[['edit_approved', true, true, 'guardian_edit']], false]);
+  check('jb-f14-1c: and no message to anybody — not the guardian who made it, not the other one (D-51: what one guardian’s approval sends, which is nothing)',
+    await n('select count(*)::int as n from message_outbox'), box0);
+  const tl = async (viewer) => (await db.query('select event, detail, who from fn_consent_timeline($1,$2)', [viewer, kid])).rows;
+  const tlA = await tl(gA), tlB = await tl(gB);
+  check('jb-f14-2: the family history names the guardian by first name on that row — "{guardian first name} changed the page." — for both guardians, and names nobody on any other row',
+    [tlA.find((r) => r.detail?.kind === 'guardian_edit')?.who, tlB.find((r) => r.detail?.kind === 'guardian_edit')?.who,
+     tlA.filter((r) => r.who !== null).length, (await db.query('select who from fn_consent_timeline($1,$2)', [ID.coachV, kid])).rows.length],
+    ['Gareth', 'Gareth', 1, 0]);
+  const ctl = codeOnly(srcOf('app/g/controls/[childId]/page.tsx'));
+  check('jb-f14-2b: and /g/controls draws BUZ’s line from it, verbatim, never the child’s "submitted a change"',
+    [ctl.includes("e.event === 'edit_approved' && e.kind === 'guardian_edit' ? (e.who ? `${e.who} changed the page.`"), /'who', e\.who/.test(ctl)],
+    [true, true]);
+  // A change of the child's already waiting: nothing publishes unreviewed.
+  await db.query(`insert into profile_version (record_id, content, status) values ($1,'{"about":"CHILD WAITING"}','pending')`, [rec]);
+  const joined = (await one(`select fn_publish_guardian_change($1,$2,'{"about":"CHILD WAITING plus parent"}'::jsonb) as r`, [rec, gB])).r;
+  check('jb-f14-3: with the child’s own change still waiting, a guardian’s change joins it and NOTHING publishes — the approved page stands and no event is written (restrictive, pending John)',
+    [joined, (await one(`select content->>'about' as a from profile_version where record_id=$1 and status='approved'`, [rec])).a,
+     (await one(`select content->>'about' as a from profile_version where record_id=$1 and status='pending'`, [rec])).a,
+     await n(`select count(*)::int as n from consent_event where detail->>'record_id' = $1`, [rec])],
+    ['pending', 'Left back, both feet.', 'CHILD WAITING plus parent', 1]);
+  check('jb-f14-4: R8/R12 — the publication is an under-16’s alone: a 16–17’s guardian, a stranger and the child themselves publish nothing, and nothing is written',
+    [(await one(`select fn_publish_guardian_change($1,$2,'{}'::jsonb) as r`, [teenRec, gA])).r,
+     (await one(`select fn_publish_guardian_change($1,$2,'{}'::jsonb) as r`, [rec, ID.coachV])).r,
+     (await one(`select fn_publish_guardian_change($1,$2,'{}'::jsonb) as r`, [rec, kid])).r,
+     await n('select count(*)::int as n from profile_version where record_id = $1', [teenRec])],
+    [null, null, null, 0]);
+  check('jb-f14-5: fn_publish_guardian_change is not executable by PUBLIC (0166’s pattern)',
+    (await one(`select has_function_privilege('public', 'fn_publish_guardian_change(uuid,uuid,jsonb)', 'execute') as p`)).p, false);
+  const cvb = codeOnly(srcOf('lib/cv-build.ts'));
+  const guardianBranch = cvb.slice(cvb.indexOf("author.actor === 'guardian'"), cvb.indexOf("} else if (band.rows[0]?.band === 'u16')"));
+  check('jb-f14-6: in saveCvDraft the guardian’s branch publishes and writes no edit_submitted; the edit-waiting email goes only when the child’s own edit waits; and the step is exported for the photo route as publishGuardianChange',
+    [/publishWith\(client, recordId, author\.personId, draft\.season\)/.test(guardianBranch), /edit_submitted|editWaitingEmail|waitsOnGuardian = true/.test(guardianBranch),
+     /if \(!waitsOnGuardian\) return;[\s\S]*send\(editWaitingEmail/.test(cvb), /export async function publishGuardianChange\(/.test(cvb),
+     ['app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/actions.ts'].map((f) => (codeOnly(srcOf(f)).match(/if \(actor === 'guardian'[^)]*\) await publishGuardianChange\(recordId, personId\)/g) ?? []).length)],
+    [true, false, true, true, [2, 4]]);
+
+  // ---- §6: the undo follows its link, and is written down ----
+  const page = srcOf('app/undo/[token]/page.tsx');
+  const loadSql = /`(select \(u\.id is not null[\s\S]*?)`,/.exec(page)?.[1];
+  const pressSql = /`(with asked as[\s\S]*?)`,/.exec(page)?.[1];
+  const uKid = crypto.randomUUID(), uRec = crypto.randomUUID(), uG = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Ulla',$2), ($3,'Ugo',$4)`, [uKid, yearsAgo(14), uG, yearsAgo(41)]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [uRec, uKid]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [uG, uKid]);
+  const mintLink = async (linkExpires, undoExpires, raw, revoked = false) => {
+    const link = (await one(`insert into share_token (record_id, token_hash, issued_by, expires_at, revoked_at)
+      values ($1,$2,$3,$4, case when $5 then now() end) returning id`, [uRec, sha(crypto.randomUUID()), uG, linkExpires, revoked])).id;
+    await db.query(`insert into consent_event (event, actor_id, subject_id, detail) values ('share_dispatched',$1,$2,
+      jsonb_build_object('token_id', $3::uuid, 'club_name', 'Westgate Rangers', 'recipient', 'football@westgate.example.au'))`, [uG, uKid, link]);
+    await db.query(`insert into undo_token (token_hash, share_token_id, issued_to, expires_at) values ($1,$2,$3,$4)`, [sha(raw), link, uG, undoExpires]);
+    return link;
+  };
+  const day = 864e5, at = (d) => new Date(Date.now() + d * day).toISOString();
+  // Sent with a link due in 2 days, the undo minted to match; then Renew gave
+  // the same link 90 more days and the undo kept its date, which has passed.
+  const renewed = await mintLink(at(88), at(-1), 'jb-undo-renewed');
+  const lapsed = await mintLink(at(-1), at(-1), 'jb-undo-lapsed');
+  const alreadyOff = await mintLink(at(30), at(30), 'jb-undo-off', true);
+  const live = async (raw) => (await one(loadSql, [sha(raw)])).live;
+  check('jb-undo-1: a renewed link’s undo is still live — the undo follows its link’s expiry, not the date it was minted with — while a lapsed link’s and an already-off link’s are not',
+    [Boolean(loadSql && pressSql), await live('jb-undo-renewed'), await live('jb-undo-lapsed'), await live('jb-undo-off'), await live('jb-undo-never')],
+    [true, true, false, false, false]);
+  const offEvents = async () => (await db.query(
+    `select actor_id, subject_id, detail from consent_event where event = 'share_revoked' and subject_id = $1 order by id`, [uKid])).rows;
+  const pressRenewed = (await one(pressSql, [sha('jb-undo-renewed')])).revoked;
+  const evU = await offEvents();
+  check('jb-undo-2: and its press switches that link off — the one the club holds, renewed — and writes the switch-off: share_revoked, kind one, with the guardian it was sent to as the actor and the child as the subject',
+    [pressRenewed, (await one('select revoked_at is not null as r from share_token where id = $1', [renewed])).r,
+     evU.map((e) => [e.actor_id === uG, e.subject_id === uKid, e.detail.kind, e.detail.token_id === renewed, e.detail.club_name])],
+    [1, true, [[true, true, 'one', true, 'Westgate Rangers']]]);
+  const tlU = (await db.query('select event, detail from fn_consent_timeline($1,$2)', [uG, uKid])).rows;
+  check('jb-undo-3: so the family history shows it, in the existing words for a switched-off link ("One club’s link was switched off")',
+    [tlU.filter((r) => r.event === 'share_revoked' && r.detail?.kind === 'one').length,
+     codeOnly(srcOf('app/g/controls/[childId]/page.tsx')).includes("e.event === 'share_revoked' && e.kind === 'one' ? 'One club\\u2019s link was switched off'")],
+    [1, true]);
+  const pressAgain = [(await one(pressSql, [sha('jb-undo-renewed')])).revoked, (await one(pressSql, [sha('jb-undo-lapsed')])).revoked,
+    (await one(pressSql, [sha('jb-undo-off')])).revoked, (await one(pressSql, [sha('jb-undo-never')])).revoked];
+  check('jb-undo-4: a press that switches nothing off — spent, lapsed, already off, never a link — writes nothing to anyone’s history',
+    [pressAgain, (await offEvents()).length, (await one('select revoked_at is null as on from share_token where id = $1', [lapsed])).on],
+    [[0, 0, 0, 0], 1, true]);
+  void alreadyOff;
+
+  // ---- §5.2: the STOP list's fingerprint is keyed ----
+  const { keyedNumberHash, numberHashKey, normaliseNumber } = await import('../lib/number-hash.ts');
+  const devKey = numberHashKey({ NODE_ENV: 'development' });
+  const plain = createHash('sha256').update('0400818181').digest();
+  const hmac = (k, v) => createHmac('sha256', k).update(v).digest();
+  check('jb-hash-1: a number is fingerprinted with HMAC-SHA256 under a key, never a plain sha256 — and the parent’s typed number and Twilio’s +61 form are ONE number',
+    [keyedNumberHash('0400 818 181', devKey).equals(plain), keyedNumberHash('0400 818 181', devKey).equals(hmac(devKey, '+61400818181')),
+     ['0400 818 181', '+61400818181', '61 400 818 181', '0400-818-181'].map((x) => normaliseNumber(x)),
+     keyedNumberHash('0400 818 181', 'k'.repeat(40)).equals(keyedNumberHash('0400 818 181', devKey))],
+    [false, true, ['+61400818181', '+61400818181', '+61400818181', '+61400818181'], false]);
+  check('jb-hash-2: production fails closed — no key, a blank one or a short one gives NO fingerprint (so no SMS), never a fallback; a real key is used as given; development has a fixed key',
+    [numberHashKey({ NODE_ENV: 'production' }), numberHashKey({ NODE_ENV: 'production', NUMBER_HASH_KEY: '  ' }),
+     numberHashKey({ NODE_ENV: 'production', NUMBER_HASH_KEY: 'short' }), numberHashKey({ NODE_ENV: 'production', NUMBER_HASH_KEY: 'p'.repeat(48) }),
+     keyedNumberHash('0400 818 181', null), typeof devKey === 'string' && devKey.length > 0, numberHashKey({ NODE_ENV: 'development', NUMBER_HASH_KEY: 'mine' })],
+    [null, null, null, 'p'.repeat(48), null, true, 'mine']);
+  const msgLib = codeOnly(srcOf('lib/messaging.ts')), hook = codeOnly(srcOf('app/api/webhooks/sms/route.ts'));
+  // A plain sha256 of something that is a phone number: the shapes it has had.
+  const PLAIN_NUMBER = /createHash\(['"]sha256['"]\)\.update\((?:[\w.]*\.)?(?:phone|number|from|address|n)\b(?!\()/i;
+  const sendBody = msgLib.slice(msgLib.indexOf('export async function send('), msgLib.indexOf('export async function dispatch('));
+  check('jb-hash-3: one door — lib/messaging’s numberHash is the keyed one and nothing in the app hashes a number plainly; send() refuses with "sms_no_key" before the STOP list, the queue or the meter; the STOP webhook answers 503 with no key',
+    [/export const numberHash = \(n: string\): Buffer \| null => keyedNumberHash\(n, numberHashKey\(\)\)/.test(msgLib), /createHash/.test(msgLib),
+     sendBody.indexOf("reason: 'sms_no_key'") > 0 && sendBody.indexOf("reason: 'sms_no_key'") < sendBody.indexOf('from sms_opt_out')
+       && sendBody.indexOf("reason: 'sms_no_key'") < sendBody.indexOf('fn_sms_queue') && sendBody.indexOf("reason: 'sms_no_key'") < sendBody.indexOf('insert into sms_meter'),
+     /const h = numberHash\(from\);\s*if \(!h\) return NextResponse\.json\(\{ ok: false \}, \{ status: 503 \}\);/.test(hook),
+     tsSourceFiles().filter((f) => f !== 'lib/number-hash.ts' && PLAIN_NUMBER.test(codeOnly(srcOf(f)))),
+     // L19: the scan catches the plain hash this replaced, and passes a hash of an image.
+     [PLAIN_NUMBER.test("createHash('sha256').update(n.replace(/\\s/g, '')).digest()"), PLAIN_NUMBER.test("createHash('sha256').update(from)"),
+      PLAIN_NUMBER.test("createHash('sha256').update(Buffer.from(shown)).digest()")]],
+    [true, false, true, true, [], [true, true, false]]);
+  const release = msgLib.slice(msgLib.indexOf('export async function releaseWaitingTexts('), msgLib.indexOf('export async function sendAndLog('));
+  check('jb-hash-4: a text that waited from before the key is re-keyed from its own address before any release, and with no key nothing is released',
+    [/const key = numberHashKey\(\);\s*if \(!key\) return \[\];/.test(release), release.indexOf('keyedNumberHash(w.to_address, key)') > 0
+       && release.indexOf('keyedNumberHash(w.to_address, key)') < release.indexOf('fn_sms_release')],
+    [true, true]);
+  // 0169 stops itself rather than keep a plain hash or drop a STOP.
+  const mig = srcOf('supabase/migrations/0169_john_batch.sql');
+  const guardBlock = /(do \$\$\ndeclare n int;[\s\S]*?end \$\$;)/.exec(mig)?.[1];
+  // On a copy of the world inside one transaction, rolled back: earlier
+  // checks here (q9) have put a STOP on the list.
+  await db.query('begin');
+  await db.query('delete from sms_opt_out');
+  let emptyOk = true;
+  try { await db.query(guardBlock); } catch { emptyOk = false; }
+  await db.query(`insert into sms_opt_out (number_hash) values ('\\x01'::bytea)`);
+  let refused = false;
+  try { await db.query(guardBlock); } catch (e) { refused = /sms_opt_out holds 1 plain-sha256/.test(e.message); }
+  await db.query('rollback');
+  check('jb-hash-5: 0169 refuses to run over a STOP list that holds rows (they cannot be re-keyed, and dropping one drops a STOP), and needs nothing when it is empty',
+    [Boolean(guardBlock), refused, emptyOk], [true, true, true]);
+
+  // ---- §5.1: a sent message keeps no body ----
+  const disp = msgLib.slice(msgLib.indexOf('export async function dispatch('), msgLib.indexOf('export async function releaseWaitingTexts('));
+  check('jb-body-1: dispatch() empties the body and subject the moment the provider has the message, and when it is refused for good — a transient failure keeps them for the retry',
+    [/set sent_at = now\(\), provider_id = \$2, body = '', subject = null/.test(disp),
+     /body = case when \$3 then '' else body end/.test(disp), /subject = case when \$3 then null else subject end/.test(disp)],
+    [true, true, true]);
+  const scrub = /(update message_outbox\s+set body = '', subject = null\s+where \(sent_at is not null or failed_at is not null\)[\s\S]*?;)/.exec(mig)?.[1];
+  const mk = async (sent, failed, body) => (await one(
+    `insert into message_outbox (message_key, channel, to_address, subject, body, sent_at, failed_at, provider_id)
+     values ('doc15.§19','email','club@example.au','Ffion''s CV',$1, case when $2 then now() end, case when $3 then now() end,
+       case when $2 then 'prov-' || gen_random_uuid() end) returning id`, [body, sent, failed])).id;
+  const sentRow = await mk(true, false, 'Ffion is 13. Her page: /p/abc'), failedRow = await mk(false, true, 'Ffion is 13.'), waitingRow = await mk(false, false, 'Ffion is 13.');
+  await db.query(scrub);
+  const rowsAfter = await Promise.all([sentRow, failedRow, waitingRow].map(async (id) => one(
+    'select body, subject, to_address, provider_id is not null as has_provider from message_outbox where id = $1', [id])));
+  check('jb-body-2: 0169 empties the messages already sent or closed — body and subject — and keeps what receipts and the support console read (address, provider id); a message still to go keeps its words',
+    [Boolean(scrub), rowsAfter.map((r) => [r.body, r.subject, r.to_address, r.has_provider])],
+    [true, [['', null, 'club@example.au', true], ['', null, 'club@example.au', false], ['Ffion is 13.', "Ffion's CV", 'club@example.au', false]]]);
+  check('jb-body-3: and a receipt still finds a sent row with no body: fn_record_delivery reads the provider id, channel, key, subject and invitation, never the body, subject line or address',
+    [/body|to_address|\bsubject\s*(=|,)/.test((await procSrc('fn_record_delivery')).replace(/subject_id/g, '')),
+     (await one(`select fn_record_delivery(provider_id, 'delivered') as e from message_outbox where id = $1`, [sentRow])).e],
+    [false, 'email_delivered']);
+
+  // ---- doc 15 v1.5 §7 ----
+  const LINE = 'If you believe a child is in immediate danger, call 000. Pitch is not an emergency service.';
+  const msgs = srcOf('lib/messages.ts'), doc15 = srcOf('docs/15-Message-Copy.md');
+  const s7 = msgs.split("key: 'doc15.§7',")[1]?.split('\n});')[0] ?? '';
+  check('jb-s7: §7 says doc 15 v1.5’s urgent line word for word, in lib/messages and in the repo’s doc 15, and neither still says "local police"',
+    [s7.includes(`We aim to respond within one business day. ${LINE}`), doc15.includes(`> We aim to respond within one business day. ${LINE}`),
+     /local police/.test(s7), /local police/.test(doc15), /^\*v1\.5 · 1 Oct 2026/m.test(doc15)],
+    [true, true, false, false, true]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

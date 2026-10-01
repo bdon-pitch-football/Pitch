@@ -37,11 +37,12 @@ export async function approve(formData: FormData) {
 // "No, end this request" (D-PD-3). Its own form, posting the code and nothing
 // else, after the approve form. Ended: the after-state at a fixed address that
 // ignores the code, so nothing on it — or in the address bar — tells an ended
-// link from an approved one (D-77). Refused (no confirmed channel, approved,
-// held, or not a channel link): back to /a exactly as it was, with no error
+// link from an approved one (D-77). Refused (approved, held, or not a channel
+// link): back to /a exactly as it was, with no error
 // and nothing that names the reason (John's condition 1). The button renders
-// only after a channel is confirmed, so a refusal means a crafted request,
-// and that person learns nothing new.
+// on either channel link, confirmed or not (F15), and never on the invitation
+// id — so a refusal means a crafted request, and that person learns nothing
+// new. A server action is a POST: opening the link never ends anything.
 export async function endRequest(formData: FormData) {
   const code = String(formData.get('code') ?? '');
   const ended = await endPendingInvitation(code);

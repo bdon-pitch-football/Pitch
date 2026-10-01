@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { PlayerFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
 import BuildForm from './BuildForm';
-import { requireRecordActor } from '@/lib/record-guard';
+import { requireRecordAuthor } from '@/lib/record-guard';
 import SquadCard from '@/components/SquadCard';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export const metadata = { title: 'Build your CV', robots: { index: false, follow
 
 export default async function Build({ params, searchParams }: { params: Promise<{ recordId: string }>; searchParams: Promise<{ saved?: string; squad?: string; photo?: string }> }) {
   const { recordId } = await params;
-  const { personId: actor } = await requireRecordActor(recordId);
+  const { personId: actor } = await requireRecordAuthor(recordId);
   const { saved, squad, photo } = await searchParams;
   const { rows } = await db.query(
     `select dr.id, dr.person_id, p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, dr.positions, dr.squad_number, dr.foot,
