@@ -12132,5 +12132,16 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
 }
 
 
+// Safety review N-2 (C-P4): a parent's send that throws mid-dispatch must not
+// leave the request behind, where it would sit on both parents' /home as the
+// child's ask. The removal runs on the throw as well as on a refusal.
+{
+  const sendAct = codeOnly(srcOf('app/send/[recordId]/actions.ts'));
+  check('C-P4-8 (N-2): the parent\u2019s undelivered request is removed whether the dispatch refuses or throws, and the error still surfaces',
+    [/try \{\s*done = await dispatchShareRequest\(/.test(sendAct), /catch \(e\) \{\s*await dropUnsent\(\);\s*throw e;/.test(sendAct), /if \(!done\) await dropUnsent\(\);/.test(sendAct),
+     /const dropUnsent = async \(\) => \{\s*if \(state\.mode === 'guardian'\)/.test(sendAct)],
+    [true, true, true, true]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

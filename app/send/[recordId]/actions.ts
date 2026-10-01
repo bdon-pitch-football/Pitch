@@ -91,12 +91,21 @@ export async function composeSend(formData: FormData) {
        returning id`,
       [recordId, `${clubName} <${address}>`],
     );
-    const done = await dispatchShareRequest(rows[0].id, personId, state.mode === 'guardian' ? personId : undefined);
     // A parent's request that did not go must not sit on their home as one
-    // their child is waiting on: it was never the child's to wait on.
-    if (!done && state.mode === 'guardian') {
-      await db.query(`delete from share_request where id = $1 and dispatched_at is null`, [rows[0].id]);
+    // their child is waiting on: it was never the child's to wait on. That
+    // holds when the dispatch throws, too (safety review N-2): the undelivered
+    // row is removed and the error still surfaces.
+    const dropUnsent = async () => {
+      if (state.mode === 'guardian') await db.query(`delete from share_request where id = $1 and dispatched_at is null`, [rows[0].id]);
+    };
+    let done;
+    try {
+      done = await dispatchShareRequest(rows[0].id, personId, state.mode === 'guardian' ? personId : undefined);
+    } catch (e) {
+      await dropUnsent();
+      throw e;
     }
+    if (!done) await dropUnsent();
     await answerNoSoonerThan(startedAt);
     // The switch can be turned off between the page and the press. Fail
     // closed, onto the screen that says so, rather than claiming a send.
