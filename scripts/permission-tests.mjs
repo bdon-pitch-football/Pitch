@@ -12645,7 +12645,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const s7 = msgs.split("key: 'doc15.§7',")[1]?.split('\n});')[0] ?? '';
   check('jb-s7: §7 says doc 15 v1.5’s urgent line word for word, in lib/messages and in the repo’s doc 15, and neither still says "local police"',
     [s7.includes(`We aim to respond within one business day. ${LINE}`), doc15.includes(`> We aim to respond within one business day. ${LINE}`),
-     /local police/.test(s7), /local police/.test(doc15), /^\*v1\.5 · 1 Oct 2026/m.test(doc15)],
+     /local police/.test(s7), /local police/.test(doc15), /^\*v1\.\d+ · \d+ Oct 2026[\s\S]*v1\.5 · 1 Oct 2026 · §7's urgent line/m.test(doc15)],
     [true, true, false, false, true]);
 }
 
