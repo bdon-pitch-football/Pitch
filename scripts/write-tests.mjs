@@ -4288,6 +4288,58 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('bf-b1-w6: the family history says "Alex changed the page." once for each change of the parent’s that reached the page — two achievements, a clip, the words, the removal — and "Georgia submitted a change" once, for her words; her own clip, achievement and photo add no line of their own',
     [count(hE, 'Alex changed the page.') - count(hB, 'Alex changed the page.'), count(hE, 'Georgia submitted a change') - count(hB, 'Georgia submitted a change')],
     [5, 1]);
+  // ---- A guardian's FORM save publishes only what the guardian changed
+  // (safety review of "parent's change only", B-1, 2 Oct). The form is
+  // prefilled from the live record — with a change of the child's waiting,
+  // her unreviewed draft — and posts every field. Read here as a browser
+  // posts it: every field as the page drew it, the foot as the select has it.
+  const faithful = async (who) => {
+    const { html } = await get(gBuild, who);
+    const form = forms(html).find((f) => 'positions' in f.fields);
+    if (!form) return null;
+    const fields = { ...form.fields };
+    for (const v of form.visible) if (!v.file && v.type !== 'select') fields[v.name] = v.value ?? '';
+    const sel = /<select[^>]*name="foot"[^>]*>([\s\S]*?)<\/select>/.exec(html)?.[1] ?? '';
+    const opt = /<option(?: value="([^"]*)")?[^>]*selected=""[^>]*>([^<]*)</.exec(sel);
+    fields.foot = opt ? (opt[1] ?? opt[2]) : '';
+    fields.about = unhtml(/<textarea[^>]*name="about"[^>]*>([\s\S]*?)<\/textarea>/.exec(html)?.[1] ?? '');
+    return fields;
+  };
+  const savedLine = async (who) => (await live(`${gBuild}?saved=1`, who)).includes('Your parent will see this change before it goes out.');
+  // Georgia changes her About and a stat: both wait on her parent.
+  const G_ABOUT2 = 'Georgia again, waiting: I train Tuesdays at the ground near my school.';
+  const kf = await faithful(georgia.child_id);
+  if (kf) await postAs(gBuild, georgia.child_id, { ...kf, about: G_ABOUT2, stat_apps: '87' });
+  const childSees = await savedLine(georgia.child_id);
+  const pageBefore = await preview(), hF0 = await history();
+  // John (2 Oct): an UNCHANGED form over her waiting change publishes nothing.
+  const af = await faithful(alex);
+  const unchanged = af ? await postAs(gBuild, alex, af) : { status: 0 };
+  const hF1 = await history();
+  check('bf-form-w1: with Georgia’s About and a stat waiting, her parent’s form is prefilled with them — and saving it UNCHANGED publishes nothing: the page clubs read is word for word as it was, no history line, no event (John’s condition 1, its exact diff)',
+    [Boolean(kf && af), af?.about === G_ABOUT2, af?.stat_apps, unchanged.status, (await preview()) === pageBefore, hF1 === hF0, (await preview()).includes(G_ABOUT2)],
+    [true, true, '87', 303, true, true, false]);
+  // Her parent changes ONLY the foot.
+  const newFoot = af?.foot === 'Left' ? 'Right' : 'Left';
+  if (af) await postAs(gBuild, alex, { ...af, foot: newFoot });
+  const afterFoot = await preview(), hF2 = await history();
+  check('bf-form-w2: her parent changes only the foot — clubs see the new foot at once, and still her OLD About and OLD stat; her About and stat still wait for him; one "Alex changed the page."',
+    [Boolean(af?.foot), afterFoot.includes(`${newFoot} footed`), afterFoot.includes(G_ABOUT2), afterFoot.includes('· 87'),
+     (await waitingNow()).includes(G_ABOUT2), count(hF2, 'Alex changed the page.') - count(hF1, 'Alex changed the page.')],
+    [true, true, false, false, true, 1]);
+  // S-1: "Your parent will see this change before it goes out." is the
+  // child's line; her parent's save went out, and he reads the plain "Saved.".
+  check('bf-form-w3: after a save, Georgia reads "Your parent will see this change before it goes out." — her parent, whose save has gone out, reads only "Saved."',
+    [childSees, await savedLine(alex), (await live(`${gBuild}?saved=1`, alex)).includes('Saved.')], [true, false, true]);
+  // The approval names the child, so it reaches the family history: the
+  // approver reads "You approved a change" (the other guardian's line is the
+  // permission suite's, bf-appr-1 — no fixture child has two guardians).
+  const hA0 = await history();
+  const okApprove = await approveHers();
+  const hA1 = await history();
+  check('bf-appr-w1: when her parent approves her waiting change, his family history says "You approved a change" — the approval now names Georgia — and her About and stat go on the page with his foot',
+    [okApprove.location, count(hA1, 'You approved a change') - count(hA0, 'You approved a change'), (await preview()).includes(G_ABOUT2), (await preview()).includes(`${newFoot} footed`)],
+    [`/g/pending/${georgia.record_id}?done=1`, 1, true, true]);
   // A 16–17's page and an adult's are their own, and their own changes are
   // the page at once, exactly as before.
   const jordanRec = /\/build\/([0-9a-f-]{36})/.exec((await get('/home', ids.people.jordan)).html)?.[1];

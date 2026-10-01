@@ -14,7 +14,10 @@ interface RecordData {
   surfaced_stats: string[]; stats: Record<string, number>; has_pending: boolean; clips: number;
 }
 
-export default function BuildForm({ record, saved, photoBad, children }: { record: RecordData; saved: boolean; photoBad?: boolean; children?: React.ReactNode }) {
+export default function BuildForm({ record, saved, photoBad, child = true, children }: { record: RecordData; saved: boolean; photoBad?: boolean; child?: boolean; children?: React.ReactNode }) {
+  // The waiting line is the child's (D-119): a guardian's own save is its own
+  // approval (F14) and has already gone out.
+  const waits = record.has_pending && child;
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [positions, setPositions] = useState<string[]>(record.positions ?? []);
@@ -77,8 +80,8 @@ export default function BuildForm({ record, saved, photoBad, children }: { recor
         <BuildHeader recordId={record.id} title="Build your CV" sub="Two minutes. Edit anything later." done={done} total={steps.length} here="Your football" preview />
         {saved && (
           // Purple when the change is now the parent's to see (D-119).
-          <Say tone={record.has_pending ? 'purple' : 'accent'}>
-            Saved. {record.has_pending ? 'Your parent will see this change before it goes out.' : ''}
+          <Say tone={waits ? 'purple' : 'accent'}>
+            Saved. {waits ? 'Your parent will see this change before it goes out.' : ''}
           </Say>
         )}
         {/* C-P6 (BUZ, 1 Oct): the photo route sends a bad file, a file over

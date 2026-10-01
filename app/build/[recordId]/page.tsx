@@ -14,7 +14,7 @@ export const metadata = { title: 'Build your CV', robots: { index: false, follow
 
 export default async function Build({ params, searchParams }: { params: Promise<{ recordId: string }>; searchParams: Promise<{ saved?: string; squad?: string; photo?: string }> }) {
   const { recordId } = await params;
-  const { personId: actor } = await requireRecordAuthor(recordId);
+  const { personId: actor, actor: author } = await requireRecordAuthor(recordId);
   const { saved, squad, photo } = await searchParams;
   const { rows } = await db.query(
     `select dr.id, dr.person_id, p.first_name, coalesce(p.last_name,'') as last_name, p.photo_path, dr.positions, dr.squad_number, dr.foot,
@@ -38,7 +38,11 @@ export default async function Build({ params, searchParams }: { params: Promise<
           console width as well — belt and braces, because the next page to
           add a second block would have done the same thing. */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-        <BuildForm record={JSON.parse(JSON.stringify(rows[0]))} saved={saved === '1'} photoBad={photo === 'bad'}>
+        {/* "Your parent will see this change" is the child's to read, never the
+            guardian's: since "parent's change only" (2 Oct) a guardian's save
+            has gone out even while the child's change waits (safety review
+            S-1), so they get the plain "Saved.". */}
+        <BuildForm record={JSON.parse(JSON.stringify(rows[0]))} saved={saved === '1'} photoBad={photo === 'bad'} child={author === 'self'}>
           {/* Where they play (0052): a club on a CV is a confirmed membership,
               and this is the only place a family can start one. Last in the
               column, under Save (spec C, the 390 order). */}

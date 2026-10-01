@@ -228,3 +228,7 @@ BUZ, 1 Oct: "put the public bucket fix in this release". S-3 part 2: under-18 ph
 BUZ, 2 Oct (B-1, safety review of John's batch): **"Parent's change only."** A guardian's save to an under-16's page publishes only that guardian's own change onto the approved page. Anything the child added that no guardian reviewed keeps waiting. John is asked to confirm, since it is how F14 publishes.
 
 BUZ, 2 Oct: the parent's review screen (`/g/pending`) shows every change before approval (photo, clips, achievements, other football, form fields), **in this release**. Product Design designs it and BUZ approves the words.
+
+## 2 Oct — the other guardian's approval line (BUZ, via Leo; John confirmed in `13-Board-Room/JOHN-to-LEO-two-confirmations-2-oct.md`)
+
+- When one guardian approves the child's waiting change, the OTHER guardian's family history on `/g/controls` says: **"{first name} approved a change."** The approver's first name only. The approver's own history keeps **"You approved a change"**. The approval event now names the child, so both reach the history (D-51, "both notified", by history, with no message). If the approver is no longer a guardian of the child, the other guardian sees the existing fallback "Something was recorded". (Builder: batch-fixes; checks bf-appr-1, bf-appr-w1.)

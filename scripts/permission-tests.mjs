@@ -5437,8 +5437,10 @@ check('store5: the bucket is configurable, not hardcoded to one project',
   // The delete runs after the transaction, never inside db.connect() (L1),
   // and it is the one door: nothing else removes an image.
   const cvBuildSrc = readFileSync(fileURLToPath(new URL('../lib/cv-build.ts', import.meta.url)), 'utf8');
-  check('photo6: lib/cv-build hands a replaced photo on only after it has released its client — on save, on approval and on a guardian\u2019s publish',
-    (codeOnly(cvBuildSrc).match(/client\.release\(\);\s*\}\s*(?:await forgetPlayerPhoto\(recordId, replaced\);|for \(const r of replaced\) await forgetPlayerPhoto\(recordId, r\);)/g) ?? []).length, 3);
+  // MOVED (2 Oct): a fourth door, writeRecord (a guardian's clip, achievement
+  // or other football and its publication in one transaction, S-2).
+  check('photo6: lib/cv-build hands a replaced photo on only after it has released its client — on save, on approval, on a guardian\u2019s publish and on a guardian\u2019s clip or entry',
+    (codeOnly(cvBuildSrc).match(/client\.release\(\);\s*\}\s*(?:await forgetPlayerPhoto\(recordId, replaced\);|for \(const r of replaced\) await forgetPlayerPhoto\(recordId, r\);)/g) ?? []).length, 4);
   check('photo7: removeImage is called from lib/cv-build alone, and it asks first',
     [tsSourceFiles().filter((f) => f !== 'lib/storage.ts' && /removeImage\(/.test(readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8'))),
      /PHOTO_STILL_SHOWN[\s\S]{0,200}removeImage\(path\)/.test(codeOnly(cvBuildSrc))],
@@ -12534,14 +12536,17 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('jb-f14-5: fn_publish_guardian_change is not executable by PUBLIC (0166’s pattern)',
     (await one(`select has_function_privilege('public', 'fn_publish_guardian_change(uuid,uuid,jsonb)', 'execute') as p`)).p, false);
   const cvb = codeOnly(srcOf('lib/cv-build.ts'));
-  const guardianBranch = cvb.slice(cvb.indexOf("author.actor === 'guardian'"), cvb.indexOf("} else if (band.rows[0]?.band === 'u16')"));
+  const guardianBranch = cvb.slice(cvb.indexOf('if (guardianOfU16 && before) {'), cvb.indexOf("} else if (band === 'u16') {"));
   check('jb-f14-6: in saveCvDraft the guardian’s branch publishes and writes no edit_submitted; the edit-waiting email goes only when the child’s own edit waits; and the step is exported for the photo route as publishGuardianChange',
-    // MOVED (2 Oct): the branch patches the form's fields (publishPatch), and
-    // each clips/more action hands over its one entry, added or removed.
-    [/publishPatch\(client, recordId, author\.personId, \{ set: fields \}, draft\.season\)/.test(guardianBranch), /edit_submitted|editWaitingEmail|waitsOnGuardian = true/.test(guardianBranch),
+    // MOVED (2 Oct): the branch patches what the guardian changed (formPatch,
+    // publishPatch), and each clips/more action hands over its one entry,
+    // added or removed, from inside writeRecord (one transaction, S-2).
+    [/const patch = await formPatch\(client, recordId, draft\.season, before, await formState\(client, recordId, draft\.season\)\);\s*if \(patch\) replaced\.push\(\.\.\.\(await publishPatch\(client, recordId, author\.personId, patch, draft\.season\)\)\.replaced\);/.test(guardianBranch),
+     /edit_submitted|editWaitingEmail|waitsOnGuardian = true/.test(guardianBranch),
      /if \(!waitsOnGuardian\) return;[\s\S]*send\(editWaitingEmail/.test(cvb), /export async function publishGuardianChange\(/.test(cvb),
-     ['app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/actions.ts'].map((f) => (codeOnly(srcOf(f)).match(/if \(actor === 'guardian'[^)]*\)\s*(?:\{\s*)?await publishGuardianChange\(recordId, personId,\s*\{ (?:add|remove): \{ list: /g) ?? []).length)],
-    [true, false, true, true, [2, 4]]);
+     ['app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/actions.ts'].map((f) => [(codeOnly(srcOf(f)).match(/await writeRecord\(recordId, author, async \(client\) => \{/g) ?? []).length,
+       (codeOnly(srcOf(f)).match(/\{ (?:add|remove): \{ list: /g) ?? []).length])],
+    [true, false, true, true, [[2, 2], [4, 4]]]);
 
   // ---- §6: the undo follows its link, and is written down ----
   const page = srcOf('app/undo/[token]/page.tsx');
@@ -12700,7 +12705,10 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [order.every((i) => i >= 0) && order.every((i, k) => k === 0 || i > order[k - 1]),
      (cvb.match(/versionPhotos\(client, recordId\)/g) ?? []).length,
      /\(\{ result, replaced \} = await publishPatch\(client, recordId, guardianId, patch, season\)\);/.test(cvb),
-     /await client\.query\('begin'\);\s*await client\.query\(\s*`update development_record set/.test(save),
+     // MOVED (2 Oct): the child's own save, and the guardian's form save,
+     // take the record's lock FIRST (with the age band), before any write.
+     /await client\.query\('begin'\);\s*const band = \(await client\.query\(\s*`select fn_age_band\(p\.dob\) as band from development_record dr join person p on p\.id = dr\.person_id\s*where dr\.id = \$1 for update of dr`/.test(save)
+       && save.indexOf('for update of dr') < save.indexOf('update development_record set'),
      fnSrc.indexOf('for update') > -1 && fnSrc.indexOf('for update') < fnSrc.indexOf('fn_record_author(')],
     [true, 1, true, true, true]);
 
@@ -12735,6 +12743,20 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const pressIn = pressSql ? (await one(pressSql, [sha('bf-undo-held')])).revoked : null;
   check('bf-undo-2: while the undo of a guardian who still holds the child stays live, and its press still switches that link off and writes it down',
     [liveIn, pressIn, await off(inLink), (await events()) - ev1], [true, 1, true, 1]);
+
+  // A press on an undo whose link is already off spends nothing — the same
+  // work as a lapsed one — so the press's clock cannot tell it from a link
+  // that never existed (D-77; timing jr-undo-t2, 2 Oct).
+  const offLink = (await one(`insert into share_token (record_id, token_hash, issued_by, expires_at, revoked_at)
+    values ($1,$2,$3,now() + interval '60 days', now()) returning id`, [rec, sha(crypto.randomUUID()), gIn])).id;
+  await db.query(`insert into undo_token (token_hash, share_token_id, issued_to, expires_at) values ($1,$2,$3,now() + interval '60 days')`,
+    [sha('bf-undo-already-off'), offLink, gIn]);
+  const ev2 = await events();
+  const pressOff = pressSql ? (await one(pressSql, [sha('bf-undo-already-off')])).revoked : null;
+  check('bf-undo-3: a press on an undo whose link is already off switches nothing, writes nothing and does not even spend the undo — the same work as a lapsed one',
+    [pressOff, (await one(`select used_at is null as unspent from undo_token where token_hash = $1`, [sha('bf-undo-already-off')])).unspent, (await events()) - ev2,
+     /and lk\.revoked_at is null\s*and fn_record_actor\(u\.issued_to, lk\.record_id\) = 'guardian'/.test(codeOnly(pressSql ?? ''))],
+    [0, true, 0, true]);
 
   // ---- S-3: a deploy without NUMBER_HASH_KEY does not build ----
   const ds = await import('../lib/deploy-secrets.mjs').catch(() => null);
@@ -12855,14 +12877,17 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [pg1, pk]);
     const PAGE = {
       firstName: 'Pia', lastName: 'Q', photoPath: `pitch-private:player/${pr}-${'0a'.repeat(16)}.jpg`, positions: ['CM'], squadNumber: 8, foot: 'Right',
-      about: 'Midfielder.', surfacedStats: ['apps'], stats: { apps: 3 }, club: 'Riverside FC', locality: 'Riverside VIC',
+      about: 'Midfielder.', surfacedStats: ['apps'],
+      stats: [{ season: '2025', key: 'goals', value: 9, provenance: 'coach_verified', verifiedClub: 'Riverside FC', verifiedOn: '2025-08-30', enteredOn: '2025-08-01' },
+              { season: '2026', key: 'apps', value: 3, provenance: 'self_reported', enteredOn: '2026-09-01' }], club: 'Riverside FC', locality: 'Riverside VIC',
       highlights: [{ title: 'Approved clip', url: 'https://youtu.be/a' }], highlightsUsed: 1,
       achievements: [{ title: 'B&F 2025', detail: null }], otherFootball: [], previousClubs: [{ orgName: 'Kingsway Rovers FC', period: '2024' }],
     };
     await db.query(`insert into profile_version (record_id, content, status, approved_at) values ($1,$2,'approved',now())`, [pr, JSON.stringify(PAGE)]);
     const approvedNow = async () => (await one(`select content from profile_version where record_id=$1 and status='approved'`, [pr])).content;
     const pendingNow = async () => (await one(`select content from profile_version where record_id=$1 and status='pending'`, [pr]))?.content ?? null;
-    const publish = async (patch) => (await one(`select fn_publish_guardian_change($1,$2,$3::jsonb) as r`, [pr, pg1, JSON.stringify(patch)])).r;
+    // A refusal is an answer (red on code that cannot take the patch), never a crash.
+    const publish = async (patch) => { try { return (await one(`select fn_publish_guardian_change($1,$2,$3::jsonb) as r`, [pr, pg1, JSON.stringify(patch)])).r; } catch (e) { return `refused: ${e.message}`; } };
     // jsonb hands keys back in its own order; compare by content, not order.
     const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object'
       ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
@@ -12876,17 +12901,22 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
       steps.push([r, moved(before, after)]);
       return [before, after];
     };
-    const [f0, f1] = await step({ set: { positions: ['CM', 'LW'], squadNumber: 10, foot: 'Left', about: 'Midfielder. Both feet.', surfacedStats: ['apps', 'goals'], stats: { apps: 4, goals: 2 } } });
+    // A form save: the fields changed, and two stats of 2026 — entry by
+    // entry, so 2025's coach-verified goals never move.
+    const [f0, f1] = await step({ set: { positions: ['CM', 'LW'], squadNumber: 10, foot: 'Left', about: 'Midfielder. Both feet.', surfacedStats: ['apps', 'goals'] },
+      stats: { season: '2026', keys: ['apps', 'goals'], entries: [{ season: '2026', key: 'apps', value: 4, provenance: 'self_reported', enteredOn: '2026-10-02' },
+                                                               { season: '2026', key: 'goals', value: 2, provenance: 'self_reported', enteredOn: '2026-10-02' }] } });
     const [h0, h1] = await step({ add: { list: 'highlights', item: { title: 'Parent clip', url: 'https://youtu.be/p' } } });
     const [a0, a1] = await step({ remove: { list: 'achievements', item: { title: 'B&F 2025', detail: null } } });
     await step({ set: { photoPath: `pitch-private:player/${pr}-${'0b'.repeat(16)}.jpg` } });
     const [c0, c1] = await step({ add: { list: 'previousClubs', item: { orgName: 'Northern United SC', period: '2025' } } });
     await step({ remove: { list: 'highlights', item: { title: 'A clip only the child has', url: 'https://youtu.be/k' } } });
     check('bf-patch-1: the approved page differs from before by EXACTLY the guardian’s change and nothing else (John’s condition 1) — the form’s fields, one clip added, one achievement removed, the photo, one previous club — each list by that one entry; and a removal of something the page never had changes nothing and publishes nothing',
-      [steps, canon(f1?.highlights), canon(h1?.highlights?.slice(0, 1)), same(h1?.highlights?.slice(0, -1), h0?.highlights), a1?.achievements, canon(c1?.previousClubs), same(c0?.previousClubs, c1?.previousClubs?.slice(1)),
+      [steps, canon(f1?.stats?.map((e) => [e.season, e.key, e.value, e.provenance])), canon(f1?.highlights), canon(h1?.highlights?.slice(0, 1)), same(h1?.highlights?.slice(0, -1), h0?.highlights), a1?.achievements, canon(c1?.previousClubs), same(c0?.previousClubs, c1?.previousClubs?.slice(1)),
        await n(`select count(*)::int as n from profile_version where record_id=$1`, [pr])],
       [[['published', ['about', 'foot', 'positions', 'squadNumber', 'stats', 'surfacedStats']], ['published', ['highlights', 'highlightsUsed']],
         ['published', ['achievements']], ['published', ['photoPath']], ['published', ['previousClubs']], ['unchanged', []]],
+       [['2025', 'goals', 9, 'coach_verified'], ['2026', 'apps', 4, 'self_reported'], ['2026', 'goals', 2, 'self_reported']],
        canon(PAGE.highlights), canon(PAGE.highlights), true, [], canon([{ orgName: 'Northern United SC', period: '2025' }, { orgName: 'Kingsway Rovers FC', period: '2024' }]), true, 6]);
 
     // Condition 2: a clash. The child's waiting change and the guardian's
@@ -12948,8 +12978,13 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     check('bf-patch-6: fn_cv_patch refuses anything that is not one guardian’s one change — a name, a club, the locality, a list a guardian does not edit, two changes at once, nothing at all',
       [await refused({ set: { firstName: 'X' } }), await refused({ set: { club: 'X' } }), await refused({ set: { locality: 'X' } }),
        await refused({ add: { list: 'membership', item: { a: 1 } } }), await refused({ set: { about: 'a' }, add: { list: 'highlights', item: { title: 't', url: 'u' } } }),
-       await refused({}), await refused({ set: { about: 'fine' } })],
-      [true, true, true, true, true, true, false]);
+       await refused({}), await refused({ set: { about: 'fine' } }),
+       // stats only entry by entry: never the whole list in a set, never an
+       // entry outside the change — and a form's set and stats together are one change
+       await refused({ set: { stats: [] } }), await refused({ stats: { season: '2026', keys: ['apps'], entries: [{ season: '2025', key: 'apps', value: 1 }] } }),
+       await refused({ stats: { season: '2026', keys: ['apps'], entries: [{ season: '2026', key: 'goals', value: 1 }] } }),
+       await refused({ set: { about: 'a' }, stats: { season: '2026', keys: ['apps'], entries: [] } })],
+      [true, true, true, true, true, true, false, true, true, true, false]);
 
     // Nothing in a guardian's save copies the whole live record across: the
     // snapshot is built in two places only — the child's own save, and a
@@ -12963,6 +12998,68 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
        /async function publishWith/.test(cvb), (cvbAll.match(/\$\{FORM_FIELDS_SQL\}/g) ?? []).length,
        ['highlights', 'achievements', 'otherFootball', 'previousClubs'].every((k) => cvbAll.includes(`\${ITEM_SQL.${k}}`)), usesItems],
       [2, true, false, 2, true, [2, 5]]);
+  }
+
+  // ---- The safety review of "parent's change only" (2 Oct) ----
+  {
+    const cvbF = codeOnly(srcOf('lib/cv-build.ts'));
+    const saveF = cvbF.slice(cvbF.indexOf('export async function saveCvDraft('), cvbF.indexOf('export async function approvePendingVersion('));
+    const fp = /async function formPatch[\s\S]*?\n\}\n/.exec(cvbF)?.[0] ?? '';
+    const at = (re) => saveF.search(re);
+    // B-1: a guardian's form save publishes only what the guardian changed.
+    check('bf-form-1: a guardian’s form save reads the form under the record lock BEFORE the write and again AFTER it, and publishes only what moved — each field that changed, each stat that changed, entry by entry from the page’s own stats for the form’s season — and nothing at all when nothing moved; no patch of every form field exists',
+      [[at(/for update of dr/), at(/const before = guardianOfU16 \? await formState\(client, recordId, draft\.season\) : null;/), at(/update development_record set positions/),
+        at(/await formPatch\(client, recordId, draft\.season, before, await formState\(client, recordId, draft\.season\)\)/), at(/if \(patch\) replaced\.push/)].every((i, k, a) => i >= 0 && (k === 0 || i > a[k - 1])),
+       /if \(!same\(before\.fields\[k\], after\.fields\[k\]\)\) set\[k\] = after\.fields\[k\];/.test(fp),
+       /\.filter\(\(k\) => !same\(before\.stats\[k\], after\.stats\[k\]\)\)/.test(fp),
+       /jsonb_array_elements\(fn_stat_public\(\$1\)\) e\s*where e->>'season' = \$2 and e->>'key' = any\(\$3::text\[\]\)/.test(fp),
+       /return patch\.set \|\| patch\.stats \? \(patch as GuardianPatch\) : null;/.test(fp),
+       /FORM_FIELDS_PATCH/.test(cvbF)],
+      [true, true, true, true, true, false]);
+
+    // S-2: one transaction for a guardian's write and its publication, and one
+    // lock order (the record, then its versions) for every version writer.
+    const wr = /export async function writeRecord[\s\S]*?\n\}\n/.exec(cvbF)?.[0] ?? '';
+    const ap = cvbF.slice(cvbF.indexOf('export async function approvePendingVersion('), cvbF.indexOf('export async function forgetPlayerPhoto('));
+    const actionFiles = ['app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/actions.ts'].map((f) => codeOnly(srcOf(f)));
+    check('bf-s2-1: a guardian’s clip, achievement or other-football write and its publication are ONE transaction with the record’s lock first (writeRecord); no action writes outside it or publishes on its own; and the approval takes the record’s lock before it touches a version, the order every version writer takes',
+      [/await client\.query\('begin'\);\s*await client\.query\('select 1 from development_record where id = \$1 for update', \[recordId\]\);\s*const patch = await write\(client\);\s*if \(author\.actor === 'guardian' && patch\) \(\{ replaced \} = await publishPatch\(client, recordId, author\.personId, patch, '2026'\)\);\s*await client\.query\('commit'\);/.test(wr),
+       actionFiles.map((src) => [/publishGuardianChange|db\.connect|db\.query\(\s*`(insert|delete)/.test(src)]),
+       ap.indexOf("'select 1 from development_record where id = $1 for update'") > -1
+         && ap.indexOf("'select 1 from development_record where id = $1 for update'") < ap.indexOf('from profile_version where record_id=$1 and status=\'pending\' for update')],
+      [true, [[false], [false]], true]);
+
+    // S-2 (b): an add is idempotent — a clip the child's own save already
+    // copied into the waiting version is not appended a second time.
+    const clip = { title: 'Twice?', url: 'https://youtu.be/twice' };
+    const once = (await one(`select fn_cv_patch($1::jsonb, $2::jsonb) as v`,
+      [JSON.stringify({ highlights: [clip], highlightsUsed: 1 }), JSON.stringify({ add: { list: 'highlights', item: clip } })])).v;
+    const club = { orgName: 'Westgate Rangers', period: '2024' };
+    const onceClub = (await one(`select fn_cv_patch($1::jsonb, $2::jsonb) as v`,
+      [JSON.stringify({ previousClubs: [club] }), JSON.stringify({ add: { list: 'previousClubs', item: club } })])).v;
+    check('bf-patch-8: adding an entry a version already holds changes nothing — no clip, achievement or previous club lands twice — and a new one is still added',
+      [once.highlights.length, once.highlightsUsed, onceClub.previousClubs.length,
+       (await one(`select jsonb_array_length(fn_cv_patch($1::jsonb, $2::jsonb)->'highlights') as n`,
+         [JSON.stringify({ highlights: [clip] }), JSON.stringify({ add: { list: 'highlights', item: { title: 'New', url: 'https://youtu.be/new' } } })])).n],
+      [1, 1, 1, 2]);
+
+    // The approval names the child: the approver reads "You approved a
+    // change"; the OTHER guardian reads "{first name} approved a change."
+    // (BUZ, 2 Oct; John confirmed). Two guardians, one approval.
+    const ak = crypto.randomUUID(), ar = crypto.randomUUID(), aA = crypto.randomUUID(), aB = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,'Ada',$2), ($3,'Imogen',$4), ($5,'Rafe',$4)`, [ak, yearsAgo(12), aA, yearsAgo(43), aB]);
+    await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [ar, ak]);
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$3,now()), ($2,$3,now())`, [aA, aB, ak]);
+    // The approval's own event statement, as approvePendingVersion runs it.
+    const evSql = /client\.query\(\s*`(insert into consent_event \(event, actor_id, subject_id, detail\)\s*select 'edit_approved'[\s\S]*?)`,/.exec(ap)?.[1];
+    if (evSql) await db.query(evSql, [ar, aA]);
+    const view = async (viewer) => { try { return (await db.query(`select event, who, mine from fn_consent_timeline($1,$2) where event = 'edit_approved'`, [viewer, ak])).rows; } catch (e) { return `refused: ${e.message}`; } };
+    const ctlPage = codeOnly(srcOf('app/g/controls/[childId]/page.tsx'));
+    check('bf-appr-1: a guardian’s approval of the child’s change names the child, so it reaches the family history — the approver’s row is theirs ("You approved a change"), the other guardian’s names the approver ("{first name} approved a change."), and the controls page draws exactly those words',
+      [Boolean(evSql), await view(aA), await view(aB),
+       ctlPage.includes("e.event === 'edit_approved' && !e.mine ? (e.who ? `${e.who} approved a change.` : 'Something was recorded')"),
+       /edit_approved: 'You approved a change'/.test(ctlPage), /'mine', e\.mine/.test(ctlPage)],
+      [true, [{ event: 'edit_approved', who: null, mine: true }], [{ event: 'edit_approved', who: 'Imogen', mine: false }], true, true, true]);
   }
 
   // ---- doc 15 §30 goes to every guardian (D-51; John, 2 Oct) ----

@@ -37,12 +37,21 @@
 -- on the back of the parent's unrelated save (safety review of John's batch,
 -- B-1). John: "it turned a guardian's edit into an approval of the child's."
 -- Now the publication is a PATCH: the one change the guardian made, and
--- nothing else, applied to the approved version. fn_cv_patch(content, patch)
+-- nothing else, applied to the approved version. "The guardian's change" is
+-- what they CHANGED, not what the form posted: the form is prefilled from the
+-- live record, which holds the child's unreviewed values, and posts every
+-- field (safety review of "parent's change only", B-1, 2 Oct). lib/cv-build
+-- reads the form's fields under the record lock before and after the write
+-- and hands over only those that moved; a save that changes nothing
+-- publishes nothing. fn_cv_patch(content, patch)
 -- is the patch, and it can say only three things:
---   {"set": {field: value, ...}}   the build form's fields the guardian saved
---                                  (positions, squadNumber, foot, about,
---                                  surfacedStats, stats) or a photo
+--   {"set": {field: value, ...}}   the build form's fields the guardian
+--                                  CHANGED (positions, squadNumber, foot,
+--                                  about, surfacedStats) or a photo
 --                                  (photoPath) — those keys and no others;
+--   {"stats": {season, keys, entries}}  the stats the guardian changed, entry
+--                                  by entry, never the whole list; with "set"
+--                                  or alone, as one form save;
 --   {"add": {"list": l, "item": i}}     one clip, achievement or other-football
 --   {"remove": {"list": l, "item": i}}  entry, by the snapshot's own shape —
 --                                  highlights, achievements, otherFootball,
@@ -76,10 +85,14 @@
 --     edit — no message (D-51; John: "No new message").
 --
 -- The family history says "{guardian first name} changed the page." for it
--- (BUZ, 1 Oct). fn_consent_timeline gains one column, `who`: that first name,
--- for this kind of row only, and only for an actor who is a guardian of the
--- child the history belongs to. Every other row's `who` is null, so the read
--- names nobody it did not name before.
+-- (BUZ, 1 Oct). fn_consent_timeline gains two columns. `who`: that first
+-- name, for this kind of row, and — since 2 Oct — for a guardian's approval
+-- of the child's change when the viewer is NOT the guardian who approved it
+-- ("{first name} approved a change.", BUZ; John confirmed; D-51's "both
+-- notified", by history). Only for an actor who is a guardian of the child
+-- the history belongs to; every other row's `who` is null, so the read names
+-- nobody it did not name before. `mine`: the viewer is the actor, so the
+-- approver's own row reads "You approved a change".
 --
 -- 3 · §5.2: THE STOP LIST'S FINGERPRINT IS KEYED.
 -- sms_opt_out.number_hash (0031) and sms_meter.number_hash (0009) were a
@@ -158,25 +171,55 @@ create function fn_cv_patch(p_content jsonb, p_patch jsonb) returns jsonb
 language plpgsql immutable as $$
 declare
   v jsonb := coalesce(p_content, '{}'::jsonb);
-  k text; v_op text; v_list text; v_item jsonb; v_idx int;
+  k text; v_op text; v_list text; v_item jsonb; v_idx int; v_season text; v_keys text[];
 begin
-  if p_patch is null or jsonb_typeof(p_patch) <> 'object' then
+  if p_patch is null or jsonb_typeof(p_patch) <> 'object' or not exists (select 1 from jsonb_object_keys(p_patch)) then
     raise exception 'fn_cv_patch: no patch';
   end if;
-  if (select count(*) from jsonb_object_keys(p_patch)) <> 1 then
+  -- One change at a time. A form save is one change: the fields it changed
+  -- (set) and the stats it changed (stats), together or apart. A clip, an
+  -- achievement or other football is one entry, alone.
+  if exists (select 1 from jsonb_object_keys(p_patch) x where x not in ('set', 'stats'))
+     and (select count(*) from jsonb_object_keys(p_patch)) <> 1 then
     raise exception 'fn_cv_patch: one change at a time';
   end if;
-  v_op := (select x from jsonb_object_keys(p_patch) x);
 
-  if v_op = 'set' then
-    for k in select jsonb_object_keys(p_patch->'set') loop
-      if k not in ('positions', 'squadNumber', 'foot', 'about', 'surfacedStats', 'stats', 'photoPath') then
+  if p_patch ? 'set' or p_patch ? 'stats' then
+    -- The form's fields, each one the guardian changed. Never stats: a stat
+    -- is patched entry by entry below, so touching one never carries the
+    -- rest of the live record's (a child's waiting value, a season the form
+    -- does not show, a coach's verification) onto the page (safety review of
+    -- "parent's change only", B-1).
+    for k in select jsonb_object_keys(coalesce(p_patch->'set', '{}'::jsonb)) loop
+      if k not in ('positions', 'squadNumber', 'foot', 'about', 'surfacedStats', 'photoPath') then
         raise exception 'fn_cv_patch: % is not a field a guardian sets', k;
       end if;
       v := jsonb_set(v, array[k], p_patch->'set'->k, true);
     end loop;
+    if p_patch ? 'stats' then
+      -- {"season": s, "keys": [k...], "entries": [...]}: every entry of this
+      -- version for (s, k) is replaced by the guardian's entries for (s, k) —
+      -- none, if they blanked it — and nothing else in the stats moves. The
+      -- order is fn_stat_public's: season, then key.
+      v_season := p_patch->'stats'->>'season';
+      v_keys := array(select jsonb_array_elements_text(coalesce(p_patch->'stats'->'keys', '[]'::jsonb)));
+      if v_season is null or cardinality(v_keys) = 0 then raise exception 'fn_cv_patch: no stat to change'; end if;
+      if exists (select 1 from jsonb_array_elements(coalesce(p_patch->'stats'->'entries', '[]'::jsonb)) e
+                 where e->>'season' is distinct from v_season or not (e->>'key' = any(v_keys))) then
+        raise exception 'fn_cv_patch: a stat entry outside the change';
+      end if;
+      v := jsonb_set(v, '{stats}', (
+        select coalesce(jsonb_agg(e order by e->>'season', e->>'key', src, o), '[]'::jsonb)
+        from (select e, 0 as src, o
+                from jsonb_array_elements(case when jsonb_typeof(v->'stats') = 'array' then v->'stats' else '[]'::jsonb end)
+                     with ordinality t(e, o)
+               where not (e->>'season' = v_season and e->>'key' = any(v_keys))
+              union all
+              select e, 1, o from jsonb_array_elements(coalesce(p_patch->'stats'->'entries', '[]'::jsonb)) with ordinality t(e, o)) x), true);
+    end if;
     return v;
   end if;
+  v_op := (select x from jsonb_object_keys(p_patch) x);
 
   if v_op not in ('add', 'remove') then raise exception 'fn_cv_patch: % is not a change', v_op; end if;
   v_list := p_patch->v_op->>'list';
@@ -186,7 +229,12 @@ begin
   end if;
   if v_item is null or jsonb_typeof(v_item) <> 'object' then raise exception 'fn_cv_patch: no item'; end if;
 
-  if v_op = 'add' then
+  if v_op = 'add' and exists (select 1 from jsonb_array_elements(coalesce(v->v_list, '[]'::jsonb)) e where e = v_item) then
+    -- Already there: an add is idempotent, so a clip the guardian added that
+    -- a child's own save then copied into the waiting version never lands
+    -- in it twice (safety review of "parent's change only", S-2).
+    null;
+  elsif v_op = 'add' then
     if v_list = 'previousClubs' then
       -- The snapshot's order: by season, newest first, the newest entry
       -- first among equals (lib/cv-build buildSnapshot).
@@ -268,7 +316,7 @@ end $$;
 -- edit. A changed return type cannot be replaced in place.
 drop function fn_consent_timeline(uuid, uuid);
 create function fn_consent_timeline(p_viewer uuid, p_person uuid)
-returns table (id bigint, at timestamptz, event text, detail jsonb, who text)
+returns table (id bigint, at timestamptz, event text, detail jsonb, who text, mine boolean)
 language plpgsql stable as $$
 begin
   if p_viewer is null or p_person is null then return; end if;
@@ -282,17 +330,23 @@ begin
     select e.id, e.at, e.event, e.detail,
            -- "{guardian first name} changed the page." (BUZ, 1 Oct): the
            -- first name of a guardian of THIS child, for their own edit only.
-           case when e.event = 'edit_approved' and e.detail->>'kind' = 'guardian_edit'
+           -- And "{first name} approved a change." (BUZ, 2 Oct; John
+           -- confirmed): a guardian's approval of the child's change, named
+           -- for the OTHER guardian. The approver reads "You approved a
+           -- change" (mine), so their own name is never needed.
+           case when e.event = 'edit_approved'
+                 and (e.detail->>'kind' = 'guardian_edit' or e.actor_id is distinct from p_viewer)
                 then (select a.first_name from person a
                       where a.id = e.actor_id
                         and exists (select 1 from guardianship_link g
                                     where g.guardian_id = a.id and g.child_id = p_person
                                       and g.approved_at is not null))
-           end
+           end,
+           e.actor_id is not distinct from p_viewer
     from consent_event e
     where e.subject_id = p_person
     union all
-    select e.id, e.at, e.event, e.detail, null::text
+    select e.id, e.at, e.event, e.detail, null::text, e.actor_id is not distinct from p_viewer
     from consent_event_link l
     join consent_event e on e.id = l.event_id
     where l.subject_id = p_person
