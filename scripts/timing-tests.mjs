@@ -768,10 +768,20 @@ if (runs('jr-undo')) {
   check('jr-undo-t2b: a press on a used, lapsed or already-off link answers exactly as one on a link that never existed — back to the not-live panel — and only the live press goes to Done',
     [notLive, JSON.parse(shapes['never a link'] ?? '[]')[1], doneShape[1]], [[], '/undo/<token>', '/undo/done']);
   {
-    const { flagged, conclusive, res } = judge('jr-undo-t2', 'pressing "Switch it off", per state', 'never a link', pressArms);
+    // The parity that protects anyone (D-77) is among the NOT-live presses:
+    // a spent, lapsed or already-off link must not be told from one that
+    // never existed. The live press is different by design — it lands on
+    // Done (jr-undo-t2b pins that), so its time says nothing its answer does
+    // not; since John's batch it also writes the family's consent event
+    // (1 Oct), which costs a fraction of a millisecond. Leo, 2 Oct: the live
+    // arm is measured and printed, not judged.
+    const { 'live (lands on Done)': liveArm, ...notLiveArms } = pressArms;
+    const { flagged, conclusive, res } = judge('jr-undo-t2', 'pressing "Switch it off", per not-live state', 'never a link', notLiveArms);
     if (!conclusive) inconclusive = true;
-    check(`jr-undo-t2: no press — not a spent link, a lapsed one, one already off, nor the live press that lands on Done — is distinguishable from a press on a link that never existed by response time${conclusive ? ` (resolution ${res?.toFixed(2)}ms)` : ' — INCONCLUSIVE'}`,
+    check(`jr-undo-t2: no press on a spent link, a lapsed one or one already off is distinguishable from a press on a link that never existed by response time${conclusive ? ` (resolution ${res?.toFixed(2)}ms)` : ' — INCONCLUSIVE'}`,
       conclusive ? flagged : 'inconclusive', []);
+    const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
+    console.log(`info jr-undo-t2 live press (lands on Done, by design): median ${median(liveArm).toFixed(2)}ms vs never-a-link ${median(pressArms['never a link']).toFixed(2)}ms`);
   }
 }
 
