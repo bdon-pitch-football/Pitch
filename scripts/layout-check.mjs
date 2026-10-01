@@ -109,7 +109,10 @@ const DEEP = {
   // (lib/ops-policy), and Marina is the seat the render suite drives it with.
   // Brief G (29 Sep) adds the rest of the console: the report desk, support
   // and the switches were measured by nothing either.
+  // I-P2 (1 Oct): the call sheet with a claim and its held count (Quarrymead)
+  // and with no claim at all (Westgate) — the two shapes the grid places.
   'club TD': ['@squad', '@squad?pos=GK', '/ops', '/ops/verification', `/ops/call/${riverside}`,
+    `/ops/call/${ids.heldClub}`, `/ops/call/${westgate}`,
     '/ops/reports', '/ops/support', '/ops/support?q=guardian@example.com', '/ops/switches',
     // Brief I (29 Sep): the clubs directory, one club of each kind, adding a
     // listing and adding a compiled notice — the rows stack under 768 and must
@@ -948,6 +951,51 @@ await cdp('Network.clearBrowserCookies');
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
 for (const path of ['/', '/jobs']) { await visit(path); await analyticsPass(1280, 'signed out', path); await cspDrain(1280, 'signed out', path); }
 
+// cs1 — THE CALL SHEET'S TWO COLUMNS (spec I, I-P2; BUZ "Yes", 1 Oct). Only a
+// browser can say where the grid put things. At ≥1024 the claim and the
+// Technical Director sit in a 320px aside right of the form, the TD straight
+// under the claim (or at the form's top when nobody has claimed the club), and
+// the claim is still on screen with the form scrolled well past it. Below 1024
+// they are one column, claim → TD → form, 18px apart. Quarrymead has a claim
+// and a held count; Westgate has no claim. The first .call-grid shipped as
+// three auto rows: with no claim, the form's height was shared among them and
+// the TD panel sat 676px down the page at 1280, and an empty "claim" row left
+// 18px of nothing above it on a phone.
+const sheetFails = [];
+let sheetChecked = 0;
+await cdp('Network.setCookie', { name: 'pitch_session', value: cookieFor(ids.people.marina), url: BASE });
+for (const width of widths) {
+  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
+  for (const [club, id] of [['Quarrymead (claimed)', ids.heldClub], ['Westgate (no claim)', westgate]]) {
+    await visit(`/ops/call/${id}`);
+    const box = `(s) => { const e = document.querySelector('.call-grid > ' + s); if (!e) return null; const r = e.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top + scrollY), b: Math.round(r.bottom + scrollY), w: Math.round(r.width) }; }`;
+    const m = await eval_(`JSON.stringify((() => { const box = ${box}; const g = document.querySelector('.call-grid')?.getBoundingClientRect(); return { grid: g ? Math.round(g.top + scrollY) : null, claim: box('.ga-claim'), td: box('.ga-td'), form: box('.ga-form') }; })())`);
+    sheetChecked++;
+    const bad = [];
+    if (!m.td || !m.form) bad.push('no .ga-td or .ga-form in a .call-grid');
+    else if (club.startsWith('Quarrymead') && !m.claim) bad.push('no .ga-claim on a claimed club');
+    else if (width >= 1024) {
+      const aside = [m.claim, m.td].filter(Boolean);
+      if (aside.some((a) => a.w !== 320 || a.l < m.form.r)) bad.push(`the aside is not a 320px column right of the form (${aside.map((a) => `${a.w}px at ${a.l}, form ends ${m.form.r}`).join('; ')})`);
+      if (m.form.t !== m.grid) bad.push(`the form starts ${m.form.t - m.grid}px below the top of the grid`);
+      const tdWant = m.claim ? m.claim.b + 18 : m.form.t;
+      if (Math.abs(m.td.t - tdWant) > 1) bad.push(`the TD panel starts at ${m.td.t}, not ${tdWant} (${m.claim ? 'under the claim' : 'level with the form'})`);
+      if (m.claim) {
+        await eval_(`JSON.stringify((window.scrollTo({ top: ${Math.round(m.form.t + (m.form.b - m.form.t) / 2)}, behavior: 'instant' }), true))`);
+        await new Promise((r) => setTimeout(r, 200));
+        const v = await eval_(`JSON.stringify((() => { const r = document.querySelector('.ga-claim').getBoundingClientRect(); return { t: Math.round(r.top), b: Math.round(r.bottom), vh: innerHeight }; })())`);
+        if (v.t < 0 || v.b > v.vh) bad.push(`with the form scrolled half way, the claim is off screen (${v.t}–${v.b} on ${v.vh}px)`);
+      }
+    } else {
+      const col = [m.claim, m.td, m.form].filter(Boolean);
+      if (col[0].t !== m.grid) bad.push(`the first panel starts ${col[0].t - m.grid}px below the top of the grid`);
+      for (let i = 1; i < col.length; i++) if (Math.abs(col[i].t - col[i - 1].b - 18) > 1 || col[i].l !== col[0].l) bad.push(`not one column 18px apart in the order claim, TD, form (${col.map((c) => `${c.t}–${c.b} at ${c.l}`).join(', ')})`);
+    }
+    if (bad.length) sheetFails.push({ width, what: `cs1 ${club}: ${[...new Set(bad)].join('; ')}` });
+  }
+}
+await cdp('Network.clearBrowserCookies');
+
 // U5b (John, 1 Oct): D-172's banner sits ABOVE THE FOLD — on a small phone
 // (375×667), the banner's first line is wholly inside the first viewport on
 // every unclaimed page, so a long club name can never push it out of sight.
@@ -985,6 +1033,8 @@ for (const f of labelFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.p
 for (const f of bodyFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — the page paints ${f.bg}, not --bg ${tokenRgb}`);
 for (const f of foldFails) console.log(`FAIL 375×667 · ${f.path} — ${f.missing ? 'no D-172 banner on the page' : `the banner's first line ends at ${f.bottom}px, below the ${f.vh}px fold`} (U5b)`);
 console.log(`fold         · U5b: the unclaimed banner's first line inside the first screen at 375×667 on 3 unclaimed pages`);
+console.log(`call sheet   · cs1: ${sheetChecked} views — the claim and the TD in a 320px aside at ≥1024 with the claim kept in view, and one column claim → TD → form below it`);
+for (const f of sheetFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 // One line per distinct control, not one per view: the same component fails on
 // every screen it is on, at every width, and a hundred lines saying so is a
 // wall nobody reads.
@@ -1002,9 +1052,9 @@ const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what}
   (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
 console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
 for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
-const chromeBad = foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length + motionFails.length;
+const chromeBad = sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length + motionFails.length;
 if (failures.length === 0 && chromeBad === 0) {
-  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, and a Premium tap lands in view');
+  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, a Premium tap lands in view, and the call sheet keeps its claim and TD where the operator can see them');
   process.exit(0);
 }
 for (const f of failures) {
@@ -1012,5 +1062,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length})`);
 process.exit(1);

@@ -395,17 +395,28 @@ select.ops-input option { background: var(--surface-2); color: var(--ink); }
 .ops-panel { display: flex; flex-direction: column; padding: 4px 16px; }
 .ops-sec { display: flex; flex-direction: column; gap: 11px; padding: 16px 0; }
 .ops-sec + .ops-sec { border-top: 1px solid var(--line); }
+/* A line for the operator to say on the call (the call sheet's B2 prompt),
+   set apart from the guidance by a rule on its left. */
+.ops-say { border-left: 3px solid var(--line); padding-left: 11px; }
 /* The console search: a 44px well and its button (Clubs, Lookup, Reports' parent search). */
 .ops-search { display: flex; gap: 10px; align-items: center; }
 .ops-search .ops-input { flex: 1; min-width: 0; }
 /* A column that stays in view beside a long one (Reports, Switches, the call sheet's claim). */
 @media (min-width: 1024px) { .ops-aside-sticky { position: sticky; top: 18px; } }
-/* The call sheet at a laptop: the claim and the TD beside the form; DOM order claim, TD, form.
-   (Not used yet: app/ops/call is being changed by another builder; the spec's
-   parts are here so that page's restyle is markup only.) */
-.call-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; grid-template-areas: "claim" "td" "form"; }
+/* The call sheet at a laptop: the claim and the TD beside the form; DOM order
+   claim, TD, form (I-P2). Below 1024 that DOM order IS the drawn order, so the
+   column is a flex column: a grid's named "claim" row would leave an 18px gap
+   above the TD on every club nobody has claimed. At a laptop the aside's gap
+   is the claim's margin for the same reason, and the last row is 1fr: the
+   form spans all three rows, and with three auto rows its height was shared
+   out among them, pushing the TD panel down the page away from the claim. */
+.call-grid { display: flex; flex-direction: column; gap: 18px; }
 .call-grid > * { min-width: 0; }
-@media (min-width: 1024px) { .call-grid { grid-template-columns: minmax(0, 1fr) 320px; grid-template-areas: "form claim" "form td" "form ."; align-items: start; } }
+@media (min-width: 1024px) {
+  .call-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: auto auto 1fr; column-gap: 18px; row-gap: 0;
+    grid-template-areas: "form claim" "form td" "form ."; align-items: start; }
+  .call-grid > .ga-claim { margin-bottom: 18px; }
+}
 /* One club: the listing on the left, its trials on the right; DOM order
    doors, listing, stop, trials, remove. Below 1024 that DOM order IS the
    drawn order, so the column is a flex column: a grid's named rows would

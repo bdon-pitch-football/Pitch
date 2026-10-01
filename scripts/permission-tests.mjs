@@ -11973,7 +11973,8 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [/select first_name from fn_verified_call_addressee\(\$1\)/.test(sheetSrc), /select[^`]*\bemail\b[^`]*fn_verified_call_addressee/.test(sheetSrc),
      sheetSrc.includes('`Logging this call as verified emails ${first} to confirm it.`'),
      sheetSrc.includes("'Logging this call sends no email, so don\\u2019t promise one.'"),
-     /\{s39Line\(s39To\)\}<\/div>\s*<button type="submit" className="btn btn-primary">Log the call<\/button>/.test(sheetSrc)],
+     // The button carries the screen's one glow since I-P2 (1 Oct).
+     /\{s39Line\(s39To\)\}<\/div>\s*<button type="submit" className="btn btn-primary fl-glow">Log the call<\/button>/.test(sheetSrc)],
     [true, false, true, true, true]);
 
   // An administrator who is also a parent at the club: §39 goes to them as

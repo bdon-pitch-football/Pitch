@@ -783,7 +783,9 @@ const georgia = ids.children.georgia;
     const riv = ids.clubs['riverside-fc'];
     const html = (await get(`/ops/call/${riv}`, ids.people.marina)).html.replace(/<!--[\s\S]*?-->/g, '');
     const main = html.replace(/<nav[\s\S]*?<\/nav>/g, ' ');
-    const caps = [...main.matchAll(/<(?:span|div|legend)[^>]*text-transform:uppercase[^>]*>([\s\S]*?)<\/(?:span|div|legend)>/g)]
+    // A caption is tracked capitals however it is drawn: an inline style, or
+    // (Floodlit I-P2, 1 Oct) the .panel-h / .field-label part that replaced it.
+    const caps = [...main.matchAll(/<(?:span|div|legend)(?=[^>]*(?:text-transform:uppercase|class="(?:panel-h|field-label)"))[^>]*>([\s\S]*?)<\/(?:span|div|legend)>/g)]
       .map((m) => m[1].replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/g, "'").trim()).filter(Boolean);
     const long = caps.filter((c) => c.length > 32);
     check(`ops-r6: the call sheet's captions are short, the guidance is not in them (${caps.length} captions${long.length ? ' — too long: ' + long.join(' | ') : ''})`,
@@ -3704,7 +3706,8 @@ const georgia = ids.children.georgia;
   const will = await sheetOf(ids.heldClub), wont = await sheetOf(ids.clubs['westgate-rangers']);
   // F10 (BUZ, 1 Oct): one line directly above "Log the call". Quarrymead's
   // administrator is the seed's "M. Harris" at quarrymead@example.com.
-  const lineAboveLog = (h) => /<div[^>]*data-s39="(will|wont)"[^>]*>([^<]*)<\/div><button type="submit" class="btn btn-primary">Log the call<\/button>/.exec(markupOnly(h).replace(/&#x27;/g, "'"))?.slice(1);
+  // The button carries the screen's one glow since I-P2 (1 Oct).
+  const lineAboveLog = (h) => /<div[^>]*data-s39="(will|wont)"[^>]*>([^<]*)<\/div><button type="submit" class="btn btn-primary fl-glow">Log the call<\/button>/.exec(markupOnly(h).replace(/&#x27;/g, "'"))?.slice(1);
   check('jr-s39-r1: directly above "Log the call", the sheet says "Logging this call as verified emails M. to confirm it." where it will — and "Logging this call sends no email, so don’t promise one." where it will not',
     [lineAboveLog(will), lineAboveLog(wont)],
     [['will', 'Logging this call as verified emails M. to confirm it.'], ['wont', 'Logging this call sends no email, so don’t promise one.']]);
@@ -3716,6 +3719,67 @@ const georgia = ids.children.georgia;
     [will, wont].map((h) => /data-td-ask/.test(h)
       && has(h, 'Before we finish — who’s your Technical Director? Ask them to sign up on Pitch with their own email address, not the club’s shared one. That’s the account that reads the register.')),
     [true, true]);
+
+  // I-P2 (spec I, "/ops/call/[clubId]", Done when; BUZ "Yes", 1 Oct): the
+  // sheet's arrangement, read from the markup as served. Quarrymead has a
+  // claim (and a held count), Westgate none. `kids` lists the elements at the
+  // top level of a fragment — what the grid and the panel actually contain.
+  const VOID = /^(input|br|img|hr|meta|link|source|wbr|area|col|embed|track)$/;
+  const kids = (frag) => {
+    const out = []; let depth = 0;
+    for (const m of frag.matchAll(/<(\/?)([a-zA-Z][\w-]*)([^>]*?)(\/?)>/g)) {
+      const [, close, tag, , self] = m;
+      if (close) { depth -= 1; continue; }
+      if (depth === 0) out.push(tag === 'input' ? `input[${/\stype="([^"]*)"/.exec(m[3])?.[1] ?? 'text'}]`
+        : `${tag}.${(/\sclass="([^"]*)"/.exec(m[3])?.[1] ?? '').trim().replace(/\s+/g, '.')}`);
+      if (!self && !VOID.test(tag)) depth += 1;
+    }
+    return out;
+  };
+  // The inner markup of the element whose open tag starts at `at`.
+  const inner = (h, at) => {
+    const open = h.indexOf('>', at) + 1; let depth = 1;
+    for (const m of h.slice(open).matchAll(/<(\/?)([a-zA-Z][\w-]*)([^>]*?)(\/?)>/g)) {
+      if (m[1]) depth -= 1; else if (!m[4] && !VOID.test(m[2])) depth += 1;
+      if (depth === 0) return h.slice(open, open + m.index);
+    }
+    return '';
+  };
+  const sheetParts = (h) => {
+    const mk = markupOnly(h).replace(/<!--[\s\S]*?-->/g, '');
+    const gridAt = mk.indexOf('<div class="call-grid">');
+    const formAt = mk.search(/<form[^>]*class="[^"]*\bga-form\b/);
+    const form = formAt < 0 ? '' : inner(mk, formAt);
+    const secs = []; const sec = /<div class="ops-sec">/g;
+    for (let m; (m = sec.exec(form));) secs.push(inner(form, m.index));
+    return { mk, grid: gridAt < 0 ? [] : kids(inner(mk, gridAt)), formTag: formAt < 0 ? '' : mk.slice(formAt, mk.indexOf('>', formAt) + 1), form, panel: kids(form), secs };
+  };
+  const [pw, pn] = [sheetParts(will), sheetParts(wont)];
+  // (Next puts the action's own hidden input beside the club id's.)
+  check('cs-r1: the call sheet’s form is ONE .card.ops-panel — hidden inputs, then seven .ops-sec sections and nothing else at its top level — with no card inside it, on a claimed sheet and an unclaimed one',
+    [pw, pn].map((p) => [/class="card ops-panel ga-form"/.test(p.formTag), /name="outcome"/.test(p.form), p.panel.filter((k) => k !== 'input[hidden]').join(' '), /class="card[ "]/.test(p.form)]),
+    [pw, pn].map(() => [true, true, Array(7).fill('div.ops-sec').join(' '), false]));
+  check('cs-r2: the claim, the Technical Director and the form are the .call-grid’s own children, in that DOM order — the claim pinned (.ops-aside-sticky) and omitted when nobody has claimed the club',
+    [pw.grid, pn.grid], [['div.card.ga-claim.ops-aside-sticky', 'div.card.ga-td', 'form.card.ops-panel.ga-form'], ['div.card.ga-td', 'form.card.ops-panel.ga-form']]);
+  check('cs-r3: one glow on the sheet, and it is "Log the call"',
+    [will, wont].map((h) => [glowCount(h), /<button type="submit" class="btn btn-primary fl-glow">Log the call<\/button>/.test(markupOnly(h))]),
+    [[1, true], [1, true]]);
+  const tdSec = (p) => p.secs.find((x) => /^<div class="panel-h">Technical Director<\/div>/.test(x)) ?? '';
+  const say = (p) => /^<div class="panel-h">Technical Director<\/div><div class="ops-say"[^>]*data-td-ask="[^"]*"[^>]*><i>([^<]*)<\/i><\/div><div class="ops-pair">/.exec(tdSec(p).replace(/&#x27;/g, "'"))?.[1];
+  const css = readFileSync(fileURLToPath(new URL('../app/globals.css', import.meta.url)), 'utf8');
+  check('cs-r4: the form’s Technical Director section opens with the B2 prompt, word for word in quotes, set as .ops-say (a 3px --line rule, 11px in), before its two fields',
+    [say(pw), say(pn), /\.ops-say \{ border-left: 3px solid var\(--line\); padding-left: 11px; \}/.test(css)],
+    ['“Before we finish — who’s your Technical Director? Ask them to sign up on Pitch with their own email address, not the club’s shared one. That’s the account that reads the register.”',
+     '“Before we finish — who’s your Technical Director? Ask them to sign up on Pitch with their own email address, not the club’s shared one. That’s the account that reads the register.”', true]);
+  const close = (p) => /^<div[^>]*data-s39="(will|wont)"[^>]*>([^<]*)<\/div><button type="submit" class="btn btn-primary fl-glow">Log the call<\/button>$/.exec((p.secs.at(-1) ?? '').replace(/&#x27;/g, "'"))?.slice(1);
+  check('cs-r5: the panel’s last section is the §39 line and Log the call, nothing else — in both its forms, the will-send one naming the administrator fn_verified_call_addressee gives',
+    [close(pw), close(pn)],
+    [['will', 'Logging this call as verified emails M. to confirm it.'], ['wont', 'Logging this call sends no email, so don’t promise one.']]);
+  const { T: P } = await import('../lib/palette.ts');
+  const numberHead = (p) => /<div class="panel-h"( style="[^"]*")?>The number — find it yourself<\/div>/.exec(p.secs[1] ?? '')?.[1] ?? 'missing';
+  check('cs-r6: "The number — find it yourself" is an ink .panel-h, not red (I-P1b), and the bold sentence under it stays',
+    [pw, pn].map((p) => [numberHead(p), new RegExp(`color:${P.red}[^"]*">The number`).test(p.form), /<b style="color:#eef5f0">Ring the number you found\. Never the number on the claim form\.<\/b>/.test(p.secs[1] ?? '')]),
+    [pw, pn].map(() => [` style="color:${P.ink}"`, false, true]));
 }
 
 // ---------------------------------------------------------------------------
