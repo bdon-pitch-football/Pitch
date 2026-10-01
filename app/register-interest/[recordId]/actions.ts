@@ -96,12 +96,35 @@ export async function composeInterest(formData: FormData) {
     const client = await db.connect();
     try {
       await client.query('begin');
-      const { rows } = await client.query(
-        `insert into registration_request (record_id, club_id, squad_target, positions, note, trial_notice_id)
-         values ($1,$2,$3,$4,$5,$6) returning id`,
-        [recordId, clubId, squadId, positions, note || null, trial?.id ?? null],
-      );
-      done = await dispatchInterestRequest(client, rows[0].id, personId);
+      // Safety review B-1: one register entry per club, the self path's rule
+      // below. Every press used to add another entry, and "Take off this
+      // register" took one away, so the club kept reading the child through
+      // the rest. The child's row is locked first, so two presses at once
+      // cannot both find nothing.
+      const child = (await client.query(
+        `select p.id from development_record dr join person p on p.id = dr.person_id where dr.id = $1 for update of p`,
+        [recordId],
+      )).rows[0]?.id as string | undefined;
+      const existing = child ? (await client.query(
+        `select id from registration where player_id = $1 and club_id = $2 and withdrawn_at is null limit 1`,
+        [child, clubId],
+      )).rows[0]?.id as string | undefined : undefined;
+      if (existing) {
+        // Already on this club's register. A trial chosen now is recorded on
+        // it, so the club can invite to that trial — exactly as for a player.
+        if (trial) {
+          await client.query(`update registration set trial_notice_id = $2, trial_on = $3 where id = $1`,
+            [existing, trial.id, trial.trial_on]);
+        }
+        done = existing;
+      } else {
+        const { rows } = await client.query(
+          `insert into registration_request (record_id, club_id, squad_target, positions, note, trial_notice_id)
+           values ($1,$2,$3,$4,$5,$6) returning id`,
+          [recordId, clubId, squadId, positions, note || null, trial?.id ?? null],
+        );
+        done = await dispatchInterestRequest(client, rows[0].id, personId);
+      }
       await client.query(done ? 'commit' : 'rollback');
     } catch (e) {
       await client.query('rollback');

@@ -1152,6 +1152,14 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const denizAgain = await post(`/send/${deniz.record_id}`, deniz.child_id, denizForm);
   check('sc-w6: and an under-16’s compose to it is refused before anything is asked of the parent',
     [denizAgain, (await outbox()).split(`It goes to: ${CLUB}`).length - 1], [`/send/${deniz.record_id}?blocked=1`, 1]);
+  // Safety review N-1: sc-w6 pressed from the parent's seat until C-P4 moved
+  // it to the child's. The parent's own press (C-P4) to the stopped club is
+  // refused the same way: nothing sent, nothing on the club's §19 count.
+  const parentForm = forms((await get(`/send/${deniz.record_id}`, parent)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+  const sentBefore = (await outbox()).split(`doc15.§19 → ${CLUB}`).length - 1;
+  const parentStopped = parentForm ? await post(`/send/${deniz.record_id}`, parent, { ...parentForm.fields, clubName: 'Brindlewood Rovers SC', address: CLUB }) : '';
+  check('sc-w6b: and the parent’s own press to it, from their child’s Send, is refused too — "can’t send", nothing to the club',
+    [Boolean(parentForm), parentStopped, (await outbox()).split(`doc15.§19 → ${CLUB}`).length - 1], [true, `/send/${deniz.record_id}?blocked=1`, sentBefore]);
   const gPage = plain((await get(`/g/send/${ask}`, parent)).html);
   const gLoc = await post(`/g/send/${ask}`, parent, gForm.fields);
   check('sc-w7: the request the child composed before the club asked now says it cannot be sent, and pressing send from the old page sends nothing',
@@ -1535,6 +1543,21 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     doorsTo((await get('/club/register', club)).html)?.includes(`/club/register/cv/${gReg}`), true);
 }
 
+// A parent's press on /send, kept whole (status, Location, body, every header
+// but the date), so the limited press after addr-w can be compared with a
+// real one byte for byte (L38; safety review S-2). The record id and the
+// page's nonce are the only things allowed to differ.
+const parentPress = async (recordId, fields) => {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+  const r = await fetch(BASE + `/send/${recordId}`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(ids.people.alex) } });
+  const body = await r.text();
+  const norm = (x) => x.split(recordId).join('<record>').replace(/'nonce-[^']+'/g, "'nonce-<per-request>'");
+  return { location: (r.headers.get('location') ?? '').replace(BASE, ''),
+    shape: JSON.stringify([r.status, norm(r.headers.get('location') ?? ''), norm(body), [...r.headers.entries()].filter(([k]) => k !== 'date').map(([k, v]) => [k, norm(v)])]) };
+};
+let realParentPress = null;
+
 // ---------------------------------------------------------------------------
 // C-P4 · A PARENT SENDS FOR THEIR UNDER-16 THEMSELVES, AND IT IS THE APPROVAL.
 // (BUZ, 1 Oct.) From the club page a parent opened Send or Register interest
@@ -1550,7 +1573,7 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
 // that they are gone.
 // ---------------------------------------------------------------------------
 {
-  const alex = ids.people.alex, deniz = ids.children.deniz, georgia = ids.children.georgia;
+  const alex = ids.people.alex, deniz = ids.children.deniz;
   const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ')
     .replace(/&#x27;|&#39;/g, "'").replace(/&rsquo;/g, '’').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
@@ -1590,7 +1613,9 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const viaApproval = fresh(c1, c2);
 
   const pForm = await sendForm(alex);
-  const directLoc = await post(`/send/${deniz.record_id}`, alex, { ...pForm.fields, clubName: D.club, address: D.addr });
+  const direct = await parentPress(deniz.record_id, { ...pForm.fields, clubName: D.club, address: D.addr });
+  const directLoc = direct.location;
+  realParentPress = direct.shape;
   const c3 = await cards(), l3 = await log(deniz.child_id), h3 = await homeAsks();
   const viaParent = fresh(c2, c3);
 
@@ -1611,12 +1636,13 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('C-P4-w5: and the club opens the same CV from either link',
     [pa.status, pd.status, plain(pd.html) === plain(pa.html), plain(pd.html).includes('Deniz')], [200, 200, true, true]);
 
-  // ---- Register interest: Georgia, 15, on Kingsway Rovers FC's register ----
-  // Not Riverside's: H2 (D-170) later counts every Riverside registration
-  // Georgia's leaving takes with her, and two more there would be this
-  // block's, not the product's (L32).
+  // ---- Register interest: Deniz, 14, on Kingsway Rovers FC's register ------
+  // Deniz, not Georgia: H2 (D-170) later counts every "came off a club
+  // register" line on Georgia's timeline from zero, and this block takes
+  // entries off (L32). Deniz's own H2 ran long before this. Kingsway, not
+  // Riverside: sq11 later asks Deniz from Riverside's register.
   const kingsway = ids.clubs['kingsway-rovers'], dana = ids.people.dana;
-  const regPath = `/register-interest/${georgia.record_id}?club=${kingsway}`;
+  const regPath = `/register-interest/${deniz.record_id}?club=${kingsway}`;
   const regIds = async () => [...(await get('/club/register', dana)).html.matchAll(/id="r-([0-9a-f-]{36})"/g)].map((m) => m[1]);
   // A row on the TD's register, and the squad it sits under, with its own id
   // taken out; and the club's view of the CV it opens.
@@ -1629,35 +1655,105 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     return [bucket, h.slice(at, Math.min(...ends, at + 6000)).split(rid).join('<registration>')];
   };
   const cvOf = async (rid) => plain((await get(`/club/register/cv/${rid}`, dana)).html).split(rid).join('<registration>');
-  const RLOG = 'Georgia went onto a club register';
-  const kidForm = forms((await get(regPath, georgia.child_id)).html).find((f) => 'clubId' in f.fields);
+  const RLOG = 'Deniz went onto a club register';
+  const kidForm = forms((await get(regPath, deniz.child_id)).html).find((f) => 'clubId' in f.fields);
   // Kingsway keeps no squads, so there is no squad to choose (C-P8).
   const choice = { positions: 'CM,AM', note: 'Two-footed. Sees the pass early.' };
+  // Deniz's live entries on Kingsway's register, as his parent's controls
+  // list them: the cards the TD can open (the H2 method).
+  const controlsForms = async () => forms((await get(`/g/controls/${deniz.child_id}`, alex)).html);
+  const liveAtKingsway = async () => {
+    const out = [];
+    for (const id of new Set((await controlsForms()).map((f) => f.fields.registrationId).filter(Boolean))) {
+      if ((await get(`/club/register/cv/${id}`, dana)).status === 200) out.push(id);
+    }
+    return out.sort();
+  };
+  const takeOff = async (rid) => {
+    const f = (await controlsForms()).find((x) => x.fields.registrationId === rid);
+    return f ? post(`/g/controls/${deniz.child_id}`, alex, f.fields) : '';
+  };
+  const tdReads = async (list) => Promise.all(list.map(async (id) => (await get(`/club/register/cv/${id}`, dana)).status));
 
+  // The old path, while he is already on Kingsway's register (block 0b, f2):
+  // /g/interest has no one-entry rule, so this makes him a second entry.
+  const k0 = await liveAtKingsway();
   const r0 = await regIds();
   const g0 = new Set([...(await get('/home', alex)).html.matchAll(/href="\/g\/interest\/([0-9a-f-]{36})"/g)].map((m) => m[1]));
-  const kidLoc = await post(regPath, georgia.child_id, { ...kidForm.fields, ...choice });
+  const kidLoc = await post(regPath, deniz.child_id, { ...kidForm.fields, ...choice });
   const rid = [...(await get('/home', alex)).html.matchAll(/href="\/g\/interest\/([0-9a-f-]{36})"/g)].map((m) => m[1]).find((x) => !g0.has(x));
   const iForm = rid ? forms((await get(`/g/interest/${rid}`, alex)).html).find((f) => 'requestId' in f.fields) : null;
-  const gl1 = await log(georgia.child_id), m1 = await cards();
+  const gl1 = await log(deniz.child_id), m1 = await cards();
   const iLoc = iForm ? await post(`/g/interest/${rid}`, alex, iForm.fields) : '';
-  const r1 = await regIds(), gl2 = await log(georgia.child_id), m2 = await cards(), hi2 = await homeAsks();
+  const r1 = await regIds(), gl2 = await log(deniz.child_id), m2 = await cards(), hi2 = await homeAsks();
   const regA = r1.filter((x) => !r0.includes(x));
+  const [rowA, cvA] = [await rowOf(regA[0]), await cvOf(regA[0])];
+  check('C-P4-w6 setup: the old path still works — Deniz asks, and the parent registers it from /g/interest (a second entry: he was already on it from the trial)',
+    [/asked=1/.test(kidLoc), Boolean(rid), iLoc, regA.length, k0.length > 0, (await liveAtKingsway()).length], [true, true, `/g/interest/${rid}?sent=1`, 1, true, k0.length + 1]);
 
+  // Safety review B-1, the belt: "Take off this register" on ONE card takes
+  // him off that club's register, whatever made the other entries.
+  const beltLoc = await takeOff(regA[0]);
+  check('C-P4-w12: "Take off this register" on one card takes every entry he has at that club off it — the TD can open none of them, and his controls list none',
+    [/taken=1/.test(beltLoc), await tdReads([...k0, regA[0]]), await liveAtKingsway()], [true, [...k0, regA[0]].map(() => 404), []]);
+
+  // The parent's one press, now that he is on nobody's register at Kingsway.
+  const glBefore = await log(deniz.child_id), mBefore = await cards();
   const parentForm = forms((await get(regPath, alex)).html).find((f) => 'clubId' in f.fields);
   const parentLoc = await post(regPath, alex, { ...parentForm.fields, ...choice });
-  const r2 = await regIds(), gl3 = await log(georgia.child_id), m3 = await cards(), hi3 = await homeAsks();
+  const r2 = await regIds(), gl3 = await log(deniz.child_id), m3 = await cards(), hi3 = await homeAsks();
   const regD = r2.filter((x) => !r1.includes(x));
 
-  check('C-P4-w6 setup: the old path still works — Georgia asks, and the parent registers it from /g/interest',
-    [/asked=1/.test(kidLoc), Boolean(rid), iLoc, regA.length], [true, true, `/g/interest/${rid}?sent=1`, 1]);
-  check('C-P4-w6: the parent puts their under-16 on the register in one press, and the club’s register shows her',
-    [parentLoc, regD.length], [`/register-interest/${georgia.record_id}?club=${kingsway}&registered=1`, 1]);
-  const [rowA, rowD] = [await rowOf(regA[0]), await rowOf(regD[0])];
+  check('C-P4-w6: the parent puts their under-16 on the register in one press, and the club’s register shows him',
+    [parentLoc, regD.length], [`/register-interest/${deniz.record_id}?club=${kingsway}&registered=1`, 1]);
+  const rowD = await rowOf(regD[0]);
   check('C-P4-w7: exactly as the approval path does — the same row in the same place on the TD’s register, and the same CV behind it',
-    [rowD !== null, rowD, await cvOf(regD[0])], [true, rowA, await cvOf(regA[0])]);
-  check('C-P4-w8: the same consent row as the approval ("Georgia went onto a club register", one each), no message either way, and nothing left waiting on the parent’s home',
-    [n(gl2, RLOG) - n(gl1, RLOG), n(gl3, RLOG) - n(gl2, RLOG), fresh(m1, m2), fresh(m2, m3), hi3 - hi2], [1, 1, [], [], 0]);
+    [rowD !== null, rowD, await cvOf(regD[0])], [true, rowA, cvA]);
+  check('C-P4-w8: the same consent row as the approval ("Deniz went onto a club register", one each), no message either way, and nothing left waiting on the parent’s home',
+    [n(gl2, RLOG) - n(gl1, RLOG), n(gl3, RLOG) - n(glBefore, RLOG), fresh(m1, m2), fresh(mBefore, m3), hi3 - hi2], [1, 1, [], [], 0]);
+
+  // Safety review B-1: pressed again, and once more from Kingsway's trial,
+  // he is still on its register once (the player's own rule), and taking
+  // that one off ends the TD's access.
+  const board = (await get('/trials', alex)).html;
+  const trialId = /href="\/fc\/kingsway-rovers\?trial=([0-9a-f-]{36})#play"/.exec(board)?.[1];
+  // The TD's invite page names the trial a registration carries.
+  const inviteSays = async (rid) => /registered interest in /.test(plain((await get(`/club/invite/${rid}`, dana)).html));
+  const trialBefore = await inviteSays(regD[0]);
+  const again = await post(regPath, alex, { ...forms((await get(regPath, alex)).html).find((f) => 'clubId' in f.fields).fields, ...choice });
+  const trialPath = `${regPath}&trial=${trialId}`;
+  const trialForm = trialId ? forms((await get(trialPath, alex)).html).find((f) => 'trialId' in f.fields) : null;
+  const fromTrial = trialForm ? await post(trialPath, alex, { ...trialForm.fields, ...choice }) : '';
+  const r3 = await regIds();
+  check('C-P4-w13: the parent presses twice more, once from the club’s trial — still exactly one live entry, nothing new on the TD’s register, each press landing on "on the register", and the trial now on that one entry',
+    [Boolean(trialForm), again, fromTrial, await liveAtKingsway(), r3.filter((x) => !r2.includes(x)), trialBefore, await inviteSays(regD[0])],
+    [true, parentLoc, parentLoc, regD, [], false, true]);
+  const offLoc = await takeOff(regD[0]);
+  check('C-P4-w14: and after "Take off this register" the TD reads nothing — the register CV is gone',
+    [/taken=1/.test(offLoc), await tdReads(regD), await liveAtKingsway()], [true, [404], []]);
+
+  // Safety review N-3: a pause that lands between the page and the press.
+  // Deniz asks; his parent opens the ask, then pauses him (from another
+  // tab, or the other parent does); the press on the open page registers
+  // nothing — not even out of sight, to appear when the pause lifts. Pressed
+  // again once he is unpaused, it goes, so the refusal was the pause.
+  const pauseForm = async (want) => (await controlsForms()).find((f) => f.fields.childId === deniz.child_id && f.fields.paused === want);
+  const h0 = new Set([...(await get('/home', alex)).html.matchAll(/href="\/g\/interest\/([0-9a-f-]{36})"/g)].map((m) => m[1]));
+  await post(regPath, deniz.child_id, { ...forms((await get(regPath, deniz.child_id)).html).find((f) => 'clubId' in f.fields).fields, ...choice });
+  const pausedAsk = [...(await get('/home', alex)).html.matchAll(/href="\/g\/interest\/([0-9a-f-]{36})"/g)].map((m) => m[1]).find((x) => !h0.has(x));
+  const openForm = pausedAsk ? forms((await get(`/g/interest/${pausedAsk}`, alex)).html).find((f) => 'requestId' in f.fields) : null;
+  const pauseOn = await pauseForm('true');
+  if (pauseOn) await post(`/g/controls/${deniz.child_id}`, alex, pauseOn.fields);
+  const pressedPaused = openForm ? await post(`/g/interest/${pausedAsk}`, alex, openForm.fields) : '';
+  const pauseOff = await pauseForm('false');
+  if (pauseOff) await post(`/g/controls/${deniz.child_id}`, alex, pauseOff.fields);
+  const afterPause = await liveAtKingsway();
+  const pressedLater = openForm ? await post(`/g/interest/${pausedAsk}`, alex, openForm.fields) : '';
+  const afterUnpause = await liveAtKingsway();
+  check('C-P4-w15: paused between the page and the press, the parent’s press registers nothing, even once the pause lifts; unpaused, the same press does',
+    [Boolean(openForm && pauseOn && pauseOff), pressedPaused, afterPause, pressedLater, afterUnpause.length],
+    [true, '/home', [], `/g/interest/${pausedAsk}?sent=1`, 1]);
+  for (const id of afterUnpause) await takeOff(id);
 }
 
 // ---------------------------------------------------------------------------
@@ -3554,6 +3650,28 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     [...new Set([real[0]?.shape, held[0]?.shape, ...pressed.map((p) => p.shape)])].length, 1);
   check('addr-w2: and the address both land on is exactly /g/send/<request>?sent=1 — no link, no token, nothing more',
     [...new Set(pressed.map((p) => p.location.replace(BASE, '').replace(/\/g\/send\/[0-9a-f-]{36}/, '/g/send/<request>')))], ['/g/send/<request>?sent=1']);
+}
+
+// ---------------------------------------------------------------------------
+// C-P4 · safety review S-2: the parent's own press, at the limit. addr-w has
+// just taken the parent to the day's limit, so this press is held. It must
+// answer exactly as the parent's real press did (L38), send nothing, and —
+// unlike before — show on the child's controls as one that didn't go (0046),
+// so the parent does not go on believing the club has the CV.
+// ---------------------------------------------------------------------------
+{
+  const parent = ids.people.alex, kid = ids.children.georgia;
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&#39;/g, "'").replace(/&rsquo;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const form = forms((await get(`/send/${kid.record_id}`, parent)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+  const held = form ? await parentPress(kid.record_id, { ...form.fields, clubName: 'Held Parent FC', address: 'held-parent@addressbar.example.au' }) : null;
+  check('C-P4-w16: the parent’s limited press answers byte for byte as their real one did — status, Location, body, every header',
+    [Boolean(realParentPress), held?.shape === realParentPress, held?.location], [true, true, `/send/${kid.record_id}?sent=1`]);
+  const box = plain((await get('/dev/outbox', parent)).html);
+  const ctl = plain((await get(`/g/controls/${kid.child_id}`, parent)).html);
+  check('C-P4-w17: nothing reaches the club, and the child’s controls list it as one that didn’t go — the club’s name, no address, no number',
+    [box.includes('held-parent@addressbar.example.au'), /Held Parent FC This one didn’t go\. You can send it again later\./.test(ctl), ctl.includes('held-parent@')],
+    [false, true, false]);
 }
 
 // ---------------------------------------------------------------------------

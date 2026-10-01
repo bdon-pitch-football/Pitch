@@ -21,7 +21,11 @@ import { stopCvsSig } from './stop-cvs';
 
 type Band = 'u16' | '16_17' | '18plus';
 
-export async function dispatchShareRequest(requestId: string, actorId: string): Promise<{ raw: string; band: Band } | null> {
+// initiatingActor: who decided this send, when it is not the request's
+// requested_by. A parent's own send from /send (C-P4) is the child's request
+// — requested_by stays the child, which is how erasure (0084) finds it — but
+// the parent decided it, and L2/L55's row says who did (safety review S-1).
+export async function dispatchShareRequest(requestId: string, actorId: string, initiatingActor?: string): Promise<{ raw: string; band: Band } | null> {
   const raw = randomBytes(24).toString('base64url');
   let personId = '';
   let band: Band = 'u16';
@@ -71,13 +75,13 @@ export async function dispatchShareRequest(requestId: string, actorId: string): 
                 'request_id', $3::uuid,
                 'recipient', sr.destination,
                 'token_id', $4::uuid,
-                'initiating_actor', sr.requested_by,
+                'initiating_actor', coalesce($5::uuid, sr.requested_by),
                 'band_at_send', fn_age_band(p.dob))
        from share_request sr
        join development_record dr on dr.id = sr.record_id
        join person p on p.id = dr.person_id
        where sr.id = $3`,
-      [actorId, r.person_id, requestId, tok.rows[0].id],
+      [actorId, r.person_id, requestId, tok.rows[0].id, initiatingActor ?? null],
     );
     await client.query('commit');
   } catch (e) {

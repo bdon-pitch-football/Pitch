@@ -68,26 +68,30 @@ export async function composeSend(formData: FormData) {
       await db.query(`insert into abuse_signal (actor_id, reason, surface) values ($1,'rate_limited','send')`, [personId]);
       // The player's own list must not show this as sent (John, 17 Sep; 0046).
       // The page they land on stays identical to a real send (U-3, J40). A
-      // parent has no list here, so nothing is held for them: /g/send's
-      // limited press writes nothing either.
-      if (state.mode === 'self') await db.query(`insert into send_held (person_id, club_name) values ($1,$2)`, [personId, clubName.slice(0, 60)]);
+      // parent's held press is kept the same way, on the child it was for, so
+      // the child's controls can say it didn't go (safety review S-2): /g/send
+      // leaves the child's ask waiting, and this door would otherwise leave
+      // nothing, and the parent believing the club has the CV.
+      await db.query(`insert into send_held (person_id, club_name)
+         select dr.person_id, $2 from development_record dr where dr.id = $1`, [recordId, clubName.slice(0, 60)]);
       await answerNoSoonerThan(startedAt);
       redirect(`/send/${recordId}?sent=1`);
     }
     // The request is the record's own: requested_by is the player, who for
     // 'self' is the sender. C-P4: a parent's send is the request their child
-    // would have composed — the child the initiating actor, as L2 records it
-    // and as erasure finds it (0084) — dispatched at once by the parent,
-    // exactly as /g/send's press dispatches it. No share_request_created and
-    // no §20: nobody asked anybody, and "{name} asked you to send their CV"
-    // would be false on the parent's log.
+    // would have composed — requested_by the child, as erasure finds it
+    // (0084) — dispatched at once by the parent, exactly as /g/send's press
+    // dispatches it, with the parent recorded as the one who initiated it
+    // (L2/L55; safety review S-1). No share_request_created and no §20:
+    // nobody asked anybody, and "{name} asked you to send their CV" would be
+    // false on the parent's log.
     const { rows } = await db.query(
       `insert into share_request (record_id, requested_by, destination)
        select dr.id, dr.person_id, $2 from development_record dr where dr.id = $1
        returning id`,
       [recordId, `${clubName} <${address}>`],
     );
-    const done = await dispatchShareRequest(rows[0].id, personId);
+    const done = await dispatchShareRequest(rows[0].id, personId, state.mode === 'guardian' ? personId : undefined);
     // A parent's request that did not go must not sit on their home as one
     // their child is waiting on: it was never the child's to wait on.
     if (!done && state.mode === 'guardian') {

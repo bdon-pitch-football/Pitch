@@ -6229,6 +6229,44 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [/fn_record_actor\(\$2, dr\.id\) = 'guardian' as is_guardian/.test(ssSql), /s\.is_guardian && s\.can\) mode = 'guardian'/.test(code),
      /!\s*s\.is_self|s\.is_self\s*(===|!==|==|!=)\s*false/.test(code), /s\.band === 'u16' && s\.is_self\) mode = 'ask'/.test(code)],
     [true, true, false, true]);
+
+  // Safety review S-1: the parent's own send records the parent as the one
+  // who initiated it; the old path (the child asked) still records the child.
+  // requested_by stays the child either way, which is how erasure finds it.
+  // The consent row is written by lib/send-dispatch's own statement, read out
+  // of that file and run here with the arguments each door passes.
+  const consentSql = /`(insert into consent_event[\s\S]*?'share_dispatched'[\s\S]*?)`/.exec(srcOf('lib/send-dispatch.ts'))?.[1] ?? '';
+  const sentRow = async (initiating) => {
+    const req = (await db.query(`insert into share_request (record_id, requested_by, destination) values ($1,$2,'S-1 FC <s1@cp4.example.au>') returning id`,
+      [R.child, P.child])).rows[0].id;
+    const tokId = (await db.query(`insert into share_token (record_id, token_hash, issued_by) values ($1,$2,$3) returning id`,
+      [R.child, sha(`cp4-s1-${req}`), P.parent])).rows[0].id;
+    try { await db.query(consentSql, [P.parent, P.child, req, tokId, initiating]); } catch { return 'refused'; }
+    const r = (await db.query(`select actor_id, detail->>'initiating_actor' as initiating from consent_event
+      where event = 'share_dispatched' and detail->>'request_id' = $1`, [req])).rows;
+    return r.map((x) => [x.actor_id === P.parent ? 'parent' : x.actor_id, x.initiating === P.parent ? 'parent' : x.initiating === P.child ? 'child' : x.initiating]);
+  };
+  const sendActs = codeOnly(srcOf('app/send/[recordId]/actions.ts')), gSendActs = codeOnly(srcOf('app/g/send/[requestId]/actions.ts'));
+  check('C-P4-6: a parent’s own send records the parent as its initiating actor; the old path, the child who asked — and only the parent’s door passes one',
+    [await sentRow(P.parent), await sentRow(null),
+     /dispatchShareRequest\(rows\[0\]\.id, personId, state\.mode === 'guardian' \? personId : undefined\)/.test(sendActs),
+     /dispatchShareRequest\(requestId, guardianId\)/.test(gSendActs)],
+    [[['parent', 'parent']], [['parent', 'child']], true, true]);
+
+  // Safety review N-3: the one dispatch both register doors use re-checks the
+  // pause under its lock. Its own select, run on a request for a paused child
+  // and then for the same child unpaused.
+  const pickSql = /client\.query\(\s*`([\s\S]*?)`/.exec(srcOf('lib/interest-dispatch.ts'))?.[1] ?? '';
+  const rr = (await db.query(`insert into registration_request (record_id, club_id, positions) values ($1,$2,array['AM']) returning id`,
+    [R.child, CLUB.riverside])).rows[0].id;
+  await db.query(`update guardian_setting set profile_paused = true where child_id = $1`, [P.child]);
+  const whilePaused = (await db.query(pickSql, [rr, P.parent])).rows.length;
+  await db.query(`update guardian_setting set profile_paused = false where child_id = $1`, [P.child]);
+  const unpaused = (await db.query(pickSql, [rr, P.parent])).rows.length;
+  check('C-P4-7: the register dispatch both doors share picks up nothing for a paused child, and the same request once the pause lifts — and both doors call it',
+    [whilePaused, unpaused, /dispatchInterestRequest\(client, requestId, guardianId\)/.test(codeOnly(srcOf('app/g/interest/[requestId]/actions.ts'))),
+     /dispatchInterestRequest\(client, rows\[0\]\.id, personId\)/.test(codeOnly(srcOf('app/register-interest/[recordId]/actions.ts')))],
+    [0, 1, true, true]);
 }
 
 // ---------------------------------------------------------------------------

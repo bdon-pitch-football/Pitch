@@ -172,7 +172,11 @@ export default async function SendCv({ params, searchParams }: {
           <div className="checks-t">What the club gets</div>
           <Check ok>A link to your CV — the same page you&rsquo;d send anyone.</Check>
           <Check ok={false}>If you switch your link off, it stops working for them.</Check>
-          <Check ok={false}>Not your phone number, your email or your address. They never get those.</Check>
+          {/* HoPD (1 Oct): a parent reads /g/send's own line here, in /g/send's
+              characters; the child keeps theirs. */}
+          {parent
+            ? <Check ok={false}>No contact details for you or {state.firstName} — not now, and not if they reply.</Check>
+            : <Check ok={false}>Not your phone number, your email or your address. They never get those.</Check>}
         </div>
         {self ? (
           <Who icon={G.send()} title="You send this yourself">

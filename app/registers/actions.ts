@@ -27,18 +27,32 @@ export async function takeOffRegister(formData: FormData) {
   if (!isUuid(registrationId)) redirect(back);
 
   const player = (await db.query(
-    `select r.player_id, fn_age_band(p.dob) as band from registration r join person p on p.id = r.player_id where r.id = $1`,
+    `select r.player_id, r.club_id, fn_age_band(p.dob) as band from registration r join person p on p.id = r.player_id where r.id = $1`,
     [registrationId],
   )).rows[0];
   // A player takes their own off only from sixteen; under that, the parent does.
   if (!player || (player.player_id === me && player.band === 'u16')) redirect(back);
 
   const ok = (await db.query('select fn_withdraw_registration($1, $2) as ok', [me, registrationId])).rows[0]?.ok === true;
-  if (ok) {
+  // "That club's register no longer has {name} on it", and "Their access ends
+  // when you do", are about the CLUB, so every live entry this player has at
+  // that club comes off with the one pressed (safety review B-1). A register
+  // keeps one entry per club, but /g/interest never applied that rule and
+  // the entries it made before cannot be told apart from here. Each one goes
+  // through the database's own answer, and each gets its own row in the log.
+  const siblings = ok ? (await db.query(
+    `select id from registration where player_id = $1 and club_id = $2 and withdrawn_at is null and id <> $3`,
+    [player.player_id, player.club_id, registrationId],
+  )).rows.map((r) => r.id as string) : [];
+  const withdrawn = ok ? [registrationId] : [];
+  for (const id of siblings) {
+    if ((await db.query('select fn_withdraw_registration($1, $2) as ok', [me, id])).rows[0]?.ok === true) withdrawn.push(id);
+  }
+  for (const id of withdrawn) {
     await db.query(
       `insert into consent_event (event, actor_id, subject_id, detail)
        values ('registration_withdrawn', $1, $2, jsonb_build_object('registration_id', $3::uuid))`,
-      [me, player.player_id, registrationId],
+      [me, player.player_id, id],
     );
   }
   redirect(`${back}${ok ? '?taken=1' : ''}#readers`);

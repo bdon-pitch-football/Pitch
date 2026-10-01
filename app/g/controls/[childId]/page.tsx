@@ -70,9 +70,19 @@ export default async function Controls({ params, searchParams }: {
        -- The promise was implemented in the database and unreachable from
        -- the product, which is the one place a parent would look for it.
        (select coalesce(json_agg(json_build_object(
-           'at', to_char(s.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'),
+           'at', to_char(s.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'ts', s.at,
            'club', s.club_name, 'recipient', s.recipient, 'tokenId', s.token_id, 'live', s.live) order by s.at desc), '[]'::json)
-        from fn_send_log($2, p.id) s) as sends
+        from fn_send_log($2, p.id) s) as sends,
+       -- A parent's own send that the daily limit held (0046; safety review
+       -- S-2): the club name and when, said as "didn't go", never a number.
+       -- Read for the person the database says acts for this child as their
+       -- guardian, the same answer the send door itself keyed on.
+       (select coalesce(json_agg(json_build_object(
+           'at', to_char(h.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'ts', h.at,
+           'club', h.club_name, 'held', true) order by h.at desc), '[]'::json)
+        from send_held h
+        where h.person_id = p.id
+          and fn_record_actor($2, (select id from development_record where person_id = p.id)) = 'guardian') as held
      from person p
      join guardianship_link g on g.child_id = p.id and g.guardian_id = $2 and g.approved_at is not null and g.revoked_at is null
      where p.id = $1`,
@@ -82,6 +92,10 @@ export default async function Controls({ params, searchParams }: {
   const c = rows[0];
   const name: string = c.first_name;
   const theirs = `${name}\u2019s`;
+  // Sends and held sends in one list, newest first (0046; safety review S-2).
+  type SendRow = { at: string; ts: string; club: string | null; recipient?: string; tokenId?: string | null; live?: boolean; held?: boolean };
+  const sendList = [...(c.sends as SendRow[]), ...(c.held as SendRow[])]
+    .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
   // EVERY event in the consent_event vocabulary needs a line here. A missing
   // one falls through to the raw database code, and a parent reading
   // "guardian_landed" on the screen whose entire job is to tell them plainly
@@ -229,20 +243,25 @@ export default async function Controls({ params, searchParams }: {
             my child's page?", and until now this screen could not answer it
             — the timeline said "You sent his CV to a club" and never which
             club or to what address. */}
-        {(c.sends as { at: string; club: string | null; recipient: string }[]).length > 0 && (
+        {sendList.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <h2 className="sec-h">Where {theirs} CV has been sent</h2>
             <div className="card" style={{ padding: '4px 14px' }}>
-              {(c.sends as { at: string; club: string | null; recipient: string; tokenId: string | null; live: boolean }[]).map((sd, i) => (
-                <div key={`${sd.at}-${sd.recipient}-${i}`} style={{ display: 'flex', gap: 12, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}`, alignItems: 'center' }}>
+              {sendList.map((sd, i) => (
+                <div key={`${sd.ts}-${sd.recipient ?? ''}-${i}`} style={{ display: 'flex', gap: 12, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.surface2}`, alignItems: 'center' }}>
                   <div style={{ width: 78, fontSize: 11.5, fontWeight: 700, color: T.muted, flexShrink: 0 }}>{sd.at}</div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     {sd.club && <div style={{ fontSize: 13.5, fontWeight: 800 }}>{sd.club}</div>}
-                    <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, wordBreak: 'break-all' }}>{sd.recipient}</div>
+                    {sd.held ? (
+                      <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary }}>This one didn&rsquo;t go. You can send it again later.</div>
+                    ) : (
+                      <div style={{ fontSize: 12.5, fontWeight: 500, color: T.secondary, wordBreak: 'break-all' }}>{sd.recipient}</div>
+                    )}
                   </div>
                   {/* Take one off: that club's link stops opening the page;
-                      every other club's keeps working. */}
-                  {sd.live && sd.tokenId ? (
+                      every other club's keeps working. A held send made no
+                      link, so it has nothing to switch. */}
+                  {sd.held ? null : sd.live && sd.tokenId ? (
                     <form action={switchOffOne} style={{ flexShrink: 0 }}>
                       <input type="hidden" name="childId" value={childId} /><input type="hidden" name="tokenId" value={sd.tokenId} />
                       <button type="submit" className="console-btn">Switch off</button>

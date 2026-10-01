@@ -3051,6 +3051,12 @@ const georgia = ids.children.georgia;
     [pReg.status, says(pRegT, RI_PARENT), says(pRegT, RI_NOT), pRegT.split('off the register any time').length - 1, glows(pReg.html),
      /<button[^>]*class="btn btn-primary fl-glow"[^>]*>Put Deniz on the register<\/button>/.test(pReg.html.replace(/<!-- -->/g, ''))],
     [200, RI_PARENT, [], 1, 1, true]);
+  // HoPD (1 Oct): the parent's "What the club gets" ends on /g/send's own
+  // line, in /g/send's characters; the child keeps theirs.
+  const NEW_ROW = 'No contact details for you or Deniz — not now, and not if they reply.';
+  const OLD_ROW = 'Not your phone number, your email or your address. They never get those.';
+  check('C-P4-r9: the parent’s "What the club gets" says "No contact details for you or Deniz…" in place of the child’s line; the child’s view keeps "Not your phone number…"',
+    [pSendT.includes(NEW_ROW), pSendT.includes(OLD_ROW), cSendT.includes(OLD_ROW), cSendT.includes(NEW_ROW)], [true, false, true, false]);
   const cReg = await get(`/register-interest/${deniz.record_id}?club=${riverside}`, deniz.child_id);
   const cRegT = vis(form(cReg.html));
   const RI_CHILD = ['Register your interest', 'keep a register of players who want to be there', 'Where you’d play', 'Filled in from your CV',
