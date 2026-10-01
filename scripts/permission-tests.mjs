@@ -6893,9 +6893,14 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
 // minimum the brief sets for every width. The layout check measures how wide
 // a page is, not how big its targets are, so this pins the one that was wrong.
 {
+  // F (1 Oct): the chips are the system's .chip now, not an inline helper, so
+  // the 44px lives in one rule — and the page must not grow a hand-sized chip
+  // again (an inline minHeight under 44 on any link or chip).
   const squadPage = srcOf('app/club/squads/[squadId]/page.tsx');
+  const chipRule = /\n\.chip \{\s*height: (\d+)px/.exec(srcOf('app/globals.css'))?.[1];
   check('tap1: the squad page\'s position chips are at least 44px tall',
-    /const chip = \(on: boolean\): React\.CSSProperties => \(\{\s*\n?\s*minHeight: (\d+)/.exec(squadPage)?.[1] >= 44, true);
+    [(squadPage.match(/<a [^>]*className="chip" aria-pressed=/g) ?? []).length, Number(chipRule) >= 44,
+     [...squadPage.matchAll(/<(?:a|button|label)\b[^>]*minHeight: (\d+)/g)].some((m) => Number(m[1]) < 44)], [2, true, false]);
 }
 
 // ---- R1 (release seat, L26): a table is exposed until you say otherwise ----
@@ -6992,9 +6997,14 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   // bp6 is bp5's tripwire: those two budgets are only right while the chrome
   // around the row is what they were measured through. Change a padding and
   // this goes red, which is the signal to re-measure rather than to re-guess.
+  // F (1 Oct) moved the same two paddings from inline styles into named
+  // rules — the console column is .cc-page and each bucket's table is a
+  // .reg-panel — so the tripwire reads them there, at the same values.
+  const fcCss = srcOf('app/globals.css');
   check('bp6: and the chrome those budgets were measured through has not moved',
-    [/className="console"[^>]*padding: '22px 18px 30px 18px'/.test(srcOf('app/club/register/page.tsx')),
-      /className="d-only" style=\{\{ \.\.\.card, padding: '6px 16px'/.test(srcOf('app/club/register/page.tsx')),
+    [/className="console cc-page"/.test(srcOf('app/club/register/page.tsx'))
+       && /\n\.cc-page \{[^}]*padding: 22px 18px 30px 18px;/.test(fcCss),
+      /<div className="card reg-panel">/.test(srcOf('app/club/register/page.tsx')) && /\n\.reg-panel \{ padding: 6px 16px; \}/.test(fcCss),
       /\.console-row \{ padding: 14px 10px; \}/.test(at768)],
     [true, true, true]);
 
@@ -7003,7 +7013,7 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
   // width and lets CSS choose, so there is no width-only route or action to
   // test — and nothing may quietly start deciding that in JavaScript.
   check('bp7: the register decides table-or-cards in CSS only, never from a width it read',
-    [/className="m-only"/.test(srcOf('app/club/register/page.tsx')),
+    [/className="reg-row m-only"/.test(srcOf('app/club/register/page.tsx')),
       /className="console-row console-row-hover d-only"/.test(srcOf('app/club/register/page.tsx')),
       /innerWidth|matchMedia|useMediaQuery/.test(srcOf('app/club/register/page.tsx'))],
     [true, true, false]);
@@ -10739,7 +10749,10 @@ const componentFilesAll = [];
   const surfaces = ['app/p/[token]/page.tsx', 'app/club/register/cv/[registrationId]/page.tsx',
     'app/club/squads/[squadId]/cv/[playerId]/page.tsx', 'app/build/[recordId]/preview/page.tsx'];
   check('cvcol7: the share link, the register CV, the squad CV and the family preview each pass the CV’s own colours and state to PlayerCV',
-    surfaces.filter((f) => !/<PlayerCV p=\{cv\}[^>]*\{\.\.\.wornColours\(cv\)\} \/>/.test(codeOnly(srcOf(f)))), []);
+    // F (1 Oct): the two club-side surfaces also hand PlayerCV their page
+    // header through its `head` slot — a slot, not a colour; nothing else may
+    // ride along.
+    surfaces.filter((f) => !/<PlayerCV p=\{cv\}[^>]*\{\.\.\.wornColours\(cv\)\}( head=\{head\})? \/>/.test(codeOnly(srcOf(f)))), []);
   check('cvcol7a: and what they pass is the record read\u2019s own answer, handed over in one place',
     /export const wornColours = \(cv: CvData\) => \(\{ clubColours: cv\.clubColours \?\? null, clubState: cv\.clubState \?\? undefined \}\)/.test(rr), true);
   const cvCallers = tsSourceFiles().filter((f) => /<PlayerCV\b/.test(codeOnly(srcOf(f))));
@@ -11079,8 +11092,9 @@ const componentFilesAll = [];
   // Defect 24 (F-N1): "just narrowed" only when a filter narrowed something.
   const reg = codeOnly(srcOf('app/club/register/page.tsx'));
   check('dfx-F-N1: an empty register says nobody has registered yet; "just narrowed" is said only when there were rows to narrow',
-    [/\{all\.length === 0 && \(\s*<div[^>]*>\s*Nobody has registered interest in your trials yet\./.test(reg),
-     /\{all\.length > 0 && buckets\.length === 0 && \(\s*<div[^>]*>\s*Nobody matches that yet\./.test(reg)], [true, true]);
+    // F (1 Oct): both lines are set in the dashed "not yet" tile (emptyTile).
+    [/\{all\.length === 0 && emptyTile\(\s*<>Nobody has registered interest in your trials yet\./.test(reg),
+     /\{all\.length > 0 && buckets\.length === 0 && emptyTile\(\s*<>Nobody matches that yet\./.test(reg)], [true, true]);
 
   // Defect 28: the demo strip's one control meets the 44px floor.
   // J-P1 (BUZ, 1 Oct) moved the strip's styling from inline to its own classes

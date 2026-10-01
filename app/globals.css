@@ -1419,3 +1419,257 @@ h1, h2, h3, h4, h5, h6 {
 /* The controls' switches: the 44px target around the track. The track keeps
    its look — a control's green track is its "on" (spec D, controls). */
 .pd-switch { width: 52px; height: 44px; border: none; background: transparent; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: inherit; }
+
+/* ===========================================================================
+   THE CLUB CONSOLE (F, 1 Oct; BUZ "yes to all", P1-P5 approved) — the ten
+   /club/* routes built from the parts the public pages already use:
+   docs/design/specs/F-club.md, mockup floodlit-club.html. A list is a page
+   (one panel of rows, the table from 768); a form is a door (one panel); a
+   create form above a list folds behind one chip and opens by itself when the
+   list is empty. No word, door, field or read moves here — only the drawing.
+   --------------------------------------------------------------------------- */
+/* The console column's rhythm, shared by every /club page. */
+.cc-page { display: flex; flex-direction: column; gap: 16px; padding: 22px 18px 30px 18px; box-sizing: border-box; }
+
+/* "Remove" in a list is one text button (Head of Product Design ruling 2):
+   44px, text only. .console-btn stays for the other row controls. */
+.textbtn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0 6px; background: transparent; border: none; font-family: inherit; font-size: 12.5px; font-weight: 700; letter-spacing: var(--ls-button); color: var(--muted); cursor: pointer; flex-shrink: 0; white-space: nowrap; text-decoration: none; }
+.textbtn:hover { color: var(--ink); }
+
+/* A create form behind one chip — the trials board's <details> disclosure.
+   Open by default when its list is empty; works with JavaScript off. */
+.cc-adder > summary { list-style: none; cursor: pointer; display: inline-flex; }
+.cc-adder > summary::-webkit-details-marker { display: none; }
+.cc-adder > summary::marker { content: ''; }
+.cc-adder > summary.chip { color: var(--ink); font-weight: 800; }
+.cc-adder > summary svg { flex-shrink: 0; }
+.cc-adder[open] > summary { border-color: var(--accent); }
+.cc-adder[open] > .card { margin-top: 10px; }
+/* The create button is a width, not a third button: auto from 1024 (A part 18). */
+@media (min-width: 1024px) { .cc-adder .btn-auto-wide { width: auto; padding: 0 22px; align-self: flex-start; } }
+
+/* A flash line after a server action. */
+.cc-said { border-radius: var(--r-card); padding: 13px 14px; font-size: 13px; font-weight: 700; line-height: 1.5; color: var(--secondary); background: var(--fl-surface); border: 1px solid var(--line); box-shadow: var(--shadow-card); }
+.cc-said-ok { border-color: var(--accent); }
+.cc-said-warn { border-color: var(--amber); }
+.cc-said-bad { background: rgba(227,119,118,.12); border-color: rgba(227,119,118,.45); color: var(--ink); box-shadow: none; }
+
+/* A door and the list it edits, side by side from 1024. */
+.cc-split { display: flex; flex-direction: column; gap: 22px; }
+@media (min-width: 1024px) {
+  .cc-split { display: grid; grid-template-columns: minmax(0, 1fr) var(--cc-aside, 300px); gap: 28px; align-items: start; }
+  .cc-split > aside { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 9px; }
+  .console-frame .cc-split .door { max-width: none; margin: 0; }
+}
+/* A short window: a pinned column could hold rows below the fold. */
+@media (max-height: 700px) { .cc-split > aside { position: static; } }
+@media (max-width: 1023px) { .cc-split .cc-only-wide { display: none; } }
+@media (min-width: 1024px) { .cc-split .cc-only-narrow { display: none; } }
+/* A door inside the console frame sits beside the rail, not mid-window. */
+@media (min-width: 1024px) { .console-frame .door { margin-left: 0; margin-top: 0; } }
+.cc-main { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+
+/* ---- the register --------------------------------------------------------- */
+.reg-head { display: flex; flex-direction: column; gap: 14px; }
+@media (min-width: 1024px) { .reg-head { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 24px; } }
+.reg-shield { display: flex; align-items: center; gap: 9px; padding: 11px 13px; font-size: 12.5px; font-weight: 700; color: var(--secondary); }
+.reg-filters { display: flex; flex-direction: column; gap: 11px; }
+/* .console-filters paints the page behind a sticky bar; this one is a panel,
+   so it keeps the panel's surface and padding while it sticks. */
+.card.reg-filters { background: var(--fl-surface); padding: var(--card-pad); }
+.reg-fgroup { display: flex; flex-direction: column; gap: 7px; }
+.reg-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+@media (min-width: 1024px) {
+  .reg-fgroup { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: center; gap: 12px; }
+}
+.reg-shown { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 12.5px; font-weight: 700; color: var(--secondary); }
+.reg-shown a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; margin: -10px 0; font-weight: 800; color: var(--accent); text-decoration: none; }
+.reg-bucket-wrap { display: flex; flex-direction: column; gap: 10px; }
+.reg-bucket { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-top: 4px; }
+.reg-bucket-t { font-size: 17px; font-weight: 900; letter-spacing: var(--ls-title); }
+.reg-bucket-s { font-size: 12px; font-weight: 500; color: var(--muted); }
+.reg-bucket-n { font-size: 12px; font-weight: 800; color: var(--muted); white-space: nowrap; }
+/* One panel per bucket. Its 16px side padding is the figure the table's
+   columns were measured against (see .console-row), so it holds at 768 and
+   at 1024-1031 exactly as the old table card did. */
+.reg-panel { padding: 6px 16px; }
+.reg-item { scroll-margin-top: 140px; }
+.reg-item + .reg-item { border-top: 1px solid var(--line); }
+.reg-panel .console-head { border-bottom: 1px solid var(--line); padding: 9px 0; }
+.reg-panel .console-head > div { font-size: 10px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); }
+.reg-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; padding: 14px 0; }
+.reg-row-n { font-size: 15px; font-weight: 800; }
+.reg-row-s { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.reg-row-note { grid-column: 1 / -1; background: var(--surface-sunken); border-radius: var(--r-well); padding: 10px 12px; font-size: 12.5px; font-style: italic; font-weight: 500; color: var(--secondary); line-height: 1.5; }
+.reg-row-act { grid-column: 1 / -1; display: flex; gap: 8px; }
+.reg-row-act > .btn, .reg-row-act > form { flex: 1; min-width: 0; }
+.reg-row-act > form { display: flex; }
+.reg-row-act .btn-primary { align-self: center; }
+.reg-sent { color: var(--secondary); }
+.reg-sent-link { display: inline-flex; align-items: center; min-height: 44px; font-size: 12.5px; font-weight: 800; color: var(--secondary); text-decoration: none; }
+.reg-line { font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--muted); }
+.reg-line.has { font-style: italic; color: var(--secondary); }
+.reg-foot { display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 768px) { .reg-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+/* The held count: one text node, in the state's colour. */
+.reg-held-n { font-size: 22px; font-weight: 900; color: var(--amber); }
+
+/* ---- squads --------------------------------------------------------------- */
+.card.sq-list { padding: 0 14px; }
+.sq-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 12px; padding: 10px 0; }
+.sq-row + .sq-row { border-top: 1px solid var(--line); }
+.sq-name { display: flex; align-items: center; min-height: 44px; margin: -6px 0; font-size: 15px; font-weight: 800; color: var(--ink); text-decoration: none; }
+.sq-meta { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.sq-n { display: none; }
+.sq-who { display: flex; align-items: center; min-height: 44px; font-size: 12.5px; font-weight: 800; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.sq-end { display: flex; justify-content: flex-end; }
+.sq-inuse { font-size: 11.5px; font-weight: 700; color: var(--muted); text-align: right; max-width: 130px; }
+.sq-head { display: none; }
+@media (min-width: 768px) {
+  .sq-row, .sq-head { grid-template-columns: minmax(0, 1fr) 96px 80px 96px 190px; }
+  .sq-head { display: grid; gap: 12px; padding: 11px 0 9px 0; border-bottom: 1px solid var(--line); }
+  .sq-head > div { font-size: 10px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); }
+  .sq-head + .sq-row { border-top: 0; }
+  .sq-n { display: block; font-size: 15px; font-weight: 900; letter-spacing: var(--ls-numeral); color: var(--ink); }
+  .sq-n.none { color: var(--muted); }
+  .sq-meta-n { display: none; }
+  .sq-inuse { max-width: none; white-space: nowrap; }
+}
+.grant-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; }
+.grant-row + .grant-row { border-top: 1px solid var(--line); }
+
+/* ---- a squad -------------------------------------------------------------- */
+.sq-claim { display: flex; flex-direction: column; gap: 10px; }
+.sq-claim-act { display: flex; gap: 9px; }
+.sq-claim-act > form { display: flex; }
+.sq-claim-act > form:first-child { flex: 1; }
+@media (min-width: 768px) {
+  .sq-claim { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; }
+  .sq-claim-act > form:first-child { flex: none; }
+  .sq-claim-act .btn { width: auto; padding: 0 20px; }
+}
+.sq-shape { display: flex; gap: 18px; flex-wrap: wrap; }
+.sq-group-h { margin-top: 4px; }
+.card.sq-players { padding: 0 14px; }
+.sq-player { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 10px 12px; align-items: center; padding: 14px 0; scroll-margin-top: 24px; }
+.sq-player.noread { grid-template-columns: minmax(0, 1fr); }
+.sq-player + .sq-player { border-top: 1px solid var(--line); }
+.sq-player > .sq-pos, .sq-player > .sq-stats, .sq-player > .sq-act { grid-column: 1 / -1; }
+.sq-num { width: 40px; height: 40px; border-radius: var(--r-well); background: var(--surface-2); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.sq-pos { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.sq-stats { display: flex; gap: 16px; flex-wrap: wrap; align-items: baseline; border-top: 1px solid var(--line); padding-top: 9px; }
+.sq-act { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
+.sq-cvlink { display: flex; align-items: center; min-height: 44px; font-size: 12.5px; font-weight: 800; color: var(--accent); text-decoration: none; white-space: nowrap; }
+@media (min-width: 1024px) {
+  .sq-player { grid-template-columns: 40px minmax(160px, 1.1fr) minmax(0, 1.6fr) auto; padding: 12px 10px; }
+  .sq-player.noread { grid-template-columns: minmax(0, 1fr) auto; }
+  .sq-player > .sq-pos { grid-column: auto; }
+  .sq-player > .sq-stats { grid-column: 2 / 4; border-top: 0; padding-top: 0; }
+  .sq-player > .sq-act { grid-column: 4; grid-row: 1; }
+  .sq-player.noread > .sq-act { grid-column: 2; }
+}
+/* A pick-order position pill. The first choice is lit in ink: a fact, not a
+   button, so never green. */
+.pos-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--r-pill); padding: 4px 10px; background: var(--surface-2); border: 1px solid var(--line); }
+.pos-pill.first { background: rgba(255,255,255,.08); border-color: var(--secondary); }
+.pos-pill-k { font-size: 9.5px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); }
+.pos-pill.first .pos-pill-k { color: var(--ink); }
+.pos-pill-v { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.card.sq-rows { padding: 0 14px; }
+.sq-line { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.sq-line + .sq-line { border-top: 1px solid var(--line); }
+.sq-line-main { flex: 1; min-width: 0; }
+.sq-ask-pos { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+@media (min-width: 1024px) {
+  .sq-ask { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: 12px; }
+  .sq-ask .sq-ask-pos { margin-top: 0; }
+}
+
+/* Verify offers above a club-side CV: stacked, then three across. */
+.verify-strip { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; }
+@media (min-width: 768px) { .verify-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; } }
+/* A club-side CV's header: A's page header in the CV's own 1200 column. */
+.cv-head { padding-top: 14px; }
+
+/* ---- roles ---------------------------------------------------------------- */
+.jr { display: flex; flex-direction: column; gap: 11px; }
+.jr-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.jr-t { font-size: 16px; font-weight: 900; letter-spacing: var(--ls-title); }
+.jr-l { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.jr.closed { opacity: .65; }
+.jr-app { background: var(--surface-sunken); border-radius: var(--r-well); padding: 11px 12px; display: flex; flex-direction: column; gap: 6px; }
+
+/* ---- post a trial --------------------------------------------------------- */
+.pt-sec { display: flex; flex-direction: column; gap: 8px; }
+.pt-pair { display: flex; gap: 8px; }
+.pt-pair > .field { flex: 1; min-width: 0; }
+.pt-fieldset { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+.pt-fieldset > legend { padding: 0; float: left; margin-bottom: 2px; }
+.pt-more > summary { display: flex; align-items: center; min-height: 44px; font-size: 12.5px; font-weight: 800; color: var(--accent); cursor: pointer; }
+.card.pt-trials { padding: 4px 14px; }
+.pt-trial { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; }
+.pt-trial + .pt-trial { border-top: 1px solid var(--line); }
+.pt-trial .fl-trial-day { font-size: 22px; }
+.pt-trial .fl-trial-mon { margin-top: 3px; }
+.pt-editing { font-size: 12px; font-weight: 800; color: var(--accent); flex-shrink: 0; }
+@media (min-width: 1024px) { .pt-page .cc-split { --cc-aside: 300px; } }
+/* The posted confirmation's notice, drawn as the board draws it. Its button
+   is inert and secondary, so the screen keeps no second primary (P3). */
+.pt-posted { container-type: inline-size; }
+
+/* ---- the page editor ------------------------------------------------------ */
+.pe-form { display: flex; flex-direction: column; gap: 13px; scroll-margin-top: 18px; }
+.card.pe-list { padding: 0 14px; }
+.pe-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; }
+.pe-item + .pe-item { border-top: 1px solid var(--line); }
+.pe-crest { width: 66px; height: 66px; border-radius: var(--r-card); flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--surface-2); border: 1px solid var(--line); box-sizing: border-box; }
+.pe-crest.empty-tile { border-radius: var(--r-card); }
+.pe-presets { border: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.pe-preset { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 10px; border-radius: var(--r-well); border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; }
+.pe-preset:has(> input:checked) { border-color: var(--accent); }
+@media (min-width: 1024px) { .pe-page .cc-split { --cc-aside: 340px; } }
+/* The /fc/[slug] hero at preview size. Colours come from clubTheme() inline,
+   exactly as /fc does — one function, so the preview cannot disagree. */
+.club-hero-preview { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--bg); }
+.chp-hero { position: relative; overflow: hidden; }
+.chp-in { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 18px 14px 16px; }
+.chp-crest { width: 56px; height: 56px; border-radius: 15px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 21px; border: 1px solid rgba(238,245,240,.16); box-shadow: var(--shadow-float); overflow: hidden; box-sizing: border-box; }
+.chp-crest.empty-tile { box-shadow: none; }
+.chp-id { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 160px; }
+.chp-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.chp-club { border: 1px solid rgba(255,255,255,.22); border-radius: var(--r-pill); padding: 3px 9px; font-size: 9.5px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: rgba(255,255,255,.7); }
+.chp-ver { display: inline-flex; align-items: center; gap: 5px; background: rgba(61,220,132,.14); border-radius: var(--r-pill); padding: 3px 9px; font-size: 9.5px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--accent); }
+.chp-name { font-size: 22px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.05; }
+.chp-sub { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.8); }
+.chp-path { font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,.64); }
+.chp-nobanner { font-size: 12.5px; font-weight: 500; color: var(--muted); text-align: center; padding: 8px 0 2px 0; }
+.chp-stats { position: relative; z-index: 1; display: flex; gap: 22px; padding: 0 14px 16px; }
+.chp-stats .numeral-s { font-size: 26px; }
+.chp-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--line); }
+.chp-row .fl-trial-day { font-size: 24px; }
+.chp-row .fl-trial-mon { margin-top: 3px; }
+
+/* ---- the invite ----------------------------------------------------------- */
+.inv-page { width: 100%; padding: 22px 18px 30px 18px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; }
+.inv-col { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 0; }
+@media (min-width: 1024px) { .inv-col { max-width: 640px; } }
+.inv-kicker { font-size: 11px; font-weight: 800; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--muted); }
+.inv-choices { display: flex; gap: 8px; }
+/* A radio shown as a tile, which reads its own checked state — the tile that
+   never showed as picked (F, invite). Same idea as .pick. */
+.choice-tile { flex: 1; position: relative; min-height: 62px; border-radius: var(--r-btn); border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 8px; text-align: center; cursor: pointer; box-sizing: border-box; }
+.choice-tile > input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.choice-tile b { font-size: 13px; font-weight: 700; color: var(--muted); }
+.choice-tile span { font-size: 10.5px; font-weight: 500; color: var(--muted); }
+.choice-tile:has(> input:checked) { background: rgba(61,220,132,.14); border: 1.5px solid var(--accent); }
+.choice-tile:has(> input:checked) b { font-weight: 900; color: var(--accent); }
+.choice-tile:has(> input:checked) span { font-weight: 700; color: var(--secondary); }
+.choice-tile:has(> input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.inv-where { border-radius: var(--r-card); background: var(--hero); border: 1px solid var(--line); padding: 16px; display: flex; flex-direction: column; gap: 11px; }
+.inv-refused { background: rgba(227,119,118,.12); border: 1px solid var(--red); border-radius: var(--r-well); padding: 11px 13px; font-size: 13px; font-weight: 700; color: var(--ink); line-height: 1.5; }
+.cv-head .pg-head-mark { display: none; }
+/* F12: the register row's own Invite door under the CV's back link — full
+   width on a phone, a width from 1024 (A part 18). */
+.cv-invite { padding-top: 12px; }
+.cv-invite-sent { display: flex; align-items: center; min-height: 44px; font-size: 13px; font-weight: 800; color: var(--secondary); }
+@media (min-width: 1024px) { .cv-invite .btn { width: auto; padding: 0 22px; } }

@@ -3183,6 +3183,171 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// THE CLUB CONSOLE (F, 1 Oct; BUZ "yes to all", P1-P5). fc- checks pin the
+// new structure, each against the property the spec names, so markup that
+// drifts back to the old drawing fails here (L19: each was run against the
+// pre-F code and failed there). They read class names and attributes, never
+// the copy, except where the copy IS the rule (P2's zeros, D-174's line).
+// ---------------------------------------------------------------------------
+{
+  const td = ids.people.marina, pat = ids.people.pat, held = ids.people['m.'], free = ids.people.dana, sam = ids.people.sam;
+  const markup = (h) => h.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, '');
+  const RR = '/club/register';
+
+  // ---- the register --------------------------------------------------------
+  const reg = markup((await get(RR, td)).html);
+  const buckets = (reg.match(/class="reg-bucket"/g) ?? []).length;
+  const panels = (reg.match(/class="card reg-panel"/g) ?? []).length;
+  const rowIds = [...new Set([...reg.matchAll(/\/club\/register\/cv\/([0-9a-f-]{36})/g)].map((m) => m[1]))];
+  check(`fc1: the register is one panel of rows per bucket (${buckets} buckets), and every row carries its anchor for the return`,
+    [buckets > 1, panels, rowIds.length >= 90, rowIds.every((id) => reg.includes(`id="r-${id}"`))], [true, buckets, true, true]);
+  check('fc1b: no button on the register is outlined, transparent or hand-built — every one is .btn-* or .console-btn*',
+    [/<(button|a)[^>]*style="([^"]*;)?(border:1px solid|background:transparent|height:4[46]px)/.test(reg),
+     [...reg.matchAll(/<button[^>]*>/g)].every((b) => /class="(btn btn-|console-btn)/.test(b[0]))], [false, true]);
+  check('fc1c: the status is A’s pill, New green, and the row’s primary never glows',
+    [/class="pill pill-live"[^>]*>New</.test(reg), /class="pill pill-wait"[^>]*>Shortlisted</.test(reg), /class="pill pill-guard"[^>]*>Invited</.test(reg),
+     /class="btn btn-primary fl-glow"[^>]*>Invite to trial/.test(reg)], [true, true, true, false]);
+
+  // P2: no zero on the console. Kingsway is verified with one registration,
+  // so its Shortlisted and Invited counts are zero.
+  const small = markup((await get(RR, free)).html);
+  check('fc2: P2 — a register with nobody shortlisted or invited prints no "· 0" chip and no zero numeral',
+    [/· 0</.test(small) || /·\s*<!-- -->0</.test(small), [...small.matchAll(/class="numeral numeral-[lms]"[^>]*>([^<]*)</g)].some((m) => m[1].trim() === '0'),
+     has(small, 'Every under-16 here was put on this register by a parent.')], [false, false, true]);
+  const unv = markup((await get(RR, held)).html);
+  check('fc3: D-126 — the held count is ONE text node, "{n} waiting", in the amber notice', [/>\d+ waiting</.test(unv), /class="card card-amber"/.test(unv)], [true, true]);
+
+  // P1: the return. A filtered register's rows carry the filters; the CV and
+  // the invite go back to the same filtered register at the row; and `back`
+  // is rebuilt from the register's own keys, so nothing else survives it.
+  const filtered = markup((await get(`${RR}?age=U15&status=new`, td)).html);
+  const fId = /\/club\/register\/cv\/([0-9a-f-]{36})\?back=([^"]+)"/.exec(filtered);
+  const backOf = async (path) => /<a href="([^"]*)" class="pg-back"/.exec(markup((await get(path, td)).html))?.[1]?.replace(/&amp;/g, '&');
+  check('fc4: P1 — a filtered register’s CV link carries the filters', [Boolean(fId), fId && decodeURIComponent(fId[2])], [true, '/club/register?age=U15&status=new']);
+  const id = fId?.[1] ?? rowIds[0];
+  check('fc4b: P1 — and the CV’s way back is that filtered register, at the row',
+    await backOf(`/club/register/cv/${id}?back=${encodeURIComponent('/club/register?age=U15&status=new')}`), `/club/register?age=U15&status=new#r-${id}`);
+  check('fc4c: P1 — unfiltered, the way back is the plain register, at the row', await backOf(`/club/register/cv/${id}`), `/club/register#r-${id}`);
+  const hostile = ['https://evil.example/club/register?age=U15', '//evil.example/club/register', '/club/registers?age=U15', '/club/register?age=U15&next=/x',
+    '/club/register?age=%3Cscript%3E', '/club/register?age=U15&age=U16', '/home?age=U15', 'javascript:alert(1)'];
+  const hostileBacks = [];
+  for (const b of hostile) hostileBacks.push(await backOf(`/club/register/cv/${id}?back=${encodeURIComponent(b)}`));
+  check('fc4d: P1 — a `back` naming any other path, host or key is ignored: the plain register, at the row',
+    hostileBacks, hostile.map(() => `/club/register#r-${id}`));
+  const inv = /\/club\/invite\/([0-9a-f-]{36})"[^>]*>Invite to trial</.exec(reg)?.[1];
+  check('fc4e: P1 — the invite’s way back is the register at its row', inv ? await backOf(`/club/invite/${inv}`) : null, inv ? `/club/register#r-${inv}` : null);
+
+  // The CV's way back sits in the CV's own 1200 column, under the one bar —
+  // not in a 640 reading column above it (F: the back bar fix).
+  const cvPage = markup((await get(`/club/register/cv/${id}`, td)).html);
+  check('fc5: the register CV’s back link is A’s page header inside the CV’s .fl-wide column, with one nav bar and no 640 column',
+    [/<div class="fl-wide cv-head"><div class="pg-head"><a href="[^"]*" class="pg-back">/.test(cvPage), (cvPage.match(/<nav\b/g) ?? []).length, /class="reading"/.test(cvPage)], [true, 1, false]);
+
+  // F12 (BUZ, 1 Oct): the register CV carries the row's own door — exactly
+  // one "Invite to trial" link where the row has one, glowing; "Invitation
+  // sent" with no link where the row says that; nothing for a New row, and
+  // nothing for a coach, whose row has no door.
+  const rowOf = (status) => [...reg.matchAll(/id="r-([0-9a-f-]{36})" class="reg-item">[\s\S]*?class="pill pill-(live|wait|guard)"/g)]
+    .find((m) => m[2] === status && reg.includes(`/club/register/cv/${m[1]}`))?.[1];
+  const doorsOn = async (rid, who) => {
+    const h = markup((await get(`/club/register/cv/${rid}`, who)).html);
+    return [[...h.matchAll(new RegExp(`<a (?=[^>]*href="/club/invite/${rid}[^"]*")[^>]*class="([^"]*)"[^>]*>Invite to trial</a>`, 'g'))].map((m) => m[1]),
+      /class="cv-invite cv-invite-sent">Invitation sent</.test(h), (h.match(new RegExp(`/club/invite/${rid}`, 'g')) ?? []).length];
+  };
+  const [rShort, rNew, rInv] = [rowOf('wait'), rowOf('live'), rowOf('guard')];
+  check('fc5b: F12 — the register CV carries the row’s own door: one glowing "Invite to trial" for a shortlisted row, none for a New one, "Invitation sent" with no link for an invited one',
+    [Boolean(rShort && rNew && rInv), rShort && await doorsOn(rShort, td), rNew && await doorsOn(rNew, td), rInv && await doorsOn(rInv, td)],
+    [true, [['btn btn-primary fl-glow'], false, 1], [[], false, 0], [[], true, 0]]);
+  const coachRow = /\/club\/register\/cv\/([0-9a-f-]{36})/.exec((await get('/coach/register', sam)).html)?.[1];
+  check('fc5c: F12 — and a coach reading through /coach/register is given no invite door', coachRow ? await doorsOn(coachRow, sam) : null, [[], false, 0]);
+
+  // ---- the invite ------------------------------------------------------------
+  const compose = inv ? markup((await get(`/club/invite/${inv}?cannot=1`, td)).html) : '';
+  check('fc6: the invite’s two kinds are tiles that read their own radio, nothing on the page is amber, and the refusal is the --red token',
+    [(compose.match(/<label class="choice-tile"><input type="radio" name="kind"/g) ?? []).length, /var\(--amber\)|#eda100|rgba\(237,\s*161/i.test(compose),
+     /class="inv-refused"/.test(compose), /rgba\(227,\s*73,\s*72/.test(compose), (compose.match(/fl-glow/g) ?? []).length], [2, false, true, false, 1]);
+
+  // ---- squads ------------------------------------------------------------------
+  const sq = markup((await get('/club/squads', td)).html);
+  const sqNone = markup((await get('/club/squads', held)).html);
+  check('fc7: P2 — a club with no squads is not told "· 0 squads", and its "Add a squad" opens by itself; a club with squads has it folded',
+    [/0 squads/.test(text(sqNone).join(' ')), /<details class="cc-adder" open=""><summary class="chip">/.test(sqNone),
+     /<details class="cc-adder"><summary class="chip">/.test(sq)], [false, true, true]);
+  check('fc7b: the squads are one panel — a table from 768 — and Remove is the text button',
+    [(sq.match(/class="card rows sq-list"/g) ?? []).length >= 1, /class="sq-head"/.test(sq), /<button type="submit" class="textbtn">Remove</.test(sq) || !/>Remove</.test(sq),
+     /<button[^>]*style="/.test(sq)], [true, true, true, false]);
+
+  // "1 squads" (Leo, 1 Oct): one squad is singular, every other count plural.
+  // Structural as well as rendered (L33): the seed may hold no club with
+  // exactly one squad, so the source is held to the rule too.
+  const squadsSrc = readFileSync(fileURLToPath(new URL('../app/club/squads/page.tsx', import.meta.url)), 'utf8');
+  const squadLines = [];
+  for (const who of [td, pat, held, free, ids.people.felix, ids.people.robyn]) squadLines.push(text((await get('/club/squads', who)).html).join(' '));
+  check('fc7c: a club with one squad reads "1 squad", never "1 squads"',
+    [/squads\.length === 1 \? 'squad' : 'squads'/.test(squadsSrc), squadLines.some((l) => /\b1 squads\b/.test(l)), squadLines.some((l) => /\b\d+ squads?\b/.test(l))], [true, false, true]);
+
+  // ---- a squad -------------------------------------------------------------------
+  const squadIds = [...new Set([...sq.matchAll(/href="\/club\/squads\/([0-9a-f-]{36})"/g)].map((m) => m[1]))];
+  let full = null;
+  for (const s of squadIds) { const h = markup((await get(`/club/squads/${s}`, td)).html); if (/\/cv\//.test(h)) { full = { s, h }; break; } }
+  check('fc8: a squad sheet — one panel of player rows, the first pick an ink pill (never green), "Ask them" the table’s primary, nothing hand-built',
+    full ? [/class="card rows sq-players"/.test(full.h), /class="pos-pill first"/.test(full.h), /rgba\(61,\s*220,\s*132,\s*\.14\)/.test(full.h),
+            /class="console-btn console-btn-primary">Ask them</.test(full.h), /<button[^>]*style="/.test(full.h)] : null,
+    [true, true, false, true, false]);
+  const adminSquad = full ? markup((await get(`/club/squads/${full.s}`, pat)).html) : '';
+  check('fc8b: D-93 — the administrator’s squad sheet has no CV link and no number tile', [/\/cv\//.test(adminSquad), /class="sq-num"/.test(adminSquad), adminSquad.length > 0], [false, false, true]);
+
+  // ---- roles ---------------------------------------------------------------------
+  const rolesNone = markup((await get('/club/roles', held)).html);
+  const rolesTd = markup((await get('/club/roles', td)).html);
+  check('fc9: P2 — no "· 0 open"; with no roles "Post a role" is open, with roles folded; a role wears the neutral pill',
+    [/\b0 open\b/.test(text(rolesNone).join(' ')), /<details class="cc-adder" open=""><summary class="chip">/.test(rolesNone),
+     /<details class="cc-adder"><summary class="chip">/.test(rolesTd), /class="pill"[^>]*>(Paid|Volunteer)</.test(rolesTd)], [false, true, true, true]);
+
+  // ---- post a trial ----------------------------------------------------------------
+  const pt = markup((await get('/club/post-trial', td)).html);
+  const caps = [...pt.matchAll(/class="field-label"/g)].length;
+  check('fc10: post-a-trial is a door beside its list, and every caption is a .field-label inside a .field (no caption on a bare card)',
+    [/<div class="cc-split"><div class="door">/.test(pt), /<aside><div class="panel-h">Your trials<\/div>/.test(pt), caps >= 7,
+     /<label style="/.test(pt), /<fieldset style="/.test(pt), (pt.match(/fl-glow/g) ?? []).length], [true, true, true, false, false, 1]);
+  const mine = /\/club\/post-trial\?edit=([0-9a-f-]{36})/.exec(pt)?.[1];
+  const posted = mine ? markup((await get(`/club/post-trial?posted=1&trial=${mine}`, td)).html) : '';
+  check('fc10b: P3 — "Posted" draws the notice as the board does, its button inert and secondary — no link out, no second primary',
+    [/class="fl-card fl-trial"/.test(posted), /<span class="btn btn-secondary" aria-hidden="true">I’m interested<\/span>|<span class="btn btn-secondary" aria-hidden="true">I&#x27;m interested|<span class="btn btn-secondary" aria-hidden="true">I(’|&rsquo;)m interested/.test(posted),
+     /href="\/fc\/[^"]*\?trial=/.test(posted), /class="btn btn-primary/.test(posted)], [true, true, false, false]);
+  const board = (await get('/trials', null)).html;
+  const other = [...board.matchAll(/href="\/fc\/([a-z0-9-]+)\?trial=([0-9a-f-]{36})#play"/g)].find((m) => m[1] !== 'riverside-fc')?.[2];
+  const foreign = other ? markup((await get(`/club/post-trial?posted=1&trial=${other}`, td)).html) : 'none';
+  check('fc10c: P3 — and only the club’s own notice: another club’s trial id draws nothing', [Boolean(other), /class="fl-card fl-trial"/.test(foreign)], [true, false]);
+
+  // ---- the page editor ------------------------------------------------------------
+  const pe = markup((await get('/club/page-edit', td)).html);
+  const peHeld = markup((await get('/club/page-edit', held)).html);
+  const LINE = 'Your colours appear on your club page, and on the CV of players who list your club as their current club.';
+  check('fc11: D-174 — the picker line shows to a verified club, and to a claimed-but-unverified club not at all, with nothing in its place (BUZ, 1 Oct)',
+    [has(pe, LINE), has(peHeld, LINE), /data-cv-colours-line/.test(peHeld)], [true, false, false]);
+  check('fc11b: P4 — one sticky preview beside the forms from 1024, each list one panel of rows, Remove the text button, one glow',
+    [/<aside class="cc-only-wide"><div class="panel-h">Your club page<\/div><div class="club-hero-preview">/.test(pe),
+     (pe.match(/class="cc-only-narrow"/g) ?? []).length, /<button type="submit" style="/.test(pe), (pe.match(/fl-glow/g) ?? []).length,
+     !/>Remove</.test(pe) || /class="card rows pe-list"/.test(pe)], [true, 2, false, 1, true]);
+  // The preview and the public hero wear the same colours for the same stored
+  // values: clubTheme(), one function (Done when 1).
+  const fc = markup((await get('/fc/riverside-fc', null)).html);
+  const heroOf = (h) => [/linear-gradient\(115deg, (#[0-9a-f]{6}) 0%, (#[0-9a-f]{6}) 70%/.exec(h)?.slice(1).join(' '), /border-bottom:5px solid (#[0-9a-f]{6})/.exec(h)?.[1]];
+  check('fc11c: P4 — the preview’s hero and trim are /fc’s, colour for colour', [heroOf(pe)[0] !== undefined, heroOf(pe)], [true, heroOf(fc)]);
+  check('fc11d: a club with no crest gets the dashed "not yet" tile in the form and the preview', 
+    [/class="pe-crest empty-tile"/.test(peHeld), /class="chp-crest empty-tile"/.test(peHeld)], [true, true]);
+
+  // A coach granted the squad still reads the squad CV, and its way back is
+  // the squad sheet at that player (P1, as drawn).
+  const scv = full ? /\/club\/squads\/[0-9a-f-]{36}\/cv\/([0-9a-f-]{36})/.exec(full.h)?.[1] : null;
+  const scvPage = scv ? markup((await get(`/club/squads/${full.s}/cv/${scv}`, td)).html) : '';
+  check('fc12: the squad CV’s way back is A’s page header in the CV column, to the player’s row on the sheet',
+    [new RegExp(`<div class="fl-wide cv-head"><div class="pg-head"><a href="/club/squads/${full?.s}#p-${scv}" class="pg-back">`).test(scvPage),
+     full ? full.h.includes(`id="p-${scv}"`) : false, (scvPage.match(/<nav\b/g) ?? []).length], [true, true, 1]);
+}
+
+// ---------------------------------------------------------------------------
 // addr-r1 — no page this crawl was served sends a share token into an address
 // bar: not in a redirect, and not in a link it carries (brief D; L38/L42).
 // ---------------------------------------------------------------------------

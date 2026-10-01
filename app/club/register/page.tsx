@@ -22,20 +22,19 @@ import { ClubConsole } from '@/components/console-shell';
 import { POSITIONS } from '@/lib/football';
 import RegisterPaused from '@/components/RegisterPaused';
 import { setStatus } from './actions';
-import { T } from '@/lib/palette';
-import { card } from '@/lib/ui';
+import { carryBack } from '@/lib/register-back';
 import { SUPPORT_EMAIL } from '@/lib/support';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Interest register', robots: { index: false, follow: false } };
 
-const STATUS_CHIP: Record<string, { bg: string; fg: string; label: string }> = {
-  // Three states, three palette tokens. Invited was #3987e5 — the one colour
-  // on this screen with no token behind it, which is what made it read as
-  // off-palette beside the amber. Purple is a charter token already.
-  new: { bg: 'rgba(61,220,132,.14)', fg: 'var(--accent)', label: 'New' },
-  shortlisted: { bg: 'rgba(237,161,0,.14)', fg: 'var(--amber)', label: 'Shortlisted' },
-  invited: { bg: 'rgba(164,121,226,.16)', fg: 'var(--purple)', label: 'Invited' },
+const STATUS_CHIP: Record<string, { pill: string; label: string }> = {
+  // Three states, three of A's pills (spec A part 12, F). "New" stays green:
+  // green marks where work waits (Head of Product Design ruling 3). Invited
+  // is purple, a charter state token, never a colour of its own.
+  new: { pill: 'pill pill-live', label: 'New' },
+  shortlisted: { pill: 'pill pill-wait', label: 'Shortlisted' },
+  invited: { pill: 'pill pill-guard', label: 'Invited' },
 };
 
 const GENDER_LABEL: Record<string, string> = {
@@ -188,44 +187,67 @@ export default async function Register({ searchParams }: {
   // The chip primitive carries hover and pressed; aria-pressed is both the
   // state and the style hook, so a screen reader and the stylesheet agree.
 
+  // P1 (BUZ, 1 Oct): a row's CV and invite links carry the filters, so their
+  // way back lands on this same filtered list, at the row (lib/register-back).
+  const carry = carryBack({ age: ageOk, pos: posOk, status: statusOk });
+  const shield = (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
+  );
+  // An empty line, set in the trials board's dashed "not yet" tile.
+  const emptyTile = (children: React.ReactNode) => (
+    <div className="card tb-empty">
+      <div className="tb-art" aria-hidden><span className="fl-dash" /><span className="fl-dash" /><span className="fl-dash" /></div>
+      <p>{children}</p>
+    </div>
+  );
+
   return (
     <ClubConsole active="register">
-      <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="console cc-page">
         <HeaderMark />
-        {/* The header is the hero of this screen. It used to render the whole
-            shape of the register as 13.5px body text; a club with ninety-nine
-            families waiting should see ninety-nine. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: 'var(--ls-title)' }}>Interest register</h1>
-            <div style={{ fontSize: 13.5, color: 'var(--secondary)', fontWeight: 500 }}>{c.name}</div>
+        {/* The header is the hero of this screen: the title and, at a laptop,
+            the stat row on the same line with the numbers to the right (A's
+            stat row). D-162 / P2: a zero is omitted, never printed. */}
+        <div className="reg-head">
+          <div className="pg-titles" style={{ gap: 2 }}>
+            <h1 className="pg-title">Interest register</h1>
+            <div className="pg-sub" style={{ fontSize: 13.5 }}>{c.name}</div>
           </div>
           {c.club_state === 'verified' && all.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
+            <div className="stat-row">
               <div>
                 <div className="numeral numeral-l" style={{ color: 'var(--ink)' }}>{all.length}</div>
-                <div className="kicker" style={{ marginTop: 6 }}>Players</div>
+                <div className="stat-l" style={{ marginTop: 6 }}>Players</div>
               </div>
-              <div>
-                <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{counts.new}</div>
-                <div className="kicker" style={{ marginTop: 6 }}>New</div>
-              </div>
-              <div>
-                <div className="numeral numeral-m" style={{ color: 'var(--amber)' }}>{counts.shortlisted}</div>
-                <div className="kicker" style={{ marginTop: 6 }}>Shortlisted</div>
-              </div>
-              <div>
-                <div className="numeral numeral-m" style={{ color: 'var(--purple)' }}>{counts.invited}</div>
-                <div className="kicker" style={{ marginTop: 6 }}>Invited</div>
-              </div>
+              {counts.new > 0 && (
+                <div>
+                  <div className="numeral numeral-m" style={{ color: 'var(--accent)' }}>{counts.new}</div>
+                  <div className="stat-l" style={{ marginTop: 6 }}>New</div>
+                </div>
+              )}
+              {counts.shortlisted > 0 && (
+                <div>
+                  <div className="numeral numeral-m" style={{ color: 'var(--amber)' }}>{counts.shortlisted}</div>
+                  <div className="stat-l" style={{ marginTop: 6 }}>Shortlisted</div>
+                </div>
+              )}
+              {counts.invited > 0 && (
+                <div>
+                  <div className="numeral numeral-m" style={{ color: 'var(--purple)' }}>{counts.invited}</div>
+                  <div className="stat-l" style={{ marginTop: 6 }}>Invited</div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {c.club_state !== 'verified' ? (
-          <div style={{ ...card, border: `1px solid ${T.amber}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 22, fontWeight: 900, color: T.amber }}>{held} waiting</div>
-            <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Registrations are held until your club is verified — a short phone call with us. You&rsquo;ll see the list, and nothing about anyone under 18 reaches any club before that call.</div>
+          // D-126: held means a count and nothing else. The count is one text
+          // node (r33-r35, free-r5); with nobody waiting, the sentence stands
+          // alone rather than printing "0 waiting" (P2).
+          <div className="card card-amber" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {held > 0 && <div className="reg-held-n">{`${held} waiting`}</div>}
+            <div style={{ fontSize: 13, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>Registrations are held until your club is verified — a short phone call with us. You&rsquo;ll see the list, and nothing about anyone under 18 reaches any club before that call.</div>
             {/* A-P7 (BUZ, 1 Oct, option A): the same door as the home's, quieter here. */}
             <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`A good time to ring ${c.name}`)}`} className="btn btn-secondary">Email us a good time to ring</a>
           </div>
@@ -233,203 +255,207 @@ export default async function Register({ searchParams }: {
           <>
             {payState === 'suspended' && <RegisterPaused state="suspended" billingLink />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.015em' }}>Interest in your trials</h2>
-              <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Players who registered interest in a trial you posted. Invite any of them — it&rsquo;s free.</div>
+              <h2 className="reg-bucket-t">Interest in your trials</h2>
+              <div style={{ fontSize: 13, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>Players who registered interest in a trial you posted. Invite any of them — it&rsquo;s free.</div>
             </div>
-            {trialRows.length === 0 ? (
-              <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                Nobody has registered interest in your trials yet. <Link href="/club/post-trial" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Post a trial</Link> and families register from it.
-              </div>
-            ) : trialRows.map((t) => (
-              <div key={t.registration_id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 800 }}>{t.player_first_name}</div>
-                    <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{t.positions.join(' · ')}{t.has_clips && ' · clips'}</div>
-                    <div style={{ fontSize: 12, color: T.secondary, fontWeight: 700, marginTop: 2 }}>{t.trial_title} · {t.trial_on}</div>
+            {trialRows.length === 0 ? emptyTile(
+              <>Nobody has registered interest in your trials yet. <Link href="/club/post-trial" style={{ color: 'var(--accent)', fontWeight: 800, textDecoration: 'none' }}>Post a trial</Link> and families register from it.</>,
+            ) : (
+              <div className="card reg-panel">
+                {trialRows.map((t) => (
+                  <div key={t.registration_id} id={`r-${t.registration_id}`} className="reg-item">
+                    <div className="reg-row">
+                      <div style={{ minWidth: 0 }}>
+                        <div className="reg-row-n">{t.player_first_name}</div>
+                        <div className="reg-row-s">{t.positions.join(' · ')}{t.has_clips && ' · clips'}</div>
+                        <div style={{ fontSize: 12, color: 'var(--secondary)', fontWeight: 700, marginTop: 2 }}>{t.trial_title} · {t.trial_on}</div>
+                      </div>
+                      <div />
+                      {t.note && <div className="reg-row-note">&ldquo;{t.note}&rdquo;</div>}
+                      {invitable.has(t.registration_id) && <div className="reg-row-act">
+                        <Link href={`/club/register/cv/${t.registration_id}`} className="btn btn-secondary">Open the CV</Link>
+                        {t.club_status === 'invited' ? (
+                          <Link href={`/club/invite/${t.registration_id}`} className="btn btn-secondary reg-sent">Invitation sent</Link>
+                        ) : (
+                          <Link href={`/club/invite/${t.registration_id}`} className="btn btn-primary">Invite to trial</Link>
+                        )}
+                      </div>}
+                    </div>
                   </div>
-                </div>
-                {t.note && (
-                  <div style={{ background: T.surface2, borderRadius: 12, padding: '10px 12px', fontSize: 12.5, fontStyle: 'italic', color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>&ldquo;{t.note}&rdquo;</div>
-                )}
-                {invitable.has(t.registration_id) && <div style={{ display: 'flex', gap: 8 }}>
-                  <Link href={`/club/register/cv/${t.registration_id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
-                  {t.club_status === 'invited' ? (
-                    <Link href={`/club/invite/${t.registration_id}`} style={{ flex: 1, height: 46, borderRadius: 14, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invitation sent</Link>
-                  ) : (
-                    <Link href={`/club/invite/${t.registration_id}`} style={{ flex: 1, height: 46, borderRadius: 14, background: T.accent, color: T.onAccent, fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invite to trial</Link>
-                  )}
-                </div>}
+                ))}
               </div>
-            ))}
-            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            )}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 14, fontWeight: 900 }}>The whole register is a plan</div>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Everyone who registers interest in your club, all year — not only for a trial — with squads, filters and a shortlist.</div>
-              <Link href="/club/billing" style={{ fontSize: 13, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start' }}>See the Interest Register</Link>
+              <div style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>Everyone who registers interest in your club, all year — not only for a trial — with squads, filters and a shortlist.</div>
+              <Link href="/club/billing" style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)', textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start' }}>See the Interest Register</Link>
             </div>
           </>
         ) : (
           <>
-            <div style={{ background: 'rgba(61,220,132,.07)', border: `1px solid ${T.line}`, borderRadius: 12, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 9 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>Every under-16 here was put on this register by a parent.</div>
+            <div className="card-sunken reg-shield">
+              {shield}
+              <div>Every under-16 here was put on this register by a parent.</div>
             </div>
 
             {/* Filters. A link, not a control — the filtered view has its own
-                URL. Sticky on desktop: scrolling ninety-nine rows should not
-                cost you the controls that narrowed them. */}
-            <div className="console-filters" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Which age group</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  <Link href={qs({ age: null })} className="chip" aria-pressed={!ageOk}>All ages · {all.length}</Link>
-                  {ageGroups.map((g) => (
-                    <Link key={g.code} href={qs({ age: g.code })} className="chip" aria-pressed={ageOk === g.code}>
-                      {g.label} · {g.n}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Where they play</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  <Link href={qs({ pos: null })} className="chip" aria-pressed={!posOk}>Any position</Link>
-                  {usedPositions.map((p) => (
-                    <Link key={p} href={qs({ pos: p })} className="chip" aria-pressed={posOk === p}
-                      title={POSITIONS[p as keyof typeof POSITIONS].label}>
-                      {p}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>Where you&rsquo;re up to</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  <Link href={qs({ status: null })} className="chip" aria-pressed={!statusOk}>Everyone</Link>
-                  {(['new', 'shortlisted', 'invited'] as const).map((s) => (
-                    <Link key={s} href={qs({ status: s })} className="chip" aria-pressed={statusOk === s}>
-                      {STATUS_CHIP[s].label} · {counts[s]}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-              {(posOk || statusOk || ageOk) && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: `1px solid ${T.line}`, paddingTop: 10 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>
-                    {rows.length} of {all.length} shown
+                URL. Sticky from 768: scrolling ninety-nine rows should not
+                cost you the controls that narrowed them. P2 (BUZ, 1 Oct): an
+                empty register shows no filter card at all, and no chip says
+                "· 0". */}
+            {all.length > 0 && (
+              <div className="card console-filters reg-filters">
+                <div className="reg-fgroup">
+                  <div className="field-label">Which age group</div>
+                  <div className="reg-chips">
+                    <Link href={qs({ age: null })} className="chip" aria-pressed={!ageOk}>All ages · {all.length}</Link>
+                    {ageGroups.map((g) => (
+                      <Link key={g.code} href={qs({ age: g.code })} className="chip" aria-pressed={ageOk === g.code}>
+                        {g.label} · {g.n}
+                      </Link>
+                    ))}
                   </div>
-                  <Link href="/club/register" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, minWidth: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Clear</Link>
                 </div>
-              )}
-            </div>
+                <div className="reg-fgroup">
+                  <div className="field-label">Where they play</div>
+                  <div className="reg-chips">
+                    <Link href={qs({ pos: null })} className="chip" aria-pressed={!posOk}>Any position</Link>
+                    {usedPositions.map((p) => (
+                      <Link key={p} href={qs({ pos: p })} className="chip" aria-pressed={posOk === p}
+                        title={POSITIONS[p as keyof typeof POSITIONS].label}>
+                        {p}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+                <div className="reg-fgroup">
+                  <div className="field-label">Where you&rsquo;re up to</div>
+                  <div className="reg-chips">
+                    <Link href={qs({ status: null })} className="chip" aria-pressed={!statusOk}>Everyone</Link>
+                    {(['new', 'shortlisted', 'invited'] as const).filter((s) => counts[s] > 0 || statusOk === s).map((s) => (
+                      <Link key={s} href={qs({ status: s })} className="chip" aria-pressed={statusOk === s}>
+                        {counts[s] > 0 ? <>{STATUS_CHIP[s].label} · {counts[s]}</> : STATUS_CHIP[s].label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+                {(posOk || statusOk || ageOk) && (
+                  <div className="reg-shown">
+                    <div>{rows.length} of {all.length} shown</div>
+                    <Link href="/club/register">Clear</Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* F-N1 (BUZ, 1 Oct): with nobody on the register at all, nothing
                 was narrowed, so it says the trials branch's approved line
                 instead. "Just narrowed" is kept for a filter that empties it. */}
-            {all.length === 0 && (
-              <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                Nobody has registered interest in your trials yet. <Link href="/club/post-trial" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Post a trial</Link> and families register from it.
-              </div>
+            {all.length === 0 && emptyTile(
+              <>Nobody has registered interest in your trials yet. <Link href="/club/post-trial" style={{ color: 'var(--accent)', fontWeight: 800, textDecoration: 'none' }}>Post a trial</Link> and families register from it.</>,
             )}
-            {all.length > 0 && buckets.length === 0 && (
-              <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-                Nobody matches that yet. <Link href="/club/register" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Show everyone</Link> — the list is the same list, just narrowed.
-              </div>
+            {all.length > 0 && buckets.length === 0 && emptyTile(
+              <>Nobody matches that yet. <Link href="/club/register" style={{ color: 'var(--accent)', fontWeight: 800, textDecoration: 'none' }}>Show everyone</Link> — the list is the same list, just narrowed.</>,
             )}
 
+            {/* One panel per bucket. The two renders stay two renders — the
+                table (.d-only) from 768 and the phone row (.m-only) below it —
+                side by side inside each row's own wrapper, which carries the
+                row's anchor for P1's return. */}
             {buckets.map((b) => (
-              <div key={b.key} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, paddingTop: 4 }}>
+              <div key={b.key} className="reg-bucket-wrap">
+                <div className="reg-bucket">
                   <div>
-                    <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.015em' }}>{b.title}</div>
-                    {b.sub && <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{b.sub}</div>}
+                    <div className="reg-bucket-t">{b.title}</div>
+                    {b.sub && <div className="reg-bucket-s">{b.sub}</div>}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: T.muted, whiteSpace: 'nowrap' }}>{b.rows.length}</div>
+                  <div className="reg-bucket-n">{b.rows.length}</div>
                 </div>
 
-                {/* desktop console table (D-147) */}
-                <div className="d-only" style={{ ...card, padding: '6px 16px', flexDirection: 'column' }}>
-                  <div className="console-row console-head d-only" style={{ borderBottom: `1px solid ${T.line}`, padding: '9px 0' }}>
+                <div className="card reg-panel">
+                  <div className="console-row console-head d-only">
                     {['Player', 'Their line', 'Status', '', ''].map((h, i) => (
-                      <div key={i} style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted }}>{h}</div>
+                      <div key={i}>{h}</div>
                     ))}
                   </div>
                   {b.rows.map((r) => {
                     const chip = STATUS_CHIP[r.club_status];
+                    const may = invitable.has(r.registration_id);
                     return (
-                      <div key={r.registration_id} className="console-row console-row-hover d-only" style={{ borderTop: `1px solid ${T.surface2}` }}>
-                        <div>
-                          <div style={{ fontSize: 14.5, fontWeight: 800 }}>{r.player_first_name}</div>
-                          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
-                            {r.positions.join(' · ')}{r.has_clips && <span style={{ color: T.secondary }}> · clips</span>}
+                      <div key={r.registration_id} id={`r-${r.registration_id}`} className="reg-item">
+                        {/* the table (D-147) */}
+                        <div className="console-row console-row-hover d-only">
+                          <div>
+                            <div style={{ fontSize: 14.5, fontWeight: 800 }}>{r.player_first_name}</div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
+                              {r.positions.join(' · ')}{r.has_clips && <span style={{ color: 'var(--secondary)' }}> · clips</span>}
+                            </div>
+                          </div>
+                          <div className={r.note ? 'reg-line has' : 'reg-line'}>{r.note ? `“${r.note}”` : '—'}</div>
+                          <div><span className={chip.pill}>{chip.label}</span></div>
+                          {may ? <Link href={`/club/register/cv/${r.registration_id}${carry}`} className="console-btn">Open the CV</Link> : <div />}
+                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            {r.club_status === 'new' && (
+                              <form action={setStatus}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
+                                <button type="submit" className="console-btn">Shortlist</button>
+                              </form>
+                            )}
+                            {r.club_status === 'shortlisted' && may && (
+                              <Link href={`/club/invite/${r.registration_id}${carry}`} className="console-btn console-btn-primary">Invite to trial</Link>
+                            )}
+                            {r.club_status === 'invited' && may && (
+                              <Link href={`/club/invite/${r.registration_id}${carry}`} className="reg-sent-link">Invitation sent</Link>
+                            )}
                           </div>
                         </div>
-                        <div style={{ fontSize: 12, fontStyle: r.note ? 'italic' : 'normal', color: r.note ? T.secondary : T.muted, fontWeight: 500, lineHeight: 1.4 }}>{r.note ? `“${r.note}”` : '—'}</div>
-                        <div><span style={{ background: chip.bg, color: chip.fg, borderRadius: 7, padding: '4px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{chip.label}</span></div>
-                        {invitable.has(r.registration_id) ? <Link href={`/club/register/cv/${r.registration_id}`} className="console-btn">Open the CV</Link> : <div />}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                          {r.club_status === 'new' && (
-                            <form action={setStatus}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
-                              <button type="submit" className="console-btn">Shortlist</button>
-                            </form>
+
+                        {/* the phone row */}
+                        <div className="reg-row m-only">
+                          <div style={{ minWidth: 0 }}>
+                            <div className="reg-row-n">{r.player_first_name}</div>
+                            <div className="reg-row-s">
+                              {r.positions.join(' · ')}{r.has_clips && ' · clips'}
+                            </div>
+                          </div>
+                          <div><span className={chip.pill}>{chip.label}</span></div>
+                          {r.note && (
+                            <div className="reg-row-note">&ldquo;{r.note}&rdquo;</div>
                           )}
-                          {r.club_status === 'shortlisted' && invitable.has(r.registration_id) && (
-                            <Link href={`/club/invite/${r.registration_id}`} className="console-btn console-btn-primary">Invite to trial</Link>
-                          )}
-                          {r.club_status === 'invited' && invitable.has(r.registration_id) && (
-                            <Link href={`/club/invite/${r.registration_id}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.secondary, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>Invitation sent</Link>
+                          {(may || r.club_status === 'new') && (
+                            <div className="reg-row-act">
+                              {may && <Link href={`/club/register/cv/${r.registration_id}${carry}`} className="btn btn-secondary">Open the CV</Link>}
+                              {r.club_status === 'new' && (
+                                <form action={setStatus}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
+                                  <button type="submit" className="btn btn-secondary">Shortlist</button>
+                                </form>
+                              )}
+                              {r.club_status === 'shortlisted' && may && (
+                                <Link href={`/club/invite/${r.registration_id}${carry}`} className="btn btn-primary">Invite to trial</Link>
+                              )}
+                              {r.club_status === 'invited' && may && (
+                                <Link href={`/club/invite/${r.registration_id}${carry}`} className="btn btn-secondary reg-sent">Invitation sent</Link>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-
-                {b.rows.map((r) => {
-                  const chip = STATUS_CHIP[r.club_status];
-                  return (
-                    <div key={r.registration_id} className="m-only" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                        <div>
-                          <div style={{ fontSize: 15, fontWeight: 800 }}>{r.player_first_name}</div>
-                          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
-                            {r.positions.join(' · ')}{r.has_clips && ' · clips'}
-                          </div>
-                        </div>
-                        <div style={{ background: chip.bg, color: chip.fg, borderRadius: 7, padding: '4px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{chip.label}</div>
-                      </div>
-                      {r.note && (
-                        <div style={{ background: T.surface2, borderRadius: 12, padding: '10px 12px', fontSize: 12.5, fontStyle: 'italic', color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>&ldquo;{r.note}&rdquo;</div>
-                      )}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {invitable.has(r.registration_id) && <Link href={`/club/register/cv/${r.registration_id}`} style={{ flex: 1, background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>}
-                        {r.club_status === 'new' && (
-                          <form action={setStatus} style={{ display: 'flex' }}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
-                            <button type="submit" style={{ height: 44, alignSelf: 'center', borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Shortlist</button>
-                          </form>
-                        )}
-                        {r.club_status === 'shortlisted' && invitable.has(r.registration_id) && (
-                          <Link href={`/club/invite/${r.registration_id}`} style={{ flex: 1, height: 50, borderRadius: 14, background: T.accent, color: T.onAccent, fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invite to trial</Link>
-                        )}
-                        {r.club_status === 'invited' && invitable.has(r.registration_id) && (
-                          <Link href={`/club/invite/${r.registration_id}`} style={{ flex: 1, height: 46, borderRadius: 14, border: `1px solid ${T.line}`, color: T.secondary, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>Invitation sent</Link>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             ))}
 
-            <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
-              <b style={{ color: T.ink }}>There is no download.</b> The register lives here, and a family who switches their link off disappears from it the same minute. A spreadsheet on someone&rsquo;s laptop could not do that.
+            <div className="reg-foot">
+              <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
+                <b style={{ color: 'var(--ink)' }}>There is no download.</b> The register lives here, and a family who switches their link off disappears from it the same minute. A spreadsheet on someone&rsquo;s laptop could not do that.
+              </div>
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 900 }}>New, shortlisted, invited — and nothing else</div>
+                <div style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>Those three are yours. No player sees them, no parent sees them, and there is no button here that turns anyone away — a register isn&rsquo;t a queue you clear.</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.55 }}>The keeper you haven&rsquo;t got room for in September is still on this list in March, when someone tears a hamstring.</div>
+              </div>
             </div>
-            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontSize: 14, fontWeight: 900 }}>New, shortlisted, invited — and nothing else</div>
-              <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>Those three are yours. No player sees them, no parent sees them, and there is no button here that turns anyone away — a register isn&rsquo;t a queue you clear.</div>
-              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>The keeper you haven&rsquo;t got room for in September is still on this list in March, when someone tears a hamstring.</div>
-            </div>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, textAlign: 'center' }}>A family can take themselves off at any time. The entry goes, and so does the CV link.</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, textAlign: 'center' }}>A family can take themselves off at any time. The entry goes, and so does the CV link.</div>
           </>
         )}
         <Link href="/home" className="btn btn-ghost">Back</Link>

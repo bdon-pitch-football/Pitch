@@ -8,8 +8,8 @@ import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { ClubConsole } from '@/components/console-shell';
 import { addSquad, removeSquad, inviteCoach, revokeCoach } from './actions';
-import { T } from '@/lib/palette';
-import { card, fieldLabel } from '@/lib/ui';
+import { fieldLabel } from '@/lib/ui';
+import { AdderSummary } from '@/components/club/Adder';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Squads', robots: { index: false, follow: false } };
@@ -58,8 +58,6 @@ export default async function Squads({ searchParams }: {
   }[];
 
   const label = fieldLabel;
-  const field: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 };
-  const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
   const stages = [...new Set(ages.map((a) => a.stage))];
   // D-154: only the TD brings coaches in, and only the TD sees who holds
   // register access (doc 34 rule 5) — the database decides that, not this
@@ -74,12 +72,14 @@ export default async function Squads({ searchParams }: {
 
   return (
     <ClubConsole active="squads">
-      <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="console cc-page">
         <HeaderMark />
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Squads</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>
-            {c.name} · <b style={{ color: T.ink }}>{squads.length} squads</b>
+        <div className="pg-titles" style={{ gap: 2 }}>
+          <h1 className="pg-title">Squads</h1>
+          {/* P2 (BUZ, 1 Oct): "· 0 squads" is not printed; one is "1 squad"
+              (BUZ, 1 Oct, via Leo). */}
+          <div className="pg-sub" style={{ fontSize: 13.5 }}>
+            {c.name}{squads.length > 0 && <> · <b style={{ color: 'var(--ink)' }}>{`${squads.length} ${squads.length === 1 ? 'squad' : 'squads'}`}</b></>}
           </div>
         </div>
 
@@ -87,117 +87,140 @@ export default async function Squads({ searchParams }: {
           These are the squads families choose from when they register interest, and the groups your register is sorted into. Add the ones you actually run — anything from MiniRoos to under 23s.
         </div>
 
-        {added && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Squad added. Families can register for it now.</div>}
-        {removed && <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary }}>Squad removed.</div>}
-        {inuse && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That squad has players or registrations in it, so it stays. Nobody gets removed from a list because a squad was tidied up.</div>}
-        {error && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give it a name, an age group, who plays in it, and a season.</div>}
+        {added && <div className="cc-said cc-said-ok">Squad added. Families can register for it now.</div>}
+        {removed && <div className="cc-said">Squad removed.</div>}
+        {inuse && <div className="cc-said cc-said-warn">That squad has players or registrations in it, so it stays. Nobody gets removed from a list because a squad was tidied up.</div>}
+        {error && <div className="cc-said cc-said-warn">Give it a name, an age group, who plays in it, and a season.</div>}
 
-        <form action={addSquad} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
-          <div style={{ fontSize: 14, fontWeight: 900 }}>Add a squad</div>
-          <label className="field">
-            <div className="field-label">What you call it</div>
-            <input style={input} name="name" aria-label="What you call it" placeholder="U14 Boys" required />
-          </label>
-          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-            <div className="field" style={{ flex: 1, minWidth: 150 }}>
-              <div className="field-label">Age group</div>
-              <select name="ageGroup" aria-label="Age group" defaultValue="U14">
-                {stages.map((st) => (
-                  <optgroup key={st} label={STAGE_LABEL[st] ?? st}>
-                    {ages.filter((a) => a.stage === st).map((a) => (
-                      <option key={a.code} value={a.code}>{a.label}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-            <div className="field" style={{ flex: 1, minWidth: 130 }}>
-              <div className="field-label">Who plays in it</div>
-              <select name="gender" aria-label="Who plays in it" defaultValue="boys">
-                {GENDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-            <label className="field" style={{ flex: 1, minWidth: 110 }}>
-              <div className="field-label">Season</div>
-              <input style={input} name="season" aria-label="Season" defaultValue="2026" required />
+        {/* "Add a squad" folds behind one chip, and opens by itself when the
+            club has none (F). Its heading is the summary: said once. */}
+        <details className="cc-adder" open={squads.length === 0 || Boolean(error)}>
+          <AdderSummary>Add a squad</AdderSummary>
+          <form action={addSquad} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <label className="field">
+              <div className="field-label">What you call it</div>
+              <input name="name" aria-label="What you call it" placeholder="U14 Boys" required />
             </label>
-          </div>
-          <button type="submit" className="btn btn-primary">Add it</button>
-          <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
-            Your age groups are yours. Boys and girls competitions rarely run the same ones, and they change between seasons and between states — so we don&rsquo;t decide them for you.
-          </div>
-        </form>
-
-        {squads.map((s) => (
-          <div key={s.id} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ minWidth: 0 }}>
-              <a href={`/club/squads/${s.id}`} style={{ fontSize: 15, fontWeight: 800, color: T.ink, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center' }}>{s.name}</a>
-              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
-                {[s.age_group, s.competition_gender, s.season].filter(Boolean).join(' · ')}
-                {/* D-162: a count that is zero is omitted, never printed. This line
-                    said "0 playing" on ten of eleven squads in October, which is
-                    true and reads as a broken page. Each figure shows only when
-                    it has something to say. */}
-                {(s.registrations > 0 || s.players > 0) && (
-                  <> · <span style={{ color: T.secondary }}>{[
-                    s.registrations > 0 ? `${s.registrations} registered` : null,
-                    s.players > 0 ? `${s.players} playing` : null,
-                  ].filter(Boolean).join(' · ')}</span></>
-                )}
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+              <div className="field" style={{ flex: 1, minWidth: 150 }}>
+                <div className="field-label">Age group</div>
+                <select name="ageGroup" aria-label="Age group" defaultValue="U14">
+                  {stages.map((st) => (
+                    <optgroup key={st} label={STAGE_LABEL[st] ?? st}>
+                      {ages.filter((a) => a.stage === st).map((a) => (
+                        <option key={a.code} value={a.code}>{a.label}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
               </div>
+              <div className="field" style={{ flex: 1, minWidth: 130 }}>
+                <div className="field-label">Who plays in it</div>
+                <select name="gender" aria-label="Who plays in it" defaultValue="boys">
+                  {GENDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <label className="field" style={{ flex: 1, minWidth: 110 }}>
+                <div className="field-label">Season</div>
+                <input name="season" aria-label="Season" defaultValue="2026" required />
+              </label>
             </div>
-            <a href={`/club/squads/${s.id}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'flex', alignItems: 'center', flexShrink: 0 }}>Who plays</a>
-            {s.registrations === 0 && s.players === 0 ? (
-              <form action={removeSquad}><input type="hidden" name="squadId" value={s.id} />
-                <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
-              </form>
-            ) : (
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: T.muted, textAlign: 'right', maxWidth: 130 }}>In use — can&rsquo;t be removed</div>
-            )}
+            <button type="submit" className="btn btn-primary btn-auto-wide">Add it</button>
+            <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.55 }}>
+              Your age groups are yours. Boys and girls competitions rarely run the same ones, and they change between seasons and between states — so we don&rsquo;t decide them for you.
+            </div>
+          </form>
+        </details>
+
+        {/* One panel of squad rows; from 768 it is the table, with the two
+            counts in their own columns and a dash for a zero (D-162). */}
+        {squads.length > 0 && (
+          <div className="card rows sq-list">
+            <div className="sq-head" aria-hidden>
+              <div>Squad</div><div>Registered</div><div>Playing</div><div /><div />
+            </div>
+            {squads.map((s) => (
+              <div key={s.id} className="sq-row">
+                <div style={{ minWidth: 0 }}>
+                  <a href={`/club/squads/${s.id}`} className="sq-name">{s.name}</a>
+                  <div className="sq-meta">
+                    {[s.age_group, s.competition_gender, s.season].filter(Boolean).join(' · ')}
+                    {/* D-162: a count that is zero is omitted, never printed. This line
+                        said "0 playing" on ten of eleven squads in October, which is
+                        true and reads as a broken page. Each figure shows only when
+                        it has something to say. */}
+                    {(s.registrations > 0 || s.players > 0) && (
+                      <span className="sq-meta-n"> · <span style={{ color: 'var(--secondary)' }}>{[
+                        s.registrations > 0 ? `${s.registrations} registered` : null,
+                        s.players > 0 ? `${s.players} playing` : null,
+                      ].filter(Boolean).join(' · ')}</span></span>
+                    )}
+                  </div>
+                </div>
+                <div className={s.registrations > 0 ? 'sq-n tnum' : 'sq-n none'} aria-hidden>{s.registrations > 0 ? s.registrations : '—'}</div>
+                <div className={s.players > 0 ? 'sq-n tnum' : 'sq-n none'} aria-hidden>{s.players > 0 ? s.players : '—'}</div>
+                <a href={`/club/squads/${s.id}`} className="sq-who">Who plays</a>
+                <div className="sq-end">
+                  {s.registrations === 0 && s.players === 0 ? (
+                    <form action={removeSquad}><input type="hidden" name="squadId" value={s.id} />
+                      <button type="submit" className="textbtn">Remove</button>
+                    </form>
+                  ) : (
+                    <div className="sq-inuse">In use — can&rsquo;t be removed</div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
 
         {isTd && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-            <h2 style={label}>Coaches who read your register</h2>
+            <h2 className="sec-h">Coaches who read your register</h2>
             <div className="card-sunken" style={{ fontSize: 12.5, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.55 }}>
               Bring in the coach who runs an age group and they can read the registrations for their teams — up to three teams each, and up to ten coaches. They can&rsquo;t invite a family or change anything, and every time they open one it&rsquo;s recorded.
             </div>
-            {coachAsked && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Done. If that&rsquo;s a coach&rsquo;s Pitch account, they&rsquo;ll see your request next time they sign in.</div>}
-            {coachRemoved && <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary }}>They can no longer read your register.</div>}
-            {coachError && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give their Pitch email, pick one to three teams, and confirm you&rsquo;ve checked their Working with Children Check.</div>}
-            {grants.map((g) => (
-              <div key={g.id} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{g.name}</div>
-                  <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{g.teams.join(' · ')} · since {g.since}</div>
-                </div>
-                <form action={revokeCoach}><input type="hidden" name="personId" value={g.id} />
-                  <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
-                </form>
+            {coachAsked && <div className="cc-said cc-said-ok">Done. If that&rsquo;s a coach&rsquo;s Pitch account, they&rsquo;ll see your request next time they sign in.</div>}
+            {coachRemoved && <div className="cc-said">They can no longer read your register.</div>}
+            {coachError && <div className="cc-said cc-said-warn">Give their Pitch email, pick one to three teams, and confirm you&rsquo;ve checked their Working with Children Check.</div>}
+            {grants.length > 0 && (
+              <div className="card rows sq-list">
+                {grants.map((g) => (
+                  <div key={g.id} className="grant-row">
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 800 }}>{g.name}</div>
+                      <div style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500 }}>{g.teams.join(' · ')} · since {g.since}</div>
+                    </div>
+                    <form action={revokeCoach}><input type="hidden" name="personId" value={g.id} />
+                      <button type="submit" className="textbtn">Remove</button>
+                    </form>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
             {squads.length > 0 && (
-              <form action={inviteCoach} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
-                <div style={{ fontSize: 14, fontWeight: 900 }}>Bring in a coach</div>
-                <label className="field">
-                  <div className="field-label">Their Pitch email</div>
-                  <input style={input} name="email" type="email" aria-label="Their Pitch email" required />
-                </label>
-                <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  <legend style={{ ...label, padding: 0, marginBottom: 6 }}>Their teams — up to three</legend>
-                  {squads.map((s) => (
-                    <label key={s.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 44, padding: '0 12px', borderRadius: 999, border: `1px solid ${T.line}`, fontSize: 13, fontWeight: 700, color: T.secondary, cursor: 'pointer' }}>
-                      <input type="checkbox" name="squadIds" value={s.id} aria-label={s.name} /> {s.name}
-                    </label>
-                  ))}
-                </fieldset>
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minHeight: 44, fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5, cursor: 'pointer' }}>
-                  <input type="checkbox" name="wwcc" aria-label="I have checked their Working with Children Check" required style={{ marginTop: 3 }} />
-                  I&rsquo;ve checked their Working with Children Check.
-                </label>
-                <button type="submit" className="btn btn-primary">Bring them in</button>
-              </form>
+              <details className="cc-adder" open={grants.length === 0 || Boolean(coachError)}>
+                <AdderSummary>Bring in a coach</AdderSummary>
+                <form action={inviteCoach} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                  <label className="field">
+                    <div className="field-label">Their Pitch email</div>
+                    <input name="email" type="email" aria-label="Their Pitch email" required />
+                  </label>
+                  <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <legend style={{ ...label, padding: 0, marginBottom: 6 }}>Their teams — up to three</legend>
+                    {squads.map((s) => (
+                      <label key={s.id} className="chip pick">
+                        <input type="checkbox" name="squadIds" value={s.id} aria-label={s.name} /> {s.name}
+                      </label>
+                    ))}
+                  </fieldset>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minHeight: 44, fontSize: 13, fontWeight: 700, color: 'var(--secondary)', lineHeight: 1.5, cursor: 'pointer' }}>
+                    <input type="checkbox" name="wwcc" aria-label="I have checked their Working with Children Check" required style={{ marginTop: 3 }} />
+                    I&rsquo;ve checked their Working with Children Check.
+                  </label>
+                  <button type="submit" className="btn btn-primary btn-auto-wide">Bring them in</button>
+                </form>
+              </details>
             )}
           </div>
         )}

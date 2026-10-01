@@ -20,8 +20,7 @@ import { isUuid } from '@/lib/ids';
 import { assembleCv, cvClubColours, wornColours, type CvData } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import { STAT_LABELS, type StatKey } from '@/lib/football';
-import { T } from '@/lib/palette';
-import { card } from '@/lib/ui';
+import { HeaderMark } from '@/components/Wordmark';
 import { verifyStat } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -83,33 +82,29 @@ export default async function SquadCv({ params }: { params: Promise<{ squadId: s
   const onPage = offered.filter((v) => v.season === '2026' && cv!.surfacedStats.includes(v.stat_key)
     && cv!.stats.some((s) => s.season === v.season && s.key === v.stat_key && s.value === v.value && s.provenance === 'self_reported'));
 
-  return (
+  // A's page header in the CV's own column (F, 1 Oct), then the offers —
+  // stacked on a phone, three across from 768 — then the card. The way back
+  // lands on this player's row of the squad sheet (P1, BUZ 1 Oct).
+  const head = (
     <>
-      <div style={{ display: 'flex', justifyContent: 'center', background: T.bg }}>
-        <div className="reading" style={{ width: '100%', padding: '14px 18px 0 18px', boxSizing: 'border-box' }}>
-          <a href={`/club/squads/${squadId}`} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, gap: 6, textDecoration: 'none', color: T.muted, fontSize: 13, fontWeight: 700 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
-            The squad
-          </a>
-          {onPage.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '6px 0 14px 0' }}>
-              {onPage.map((v) => (
-                <form key={v.stat_id} action={verifyStat} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <input type="hidden" name="squadId" value={squadId} />
-                  <input type="hidden" name="playerId" value={playerId} />
-                  <input type="hidden" name="statId" value={v.stat_id} />
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: T.secondary }}>{STAT_LABELS[v.stat_key]}</span>
-                    <span className="tnum" style={{ fontSize: 15, fontWeight: 900, color: T.ink }}>{v.value}</span>
-                  </div>
-                  <button type="submit" className="btn btn-secondary">{`Verify for ${v.club_name}`}</button>
-                </form>
-              ))}
-            </div>
-          )}
+      <HeaderMark back={{ href: `/club/squads/${squadId}#p-${playerId}`, label: 'The squad' }} />
+      {onPage.length > 0 && (
+        <div className="verify-strip">
+          {onPage.map((v) => (
+            <form key={v.stat_id} action={verifyStat} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input type="hidden" name="squadId" value={squadId} />
+              <input type="hidden" name="playerId" value={playerId} />
+              <input type="hidden" name="statId" value={v.stat_id} />
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--secondary)' }}>{STAT_LABELS[v.stat_key]}</span>
+                <span className="tnum" style={{ fontSize: 15, fontWeight: 900, color: 'var(--ink)' }}>{v.value}</span>
+              </div>
+              <button type="submit" className="btn btn-secondary">{`Verify for ${v.club_name}`}</button>
+            </form>
+          ))}
         </div>
-      </div>
-      <PlayerCV p={cv} {...wornColours(cv)} />
+      )}
     </>
   );
+  return <PlayerCV p={cv} {...wornColours(cv)} head={head} />;
 }

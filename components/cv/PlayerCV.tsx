@@ -153,8 +153,12 @@ const sectionTitle = (text: string) => <h2 className="cv-h2">{text}</h2>;
 // CV_WEARS_CLUB_COLOURS is on, only when the club is verified (the call,
 // D-126), and never on a card (D-89 — opengraph-image does not read
 // them). The read that supplies them belongs to the tech team (lib/record-read).
-export default function PlayerCV({ p, reportRef, clubColours, clubState }: {
-  p: PlayerFixture; reportRef?: string; clubColours?: Partial<ClubColours> | null; clubState?: string;
+// head: what a club-side wrapper puts above the card — A's page header with
+// its way back, and the verify offers (F, 1 Oct). It renders in the CV's own
+// 1200 column under the one nav bar, so the back link's left edge is the
+// card's, at every width. A slot, not a door: PlayerCV adds nothing to it.
+export default function PlayerCV({ p, reportRef, clubColours, clubState, head }: {
+  p: PlayerFixture; reportRef?: string; clubColours?: Partial<ClubColours> | null; clubState?: string; head?: React.ReactNode;
 }) {
   const initials = `${p.firstName[0]}${p.lastName[0] ?? ''}`;
   // The name is sized by its longest word and the card's own width, so a long
@@ -191,7 +195,7 @@ export default function PlayerCV({ p, reportRef, clubColours, clubState }: {
       <SiteNav signIn={false} homeLink={false} />
       {/* A container, so the card lays itself out by the room it is given,
           not by the screen — the site preview puts it in a phone frame. */}
-      <div className="cv-root"><div className="fl-wide cv-grid">
+      <div className="cv-root">{head && <div className="fl-wide cv-head">{head}</div>}<div className="fl-wide cv-grid">
         {/* ---- the player card ------------------------------------------ */}
         <div className="cv-cardcol">
           <section className="cv-hero cv-rise" style={{ background: heroBg, ['--cv-lead' as string]: lead } as React.CSSProperties} aria-labelledby="cv-name">

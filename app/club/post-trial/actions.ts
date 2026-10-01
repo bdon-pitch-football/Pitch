@@ -78,14 +78,18 @@ export async function postTrial(formData: FormData) {
 
   // One statement, so a notice never exists without the age groups that make
   // it findable.
-  await db.query(
+  const made = await db.query(
     `with t as (
        insert into trial_notice (club_id, title, trial_on, time_venue, position_needs, competition_gender, how_to_register, cv_email, source)
        values ($1,$2,$3,$4,$5,$6,$7,$8,'club') returning id)
      insert into trial_notice_age_group (trial_notice_id, age_group)
-     select t.id, a from t, unnest($9::text[]) as a`,
+     select t.id, a from t, unnest($9::text[]) as a
+     returning trial_notice_id`,
     [club.rows[0].id, title, trialOn, timeVenue, positions, gender,
      f('how') || null, f('cv_email') || null, ages],
   );
-  redirect('/club/post-trial?posted=1');
+  // P3 (BUZ, 1 Oct): the confirmation draws the notice as the board will, so
+  // it names which notice. The page reads it back only if it is this club's
+  // own, advertised notice — the id is a pointer, never an authority.
+  redirect(`/club/post-trial?posted=1&trial=${made.rows[0].trial_notice_id}`);
 }

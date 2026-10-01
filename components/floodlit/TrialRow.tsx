@@ -25,9 +25,13 @@ export type TrialRowProps = {
   // (doc 14 M9).
   clubState: 'verified' | 'claimed' | 'unclaimed' | string;
   slug: string | null;
+  // The club's own preview of its notice (/club/post-trial, P3, BUZ 1 Oct):
+  // the row exactly as the board draws it, with the button inert and drawn
+  // secondary, so the confirmation keeps no second primary and no new door.
+  inert?: boolean;
 };
 
-export default function TrialRow({ id, day, mon, title, timeVenue, listed, checked, notice, clubState, slug }: TrialRowProps) {
+export default function TrialRow({ id, day, mon, title, timeVenue, listed, checked, notice, clubState, slug, inert }: TrialRowProps) {
   const verified = clubState === 'verified';
   const onPitch = verified || clubState === 'claimed';
   const label = verified ? 'On Pitch — verified club' : !onPitch ? 'Unclaimed listing · register via club' : null;
@@ -54,7 +58,8 @@ export default function TrialRow({ id, day, mon, title, timeVenue, listed, check
           {/* The solid primary with no glow: the glow is the screen's one
               primary action, never a button inside a list row (Head of
               Product Design ruling 1, 1 Oct), so four rows never compete. */}
-          {slug && (onPitch
+          {slug && inert && <span className="btn btn-secondary" aria-hidden="true">{onPitch ? <>I&rsquo;m interested</> : 'Send my CV'}</span>}
+          {slug && !inert && (onPitch
             ? <Link href={`/fc/${slug}?trial=${id}#play`} className="btn btn-primary">I&rsquo;m interested</Link>
             : <Link href={`/fc/${slug}#play`} className="btn btn-secondary">Send my CV</Link>)}
         </div>

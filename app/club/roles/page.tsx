@@ -8,8 +8,7 @@ import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
 import { ClubConsole } from '@/components/console-shell';
 import { postRole, closeRole, endTdAccess } from './actions';
-import { T } from '@/lib/palette';
-import { card, fieldLabel } from '@/lib/ui';
+import { AdderSummary } from '@/components/club/Adder';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your coaching roles', robots: { index: false, follow: false } };
@@ -76,96 +75,101 @@ export default async function ClubRoles({ searchParams }: {
       { application_id: string; coach_name: string; coach_slug: string | null; message: string | null }[],
   })));
 
-  const label = fieldLabel;
-  const field: React.CSSProperties = { background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 };
-  const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
+  const open = roles.filter((r) => !r.closed_at).length;
 
   return (
     <ClubConsole active="roles">
-      <div className="console" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="console cc-page">
         <HeaderMark />
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Coaching roles</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>{c.name} · <b style={{ color: T.ink }}>{roles.filter((r) => !r.closed_at).length} open</b></div>
+        <div className="pg-titles" style={{ gap: 2 }}>
+          <h1 className="pg-title">Coaching roles</h1>
+          {/* P2 (BUZ, 1 Oct): "· 0 open" is not printed. */}
+          <div className="pg-sub" style={{ fontSize: 13.5 }}>{c.name}{open > 0 && <> · <b style={{ color: 'var(--ink)' }}>{open} open</b></>}</div>
         </div>
 
-        {saved && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Posted. It&rsquo;s on the board now.</div>}
-        {closed && <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary }}>Closed. Coaches who put their name forward are still listed below.</div>}
-        {error && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Give the role a title.</div>}
+        {saved && <div className="cc-said cc-said-ok">Posted. It&rsquo;s on the board now.</div>}
+        {closed && <div className="cc-said">Closed. Coaches who put their name forward are still listed below.</div>}
+        {error && <div className="cc-said cc-said-warn">Give the role a title.</div>}
         {/* BUZ's words, approved 29 Sep (docs/team/APPROVALS-28-SEP.md). */}
         {endedTd?.name && (
-          <div style={{ ...card, fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.5 }}>
+          <div className="cc-said">
             {endedTd.name} no longer sees the register, the squads or any player&rsquo;s record. To name a new Technical Director, ring Pitch.
           </div>
         )}
 
-        <form action={postRole} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
-          <div style={{ fontSize: 14, fontWeight: 900 }}>Post a role</div>
-          <label className="field">
-            <div className="field-label">Role</div>
-            <input style={input} name="title" aria-label="Role" placeholder="Head Coach — U14 Boys" required maxLength={80} />
-          </label>
-          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-            <div className="field" style={{ flex: 1, minWidth: 150 }}>
-              <div className="field-label">Age group</div>
-              <select name="ageGroup" aria-label="Age group" defaultValue="">
-                <option value="">Not specific</option>
-                {stages.map((st) => (
-                  <optgroup key={st} label={STAGE_LABEL[st] ?? st}>
-                    {ages.filter((a) => a.stage === st).map((a) => <option key={a.code} value={a.code}>{a.label}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+        {/* "Post a role" folds behind one chip, and opens by itself when the
+            club has no roles (F). Its heading is the summary: said once. */}
+        <details className="cc-adder" open={roles.length === 0 || Boolean(error)}>
+          <AdderSummary>Post a role</AdderSummary>
+          <form action={postRole} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <label className="field">
+              <div className="field-label">Role</div>
+              <input name="title" aria-label="Role" placeholder="Head Coach — U14 Boys" required maxLength={80} />
+            </label>
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+              <div className="field" style={{ flex: 1, minWidth: 150 }}>
+                <div className="field-label">Age group</div>
+                <select name="ageGroup" aria-label="Age group" defaultValue="">
+                  <option value="">Not specific</option>
+                  {stages.map((st) => (
+                    <optgroup key={st} label={STAGE_LABEL[st] ?? st}>
+                      {ages.filter((a) => a.stage === st).map((a) => <option key={a.code} value={a.code}>{a.label}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+              <label className="field" style={{ flex: 1, minWidth: 150 }}>
+                <div className="field-label">Commitment</div>
+                <input name="commitment" aria-label="Commitment" placeholder="Tue & Thu, 6–7:30pm" maxLength={120} />
+              </label>
+              <label className="field" style={{ flex: 1, minWidth: 130 }}>
+                <div className="field-label">Closes</div>
+                <input name="closesOn" aria-label="Closes" type="date" />
+              </label>
             </div>
-            <label className="field" style={{ flex: 1, minWidth: 150 }}>
-              <div className="field-label">Commitment</div>
-              <input style={input} name="commitment" aria-label="Commitment" placeholder="Tue & Thu, 6–7:30pm" maxLength={120} />
+            <label className="field">
+              <div className="field-label">About the role</div>
+              <textarea name="detail" aria-label="About the role" rows={4} maxLength={1500} placeholder="What the squad is, what you're after, and what the club offers." />
             </label>
-            <label className="field" style={{ flex: 1, minWidth: 130 }}>
-              <div className="field-label">Closes</div>
-              <input style={input} name="closesOn" aria-label="Closes" type="date" />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, minHeight: 44, fontSize: 13.5, fontWeight: 700, color: 'var(--secondary)', cursor: 'pointer' }}>
+              <input type="checkbox" name="paid" aria-label="Paid role" style={{ width: 18, height: 18, accentColor: 'var(--accent)' }} />
+              This role is paid
             </label>
-          </div>
-          <label className="field">
-            <div className="field-label">About the role</div>
-            <textarea name="detail" aria-label="About the role" rows={4} maxLength={1500} placeholder="What the squad is, what you're after, and what the club offers."
-              style={{ ...input, resize: 'vertical', lineHeight: 1.5, fontWeight: 500, fontSize: 14 }} />
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 9, minHeight: 44, fontSize: 13.5, fontWeight: 700, color: T.secondary, cursor: 'pointer' }}>
-            <input type="checkbox" name="paid" aria-label="Paid role" style={{ width: 18, height: 18, accentColor: T.accent }} />
-            This role is paid
-          </label>
-          <button type="submit" className="btn btn-primary">Post it</button>
-        </form>
+            <button type="submit" className="btn btn-primary btn-auto-wide">Post it</button>
+          </form>
+        </details>
 
+        {/* One panel per role, drawn as the jobs board draws a role: the
+            title, the Paid/Volunteer pill (neutral, E) and the line. */}
         {withApplicants.map(({ role: r, applicants }) => (
-          <div key={r.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11, opacity: r.closed_at ? 0.65 : 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 15.5, fontWeight: 900 }}>{r.title}</div>
-                <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>
+          <div key={r.id} className={r.closed_at ? 'card jr closed' : 'card jr'}>
+            <div className="jr-top">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+                <div className="jr-t">{r.title}</div>
+                <span className="pill" style={{ alignSelf: 'flex-start' }}>{r.paid ? 'Paid' : 'Volunteer'}</span>
+                <div className="jr-l">
                   {[r.age_group, r.commitment, r.paid ? 'Paid' : 'Volunteer'].filter(Boolean).join(' · ')}
                   {r.closed_at && ' · closed'}
                 </div>
               </div>
               {!r.closed_at && (
                 <form action={closeRole}><input type="hidden" name="roleId" value={r.id} />
-                  <button type="submit" style={{ height: 44, borderRadius: 11, border: `1px solid ${T.line}`, background: 'transparent', color: T.muted, fontSize: 12.5, fontWeight: 700, padding: '0 13px', cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+                  <button type="submit" className="console-btn">Close</button>
                 </form>
               )}
             </div>
 
             {applicants.length === 0 ? (
-              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>Nobody yet.</div>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500 }}>Nobody yet.</div>
             ) : applicants.map((a) => (
-              <div key={a.application_id} style={{ background: T.surface2, borderRadius: 12, padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div key={a.application_id} className="jr-app">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                   <div style={{ fontSize: 14, fontWeight: 800 }}>{a.coach_name}</div>
                   {a.coach_slug && (
-                    <Link href={`/c/${a.coach_slug}`} style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none' }}>Their coaching CV</Link>
+                    <Link href={`/c/${a.coach_slug}`} style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--accent)', textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Their coaching CV</Link>
                   )}
                 </div>
-                {a.message && <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{a.message}</div>}
+                {a.message && <div style={{ fontSize: 13, color: 'var(--secondary)', fontWeight: 500, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{a.message}</div>}
               </div>
             ))}
           </div>
@@ -175,15 +179,15 @@ export default async function ClubRoles({ searchParams }: {
           You get each coach&rsquo;s CV and what they wrote. You do not get a phone number or an email unless they chose to put one in their message.
         </div>
         {liveTd?.name && (
-          <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             <div>
-              <div style={fieldLabel}>Technical Director</div>
+              <div className="panel-h">Technical Director</div>
               <div style={{ fontSize: 15.5, fontWeight: 900 }}>{liveTd.name}</div>
             </div>
             <form action={endTdAccess} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               <label className="field">
                 <div className="field-label">Why</div>
-                <input style={input} name="reason" aria-label="Why" required minLength={3} maxLength={500} />
+                <input name="reason" aria-label="Why" required minLength={3} maxLength={500} />
               </label>
               <button type="submit" className="btn btn-secondary">End their access</button>
             </form>
