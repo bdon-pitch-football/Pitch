@@ -10913,5 +10913,170 @@ const componentFilesAll = [];
       && cardAct.indexOf("if (band === '18plus') redirect('/home');") < cardAct.indexOf('insert into share_card_approval'), true);
 }
 
+// ---------------------------------------------------------------------------
+// DOC 15 v1.3 (BUZ, 1 Oct: "Yes to both, hand to Leo"): §34's last paragraph,
+// and §39 — "Your club is verified", to the person verified on the call.
+//
+// John's four tests are the ve-* checks marked JOHN below: §39's recipient is
+// never the club's published address; its body carries no digit but the date;
+// no guardian or player receives it; it sends on no result but `verified`.
+// None of these is a doc 14 row, so no label claims one (L4). Who receives it
+// is fn_verified_call_recipient (0166); the action sends to what that says.
+// ---------------------------------------------------------------------------
+{
+  const doc15 = srcOf('docs/15-Message-Copy.md');
+  const support = /SUPPORT_EMAIL = '([^']+)'/.exec(srcOf('lib/support.ts'))?.[1];
+  // Doc 15's own example, with its markup taken off: the quote marks, the
+  // bold and the code ticks. What is left is the words a person receives.
+  const sec = (n) => doc15.split(new RegExp(`\\n## ${n} · `))[1]?.split('\n## ')[0] ?? '';
+  const docBody = (n) => sec(n).split('\n').filter((l) => l.startsWith('>')).map((l) => l.replace(/^> ?/, '')).join('\n')
+    .replaceAll('**', '').replaceAll('`', '');
+  const docSubject = (n) => /\*\*Subject:\*\* `([^`]+)`/.exec(sec(n))?.[1];
+  // The template, with doc 15's example values put where its placeholders are.
+  const tpl = (key, values) => {
+    const block = msgSrc.split(`key: '${key}',`)[1]?.split('\n});')[0] ?? '';
+    const fill = (s) => Object.entries({ ...values, HELP: support }).reduce((t, [k, v]) => t.replaceAll('${' + k + '}', v), s ?? '');
+    return { subject: fill(/subject: `([^`]*)`/.exec(block)?.[1]), body: fill(/body:\n`([\s\S]*?)`,?\s*$/.exec(block)?.[1]) };
+  };
+
+  const s34 = tpl('doc15.§34', { clubName: 'Riverside FC', code: '4F92 6B' });
+  check('ve-§34: the claim-code email is doc 15 v1.3 §34 byte for byte, its markup aside — subject and body',
+    [s34.subject, s34.body], [docSubject(34), docBody(34)]);
+  check('ve-§34b: and its last paragraph is the corrected one: no trial notices before verification, and we ring the club on a number we find',
+    s34.body.includes('Claiming the page lets you edit it. It does not give you anything about any player under 18, and it does not let you post trial notices yet. For both, we ring the club first, on a number we find ourselves.')
+      && !/we'll ring you\.|edit it and post trial notices/.test(s34.body), true);
+  const s39 = tpl('doc15.§39', { clubName: 'Riverside FC', date: '1 October 2026' });
+  check('ve-§39: "Your club is verified" is doc 15 v1.3 §39 byte for byte, its markup aside — subject and body',
+    [s39.subject, s39.body, /\$\{/.test(s39.subject + s39.body)], [docSubject(39), docBody(39), false]);
+  check('ve-§39b: it is approved copy — in the catalogue, not a draft, not held',
+    [/CATALOGUE_KEYS = \[[\s\S]*?'doc15\.§39'/.test(msgSrc), /DRAFT_KEYS[^\n]*'doc15\.§39'|HELD_KEYS = \[[^\]]*'doc15\.§39'/.test(msgSrc)], [true, false]);
+  // JOHN 2. The words carry no number at all; the one the reader sees is the
+  // date the template is handed. Interpolates the club, the date and the
+  // support address, and nothing else — so no count can be passed in either.
+  const raw39 = msgSrc.split("key: 'doc15.§39',")[1].split('\n});')[0];
+  check('ve-digits: JOHN — §39 carries no digit but the date: none in its words, and it interpolates only the club, the date and the support address',
+    [/\d/.test(s39.body.replace('1 October 2026', '') + s39.subject),
+     [...raw39.matchAll(/\$\{([^}]+)\}/g)].map((m) => m[1]).filter((v) => !['clubName', 'date', 'HELP'].includes(v))],
+    [false, []]);
+
+  // ---- the recipient, in the database ----
+  const adult = async (first, email, { proved = true, dob = yearsAgo(40) } = {}) => {
+    const id = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob, email) values ($1,$2,$3,$4)`, [id, first, dob, email]);
+    if (proved) await proveAddress(id);
+    return id;
+  };
+  const club = async (name, contact) => (await db.query(
+    `insert into club (name, club_state, contact_email) values ($1,'claimed',$2) returning id`, [name, contact])).rows[0].id;
+  const admin = (person, c) => db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'club_admin')`, [person, c]);
+  const call = async (c, outcome, personConfirmed = true) => {
+    const id = (await db.query(
+      `insert into verification_call (club_id, called_at, operator, number_called, number_source, person_confirmed, outcome, policy_version)
+       values ($1, now(), 'BUZ', '03 9000 0039', 'FV club directory', $2, $3, '27@v1.0') returning id`,
+      [c, personConfirmed, outcome])).rows[0].id;
+    if (outcome === 'verified') await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [id, c]);
+    return id;
+  };
+  const to = async (callId) => (await db.query(
+    'select person_id, email, club_name from fn_verified_call_recipient($1)', [callId])).rows.map((r) => [r.person_id, r.email, r.club_name]);
+
+  // A club with families on it: a child registered by her guardian, held
+  // while the club is claimed; an adult player and a 16–17 player in its
+  // squad. The administrator who claimed the page is the person on the call.
+  const vClub = await club('Verifiable FC', 'Football@Verifiable.example.au');
+  const vera = await adult('Vera', 'vera.ve@example.com');
+  await admin(vera, vClub);
+  const kid = crypto.randomUUID(), teen = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Kit',$2)`, [kid, yearsAgo(13)]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, kid]);
+  const grown = await adult('Grown', 'grown.ve@example.com', { dob: yearsAgo(22) });
+  await db.query(`insert into person (id, first_name, dob, email) values ($1,'Teen',$2,'teen.ve@example.com')`, [teen, yearsAgo(17)]);
+  await proveAddress(teen);
+  const vSquad = crypto.randomUUID();
+  await db.query(`insert into squad (id, club_id, name, season) values ($1,$2,'Seniors','2026')`, [vSquad, vClub]);
+  for (const p of [grown, teen]) await mem(p, vClub, vSquad, 'player');
+  await db.query(`insert into registration (player_id, club_id, disclosed_by, policy_version) values ($1,$2,$3,'20@v2.4')`, [kid, vClub, ID.guardian]);
+  const families = new Set([ID.guardian, kid, grown, teen]);
+
+  const v1 = await call(vClub, 'verified');
+  const first = await to(v1);
+  check('ve-to: a verified call answers with the person the club named — its administrator, at their own address, with the club’s name',
+    first, [[vera, 'vera.ve@example.com', 'Verifiable FC']]);
+  // JOHN 3, positive control above: the answer is non-empty, so "nobody from
+  // the families" is not true merely because nobody is returned.
+  check('ve-family: JOHN — no guardian or player receives it: the club’s guardian, child, adult player and 16–17 player are not in the answer',
+    first.some(([p]) => families.has(p)), false);
+  check('ve-family-b: and the function reads no family at all — no guardianship, no registration, no player membership',
+    /guardianship_link|registration|'player'/.test(await procSrc('fn_verified_call_recipient')), false);
+
+  // JOHN 4. Every other result answers nobody, and the order matters: a
+  // suspended or taken-down call is asked while the club is still verified,
+  // so the empty answer is about the RESULT, not the club's state.
+  const susp = await call(vClub, 'suspended'), down = await call(vClub, 'takedown');
+  check('ve-outcome: JOHN — it does not send on any result but verified: a suspended call and a takedown answer nobody, while the verified call still answers',
+    [await to(susp), await to(down), (await to(v1)).length], [[], [], 1]);
+  const failed = await call(vClub, 'not_verified');
+  check('ve-outcome-b: JOHN — nor a call recorded "not verified" — and that call ends the verification (0150), so the earlier call answers nobody now either',
+    [await to(failed), await to(v1)], [[], []]);
+  const notNamed = await call(vClub, 'verified', false);
+  check('ve-named: a verified call on which the club did NOT name the claimant answers nobody — nobody was verified on it',
+    await to(notNamed), []);
+  const v2 = await call(vClub, 'verified');
+  check('ve-once: once per verification — the new verified call answers again, and the calls before it answer nobody',
+    [await to(v2), await to(v1), await to(notNamed)], [[[vera, 'vera.ve@example.com', 'Verifiable FC']], [], []]);
+
+  // JOHN 1. The club's published address is never the recipient, even when
+  // the claimant's account IS that address — compared as 0060 compares it,
+  // case and spaces aside. The positive control is the same club with its
+  // address one letter different.
+  const mClub = await club('Mailbox Rovers', 'secretary@mailboxrovers.example.au');
+  const sec1 = await adult('Sec', 'secretary.ve@mailboxrovers.example.au');
+  await admin(sec1, mClub);
+  const m1 = await call(mClub, 'verified');
+  const before = (await to(m1)).length;
+  await db.query(`update club set contact_email = ' SECRETARY.ve@MailboxRovers.example.au ' where id = $1`, [mClub]);
+  check('ve-mailbox: JOHN — §39 never goes to the club’s published address: an administrator whose account is that address receives nothing',
+    [before, await to(m1)], [1, []]);
+
+  // The rest of "nobody": an address nobody proved (L21), a minor, two
+  // administrators (the call confirmed one name), and an administrator whose
+  // seat has ended — none of them falls through to anyone else.
+  const uClub = await club('Unproved Athletic', 'football@unproved.example.au');
+  await admin(await adult('Una', 'una.ve@example.com', { proved: false }), uClub);
+  const twoClub = await club('Two Chairs SC', 'football@twochairs.example.au');
+  await admin(await adult('Ann', 'ann.ve@example.com'), twoClub);
+  await admin(await adult('Bea', 'bea.ve@example.com'), twoClub);
+  let minorTo = [];
+  const kClub = await club('Young Hands FC', 'football@younghands.example.au');
+  try {
+    await admin(await adult('Kim', 'kim.ve@example.com', { dob: yearsAgo(17) }), kClub);
+    minorTo = await to(await call(kClub, 'verified'));
+  } catch { minorTo = []; }
+  check('ve-nobody: an unproved address, a minor and a club with two administrators each answer nobody',
+    [await to(await call(uClub, 'verified')), minorTo, await to(await call(twoClub, 'verified'))], [[], [], []]);
+  await db.query(`update membership set ended_at = now() where person_id = $1 and club_id = $2`, [vera, vClub]);
+  check('ve-nobody-b: and when the administrator’s seat has ended, the call answers nobody — not the club’s families, not anyone',
+    await to(v2), []);
+
+  // ---- the action ----
+  const act = codeOnly(srcOf('app/ops/call/[clubId]/actions.ts'));
+  check('ve-action: the call sheet sends §39 only for a verified call, to whoever the database names for THIS call, and to no other address',
+    [/if \(outcome === 'verified'\) \{\s*const \{ rows: to \} = await db\.query\(\s*`select \* from fn_verified_call_recipient\(\$1\)`, \[callId\]\);/.test(act),
+     /send\(clubVerifiedEmail\(r\.club_name, date\), \{ address: r\.email, personId: r\.person_id \}\)/.test(act),
+     /contact_email/.test(act), (act.match(/clubVerifiedEmail\(/g) ?? []).length],
+    [true, true, false, 1]);
+  check('ve-action-b: after the transaction, not while holding the client (L1)',
+    act.indexOf('client.release()') > -1 && act.indexOf('client.release()') < act.indexOf('fn_verified_call_recipient'), true);
+  check('ve-action-c: and the date is the call’s own day in Melbourne, written as doc 15 writes it',
+    /toLocaleDateString\('en-AU',\s*\{ day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia\/Melbourne' \}\)/.test(act), true);
+  // John: the close of doc 27 may promise the email only once §39 is built and
+  // sending, "and not before". The two travel together; this fails if either
+  // moves without the other.
+  const doc27 = srcOf('docs/27-Verification-Call.md');
+  check('ve-doc27: doc 27’s close promises the email, and that promise is kept — §39 is approved copy and the call sheet sends it',
+    [/I'll switch it on today and you'll get an email confirming it\./.test(doc27),
+     /CATALOGUE_KEYS = \[[\s\S]*?'doc15\.§39'/.test(msgSrc), /clubVerifiedEmail\(/.test(act)], [true, true, true]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

@@ -764,7 +764,7 @@ The claim address is one already published by the club. The code proves the read
 >
 > It works once and expires in 30 minutes. We'll never ring you for this code.
 >
-> Claiming the page lets you edit it and post trial notices. **It does not give you anything about any player under 18.** For that we need to speak to someone at the club first — we'll ring you.
+> Claiming the page lets you edit it. **It does not give you anything about any player under 18,** and it does not let you post trial notices yet. For both, we ring the club first, on a number we find ourselves.
 >
 > If this wasn't you, ignore it. Nothing changes and nobody gets access.
 >
@@ -882,7 +882,7 @@ Sent when a composed-but-unsent send request reaches fourteen days and lapses.
 
 ## 36 · A CV was sent — to the other guardian (U-2)
 
-Sent immediately when one approved guardian sends a child's CV and a second approved guardian exists. Carries the twenty-four-hour undo.
+Sent immediately when one approved guardian sends a child's CV and a second approved guardian exists. Carries the undo, which lives as long as the link it switches off (U-2 as amended, BUZ 1 Oct: it used to be twenty-four hours).
 
 **John's boundary, and it must be said plainly:** the undo revokes the link. It does not un-send the email. *"We can stop a club opening the page. We cannot make them forget the message arrived, and a product that implies otherwise is lying to a frightened parent."*
 
@@ -944,4 +944,25 @@ Sent when an operator uses the emergency switch that revokes every live share li
 
 **Never:** a child's name, a club, a count, or a promise we cannot keep ("your data is safe").
 
-*v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep. §1b and §2b added the same day (D-155 as amended). §12 rewritten the same day on BUZ's approval, so it promises nothing Stage 2 delivers.*
+
+## 39 · Your club is verified — to the person verified on the call (BUZ, 1 Oct)
+
+Sent once, when an operator logs a call as **verified** (doc 27). **To:** the person whose authority was confirmed on that call, at their own account email. **Never** to the club's published address: that address is held only to send the claim code (§34, D-172), and anyone at the club may read it.
+
+**Why it exists (John, 1 Oct):** the close of the verification call promises a confirming email, and until this message existed nothing sent one. A club that has just answered the authority question is owed the confirmation, and it is the moment a Technical Director learns the register is open. **Doc 27's close may promise this email only once this message is built and sending.**
+
+**Subject:** `Riverside FC is verified on Pitch`
+
+> We spoke to **Riverside FC** on **1 October 2026**, and the club is now verified on Pitch. Any registrations held for the club are now on the register for the club's Technical Director to read, and the club can post trial notices.
+>
+> If anything changes — you leave the club, or someone else takes the role — email burak.donmez@pitch-football.com and we'll turn it off the same day.
+>
+> — Pitch
+
+**"Now on the register" is true:** doc 14 M5 makes every held registration readable in the same transaction as verification. **"Any"** is deliberate: a club may have none, and this email never implies a number either way. **"The club's Technical Director"**, not "your": the reader may be an administrator, and an administrator reads nothing about a child (D-93).
+
+**Never:** a count, a child, a player's name, anything about any registration, or the phrase *verified club* used as a badge. And never a copy to any family: a family is never told a club was unverified (doc 14 M9).
+
+---
+
+*v1.3 · 1 Oct 2026 · §34's last paragraph corrected (no trial notices before verification, D-90 as amended; the call goes to a number we find ourselves, doc 27), §36's undo window updated (U-2 as amended) and §39 added, on BUZ's call from John's ruling of 1 Oct. Built on the app's copy, which was newer than the root. v1.2 · 17 Sep 2026 · §10a and §38 added on BUZ's call, from John's rulings of 17 Sep. §1b and §2b added the same day (D-155 as amended). §12 rewritten the same day on BUZ's approval, so it promises nothing Stage 2 delivers.*

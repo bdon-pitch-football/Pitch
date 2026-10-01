@@ -12,6 +12,11 @@
 //     version in the root register — a published version is immutable (doc
 //     00), so changed words under the same number are refused too;
 //   · and the consent identifiers line may never name an older version.
+// And doc 15 (John, 1 Oct), the other document the code must match, which
+// lives outside docs/legal/: the root's `15-Message-Copy.md` against the app's
+// `docs/15-Message-Copy.md`, by the version in each one's footer, under the
+// same two rules — never older, and never different words under the same
+// version. Its root copy sits beside the root `legal/` folder.
 // Exit 0 means the sync may go ahead; anything else names each file and why.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -56,10 +61,27 @@ for (const f of readdirSync(ROOT)) {
   if (r && a && cmp(r, a) <= 0) problems.push(`${f}: its text differs from the app's under the same version (${show(r)}) — either the root copy is behind (bring the app's copy down first) or its words changed without a new version`);
 }
 
+// Doc 15. Its version is the newest `*vX.Y` that opens a footer line (v1.1's
+// note and v1.2's footer stay in the file as history). A root copy that does
+// not exist is a problem, not a pass: the check would otherwise say "may go
+// ahead" about a file it never read.
+const DOC15_APP = fileURLToPath(new URL('../docs/15-Message-Copy.md', import.meta.url));
+const DOC15_ROOT = join(ROOT, '..', '15-Message-Copy.md');
+const doc15Version = (text) => [...text.matchAll(/^\*v(\d+)\.(\d+)\b/gm)]
+  .map((m) => [Number(m[1]), Number(m[2])]).sort(cmp).pop();
+if (!existsSync(DOC15_ROOT)) problems.push(`15-Message-Copy.md: no root copy at ${DOC15_ROOT}`);
+else {
+  const rootText = readFileSync(DOC15_ROOT, 'utf8'), appText = readFileSync(DOC15_APP, 'utf8');
+  const r = doc15Version(rootText), a = doc15Version(appText);
+  if (!r || !a) problems.push(`15-Message-Copy.md: no version footer in the ${!r ? 'root' : 'app'} copy`);
+  else if (cmp(r, a) < 0) problems.push(`15-Message-Copy.md: the root copy says ${show(r)}, older than the app's ${show(a)}`);
+  else if (rootText !== appText && cmp(r, a) === 0) problems.push(`15-Message-Copy.md: its text differs from the app's under the same version (${show(r)}) — either the root copy is behind (bring the app's copy down first) or its words changed without a new version`);
+}
+
 if (problems.length === 0) {
-  console.log(`legal sync check · ${rootV.size} register rows and every shared file compared · the root is not behind the app: the sync may go ahead`);
+  console.log(`legal sync check · ${rootV.size} register rows, every shared file and doc 15 compared · the root is not behind the app: the sync may go ahead`);
   process.exit(0);
 }
-console.log(`legal sync check · REFUSED — ${problems.length} problem${problems.length === 1 ? '' : 's'}. Do not copy anything into repo/docs/legal:`);
+console.log(`legal sync check · REFUSED — ${problems.length} problem${problems.length === 1 ? '' : 's'}. Do not copy anything into repo/docs/legal or repo/docs/15-Message-Copy.md:`);
 for (const p of problems) console.log(`  ✗ ${p}`);
 process.exit(1);

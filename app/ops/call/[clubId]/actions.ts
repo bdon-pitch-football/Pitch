@@ -38,10 +38,16 @@
 // told, and sends to exactly that list (L23). It never revokes a link — the
 // family made the disclosure and the family unmakes it, which is the whole of
 // John's M11/L29.
+//
+// AND A VERIFIED CALL CONFIRMS IT TO THE PERSON IT VERIFIED (doc 15 §39, BUZ
+// 1 Oct; 0166). Doc 27's close promises "you'll get an email confirming it".
+// Who gets it is the database's answer, fn_verified_call_recipient, asked
+// about THIS call: never the club's published address, never a family. Sent
+// after the transaction, like §37.
 import { randomBytes, createHash } from 'node:crypto';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { clubDeverifiedEmail } from '@/lib/messages';
+import { clubDeverifiedEmail, clubVerifiedEmail } from '@/lib/messages';
 import { send } from '@/lib/messaging';
 import { requireOperator } from '@/lib/ops-guard';
 import { isUuid } from '@/lib/ids';
@@ -85,6 +91,9 @@ export async function logCall(formData: FormData) {
   if (!answered('club_confirmed') || !answered('person_confirmed')) {
     redirect(isUuid(clubId) ? `/ops/call/${clubId}` : '/ops/verification');
   }
+  // The call this press wrote, for §39 below, which asks about this call and
+  // no other.
+  let callId = '';
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -101,6 +110,7 @@ export async function logCall(formData: FormData) {
        outcome, f('notes') || null,
        tdRecorded ? tdName : null, tdRecorded ? tdEmail : null, suspensionClass],
     );
+    callId = call.rows[0].id;
     if (outcome === 'verified') {
       // The class of the last suspension goes with it. Left behind, it is a
       // stale answer to "why is this club down" sitting on a club that is up
@@ -152,6 +162,21 @@ export async function logCall(formData: FormData) {
         clubDeverifiedEmail(g.club_name, g.child_first_name, undoRaw),
         { address: g.guardian_email, personId: g.guardian_id },
       );
+    }
+  }
+
+  // §39, once for this verified call. The database answers who (0166): the
+  // administrator the club named on the call, at their own proved address,
+  // and nobody when anything about that is not true — including the club's
+  // published address, which is held for the claim code alone (D-172). The
+  // date is the call's day in Melbourne, as doc 15 writes it.
+  if (outcome === 'verified') {
+    const { rows: to } = await db.query(
+      `select * from fn_verified_call_recipient($1)`, [callId]);
+    for (const r of to as { person_id: string; email: string; club_name: string; called_at: string }[]) {
+      const date = new Date(r.called_at).toLocaleDateString('en-AU',
+        { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Melbourne' });
+      await send(clubVerifiedEmail(r.club_name, date), { address: r.email, personId: r.person_id });
     }
   }
   redirect('/ops/verification');

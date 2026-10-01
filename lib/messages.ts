@@ -514,6 +514,11 @@ If it wasn't: change your password — that signs out everywhere, on every devic
 
 // §34 · Your code to claim a club page. Never the number of registrations
 // held, never the phrase "verified club", never a link that signs them in.
+// v1.3 (BUZ, 1 Oct): the last paragraph no longer offers trial notices before
+// verification (D-90 as amended), and no longer says "we'll ring you" — that
+// taught a claimant to send us the one number doc 27 must never ring. Doc 15
+// bolds the child sentence; this is a plain-text email, so, like §2 and §31,
+// the bold is in the doc and the words are here.
 export const clubClaimCodeEmail = (clubName: string, code: string): Composed => ({
   key: 'doc15.§34',
   channel: 'email',
@@ -525,11 +530,30 @@ ${code}
 
 It works once and expires in 30 minutes. We'll never ring you for this code.
 
-Claiming the page lets you edit it and post trial notices. It does not give you anything about any player under 18. For that we need to speak to someone at the club first — we'll ring you.
+Claiming the page lets you edit it. It does not give you anything about any player under 18, and it does not let you post trial notices yet. For both, we ring the club first, on a number we find ourselves.
 
 If this wasn't you, ignore it. Nothing changes and nobody gets access.
 
 — Pitch · ${HELP}`,
+});
+
+// §39 · Your club is verified — to the person verified on the call (BUZ,
+// 1 Oct; John's ruling). The close of doc 27 promises it. Who receives it is
+// the database's answer (fn_verified_call_recipient, 0166), never the club's
+// published address. Never a count, a child, a player's name or anything
+// about a registration: "Any" is deliberate, and so is "the club's Technical
+// Director" — the reader may be an administrator, who reads nothing (D-93).
+// `date` is the call's day in Melbourne, as doc 15 writes it: "1 October 2026".
+export const clubVerifiedEmail = (clubName: string, date: string): Composed => ({
+  key: 'doc15.§39',
+  channel: 'email',
+  subject: `${clubName} is verified on Pitch`,
+  body:
+`We spoke to ${clubName} on ${date}, and the club is now verified on Pitch. Any registrations held for the club are now on the register for the club's Technical Director to read, and the club can post trial notices.
+
+If anything changes — you leave the club, or someone else takes the role — email ${HELP} and we'll turn it off the same day.
+
+— Pitch`,
 });
 
 // §10 · Password reset. Identical response whether or not the address exists;
@@ -815,7 +839,7 @@ export const CATALOGUE_KEYS = [
   'doc15.§1', 'doc15.§2', 'doc15.§1b', 'doc15.§2b', 'doc15.§3', 'doc15.§10', 'doc15.§10a', 'doc15.§10b', 'doc15.§13', 'doc15.§14',
   'doc15.§15.stop', 'doc15.§15.help', 'doc15.§16', 'doc15.§19', 'doc15.§20',
   'doc15.§6', 'doc15.§21', 'doc15.§22', 'doc15.§31', 'doc15.§32', 'doc15.§35', 'doc15.§36', 'doc15.§37', 'doc15.§24.sms', 'doc15.§24.email', 'doc15.§29', 'doc15.§30',
-  'doc15.§33', 'doc15.§34', 'doc15.§27', 'doc15.§28', 'doc15.§38',
+  'doc15.§33', 'doc15.§34', 'doc15.§39', 'doc15.§27', 'doc15.§28', 'doc15.§38',
   'doc15.§5', 'doc15.§23', 'doc15.§7', 'doc15.§8', 'doc15.§18', 'doc15.§17', 'doc15.§12',
 ] as const;
 
