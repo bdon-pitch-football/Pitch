@@ -20,6 +20,7 @@ const LEGAL_CSS = `
         .legal-doc hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
         .legal-doc table { display: block; overflow-x: auto; }
         .legal-doc th, .legal-doc td { min-width: 150px; }
+        .legal-doc a.cell-link { display: inline-flex; align-items: center; min-height: 44px; }
 `;
 // The last rule (brief G, 29 Sep): at 375px a four-column table squeezed its
 // cells to 73–117px and a sentence ran eight lines deep, one or two words to
@@ -27,10 +28,16 @@ const LEGAL_CSS = `
 // own box (the rule above it), which a phone does naturally. The layout
 // check's squeeze rule found these; the page itself is otherwise unchanged.
 
+// A link that is the whole of a table cell (the contact table's email) is a
+// control, not a word in a sentence, so it gets a 44px box (layout check, 1 Oct).
+// Only a class is added; the text is untouched.
+const cellLinks = (html: string) =>
+  html.replace(/<td>((?:<strong>)?)<a ([^>]*>[^<]*<\/a>(?:<\/strong>)?<\/td>)/g, '<td>$1<a class="cell-link" $2');
+
 // A document rendered inside another page (doc 32 B3: doc 21 is SHOWN in the
 // approval flow, not merely linked). Same source, same renderer, same styles.
 export function LegalBody({ file }: { file: string }) {
-  const html = marked.parse(legalDocument(file).markdown, { async: false });
+  const html = cellLinks(marked.parse(legalDocument(file).markdown, { async: false }));
   return (
     <>
       <div className="legal-doc" style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: html }} />
@@ -40,7 +47,7 @@ export function LegalBody({ file }: { file: string }) {
 }
 
 export function renderLegal(file: string) {
-  const html = marked.parse(legalDocument(file).markdown, { async: false });
+  const html = cellLinks(marked.parse(legalDocument(file).markdown, { async: false }));
 
   return (
     <QuietShell wide>

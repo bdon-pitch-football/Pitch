@@ -194,3 +194,14 @@ Production opened with no club listings, so a club person had nothing to claim a
 - Also recorded today: BUZ's go on the PD-3 deletion ("Go on the Not now deletion, hand to Leo") and its label "No, end this request"; the six copy fixes ("Yes to all, hand to Leo"); spec K emails ("Yes to all four, hand to Leo").
 - **Demo script (docs/DEMO-TD.md, the unclaimed story), BUZ: "approve the demo line":** "Claiming gets you the page and your squads. It cannot make you verified — only the phone call does that, and trial notices and anything about a child wait until it happens."
 - **Walkthrough B1/B2 drafts confirmed, BUZ: "approve all five":** "Nothing to preview yet" · "Your parent said yes. They build your page from their account, so ask them to start it with you." · "Before we finish — who's your Technical Director? Ask them to sign up on Pitch with their own email address, not the club's shared one. That's the account that reads the register." · "This is the club's shared address. It can run the page, but your Technical Director signs up with their own email address to read the register." · "No Technical Director has an account yet. Ask yours to sign up with their own email address." Also approved: the walkthrough's three live copy fixes (home administrator line, claim page verification line, brand-new home order).
+
+## 1 Oct — the six walkthrough placeholders (BUZ: "yes", via the Head of Product Design)
+
+| Where | Words (verbatim) | Builder |
+|---|---|---|
+| F5 · 16–17 home, the parent request has closed (either ending) | "This request has closed. You can ask again whenever you like." (John's approved line, reused) | homes |
+| F5 · the re-ask door | "Ask again". **Not rendered** until John's re-ask ruling gives it a destination | — |
+| F5 · 16–17 home, the text still queued | "We’ve emailed them, and their text follows shortly. Once they do, you can send." | homes |
+| F6 · `/a` state 3q | "One more step. Your text follows shortly — open the link in it to finish." | john-rulings |
+| F7 · signed-out Claim → sign-in door | heading "Sign in to claim {Club}"; line "New here? Make an account and we’ll bring you back to {Club}." Ships only with the return path through /signin, /join and /confirm | Leo, combined branch |
+| F10 · call sheet, above Log the call (`fn_verified_call_recipient`) | will send: "Logging this call as verified emails {first name} to confirm it." · won't: "Logging this call sends no email, so don’t promise one." | john-rulings |

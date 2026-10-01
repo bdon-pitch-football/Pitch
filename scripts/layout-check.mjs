@@ -340,10 +340,14 @@ const TARGETS = `JSON.stringify((() => {
     // documents, inside a sentence.)
     // Fixed 1 Oct (design checklist): the parent's text always contains the
     // link's own, so ">=" made EVERY small link "prose" and nothing ever
-    // failed. Prose now means an inline link with other words beside it.
+    // failed. Prose now means an inline link with other words beside it in
+    // the same block — looked for past inline wrappers (a legal document's
+    // address sits inside <strong>, whose text is only the link's).
     const ownText = (el.textContent ?? '').trim();
+    let block = el.parentElement;
+    while (block && getComputedStyle(block).display === 'inline') block = block.parentElement;
     const prose = tag === 'a' && !/^tel:/.test(href) && cs.display === 'inline'
-      && !!el.parentElement && el.parentElement.textContent.trim().length > ownText.length + 1;
+      && !!block && block.textContent.trim().length > ownText.length + 1;
     out.push({ what: tag + (el.type ? '[' + el.type + ']' : '') + (href ? ' ' + href.slice(0, 28) : '')
       + ' "' + ((el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)) + '"', w, h, prose });
   }

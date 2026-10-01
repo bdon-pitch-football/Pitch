@@ -318,7 +318,7 @@ export default async function Register({ searchParams }: {
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>
                     {rows.length} of {all.length} shown
                   </div>
-                  <Link href="/club/register" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none' }}>Clear</Link>
+                  <Link href="/club/register" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, minWidth: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Clear</Link>
                 </div>
               )}
             </div>
