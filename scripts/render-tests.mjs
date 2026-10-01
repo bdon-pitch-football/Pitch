@@ -3173,14 +3173,14 @@ const georgia = ids.children.georgia;
   check(`co4: the numbers are one band of tiles, and none is a zero (D-162) (${tiles.join(',')} / ${tilesTd.join(',')})`,
     [tiles.length > 0, tilesTd.length > 0, [...tiles, ...tilesTd].includes('0')], [true, true, false]);
   // E4: signed out, the public links and a logo that goes home; signed in,
-  // the logo alone and not a link. No door to the coach (D-100: copied by
+  // the logo alone — a link home too (HoPD ruling 1, 1 Oct). No door to the coach (D-100: copied by
   // the coach, never sent by Pitch).
   const pubNav = nav(pub.html), samNav = nav((await get('/c/sam-kaya', sam)).html);
   const jobsNav = nav((await get('/jobs')).html);
   const doorsOf = (h) => [...h.matchAll(/href="([^"]*)"/g)].map((m) => m[1]).sort();
-  check('co5: signed out, /c and /jobs carry Find your club · Trials · Sign in and a logo home; signed in, /c carries none of them',
+  check('co5: signed out, /c and /jobs carry Find your club · Trials · Sign in and a logo home; signed in, /c carries only the logo home',
     [doorsOf(pubNav), doorsOf(jobsNav), doorsOf(samNav)],
-    [['/', '/claim', '/signin', '/trials'], ['/', '/claim', '/signin', '/trials'], []]);
+    [['/', '/claim', '/signin', '/trials'], ['/', '/claim', '/signin', '/trials'], ['/']]);
   // EC1: nothing on the list page sends; the role page says it under the
   // form that does. E2: the numbers are ink — a paid role is not a better one.
   const jobs = await get('/jobs');

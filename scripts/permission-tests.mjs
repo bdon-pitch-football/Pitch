@@ -4632,7 +4632,11 @@ check('D-94: a non-existent account still does the hashing work (no timing oracl
 // and every cause of a refusal reaches the same one. Pressed for real in the
 // write suite, sr2–sr4.
 {
-  const code = codeOnly(signinSrc);
+  // F7 (1 Oct): "in" may land on the claim page of the club they were
+  // claiming, and a refusal keeps that club on the door — the same two
+  // outcomes, each carrying the slug (f7-s1, f7-s2 pin how).
+  const code = codeOnly(signinSrc).replace("claim ? `/claim/${claim}` : '/home'", "'/home'")
+    .replace("`/signin?refused=1${claimQuery(claim, '&')}`", "'/signin?refused=1'");
   const targets = [...code.matchAll(/redirect\((['"`])([^'"`]*)\1\)/g)].map((m) => m[2]);
   check(`D-94: sign-in has two outcomes — in, or refused — and nothing else (${targets.join(', ')})`,
     targets, ['/home', '/signin?refused=1']);
@@ -7223,10 +7227,10 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     [3, true, true]);
   check('proof14: and a door over the limit writes nothing and answers as a taken address does',
     [(joinSrc2.match(/limited \? \{ rows: \[\] as \{ id: string \}\[\] \}/g) ?? []).length,
-     (joinSrc2.match(/redirect\('\/signin\?joined=1'\)/g) ?? []).length],
+     (joinSrc2.match(/redirect\((?:'\/signin\?joined=1'|`\/signin\?joined=1\$\{claimQuery\(claim, '&'\)\}`)\)/g) ?? []).length],
     [3, 3]);
   check('proof15: every door that makes an account asks that address to confirm itself',
-    (joinSrc2.match(/await askThemToConfirm\(personId, email\)/g) ?? []).length, 3);
+    (joinSrc2.match(/await askThemToConfirm\(personId, email(?:, claim)?\)/g) ?? []).length, 3);
 
   // B2's resolution, in the code that performs it: the credential of an
   // unproved account is cleared at approval and the address becomes proved,

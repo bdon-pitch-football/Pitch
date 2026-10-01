@@ -1399,8 +1399,8 @@ export default function ComingSoon() {
           <div><b>Pitch Football</b> is a registered business name of <b>EBSD Enterprises Pty Ltd</b> · ABN 65 701 879 718 · Melbourne, Australia</div>
           {/* Doc 29 §7: the footer links the privacy policy and terms. */}
           <div style={{ display: 'flex', gap: 10 }}>
-            <a href="/privacy" style={{ color: '#6b7d73' }}>Privacy</a>
-            <a href="/terms" style={{ color: '#6b7d73' }}>Terms</a>
+            <a href="/privacy" style={{ color: '#6b7d73', minHeight: 44, minWidth: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Privacy</a>
+            <a href="/terms" style={{ color: '#6b7d73', minHeight: 44, minWidth: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Terms</a>
           </div>
         </div>
       </div>

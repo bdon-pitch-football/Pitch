@@ -16,7 +16,7 @@ import type { ReceiptFields } from './receipts';
 // The support address is one constant with no dependencies of its own (BUZ,
 // 28 Sep: his direct address replaces help@ in every message).
 import { SUPPORT_EMAIL } from './support.ts';
-import { claimQuery } from '@/lib/claim-return';
+import { claimQuery } from './claim-return.ts';
 
 const SITE = 'pitchfootball.com.au';
 const HELP = SUPPORT_EMAIL;
