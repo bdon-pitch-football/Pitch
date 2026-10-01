@@ -10,16 +10,28 @@
 // the transport apart is what stops a future adapter quietly acquiring the
 // power to send something doc 15 never approved.
 import 'server-only';
-import { isDemo } from './demo';
+import { isDemo } from './demo.ts';
 
 export type Dispatch =
   | { ok: true; providerId: string }
   | { ok: false; reason: string; permanent: boolean };
 
+/**
+ * The From header: the address EMAIL_FROM gives, under the name "Pitch
+ * Football" whatever name the environment carries (BUZ, 1 Oct, E3). "Pitch"
+ * alone is also the name of a well-known presentation app; the trading name is
+ * a sender a stranger can place, and it is approved words (doc 15 §31). The
+ * address stays the environment's — the send. subdomain, never the apex (D-81).
+ */
+export function fromHeader(envFrom: string | undefined): string | null {
+  const address = (/<([^<>\s]+@[^<>\s]+)>/.exec(envFrom ?? '')?.[1] ?? envFrom ?? '').trim();
+  return /^[^\s@<>"]+@[^\s@<>"]+$/.test(address) ? `Pitch Football <${address}>` : null;
+}
+
 /** Resend. Transactional mail from the send. subdomain, never the apex (D-81). */
-export async function sendEmail(to: string, subject: string, body: string, replyTo?: string): Promise<Dispatch> {
+export async function sendEmail(to: string, subject: string, text: string, replyTo?: string, html?: string): Promise<Dispatch> {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
+  const from = fromHeader(process.env.EMAIL_FROM);
   // A demo never sends: the message waits in the outbox, exactly as in dev.
   if (isDemo() || !key || !from) return { ok: false, reason: 'not_configured', permanent: false };
 
@@ -32,10 +44,19 @@ export async function sendEmail(to: string, subject: string, body: string, reply
         from,
         to: [to],
         subject,
-        // Doc 15 is written as plain text and every line of it was chosen.
-        // Sending it as text/plain is not a limitation — an HTML wrapper is
-        // one more thing to get wrong in a message a parent has to trust.
-        text: body,
+        // multipart/alternative, and the text is the message (BUZ, 1 Oct, E1).
+        // Until then this sent text/plain alone, on purpose: doc 15 is written
+        // as text, and an HTML wrapper is one more thing to get wrong in a
+        // message a parent has to trust. BUZ chose the HTML part for what text
+        // could not give — a sender a stranger can place, doc 15's bold, and a
+        // button instead of a 55-character string — on the condition that the
+        // text stays canonical. So `html` is drawn FROM `text` (lib/email-html)
+        // and the permission suite proves it shows the same words (em-text).
+        // Nothing else is sent: no tracking option, no tag, no header that
+        // asks Resend to do anything to these links. Open and click tracking
+        // are domain settings, and they are OFF (docs/team/GO-LIVE.md).
+        text,
+        ...(html ? { html } : {}),
         // The Reply-To is decided by lib/reply-policy — per message, and absent
         // entirely on the CV email to a club (John, U-11). This file used to
         // read one global address itself, which is how that email came to

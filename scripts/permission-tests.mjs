@@ -11305,5 +11305,261 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
      /CATALOGUE_KEYS = \[[\s\S]*?'doc15\.§39'/.test(msgSrc), /clubVerifiedEmail\(/.test(act)], [true, true, true]);
 }
 
+
+// ---------------------------------------------------------------------------
+// TRANSACTIONAL EMAIL AND SMS, FLOODLIT (spec K; BUZ, 1 Oct: "Yes to all four,
+// hand to Leo"). Every email goes as text and HTML, the text is the message,
+// and the HTML is drawn from it by lib/email-html — so these checks compose
+// EVERY catalogue message for real (under the react-server condition, like
+// support2) and hold the HTML to the text. None of them is a doc 14 row, so no
+// label claims one (L4). K §10's runnable "done when" checks are em-parts (1),
+// em-text (2), em-clean (3), em-green (4), em-size (5), em-escape (6),
+// em-payload (7, our half: Resend's own tracking settings are a dashboard
+// switch, GO-LIVE carries it) and em-sms (8).
+// ---------------------------------------------------------------------------
+{
+  const { renderEmail, withScheme, BOLD, EQUAL } = await import('../lib/email-html.ts');
+  const { T: PAL } = await import('../lib/palette.ts');
+  const { replyToFor } = await import('../lib/reply-policy.ts');
+  const { execFileSync } = await import('node:child_process');
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const SUPPORT = /SUPPORT_EMAIL = '([^']+)'/.exec(srcOf('lib/support.ts'))?.[1];
+  const TOKEN = 'Xk3_9QpZr7-LmA2bC4dE5fG6hJ8kN0pR'; // 32 characters, as a real one is
+  const ID = '11111111-2222-4333-8444-555555555555';
+  const STOP = { requestId: ID, sig: 'S'.repeat(43) };
+  // Fixture arguments for every builder, ASCII names (em-sms is about OUR
+  // characters; a name outside GSM-7 re-encodes a text and that is accepted).
+  const FIX = {
+    guardianApprovalSms: ['Deniz', 14, TOKEN], guardianApprovalEmail: ['Deniz', 14, TOKEN],
+    guardianConfirmSms16: ['Nate', 17, TOKEN], guardianConfirmEmail16: ['Nate', 17, TOKEN],
+    pendingNudgeSms: ['Deniz', TOKEN], verificationCodeSms: ['482916'], stopReplySms: [], helpReplySms: [],
+    cvToClubEmail: ['Deniz', 14, 'AM, LW', 'Riverside FC', TOKEN, STOP],
+    sendWaitingEmail: ['Deniz', 'Northern United SC', 'football@northernunited.example.au', ID],
+    cvSentToPlayerEmail: ['Northern United SC'], childSentCvEmail: ['Nate', 'Kingsway Rovers FC', 'admin@kingsway.example.au', ID],
+    bareWakeSms: [], bareWakeEmail: [], accessRequestEmail: ['Deniz', 'Sam Coach', 'U15 coach, Riverside FC'],
+    sendRequestLapsedEmail: ['Riverside FC'], sendMadeByOtherGuardianEmail: ['Sam', 'Deniz', 'Riverside FC', TOKEN],
+    clubDeverifiedEmail: ['Riverside FC', 'Deniz', TOKEN], shareCardWaitingEmail: ['Deniz', ID], editWaitingEmail: ['Deniz', ID],
+    paymentTakenEmail: [{ clubLegalName: 'Riverside Football Club', planLabel: 'Interest Register — 12 months', amount: '$329.00',
+      paidOn: '3 March 2027', gst: '$29.91', cardLast4: '4242', receiptNo: 'PF-00184', renewsOn: '3 March 2028', refundable: true }],
+    paymentFailedEmail: ['Riverside FC', '3 March', '17 March'], newSignInEmail: ['3 March, 8:14pm'],
+    clubClaimCodeEmail: ['Riverside FC', '482916'], clubVerifiedEmail: ['Riverside FC', '1 October 2026'],
+    passwordResetEmail: [TOKEN], firstPasswordEmail: [TOKEN, 'Mila'], confirmAddressEmail: [TOKEN],
+    sixteenthBirthdayEmail: ['Deniz'], deletionConfirmedEmail: ['Deniz'], adultInvitationEmail: ['Northern United SC', ID],
+    familyRepliedEmail: ['Riverside FC'], linksSwitchedOffEmail: ['We found a fault in how links were checked, and we have fixed it.'],
+    linkRenewalEmail: ['Deniz', '3 March', ID], linkExpiringToClubsEmail: ['Deniz', '3 March', ['Riverside FC', 'Kingsway Rovers FC'], ID],
+    reportReceivedEmail: ["Deniz's page"], reportFamilyEmail: ['Deniz'], reportFinishedEmail: [], signupHoldEmail: [],
+    coachVerifiedEmail: ['Riverside FC'],
+  };
+  const compose = (calls) => JSON.parse(execFileSync(process.execPath, [
+    '--conditions=react-server', '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--input-type=module', '-e',
+    `const m = await import(${JSON.stringify(join(root, 'lib/messages.ts'))});
+     const calls = ${JSON.stringify(calls)};
+     process.stdout.write(JSON.stringify({ keys: [...m.CATALOGUE_KEYS], out: calls.map(([f, a]) => ({ f, ...m[f](...a) })) }));`,
+  ], { encoding: 'utf8' }));
+  const { keys: CATALOGUE, out: all } = compose(Object.entries(FIX));
+  const emails = all.filter((c) => c.channel === 'email');
+  const texts = all.filter((c) => c.channel === 'sms');
+  const missing = CATALOGUE.filter((k) => !all.some((c) => c.key === k));
+  check(`em-all: every catalogue key is composed here (${all.length} builders, ${emails.length} emails, ${texts.length} texts; missing: ${missing.join(', ') || 'none'})`,
+    missing, []);
+  const R = Object.fromEntries(emails.map((c) => [c.key, { ...c, ...renderEmail(c.key, c.subject, c.body) }]));
+
+  // 1. The text part is today's body with https:// on its links (E8), and
+  //    nothing else — so nothing a parent has trusted changes.
+  check('em-parts: every email has a text part and an HTML part, and the text is its doc 15 body with only https:// added',
+    emails.filter((c) => !(R[c.key].html.length > 0 && R[c.key].text === withScheme(c.body)
+      && R[c.key].text.replaceAll('https://pitchfootball.com.au', 'pitchfootball.com.au') === c.body)).map((c) => c.key), []);
+  // E8: every link in the text part carries the scheme; the sign-off's site
+  // line too, because it is a link in every client that links anything.
+  check('em-https: every pitchfootball.com.au link in every text part starts https:// (E8)',
+    emails.filter((c) => /(?<!https:\/\/)pitchfootball\.com\.au/.test(R[c.key].text.replace(/@pitchfootball\.com\.au/g, ''))).map((c) => c.key), []);
+
+  // 2. The HTML's visible words ARE the text part. Strip the head, the hidden
+  //    preview line and the other aria-hidden marks (the wordmark, a list's
+  //    bullet), tags, entities and spacing; on the text side, a list line's
+  //    "- " and the colon after a button's label are its markup. A missing
+  //    word, an extra word or a changed one fails.
+  const decode = (s) => s.replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&zwnj;/g, '').replace(/&amp;/g, '&');
+  const visible = (html) => decode(html.replace(/<head>[\s\S]*?<\/head>/, '')
+    .replace(/<(div|td)\b[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/\1>/g, ' ')
+    .replace(/<\/?(p|div|td|tr|table|br|body|html)\b[^>]*>/g, ' ').replace(/<[^>]+>/g, '').replace(/<!doctype html>/i, ''))
+    .replace(/\s+/g, ' ').trim();
+  const asText = (text) => text.split('\n')
+    .map((l) => l.replace(/^- /, '').replace(/^([^:\n]{1,60}): (https:\/\/pitchfootball\.com\.au\S*)$/, '$1 $2'))
+    .join('\n').replace(/\s+/g, ' ').trim();
+  const drift = emails.filter((c) => visible(R[c.key].html) !== asText(R[c.key].text));
+  check(`em-text: every email's HTML shows exactly its text part's words, in order (${emails.length} emails${drift[0] ? `; first drift ${drift[0].key}: ${JSON.stringify(visible(R[drift[0].key].html).slice(0, 120))}` : ''})`,
+    drift.map((c) => c.key), []);
+  // L19: the comparison can fail — one changed word in the HTML is caught.
+  check('em-text-b: and the comparison catches one changed word',
+    visible(R['doc15.§2'].html.replace('Not to clubs', 'Not to schools')) === asText(R['doc15.§2'].text), false);
+
+  // 3. Nothing that fetches, tracks or runs; every link is ours, as printed.
+  const BANNED_MARKUP = /<img|<svg|url\(|@font-face|<link|<script|background-image|utm_|<iframe|<object|<embed|\bsrc=|<form/i;
+  check('em-clean: no image, SVG, url(), web font, stylesheet link, script, background image, frame, form or utm_ in any email',
+    emails.filter((c) => BANNED_MARKUP.test(R[c.key].html)).map((c) => c.key), []);
+  const badHref = emails.flatMap((c) => [...R[c.key].html.matchAll(/href="([^"]*)"/g)].map((m) => m[1])
+    .filter((h) => !(/^https:\/\/pitchfootball\.com\.au(\/[^"\s]*)?$/.test(h) || h === `mailto:${SUPPORT}`)).map((h) => `${c.key} ${h}`));
+  check('em-clean-b: every href is https://pitchfootball.com.au/… or mailto: the one support address — no other host, no #, no redirect',
+    badHref, []);
+  // The links are the text's own: every href in the HTML is an address the
+  // text part prints (so no link is rewritten, shortened or added).
+  check('em-clean-c: every href is an address the text part prints, character for character',
+    emails.flatMap((c) => [...R[c.key].html.matchAll(/href="([^"]*)"/g)].map((m) => decode(m[1]).replace(/^mailto:/, ''))
+      .filter((h) => !R[c.key].text.includes(h)).map((h) => `${c.key} ${h}`)), []);
+  // E9 and the charter: every colour is a palette token (and print's white
+  // and grey). No club colour can reach an email — the renderer is handed
+  // the key, the subject and the words, nothing about any club.
+  const tokens = new Set([...Object.values(PAL), '#ffffff', '#cccccc'].map((h) => h.toLowerCase()));
+  check('em-crest: no club crest or colours (E9) — every colour in every email is a palette token, and the renderer takes only (key, subject, body)',
+    [emails.flatMap((c) => (R[c.key].html.match(/#[0-9a-f]{6}\b/gi) ?? []).filter((h) => !tokens.has(h.toLowerCase()))),
+     /export function renderEmail\(key: string \| undefined, subject: string, body: string\)/.test(srcOf('lib/email-html.ts')),
+     [...codeOnly(srcOf('lib/email-html.ts')).matchAll(/from '([^']+)'/g)].map((m) => m[1]),
+     emails.filter((c) => /crest/i.test(R[c.key].html)).map((c) => c.key)],
+    [[], true, ['./palette.ts', './support.ts'], []]);
+
+  // 4. One green button for one action; none where doc 15 asks for equal
+  //    weight; the plain address under every button.
+  const greens = (k) => (R[k].html.match(new RegExp(`bgcolor="${PAL.accent}"`, 'g')) ?? []).length;
+  check('em-green: at most one green button in any email, and none in an email doc 15 gives equal-weight choices (§5, §6, §13, §20, §22, §23)',
+    [emails.filter((c) => greens(c.key) > 1).map((c) => c.key), emails.filter((c) => EQUAL.has(c.key) && greens(c.key) > 0).map((c) => c.key)], [[], []]);
+  const unaddressed = emails.flatMap((c) => [...R[c.key].html.matchAll(/<td align="center" bgcolor="[^"]+"[^>]*><a href="([^"]+)"[^>]*>[^<]*<\/a><\/td><\/tr><\/table><p [^>]*><a href="([^"]+)"[^>]*>([^<]+)<\/a><\/p>/g)]
+    .filter((m) => !(m[1] === m[2] && m[2] === m[3])).map(() => c.key));
+  const buttonCount = emails.reduce((n, c) => n + (R[c.key].html.match(/<td align="center" bgcolor="[^"]+"[^>]*><a href=/g) ?? []).length, 0);
+  const addressed = emails.reduce((n, c) => n + [...R[c.key].html.matchAll(/<\/a><\/td><\/tr><\/table><p [^>]*><a href="(https:[^"]+)"[^>]*>\1<\/a><\/p>/g)].length, 0);
+  check(`em-green-b: every button is followed by its own address, printed in full (${buttonCount} buttons)`,
+    [unaddressed, addressed, buttonCount > 20], [[], buttonCount, true]);
+  check('em-green-c: the one-action emails do get their green button (§2, §10, §19, §33)',
+    ['doc15.§2', 'doc15.§10', 'doc15.§19', 'doc15.§33'].map(greens), [1, 1, 1, 1]);
+  // E4: a choice that is doing nothing is never a button. Its words stay in
+  // the text until John rules (doc 15 owns them).
+  const s5 = R['doc15.§5'].html, s23 = R['doc15.§23'].html;
+  check('em-E4: "Let it expire" is text, never a button, and the one real choice beside it is not green (§5, §23)',
+    [/<a [^>]*>[^<]*Let it expire/.test(s5 + s23), (s5.match(/<td align="center" bgcolor="[^"]+"[^>]*><a href=/g) ?? []).length,
+     (s23.match(/<td align="center" bgcolor="[^"]+"[^>]*><a href=/g) ?? []).length, greens('doc15.§5') + greens('doc15.§23'),
+     R['doc15.§5'].text.includes("Let it expire: there's nothing to do.")], [false, 1, 1, 0, true]);
+  // §22: doc 15's two buttons, equal.
+  check('em-§22b: §22 draws doc 15’s two buttons, equal and plain, both to the child’s controls',
+    [[...R['doc15.§22'].html.matchAll(/<td align="center" bgcolor="([^"]+)"[^>]*><a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((m) => [m[1], m[2], m[3]])],
+    [[[PAL.surface2, `https://pitchfootball.com.au/g/controls/${ID}`, 'See what they sent'], [PAL.surface2, `https://pitchfootball.com.au/g/controls/${ID}`, 'Turn sending off']]]);
+
+  // 5. Size, the footer, and §19's opt-out and missing Reply-To.
+  check('em-size: every email’s HTML is under 40 KB (Gmail clips at 102 KB)',
+    emails.filter((c) => Buffer.byteLength(R[c.key].html) >= 40 * 1024).map((c) => c.key), []);
+  const foot19 = R['doc15.§19'].html.split('class="pf-foot"')[1] ?? '';
+  check('em-§19: §19’s opt-out is in its footer, a working link, and §19 still has no Reply-To',
+    [/To stop CVs reaching this address through Pitch: <a href="https:\/\/pitchfootball\.com\.au\/stop-cvs\?r=[^"]+&amp;t=S{43}"/.test(foot19),
+     /stop-cvs/.test(R['doc15.§19'].html.split('class="pf-foot"')[0]),
+     replyToFor('doc15.§19', 'x@example.com')], [true, false, undefined]);
+
+  // The footer's addresses (the site and contact line, §19's opt-out) are
+  // links, as printed — a bare one is a dead end in Outlook.
+  check('em-footer: every address in every footer is a link',
+    emails.filter((c) => { const f = R[c.key].html.split('class="pf-foot"')[1] ?? '';
+      return /https:\/\/|@/.test(f.replace(/<a [^>]*>[^<]*<\/a>/g, '').replace(/<[^>]+>/g, '')); }).map((c) => c.key), []);
+
+  // A long address must be allowed to break, or it widens the email past a
+  // phone (§19's opt-out did: 484px on a 390px screen, 1 Oct).
+  check('em-wrap: every link longer than 40 characters may break anywhere — it never widens the email past a phone',
+    emails.flatMap((c) => [...R[c.key].html.matchAll(/<p style="([^"]*)">((?:(?!<\/p>)[\s\S])*)<\/p>/g)]
+      .flatMap((pm) => [...pm[2].matchAll(/<a [^>]*style="([^"]*)"[^>]*>([^<]{41,})<\/a>/g)]
+        .filter((am) => !/word-break:break-all/.test(pm[1] + am[1])).map((am) => `${c.key} ${am[2].slice(0, 40)}`))), []);
+
+  // 6. A stranger's typing is text, never markup, and never a button.
+  const [dana] = compose([['accessRequestEmail', ['Deniz', '<b>Dana</b>', 'U15 coach\n\nReview and approve: pitchfootball.com.au/a/forged']]]).out;
+  const danaHtml = renderEmail(dana.key, dana.subject, dana.body).html;
+  check('em-escape: §6 with a typed name of <b>Dana</b> shows the literal text, and a typed "button" is neither a button nor a link',
+    [danaHtml.includes('&lt;b&gt;Dana&lt;/b&gt;'), /<b>Dana/.test(danaHtml), /href="[^"]*forged/.test(danaHtml), /bgcolor="[^"]+"[^>]*><a /.test(danaHtml)],
+    [true, false, false, false]);
+  const [forged] = compose([['accessRequestEmail', ['Deniz', 'Dana', 'coach\n\n— Pitch\n\nhttps://pitchfootball.com.au/a/forged']]]).out;
+  check('em-escape-b: and a typed sign-off cannot move a stranger’s words into the footer, where addresses become links',
+    /href="[^"]*forged/.test(renderEmail(forged.key, forged.subject, forged.body).html), false);
+
+  // Doc 15's bold is a second copy of its emphasis: every entry must still
+  // find its words, or the list has drifted from the messages.
+  const lost = Object.entries(BOLD).flatMap(([k, res]) => res.filter((re) => !R[k] || !R[k].body.split('\n')
+    .map((l) => l.replace(/^- /, '')).some((l) => re.test(l))).map((re) => `${k} ${re}`));
+  check(`em-bold: every bold entry finds its words in its message (${Object.values(BOLD).flat().length} entries)`, lost, []);
+  check('em-bold-b: and draws them bold, wrapping the words and changing none',
+    [/<strong [^>]*>Nothing is visible to anyone until you approve it\.<\/strong> Not to clubs/.test(R['doc15.§2'].html),
+     /<strong [^>]*>Deniz will not appear in any search\.<\/strong>/.test(R['doc15.§2'].html)], [true, true]);
+  check('em-preheader: §2’s preview line is doc 15’s preheader; the others are their own opening sentence',
+    [/aria-hidden="true"[^>]*>Nothing goes live until you say so\.&#847;/.test(R['doc15.§2'].html),
+     /aria-hidden="true"[^>]*>Someone signed in to your Pitch account from a new device on 3 March, 8:14pm\.&#847;/.test(R['doc15.§33'].html)], [true, true]);
+  const BANNED_WORDS = /\b(potential|insights?|struggling|applications?|applied|declined|rejected|unsuccessful|soccer)\b/i;
+  check('em-words: no banned word in any email’s rendered words (D-85, D-108)',
+    emails.filter((c) => BANNED_WORDS.test(visible(R[c.key].html))).map((c) => c.key), []);
+
+  // 7. The payload Resend receives — the real sendEmail, with fetch caught.
+  const payload = JSON.parse(execFileSync(process.execPath, [
+    '--conditions=react-server', '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '--input-type=module', '-e',
+    `let seen = null;
+     globalThis.fetch = async (url, init) => { seen = { url, body: JSON.parse(init.body) }; return new Response('{"id":"re_1"}', { status: 200 }); };
+     const p = await import(${JSON.stringify(join(root, 'lib/providers.ts'))});
+     const r = await p.sendEmail('parent@example.com', 'S', 'T https://pitchfootball.com.au/a/x', undefined, '<p>H</p>');
+     process.stdout.write(JSON.stringify({ r, seen, from: [p.fromHeader('Pitch <hello@send.pitchfootball.com.au>'), p.fromHeader('hello@send.pitchfootball.com.au'), p.fromHeader('')] }));`,
+  ], { encoding: 'utf8', env: { ...process.env, RESEND_API_KEY: 're_test', EMAIL_FROM: 'Pitch <hello@send.pitchfootball.com.au>', PITCH_DEMO: '' } }));
+  check('em-payload: the Resend payload is multipart — text and html — from "Pitch Football" (E3), and carries nothing else: no tracking, no tags, no headers',
+    [payload.seen?.url, Object.keys(payload.seen?.body ?? {}).sort(), payload.seen?.body.from, payload.seen?.body.text, payload.seen?.body.html, payload.r.ok],
+    ['https://api.resend.com/emails', ['from', 'html', 'subject', 'text', 'to'], 'Pitch Football <hello@send.pitchfootball.com.au>', 'T https://pitchfootball.com.au/a/x', '<p>H</p>', true]);
+  check('em-from: the From name is "Pitch Football" whatever name the environment gives, on the environment’s address; no address, no send',
+    payload.from, ['Pitch Football <hello@send.pitchfootball.com.au>', 'Pitch Football <hello@send.pitchfootball.com.au>', null]);
+  const msgCode = codeOnly(srcOf('lib/messaging.ts'));
+  check('em-dispatch: every email is rendered at dispatch from its own row — key, subject, words — and both parts go to the provider',
+    [/const mail = channel === 'sms' \? null : renderEmail\(messageKey, subject, body\);/.test(msgCode),
+     /sendEmail\(address, subject, mail\.text, replyToFor\(messageKey, process\.env\.EMAIL_REPLY_TO\), mail\.html\)/.test(msgCode),
+     /sendSms\(address, body\)/.test(msgCode)], [true, true, true]);
+  // Open and click tracking are Resend DOMAIN settings, not an API field; the
+  // code can only send nothing that asks for them (em-payload). The switch is
+  // on the go-live list, where the person holding the account checks it.
+  check('em-tracking: the go-live list carries "open and click tracking OFF" on the Resend domain',
+    /open tracking.{0,40}OFF[\s\S]{0,80}click tracking.{0,40}OFF|click tracking.{0,40}OFF[\s\S]{0,80}open tracking.{0,40}OFF/i.test(srcOf('docs/team/GO-LIVE.md')), true);
+
+  // 8. SMS: GSM-7, the support address, our host only, three segments at most.
+  const GSM = '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà';
+  const GSM_EXT = '^{}\\[~]|€';
+  const isGsm = (s) => [...s].every((ch) => GSM.includes(ch) || GSM_EXT.includes(ch));
+  const septets = (s) => [...s].reduce((n, ch) => n + (GSM_EXT.includes(ch) ? 2 : 1), 0);
+  const segments = (s) => (septets(s) <= 160 ? 1 : Math.ceil(septets(s) / 153));
+  check('em-sms-proof: the GSM-7 test fails a dash and a middle dot, and passes a hyphen (L19)',
+    [isGsm('Pitch — a'), isGsm('a · b'), isGsm('Pitch - a')], [false, false, true]);
+  check(`em-sms: every SMS is GSM-7 (${texts.length} texts: ${texts.map((t) => `${t.key} ${segments(t.body)}`).join(', ')})`,
+    texts.filter((t) => !isGsm(t.body)).map((t) => [t.key, [...t.body].filter((ch) => !GSM.includes(ch) && !GSM_EXT.includes(ch)).join('')]), []);
+  check('em-sms-b: every SMS carries the support address, names no host but pitchfootball.com.au, and is at most three segments with a 32-character token',
+    texts.filter((t) => !t.body.includes(SUPPORT) || segments(t.body) > 3
+      || (t.body.replaceAll(SUPPORT, '').match(/\b[a-z0-9-]+(\.[a-z0-9-]+)*\.(com|au|net|org|io|ly|co)\b/gi) ?? []).some((h) => h !== 'pitchfootball.com.au')).map((t) => t.key), []);
+  check('em-sms-c: E7 — §3 and both §15 replies are two segments, not four',
+    texts.filter((t) => ['doc15.§3', 'doc15.§15.stop', 'doc15.§15.help'].includes(t.key)).map((t) => [t.key, segments(t.body)]),
+    [['doc15.§3', 2], ['doc15.§15.stop', 2], ['doc15.§15.help', 2]]);
+
+  // The defects, against doc 15 (its markup taken off, as ve-§39 reads it).
+  const doc15 = srcOf('docs/15-Message-Copy.md');
+  const sec = (n) => doc15.split(new RegExp(`\\n## ${n} · `))[1]?.split('\n## ')[0] ?? '';
+  const docBody = (n) => sec(n).split('\n').filter((l) => l.startsWith('>')).map((l) => l.replace(/^> ?/, '')).join('\n')
+    .replaceAll('**', '').replaceAll('`', '');
+  const docSubject = (n) => /\*\*Subject:\*\* `([^`]+)`/.exec(sec(n))?.[1];
+  // §33: doc 15 puts [Change your password] inside its last sentence. Folded
+  // back into one line, the email is doc 15's words exactly.
+  const s33 = all.find((c) => c.key === 'doc15.§33');
+  check('em-§33: the sign-in alert has its link — doc 15 §33 word for word with the button folded back into its sentence — and /reset is a real page',
+    [s33.subject, s33.body.replace('If it wasn\'t:\nChange your password: pitchfootball.com.au/reset\n—', 'If it wasn\'t: Change your password —'),
+     /\nChange your password: pitchfootball\.com\.au\/reset\n/.test(s33.body), /export default/.test(srcOf('app/reset/page.tsx'))],
+    [docSubject(33), docBody(33).replace('[Change your password]', 'Change your password'), true, true]);
+  // §22: doc 15 word for word, but for its pronouns. Doc 15's example is a
+  // boy ("his"); the product holds no gender for a child (D-25), so it says
+  // the child's name or "their" — the only differences, written out here.
+  const s22 = all.find((c) => c.key === 'doc15.§22');
+  const d22 = docBody(22).replace('Nate sent his football CV', 'Nate sent their football CV')
+    .replace('He does not need', 'Nate does not need').replace('sending is his to do', 'sending is theirs to do')
+    .replace('[See what he sent] · [Turn sending off]', `See what they sent: pitchfootball.com.au/g/controls/${ID}\nTurn sending off: pitchfootball.com.au/g/controls/${ID}`)
+    .replace('and he will not be told', 'and Nate will not be told').replace('he will simply see', 'they will simply see')
+    .replace('off on his account', 'off on their account').replace('Kingsway Rovers FC today, at admin@kingswayroversfc.com.au', 'Kingsway Rovers FC today, at admin@kingsway.example.au');
+  check('em-§22: §22 is doc 15 word for word but for D-25’s pronouns — two buttons, not the merged line doc 15 does not have',
+    [s22.subject, s22.body, /See what they sent, or turn sending off/.test(s22.body)],
+    [docSubject(22).replace('sent his CV', 'sent their CV'), d22, false]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

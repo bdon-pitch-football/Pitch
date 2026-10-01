@@ -26,6 +26,7 @@ import { db } from './db';
 import { CATALOGUE_KEYS, DRAFT_KEYS, HELD_KEYS, type Composed } from './messages';
 import { sendEmail, sendSms } from './providers';
 import { replyToFor } from './reply-policy';
+import { renderEmail } from './email-html';
 import { isDemo } from './demo';
 import { effectiveSmsCapCents, smsCanSend, smsCapCents, smsProviderConfigured, smsSwitchedOff } from './sms-policy';
 
@@ -217,9 +218,14 @@ export async function dispatch(
   // sweep in the same statement that selects it, and send() in the insert —
   // because a claim that happens after the row has been handed out is not a
   // claim at all.
-  const result = channel === 'sms'
+  // An email goes as text and HTML, both made here from the row's own words
+  // (lib/email-html): the text with https:// on its links (E8), and the HTML
+  // drawn from that text. Rendered at dispatch, not stored, so a retried row
+  // renders exactly as its first attempt and the outbox keeps doc 15's words.
+  const mail = channel === 'sms' ? null : renderEmail(messageKey, subject, body);
+  const result = mail === null
     ? await sendSms(address, body)
-    : await sendEmail(address, subject, body, replyToFor(messageKey, process.env.EMAIL_REPLY_TO));
+    : await sendEmail(address, subject, mail.text, replyToFor(messageKey, process.env.EMAIL_REPLY_TO), mail.html);
 
   if (result.ok) {
     await db.query(
