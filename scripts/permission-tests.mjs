@@ -129,10 +129,15 @@ const routeFiles = [];
     else if (/\.(ts|tsx)$/.test(e.name)) routeFiles.push(full);
   }
 })(fileURLToPath(new URL('../app', import.meta.url)));
+// A route's path from the repo root ('/app/ops/…'). Path rules match this,
+// never the full disk path: a worktree named `ops` or `coach` put those words
+// into every file's path and turned rev2 and L45/L54 red on correct code.
+const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
+const rp = (f) => f.slice(REPO_ROOT.length);
 
 // Route enumeration is how several rows are specified — the ABSENCE of a
 // route is the assertion — and more than one table needs this list.
-const msgRoutes = routeFiles.filter((f) => /\/(message|dm|chat|inbox|thread|reply)\//i.test(f));
+const msgRoutes = routeFiles.filter((f) => /\/(message|dm|chat|inbox|thread|reply)\//i.test(rp(f)));
 
 
 // ---------------------------------------------------------------------------
@@ -930,7 +935,7 @@ check('L26: the player CV carries no contact affordance at all',
 // L27 — there is no inbound reply route, so there is no second code path to
 // get wrong. John ruled this (U-11) and the send now says so.
 check('L27: no inbound reply route exists to route',
-  routeFiles.filter((f) => /\/(reply|inbound|mailin)\//i.test(f)).length, 0);
+  routeFiles.filter((f) => /\/(reply|inbound|mailin)\//i.test(rp(f))).length, 0);
 
 // L28 — a send confers no membership. An invitation is the only route, and
 // it goes to the guardian.
@@ -1039,7 +1044,7 @@ check('L44: the copy affordance writes to the clipboard', /clipboard\.writeText/
 check('L44b: and calls no endpoint at all', /fetch\(|action=|axios|\/api\//.test(codeOnly(copySrc)), false);
 check('L44c: with no recipient field anywhere on it', /recipient|to:|email/i.test(codeOnly(copySrc)), false);
 check('L45/L54: no route offers to send a coach’s link to anyone',
-  routeFiles.filter((f) => /send.*coach|coach.*send|invite.*player/i.test(f)).length, 0);
+  routeFiles.filter((f) => /send.*coach|coach.*send|invite.*player/i.test(rp(f))).length, 0);
 
 // L48-L51 — the contact affordance by band, decided server-side.
 const contactVisible = async (v) => (await db.query('select fn_coach_contact_visible($1) as v', [v])).rows[0].v;
@@ -1086,7 +1091,7 @@ check('C2: no route accepts a 16-17 as a message recipient', msgRoutes.length, 0
 // C2/P11 — route enumeration. The absence IS the assertion (John's red line).
 check('C2/P11: no message, DM, chat, inbox, thread or reply route exists', msgRoutes.length, 0);
 check('P10: nor any route that appends to an invitation',
-  routeFiles.filter((f) => /invitation/i.test(f) && /(append|reply|thread|message)/i.test(f)).length, 0);
+  routeFiles.filter((f) => /invitation/i.test(rp(f)) && /(append|reply|thread|message)/i.test(rp(f))).length, 0);
 
 // C3/C4 — an outside approach to an under-16 is logged. The vocabulary
 // exists and one surface writes it; there is no separate second code path.
@@ -2175,7 +2180,7 @@ await expectFail('J52: the constraint itself refuses a fourth status',
    values ('${ID.marcus}', '${CLUB.riverside}', 'declined', '20@v2.4')`);
 
 // J53 — no billing route is reachable by a family actor.
-const billingRoutes = routeFiles.filter((f) => /\/(billing|checkout|portal|invoice)\//i.test(f));
+const billingRoutes = routeFiles.filter((f) => /\/(billing|checkout|portal|invoice)\//i.test(rp(f)));
 for (const f of billingRoutes) {
   const rel = f.split('/app/')[1];
   const src = readFileSync(f, 'utf8');
@@ -2249,7 +2254,7 @@ check('J55: the club register page never reads an invitation read state',
   /read_at|lapsed/.test(registerPage), false);
 
 // J56 — an invitation is one object, not a conversation.
-const invRoutes = routeFiles.filter((f) => /invitation.*(reply|thread|message)/i.test(f));
+const invRoutes = routeFiles.filter((f) => /invitation.*(reply|thread|message)/i.test(rp(f)));
 check('J56: no route appends a second club message to an invitation', invRoutes.length, 0);
 
 // J57 — a club holding a valid token gets the APPROVED version, and the
@@ -2398,7 +2403,7 @@ check('O5b: and it is a scheduled job, not a person with a button',
 // ---- Table C: contact ---------------------------------------------------
 // C1/C2 — no route accepts a minor as a message recipient. Route enumeration,
 // not a permission check.
-const messageRoutes = routeFiles.filter((f) => /\/(message|dm|chat|inbox)\//i.test(f));
+const messageRoutes = routeFiles.filter((f) => /\/(message|dm|chat|inbox)\//i.test(rp(f)));
 check('C1/C2: no message, DM, chat or inbox route exists at all', messageRoutes.length, 0);
 
 // C5 — a public CV carries no contact affordance.
@@ -2538,9 +2543,9 @@ check('D-128b: and the count decrements with it',
   // it: the family's log, which no club-side page reads.
   await db.query(`insert into consent_event (event, actor_id, subject_id, detail)
     values ('registration_withdrawn', $1, $2, jsonb_build_object('registration_id', $3::uuid))`, [ID.guardian, ID.georgia, hReg]);
-  const clubSide = routeFiles.filter((f) => /\/app\/(club|coach|fc)\//.test(f) && /(from|join)\s+consent_event/.test(codeOnly(readFileSync(f, 'utf8'))));
+  const clubSide = routeFiles.filter((f) => /\/app\/(club|coach|fc)\//.test(rp(f)) && /(from|join)\s+consent_event/.test(codeOnly(readFileSync(f, 'utf8'))));
   check('M6: and nothing in the database still names it but the family’s own consent log, which no club page reads — no row, no pointer, no audit entry a club can see',
-    [await everywhere(hReg), clubSide, routeFiles.filter((f) => /\/app\/(club|coach|fc)\//.test(f)).length > 20], [['consent_event.detail'], [], true]);
+    [await everywhere(hReg), clubSide, routeFiles.filter((f) => /\/app\/(club|coach|fc)\//.test(rp(f))).length > 20], [['consent_event.detail'], [], true]);
   // The club-side reads, before and after, less the count, are the same:
   // no gap, no changed timestamp, nothing that moved on the club.
   const afterView = JSON.parse(await clubView());
@@ -4232,7 +4237,7 @@ check('H9c: reinstating the role on a new call restores it, still without a stor
     const src = codeOnly(readFileSync(f, 'utf8'));
     return /fn_td_ends|fn_td_replaced_on_call/.test(src)
       || /update membership set ended_at[^`]*technical_director/.test(src)
-      || (/fn_ops_end_td/.test(src) && !/\/app\/ops\//.test(f));
+      || (/fn_ops_end_td/.test(src) && !/\/app\/ops\//.test(rp(f)));
   });
   check('tdx28: nothing else in app/ ends a Technical Director — no UPDATE of its own, no call to the worker, no operator door outside /ops',
     endsByHand.map((f) => f.slice(f.indexOf('app/'))), []);
@@ -5197,7 +5202,7 @@ check('lic8: and no writer takes a profile id from the caller (D-94 §3)',
 // so guarding the page buys nothing and every argument is hostile — not just
 // the first one.
 // ---------------------------------------------------------------------------
-const opsActionFiles = routeFiles.filter((f) => /\/ops\/.*actions\.ts$/.test(f));
+const opsActionFiles = routeFiles.filter((f) => /\/ops\/.*actions\.ts$/.test(rp(f)));
 check('rev1: there are ops actions to check', opsActionFiles.length >= 2, true);
 for (const f of opsActionFiles) {
   const src = readFileSync(f, 'utf8');
@@ -10225,7 +10230,7 @@ const componentFilesAll = [];
   // ---- the ten, and the doors in the product ---------------------------------------
   check('cur-22: the database\'s copy of the ten positions is the football module\'s own list (D-92), so neither can drift',
     (await one('select fn_positions_ten() as p')).p, Object.keys(POSITIONS_TS));
-  const opsClubs = routeFiles.filter((f) => /\/app\/ops\/clubs\//.test(f));
+  const opsClubs = routeFiles.filter((f) => /\/app\/ops\/clubs\//.test(rp(f)));
   const actions = codeOnly(srcOf('app/ops/clubs/actions.ts'));
   const exported = [...actions.matchAll(/export async function (\w+)\([\s\S]*?\n\}/g)].map((m) => [m[1], m[0]]);
   check(`cur-s1: every door on /ops/clubs checks the operator before it asks the database anything (${exported.map(([n]) => n).join(', ')})`,
@@ -10235,7 +10240,7 @@ const componentFilesAll = [];
     [8, [], true]);
   const writers = routeFiles.filter((f) => {
     const src = codeOnly(readFileSync(f, 'utf8'));
-    return /fn_ops_(add|edit|remove)_club|fn_ops_(add|edit|check|remove)_notice/.test(src) && !/\/app\/ops\/clubs\/actions\.ts$/.test(f);
+    return /fn_ops_(add|edit|remove)_club|fn_ops_(add|edit|check|remove)_notice/.test(src) && !/\/app\/ops\/clubs\/actions\.ts$/.test(rp(f));
   });
   const byHand = tsSourceFiles().filter((f) => {
     const src = codeOnly(srcOf(f));

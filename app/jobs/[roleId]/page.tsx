@@ -8,7 +8,6 @@ import { HeaderMark } from '@/components/Wordmark';
 import { CoachConsole } from '@/components/console-shell';
 import { applyForRole } from '@/app/coach/edit/actions';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,14 +42,16 @@ export default async function Role({ params, searchParams }: {
     ? (await db.query(`select 1 from role_application where role_id = $1 and coach_id = $2`, [roleId, me])).rows.length > 0
     : false;
 
-  const label = sectionLabel;
-
+  // Floodlit (spec E, BUZ 1 Oct): a reading page on A's parts. One glowing
+  // primary in each state that has one. "This role has closed." says it
+  // once: when the role is closed, the closed panel alone, never the
+  // ?closed notice beside it.
   return (
     <CoachConsole active="jobs">
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>{r.title}</h1>
+        <div className="pg-titles">
+          <h1 className="pg-title">{r.title}</h1>
           <div style={{ fontSize: 14, color: T.secondary, fontWeight: 700 }}>
             {r.public_slug ? <Link href={`/fc/${r.public_slug}`} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, margin: '-14px 0', color: T.secondary, textDecoration: 'none' }}>{r.club}</Link> : r.club}
             {r.club_state === 'verified' && <span style={{ color: T.accent }}> · Verified club</span>}
@@ -61,34 +62,35 @@ export default async function Role({ params, searchParams }: {
           </div>
         </div>
 
-        {sent && <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13.5, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>Sent. {r.club} has your coaching CV and your message. What happens next is up to them — we don&rsquo;t chase clubs on your behalf.</div>}
-        {cannot && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary, lineHeight: 1.55 }}>You need a coaching profile and an adult account to put your name forward.</div>}
-        {closed && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>This role has closed.</div>}
+        {sent && <div className="card card-accent note">Sent. {r.club} has your coaching CV and your message. What happens next is up to them — we don&rsquo;t chase clubs on your behalf.</div>}
+        {cannot && <div className="card card-amber note">You need a coaching profile and an adult account to put your name forward.</div>}
+        {closed && !r.closed_at && <div className="card card-amber note">This role has closed.</div>}
 
         {r.detail && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>About the role</div>
-            <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500, whiteSpace: 'pre-wrap' }}>{r.detail}</div>
-          </div>
+          <section className="stack8">
+            <h2 className="sec-h">About the role</h2>
+            <div style={{ fontSize: 14, lineHeight: 1.55, color: T.secondary, fontWeight: 500, whiteSpace: 'pre-wrap', maxWidth: '64ch' }}>{r.detail}</div>
+          </section>
         )}
 
         {r.closed_at ? (
-          <div style={{ ...card, fontSize: 13, color: T.muted, fontWeight: 700 }}>This role has closed.</div>
+          <div className="card" style={{ fontSize: 13, color: T.muted, fontWeight: 700 }}>This role has closed.</div>
         ) : already ? (
-          <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 700 }}>Your name is in for this one. The club has your CV.</div>
+          <div className="card" style={{ fontSize: 13, color: T.secondary, fontWeight: 700 }}>Your name is in for this one. The club has your CV.</div>
         ) : !me ? (
-          <Link href="/signin" className="btn btn-primary">Sign in to put your name forward</Link>
+          <Link href="/signin" className="btn btn-primary fl-glow">Sign in to put your name forward</Link>
         ) : !canApply ? (
-          <div style={{ ...card, fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
+          <div className="card" style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
             You need a coaching profile to put your name forward. <Link href="/coach/edit" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none' }}>Build one</Link> — it takes a few minutes and it is what the club reads.
           </div>
         ) : (
-          <form action={applyForRole} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 12 }}><input type="hidden" name="roleId" value={roleId} />
-            <div style={{ fontSize: 14, fontWeight: 900 }}>Put your name forward</div>
-            <textarea name="message" aria-label="Why this club" rows={5} maxLength={1200} placeholder="Why this club, and what you'd bring. If you want them to phone or email you, put it here — we don't pass it on otherwise."
-              style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: '11px 12px', color: T.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }} />
-            <button type="submit" className="btn btn-primary">Send it to {r.club}</button>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
+          <form action={applyForRole} className="card panel"><input type="hidden" name="roleId" value={roleId} />
+            <div className="pn-t">Put your name forward</div>
+            <label className="field">
+              <textarea name="message" aria-label="Why this club" rows={5} maxLength={1200} placeholder="Why this club, and what you'd bring. If you want them to phone or email you, put it here — we don't pass it on otherwise." />
+            </label>
+            <button type="submit" className="btn btn-primary fl-glow">Send it to {r.club}</button>
+            <div className="quiet">
               They get your coaching CV and this message. They do not get your phone number or your email address unless you write them above.
             </div>
           </form>

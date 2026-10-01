@@ -3051,6 +3051,80 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// co — the coach screens, Floodlit (spec E, BUZ 1 Oct; E1–E4 and EC1–EC4
+// approved). Each check was run against the code before this build and
+// failed there (L20).
+// ---------------------------------------------------------------------------
+{
+  const markup = (h) => h.replace(/<script[\s\S]*?<\/script>/g, '');
+  const nav = (h) => (markup(h).match(/<header class="fl-nav[\s\S]*?<\/header>/) ?? [''])[0];
+  const sam = ids.people.sam;
+  const pub = await get('/c/sam-kaya');
+  const seq = ['Coach', 'Sam Kaya', 'Head Coach · U15 Boys', 'Riverside FC · Melbourne VIC', 'Years coaching', 'WWCC verified',
+    'Coaching philosophy', 'Coaching now', 'Before that', 'Licences & qualifications', 'As a coach', 'own account',
+    'Sessions & clips', 'arrive here in December', 'Copy this link', 'Print or save as PDF', 'Report this page'];
+  const t = text(pub.html.replace(/<head[\s\S]*?<\/head>/, ''));
+  // "Coach" is the card's kind pill, the one line that says only that.
+  const at = seq.map((s, i) => t.findIndex((l) => (i === 0 ? l === s : l.includes(s))));
+  check(`co1: the coach page reads card, then story, in the 390 order (${seq.filter((_, i) => at[i] < 0).join(', ') || 'all present'})`,
+    at.every((n, i) => n >= 0 && (i === 0 || n > at[i - 1])), true);
+  // EC3: one fact, one phrase — the chip says what the print says, and the
+  // only WWCC fact on the page is a state (D-98).
+  check('co2: the WWCC chip reads "WWCC verified", as the print does, and carries no number',
+    [/<span>WWCC verified<\/span>/.test(pub.html), has((await get('/c/sam-kaya/print')).html, 'WWCC verified'), /WWCC[^<]{0,20}\d/.test(markup(pub.html))],
+    [true, true, false]);
+  // E1: the player card's parts — the sticky card column and the story — and
+  // the card is the player card's green, never a club's colours (a coach
+  // page's colours are not cleared: a coach can hold two clubs).
+  const hero = (markup(pub.html).match(/<section class="cv-hero[^"]*"[^>]*>/) ?? [''])[0];
+  check('co3: the coach card is the player card (cv-grid, cv-cardcol, cv-hero), on its own green and no club colour',
+    [/class="fl-wide cv-grid"/.test(pub.html), /class="cv-cardcol"/.test(pub.html), /cv-hero-coach/.test(hero), /style=/.test(hero), /--cv-lead|--club/.test(markup(pub.html))],
+    [true, true, true, false, false]);
+  const tiles = [...markup(pub.html).matchAll(/class="cv-tile-num"[^>]*>([^<]*)</g)].map((m) => m[1].trim());
+  const tilesTd = [...markup((await get('/c/marina-petrovic')).html).matchAll(/class="cv-tile-num"[^>]*>([^<]*)</g)].map((m) => m[1].trim());
+  check(`co4: the numbers are one band of tiles, and none is a zero (D-162) (${tiles.join(',')} / ${tilesTd.join(',')})`,
+    [tiles.length > 0, tilesTd.length > 0, [...tiles, ...tilesTd].includes('0')], [true, true, false]);
+  // E4: signed out, the public links and a logo that goes home; signed in,
+  // the logo alone and not a link. No door to the coach (D-100: copied by
+  // the coach, never sent by Pitch).
+  const pubNav = nav(pub.html), samNav = nav((await get('/c/sam-kaya', sam)).html);
+  const jobsNav = nav((await get('/jobs')).html);
+  const doorsOf = (h) => [...h.matchAll(/href="([^"]*)"/g)].map((m) => m[1]).sort();
+  check('co5: signed out, /c and /jobs carry Find your club · Trials · Sign in and a logo home; signed in, /c carries none of them',
+    [doorsOf(pubNav), doorsOf(jobsNav), doorsOf(samNav)],
+    [['/', '/claim', '/signin', '/trials'], ['/', '/claim', '/signin', '/trials'], []]);
+  // EC1: nothing on the list page sends; the role page says it under the
+  // form that does. E2: the numbers are ink — a paid role is not a better one.
+  const jobs = await get('/jobs');
+  const role = /href="\/jobs\/([0-9a-f-]{36})"/.exec(jobs.html)?.[1];
+  const rolePage = role ? await get(`/jobs/${role}`, sam) : { html: '' };
+  check('co6: /jobs drops "This sends…", the role page keeps its own line, and no number on the board is green',
+    [has(jobs.html, 'This sends the club your coaching CV'), has(rolePage.html, 'They get your coaching CV and this message.'),
+     /numeral numeral-[lms]" style="color:var\(--accent\)/.test(jobs.html), (jobs.html.match(/class="card row jr/g) ?? []).length > 0],
+    [false, true, false, true]);
+  // The editor: one field style, the charter's two buttons and a text
+  // button for Remove; one glow, on Save & preview.
+  const ed = markup((await get('/coach/edit', sam)).html);
+  const glowOn = [...ed.matchAll(/<button[^>]*class="[^"]*fl-glow[^"]*"[^>]*>([^<]*)/g)].map((m) => m[1]);
+  check(`co7: /coach/edit glows once, on Save & preview (${glowOn.join(' | ') || 'none'})`, glowOn, ['Save &amp; preview']);
+  const buttons = [...ed.matchAll(/<button([^>]*)>/g)].map((m) => m[1]).filter((a) => !/name="feature"/.test(a));
+  const handBuilt = buttons.filter((a) => !/class="(btn btn-primary|btn btn-secondary|textbtn)[ "]/.test(a));
+  check(`co8: every editor button is the charter primary, the secondary or the 44px text button (${handBuilt.length} not)`,
+    [handBuilt.length, /＋/.test(ed), /<(input|textarea)[^>]*style="/.test(ed), (ed.match(/class="textbtn">Remove</g) ?? []).length >= 10],
+    [0, false, false, true]);
+  // Registrations: "Open the CV" is the 46px secondary; the note is not a faux italic.
+  const reg = markup((await get('/coach/register', sam)).html);
+  check('co9: /coach/register opens a CV with the charter secondary and draws no italic',
+    [/<a class="btn btn-secondary" href="\/club\/register\/cv\/[0-9a-f-]{36}">Open the CV<\/a>|href="\/club\/register\/cv\/[0-9a-f-]{36}" class="btn btn-secondary">Open the CV</.test(reg), /font-style:italic/.test(reg)],
+    [true, false]);
+  // Print: C's tokens and C's button, hidden in print.
+  const pr = markup((await get('/c/sam-kaya/print')).html);
+  check('co10: the coach print is the light sheet on --print-* with the charter button, hidden in print',
+    [/class="print-page"/.test(pr), /class="no-print print-bar"><button type="button" class="btn btn-primary btn-auto">Save as PDF/.test(pr), /#[0-9a-f]{6}/i.test(pr.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<head[\s\S]*?<\/head>/, ''))],
+    [true, true, false]);
+}
+
+// ---------------------------------------------------------------------------
 // hm — every seat's /home, Floodlit (spec A "Pages", mockup floodlit-homes,
 // BUZ 1 Oct). Three layers: the hero, the one glowing primary (directly under
 // the hero on a phone, A-P1), and everything else as quiet rows. Read-only.

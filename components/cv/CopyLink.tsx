@@ -19,9 +19,10 @@ export default function CopyLink({ url, label, compact = false }: { url: string;
         setDone(true);
         setTimeout(() => setDone(false), 2000);
       }}
-      // The charter secondary (spec C: it was hand-built at the same values).
-      className="btn btn-secondary"
-      style={compact ? { width: 'auto', padding: '0 16px', flexShrink: 0 } : { flexShrink: 0 }}
+      // The charter secondary (spec E: no hand-built button on the coach
+      // screens). It was the same 46px/14px/700 well written out by hand.
+      className={compact ? 'btn btn-secondary btn-auto' : 'btn btn-secondary'}
+      style={compact ? { padding: '0 16px', flexShrink: 0 } : { flexShrink: 0 }}
     >
       <span aria-live="polite">{done ? 'Copied' : label}</span>
     </button>

@@ -203,6 +203,36 @@ function check(name, actual, expected) {
   else { failures.push(name); console.log(`FAIL ${name} - expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`); }
 }
 
+// ---------------------------------------------------------------------------
+// co-w1 — the coach screens (spec E, BUZ 1 Oct): "This role has closed." is
+// said once. A role closed while the coach had it open sends them back with
+// ?closed, and the page printed the amber notice AND the closed panel. Run
+// against the code before this build, it counted two (L20). First in the
+// run, while every club is up (the run suspends them later, and a suspended
+// club's role is not found at all), and on a role Kingsway posts for it, so
+// the seed's own roles stay open for the sweep.
+// ---------------------------------------------------------------------------
+{
+  const dana = ids.people.dana, sam = ids.people.sam;
+  const press = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: who ? { cookie: cookieFor(who) } : {} });
+    await r.text();
+    return { status: r.status };
+  };
+  const post = forms((await get('/club/roles', dana)).html).find((f) => f.visible.some((v) => v.name === 'commitment'));
+  if (post) await press('/club/roles', dana, { ...post.fields, title: 'Goalkeeping Coach — co-w1', commitment: 'Wed 5–6pm' });
+  const roles = (await get('/club/roles', dana)).html;
+  const close = forms(roles).find((f) => 'roleId' in f.fields && f.submit === 'Close'
+    && roles.indexOf('Goalkeeping Coach — co-w1') > -1 && roles.indexOf('Goalkeeping Coach — co-w1') < roles.indexOf(`value="${f.fields.roleId}"`));
+  if (close) await press('/club/roles', dana, close.fields);
+  const page = close ? await get(`/jobs/${close.fields.roleId}?closed=1`, sam) : { status: 0, html: '' };
+  const said = (page.html.replace(/<script[\s\S]*?<\/script>/g, ' ').match(/This role has closed\./g) ?? []).length;
+  check(`co-w1: a role its club closed says "This role has closed." once, with ?closed in the address as well (${said})`,
+    [Boolean(post), Boolean(close), page.status, said], [true, true, 200, 1]);
+}
+
 /** A plausible, VALID value, so the happy path is what runs. */
 function value(f) {
   const n = f.name.toLowerCase();

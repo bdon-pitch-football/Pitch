@@ -20,7 +20,6 @@ import { HeaderMark } from '@/components/Wordmark';
 import { CoachConsole } from '@/components/console-shell';
 import { POSITIONS } from '@/lib/football';
 import { T } from '@/lib/palette';
-import { card, sectionLabel } from '@/lib/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Registrations', robots: { index: false, follow: false } };
@@ -81,23 +80,24 @@ export default async function CoachRegister({ searchParams }: {
     return s ? `/coach/register?${s}` : '/coach/register';
   };
 
-  const label = sectionLabel;
-  const filterLabel: React.CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted };
-
+  // Floodlit (spec E, BUZ 1 Oct): a list is a page — the filters in one
+  // panel, each club under a section heading, each registration its own
+  // panel. The squad head keeps its 14/900 line exactly (render s12b/s13e
+  // read it), and the positions line still follows the first name.
   return (
     <CoachConsole active="register">
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: '/home' }} />
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Registrations</h1>
-          <div style={{ fontSize: 13.5, color: T.secondary, fontWeight: 500 }}>For the teams your club brought you in for.</div>
+        <div className="pg-titles">
+          <h1 className="pg-title">Registrations</h1>
+          <div className="pg-sub">For the teams your club brought you in for.</div>
         </div>
 
         {all.length > 0 && (
-          <div className="console-filters" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <div className="console-filters card panel" style={{ gap: 11 }}>
             {teams.length > 1 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                <div style={filterLabel}>Which team</div>
+              <div className="stack8" style={{ gap: 7 }}>
+                <div className="field-label">Which team</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                   <Link href={qs({ team: null })} className="chip" aria-pressed={!teamOk}>All teams · {all.length}</Link>
                   {teams.map((t) => (
@@ -108,8 +108,8 @@ export default async function CoachRegister({ searchParams }: {
                 </div>
               </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              <div style={filterLabel}>Where they play</div>
+            <div className="stack8" style={{ gap: 7 }}>
+              <div className="field-label">Where they play</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                 <Link href={qs({ pos: null })} className="chip" aria-pressed={!posOk}>Any position</Link>
                 {usedPositions.map((p) => (
@@ -136,34 +136,36 @@ export default async function CoachRegister({ searchParams }: {
             bySquad.set(k, [...(bySquad.get(k) ?? []), r]);
           }
           return (
-            <div key={sec.club} style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              <h2 style={label}>{sec.club}</h2>
+            <section key={sec.club} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <h2 className="sec-h">{sec.club}</h2>
+              {/* The empty lines sit in the empty tile, one element each. */}
               {sec.rows.length === 0 && (
-                <div style={{ ...card, fontSize: 13, fontWeight: 500, color: T.muted }}>No one has registered for your teams yet.</div>
+                <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-b"><span className="empty-t">No one has registered for your teams yet.</span></div></div>
               )}
               {sec.rows.length > 0 && rows.length === 0 && (
-                <div style={{ ...card, fontSize: 13, fontWeight: 500, color: T.muted }}>Nobody matches these filters.</div>
+                <div className="card empty"><span className="empty-tile" aria-hidden /><div className="empty-b"><span className="empty-t">Nobody matches these filters.</span></div></div>
               )}
               {[...bySquad.entries()].map(([squad, list]) => (
-                <div key={squad} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <div key={squad} className="stack9">
                   <div style={{ fontSize: 14, fontWeight: 900 }}>{squad} <span style={{ color: T.muted, fontWeight: 700 }}>· {list.length}</span></div>
                   {list.map((r) => (
-                    <div key={r.registration_id} data-registration={r.registration_id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div key={r.registration_id} data-registration={r.registration_id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <div>
-                        <div style={{ fontSize: 15, fontWeight: 800 }}>{r.player_first_name}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800 }}>{r.player_first_name}</div>
                         <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{r.positions.join(' · ')}{r.has_clips && ' · clips'}</div>
                       </div>
+                      {/* No faux italic: Archivo has no italic file. The quotes stay. */}
                       {r.note && (
-                        <div style={{ background: T.surface2, borderRadius: 12, padding: '10px 12px', fontSize: 12.5, fontStyle: 'italic', color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>&ldquo;{r.note}&rdquo;</div>
+                        <div style={{ background: T.surface2, borderRadius: 'var(--r-well)', padding: '10px 12px', fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>&ldquo;{r.note}&rdquo;</div>
                       )}
                       {sec.readable.has(r.registration_id) && (
-                        <Link href={`/club/register/cv/${r.registration_id}`} style={{ background: T.surface2, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.ink, textDecoration: 'none' }}>Open the CV</Link>
+                        <Link href={`/club/register/cv/${r.registration_id}`} className="btn btn-secondary">Open the CV</Link>
                       )}
                     </div>
                   ))}
                 </div>
               ))}
-            </div>
+            </section>
           );
         })}
 
