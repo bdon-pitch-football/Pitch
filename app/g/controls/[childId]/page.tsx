@@ -148,8 +148,9 @@ export default async function Controls({ params, searchParams }: {
 
         {/* B1 (BUZ, 1 Oct, approved label): a guardian starts and edits the
             page from here. Before this the only page door was the preview,
-            which had nothing to show until a first approved version existed. */}
-        {c.record_id && <a href={`/build/${c.record_id}`} className="btn btn-secondary">Build {name}&rsquo;s page</a>}
+            which had nothing to show until a first approved version existed.
+            Under-16s only: a 16–17 builds their own page (spec A, B1). */}
+        {c.record_id && c.band === 'u16' && <a href={`/build/${c.record_id}`} className="btn btn-secondary">Build {name}&rsquo;s page</a>}
 
         <SquadCard personId={childId} firstName={name} back={`/g/controls/${childId}`} mine={false} said={squad} />
 

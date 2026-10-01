@@ -17,7 +17,6 @@ import { db } from '@/lib/db';
 import { assembleCv, cvClubColours, wornColours, type CvData } from '@/lib/record-read';
 import { requireRecordActor } from '@/lib/record-guard';
 import { T } from '@/lib/palette';
-import { PREVIEW_EMPTY_TITLE } from '@/lib/to-confirm';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Preview your page', robots: { index: false, follow: false } };
@@ -45,22 +44,6 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
     if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(r.person_id)) };
   } else {
     cv = await assembleCv(recordId, r.person_id, r.band);
-  }
-  // B1 (BUZ, 1 Oct): an under-16 with no approved version yet has nothing
-  // to preview — say so and offer the way to start, instead of a 404.
-  if (!cv && r.band === 'u16') {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', background: T.bg, minHeight: '100vh' }}>
-        <div className="reading" style={{ width: '100%', padding: '14px 18px 30px 18px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Link href={actor === 'self' ? `/build/${recordId}` : `/g/controls/${r.person_id}`} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, gap: 6, textDecoration: 'none', color: T.muted, fontSize: 13, fontWeight: 700, alignSelf: 'flex-start' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5 L8 12 L15 19" /></svg>
-            {actor === 'self' ? 'Back to editing' : `Back to ${r.first_name}`}
-          </Link>
-          <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em', margin: 0 }}>{PREVIEW_EMPTY_TITLE}</h1>
-          <Link href={`/build/${recordId}`} className="btn btn-primary fl-glow">Build {r.first_name}&rsquo;s page</Link>
-        </div>
-      </div>
-    );
   }
   if (!cv) notFound();
 
