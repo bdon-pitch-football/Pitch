@@ -15,6 +15,8 @@ import { MAX_POSITIONS, POSITIONS, STAT_KEYS, type StatKey } from './football';
 import { editWaitingEmail } from './messages';
 import { send } from './messaging';
 import type { RecordActor } from './record-guard';
+import { isPlayerPhotoOf, PHOTO_STILL_SHOWN } from './player-photo';
+import { removeImage } from './storage';
 
 export interface CvDraft {
   positions: string[];
@@ -38,6 +40,8 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
   // edit publishes and waits on nobody (D-119, doc 14 R8), and a guardian's
   // own edit is its own approval (F14).
   let waitsOnGuardian = false;
+  // The photos the versions named before this save rewrote them, if any (S-3).
+  const replaced: string[] = [];
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -71,11 +75,18 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
       [recordId],
     );
     if (band.rows[0]?.band === 'u16' && author.actor === 'guardian') {
-      // F14: the guardian's own edit is its own approval.
+      // F14: the guardian's own edit is its own approval. The photos the
+      // versions named before it are collected, and forgotten after commit.
+      replaced.push(...(await versionPhotos(client, recordId)));
       await publishWith(client, recordId, author.personId, draft.season);
     } else if (band.rows[0]?.band === 'u16') {
       waitsOnGuardian = true;
       const content = await buildSnapshot(client, recordId, draft.season);
+      const was = (await client.query(
+        `select content ->> 'photoPath' as photo from profile_version where record_id = $1 and status = 'pending'`,
+        [recordId],
+      )).rows[0]?.photo as string | null | undefined;
+      if (was) replaced.push(was);
       await client.query(
         `insert into profile_version (record_id, content, status)
          values ($1, $2, 'pending')
@@ -97,6 +108,7 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
   } finally {
     client.release();
   }
+  for (const r of replaced) await forgetPlayerPhoto(recordId, r);
 
   // doc 15 §30: tell the guardian an edit is waiting. Once — there is no
   // reminder and no timeout that publishes it (doc 14 §R7).
@@ -118,6 +130,9 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
 // old approved version is superseded — in one transaction. Silence would
 // have kept the old page live forever (doc 14 §R7).
 export async function approvePendingVersion(recordId: string, guardianId: string): Promise<boolean> {
+  // The photo the outgoing approved version named: once it is superseded it
+  // may be nothing anyone is shown, and then it goes (after the commit).
+  let replaced: string | null = null;
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -129,6 +144,10 @@ export async function approvePendingVersion(recordId: string, guardianId: string
       await client.query('rollback');
       return false;
     }
+    replaced = ((await client.query(
+      `select content ->> 'photoPath' as photo from profile_version where record_id=$1 and status='approved'`,
+      [recordId],
+    )).rows[0]?.photo as string | null | undefined) ?? null;
     await client.query(`update profile_version set status='superseded' where record_id=$1 and status='approved'`, [recordId]);
     await client.query(
       `update profile_version set status='approved', approved_by=$2, approved_at=now() where id=$1`,
@@ -139,12 +158,40 @@ export async function approvePendingVersion(recordId: string, guardianId: string
       [recordId, guardianId],
     );
     await client.query('commit');
-    return true;
   } catch (e) {
     await client.query('rollback');
     throw e;
   } finally {
     client.release();
+  }
+  await forgetPlayerPhoto(recordId, replaced);
+  return true;
+}
+
+/**
+ * Delete a player photo this record has stopped showing (S-3, 1 Oct).
+ *
+ * Called with the path something just stopped naming: the live record's
+ * photo when a new one is uploaded, the pending version's when a save
+ * rewrites it, the approved version's when the guardian approves the next.
+ * It goes only if it is this record's own player photo and nothing that can
+ * still be shown names it — never the photo an approved snapshot uses, which
+ * would 404 on every club's screen. A child's face does not stay in the
+ * bucket once nothing shows it (pillar zero, data minimisation).
+ *
+ * Never throws. It runs after the real work has committed, outside any
+ * db.connect() (L1); a delete that fails leaves a file nothing points at,
+ * which is the state before this existed, and must not turn a saved photo
+ * or a guardian's approval into an error.
+ */
+export async function forgetPlayerPhoto(recordId: string, path: string | null | undefined): Promise<void> {
+  if (!path || !isPlayerPhotoOf(recordId, path)) return;
+  try {
+    const { rows } = await db.query(PHOTO_STILL_SHOWN, [path]);
+    if (rows[0]?.shown !== false) return;
+    await removeImage(path);
+  } catch {
+    // left behind, unreferenced; see above
   }
 }
 
@@ -176,18 +223,35 @@ type Client = { query: (sql: string, params?: unknown[]) => Promise<{ rows: Reco
 export async function publishGuardianChange(
   recordId: string, guardianId: string, season = '2026',
 ): Promise<'published' | 'pending' | null> {
+  let replaced: string[] = [];
+  let result: 'published' | 'pending' | null;
   const client = await db.connect();
   try {
     await client.query('begin');
-    const result = await publishWith(client, recordId, guardianId, season);
+    replaced = await versionPhotos(client, recordId);
+    result = await publishWith(client, recordId, guardianId, season);
     await client.query('commit');
-    return result;
   } catch (e) {
     await client.query('rollback');
     throw e;
   } finally {
     client.release();
   }
+  // A photo the old versions named and nothing shows any more goes (S-3);
+  // forgetPlayerPhoto keeps anything still shown.
+  for (const r of replaced) await forgetPlayerPhoto(recordId, r);
+  return result;
+}
+
+// The photos the approved and pending versions name, read under lock before a
+// publish rewrites them, so the ones nothing shows afterwards can go.
+async function versionPhotos(client: Client, recordId: string): Promise<string[]> {
+  const { rows } = await client.query(
+    `select content ->> 'photoPath' as photo from profile_version
+     where record_id = $1 and status in ('approved', 'pending') for update`,
+    [recordId],
+  );
+  return rows.map((r) => r.photo as string | null).filter((p): p is string => Boolean(p));
 }
 
 // The step itself, on a transaction the caller holds: the snapshot, then the

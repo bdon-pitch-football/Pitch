@@ -5,7 +5,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
-import { assembleCv, cvClubColours, wornColours } from '@/lib/record-read';
+import { assembleCv, cvClubColours, withSignedPhoto, wornColours } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import PlayerCV from '@/components/cv/PlayerCV';
 import type { CvData } from '@/lib/record-read';
@@ -62,6 +62,8 @@ export default async function RegisterCv({ params, searchParams }: {
     cv = (v.rows[0]?.content as CvData | null) ?? null;
     // The club's colours follow the membership too (D-174, 0165).
     if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(a.player_id)) };
+    // Its photo as an address for this read only (John's ruling §1).
+    if (cv) cv = await withSignedPhoto(cv);
   } else {
     cv = await assembleCv(a.record_id, a.player_id, a.band);
   }

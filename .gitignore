@@ -41,6 +41,9 @@ test-results/
 
 # Dev-only upload target. Real files, never committed.
 /public/dev-uploads/
+# The local private bucket (under-18 photos), outside public/ on purpose:
+# only app/private-photo serves it, against an expiring signature.
+/.dev-private-uploads/
 
 # Production build used to verify while `next dev` owns .next
 /.next-check/

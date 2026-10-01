@@ -13,6 +13,7 @@ import { headers } from 'next/headers';
 import { cache } from 'react';
 import { db } from './db';
 import type { ClubColours } from './club-colours';
+import { imageSrc } from './storage';
 import type { PlayerFixture } from './fixtures';
 import { checkRate } from './ratelimit-db';
 
@@ -90,7 +91,29 @@ const withinLimits = cache(async (hashHex: string): Promise<boolean> => {
   return link && address;
 });
 
-export async function readCvByToken(rawToken: string): Promise<CvData | null> {
+/**
+ * The CV with its photo as an address this read may draw (John's ruling §1,
+ * BUZ 1 Oct): an under-18's photo is private, so it is minted here — after
+ * the read was allowed, for this read only, dead in ten minutes. Called by
+ * this module's two reads and by every page that serves an approved snapshot
+ * after its own permission check (the club's two CV routes, the family's
+ * preview). Never by a card: D-89 keeps the photo off every share card.
+ */
+export async function withSignedPhoto(cv: CvData): Promise<CvData> {
+  if (!cv.photoPath) return cv;
+  return { ...cv, photoPath: (await imageSrc(cv.photoPath)) ?? undefined };
+}
+
+/**
+ * `photo: false` — for a surface that never draws the photo (the Open Graph
+ * card, D-89): nothing is minted and the CV comes back with no photo at all,
+ * public or signed, so a card cannot draw one even by mistake.
+ */
+export type PhotoOption = { photo?: boolean };
+const photoFor = async (cv: CvData, { photo = true }: PhotoOption): Promise<CvData> =>
+  photo ? withSignedPhoto(cv) : { ...cv, photoPath: undefined };
+
+export async function readCvByToken(rawToken: string, opts: PhotoOption = {}): Promise<CvData | null> {
   // tokens are >=128-bit random strings; anything absurd is dead without a query
   if (!rawToken || rawToken.length > 200) return null;
   const hash = createHash('sha256').update(rawToken).digest();
@@ -118,10 +141,10 @@ export async function readCvByToken(rawToken: string): Promise<CvData | null> {
     // one function that serves a snapshot to all four of its surfaces (0054,
     // 0061), is where that is answered. A second answer here would be a second
     // place to be wrong (L23).
-    return { ...bundle.approved_content, band: bundle.band as CvData['band'], ...(await cvClubColours(bundle.person_id)) };
+    return photoFor({ ...bundle.approved_content, band: bundle.band as CvData['band'], ...(await cvClubColours(bundle.person_id)) }, opts);
   }
 
-  return assembleCv(bundle.record_id, bundle.person_id, bundle.band);
+  return assembleCv(bundle.record_id, bundle.person_id, bundle.band, opts);
 }
 
 /**
@@ -182,7 +205,7 @@ export async function resolveTokenForNotice(rawToken: string): Promise<AccessNot
  * with the caller — fn_token_read for a share link, fn_can_work_register for
  * a club. This function is the shape, never the permission.
  */
-export async function assembleCv(recordId: string, personId: string, band: string): Promise<CvData | null> {
+export async function assembleCv(recordId: string, personId: string, band: string, opts: PhotoOption = {}): Promise<CvData | null> {
   const bundle = { record_id: recordId, person_id: personId, band };
   const r = await db.query(
     `select
@@ -219,7 +242,7 @@ export async function assembleCv(recordId: string, personId: string, band: strin
   const row = r.rows[0];
   if (!row?.core) return null;
 
-  return {
+  return photoFor({
     slug: 'live',
     band: bundle.band as CvData['band'],
     birthQuarter: row.core.birth_quarter ?? null,
@@ -249,5 +272,5 @@ export async function assembleCv(recordId: string, personId: string, band: strin
     highlightsUsed: row.highlights.length,
     surfacedStats: row.core.surfaced_stats,
     ...coloursOf(row.colours),
-  };
+  }, opts);
 }

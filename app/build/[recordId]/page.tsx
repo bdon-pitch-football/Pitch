@@ -4,6 +4,7 @@
 import { notFound } from 'next/navigation';
 import { PlayerFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
+import { imageSrc } from '@/lib/storage';
 import BuildForm from './BuildForm';
 import { requireRecordAuthor } from '@/lib/record-guard';
 import SquadCard from '@/components/SquadCard';
@@ -26,6 +27,9 @@ export default async function Build({ params, searchParams }: { params: Promise<
     [recordId],
   );
   if (rows.length === 0) notFound();
+  // The photo as an address for this read, after the actor check above
+  // (John's ruling §1): an under-18's is private.
+  rows[0].photo_path = await imageSrc(rows[0].photo_path);
   return (
     <PlayerFrame active="cv">
       {/* ONE child for the shell. Two made it lay them side by side, and on a

@@ -12,6 +12,7 @@
 // seat gets its own console on its own screens and no frame here.
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
+import { imageSrc } from '@/lib/storage';
 import { Frame, TopBarShell, type Item } from '@/components/console-shell';
 
 export type PlayerTab = 'home' | 'cv' | 'trials' | 'send';
@@ -45,7 +46,8 @@ async function resolveSeat(): Promise<Seat> {
   if (!r || r.club_seat || r.coach_seat) return null;
   const children = r.children as Child[];
   if (children.length > 0) return { kind: 'guardian', first_name: r.first_name, children };
-  if (r.record_id) return { kind: 'player', first_name: r.first_name, photo_path: r.photo_path, record_id: r.record_id, club: r.club, can_send: r.can_send };
+  // Their own photo, as an address for this read (John's ruling §1).
+  if (r.record_id) return { kind: 'player', first_name: r.first_name, photo_path: await imageSrc(r.photo_path), record_id: r.record_id, club: r.club, can_send: r.can_send };
   return null;
 }
 

@@ -156,7 +156,13 @@ async function reach(who, extra = []) {
     pages.push({ path, html: r.html });
     for (const m of r.html.matchAll(/href="(\/[^"#][^"]*)"/g)) {
       const h = m[1];
-      if (h.startsWith('/_next') || h.startsWith('/assets') || /\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h)) continue;
+      // An image is not a page, whatever follows its name: an under-18's photo
+      // is drawn at a signed address (/private-photo/…jpg?e=…&s=…, John's
+      // ruling §1) and React preloads it with a <link href>, so the old test
+      // on the end of the string followed every one as a page — two of the
+      // parent's sixty, which moved who met Jordan's forms first (L32).
+      if (h.startsWith('/_next') || h.startsWith('/assets') || h.startsWith('/private-photo/')
+        || /\.(png|svg|jpg|ico|xml|txt|webmanifest)$/.test(h.split('?')[0])) continue;
       // Never /signout. This walk follows every link it finds, and signing out
       // now REVOKES the session rather than deleting the browser's copy of a
       // cookie (0062) — so following it once ended the seat and every check
@@ -911,6 +917,286 @@ async function post(path, who, form) {
 }
 
 
+// Every page read with an under-18's photo on it, for photo-w10 below.
+const photoReads = [];
+
+// ---------------------------------------------------------------------------
+// S-3 (safety review, 1 Oct; D-119): a new photo is a new object, and an
+// under-16's reaches a club only through the guardian. Every upload used to
+// overwrite player/{recordId}.jpg, the very URL Deniz's approved snapshot
+// names, so his new face was on every club's screen and every link-holder's
+// the moment he chose it. Read through the product: the squad CV Riverside's
+// TD opens (fn_approved_cv), his share link signed out (fn_token_read), the
+// image each of them points at, and the bytes it serves — every upload here
+// is a different colour, so the bytes say whose face it is.
+//
+// Deniz's own new photo reaches the pending version the way every u16 edit
+// outside the About form does (a clip, a stat): in the next save, which is
+// what the guardian approves. The upload does not open a pending version of
+// its own — that waits on the review screen showing a photo (builder report,
+// 1 Oct). A photo his PARENT uploads is its own approval (John F14, 1 Oct).
+//
+// And an under-18's photo is PRIVATE (John's ruling §1, BUZ 1 Oct): never a
+// public address, only one minted for an allowed read that dies in ten
+// minutes. A photo is named here by its KEY (the address without its
+// signature), since every read mints a fresh address for the same photo.
+// ---------------------------------------------------------------------------
+{
+  const sharp = (await import('sharp')).default;
+  const deniz = ids.children.deniz, alex = ids.people.alex, marina = ids.people.marina;
+  const nate = ids.children.nate, jordan = ids.people.jordan;
+  const unhtml = (t) => t.replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const colour = (r, g, b) => sharp({ create: { width: 8, height: 8, channels: 3, background: { r, g, b } } }).png().toBuffer();
+  const press = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
+  };
+  // The photo form as a browser posts it, from the page the person is on.
+  const upload = async (page, who, png) => {
+    const form = forms((await get(page, who)).html).find((f) => /\/photo$/.test(f.action ?? ''));
+    if (!form) return { status: 0, location: 'no photo form on ' + page };
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
+    fd.append('photo', new Blob([png], { type: 'image/png' }), 'photo.png');
+    const r = await fetch(BASE + form.action, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
+  };
+  // The player photo a page draws, by the record's own file name: its key,
+  // with the address it was drawn at kept to fetch it by.
+  const minted = new Map();
+  const photoOn = (html, rec) => {
+    const src = new RegExp(`<img[^>]*src="([^"]*player[-/]${rec}[^"]*)"`)
+      .exec(html.replace(/<script[\s\S]*?<\/script>/g, ' '))?.[1]?.replace(/&amp;/g, '&');
+    if (!src) return null;
+    const key = src.split('?')[0];
+    minted.set(key, src);
+    return key;
+  };
+  // What an image answers, at the last address it was drawn at: its status,
+  // and its bytes when it serves.
+  const fetchImg = async (key) => (key ? fetch(BASE + (minted.get(key) ?? key)) : null);
+  const status = async (src) => (await fetchImg(src))?.status ?? null;
+  const bytes = async (src) => { const r = await fetchImg(src); return r?.ok ? Buffer.from(await r.arrayBuffer()) : null; };
+  // Save the CV form as it stands — which is what builds the pending version.
+  const saveForm = async (who) => {
+    const page = `/build/${deniz.record_id}`;
+    const { html } = await get(page, who);
+    const form = forms(html).find((f) => 'positions' in f.fields);
+    const fields = { ...form.fields };
+    for (const v of form.visible) {
+      if (v.file) continue;
+      fields[v.name] = v.type === 'select' ? (v.options?.[0] ?? '') : (v.value ?? '');
+    }
+    fields.about = unhtml(/<textarea[^>]*name="about"[^>]*>([\s\S]*?)<\/textarea>/.exec(html)?.[1] ?? '');
+    return press(page, who, fields);
+  };
+  const approve = async () => {
+    const page = `/g/pending/${deniz.record_id}`;
+    const form = forms((await get(page, alex)).html).find((f) => f.submit === 'Approve the change');
+    return form ? press(page, alex, form.fields) : { status: 0, location: 'no approve form' };
+  };
+
+  // Riverside's squad CV of Deniz, found the way the TD finds it.
+  let squadCv = null;
+  for (const m of new Set([...(await get('/club/squads', marina)).html.matchAll(/href="(\/club\/squads\/[0-9a-f-]{36})"/g)].map((x) => x[1]))) {
+    if ((await get(m, marina)).html.includes(`/cv/${deniz.child_id}`)) { squadCv = `${m}/cv/${deniz.child_id}`; break; }
+  }
+  const clubSees = async () => {
+    const [club, link] = [await get(squadCv, marina), await get('/p/dev-deniz', null)];
+    return [club.status, link.status, photoOn(club.html, deniz.record_id), photoOn(link.html, deniz.record_id)];
+  };
+  const live = async (who) => photoOn((await get(`/build/${deniz.record_id}`, who)).html, deniz.record_id);
+  const [red, green, blue, amber, grey] = await Promise.all(
+    [[220, 30, 30], [30, 200, 60], [30, 60, 220], [240, 170, 20], [120, 120, 120]].map((c) => colour(...c)));
+
+  // What the club's squad CV and the share link draw, and what that address
+  // serves — the bytes, because under the old code the ADDRESS never moved
+  // and only what it served did.
+  const drawn = async () => {
+    const [club, link] = (await clubSees()).slice(2);
+    return { club, link, same: club === link, bytes: club ? await bytes(club) : null };
+  };
+
+  // ---- before: Deniz has an approved photo, the way any family gets one ----
+  const opens = await clubSees();
+  await upload(`/build/${deniz.record_id}`, deniz.child_id, await red);
+  const p1 = await live(deniz.child_id);
+  await saveForm(deniz.child_id);
+  await approve();
+  const before = await drawn();
+  const redBytes = await bytes(p1);
+  check('photo-w0: before — Riverside’s TD opens Deniz’s squad CV and his share link opens; he uploads a photo, saves, his parent approves, and both now draw it',
+    [Boolean(squadCv), opens[0], opens[1], Boolean(p1), before.club === p1 && before.same, Boolean(redBytes)],
+    [true, 200, 200, true, true, true]);
+
+  // ---- an under-16 uploads; nothing a club reads moves until his parent says yes ----
+  await upload(`/build/${deniz.record_id}`, deniz.child_id, await green);
+  const p2 = await live(deniz.child_id);
+  const afterUpload = await drawn();
+  await saveForm(deniz.child_id);
+  const afterSave = await drawn();
+  const ok = await approve();
+  const afterApprove = await drawn();
+  const greenBytes = await bytes(p2);
+  check('photo-w1: Deniz uploads a new photo and saves — the club’s squad CV and his share link still draw the approved one, and its address still serves it byte for byte; his parent approves, and both draw the new one, at its own address (S-3: one fixed key, overwritten in place)',
+    [p2 !== p1, [afterUpload.club, afterUpload.same, Boolean(afterUpload.bytes?.equals(redBytes))],
+     [afterSave.club, afterSave.same, Boolean(afterSave.bytes?.equals(redBytes))],
+     ok.location, [afterApprove.club, afterApprove.same, Boolean(greenBytes && afterApprove.bytes?.equals(greenBytes) && !greenBytes.equals(redBytes))]],
+    [true, [p1, true, true], [p1, true, true], `/g/pending/${deniz.record_id}?done=1`, [p2, true, true]]);
+
+  // ---- B1's parent door ("Build Deniz's page" on /home): a guardian's own
+  // upload is its own approval (John F14, 1 Oct) — on the page at once, logged
+  // as theirs, and no edit-waiting email to them ----
+  const decode = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;|&rsquo;/g, "'").replace(/&amp;/g, '&');
+  // The newest message in the outbox, whole: if the parent's upload sent
+  // anything — to them, the other guardian or anyone — it would be this one.
+  const newestMessage = async () => decode(/<div class="lift"[\s\S]*?<\/pre>/.exec((await get('/dev/outbox', alex)).html)?.[0] ?? '');
+  // F14's history line (BUZ, 1 Oct): "{guardian first name} changed the page."
+  const approvedLines = async () => (decode((await get(`/g/controls/${deniz.child_id}`, alex)).html).match(/\b[A-Z][a-z]+ changed the page\./g) ?? []).length;
+  const nothingWaiting = async () => decode((await get(`/g/pending/${deniz.record_id}`, alex)).html).includes('Nothing is waiting on you.');
+  const door = /href="(\/build\/[0-9a-f-]{36})"[^>]*>Build (?:<!-- -->)?Deniz/.exec((await get('/home', alex)).html)?.[1] ?? null;
+  const [mail0, lines0] = [await newestMessage(), await approvedLines()];
+  // D-89: no photo on an under-18's card. Read off the artefact, byte for byte.
+  const og = async (link) => Buffer.from(await (await fetch(`${BASE}${link}/opengraph-image`)).arrayBuffer());
+  const ogBefore = await og('/p/dev-deniz');
+  const up3 = door ? await upload(door, alex, await blue) : { status: 0 };
+  const p3 = await live(alex);
+  const doorUpload = await drawn();
+  const blueBytes = await bytes(p3);
+  check('photo-w2: through his parent’s door on /home, the parent’s upload is the approved page at once — the club’s squad CV and his share link draw it at its own address, nothing waits on the parent, no message goes to anyone, the family history logs \u201c{parent} changed the page.\u201d, and the photo it superseded is deleted',
+    [door, up3.status, p3 !== p2, [doorUpload.club, doorUpload.same, Boolean(blueBytes && doorUpload.bytes?.equals(blueBytes) && !blueBytes.equals(greenBytes))],
+     await nothingWaiting(), mail0 !== '' && (await newestMessage()) === mail0, (await approvedLines()) - lines0, await status(p2)],
+    [`/build/${deniz.record_id}`, 303, true, [p3, true, true], true, true, 1, 404]);
+  const ogAfter = await og('/p/dev-deniz');
+  check('photo-w2b: and his Open Graph card is byte for byte the same with the new photo on his approved page as before it — no photo, public or signed, reaches an under-18’s card (D-89)',
+    [ogBefore.length > 1000, ogAfter.equals(ogBefore)], [true, true]);
+
+  // ---- a child's upload waiting, then the parent's own: one draft, one rule
+  // (publishGuardianChange, until John rules on this case): with the child's
+  // change waiting, the parent's photo joins the waiting version and nothing
+  // publishes — so the club keeps the approved photo until the parent
+  // approves, and then sees the parent's photo; the child's goes ----
+  await upload(`/build/${deniz.record_id}`, deniz.child_id, await amber);
+  const p4 = await live(deniz.child_id);
+  await saveForm(deniz.child_id);
+  const childWaits = await drawn();
+  await upload(door ?? `/build/${deniz.record_id}`, alex, await grey);
+  const p5 = await live(alex);
+  const parentOver = await drawn();
+  const okChild = await approve();
+  const afterChild = await drawn();
+  const greyBytes = await bytes(p5);
+  check('photo-w3: with Deniz\u2019s change waiting, his parent\u2019s photo joins it and nothing publishes — the club keeps the approved photo; his parent approves, the page shows the parent\u2019s photo, and his, which nothing names any more, is deleted',
+    [new Set([p3, p4, p5]).size, childWaits.club, parentOver.club, okChild.location, [afterChild.club, afterChild.same, Boolean(greyBytes && afterChild.bytes?.equals(greyBytes))], await status(p4)],
+    [3, p3, p3, `/g/pending/${deniz.record_id}?done=1`, [p5, true, true], 404]);
+
+  // ---- N-10 / doc 14 R12 (John, 1 Oct): a 16–17's page is theirs. Their
+  // parent has no photo form to press, and a crafted post goes home and
+  // changes nothing ----
+  {
+    const nate = ids.children.nate;
+    const nateLive = async () => photoOn((await get(`/build/${nate.record_id}`, nate.child_id)).html, nate.record_id);
+    const before = await nateLive();
+    const fd = new FormData();
+    fd.append('photo', new Blob([await grey], { type: 'image/png' }), 'photo.png');
+    const r = await fetch(`${BASE}/build/${nate.record_id}/photo`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(alex) } });
+    await r.text();
+    check('photo-w11 (N-10): a 16–17\u2019s parent cannot set their photo — the build page sends them home, a crafted upload goes home too, and the photo is unchanged',
+      [(await get(`/build/${nate.record_id}`, alex)).status, r.status, (r.headers.get('location') ?? '').replace(BASE, ''), (await nateLive()) === before],
+      [307, 303, '/home', true]);
+  }
+
+  // ---- old files: gone once nothing shows them, never the approved one ----
+  // Two child uploads with no save between: the first is replaced before any
+  // version named it, and goes. Every photo an approval or the parent's
+  // upload superseded is gone; the approved one serves throughout.
+  await upload(`/build/${deniz.record_id}`, deniz.child_id, await red);
+  const p6 = await live(deniz.child_id);
+  await upload(`/build/${deniz.record_id}`, deniz.child_id, await green);
+  const p7 = await live(deniz.child_id);
+  const approvedNow = await drawn();
+  check('photo-w4: a superseded photo nothing names is deleted — every earlier approved one, and an upload replaced before anyone saved it — while the approved one still serves byte for byte and the latest upload waits at its own address',
+    [await Promise.all([p1, p2, p3, p4, p6].map(status)), [approvedNow.club, Boolean(approvedNow.bytes?.equals(greyBytes))], new Set([p5, p6, p7]).size, await status(p7)],
+    [[404, 404, 404, 404, 404], [p5, true], 3, 200]);
+
+  // ---- 16–17 and adults: the live record is the page, at a new address every time ----
+  const jordanRec = /\/build\/([0-9a-f-]{36})/.exec((await get('/home', jordan)).html)?.[1];
+  for (const [who, seat, record, link] of [['a 16–17', nate.child_id, nate.record_id, '/p/dev-nate'],
+                                           ['an adult', jordan, jordanRec, '/p/dev-jordan']]) {
+    const on = async () => photoOn((await get(link, null)).html, record);
+    const cardBefore = await og(link);
+    await upload(`/build/${record}`, seat, await amber);
+    const a = await on();
+    const aBytes = await bytes(a);
+    await upload(`/build/${record}`, seat, await grey);
+    const b = await on();
+    const bBytes = await bytes(b);
+    check(`photo-w5: ${who} uploads twice, and the live page shows each new photo at once at a new address that serves it; the one it replaced is deleted`,
+      [Boolean(a), Boolean(b) && b !== a, Boolean(aBytes), Boolean(bBytes && aBytes && !bBytes.equals(aBytes)), await status(a)],
+      [true, true, true, true, 404]);
+    if (seat === nate.child_id) {
+      check('photo-w5b: a 16–17’s Open Graph card is byte for byte the same after two photos went on the live page (D-89)',
+        (await og(link)).equals(cardBefore), true);
+    }
+  }
+
+  // ---- private: an under-18's photo is drawn at an address minted for the
+  // read, and only an allowed read mints one (John's ruling §1) ----
+  const now = () => Math.floor(Date.now() / 1000);
+  const expiryOf = (src) => Number(new URL(BASE + (src ?? '/')).searchParams.get('e'));
+  const signedOut = async (path, rec) => photoOn((await get(path, null)).html, rec);
+  const [dKey, nKey, jKey] = [await signedOut('/p/dev-deniz', deniz.record_id), await signedOut('/p/dev-nate', nate.record_id),
+    await signedOut('/p/dev-jordan', jordanRec)];
+  const dUrl = minted.get(dKey);
+  check('photo-w6: a link-holder is drawn an under-18’s photo — Deniz’s, Nate’s — at a signed address that serves it and expires within ten minutes, never at a public one; an adult’s stays public',
+    [Boolean(dKey?.startsWith(`/private-photo/player/${deniz.record_id}-`)), Boolean(nKey?.startsWith(`/private-photo/player/${nate.record_id}-`)),
+     await status(dKey), await status(nKey), expiryOf(dUrl) > now() && expiryOf(dUrl) <= now() + 600,
+     Boolean(jKey?.startsWith(`/dev-uploads/player-${jordanRec}-`))],
+    [true, true, 200, 200, true, true]);
+  const sig = new URL(BASE + (dUrl ?? '/')).searchParams.get('s');
+  const tamper = async (q, who = null) => (await fetch(`${BASE}${dKey}${q}`, { headers: who ? { cookie: cookieFor(who) } : {} })).status;
+  check('photo-w7: the same photo without its signature, with its expiry moved later or earlier, or past ten minutes, is a 404 — the key alone gives a stranger nothing',
+    [await tamper(''), await tamper(`?e=${expiryOf(dUrl) + 60}&s=${sig}`), await tamper(`?e=${now() + 3600}&s=${sig}`), await tamper(`?e=${now() - 1}&s=${sig}`)],
+    [404, 404, 404, 404]);
+
+  // Paused by his parent: the share link is the dead page — no photo, nothing
+  // minted — and the address minted before it dies on its own clock.
+  const ctl = `/g/controls/${deniz.child_id}`;
+  const pauseForm = async () => forms((await get(ctl, alex)).html).find((f) => 'paused' in f.fields);
+  const pause = await pauseForm();
+  await press(ctl, alex, pause?.fields ?? {});
+  const pausedPage = (await get('/p/dev-deniz', null)).html;
+  const unpause = await pauseForm();
+  await press(ctl, alex, unpause?.fields ?? {});
+  const backKey = await signedOut('/p/dev-deniz', deniz.record_id);
+  check('photo-w8: his parent pauses his page — the share link draws no photo and mints no address, and the one minted before expires within ten minutes; unpaused, it is drawn again at an address that serves',
+    [pause?.fields.paused, photoOn(pausedPage, deniz.record_id), /\/private-photo\//.test(pausedPage), expiryOf(dUrl) <= now() + 600,
+     unpause?.fields.paused, backKey === dKey, await status(backKey)],
+    ['true', null, false, true, 'false', true, 200]);
+
+  // Another club, a signed-in stranger: no page, no address, and the key alone
+  // opens nothing for them either.
+  const dana = ids.people.dana, robin = ids.people.robin;
+  const otherClub = await get(squadCv, dana);
+  const stranger = await get(`/build/${deniz.record_id}`, robin);
+  check('photo-w9: another club’s Technical Director opening Riverside’s squad CV of Deniz, and a signed-in stranger opening his builder, get no page and no address for his photo — and his photo’s key fetched as either of them is a 404',
+    [otherClub.status === 200, /\/private-photo\//.test(otherClub.html), stranger.status === 200, /\/private-photo\//.test(stranger.html),
+     await tamper('', dana), await tamper('', robin)],
+    [false, false, false, false, 404, 404]);
+
+  // The pages only Deniz and a link-holder see; the sweep below reads every
+  // other page every seat reaches, and photo-w10 is asked once it has.
+  for (const path of [`/home`, `/build/${deniz.record_id}`, `/build/${deniz.record_id}/preview`]) photoReads.push([path, (await get(path, deniz.child_id)).html]);
+  for (const path of ['/p/dev-deniz', '/p/dev-nate', '/p/dev-georgia', '/p/dev-deniz/print', '/p/dev-nate/print', squadCv]) {
+    photoReads.push([path, (await get(path, path === squadCv ? marina : null)).html]);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Collect every distinct form the product renders, per seat.
 // ---------------------------------------------------------------------------
@@ -918,6 +1204,7 @@ const SIGNED_OUT_ROUTES = ['/signin', '/join', '/reset', '/report', '/p/dev-deni
 const found = new Map();          // actionId -> {seat, who, path, form}
 for (const [seat, who] of Object.entries(SEATS)) {
   for (const p of await reach(who)) {
+    photoReads.push([`${p.path} (${seat})`, p.html]);
     for (const f of forms(p.html)) {
       const key = `${f.actionId}:${p.path.replace(/[0-9a-f-]{36}/g, '*')}`;
       if (!found.has(key)) found.set(key, { seat, who, path: p.path, form: f });
@@ -931,6 +1218,20 @@ for (const route of SIGNED_OUT_ROUTES) {
     const key = `${f.actionId}:${route}`;
     if (!found.has(key)) found.set(key, { seat: 'signed out', who: null, path: route, form: f });
   }
+}
+
+// photo-w10 (John's ruling §1): every page every seat reaches, read by the
+// sweep just now, and the ones only Deniz and a link-holder see (above). No
+// under-18's photo at a public address, and no private path left unminted —
+// after the photo block put photos on Deniz's and Nate's pages.
+{
+  const minorRecs = ['deniz', 'nate', 'georgia'].map((k) => ids.children[k].record_id).join('|');
+  const minorIds = ['deniz', 'nate', 'georgia'].map((k) => ids.children[k].child_id).join('|');
+  const leak = new RegExp(`/dev-uploads/(?:player-(?:${minorRecs})|coach-photo-(?:${minorIds}))|pitch-private:`);
+  const leaks = photoReads.filter(([, html]) => leak.test(html)).map(([path]) => path);
+  const drawn = photoReads.filter(([, html]) => /\/private-photo\/player\//.test(html)).length;
+  check(`photo-w10: no page any seat reaches — family, player, 16–17, club, coach, signed out, print (${photoReads.length} pages) — draws an under-18\u2019s photo at a public address or an unminted path (${leaks.join(', ') || 'none'}), and the private ones are drawn (${drawn})`,
+    [leaks, drawn >= 5], [[], true]);
 }
 
 const all = [...found.values()];

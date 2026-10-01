@@ -47,7 +47,8 @@ const Mark = ({ dim }: { dim?: boolean }) => (
 
 export default async function OgImage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const cv = await readCvByToken(token).catch(() => null);
+  // No photo, public or signed, ever reaches a card (D-89; John's ruling §1).
+  const cv = await readCvByToken(token, { photo: false }).catch(() => null);
 
   if (!cv) {
     return new ImageResponse(

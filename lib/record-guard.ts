@@ -78,11 +78,22 @@ export async function requireRecordActor(
  * from a record that does not exist.
  */
 export async function requireRecordAuthor(recordId: string): Promise<{ personId: string; actor: RecordActor }> {
+  const found = await recordAuthor(recordId);
+  if (found === 'no-session') redirect('/signin');
+  if (!found) redirect('/home');
+  return found;
+}
+
+/**
+ * The same answer without redirecting, for a route that must answer a POST
+ * itself (the photo upload: redirect() would turn it into a 307 that re-POSTs
+ * the file at /signin). 'no-session', not an author (null), or the author.
+ */
+export async function recordAuthor(recordId: string): Promise<{ personId: string; actor: RecordActor } | 'no-session' | null> {
   const personId = await getSessionPersonId();
-  if (!personId) redirect('/signin');
+  if (!personId) return 'no-session';
   const actor = isUuid(recordId)
     ? ((await db.query(`select fn_record_author($1,$2) as actor`, [personId, recordId])).rows[0]?.actor as RecordActor | null)
     : null;
-  if (!actor) redirect('/home');
-  return { personId, actor };
+  return actor ? { personId, actor } : null;
 }

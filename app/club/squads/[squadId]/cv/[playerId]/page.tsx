@@ -17,7 +17,7 @@ import { notFound, redirect } from 'next/navigation';
 import PlayerCV from '@/components/cv/PlayerCV';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
-import { assembleCv, cvClubColours, wornColours, type CvData } from '@/lib/record-read';
+import { assembleCv, cvClubColours, withSignedPhoto, wornColours, type CvData } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import { STAT_LABELS, type StatKey } from '@/lib/football';
 import { HeaderMark } from '@/components/Wordmark';
@@ -55,6 +55,8 @@ export default async function SquadCv({ params }: { params: Promise<{ squadId: s
     cv = (v.rows[0]?.content as CvData | null) ?? null;
     // The club's colours follow the membership too (D-174, 0165).
     if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(playerId)) };
+    // Its photo as an address for this read only (John's ruling §1).
+    if (cv) cv = await withSignedPhoto(cv);
   } else {
     cv = await assembleCv(recordId, playerId, row.band);
   }

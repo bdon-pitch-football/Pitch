@@ -10,11 +10,15 @@
 // CV, which is the least fraught photo here.
 //
 // It writes person.photo_path, the same column the player CV reads. One
-// photo per person, whichever hat they are wearing.
+// photo per person, whichever hat they are wearing — so a 16–17 who coaches
+// MiniRoos puts their face on their PLAYER page through this route too. Under
+// 18 it goes to the private bucket at a key of its own, exactly as the player
+// route does it (John's ruling §1, BUZ 1 Oct; lib/player-photo).
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { db } from '@/lib/db';
-import { putImage } from '@/lib/storage';
+import { putImage, putPrivateImage } from '@/lib/storage';
+import { coachPhotoKey } from '@/lib/player-photo';
 import { getSessionPersonId } from '@/lib/session';
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -47,9 +51,12 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL('/coach/edit?photo=bad', request.url), 303);
   }
 
+  const adult = (await db.query(`select fn_age_band(dob) = '18plus' as adult from person where id = $1`, [me])).rows[0]?.adult === true;
   let rel: string;
   try {
-    rel = await putImage(`coach/photo-${me}.jpg`, out, 'image/jpeg');
+    rel = adult
+      ? await putImage(`coach/photo-${me}.jpg`, out, 'image/jpeg')
+      : await putPrivateImage(coachPhotoKey(me), out, 'image/jpeg');
   } catch {
     return NextResponse.redirect(new URL('/coach/edit?photo=bad', request.url), 303);
   }

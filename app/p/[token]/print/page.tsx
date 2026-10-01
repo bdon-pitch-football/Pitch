@@ -25,7 +25,8 @@ export const dynamic = 'force-dynamic';
 // soon.pdf". Band-aware for the same reason the card is.
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const cv = await readCvByToken(token).catch(() => null);
+  // The title and description only: no photo is minted for the head.
+  const cv = await readCvByToken(token, { photo: false }).catch(() => null);
   return cv ? cvMetadata(cv) : DEAD_LINK_METADATA;
 }
 
