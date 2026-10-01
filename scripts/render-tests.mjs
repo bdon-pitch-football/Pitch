@@ -473,7 +473,7 @@ const georgia = ids.children.georgia;
     [has(unvHome, 'What happens next'), has(unvHome, 'A short phone call with us'),
      /on a number we find ourselves, not one you give us\. Let the club know to expect us\./.test(unvMarkup),
      mailto.test(unvMarkup), (unvMarkup.match(/class="btn btn-primary fl-glow"/g) ?? []).length,
-     /href="\/club\/register" class="btn btn-secondary"[^>]*>Register</.test(unvMarkup),
+     /<a (?=[^>]*href="\/club\/register")(?=[^>]*class="btn btn-secondary")[^>]*>Register</.test(unvMarkup),
      (unvMarkup.match(/class="btn btn-primary[ "]/g) ?? []).length],
     [true, true, true, true, 1, true, 1]);
 
