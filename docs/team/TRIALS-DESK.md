@@ -23,6 +23,10 @@
 
 **The brake:** a run may take down at most 12 notices, or a quarter of the board. More than that, and none come down; BUZ decides. A watch seat that misread every page cannot empty the board.
 
+## Multi-session trials
+
+A notice carries one date: the next session. Once that date has passed and the club's page lists later sessions of the same trial, the watch seats move the notice to the next session (an `edit` that keeps the title, so it applies on its own). A trial never drops off the board while it still has sessions to run.
+
 ## The strict test (every `add` and `edit`)
 
 1. **The club's own source:** its site, its own social post, or a form linked from either. No aggregators or news sites.
