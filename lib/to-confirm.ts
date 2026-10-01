@@ -11,4 +11,5 @@ export const SHARED_ADDRESS_WARNING =
   'This is the club’s shared address. It can run the page, but your Technical Director signs up with their own email address to read the register.';
 
 /** Every draft above, for the release check. Remove an entry once BUZ confirms it. */
-export const STILL_TO_CONFIRM = ['PREVIEW_EMPTY_TITLE', 'SHARED_ADDRESS_WARNING'] as const;
+export const STILL_TO_CONFIRM = [] as const;
+// BUZ confirmed PREVIEW_EMPTY_TITLE and SHARED_ADDRESS_WARNING on 1 Oct ("approve all five").
