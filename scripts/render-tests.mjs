@@ -2703,6 +2703,103 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// dfx — the live defects the Head of Product Design found (docs/design/specs/
+// README.md on design/player-cv, "Live defects found while designing"; BUZ,
+// 1 Oct). One check per defect, each run against the code before its fix.
+// Read-only: nothing here presses anything.
+// ---------------------------------------------------------------------------
+{
+  const nate = ids.children.nate;
+  const parentHome = (await get('/home', alex)).html;
+  const interestId = /href="\/g\/interest\/([0-9a-f-]{36})"/.exec(parentHome)?.[1] ?? null;
+
+  // D-PD-1 and D-PD-2: the parent's answer screens. "Not this one" was a div
+  // that did nothing; three buttons were drawn with nowhere to go.
+  for (const [what, path, dead] of [
+    ['/g/pending', `/g/pending/${deniz.record_id}`, 'Edit the words first'],
+    ['/g/send', `/g/send/${ids.georgiaAsk}`, 'Change the address'],
+    ['/g/interest', interestId && `/g/interest/${interestId}`, 'Edit what'],
+  ]) {
+    const r = path ? await get(path, alex) : { status: 0, html: '' };
+    check(`dfx-PD-1: ${what} — "Not this one" is a link home, not a div that does nothing`,
+      [r.status, /<a [^>]*href="\/home"[^>]*>Not this one<\/a>/.test(r.html), /<div[^>]*>Not this one<\/div>/.test(r.html)], [200, true, false]);
+    check(`dfx-PD-2: ${what} — no button drawn with nowhere to go ("${dead}")`, [r.status, has(r.html, dead)], [200, false]);
+  }
+  // D-F1: a promise of an edit that is not built.
+  check('dfx-D-F1: /g/pending no longer promises "You can edit the words before you approve them."',
+    has((await get(`/g/pending/${deniz.record_id}`, alex)).html, 'You can edit the words'), false);
+
+  // D-F2 (defect 8): Georgia has nothing waiting and nothing was just
+  // approved, so her page is not "approved" — nothing is waiting. After an
+  // approval (?done=1) the approved state is still there.
+  const idle = await get(`/g/pending/${georgia.record_id}`, alex);
+  const justDone = await get(`/g/pending/${georgia.record_id}?done=1`, alex);
+  check('dfx-D-F2: with no change waiting, /g/pending says "Nothing is waiting on you." and never "page is approved"',
+    [idle.status, has(idle.html, 'Nothing is waiting on you.'), has(idle.html, 'page is approved'), /Get the share link/.test(idle.html)],
+    [200, true, false, false]);
+  check('dfx-D-F2b: and after an approval it still says the page is approved',
+    [justDone.status, has(justDone.html, '’s page is approved')], [200, true]);
+
+  // D-PD-4 (defect 7): a dead /a/ link is LinkState's words at 200, one body
+  // for every cause, never the root 404's "taken down". (Approved and held
+  // links are walked in the write suite, which can approve one.)
+  {
+    const dead = [];
+    for (const code of ['bogus', 'never-was-an-approval-code', '00000000-0000-0000-0000-000000000000']) dead.push(await get(`/a/${code}`));
+    const doneDead = await get('/a/no-such-invitation/done');
+    const notYet = await get(`/a/${ids.pendingInvitation}/done`);
+    check('dfx-PD-4: a dead /a/ link answers 200 in the dead-link words, one identical body, no form, no "taken down"',
+      [dead.map((r) => r.status), new Set(dead.map((r) => text(r.html).join('|'))).size, has(dead[0].html, 'This link doesn’t open anything'),
+       dead.some((r) => /<form/.test(r.html)), dead.some((r) => has(r.html, 'taken down')), dead.some((r) => /<div data-failure=/.test(r.html))],
+      [[200, 200, 200], 1, true, false, false, false]);
+    check('dfx-PD-4b: and so does its done page — dead, or not approved yet — with no family on it',
+      [doneDead.status, notYet.status, text(doneDead.html).join('|') === text(notYet.html).join('|'),
+       has(notYet.html, 'This link doesn’t open anything'), has(notYet.html, 'Your children')],
+      [200, 200, true, true, false]);
+  }
+
+  // C-P5 and C-P8: register interest at a club with no squads (Kingsway).
+  const kingsway = ids.clubs['kingsway-rovers'], riverside = ids.clubs['riverside-fc'];
+  const noSquads = await get(`/register-interest/${nate.record_id}?club=${kingsway}`, nate.child_id);
+  const withSquads = await get(`/register-interest/${nate.record_id}?club=${riverside}`, nate.child_id);
+  check('dfx-C-P8: a club with no squads draws no "Which squad" field; a club with squads still does',
+    [noSquads.status, has(noSquads.html, 'Which squad'), /name="squadId"/.test(noSquads.html), withSquads.status, has(withSquads.html, 'Which squad')],
+    [200, false, false, 200, true]);
+  check('dfx-C-P5: "Cancel" on /register-interest is a link home',
+    [/<a [^>]*href="\/home"[^>]*>Cancel<\/a>/.test(noSquads.html), /<div[^>]*>Cancel<\/div>/.test(noSquads.html)], [true, false]);
+
+  // C-P9 and C-P5: the share card.
+  const jordanRec = /\/build\/([0-9a-f-]{36})/.exec((await get('/home', ids.people.jordan)).html)?.[1] ?? 'none';
+  const adultCard = await get(`/share-card/${jordanRec}`, ids.people.jordan);
+  const teenCard = await get(`/share-card/${nate.record_id}`, nate.child_id);
+  check('dfx-C-P9: an adult reaching /share-card by URL is sent home — no page telling them to ask a parent',
+    [adultCard.status, adultCard.location, has(adultCard.html, 'Ask my parent')], [307, '/home', false]);
+  check('dfx-C-P5b: a 16–17 still gets the card page, and its "Cancel" is a link home',
+    [teenCard.status, /<a [^>]*href="\/home"[^>]*>Cancel<\/a>/.test(teenCard.html), /<div[^>]*>Cancel<\/div>/.test(teenCard.html)], [200, true, false]);
+
+  // C-P6 (defect 18): a refused photo says so. 8 MB is the route's own cap.
+  const bad = await get(`/build/${deniz.record_id}?photo=bad`, alex);
+  const plainBuild = await get(`/build/${deniz.record_id}`, alex);
+  check('dfx-C-P6: /build?photo=bad says the photo did not upload; without it, nothing',
+    [bad.status, has(bad.html, 'upload. Try a JPG or PNG under 8 MB.'), has(plainBuild.html, 'upload. Try a JPG or PNG under 8 MB.')], [200, true, false]);
+
+  // E3 (defect 20): the coach editor's order. The add-role form sits under its
+  // roles and the banner under the photo; the JSX had nested the banner,
+  // licences and accomplishments inside the roles block.
+  const coachEdit = (await get('/coach/edit', ids.people.sam)).html;
+  const at = (s) => coachEdit.indexOf(s);
+  check('dfx-E3: /coach/edit runs photo → banner → profile → roles with their add form → licences',
+    [order(coachEdit, 'Your photo', 'Choose a banner'), order(coachEdit, 'Choose a banner', 'How you want to play'),
+     at('Where you’ve coached') > -1 && at('Where you’ve coached') < at('name="org"') && at('name="org"') < at('Licences &amp; qualifications')],
+    [true, true, true]);
+
+  // EC4 (defect 21): "We asked your club…" only when there is a club.
+  const marnie = (await get('/coach/edit', ids.people.marnie)).html;
+  check('dfx-EC4: a coach with no club is not told "We asked your club to confirm"; a coach with one still is',
+    [has(marnie, 'We asked'), has(marnie, 'Your club confirms it, not you.'), has(coachEdit, 'We asked')], [false, true, true]);
+}
+
+// ---------------------------------------------------------------------------
 // addr-r1 — no page this crawl was served sends a share token into an address
 // bar: not in a redirect, and not in a link it carries (brief D; L38/L42).
 // ---------------------------------------------------------------------------

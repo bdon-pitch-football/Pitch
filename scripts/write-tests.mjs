@@ -1244,7 +1244,9 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   html = (await get(`/g/invite/${nateInv}?reply=1`, teen)).html;
   check('e4b: a minor’s reply form offers no contact details to hand over', /name="share_email"|name="share_phone"/.test(html), false);
   box0 = await outbox();
-  await postTo(`/g/invite/${nateInv}`, teen, formOn(html, (f) => 'invitationId' in f.fields), { answer: 'yes', note: 'Keen.' });
+  // The draft answers "Interested, not that date", so dfx-D-6 can see which
+  // answer the parent's form draws as chosen (defect 6, 1 Oct).
+  await postTo(`/g/invite/${nateInv}`, teen, formOn(html, (f) => 'invitationId' in f.fields), { answer: 'interested_not_date', note: 'Keen.' });
   box = await outbox();
   check('e5: THE CLUB SEES NOTHING until a parent approves', decode((await get(`/club/invite/${nateReg}`, club)).html).includes('Nate replied'), false);
   check('e6: the parent is woken to approve it',
@@ -1255,6 +1257,18 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     decode((await get('/home', parent)).html).includes('Nate wants to reply to Kingsway Rovers FC'), true);
   html = (await get(`/g/invite/${nateInv}?reply=1`, parent)).html;
   check('e7b: the parent reviews it with the player’s words already in it', decode(html).includes('Approve Nate'), true);
+  // Defect 6 (1 Oct): the first answer was painted chosen whatever was
+  // checked. Each answer is now an .opt whose look follows its own radio, and
+  // the checked radio is the draft's.
+  // React writes a checked radio as checked="" before its value, so the whole
+  // tag is read rather than what follows the value.
+  const opt = (v) => [...html.matchAll(/<label class="opt">(<input type="radio" name="answer"[^>]*>)/g)].map((m) => m[1]).find((t) => t.includes(`value="${v}"`)) ?? null;
+  check('dfx-D-6: the parent’s form draws the draft’s answer as the chosen one — "Interested, not that date", not "will be there"',
+    [opt('interested_not_date') !== null && /checked/.test(opt('interested_not_date')), opt('yes') !== null && !/checked/.test(opt('yes')),
+     /<label class="opt"><input[^>]*><div style=/.test(html)], [true, true, false]);
+  check('dfx-PD-1b: and beside the submit, "Not this time" is a link home, not a second form',
+    [/<a [^>]*href="\/home"[^>]*>Not this time<\/a>/.test(html.slice(Math.max(0, html.indexOf('name="answer"')))),
+     forms(html).filter((f) => 'invitationId' in f.fields).length], [true, 1]);
   await postTo(`/g/invite/${nateInv}`, parent, formOn(html, (f) => 'invitationId' in f.fields), { answer: 'yes', note: 'Keen.' });
   check('e8: once the parent approves, the club sees the answer',
     decode((await get(`/club/invite/${nateReg}`, club)).html).includes('Nate replied'), true);
@@ -1270,6 +1284,10 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     if (!decode(page).includes('Kingsway')) continue;
     check('f2a: the parent’s consent screen shows the trial (N2)', decode(page).includes('U16–U18 and Seniors trials'), true);
     await postTo(`/g/interest/${rid}`, parent, formOn(page, (f) => 'requestId' in f.fields), {});
+    // D-F3 (1 Oct): there is no page called Manage.
+    const sentPage = decode((await get(`/g/interest/${rid}`, parent)).html.replace(/<!--[\s\S]*?-->/g, ''));
+    check('dfx-D-F3: once sent, it says where to take the child off — Your family, not a "Manage page" that does not exist',
+      [/is on Kingsway Rovers FC.s register/.test(sentPage), sentPage.includes('from Your family'), /Manage page/.test(sentPage)], [true, true, false]);
   }
   html = (await get('/club/register', club)).html;
   const denizReg = inviteLinkFor(html, 'Deniz');
@@ -1711,11 +1729,22 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   // --- D-155: the declaration is required ------------------------------------
   const noDecl = await post(`/a/${EMAIL}`, approveForm);
   check('ia2g: approving without the 18-or-over tick approves nothing', /\?adult=1/.test(noDecl.location), true);
-  check('ia2h: and the invitation is still waiting', (await ig(`/a/${inv}/done`)).status, 404);
+  // D-PD-4 (1 Oct): an unapproved invitation's done page is a link that opens
+  // nothing — LinkState's words at 200, not the root 404 — and no family page.
+  const notYet = await ig(`/a/${inv}/done`);
+  check('ia2h: and the invitation is still waiting — its done page opens nothing, and shows no family',
+    [notYet.status, /This link doesn.t open anything/.test(plain(notYet.html)), /Your children/.test(plain(notYet.html))], [200, true, false]);
 
   const done = await post(`/a/${EMAIL}`, approveForm, { adult: 'on' });
   check('ia3: with it, approving works, with no JavaScript and no cookie', /\/a\/[0-9a-f-]+\/done/.test(done.location), true);
-  check('ia3b: and both links are finished', [(await ig(`/a/${TEXT}`)).status, (await ig(`/a/${EMAIL}`)).status], [404, 404]);
+  // D-PD-4: finished means LinkState's words at 200, no form, and the two
+  // links identical — never the root 404's "may have been taken down".
+  const finText = await ig(`/a/${TEXT}`), finEmail = await ig(`/a/${EMAIL}`);
+  const noScript = (h) => plain(h.replace(/<script[\s\S]*?<\/script>/g, ' '));
+  check('ia3b: and both links are finished — the same page, opening nothing, with no form',
+    [finText.status, finEmail.status, /This link doesn.t open anything/.test(plain(finText.html)), forms(finText.html).length + forms(finEmail.html).length,
+     /taken down/.test(noScript(finText.html)), noScript(finText.html) === noScript(finEmail.html)],
+    [200, 200, true, 0, false, true]);
 
   const parkedAfter = await post('/signin', await signinFormNow(),
     { email: 'priya@example.com', password: 'parked-password-1234' });
@@ -1810,6 +1839,18 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('D-155: "approving" for a 17-year-old lands on the same done page', heldDone.location, `/a/${heldId}/done`);
   const heldLanding = plain((await ig(`/a/${heldId}/done`)).html);
   check('D-155: which reads exactly like an approval', /Approved by you on/.test(heldLanding) && /Email me the link/.test(heldLanding), true);
+  // D-PD-4 (1 Oct): a finished approval link is one page whatever finished it
+  // — approved (Mila's), held (Zed's) or never a link — said in LinkState's
+  // words at 200. A held link that read differently from an approved one
+  // would tell a stranger which it was (D-155).
+  {
+    const vis = (h) => plain(h.replace(/<script[\s\S]*?<\/script>/g, ' '));
+    const four = [await ig(`/a/${zedLinks[0]}`), await ig(`/a/${zedLinks[1]}`), await ig(`/a/${TEXT}`), await ig('/a/no-such-approval-code')];
+    check('dfx-PD-4: approved, held and never-existed /a/ links answer 200 with one identical body, in the dead-link words, with no form',
+      [four.map((r) => r.status), new Set(four.map((r) => vis(r.html))).size, /This link doesn.t open anything/.test(vis(four[0].html)),
+       four.reduce((n, r) => n + forms(r.html).length, 0), /taken down/.test(vis(four[0].html))],
+      [[200, 200, 200, 200], 1, true, 0, false]);
+  }
   const nateHome = plain((await get('/home', ids.children.nate.child_id)).html);
   check('D-155: and the 17-year-old is nobody\'s guardian', /Zed/.test(nateHome), false);
   const opsView = plain((await get(`/ops/support?q=${encodeURIComponent('nate@example.com')}`, ids.people.marina)).html);
@@ -1886,6 +1927,10 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
     /Waiting on your parent/.test(tessHome) && !/href="\/send\//.test(tessHome), true);
   const tessSend = await fetch(BASE + `/send/${tessRec}`, { redirect: 'manual', headers: { cookie: tessCookie } });
   check('t16f: and the send screen sends Tess home', tessSend.status >= 300 && tessSend.status < 400, true);
+  // C-P7 (1 Oct): /build/ready offered her "Send it to a club", which bounced.
+  const tessReady = await (await fetch(BASE + `/build/${tessRec}/ready`, { headers: { cookie: tessCookie } })).text();
+  check('dfx-C-P7: nor does her "page ready" screen offer a send that would bounce',
+    [/Your page is (ready|live)/.test(plain(tessReady)), /href="\/send\//.test(tessReady), /Send it to a club/.test(tessReady)], [true, false, false]);
 
   const tessLinks = approvalCodes(tessOut).slice(0, 2);
   for (const code of tessLinks) {
@@ -1901,6 +1946,9 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   check('t16h: confirming lands on "You confirmed you\'re Tess\'s parent"', /You confirmed you.re Tess.s parent/.test(tessDonePage) && /Confirmed by you on/.test(tessDonePage), true);
   const tessHome2 = await (await fetch(BASE + '/home', { headers: { cookie: tessCookie } })).text();
   check('t16i: and now Tess can send', /href="\/send\//.test(tessHome2) && !/Waiting on your parent/.test(tessHome2), true);
+  const tessReady2 = await (await fetch(BASE + `/build/${tessRec}/ready`, { headers: { cookie: tessCookie } })).text();
+  check('dfx-C-P7b: and her "page ready" screen offers it again, to /send',
+    new RegExp(`href="/send/${tessRec}"[^>]*>Send it to a club<`).test(tessReady2), true);
 
 }
 
@@ -2067,6 +2115,12 @@ console.log(`\n${all.length} distinct forms across ${Object.keys(SEATS).length +
   const again = await get(`/ops/reports?parent=${encodeURIComponent('guardian@example.com')}`, op);
   check('g32-16: the link shows as suppressed, restorable, with the court-order removal beside it',
     /Parent of Nate · suppressed/.test(txt(again.html)) && forms(again.html).some((f) => /Restore access/.test(f.submit)) && forms(again.html).some((f) => /Remove permanently/.test(f.submit)), true);
+  // The I spec (1 Oct) read the page's !revoked as letting a suppressed link
+  // draw the suppress form. It never could: 0049's check constraint makes a
+  // suppressed link a revoked one. Pinned here, so the form stays off if that
+  // ever changes.
+  check('g32-16b: and no form offers to suppress it again',
+    forms(again.html).some((f) => /Suppress this parent/.test(f.submit) && f.fields.childId === nate.child_id), false);
   const removeForm = forms(again.html).find((f) => /Remove permanently/.test(f.submit) && f.fields.childId === nate.child_id);
   check('g32-17: permanent removal needs a court order reference', /error=order/.test(await postAs(op, '/ops/reports', removeForm)), true);
   const restore = forms(again.html).find((f) => /Restore access/.test(f.submit) && f.fields.childId === nate.child_id);
@@ -3085,17 +3139,24 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const two = await resetsTo('admin@example.com');
   check('sess-w12: two presses put two links in the inbox', two.length - linksBefore, 2);
   const older = two[1].resetToken, newer = two[0].resetToken;
-  const oldTry = await send(`/reset/${older}`, submit((await raw(`/reset/${older}`, null)).html, /Save it/),
-    { password: 'attacker-chosen-password-1' });
+  // G-P2 (0163): a dead link no longer draws the form at all, so the press is
+  // made with the form the live link draws and the dead link's token in it —
+  // the action, not the page, is what must refuse it.
+  const liveForm = submit((await raw(`/reset/${newer}`, null)).html, /Save it/);
+  const oldOpen = await raw(`/reset/${older}`, null);
+  check('dfx-G-P2: the OLDER link, opened, goes straight to "used or expired" and draws no password field',
+    [oldOpen.status, /\/reset\?expired=1/.test(oldOpen.location ?? ''), /name="password"/.test(oldOpen.html ?? '')], [307, true, false]);
+  const oldTry = await send(`/reset/${older}`, liveForm, { token: older, password: 'attacker-chosen-password-1' });
   check('sess-w13: the OLDER of them sets no password — issuing the second one killed it',
     /\/reset\?expired=1/.test(oldTry.location), true);
-  const newTry = await send(`/reset/${newer}`, submit((await raw(`/reset/${newer}`, null)).html, /Save it/),
-    { password: 'admin-new-password-24680' });
+  const newTry = await send(`/reset/${newer}`, liveForm, { token: newer, password: 'admin-new-password-24680' });
   check('sess-w14: the newest one works', /\/signin\?reset=1/.test(newTry.location), true);
-  const reuse = await send(`/reset/${newer}`, submit((await raw(`/reset/${newer}`, null)).html, /Save it/),
-    { password: 'attacker-chosen-password-2' });
+  const reuse = await send(`/reset/${newer}`, liveForm, { token: newer, password: 'attacker-chosen-password-2' });
   check('sess-w15: and once used it is spent, so a second press sets nothing',
     /\/reset\?expired=1/.test(reuse.location), true);
+  const usedOpen = await raw(`/reset/${newer}`, null);
+  check('dfx-G-P2b: and the used link, opened again, says so before anything is typed',
+    [usedOpen.status, /\/reset\?expired=1/.test(usedOpen.location ?? '')], [307, true]);
   check('sess-w16: the password the real person set is the one that works',
     /pitch_session=[^;]+\./.test((await send('/signin', submit((await raw('/signin', null)).html, /^Sign in$/),
       { email: 'admin@example.com', password: 'admin-new-password-24680' })).setCookie), true);

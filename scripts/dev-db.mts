@@ -901,8 +901,17 @@ console.log(`${DEMO ? 'demo' : 'dev'} db ready on 127.0.0.1:${PORT}${DEMO ? ` ·
 // first screen a real user ever sees had never been rendered by anyone.
 // Empty states are where a product looks broken or looks confident, and this
 // one had no fixture at all.
+const robin = await db.query(
+  `insert into person (first_name, last_name, dob, email) values ('Robin','Newman','1994-03-02','new@example.com') returning id`,
+);
+// A LIVE PASSWORD-RESET LINK, /reset/dev-reset, so the new-password form can
+// be rendered at all. Since G-P2 (0163) a dead link goes straight to
+// /reset?expired=1, and the layout check's focus-ring walk had only ever
+// reached that form through a token that did not exist. Opening it uses
+// nothing; nothing in the suites presses it.
 await db.query(
-  `insert into person (first_name, last_name, dob, email) values ('Robin','Newman','1994-03-02','new@example.com')`,
+  `insert into auth_reset (person_id, token_hash, expires_at) values ($1, $2, now() + interval '30 days')`,
+  [robin.rows[0].id, sha('dev-reset')],
 );
 
 let pendingInvitationId = '';

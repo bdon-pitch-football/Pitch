@@ -102,6 +102,12 @@ export default async function OpsVerification() {
             <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 700, lineHeight: 1.55, marginTop: 2 }}>Held registrations are hidden from the club entirely — it sees a count and nothing else.</div>
           </div>
         </div>
+        {/* N-I1 (BUZ, 1 Oct): with no club claimed, verified or suspended the
+            table head was drawn over nothing and read as a failed load. A
+            sentence instead, never a zero (D-162). */}
+        {rows.length === 0 ? (
+          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', fontSize: 13, color: T.secondary, fontWeight: 500 }}>No club has claimed its page yet.</div>
+        ) : (
         <div className="ops-table">
           <div className="ops-head" aria-hidden>
             <div>Club</div><div>Claimed</div><div>Held</div><div /><div />
@@ -138,6 +144,7 @@ export default async function OpsVerification() {
             </div>
           ))}
         </div>
+        )}
       </div>
     </OpsConsole>
   );

@@ -99,13 +99,15 @@ export default async function Invitation({ params, searchParams }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={label}>{writerIsChild ? 'Your answer' : `${self ? 'Your' : `${name}’s`} answer`}</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <label style={{ flex: 1, cursor: 'pointer' }}>
-                <input type="radio" name="answer" value="yes" defaultChecked={currentAnswer === 'yes'} style={{ position: 'absolute', opacity: 0 }} />
-                <div style={{ minHeight: 52, borderRadius: 14, background: 'rgba(61,220,132,.14)', border: `1.5px solid ${T.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 8px', fontSize: 14, fontWeight: 900, color: T.accent }}>{self ? 'I’ll be there' : `${name} will be there`}</div>
+              {/* .opt (globals.css): the checked radio is the one drawn chosen.
+                  Both used to be painted fixed, the first always as chosen. */}
+              <label className="opt">
+                <input type="radio" name="answer" value="yes" defaultChecked={currentAnswer === 'yes'} />
+                <div>{self ? 'I’ll be there' : `${name} will be there`}</div>
               </label>
-              <label style={{ flex: 1, cursor: 'pointer' }}>
-                <input type="radio" name="answer" value="interested_not_date" defaultChecked={currentAnswer === 'interested_not_date'} style={{ position: 'absolute', opacity: 0 }} />
-                <div style={{ minHeight: 52, borderRadius: 14, border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 8px', fontSize: 14, fontWeight: 700, color: T.muted }}>Interested, not that date</div>
+              <label className="opt">
+                <input type="radio" name="answer" value="interested_not_date" defaultChecked={currentAnswer === 'interested_not_date'} />
+                <div>Interested, not that date</div>
               </label>
             </div>
           </div>
@@ -143,6 +145,10 @@ export default async function Invitation({ params, searchParams }: {
           <button type="submit" className="btn btn-primary">
             {writerIsChild ? 'Send it to my parent to approve' : approving ? `Approve and send to ${v.clubName}` : 'Send my reply'}
           </button>
+          {/* D-PD-1 (BUZ, 1 Oct): the first screen's "Not this time", beside the
+              submit too. It writes nothing (D-138). An <a>, never a form: the
+              write suite finds this form by its invitationId field. */}
+          <Link href="/home" style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Not this time</Link>
         </form>
       </Shell>
     );

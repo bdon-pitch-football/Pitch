@@ -103,6 +103,39 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
             We re-save the image ourselves, which removes any location data the file was carrying. A head-and-shoulders shot works best — it is cropped to a square.
           </div>
         </form>
+        {/* A banner, composed behind the photo the way the club page does it.
+            Same route controls as the club's: re-encoded, EXIF stripped,
+            capped, and authorised against this coach's own profile. E3 (BUZ, 1 Oct):
+            it sits under Your photo, the two uploads together; a JSX slip had
+            nested it inside Where you've coached. */}
+        <form action="/coach/edit/banner" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div style={{ fontSize: 14, fontWeight: 900 }}>Banner</div>
+          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'var(--hero)' }}>
+            {c.banner_path ? (
+              <div style={{ position: 'relative', lineHeight: 0 }}>
+                <img src={c.banner_path} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,21,16,0) 42%, rgba(10,21,16,.78) 100%)' }} />
+              </div>
+            ) : (
+              <div style={{ width: '100%', height: 110, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, color: T.muted, fontWeight: 500 }}>No banner yet</div>
+            )}
+            <div style={{ position: 'relative', zIndex: 1, padding: '0 14px 12px 14px' }}>
+              <div style={{ width: 56, height: 56, marginTop: -26, borderRadius: 16, background: '#1b2b22', border: '3px solid #0e1b14', boxShadow: '0 0 0 1px rgba(238,245,240,.18), 0 8px 20px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {c.photo_path
+                  ? <img src={c.photo_path} alt="" width={56} height={56} style={{ objectFit: 'cover' }} />
+                  : <span style={{ fontWeight: 900, fontSize: 19, color: T.muted }}>{`${c.first_name[0] ?? ''}${c.last_name[0] ?? ''}`}</span>}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.015em', marginTop: 7 }}>{c.first_name} {c.last_name}</div>
+            </div>
+          </div>
+          <label className="filefield">
+            <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" required />
+            <span className="filefield-title">Choose a banner</span>
+            <span className="filefield-hint">A wide photo — your ground, a session, a team shot. Cropped to a strip, and your photo sits over the bottom-left of it.</span>
+          </label>
+          <button type="submit" className="btn btn-secondary">Save the banner</button>
+        </form>
+
         {clip === 'full' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>That&rsquo;s {COACH_CLIP_CAP} clips — remove one to add another. A reel is a shortlist, not an archive.</div>}
         {clip === 'noprofile' && <div style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>Save your profile first, then add clips.</div>}
 
@@ -160,36 +193,18 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
               </form>
             </div>
           ))}
-          {/* A banner, composed behind the photo the way the club page does it.
-            Same route controls as the club's: re-encoded, EXIF stripped,
-            capped, and authorised against this coach's own profile. */}
-        <form action="/coach/edit/banner" method="post" encType="multipart/form-data" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 13 }}>
-          <div style={{ fontSize: 14, fontWeight: 900 }}>Banner</div>
-          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.line}`, background: 'var(--hero)' }}>
-            {c.banner_path ? (
-              <div style={{ position: 'relative', lineHeight: 0 }}>
-                <img src={c.banner_path} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,21,16,0) 42%, rgba(10,21,16,.78) 100%)' }} />
-              </div>
-            ) : (
-              <div style={{ width: '100%', height: 110, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, color: T.muted, fontWeight: 500 }}>No banner yet</div>
-            )}
-            <div style={{ position: 'relative', zIndex: 1, padding: '0 14px 12px 14px' }}>
-              <div style={{ width: 56, height: 56, marginTop: -26, borderRadius: 16, background: '#1b2b22', border: '3px solid #0e1b14', boxShadow: '0 0 0 1px rgba(238,245,240,.18), 0 8px 20px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {c.photo_path
-                  ? <img src={c.photo_path} alt="" width={56} height={56} style={{ objectFit: 'cover' }} />
-                  : <span style={{ fontWeight: 900, fontSize: 19, color: T.muted }}>{`${c.first_name[0] ?? ''}${c.last_name[0] ?? ''}`}</span>}
-              </div>
-              <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.015em', marginTop: 7 }}>{c.first_name} {c.last_name}</div>
+          {/* E3 (BUZ, 1 Oct): the add-role form sits under the roles it adds
+              to. It was four sections further down on a phone. */}
+          <form action={addRole} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <label style={card}><div style={label}>Role</div><input style={input} name="title" aria-label="Title" placeholder="Head Coach · U15 Boys" required /></label>
+              <label style={card}><div style={label}>Club or program</div><input style={input} name="org" aria-label="Club or program" placeholder="Riverside FC" required /></label>
+              <label style={card}><div style={label}>From</div><input style={input} name="from" aria-label="From" placeholder="2024" /></label>
+              <label style={card}><div style={label}>To — blank if current</div><input style={input} name="to" aria-label="To" placeholder="" /></label>
             </div>
-          </div>
-          <label className="filefield">
-            <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" required />
-            <span className="filefield-title">Choose a banner</span>
-            <span className="filefield-hint">A wide photo — your ground, a session, a team shot. Cropped to a strip, and your photo sits over the bottom-left of it.</span>
-          </label>
-          <button type="submit" className="btn btn-secondary">Save the banner</button>
-        </form>
+            <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add a role</button>
+          </form>
+        </div>
 
         {/* Licences were one pipe-separated box — fine for one credential,
             useless for a coach who holds five, and with nowhere to say who
@@ -256,17 +271,6 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>
             <b style={{ color: T.ink }}>Keep it about the team, not about a child.</b> &ldquo;Promotion with the U15s&rdquo; is right; naming a player under 18 is not — the same rule as your session titles.
           </div>
-        </div>
-
-        <form action={addRole} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <label style={card}><div style={label}>Role</div><input style={input} name="title" aria-label="Title" placeholder="Head Coach · U15 Boys" required /></label>
-              <label style={card}><div style={label}>Club or program</div><input style={input} name="org" aria-label="Club or program" placeholder="Riverside FC" required /></label>
-              <label style={card}><div style={label}>From</div><input style={input} name="from" aria-label="From" placeholder="2024" /></label>
-              <label style={card}><div style={label}>To — blank if current</div><input style={input} name="to" aria-label="To" placeholder="" /></label>
-            </div>
-            <button type="submit" style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 12, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>＋ Add a role</button>
-          </form>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -353,7 +357,9 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
               </div>
             </div>
             <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-              <b style={{ color: T.ink }}>Your club confirms it, not you.</b> We asked {c.coach_club ?? 'your club'} to confirm you hold a current check. Don&rsquo;t send us the number — we don&rsquo;t store it and there&rsquo;s nowhere to put it.
+              {/* EC4 (BUZ, 1 Oct): with no club membership nobody was asked, so
+                  the "We asked" sentence is said only when there is a club. */}
+              <b style={{ color: T.ink }}>Your club confirms it, not you.</b>{c.coach_club ? ` We asked ${c.coach_club} to confirm you hold a current check.` : ''} Don&rsquo;t send us the number — we don&rsquo;t store it and there&rsquo;s nowhere to put it.
             </div>
           </div>
           <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Your CV publishes without it. Verification is what unlocks anything to do with players, and it&rsquo;s free on every tier.</div>

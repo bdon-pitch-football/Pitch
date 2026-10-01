@@ -14,6 +14,7 @@ import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { PlayerFrame } from '@/components/player-shell';
 import { requireRecordActor } from '@/lib/record-guard';
+import { sendState } from '@/lib/send-state';
 import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,7 @@ export const metadata = { title: 'Your page', robots: { index: false, follow: fa
 
 export default async function Ready({ params }: { params: Promise<{ recordId: string }> }) {
   const { recordId } = await params;
-  await requireRecordActor(recordId);
+  const { personId } = await requireRecordActor(recordId);
   const { rows } = await db.query(
     `select p.first_name, dr.positions, dr.squad_number,
        (select count(*)::int from highlight h where h.record_id = dr.id) as clips,
@@ -37,6 +38,10 @@ export default async function Ready({ params }: { params: Promise<{ recordId: st
   if (!r) redirect('/home');
   const live = Boolean(r.hint);
   const waiting = Boolean(r.has_pending);
+  // C-P7 (BUZ, 1 Oct): "Send it to a club" only where /send has a screen for
+  // this viewer — the same gate /send and its action read. A 16–17 whose
+  // parent has not confirmed was offered it and bounced to /home.
+  const canSend = (await sendState(recordId, personId))?.mode !== 'none';
   const line = [
     (r.positions as string[]).join(' · ') || null,
     r.squad_number ? `#${r.squad_number}` : null,
@@ -81,7 +86,7 @@ export default async function Ready({ params }: { params: Promise<{ recordId: st
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {!waiting && <Link href={`/send/${recordId}`} className="btn btn-primary">Send it to a club</Link>}
+          {!waiting && canSend && <Link href={`/send/${recordId}`} className="btn btn-primary">Send it to a club</Link>}
           <Link href={`/build/${recordId}/preview`} className="btn btn-secondary">Preview my page</Link>
           <Link href="/trials" className="btn btn-secondary">Find a trial</Link>
           <Link href={`/build/${recordId}`} className="btn btn-ghost">Keep building</Link>

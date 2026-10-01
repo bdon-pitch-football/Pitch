@@ -1,6 +1,7 @@
 // ShareCV.dc.html — the child makes a card to post. Copy verbatim. Nothing
 // is generated here: the shapes are drawn, not rendered from the record.
-import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { requestCard } from './actions';
@@ -31,10 +32,14 @@ export default async function ShareCard({ params, searchParams }: {
   await requireRecordActor(recordId);
   const { asked } = await searchParams;
   const { rows } = await db.query(
-    `select p.first_name from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
+    `select p.first_name, fn_age_band(p.dob) as band from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
     [recordId],
   );
   if (rows.length === 0) notFound();
+  // C-P9 (BUZ, 1 Oct): an adult has no parent on the record, so a page that
+  // tells them to ask one is untrue. /home links here only for under-18s with
+  // a confirmed parent; reached by URL, an adult goes home, as /send does.
+  if (rows[0].band === '18plus') redirect('/home');
 
   if (asked) {
     return (
@@ -90,7 +95,9 @@ export default async function ShareCard({ params, searchParams }: {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
             <button type="submit" className="btn btn-primary">Ask my parent to approve it</button>
-            <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Cancel</div>
+            {/* C-P5 (BUZ, 1 Oct): Cancel goes home, as it does on /send. It was a
+                div that went nowhere. */}
+            <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Cancel</Link>
           </div>
         </form>
       </div>

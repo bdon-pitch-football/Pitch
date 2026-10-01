@@ -16,7 +16,7 @@ interface RecordData {
 
 const input: React.CSSProperties = { background: 'transparent', border: 'none', color: T.ink, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: 0, width: '100%' };
 
-export default function BuildForm({ record, saved }: { record: RecordData; saved: boolean }) {
+export default function BuildForm({ record, saved, photoBad }: { record: RecordData; saved: boolean; photoBad?: boolean }) {
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [positions, setPositions] = useState<string[]>(record.positions ?? []);
@@ -99,6 +99,14 @@ export default function BuildForm({ record, saved }: { record: RecordData; saved
         {saved && (
           <div style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>
             Saved. {record.has_pending ? 'Your parent will see this change before it goes out.' : ''}
+          </div>
+        )}
+        {/* C-P6 (BUZ, 1 Oct): the photo route sends a bad file, a file over
+            8 MB or a storage failure back here with ?photo=bad, and the page
+            used to say nothing. 8 MB is the route's own cap (photo/route.ts). */}
+        {photoBad && (
+          <div role="status" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>
+            That photo didn&rsquo;t upload. Try a JPG or PNG under 8 MB.
           </div>
         )}
         {/* photo leads the build screen: every good CV has one. One big target

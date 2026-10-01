@@ -4,25 +4,62 @@
 // LinkState.dc.html (anon variant; the verified-club request-access variant
 // arrives with auth).
 import { HeaderMark } from '@/components/Wordmark';
+import { FAILURE_COPY } from '@/components/FailureState';
 import { requestAccess } from '@/app/p/[token]/request/actions';
 import { T } from '@/lib/palette';
+
+// The three approved sentences, in one place, because a second page now says
+// them (FinishedLink, below).
+const WORDS = {
+  heading: 'This link doesn\u2019t open anything',
+  reason: 'It may have been switched off, it may have expired, or it may never have been a link at all. We don\u2019t say which.',
+  why: 'That is deliberate. If we told you which, anyone could use a wrong link to find out whether a particular child is on Pitch. The answer is the same either way.',
+};
+
+const LOCK = (
+  <div>
+    <div style={{ width: 56, height: 56, borderRadius: 18, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" /><path d="M8 10.5 V7.5 a4 4 0 0 1 8 0 v3" /></svg>
+    </div>
+  </div>
+);
+
+// D-PD-4 (BUZ, 1 Oct): a finished approval link (/a/*: approved, held,
+// purged, or never a link) used to serve the root 404, so a parent who had
+// just said yes and opened the other link read that their child's page "may
+// have been taken down". It now says LinkState's words, at 200, with the
+// failure path's way out. It is handed nothing, so it can say nothing
+// different for any cause (D-77, D-155: a hold reads as an approval). No
+// request-access form: that is for somebody holding a share link.
+export function FinishedLink() {
+  return (
+    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+        <HeaderMark />
+        {LOCK}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em' }}>{WORDS.heading}</h1>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{WORDS.reason}</div>
+        </div>
+        <div className="card-sunken" style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>{WORDS.why}</div>
+        <a href="/home" className="btn btn-primary">{FAILURE_COPY.notFound.action}</a>
+      </div>
+    </div>
+  );
+}
 
 export default function LinkState({ token, asked }: { token?: string; asked?: boolean }) {
   return (
     <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
       <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark />
-        <div>
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" /><path d="M8 10.5 V7.5 a4 4 0 0 1 8 0 v3" /></svg>
-          </div>
-        </div>
+        {LOCK}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em' }}>This link doesn&rsquo;t open anything</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>It may have been switched off, it may have expired, or it may never have been a link at all. We don&rsquo;t say which.</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em' }}>{WORDS.heading}</h1>
+          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>{WORDS.reason}</div>
         </div>
         <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px' }}>
-          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>That is deliberate. If we told you which, anyone could use a wrong link to find out whether a particular child is on Pitch. The answer is the same either way.</div>
+          <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.55 }}>{WORDS.why}</div>
         </div>
         <div style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 16, padding: '15px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7.5 v5" /><circle cx="12" cy="16.2" r="0.6" fill={T.muted} /></svg>

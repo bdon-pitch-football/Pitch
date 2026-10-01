@@ -1,6 +1,7 @@
 // SendCVGuardian.dc.html — the guardian's confirm-and-send. Copy verbatim.
 // Nothing has been sent until the button is pressed; ignoring it makes it
 // disappear on its own (D-138 — silence is a complete answer).
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
@@ -95,7 +96,8 @@ export default async function GuardianSend({ params, searchParams }: {
             <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', wordBreak: 'break-all' }}>{address}</div>
             <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{name} typed this from the club&rsquo;s trial notice</div>
           </div>
-          <div style={{ border: `1px solid ${T.line}`, background: 'transparent', color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>Change the address</div>
+          {/* D-PD-2 (BUZ, 1 Oct): "Change the address" was drawn here as a
+              button with no destination. It comes back when it is built. */}
         </div>
 
         <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 11 }}>
@@ -126,7 +128,9 @@ export default async function GuardianSend({ params, searchParams }: {
 
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}><input type="hidden" name="requestId" value={requestId} />
           <button type="submit" className="btn btn-primary">Send it to {clubName}</button>
-          <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Not this one</div>
+          {/* D-PD-1 (BUZ, 1 Oct): a working No. It writes nothing and goes where the
+              back link and silence already go (D-138). An <a>, never a second form. */}
+          <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Not this one</Link>
         </form>
       </div>
     </div>

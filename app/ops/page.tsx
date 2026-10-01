@@ -69,8 +69,11 @@ export default async function OpsToday() {
     t.signups_total > 0 && <Tile key="s" label="Signups today" value={t.signups_total}
       sub={line([[t.signups_player, 'player'], [t.signups_parent, 'parent'], [t.signups_coach, 'coach'], [t.signups_club, 'club']])} />,
     t.approvals_sent > 0 && <Tile key="a" label="Approvals sent" value={t.approvals_sent} sub="to guardians" />,
+    // A day with approvals and none sent (sent yesterday, approved today)
+    // printed "Infinity% of sent" (I spec, 1 Oct). No share of nothing: the
+    // line is omitted when nothing was sent today.
     t.approved > 0 && <Tile key="o" label="Approved" value={t.approved} colour={T.accent}
-      sub={`${Math.round((100 * t.approved) / t.approvals_sent)}% of sent`} />,
+      sub={t.approvals_sent > 0 ? `${Math.round((100 * t.approved) / t.approvals_sent)}% of sent` : undefined} />,
     failures.length > 0 && <Tile key="f" label="Delivery failures" value={failures.length} colour={T.red}
       sub={[line([[sms, 'SMS'], [email, 'email']]), 'see below'].join(' · ')} />,
     t.registrations > 0 && <Tile key="r" label="Registrations" value={t.registrations}

@@ -1,6 +1,7 @@
 // ShareApproval — the guardian sees the EXACT image, behind sign-in, before
 // it exists anywhere else (D-101). The one sentence that matters is not
 // softened: once it's out, we can't take it back.
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
@@ -63,7 +64,9 @@ export default async function CardApproval({ params, searchParams }: {
             </div>
             <form action={approveCard} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}><input type="hidden" name="cardId" value={cardId} />
               <button type="submit" className="btn btn-primary">Approve this card</button>
-              <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Not this one</div>
+              {/* D-PD-1 (BUZ, 1 Oct): a working No. It writes nothing and goes where the
+                  back link and silence already go (D-138). An <a>, never a second form. */}
+              <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Not this one</Link>
             </form>
           </>
         ) : (

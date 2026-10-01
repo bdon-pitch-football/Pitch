@@ -2,6 +2,7 @@
 // RegisterInterest.dc.html form body — copy verbatim for the under-16 variant.
 // The self-registering lines (16–17, 18+) are new, awaiting BUZ (D-153).
 import { useState } from 'react';
+import Link from 'next/link';
 import { HeaderMark } from '@/components/Wordmark';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { composeInterest } from './actions';
@@ -61,6 +62,9 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
               </div>
             </div>
           </div>
+          {/* C-P8 (BUZ, 1 Oct): a club with no squads offered a select of one
+              "—". No field at all then; it posted nothing either way. */}
+          {squads.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div className="field-label">Which squad</div>
             <div style={card}>
@@ -70,6 +74,7 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
               </select>
             </div>
           </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div className="field-label">Where you&rsquo;d play</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 6 }}>
@@ -136,7 +141,9 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
             <button type="submit" className="btn btn-primary">{self ? 'Put me on the register' : 'Ask my parent to send it'}</button>
-            <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Cancel</div>
+            {/* C-P5 (BUZ, 1 Oct): Cancel goes home, as it does on /send. It was a
+                div that went nowhere. */}
+            <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Cancel</Link>
           </div>
         </form>
       </div>

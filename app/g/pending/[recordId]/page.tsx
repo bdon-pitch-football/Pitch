@@ -1,6 +1,7 @@
 // ReapproveChanges.dc.html — the guardian's re-approval of a child's edit
 // (D-119). Copy verbatim; the diff shows the approved About against the
 // pending one. Dev-gated until sessions exist.
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
@@ -34,7 +35,22 @@ export default async function PendingReview({ params, searchParams }: {
   const r = rows[0];
   const name: string = r.first_name;
 
-  if (done || !r.pending_about) {
+  // D-F2 (BUZ, 1 Oct): with no change waiting and nothing just approved, say
+  // so. The approved state used to render here too, telling a parent their
+  // child's page "is approved" when nothing had ever been approved. The words
+  // are /home's, so the two places a parent learns this agree (A-N1).
+  if (!done && !r.pending_about) {
+    return (
+      <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
+        <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
+          <HeaderMark back={{ href: '/home', label: 'Your family' }} />
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Nothing is waiting on you.</h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (done) {
     // approved state: confirmation + the share-link affordance
     const issue = issueShareLink;
     return (
@@ -93,7 +109,8 @@ export default async function PendingReview({ params, searchParams }: {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {[
             `Until you approve it, every club holding ${name}'s link still reads the old version.`,
-            'You can edit the words before you approve them.',
+            // D-F1 (BUZ, 1 Oct): "You can edit the words before you approve
+            // them." was here, promising an edit that is not built (D-PD-2).
             'Saying no leaves the approved page exactly where it is.',
           ].map((t) => (
             <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
@@ -105,8 +122,11 @@ export default async function PendingReview({ params, searchParams }: {
 
         <form action={act} style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 'auto' }}><input type="hidden" name="recordId" value={recordId} />
           <button type="submit" className="btn btn-primary">Approve the change</button>
-          <div style={{ border: `1px solid ${T.line}`, color: T.secondary, borderRadius: 14, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>Edit the words first</div>
-          <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted }}>Not this one</div>
+          {/* D-PD-2 (BUZ, 1 Oct): "Edit the words first" was drawn here as a
+              button with no destination. It comes back when it is built. */}
+          {/* D-PD-1 (BUZ, 1 Oct): a working No. It writes nothing and goes where the
+              back link and silence already go (D-138). An <a>, never a second form. */}
+          <Link href="/home" style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: T.muted, textDecoration: 'none' }}>Not this one</Link>
         </form>
       </div>
     </div>

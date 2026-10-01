@@ -17,6 +17,13 @@ export async function requestCard(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
   // Never trust the record id in the URL (D-94 §3).
   await requireRecordActor(recordId);
+  // C-P9: the page sends an adult home; so does the press, so no request is
+  // written that no parent exists to see.
+  const band = (await db.query(
+    `select fn_age_band(p.dob) as band from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
+    [recordId],
+  )).rows[0]?.band;
+  if (band === '18plus') redirect('/home');
   const shape = String(formData.get('shape') ?? 'story');
   const kinds = ['story', 'square', 'landscape'];
   const cardKind = kinds.includes(shape) ? shape : 'story';
