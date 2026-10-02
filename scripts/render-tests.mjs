@@ -1830,6 +1830,10 @@ const tfAll = tfLines(tfBoard);
     [tfAll.some((x) => x.split('|')[2] === 'Westgate Rangers'), views.flatMap(([ls]) => ls).filter((x) => x.split('|')[2] === 'Westgate Rangers'),
      tfLines(tfPlain((await get('/trials?level=elite', null)).html)), /Remove /.test(tfPlain((await get('/trials?level=elite', null)).html))],
     [true, [], tfAll, false]);
+  // The data's credit (CC BY 4.0; BUZ, 2 Oct, option A): once in each
+  // filter panel — the phone's and the laptop rail's — and nowhere else.
+  check('tf-credit: the ABS credit sits at the foot of the filter panel, once per panel, in BUZ\u2019s words',
+    (tfBoard.match(/<div class="tb-credit">Suburb and postcode data: Australian Bureau of Statistics, CC BY 4\.0\.<\/div><\/div>/g) ?? []).length, 2);
   // Rows never show the league (John, 2 Oct): no row's markup names one.
   const leagueOnRow = [];
   for (const q of ['', '?level=npl', '?level=sl']) {

@@ -13713,10 +13713,10 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const css = srcOf('app/globals.css');
   const credits = ['app', 'components'].flatMap((d) => readdirSync(fileURLToPath(new URL(`../${d}`, import.meta.url)), { recursive: true })
     .filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => `${d}/${f}`)).filter((f) => srcOf(f).includes('ABS_CREDIT'));
-  check('tf-near-src4: "about {n} km" is hidden in print, the board does not ask for the device\'s location (Permissions-Policy geolocation=()), and the pending ABS credit is rendered nowhere yet',
+  check('tf-near-src4: "about {n} km" is hidden in print, the board does not ask for the device\'s location (Permissions-Policy geolocation=()), and the ABS credit is BUZ\'s words (option A, 2 Oct), drawn by the trials board alone',
     [/@media print \{[^{}]*\.fl-trial-km\b[^{}]*\{ display: none; \}/.test(css), /geolocation=\(\)/.test(srcOf('next.config.mjs')),
-     /ABS_CREDIT_PENDING_BUZ_WORDS/.test(srcOf('lib/places-vic-file.ts')), credits],
-    [true, true, true, []]);
+     /export const ABS_CREDIT = 'Suburb and postcode data: Australian Bureau of Statistics, CC BY 4\.0\.';/.test(srcOf('lib/places-vic-file.ts')), credits],
+    [true, true, true, ['components/floodlit/TrialsBoard.tsx']]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

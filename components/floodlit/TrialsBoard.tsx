@@ -23,6 +23,7 @@ import NearField, { type Picked } from '@/components/floodlit/NearField';
 import { groupByClubDay } from '@/lib/trials-board';
 import { hrefFor, kmBetween, matches, type Chosen, type Facets, type Kind, type Near } from '@/lib/trials-filter';
 import { REGIONS } from '@/lib/regions';
+import { ABS_CREDIT } from '@/lib/places-vic-file';
 import { POSITIONS, type PositionCode } from '@/lib/football';
 import { T } from '@/lib/palette';
 
@@ -221,6 +222,8 @@ export default function TrialsBoard({ upcoming, chosen, ages, positions, levels,
           <div className="tb-more-b">{folded.map((g) => <div key={g.name}>{g.body}</div>)}</div>
         </details>
       )}
+      {/* The data's credit (CC BY 4.0), once, at the panel's foot (BUZ, 2 Oct). */}
+      <div className="tb-credit">{ABS_CREDIT}</div>
     </div>
   );
 

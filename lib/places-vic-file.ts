@@ -19,8 +19,8 @@
 //            needs a credit line where we use it — ABS_CREDIT below.
 export const PLACES_FILE = '/places-vic.4306391711.json';
 
-// PENDING_BUZ_WORDS — the ABS credit the licence asks for. It is NOT approved
-// copy (Leo, 2 Oct: "that line is NOT among the approved words"), so nothing
-// renders it yet, and Distance does not ship until BUZ has said yes to it.
-export const ABS_CREDIT_PENDING_BUZ_WORDS =
-  'Suburb, postcode and council data: Australian Bureau of Statistics, ASGS Edition 3, CC BY 4.0.';
+// The ABS credit the licence asks for, in BUZ's words (option A, 2 Oct:
+// "lets go" on Leo's and the Head of Product Design's recommendation). Shown
+// once, at the foot of the /trials filter panel — the phone panel and the
+// laptop rail — because Region and Distance both stand on this data.
+export const ABS_CREDIT = 'Suburb and postcode data: Australian Bureau of Statistics, CC BY 4.0.';
