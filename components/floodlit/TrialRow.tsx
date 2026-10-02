@@ -1,28 +1,47 @@
-// One trial, as a family sees it on the board (Floodlit, D-173 as extended
-// 1 Oct). Drawn as the club page's trial row (app/fc/[slug]): the date leads
-// with the same 28px numeral and month, the title and the time and place
-// follow, and the stamps sit under them. "Listed" is the board's alone, so it
-// is a prop.
+// One club, one day, as a family sees it on the board (trials board v2, BUZ
+// 2 Oct: "yes"; Floodlit, D-173). The date leads — the weekday over the same
+// 28px numeral and month — then the club, once, with its state beside its
+// name, then a line per listing. A venue every line shares moves up under the
+// club; so do the stamps and the club's own notice, into the foot, when every
+// line shares them. Otherwise each line keeps its own. "Listed" is the
+// board's alone, so it is a prop.
 //
-// The row's one action is on the charter's two buttons: "I'm interested" is
-// the primary, "Send my CV" the secondary — never a third, pill-shaped one.
-// The club's own notice is the club's link (John, 30 Sep): its words are the
-// link's only content, so the render suite reads it as it reads the club
-// page's (link-n1, link-n2), and the external mark is drawn by the stylesheet.
+// Every listing is still its own <li data-listing>, so the board filters,
+// counts and links listing by listing (D-162, D-153).
+//
+// The state, said once (John, 2 Oct): an unclaimed club's row carries one
+// quiet "Unclaimed" in the grey state style, and its markup carries
+// data-unclaimed on the row and on every line (D-64: the listing metadata).
+// The sentence lives once, in the board's note. A verified club keeps "On
+// Pitch — verified club" in green, its primary and no notice link — the two
+// never look alike. A claimed club carries no label, as its own page carries
+// none (doc 14 M9).
+//
+// The row's action is on the charter's two buttons, never a third. An
+// unclaimed club's row has one "Send my CV", because every line's door is the
+// same /fc/<slug>#play. A club on Pitch has a register, and each line's
+// "I'm interested" carries its own trial (D-153); a one-line row carries it in
+// the foot. The club's own notice is the club's link (John, 30 Sep): its words
+// are the link's only content, and the external mark is the stylesheet's.
 import Link from 'next/link';
+import { splitTimeVenue } from '@/lib/trials-board';
 
-export type TrialRowProps = {
+export type TrialLine = {
   id: string;
-  day: string;
-  mon: string;
   title: string;
   timeVenue: string;
   listed?: string;
   checked: string;
   notice: string | null;
-  // The club's state: verified and claimed clubs have a register (D-90,
-  // D-126); a claimed club carries no label, as its own page carries none
-  // (doc 14 M9).
+};
+
+export type TrialRowProps = {
+  wd: string;
+  day: string;
+  mon: string;
+  club: string;
+  lines: TrialLine[];
+  // verified and claimed clubs have a register (D-90, D-126).
   clubState: 'verified' | 'claimed' | 'unclaimed' | string;
   slug: string | null;
   // The club's own preview of its notice (/club/post-trial, P3, BUZ 1 Oct):
@@ -31,37 +50,70 @@ export type TrialRowProps = {
   inert?: boolean;
 };
 
-export default function TrialRow({ id, day, mon, title, timeVenue, listed, checked, notice, clubState, slug, inert }: TrialRowProps) {
+const stampOf = (l: TrialLine) => (l.listed ? `Listed ${l.listed} · checked ${l.checked}` : `checked ${l.checked}`);
+const flag = (on: boolean) => (on ? '' : undefined);
+
+export default function TrialRow({ wd, day, mon, club, lines, clubState, slug, inert }: TrialRowProps) {
   const verified = clubState === 'verified';
   const onPitch = verified || clubState === 'claimed';
-  const label = verified ? 'On Pitch — verified club' : !onPitch ? 'Unclaimed listing · register via club' : null;
+  const unclaimed = !onPitch;
+  const parts = lines.map((l) => splitTimeVenue(l.timeVenue));
+  const venue = parts.every((p) => p.venue !== null && p.venue === parts[0].venue) ? parts[0].venue : null;
+  const sharedStamp = lines.every((l) => stampOf(l) === stampOf(lines[0]) && l.notice === lines[0].notice);
+  // One door for the row, or one per line.
+  const perLine = Boolean(slug) && onPitch && lines.length > 1;
+
+  const stamp = (l: TrialLine) => (
+    <div className="fl-trial-stamp">
+      <span>{stampOf(l)}</span>
+      {l.notice && <a href={l.notice} target="_blank" rel="noopener noreferrer" className="fl-own">The club&rsquo;s own notice</a>}
+    </div>
+  );
+  // They open the club's page at its door: the register of a club on Pitch,
+  // carrying this trial so the club can invite to it (D-153), or an
+  // unclaimed club's "send my CV". The solid primary with no glow: the glow
+  // is the screen's one primary action, never a button inside a list row
+  // (Head of Product Design ruling 1, 1 Oct), so rows never compete.
+  const door = (l: TrialLine) => {
+    if (!slug) return null;
+    if (inert) return <span className="btn btn-secondary" aria-hidden="true">{onPitch ? <>I&rsquo;m interested</> : 'Send my CV'}</span>;
+    return onPitch
+      ? <Link href={`/fc/${slug}?trial=${l.id}#play`} className="btn btn-primary">I&rsquo;m interested</Link>
+      : <Link href={`/fc/${slug}#play`} className="btn btn-secondary">Send my CV</Link>;
+  };
+  const footDoor = perLine ? null : door(lines[0]);
+
   return (
-    <article className="fl-card fl-trial">
+    <article className="fl-card fl-trial" data-unclaimed={flag(unclaimed)}>
       <div className="fl-trial-date">
+        <div className="fl-trial-wd">{wd}</div>
         <div className="numeral fl-trial-day">{day}</div>
         <div className="fl-trial-mon">{mon}</div>
       </div>
       <div className="fl-trial-main">
-        <div className="fl-trial-title">{title}</div>
-        <div className="fl-trial-meta">{timeVenue}</div>
-        <div className="fl-trial-stamp">
-          <span>{listed ? `Listed ${listed} · checked ${checked}` : `checked ${checked}`}</span>
-          {notice && <a href={notice} target="_blank" rel="noopener noreferrer" className="fl-own">The club&rsquo;s own notice</a>}
+        <div className="fl-trial-club">
+          <span className="fl-trial-cn">{club}</span>
+          {verified && <span className="fl-trial-state">On Pitch — verified club</span>}
+          {unclaimed && <span className="fl-trial-state un">Unclaimed</span>}
         </div>
+        {venue && <div className="fl-trial-venue">{venue}</div>}
+        <ul className={lines.length > 1 ? 'fl-trial-lines multi' : 'fl-trial-lines'}>
+          {lines.map((l, i) => (
+            <li key={l.id} className="fl-trial-line" data-listing="" data-unclaimed={flag(unclaimed)}>
+              <div className="fl-trial-lx">
+                <div className="fl-trial-lt">{l.title}</div>
+                <div className="fl-trial-lm">{venue ? parts[i].time : l.timeVenue}</div>
+                {!sharedStamp && stamp(l)}
+              </div>
+              {perLine && door(l)}
+            </li>
+          ))}
+        </ul>
       </div>
-      {(label || slug) && (
-        <div className={label ? 'fl-trial-foot' : 'fl-trial-foot solo'}>
-          {label && <div className={verified ? 'fl-trial-state' : 'fl-trial-state un'}>{label}</div>}
-          {/* They open the club's page at its door: the register of a club on
-              Pitch, carrying this trial so the club can invite to it (D-153),
-              or an unclaimed club's "send my CV". */}
-          {/* The solid primary with no glow: the glow is the screen's one
-              primary action, never a button inside a list row (Head of
-              Product Design ruling 1, 1 Oct), so four rows never compete. */}
-          {slug && inert && <span className="btn btn-secondary" aria-hidden="true">{onPitch ? <>I&rsquo;m interested</> : 'Send my CV'}</span>}
-          {slug && !inert && (onPitch
-            ? <Link href={`/fc/${slug}?trial=${id}#play`} className="btn btn-primary">I&rsquo;m interested</Link>
-            : <Link href={`/fc/${slug}#play`} className="btn btn-secondary">Send my CV</Link>)}
+      {(sharedStamp || footDoor) && (
+        <div className={sharedStamp ? 'fl-trial-foot' : 'fl-trial-foot solo'}>
+          {sharedStamp && <div className="fl-trial-foot-l">{stamp(lines[0])}</div>}
+          {footDoor}
         </div>
       )}
     </article>

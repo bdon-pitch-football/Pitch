@@ -614,6 +614,31 @@ await db.query(
   `select fn_ops_add_notice($1, 'td@example.com', $2, 'U13 Boys trials', array['U13'], 'boys',
      greatest('2026-10-12'::date, (now() at time zone 'Australia/Melbourne')::date),
      'Mon 5:30 PM', 'Grant Reserve', '{}', 'https://westgaterangers.example.au/trials')`, [td, westgate]);
+// Trials board v2 (BUZ, 2 Oct): one row per club per day, and expressions of
+// interest in their own section. A second notice from the same club, the same
+// day and the same public notice — written AFTER the U13s but starting an hour
+// earlier, so the row has to order its lines by time, not by insertion. Then
+// two expressions of interest closing the same day from two different
+// notices, so each line keeps its own stamp and link. "EOI closes" is how the
+// desk writes one (the design's interim, until trial_notice carries a kind).
+// Their ids go to .dev-ids.json as boardV2Notices: the write suite takes them
+// off through the operator's Remove before its sweep, because its crawl stops
+// at 60 pages a seat and every page a fixture adds moves which seat meets
+// Jordan's forms first (L32). The render and layout suites read them.
+const boardV2Notices: string[] = [];
+boardV2Notices.push((await db.query(
+  `select fn_ops_add_notice($1, 'td@example.com', $2, 'U12 Boys trials', array['U12'], 'boys',
+     greatest('2026-10-12'::date, (now() at time zone 'Australia/Melbourne')::date),
+     'Mon 4:30 PM', 'Grant Reserve', '{}', 'https://westgaterangers.example.au/trials') as id`, [td, westgate])).rows[0].id as string);
+for (const [title, ages, gender, url] of [
+  ['Senior women expressions of interest', ['SEN'], 'women', 'https://westgaterangers.example.au/women'],
+  ['U16 Girls expressions of interest', ['U16'], 'girls', 'https://westgaterangers.example.au/girls'],
+] as const) {
+  boardV2Notices.push((await db.query(
+    `select fn_ops_add_notice($1, 'td@example.com', $2, $3, $4::text[], $5,
+       greatest('2026-11-30'::date, (now() at time zone 'Australia/Melbourne')::date + 30),
+       'EOI closes', 'Online — see the club''s notice', '{}', $6) as id`, [td, westgate, title, [...ages], gender, url])).rows[0].id as string);
+}
 
 // --- walkthrough states: one of each waiting card, so every journey has
 // something real to open. All fictional (doc 16 §4).
@@ -1140,6 +1165,9 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
       // Georgia's request to Quarrymead: the render suite opens its stop link
       // (0160) and checks that opening it stopped nothing.
       georgiaAsk,
+      // Trials board v2's three Westgate fixtures (above): the write suite
+      // removes them before its sweep (L32).
+      boardV2Notices,
       adultPlayers: (await db.query(
         `select p.id as person_id, dr.id as record_id from person p join development_record dr on dr.person_id = p.id
          where p.dob is not null and fn_age_band(p.dob) = '18plus' order by p.first_name, p.id`)).rows,

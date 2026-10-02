@@ -210,6 +210,32 @@ function check(name, actual, expected) {
 }
 
 // ---------------------------------------------------------------------------
+// tv-w0 — trials board v2's fixtures come off first (BUZ, 2 Oct). The seed
+// gives Westgate Rangers a second trial on the same day and two expressions of
+// interest, for the render and layout suites to read one row per club per day
+// and the second section. This suite's sweep stops at 60 pages a seat, and
+// each page those notices add (two chips, a ?trial= view each) moved which
+// seat met Jordan's forms first: ks-w0, sq2 and sq3 went red (L32: a page is a
+// fixture). So they come down here, through the operator's own Remove, and
+// the sweep walks the board it has always walked.
+// ---------------------------------------------------------------------------
+{
+  const op = ids.people.marina, westgate = ids.clubs['westgate-rangers'];
+  const v2 = ids.boardV2Notices ?? [];
+  for (const id of v2) {
+    const rm = forms((await get(`/ops/clubs/${westgate}`, op)).html).find((f) => f.fields.notice_id === id && f.submit === 'Remove');
+    if (!rm) continue;
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(rm.fields)) fd.append(k, v);
+    await (await fetch(BASE + `/ops/clubs/${westgate}`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(op) } })).text();
+  }
+  const board = (await get('/trials', null)).html;
+  check(`tv-w0: the seed's three board v2 notices are taken off before the sweep, and the board is the one it walked before them (${v2.length} removed)`,
+    [v2.length, board.includes('U12 Boys'), /class="tb-sec"/.test(board), (board.match(/<li\b[^>]*data-listing=""/g) ?? []).length],
+    [3, false, false, 4]);
+}
+
+// ---------------------------------------------------------------------------
 // co-w1 — the coach screens (spec E, BUZ 1 Oct): "This role has closed." is
 // said once. A role closed while the coach had it open sends them back with
 // ?closed, and the page printed the amber notice AND the closed panel. Run
@@ -869,6 +895,13 @@ async function post(path, who, form) {
   const trial = { title: 'U11 Girls trials', ages: ['U11'], gender: 'girls', trial_on: soon, time: 'Sat 9:00 AM',
     ground: 'Brackenfold Reserve', positions: ['GK'], source_url: 'https://brackenfold.example.au/trials' };
   const boardHtml = async () => (await get('/trials?age=U11&gender=girls', null)).html;
+  // Trials board v2 (BUZ, 2 Oct): the club and its listing are two elements in
+  // one row — one row per club per day — not one "Club · title" string. The
+  // row is the club's when its name is the row's name, and it holds the
+  // listing when one of its lines is that title.
+  const rowOf = (html, club, title) => [...html.replace(/<!-- -->/g, '').matchAll(/<article\b[\s\S]*?<\/article>/g)].map((m) => m[0])
+    .find((a) => a.includes(`<span class="fl-trial-cn">${club}</span>`)
+      && [...a.matchAll(/<div class="fl-trial-lt">([^<]*)<\/div>/g)].some((x) => words(x[1]).trim() === title)) ?? null;
   const noSource = await press(trialPath, op, { ...tForm.fields, ...trial, source_url: '' });
   check('cur-w5: a notice with no link to the club\'s own notice is refused and the form says so; nothing reaches the board',
     [noSource.location, /Paste the address of the club.s own notice, starting https:\/\//.test(words((await get(noSource.location, op)).html)),
@@ -876,9 +909,10 @@ async function post(path, who, form) {
     [`${trialPath}?error=source`, true, false]);
   const posted = await press(trialPath, op, { ...tForm.fields, ...trial });
   const board = await boardHtml();
-  check('cur-w6: with the link it is posted with no JavaScript, and it is on the board under its age group and competition, as an unclaimed listing with "Send my CV" to the club page',
-    [posted.status, posted.location, /Brackenfold Rovers · U11 Girls/.test(words(board)), /Unclaimed listing · register via club/.test(words(board)),
-     /href="\/fc\/brackenfold-rovers#play"[^>]*>Send my CV/.test(board)],
+  const bRow = rowOf(board, 'Brackenfold Rovers', 'U11 Girls') ?? '';
+  check('cur-w6: with the link it is posted with no JavaScript, and it is on the board under its age group and competition, in its own row marked "Unclaimed" (and data-unclaimed), with "Send my CV" to the club page',
+    [posted.status, posted.location, bRow.length > 0, /^<article [^>]*data-unclaimed=""/.test(bRow) && /<span class="fl-trial-state un">Unclaimed<\/span>/.test(bRow),
+     /href="\/fc\/brackenfold-rovers#play"[^>]*>Send my CV/.test(bRow)],
     [303, clubPath, true, true, true]);
   check('cur-w7: and on the club\'s own page', /U11 Girls trials/.test(words((await get('/fc/brackenfold-rovers', null)).html)), true);
   const screen = async () => (await get(clubPath, op)).html;
@@ -890,8 +924,8 @@ async function post(path, who, form) {
   const eForm = forms((await get(`${trialPath}?edit=${noticeId}`, op)).html).find((f) => f.fields.notice_id === noticeId);
   const changed = await press(trialPath, op, { ...eForm.fields, ...trial, title: 'U11 & U12 Girls trials', ages: ['U11', 'U12'] });
   check('cur-w9: a change is saved and shows on the board at once, under both age groups',
-    [changed.location, /Brackenfold Rovers · U11 & U12 Girls/.test(words(await boardHtml())),
-     /Brackenfold Rovers · U11 & U12 Girls/.test(words((await get('/trials?age=U12', null)).html))], [clubPath, true, true]);
+    [changed.location, Boolean(rowOf(await boardHtml(), 'Brackenfold Rovers', 'U11 & U12 Girls')),
+     Boolean(rowOf((await get('/trials?age=U12', null)).html, 'Brackenfold Rovers', 'U11 & U12 Girls'))], [clubPath, true, true]);
   const stamp = forms(await screen()).find((f) => f.fields.notice_id === noticeId && f.submit === 'Checked today');
   const stamped = await press(clubPath, op, stamp.fields);
   check('cur-w10: "Checked today" re-stamps it with one press and comes back to the club', [stamped.status, stamped.location], [303, clubPath]);
@@ -899,7 +933,7 @@ async function post(path, who, form) {
   await press(clubPath, null, rm.fields);
   await press(clubPath, ids.people.alex, { ...rm.fields, clubId: 'not-a-club' });
   check('cur-w11: signed out, or posted with a club id that is not one, the remove button takes nothing down (the notice is still on the board)',
-    /Brackenfold Rovers · U11 & U12 Girls/.test(words(await boardHtml())), true);
+    Boolean(rowOf(await boardHtml(), 'Brackenfold Rovers', 'U11 & U12 Girls')), true);
   const removed = await press(clubPath, op, rm.fields);
   check('cur-w12: the operator takes it down with one press, and it is gone from the board and the club page',
     [removed.location, /Brackenfold Rovers/.test(words(await boardHtml())), /U11 & U12 Girls trials/.test(words((await get('/fc/brackenfold-rovers', null)).html))],
@@ -4925,14 +4959,12 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     await r.text();
     return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
   };
-  // The board's own listing for a club: from its name to the end of its button.
-  const listingOf = (raw, club, slug) => {
-    const html = raw.replace(/<!-- -->/g, '');
-    const at = html.indexOf(`${club} · `);
-    if (at === -1) return null;
-    const end = html.indexOf('</a>', html.indexOf(`href="/fc/${slug}`, at));
-    return html.slice(at, end === -1 ? at + 2000 : end + 4);
-  };
+  // The board's own listing for a club: its row (trials board v2, BUZ 2 Oct —
+  // one row per club per day, the club named once, its doors inside). Was a
+  // slice from "Club · " to the end of its button; the name and the title are
+  // two elements now, so the row is found by its name and must hold its door.
+  const listingOf = (raw, club, slug) => [...raw.replace(/<!-- -->/g, '').matchAll(/<article\b[\s\S]*?<\/article>/g)].map((m) => m[0])
+    .find((a) => a.includes(`<span class="fl-trial-cn">${club}</span>`) && a.includes(`href="/fc/${slug}`)) ?? null;
 
   // ---- one button ----------------------------------------------------------------
   const ask = forms((await get('/claim/westgate-rangers', robin)).html).find((f) => 'slug' in f.fields && !f.visible.some((v) => v.name === 'code'));
@@ -4961,7 +4993,7 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const westTrial = /href="\/fc\/westgate-rangers\?trial=([0-9a-f-]{36})#play"/.exec(westListing ?? '')?.[1];
   check('one-w1: the board offers a claimed club\'s families the register — "I’m interested", carrying the trial — not "Send my CV", and does not tell them the club is unverified',
     [Boolean(westTrial), /I(&rsquo;|’)m interested/.test(westListing ?? ''), /Send my CV/.test(westListing ?? ''),
-     /Unclaimed listing|verified club/.test(words(westListing ?? ''))],
+     /Unclaimed|verified club/.test(words(westListing ?? ''))],
     [true, true, false, false]);
   // Signed out, and as an adult player: the parent's own session has been
   // ended by the sessions block by now, and this is the seat that presses it.

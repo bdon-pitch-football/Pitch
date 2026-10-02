@@ -80,7 +80,7 @@ export default async function ClubPage({ params, searchParams }: {
        -- none at all while the club is suspended, of whatever class.
        (select coalesce(json_agg(json_build_object(
            'id', t.id, 'title', t.title, 'timeVenue', t.time_venue,
-           'mon', upper(to_char(t.trial_on, 'Mon')), 'day', to_char(t.trial_on, 'DD'),
+           'mon', upper(to_char(t.trial_on, 'Mon')), 'day', to_char(t.trial_on, 'DD'), 'wd', upper(to_char(t.trial_on, 'Dy')),
            'how', t.how_to_register, 'checked', to_char(t.last_checked, 'FMDD Mon'),
            'notice', case when t.source <> 'club' then t.source_url end) order by t.trial_on), '[]'::json)
         from fn_trial_notices_advertised() t where t.club_id = c.id) as trials,
@@ -103,7 +103,7 @@ export default async function ClubPage({ params, searchParams }: {
   }
   const c = rows[0];
   const squads: { id: string; name: string; gender: string }[] = c.squads;
-  const trials: { id: string; title: string; timeVenue: string; mon: string; day: string; how: string | null; checked: string; notice: string | null }[] = c.trials;
+  const trials: { id: string; title: string; timeVenue: string; mon: string; day: string; wd: string; how: string | null; checked: string; notice: string | null }[] = c.trials;
   const wanted: { title: string; detail: string | null }[] = c.wanted;
   const alumni: { line: string; detail: string | null }[] = c.alumni;
   const videos: { url: string; title: string }[] = c.videos;
@@ -282,6 +282,8 @@ export default async function ClubPage({ params, searchParams }: {
                   <div key={t.id} style={{ padding: '14px 0 8px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
                     <Link href={pickedTrial?.id === t.id ? `/fc/${slug}#play` : `/fc/${slug}?trial=${t.id}#play`} style={{ display: 'flex', alignItems: 'center', gap: 16, textDecoration: 'none', color: 'inherit', minHeight: 44 }}>
                       <div style={{ width: 54, textAlign: 'center', flexShrink: 0 }}>
+                        {/* The weekday over the numeral, as the board draws it (BUZ, 2 Oct). */}
+                        <div className="fl-trial-wd">{t.wd}</div>
                         <div className="numeral numeral-s tnum" style={{ fontSize: 28, color: T.ink }}>{t.day}</div>
                         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', color: theme ? theme.trim : T.accent, marginTop: 3 }}>{t.mon}</div>
                       </div>

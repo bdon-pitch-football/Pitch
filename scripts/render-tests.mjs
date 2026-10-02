@@ -1446,6 +1446,142 @@ const georgia = ids.children.georgia;
     [[false, false, false], [false, false, false]]);
 }
 
+// The trials board, v2 (BUZ, 2 Oct: "yes"; John's ruling the same day). Say
+// each thing once: one quiet "Unclaimed" on an unclaimed club's row, with
+// data-unclaimed on the row and its lines (D-64: the listing metadata) and the
+// sentence once in the note; a weekday in every date block; expressions of
+// interest in their own section; one row per club per day, filtered and
+// counted listing by listing; and the shorter card. The seed gives Westgate
+// Rangers (compiled, unclaimed) two trials on one day — the later one written
+// first — and two expressions of interest closing on one day from two
+// different notices.
+{
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+  const rowsOf = (h) => [...h.matchAll(/<article\b[^>]*>[\s\S]*?<\/article>/g)].map((m) => {
+    const a = m[0];
+    return {
+      html: a, at: m.index, unclaimed: /^<article [^>]*data-unclaimed=""/.test(a),
+      wd: /<div class="fl-trial-wd">([^<]*)<\/div>/.exec(a)?.[1] ?? null,
+      day: /<div class="numeral fl-trial-day">([^<]*)<\/div>/.exec(a)?.[1] ?? null,
+      mon: /<div class="fl-trial-mon">([^<]*)<\/div>/.exec(a)?.[1] ?? null,
+      club: /<span class="fl-trial-cn">([^<]*)<\/span>/.exec(a)?.[1] ?? null,
+      lines: [...a.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/g)].map((l) => ({
+        attrs: l[1], html: l[2], title: /<div class="fl-trial-lt">([^<]*)</.exec(l[2])?.[1] ?? null,
+        meta: /<div class="fl-trial-lm">([^<]*)</.exec(l[2])?.[1] ?? null })),
+    };
+  });
+  const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const WEEK = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  // The board shows nothing past, so a day and month is the next one on or
+  // after today in Melbourne.
+  const today = new Date(`${new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })}T00:00:00Z`);
+  const dateOf = (r) => {
+    const m = MONTHS.indexOf(r.mon), d = Number(r.day);
+    if (m < 0 || !d) return null;
+    const y = today.getUTCFullYear();
+    const near = new Date(Date.UTC(y, m, d));
+    return near < today ? new Date(Date.UTC(y + 1, m, d)) : near;
+  };
+  const inOrder = (rs) => rs.every((r, i) => i === 0 || (dateOf(rs[i - 1]) && dateOf(r) && dateOf(rs[i - 1]) <= dateOf(r)));
+  const shownCount = (h) => /(\d+) trials?</.exec(h)?.[1] ?? null;
+  const listingLines = (h) => (h.match(/<li\b[^>]*\bdata-listing=""/g) ?? []).length;
+  const SEC = /<div class="tb-sec"><h2>Expressions of interest<span class="tb-sec-n">(\d+)<\/span><\/h2><div class="tb-sec-sub">By closing date\.<\/div><\/div>/;
+  const split = (h) => {
+    const sec = SEC.exec(h), rs = rowsOf(h);
+    return { sec, n: sec ? Number(sec[1]) : 0, trials: rs.filter((r) => !sec || r.at < sec.index), eois: sec ? rs.filter((r) => r.at > sec.index) : [] };
+  };
+
+  const all = plain((await get('/trials', null)).html);
+  const rows = rowsOf(all);
+  const { sec, n: eoiN, trials, eois } = split(all);
+
+  // 1 · the marker, once per row, and the metadata.
+  const un = rows.filter((r) => r.unclaimed);
+  const ver = rows.filter((r) => r.html.includes('On Pitch — verified club'));
+  check(`tv1: an unclaimed club's row says "Unclaimed" once, in the grey state style, and carries data-unclaimed on the row and on every line; a verified row carries neither, and keeps "On Pitch — verified club" (${un.length} unclaimed, ${ver.length} verified rows)`,
+    [un.length > 0, ver.length > 0,
+     rows.filter((r) => (r.html.match(/<span class="fl-trial-state un">Unclaimed<\/span>/g) ?? []).length !== (r.unclaimed ? 1 : 0)).length,
+     un.filter((r) => r.lines.length === 0 || r.lines.some((l) => !/\bdata-unclaimed=""/.test(l.attrs))).length,
+     ver.filter((r) => /data-unclaimed/.test(r.html) || !/<span class="fl-trial-state">On Pitch — verified club<\/span>/.test(r.html)).length,
+     // The retired line, in either half ("Unclaimed listings are compiled…"
+     // in the note is the approved sentence, so the whole word is matched).
+     all.includes('Unclaimed listing ·'), all.includes('register via club')],
+    [true, true, 0, 0, 0, false, false]);
+  check('tv1b: and the note says it once, in body text: "Unclaimed listings are compiled by Pitch from each club’s own public notice. Those clubs have not claimed their page."',
+    (all.match(/<p>Unclaimed listings are compiled by Pitch from each club’s own public notice\. Those clubs have not claimed their page\.( Last checked \d{1,2} [A-Z][a-z]{2}\.)?<\/p>/g) ?? []).length, 1);
+
+  // 2 · the weekday, derived from the date, in every date block — the board's
+  // and the club page's.
+  const wrongDay = (rs) => rs.filter((r) => !r.wd || !dateOf(r) || WEEK[dateOf(r).getUTCDay()] !== r.wd).map((r) => `${r.wd} ${r.day} ${r.mon}`);
+  const fcDays = async (slug) => {
+    const h = plain((await get(`/fc/${slug}`, null)).html);
+    const blocks = (h.match(/<div class="numeral numeral-s tnum" style="font-size:28px/g) ?? []).length;
+    const dated = [...h.matchAll(/<div class="fl-trial-wd">([A-Z]{3})<\/div><div class="numeral numeral-s tnum"[^>]*>(\d{1,2})<\/div><div[^>]*>([A-Z]{3})<\/div>/g)]
+      .map((m) => ({ wd: m[1], day: m[2], mon: m[3] }));
+    return [blocks > 0 && blocks === dated.length, wrongDay(dated)];
+  };
+  check(`tv2: every date block leads with its own weekday, MON–SUN — on the board (${rows.length} rows) and on the club page (Riverside, Westgate)`,
+    [rows.length >= 4, wrongDay(rows), await fcDays('riverside-fc'), await fcDays('westgate-rangers')],
+    [true, [], [true, []], [true, []]]);
+
+  // 3 · expressions of interest, in their own section.
+  const isEoi = (l) => /^EOI closes/.test(l.meta ?? '');
+  const ownStamp = /class="fl-trial-stamp"><span>Listed \d{1,2} [A-Z][a-z]{2} · checked \d{1,2} [A-Z][a-z]{2}<\/span><a href="https:[^"]+" target="_blank" rel="noopener noreferrer" class="fl-own">The club’s own notice<\/a>/;
+  const stamped = (r, l) => ownStamp.test(l.html) || ownStamp.test(/<div class="fl-trial-foot[\s\S]*$/.exec(r.html)?.[0] ?? '');
+  check(`tv3: expressions of interest sit in their own section below the trials — "Expressions of interest", its own number, "By closing date." — in closing-date order, each keeping its "checked" stamp and the club’s own notice (${eoiN} in it)`,
+    [Boolean(sec), trials.flatMap((r) => r.lines).filter(isEoi).length,
+     eois.length > 0 && eois.every((r) => r.lines.length > 0 && r.lines.every(isEoi)),
+     eoiN > 0 && eoiN === eois.flatMap((r) => r.lines).length,
+     eois.every((r) => r.lines.every((l) => stamped(r, l))), inOrder(eois)],
+    [true, 0, true, true, true, true]);
+  const women = plain((await get('/trials?gender=women', null)).html), men = plain((await get('/trials?gender=men', null)).html);
+  check('tv3b: a filter applies to both sections and a section with nothing in it is not drawn — Women: no trials and one expression of interest, no empty line; Men: neither, and the approved line',
+    [shownCount(women), SEC.exec(women)?.[1] ?? null, rowsOf(women).length, women.includes('No trials listed for that yet.'),
+     shownCount(men), /class="tb-sec"/.test(men), rowsOf(men).length, men.includes('<b>No trials listed for that yet.</b>')],
+    ['0', '1', 1, false, '0', false, 0, true]);
+
+  // 4 · one row per club per day, listing by listing.
+  const key = (r, kind) => `${kind}|${r.club}|${r.day} ${r.mon}`;
+  const keys = [...trials.map((r) => key(r, 'trial')), ...eois.map((r) => key(r, 'eoi'))];
+  const wgOf = (h) => split(h).trials.filter((r) => r.club === 'Westgate Rangers').map((r) => r.lines.map((l) => l.title));
+  check(`tv4: one row per club per day — no listing lost (${listingLines(all)} lines = ${shownCount(all)} trials + ${eoiN} expressions of interest), no club twice on one day, a row's lines in start-time order, the rows in date order`,
+    [listingLines(all) > 0 && listingLines(all) === Number(shownCount(all)) + eoiN, rows.every((r) => r.club) && new Set(keys).size === keys.length,
+     rows.some((r) => r.lines.length > 1), wgOf(all), inOrder(trials)],
+    [true, true, true, [['U12 Boys', 'U13 Boys']], true]);
+  const u13 = plain((await get('/trials?age=U13', null)).html), u12 = plain((await get('/trials?age=U12', null)).html), u17 = plain((await get('/trials?age=U17', null)).html);
+  check('tv4b: a filter matches the lines inside a row — U13 draws Westgate’s U13 line alone, U12 its U12 line alone — a row with no matching line is not drawn (U17), and the count is of listings',
+    [wgOf(u13), wgOf(u12), wgOf(u17), [u13, u12, u17].map((h) => listingLines(h) === Number(shownCount(h)) + split(h).n)],
+    [[['U13 Boys']], [['U12 Boys']], [], [true, true, true]]);
+  // The chips count listings in both sections: a chip's number is the lines
+  // the board it opens draws (D-162 still hides a zero).
+  const chips = [...new Map([...all.matchAll(/<a class="chip" aria-pressed="false"[^>]*href="(\/trials\?(?:age|gender)=[^"]+)"[^>]*>[^<]*<span class="chip-count">(\d+)<\/span>/g)]
+    .map((m) => [m[1], Number(m[2])])).entries()];
+  const off = [];
+  for (const [href, n] of chips) {
+    const drawn = listingLines(plain((await get(href.replace(/&amp;/g, '&'), null)).html));
+    if (drawn !== n) off.push(`${href} says ${n}, draws ${drawn}`);
+  }
+  check(`tv4c: every age and competition chip's number is the listings the board it opens draws, in both sections (${chips.length} chips)`, [chips.length > 3, off], [true, []]);
+
+  // 5 · the shorter card. The rendered half — the link and the button on one
+  // line, each a 44px box — is the layout suite's tb-foot.
+  const css = readFileSync(fileURLToPath(new URL('../app/globals.css', import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel) => new RegExp(`(?:^|\\n)${sel.replace(/\./g, '\\.')} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+  const foot = rule('.fl-trial-foot'), own = rule('.fl-own');
+  const footOf = (r) => /<div class="fl-trial-foot(?: solo)?">([\s\S]*)<\/div><\/article>$/.exec(r.html)?.[1] ?? null;
+  const badFoot = rows.filter((r) => {
+    const f = footOf(r);
+    if (f === null) return true;
+    const doors = (r.html.match(/class="btn btn-(primary|secondary)"/g) ?? []).length;
+    if (doors === 1 && (f.match(/class="btn btn-(primary|secondary)"/g) ?? []).length !== 1) return true;
+    // A notice every line shares is said once, in the foot, beside the button.
+    return /class="fl-trial-foot-l"/.test(f) && /class="fl-own"/.test(r.html) && !/class="fl-own"/.test(f);
+  }).map((r) => r.club ?? r.html.slice(0, 60));
+  check(`tv5: the shorter card — no divider over the foot, and the foot is one line holding the row's notice and its one button; the notice link is a 44px box (${rows.length} rows)`,
+    [/border-top/.test(foot), /flex-direction:\s*column/.test(foot), Number(/min-height:\s*(\d+)px/.exec(own)?.[1] ?? 0) >= 44, rows.length > 0, badFoot],
+    [false, false, true, true, []]);
+}
+
 // A link a screen SHOWS is a promise — a coach pastes it, a TD prints it.
 // Four screens showed pitchfootball.com.au/<name>, which does not exist: the
 // pages live at /c/<name> and /fc/<name>. Every full link shown must open.
@@ -2864,7 +3000,10 @@ const georgia = ids.children.georgia;
     [wg.status, /checked \d{1,2} [A-Z][a-z]{2}/.test(wgv), ownLink.test(wgv)], [200, true, true]);
   const board = (await get('/trials')).html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
   check('link-n2: the trials board links the same notice to the club’s own page, and a club’s own notice carries no such link',
-    [ownLink.test(board), board.split('>Listed ').slice(1).filter((card) => card.includes('On Pitch — verified club') && card.includes('The club’s own notice')).length === 0],
+    // Read row by row. The board v2 (BUZ, 2 Oct) puts a row's state beside the
+    // club's name, ABOVE its stamp, so splitting at ">Listed " handed each
+    // verified row's "On Pitch" to the row before it; a row is an <article>.
+    [ownLink.test(board), board.split('<article').slice(1).filter((card) => card.includes('On Pitch — verified club') && card.includes('The club’s own notice')).length === 0],
     [true, true]);
   // HoPD, 2 Oct (live bugs): the board's dates read "2 Oct", never "02 Oct",
   // and "Last checked" is the most recent check shown — not the last row's,

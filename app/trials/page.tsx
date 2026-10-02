@@ -2,8 +2,10 @@
 // chronological noticeboard: no recommender, no personalisation, ever.
 // Every listing carries its stamps; anything past its date never renders,
 // and nothing of a suspended club's does (0140). A club on Pitch — claimed or
-// verified — gets the in-Pitch route; unclaimed listings say plainly they
-// were compiled and route via the club.
+// verified — gets the in-Pitch route; an unclaimed club's row is marked
+// "Unclaimed", once, and the note above the list says once what that means
+// (John, 2 Oct). v2 (BUZ, 2 Oct): one row per club per day, and expressions
+// of interest in their own section below the trials.
 import Link from 'next/link';
 import { TrialsFrame } from '@/components/player-shell';
 import { db } from '@/lib/db';
@@ -13,6 +15,7 @@ import { T } from '@/lib/palette';
 import PublicAnalytics from '@/components/PublicAnalytics';
 import SiteNav from '@/components/floodlit/SiteNav';
 import TrialRow from '@/components/floodlit/TrialRow';
+import { groupByClubDay, isEoi } from '@/lib/trials-board';
 import { getSessionPersonId } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -51,16 +54,17 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
        array(select ta.age_group from trial_notice_age_group ta join age_group ag on ag.code = ta.age_group
              where ta.trial_notice_id = t.id order by ag.sort) as age_groups,
        upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
+       upper(to_char(t.trial_on, 'Dy')) as wd, to_char(t.trial_on, 'YYYY-MM-DD') as on_date,
        to_char(t.added_on, 'FMDD Mon') as listed, to_char(t.last_checked, 'FMDD Mon') as checked,
        to_char(t.last_checked, 'YYYY-MM-DD') as checked_on,
-       c.name as club_name, c.club_state, c.public_slug, c.state
+       c.id as club_id, c.name as club_name, c.club_state, c.public_slug, c.state
      from fn_trial_notices_advertised() t join club c on c.id = t.club_id
      order by t.trial_on`,
   );
   type Listing = {
-    title: string; time_venue: string; source: string; source_url: string | null; mon: string; day: string; age_groups: string[];
+    title: string; time_venue: string; source: string; source_url: string | null; mon: string; day: string; wd: string; on_date: string; age_groups: string[];
     competition_gender: string | null; position_needs: string[]; state: string | null;
-    id: string; listed: string; checked: string; checked_on: string; club_name: string; club_state: string; public_slug: string | null;
+    id: string; listed: string; checked: string; checked_on: string; club_id: string; club_name: string; club_state: string; public_slug: string | null;
   };
   const upcoming = rows as Listing[];
   // The age filter offers the groups the board holds right now, in the
@@ -73,6 +77,13 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
     && (!f.state || l.state === f.state) && (!f.pos || (l.position_needs ?? []).includes(f.pos));
   const current = { age, gender, state, pos };
   const listings = upcoming.filter((l) => matches(l, current));
+  // Each listing's kind is said once, by its section (BUZ, 2 Oct): the
+  // trials, by trial date, then the expressions of interest, by closing date.
+  // A filter matches listing by listing, so a row shows only its matching
+  // lines and a row or section with none is not drawn. "N trials" counts the
+  // trial listings; the second section's heading carries its own number.
+  const trials = listings.filter((l) => !isEoi(l.time_venue));
+  const eois = listings.filter((l) => isEoi(l.time_venue));
   // The most recent check across what is shown — not the last row's, which
   // is the furthest-out trial and made a fresh board read stale (HoPD, 2 Oct).
   const newest = listings.reduce<Listing | null>((a, l) => (!a || l.checked_on > a.checked_on ? l : a), null);
@@ -159,6 +170,17 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   const me = await getSessionPersonId();
   const doors = boardEmpty && !me;
 
+  // One club, one day (BUZ, 2 Oct): the club and the date said once, a line
+  // per listing, in date order (lib/trials-board).
+  const rowsOf = (ls: Listing[]) => groupByClubDay(ls).map((row) => (
+    <TrialRow key={`${row[0].on_date}-${row[0].club_id}`} wd={row[0].wd} day={row[0].day} mon={row[0].mon}
+      club={row[0].club_name} clubState={row[0].club_state} slug={row[0].public_slug}
+      lines={row.map((l) => ({
+        id: l.id, title: l.title.replace(' trials', ''), timeVenue: l.time_venue, listed: l.listed, checked: l.checked,
+        notice: l.source !== 'club' && l.source_url ? l.source_url : null,
+      }))} />
+  ));
+
   const board = (
     <main className="fl-wide tb">
       {/* Signed in, the page header carries the logo, top right on a phone.
@@ -201,7 +223,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
               </Link>
             ))}
             <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 700, color: T.muted, padding: '0 4px' }}>
-              {listings.length} {listings.length === 1 ? 'trial' : 'trials'}
+              {trials.length} {trials.length === 1 ? 'trial' : 'trials'}
             </div>
             {active.length > 1 && <Link href="/trials" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', padding: '0 4px' }}>Clear</Link>}
           </div>
@@ -209,7 +231,12 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
           {!boardEmpty && (
             <div className="card-sunken tb-how">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" /><path d="M12 7 v5.5 l3.5 2" /></svg>
-              <div>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which.{lastChecked ? ` Last checked ${lastChecked}.` : ''}</div>
+              {/* John, 2 Oct: the unclaimed line, said once — here, in body
+                  text — and one quiet "Unclaimed" on each row it is true of. */}
+              <div>
+                <p>Some clubs take your interest inside Pitch. The rest read a CV in their inbox like they always have — the button on each listing tells you which.</p>
+                <p>Unclaimed listings are compiled by Pitch from each club&rsquo;s own public notice. Those clubs have not claimed their page.{lastChecked ? ` Last checked ${lastChecked}.` : ''}</p>
+              </div>
             </div>
           )}
 
@@ -244,15 +271,18 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
           {/* A club on Pitch — claimed or verified — has a register, and the
               row offers it, as the club's own page does; a claimed club carries
               no label, as its own page carries none (D-90, D-126, doc 14 M9).
-              An unclaimed club's row says plainly it was compiled. John, 30
-              Sep: a notice Pitch compiled links to the club's own notice. */}
-          {listings.map((l) => (
-            <TrialRow key={l.id} id={l.id} day={l.day} mon={l.mon}
-              title={`${l.club_name} · ${l.title.replace(' trials', '')}`} timeVenue={l.time_venue}
-              listed={l.listed} checked={l.checked}
-              notice={l.source !== 'club' && l.source_url ? l.source_url : null}
-              clubState={l.club_state} slug={l.public_slug} />
-          ))}
+              An unclaimed club's row is marked "Unclaimed". John, 30 Sep: a
+              notice Pitch compiled links to the club's own notice. */}
+          {rowsOf(trials)}
+          {eois.length > 0 && (
+            <>
+              <div className="tb-sec">
+                <h2>Expressions of interest<span className="tb-sec-n">{eois.length}</span></h2>
+                <div className="tb-sec-sub">By closing date.</div>
+              </div>
+              {rowsOf(eois)}
+            </>
+          )}
         </div>
       </div>
     </main>
