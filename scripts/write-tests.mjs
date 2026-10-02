@@ -1026,6 +1026,13 @@ const photoReads = [];
   const opens = await clubSees();
   await upload(`/build/${deniz.record_id}`, deniz.child_id, await red);
   const p1 = await live(deniz.child_id);
+  // His first photo waits on his parent at once (B, 2 Oct), and the review
+  // draws the approved side as the empty tile: no photo was ever approved.
+  const firstReview = (await get(`/g/pending/${deniz.record_id}`, alex)).html.replace(/<script[\s\S]*?<\/script>/g, ' ');
+  check('bf-pend-w0: Deniz’s first photo waits at once, and /g/pending shows The photo with the approved side as "No photo yet" beside the new one, drawn at a signed private address',
+    [/<h2 class="sec-h">The photo<\/h2>/.test(firstReview), /<span>No photo yet<\/span>/.test(firstReview),
+     [...firstReview.matchAll(/<img[^>]*src="([^"]*)"/g)].map((m) => m[1].split('?')[0].replace(/-[0-9a-f]{32}/, '-K')), /\/dev-uploads\//.test(firstReview)],
+    [true, true, [`/private-photo/player/${deniz.record_id}-K.jpg`], false]);
   await saveForm(deniz.child_id);
   await approve();
   const before = await drawn();
@@ -1090,12 +1097,16 @@ const photoReads = [];
   await upload(door ?? `/build/${deniz.record_id}`, alex, await grey);
   const p5 = await live(alex);
   const parentOver = await drawn();
+  // MOVED again (2 Oct, the full review): his change was the photo alone, and
+  // his parent's photo decided that field in both versions, so nothing of his
+  // waits any more — the review says so, and there is nothing to approve.
+  const leftWaiting = !(await nothingWaiting());
   const okChild = await approve();
   const afterChild = await drawn();
   const greyBytes = await bytes(p5);
-  check('photo-w3: with Deniz\u2019s change waiting, his parent\u2019s photo is the club\u2019s at once and the waiting version takes it too; his, which nothing names any more, is deleted; and approving his change keeps the parent\u2019s photo',
-    [new Set([p3, p4, p5]).size, childWaits.club, parentOver.club, okChild.location, [afterChild.club, afterChild.same, Boolean(greyBytes && afterChild.bytes?.equals(greyBytes))], await status(p4)],
-    [3, p3, p5, `/g/pending/${deniz.record_id}?done=1`, [p5, true, true], 404]);
+  check('photo-w3: with Deniz\u2019s photo waiting, his parent\u2019s photo is the club\u2019s at once and takes the waiting version\u2019s place too; his, which nothing names any more, is deleted; and with nothing of his left to review, nothing waits and the page keeps the parent\u2019s photo',
+    [new Set([p3, p4, p5]).size, childWaits.club, parentOver.club, leftWaiting, okChild.location, [afterChild.club, afterChild.same, Boolean(greyBytes && afterChild.bytes?.equals(greyBytes))], await status(p4)],
+    [3, p3, p5, false, 'no approve form', [p5, true, true], 404]);
 
   // ---- N-10 / doc 14 R12 (John, 1 Oct): a 16–17's page is theirs. Their
   // parent has no photo form to press, and a crafted post goes home and
@@ -4197,10 +4208,14 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   const pSaved = pForm ? await postAs(gBuild, alex, { ...pForm, about: JOINED }) : { status: 0 };
   const h3 = await history();
   const waitingNow = async () => words((await get(`/g/pending/${georgia.record_id}`, alex)).html).split('The new version')[1] ?? '';
-  check('jb-f14-w4: while the child’s edit waits, the parent’s edit still publishes at once — the preview carries it — and the waiting version takes the parent’s value on the field both touched, not the child’s; one "Alex changed the page.", no email, and nothing sent to the child',
-    [pSaved.status, (await preview()).includes(JOINED), (await preview()).includes(KID_ABOUT), (await waitingNow()).includes(JOINED), (await waitingNow()).includes(KID_ABOUT),
+  // MOVED (2 Oct, the full review): her change was only the About, which her
+  // parent's value now decides in both versions — so nothing of hers is left
+  // waiting, and the review says so rather than drawing an empty change.
+  const reviewNow = words((await get(`/g/pending/${georgia.record_id}`, alex)).html);
+  check('jb-f14-w4: while the child’s edit waits, the parent’s edit still publishes at once — the preview carries it — and on the field both touched the parent’s value wins in the waiting version too: her About is gone from the review, and with nothing else of hers waiting it says "Nothing is waiting on you."; one "Alex changed the page.", no email, and nothing sent to the child',
+    [pSaved.status, (await preview()).includes(JOINED), (await preview()).includes(KID_ABOUT), reviewNow.includes(KID_ABOUT), reviewNow.includes('Nothing is waiting on you.'),
      count(h3, 'Alex changed the page.') - count(h2, 'Alex changed the page.'), JSON.stringify(await newest(3)) === JSON.stringify(top2)],
-    [303, true, false, true, false, 1, true]);
+    [303, true, false, false, true, 1, true]);
 
   // ---- B-1, closed by "parent's change only" (BUZ and John, 2 Oct). Each
   // thing a child adds for herself — a clip, an achievement, a photo — stays
@@ -4285,9 +4300,11 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     [approved.location, after.includes(G_ABOUT), after.includes(A_CLIP), after.includes(A_ACH2), after.includes(A_ACH)],
     [`/g/pending/${georgia.record_id}?done=1`, true, false, true, true]);
   const hE = await history();
-  check('bf-b1-w6: the family history says "Alex changed the page." once for each change of the parent’s that reached the page — two achievements, a clip, the words, the removal — and "Georgia submitted a change" once, for her words; her own clip, achievement and photo add no line of their own',
+  // MOVED (2 Oct, B): her clip, achievement and photo each wait on her parent
+  // now, so each is "Georgia submitted a change" too — four with her words.
+  check('bf-b1-w6: the family history says "Alex changed the page." once for each change of the parent’s that reached the page — two achievements, a clip, the words, the removal — and "Georgia submitted a change" once for each change of hers: her clip, her achievement, her photo and her words',
     [count(hE, 'Alex changed the page.') - count(hB, 'Alex changed the page.'), count(hE, 'Georgia submitted a change') - count(hB, 'Georgia submitted a change')],
-    [5, 1]);
+    [5, 4]);
   // ---- A guardian's FORM save publishes only what the guardian changed
   // (safety review of "parent's change only", B-1, 2 Oct). The form is
   // prefilled from the live record — with a change of the child's waiting,
@@ -4340,6 +4357,71 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('bf-appr-w1: when her parent approves her waiting change, his family history says "You approved a change" — the approval now names Georgia — and her About and stat go on the page with his foot',
     [okApprove.location, count(hA1, 'You approved a change') - count(hA0, 'You approved a change'), (await preview()).includes(G_ABOUT2), (await preview()).includes(`${newFoot} footed`)],
     [`/g/pending/${georgia.record_id}?done=1`, 1, true, true]);
+  // ---- The full review on /g/pending (BUZ, 2 Oct), and every change of a
+  // child's waiting on it (B): one section per kind that changed, approved
+  // seen, and the press approves exactly the version it was shown ----
+  const sections = async () => [...(await get(pendingPage, alex)).html.matchAll(/<h2 class="sec-h">([^<]*)<\/h2>/g)].map((m) => m[1]);
+  const waitsNot = async () => (await live(pendingPage, alex)).includes('Nothing is waiting on you.');
+  const P_CLIP = 'B review clip Georgia added', P_ACH = 'B review achievement Georgia added';
+  const idle0 = await waitsNot();
+  await addClip(georgia.child_id, P_CLIP);
+  const clipReview = [await sections(), (await live(pendingPage, alex)).includes(P_CLIP), (await live(pendingPage, alex)).includes('Added'), (await preview()).includes(P_CLIP)];
+  const okClip = await approveHers();
+  check('bf-pend-w1: a clip Georgia adds herself — her About untouched — waits, and /g/pending shows it under Highlights alone, Added; approved there, seen, it is on the page clubs read',
+    [idle0, clipReview, okClip.location, (await preview()).includes(P_CLIP), await waitsNot()],
+    [true, [['Highlights'], true, true, false], `/g/pending/${georgia.record_id}?done=1`, true, true]);
+  await addAch(georgia.child_id, P_ACH);
+  const achReview = [await sections(), (await live(pendingPage, alex)).includes(P_ACH), (await preview()).includes(P_ACH)];
+  await approveHers();
+  check('bf-pend-w2: an achievement Georgia adds herself waits the same way — Achievements alone — and goes on the page only when approved',
+    [achReview, (await preview()).includes(P_ACH)], [[['Achievements'], true, false], true]);
+  // Her photo: waiting at once, with no save after it (the old path, where a
+  // child's photo rode the next save unseen, is gone).
+  const png2 = await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 20, g: 140, b: 160 } } }).png().toBuffer();
+  const up2 = forms((await get(gBuild, georgia.child_id)).html).find((f) => /\/photo$/.test(f.action ?? ''));
+  if (up2) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(up2.fields)) fd.append(k, v);
+    fd.append('photo', new Blob([png2], { type: 'image/png' }), 'photo.png');
+    await (await fetch(BASE + up2.action, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(georgia.child_id) } })).text();
+  }
+  const newPhoto = photoKey((await get(gBuild, georgia.child_id)).html);
+  const reviewHtml = (await get(pendingPage, alex)).html;
+  const reviewImgs = [...reviewHtml.replace(/<script[\s\S]*?<\/script>/g, ' ').matchAll(/<img[^>]*src="([^"]*)"/g)].map((m) => m[1].replace(/&amp;/g, '&'));
+  const photoBeforeApprove = await previewPhoto();
+  await approveHers();
+  check('bf-pend-w3: a photo Georgia uploads herself waits at once — no save after it — and /g/pending shows The photo alone, the approved one beside the new, both at signed private addresses and never a public one; approved, it is the page’s photo',
+    [[...reviewHtml.matchAll(/<h2 class="sec-h">([^<]*)<\/h2>/g)].map((m) => m[1]), reviewImgs.length,
+     reviewImgs.every((u) => u.startsWith('/private-photo/') && /[?&]s=/.test(u)), /\/dev-uploads\/|pitch-private:/.test(reviewHtml),
+     photoBeforeApprove !== newPhoto, await previewPhoto()],
+    [['The photo'], 2, true, false, true, newPhoto]);
+  // Exactly the version shown: a press on a version she has changed since is
+  // refused, publishes nothing, and lands back on the review, now drawing both.
+  const X_CLIP = 'B exactness first clip', Y_CLIP = 'B exactness second clip';
+  await addClip(georgia.child_id, X_CLIP);
+  const shownForm = forms((await get(pendingPage, alex)).html).find((f) => f.submit === 'Approve the change');
+  await addClip(georgia.child_id, Y_CLIP);
+  const stale = shownForm ? await postAs(pendingPage, alex, shownForm.fields) : { location: '' };
+  const afterStale = await preview();
+  const redrawn = await live(pendingPage, alex);
+  const okFresh = await approveHers();
+  check('bf-pend-w4: the press approves exactly the version the page drew — when Georgia changes it after the page was rendered, the old press is refused, nothing is published, and the parent is back on the review, which now draws both changes; pressed again, both go up',
+    [Boolean(shownForm?.fields.version), stale.location, afterStale.includes(X_CLIP), afterStale.includes(Y_CLIP), redrawn.includes(X_CLIP) && redrawn.includes(Y_CLIP),
+     okFresh.location, (await preview()).includes(X_CLIP) && (await preview()).includes(Y_CLIP)],
+    [true, `/g/pending/${georgia.record_id}`, false, false, true, `/g/pending/${georgia.record_id}?done=1`, true]);
+  // Football details: her appearances changed and her assists blanked — one
+  // row each, the new value marked self-reported, an empty one "—", never 0.
+  const sf = await faithful(georgia.child_id);
+  if (sf) await postAs(gBuild, georgia.child_id, { ...sf, stat_apps: '31', stat_assists: '' });
+  const detHtml = (await get(pendingPage, alex)).html;
+  const det = [...detHtml.matchAll(/<div class="det">([\s\S]*?)<\/div>/g)].map((m) => words(m[1]).trim().replace(/\s+/g, ' '));
+  check('bf-pend-w5: a stat change of Georgia’s shows under Football details alone, "{label}: {old} → {new}", the new value marked Self-reported, a blanked stat as "—" and never a 0',
+    [await sections(), det.some((r) => /^Appearances: \d+ → 31 Self-reported$/.test(r)), det.some((r) => /^Assists: \d+ → —$/.test(r) || r === 'Assists: — → —'),
+     /class="det-n">0</.test(detHtml)],
+    [['Football details'], true, sf?.stat_assists ? true : false, false]);
+  await approveHers();
+  check('bf-pend-w6: and with everything approved, the review says "Nothing is waiting on you." — and only then',
+    await waitsNot(), true);
   // A 16–17's page and an adult's are their own, and their own changes are
   // the page at once, exactly as before.
   const jordanRec = /\/build\/([0-9a-f-]{36})/.exec((await get('/home', ids.people.jordan)).html)?.[1];

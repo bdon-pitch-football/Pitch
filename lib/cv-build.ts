@@ -97,25 +97,7 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
       if (patch) replaced.push(...(await publishPatch(client, recordId, author.personId, patch, draft.season)).replaced);
     } else if (band === 'u16') {
       waitsOnGuardian = true;
-      const content = await buildSnapshot(client, recordId, draft.season);
-      const was = (await client.query(
-        `select content ->> 'photoPath' as photo from profile_version where record_id = $1 and status = 'pending'`,
-        [recordId],
-      )).rows[0]?.photo as string | null | undefined;
-      if (was) replaced.push(was);
-      await client.query(
-        `insert into profile_version (record_id, content, status)
-         values ($1, $2, 'pending')
-         on conflict (record_id) where status = 'pending'
-         do update set content = excluded.content, created_at = now()`,
-        [recordId, JSON.stringify(content)],
-      );
-      await client.query(
-        `insert into consent_event (event, subject_id, detail)
-         select 'edit_submitted', p.id, jsonb_build_object('record_id', $1::uuid)
-         from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
-        [recordId],
-      );
+      replaced.push(...(await submitChildChange(client, recordId, draft.season)));
     }
     await client.query('commit');
   } catch (e) {
@@ -132,6 +114,44 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
   // this went to one of them only (`limit 1`), so a second parent never
   // learned a change was waiting on them.
   if (!waitsOnGuardian) return;
+  await tellGuardiansItWaits(recordId);
+}
+
+/**
+ * An under-16's own change, of any kind, becomes the waiting version (D-119):
+ * the record as it now stands, for a guardian to see whole on /g/pending and
+ * approve or not. One path for every write a child makes for themselves — the
+ * build form, a clip, an achievement, other football, the photo (John's
+ * original intent; BUZ, 2 Oct, now that the parent sees every change) — so a
+ * clip or a photo never again waits unseen on the live record to ride the
+ * next save. On the caller's transaction, under the record's lock. Returns
+ * the photo the waiting version named before, to forget after commit.
+ */
+async function submitChildChange(client: Client, recordId: string, season: string): Promise<string[]> {
+  const content = await buildSnapshot(client, recordId, season);
+  const was = (await client.query(
+    `select content ->> 'photoPath' as photo from profile_version where record_id = $1 and status = 'pending'`,
+    [recordId],
+  )).rows[0]?.photo as string | null | undefined;
+  await client.query(
+    `insert into profile_version (record_id, content, status)
+     values ($1, $2, 'pending')
+     on conflict (record_id) where status = 'pending'
+     do update set content = excluded.content, created_at = now()`,
+    [recordId, JSON.stringify(content)],
+  );
+  await client.query(
+    `insert into consent_event (event, subject_id, detail)
+     select 'edit_submitted', p.id, jsonb_build_object('record_id', $1::uuid)
+     from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
+    [recordId],
+  );
+  return was ? [was] : [];
+}
+
+// doc 15 §30, after the commit (L1): every approved, unrevoked guardian with
+// an address, one message each.
+async function tellGuardiansItWaits(recordId: string): Promise<void> {
   const g = await db.query(EDIT_WAITING_TO, [recordId]);
   for (const r of g.rows as { email: string; first_name: string }[]) {
     await send(editWaitingEmail(r.first_name, recordId), { address: r.email });
@@ -150,7 +170,12 @@ export const EDIT_WAITING_TO = `
 // Guardian approves the pending version: it becomes the approved one, the
 // old approved version is superseded — in one transaction. Silence would
 // have kept the old page live forever (doc 14 §R7).
-export async function approvePendingVersion(recordId: string, guardianId: string): Promise<boolean> {
+//
+// The version approved is the one the guardian was shown: `version` is
+// "{pending id}:{md5 of its content}" as /g/pending drew it, and a waiting
+// version that has moved since — the child saved again — is refused, so a
+// press can never publish something the page did not show (BUZ, 2 Oct).
+export async function approvePendingVersion(recordId: string, guardianId: string, version: string): Promise<boolean> {
   // The photo the outgoing approved version named: once it is superseded it
   // may be nothing anyone is shown, and then it goes (after the commit).
   let replaced: string | null = null;
@@ -161,9 +186,11 @@ export async function approvePendingVersion(recordId: string, guardianId: string
     // (safety review of "parent's change only", S-2): a guardian's patch and
     // this approval, pressed in the same second, queue rather than deadlock.
     await client.query('select 1 from development_record where id = $1 for update', [recordId]);
+    const [shownId, shownHash] = version.split(':');
     const pending = await client.query(
-      `select id from profile_version where record_id=$1 and status='pending' for update`,
-      [recordId],
+      `select id from profile_version where record_id=$1 and status='pending'
+         and id::text = $2 and md5(content::text) = $3 for update`,
+      [recordId, shownId ?? '', shownHash ?? ''],
     );
     if (pending.rows.length === 0) {
       await client.query('rollback');
@@ -253,12 +280,24 @@ export async function writeRecord(
   write: (client: RecordClient) => Promise<GuardianPatch | null>,
 ): Promise<void> {
   let replaced: string[] = [];
+  let waits = false;
   const client = await db.connect();
   try {
     await client.query('begin');
-    await client.query('select 1 from development_record where id = $1 for update', [recordId]);
+    const band = (await client.query(
+      `select fn_age_band(p.dob) as band from development_record dr join person p on p.id = dr.person_id
+       where dr.id = $1 for update of dr`,
+      [recordId],
+    )).rows[0]?.band as string | undefined;
     const patch = await write(client);
-    if (author.actor === 'guardian' && patch) ({ replaced } = await publishPatch(client, recordId, author.personId, patch, '2026'));
+    if (band === 'u16' && patch && author.actor === 'guardian') {
+      ({ replaced } = await publishPatch(client, recordId, author.personId, patch, '2026'));
+    } else if (band === 'u16' && patch && author.actor === 'self') {
+      // A child's own clip, achievement, other football or photo waits on a
+      // guardian, whole, like every other change of theirs (B; BUZ, 2 Oct).
+      replaced = await submitChildChange(client, recordId, '2026');
+      waits = true;
+    }
     await client.query('commit');
   } catch (e) {
     await client.query('rollback');
@@ -267,6 +306,7 @@ export async function writeRecord(
     client.release();
   }
   for (const r of replaced) await forgetPlayerPhoto(recordId, r);
+  if (waits) await tellGuardiansItWaits(recordId);
 }
 
 /**
