@@ -6,7 +6,9 @@
 //   ... --apply                                                         # write it
 //
 // Columns read: club, suburb, league_as_named (or tier), level (optional:
-// npl, vpl, sl or community — read from the league's name when absent),
+// npl, vpl, sl or community, or NPL / Victoria Premier League / State League
+// / Community — read from the league's name only when the file has no level
+// column; a blank level in a file that has one is no level),
 // source_url, checked_on (YYYY-MM-DD).
 //
 // The rules, each one a refusal printed with its reason:
@@ -37,9 +39,13 @@ export const HELD = [{ club: /^alamein\b/i, why: 'held by BUZ, 2 Oct: "keep that
 // The league as its source names it, placed in one of the four levels.
 // "NPL Women Victoria" is NPL: a club's level is the highest league any of
 // its senior teams plays in, men's or women's (B1, BUZ 2 Oct).
+// A file with a level column has decided every row: the level is read from
+// it (as a code, or as the filter's own name for it), and a blank level is
+// that file's "no level" — never a cue to guess one from the league's name
+// (the FV list leaves Point Cook and Albert Park blank on purpose, 2 Oct).
+const LEVEL_NAMES = { npl: 'npl', vpl: 'vpl', 'victoria premier league': 'vpl', sl: 'sl', 'state league': 'sl', community: 'community' };
 export function levelOf(row) {
-  const given = (row.level ?? '').trim().toLowerCase();
-  if (given) return ['npl', 'vpl', 'sl', 'community'].includes(given) ? given : null;
+  if ('level' in row) return LEVEL_NAMES[String(row.level ?? '').trim().toLowerCase()] ?? null;
   const league = (row.league_as_named || row.tier || '').trim();
   if (/^NPL\b/i.test(league)) return 'npl';
   if (/^(Victoria(n)? Premier League|VPL)\b/i.test(league)) return 'vpl';
@@ -94,7 +100,7 @@ export async function planLevels(q, rows, today = melbourneToday()) {
       || new Date(`${checked}T00:00:00Z`).toISOString().slice(0, 10) !== checked) { refuse('checked_on is not a date (YYYY-MM-DD)'); continue; }
     if (checked > today) { refuse('checked_on is in the future'); continue; }
     const level = levelOf(r);
-    if (!level) { refuse(`league not placed in a level: "${league || r.level || ''}"`); continue; }
+    if (!level) { refuse('level' in r && !String(r.level ?? '').trim() ? 'no level in the file' : `league not placed in a level: "${r.level || league || ''}"`); continue; }
     if (league.length < 2 || league.length > 120) { refuse('league_as_named missing or too long'); continue; }
     const found = (await q(`select c.id, c.name, c.suburb, l.level, l.league_as_named, l.source_url, to_char(l.checked_on, 'YYYY-MM-DD') as checked_on
       from club c left join club_level l on l.club_id = c.id

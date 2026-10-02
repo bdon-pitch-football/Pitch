@@ -13640,6 +13640,13 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('tf-cl4b: the level is read from the league as named — NPL (men\'s or women\'s), Victoria Premier League 1 and 2, State League 1–7 either conference, community — and nothing else is guessed',
     ['NPL Victoria', 'NPL Women Victoria', 'Victoria Premier League 2', 'State League 5 South-East', 'community', 'Metro League 3', ''].map((t) => levelOf({ tier: t })),
     ['npl', 'npl', 'vpl', 'sl', 'community', null, null]);
+  // tf-cl4c (Leo, 2 Oct): the FV file names the level the way the filter
+  // does, and leaves it blank where it decided "no level". A blank there is
+  // final: the league's name is not read to fill it in.
+  check('tf-cl4c: a file with a level column is read by it — the filter\u2019s names or the codes — and a blank level is no level, whatever its league says',
+    [['NPL', 'Victoria Premier League', 'State League', 'Community', 'vpl', 'Premier'].map((l) => levelOf({ level: l, league_as_named: 'State League 4 North-West' })),
+     levelOf({ level: '', league_as_named: 'State League 4 North-West' }), levelOf({ level: '  ', league_as_named: 'NPL Victoria' })],
+    [['npl', 'vpl', 'sl', 'community', 'vpl', null], null, null]);
   // The script's own safeguards, read from its source: plan unless --apply,
   // a remote database only with a verified --ca, never the demo.
   const ld = srcOf('scripts/load-club-levels.mjs');
