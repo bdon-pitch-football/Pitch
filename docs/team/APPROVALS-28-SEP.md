@@ -255,3 +255,10 @@ BUZ, 2 Oct: trials board v2 is approved, with all its words (via the Head of Pro
 ## 2 Oct — the coach's WWCC heading with no club (BUZ, having seen it verbatim, via Leo)
 
 - On `/coach/edit`, the Working With Children Check panel's heading reads **"Confirmed once you join a club"** when the coach has **no club membership**. It replaces "Waiting on your club" in that state only. A coach with a club whose check is not yet confirmed keeps "Waiting on {club}", a confirmed one keeps "Confirmed by {club}", and the rest of the panel stays as EC4 left it. (Builder: audit-polish; check ap-r3, with a seeded coach in each state.)
+
+## 2 Oct — the trials filters package (BUZ, via the Head of Product Design, then "lets go" to Leo)
+
+- Every word in the package is approved: Show, Trials, Expressions of interest, Region, Any region, the region names, Distance, Suburb or postcode, 10 km, 20 km, 40 km, "Within {n} km", "about {n} km", Clear suburb, "Worked out on this device. Never sent to Pitch or saved.", "No Victorian suburb or postcode matches that.", More filters, Club level, "The club's senior league, not the trial's.", Any level, NPL, Victoria Premier League, State League, Community, and "{level} clubs".
+- **Alamein FC gets no club level for now** ("approve on all but alamein FC keep that out of our list for now").
+- **The ABS data credit, option A:** **"Suburb and postcode data: Australian Bureau of Statistics, CC BY 4.0."**, once at the foot of the /trials filter panel. BUZ said "lets go" to Leo's and Product Design's recommendation of A. (Check: tf-credit.)
+- **Screen-reader photo labels on /g/pending** (never on screen; from the approved parent mockup): **"{name}’s approved photo"** and **"{name}’s new photo"**. Also covered by the same "lets go". (Builder: polish-2; check pp-r2.)
