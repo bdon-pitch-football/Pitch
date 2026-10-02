@@ -4966,6 +4966,12 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
     !approved ? [true, true] : sent ? [approved.value <= sent.value, pct === Math.round((100 * approved.value) / sent.value)] : [false, false], [true, true]);
   const values = [...html.matchAll(/data-ops-tile="([^"]+)"[^>]*>[\s\S]*?<div[^>]*>[^<]*<\/div><div[^>]*>([^<]*)<\/div>/g)].map((m) => m[2].trim());
   check(`today-w3: after all that, still no tile says zero (D-162) (${values.join(', ')})`, values.filter((v) => !/^[1-9]\d*$/.test(v)), []);
+  // 0171 (design audit, 2 Oct, finding 22): and the signups still add up,
+  // after a day of doors pressed — the club door's account included.
+  const signups = tile('Signups today');
+  const partsSum = signups ? [...signups.sub.matchAll(/(\d+) (player|parent|coach|club)\b/g)].reduce((n, m) => n + Number(m[1]), 0) : -1;
+  check(`today-w4: Signups today is still the sum of its own line (${signups ? `${signups.value} over ${signups.sub}` : 'no tile'})`,
+    [Boolean(signups), signups ? signups.value : null], [true, partsSum]);
 }
 
 // ---------------------------------------------------------------------------

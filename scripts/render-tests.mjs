@@ -772,6 +772,14 @@ const georgia = ids.children.georgia;
     const doors = hrefs(main).filter((h) => !['/home', '/signout', '/privacy', '/terms', '/report'].includes(h) && !h.startsWith('/report?'));
     check(`ops-r5: the page itself links nowhere but the lookup (${doors.join(' ') || 'nowhere'})`,
       doors.every((h) => h === '/ops/support'), true);
+    // 0171 (design audit, 2 Oct, finding 22): on a fresh seed the tile read
+    // "211" over a line that summed to 194 — a team manager and the club
+    // door's accounts were in the total and in no part of it. The total is
+    // the sum of its own line, as a person reads it.
+    const signups = /data-ops-tile="Signups today"[^>]*>[\s\S]*?<div[^>]*>[^<]*<\/div><div[^>]*>([^<]*)<\/div><div[^>]*>([^<]*)<\/div>/.exec(main);
+    const partsSum = signups ? [...signups[2].matchAll(/(\d+) (player|parent|coach|club)\b/g)].reduce((n, m) => n + Number(m[1]), 0) : -1;
+    check(`ops-r12: Signups today is the sum of its own line (${signups ? `${signups[1]} over ${signups[2]}` : 'no tile'})`,
+      [Boolean(signups), signups ? Number(signups[1]) : null], [true, partsSum]);
   }
   // Brief G (29 Sep): the call sheet as BUZ asked for it. The guidance used to
   // be written INTO the field labels in tracked capitals ("OPERATOR — THE

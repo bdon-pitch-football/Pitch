@@ -896,6 +896,130 @@ if (!DEMO) {
   const st = (await db.query(`select club_state from club where id = $1`, [thornbeck])).rows[0] as { club_state: string };
   if (st.club_state !== 'claimed') throw new Error(`0150: Thornbeck should be claimed after its failed call, and is ${st.club_state}`);
 }
+
+// --- A CHANGE OF EVERY KIND, WAITING ON A GUARDIAN (design audit, 2 Oct) ----
+// /g/pending draws one section per kind of change, in a fixed order (About,
+// the photo, Highlights, Clubs before this one, Achievements, Other football,
+// Football details), and the photos at addresses minted for one read. Deniz's
+// waiting change is the About alone and no child had a photo, so six of the
+// seven sections and both signed photos had never been seen by anyone.
+//
+// Ivo Varga, 14, and his parent Noemi — invented, like everyone here — are
+// that fixture and nothing else. ISOLATED ON PURPOSE (L32): Noemi is in no
+// suite's list of seats, Ivo holds no club, no squad, no registration and no
+// share link, so no seat any suite walks can reach either of them, and the
+// write sweep's 60-page walk never meets his forms. A suite that starts
+// reading them is reading this fixture: say so in its handoff.
+//
+// Written the way production writes it (L13). The live tables hold the page,
+// the approved version is a snapshot of them (the shape lib/cv-build's
+// buildSnapshot writes), then Ivo makes his changes to the live tables and
+// the waiting version is a snapshot of those. Both photos are private
+// (`pitch-private:`, John's ruling §1), each a fresh key as the upload route
+// makes, in the local private bucket — the approved one stays because the
+// approved version names it (PHOTO_STILL_SHOWN). The pictures are drawn here,
+// not taken: a plain silhouette on a flat colour, because a child fixture
+// never wears a real person's face, brand photography included.
+// Not in a club demo, which is about a club and not a family.
+let pendingReview: Record<string, string> | null = null;
+if (!DEMO) {
+  const { PRIVATE_PREFIX, playerPhotoKey } = await import('../lib/player-photo.ts');
+  const sharp = (await import('sharp')).default;
+  const noemi = randomUUID(), ivo = randomUUID(), ivoRec = randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Noemi','Varga','1983-11-02','pending.parent@example.com')`, [noemi]);
+  await proveAddress(noemi);
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Ivo','Varga','2012-05-14')`, [ivo]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now() - interval '40 days')`, [noemi, ivo]);
+  await db.query(
+    `insert into consent_event (at, event, actor_id, subject_id, policy_version) values
+       (now() - interval '41 days', 'invite_created', $1, $2, null),
+       (now() - interval '41 days', 'email_sent',     null, $2, null),
+       (now() - interval '41 days', 'sms_sent',       null, $2, null),
+       (now() - interval '40 days', 'guardian_landed',$1,  $2, null),
+       (now() - interval '40 days', 'tos_accepted',   $1,  $2, '01@v1.0'),
+       (now() - interval '40 days', 'policy_accepted',$1,  $2, '02@v1.0'),
+       (now() - interval '40 days', 'approved',       $1,  $2, null)`,
+    [noemi, ivo],
+  );
+
+  // A drawn picture through the upload route's own encode (512 square,
+  // JPEG), into the private bucket under a key of its own.
+  const photo = async (colour: string) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="${colour}"/>`
+      + `<circle cx="256" cy="200" r="92" fill="#0b120e" fill-opacity="0.55"/><path d="M96 512 C96 380 176 316 256 316 C336 316 416 380 416 512 Z" fill="#0b120e" fill-opacity="0.55"/></svg>`;
+    const out = await sharp(Buffer.from(svg)).resize(512, 512, { fit: 'cover' }).jpeg({ quality: 86 }).toBuffer();
+    const key = playerPhotoKey(ivoRec);
+    const dir = fileURLToPath(new URL('../.dev-private-uploads/', import.meta.url));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, key.replace(/\//g, '-')), out);
+    return `${PRIVATE_PREFIX}${key}`;
+  };
+  // lib/cv-build buildSnapshot's shape, for a child at no club.
+  const snapshot = async () => (await db.query(
+    `select jsonb_build_object(
+       'slug', 'live', 'dob', '', 'club', '', 'season', '2026',
+       'squad', jsonb_build_object('name', '', 'ageGroup', '', 'competitionGender', null),
+       'firstName', p.first_name, 'lastName', coalesce(p.last_name, ''), 'photoPath', p.photo_path,
+       'positions', dr.positions, 'squadNumber', dr.squad_number, 'foot', dr.foot,
+       'about', coalesce(dr.about, ''), 'surfacedStats', dr.surfaced_stats,
+       'stats', fn_stat_public(dr.id),
+       'achievements', (select coalesce(jsonb_agg(jsonb_build_object('title', title, 'detail', detail) order by sort), '[]'::jsonb)
+                        from achievement where record_id = dr.id),
+       'otherFootball', (select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'orgName', org_name, 'period', season_label, 'note', notes)), '[]'::jsonb)
+                         from experience_entry where record_id = dr.id and kind <> 'previous_club' and fn_experience_public(dr.id, kind)),
+       'previousClubs', (select coalesce(jsonb_agg(jsonb_build_object('orgName', org_name, 'period', season_label)
+                                                   order by season_label desc nulls last, created_at desc), '[]'::jsonb)
+                         from experience_entry where record_id = dr.id and kind = 'previous_club'),
+       'highlights', (select coalesce(jsonb_agg(jsonb_build_object('title', title, 'url', url) order by added_at), '[]'::jsonb)
+                      from highlight where record_id = dr.id),
+       'highlightsUsed', (select count(*) from highlight where record_id = dr.id)) as content
+     from development_record dr join person p on p.id = dr.person_id where dr.id = $1`, [ivoRec])).rows[0].content;
+
+  // The page Noemi approved.
+  await db.query(`update person set photo_path = $2 where id = $1`, [ivo, await photo('#3f5a6b')]);
+  await db.query(`insert into development_record (id, person_id, positions, squad_number, foot, about, surfaced_stats)
+    values ($1,$2,array['CM','DM'],8,'Right','Box-to-box midfielder who loves a tackle and a long pass.',array['apps','goals','assists'])`, [ivoRec, ivo]);
+  for (const [key, value] of [['apps', 14], ['goals', 4], ['assists', 6]] as const) {
+    await db.query(`insert into player_stat (record_id, season, stat_key, value, provenance) values ($1,'2026',$2,$3,'self_reported')`, [ivoRec, key, value]);
+  }
+  await db.query(`insert into achievement (record_id, title, detail, sort) values
+    ($1,'Club Player of the Year — U14','Northern United SC, 2025',0), ($1,'Most improved','2024 season',1)`, [ivoRec]);
+  await db.query(`insert into experience_entry (record_id, kind, org_name, season_label) values
+    ($1,'futsal','Metro Futsal League U14','Summer 2025–26'), ($1,'previous_club','Northern United SC','2022–2025')`, [ivoRec]);
+  await db.query(`insert into highlight (record_id, url, title, added_as_minor, added_at) values
+    ($1,'https://www.youtube.com/watch?v=dev-ivo-1','Season highlights 2026',true, now() - interval '50 days'),
+    ($1,'https://www.youtube.com/watch?v=dev-ivo-2','Free kicks, autumn',true, now() - interval '49 days')`, [ivoRec]);
+  await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at, created_at)
+    values ($1,$2,'approved',$3, now() - interval '30 days', now() - interval '30 days')`, [ivoRec, await snapshot(), noemi]);
+
+  // Ivo's changes since, one of every kind the review draws.
+  await db.query(`update person set photo_path = $2 where id = $1`, [ivo, await photo('#2f6b4f')]);
+  await db.query(`update development_record set positions = array['AM','CM'], squad_number = 10, foot = 'Left',
+    about = 'Box-to-box midfielder who wins it back and plays forward quickly. Working on my left foot every Tuesday.' where id = $1`, [ivoRec]);
+  await db.query(`update player_stat set value = 7 where record_id = $1 and season = '2026' and stat_key = 'goals'`, [ivoRec]);
+  await db.query(`delete from highlight where record_id = $1 and url = 'https://www.youtube.com/watch?v=dev-ivo-2'`, [ivoRec]);
+  await db.query(`insert into highlight (record_id, url, title, added_as_minor) values ($1,'https://www.youtube.com/watch?v=dev-ivo-3','Pressing and recoveries',true)`, [ivoRec]);
+  await db.query(`insert into experience_entry (record_id, kind, org_name, season_label) values
+    ($1,'previous_club','Quarrymead United','2020–2022'), ($1,'tournament','Easter junior carnival','2026')`, [ivoRec]);
+  await db.query(`delete from achievement where record_id = $1 and title = 'Most improved'`, [ivoRec]);
+  await db.query(`insert into achievement (record_id, title, detail, sort) values ($1,'Top scorer — U14 League','2026 season',2)`, [ivoRec]);
+  await db.query(`insert into profile_version (record_id, content, status, created_at) values ($1,$2,'pending', now() - interval '2 hours')`,
+    [ivoRec, await snapshot()]);
+
+  // The fixture proves itself here rather than in a suite that might not
+  // run: both photos private and different, and the waiting version differs
+  // from the approved one in all seven kinds.
+  const { pendingDiff, changedKinds } = await import('../lib/pending-diff.ts');
+  const v = (await db.query(
+    `select (select content from profile_version where record_id = $1 and status = 'approved') as a,
+            (select content from profile_version where record_id = $1 and status = 'pending') as p`, [ivoRec])).rows[0];
+  const kinds = changedKinds(pendingDiff(v.a, v.p));
+  const photos = [v.a.photoPath, v.p.photoPath];
+  if (kinds.length !== 7 || photos.some((x: unknown) => typeof x !== 'string' || !x.startsWith(PRIVATE_PREFIX)) || photos[0] === photos[1]) {
+    throw new Error(`the every-kind fixture changes ${kinds.join(', ')} with photos ${photos.join(' → ')} — it must change all seven, between two private photos`);
+  }
+  pendingReview = { guardian: noemi, child: ivo, record: ivoRec };
+}
 let demoSlug = '';
 if (DEMO) {
   const { applyDemo } = await import('./demo-layer.mts');
@@ -1140,6 +1264,9 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
       // Georgia's request to Quarrymead: the render suite opens its stop link
       // (0160) and checks that opening it stopped nothing.
       georgiaAsk,
+      // The every-kind waiting change (design audit, 2 Oct): Noemi's review
+      // is /g/pending/<record>, signed in as <guardian>. Read by no suite.
+      pendingReview,
       adultPlayers: (await db.query(
         `select p.id as person_id, dr.id as record_id from person p join development_record dr on dr.person_id = p.id
          where p.dob is not null and fn_age_band(p.dob) = '18plus' order by p.first_name, p.id`)).rows,
@@ -1147,3 +1274,4 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
   );
 }
 console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · admin@example.com (club administrator) · quarrymead@example.com (unverified club) · kingsway@example.com (free verified club, TD) · new@example.com (brand-new, nothing yet) · unproved@example.com (signs in nowhere until /confirm/dev-unproved)');
+if (pendingReview) console.log(`  every-kind review: pending.parent@example.com (Noemi, Ivo's parent) · /g/pending/${pendingReview.record}`);
