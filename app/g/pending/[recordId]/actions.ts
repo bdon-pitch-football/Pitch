@@ -13,7 +13,7 @@ import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 import { approvePendingVersion } from '@/lib/cv-build';
 import { db } from '@/lib/db';
-import { requireRecordActor, requireRecordAuthor } from '@/lib/record-guard';
+import { requireRecordAuthor } from '@/lib/record-guard';
 
 //
 // FORM FIELDS, NOT bind(). A server action passed straight to
@@ -29,8 +29,11 @@ import { requireRecordActor, requireRecordAuthor } from '@/lib/record-guard';
 export async function approveChange(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
   // Guardian only. A child never approves their own edit, and silence never
-  // publishes on its own.
-  const { personId } = await requireRecordActor(recordId, ['guardian']);
+  // publishes on its own. And an UNDER-16's guardian only, the author rule
+  // (doc 14 R13; safety review S-1): a 16–17's guardian approves nothing —
+  // their child's page is the live record — and goes home, writing nothing.
+  const { personId, actor } = await requireRecordAuthor(recordId);
+  if (actor !== 'guardian') redirect('/home');
   // EXACTLY the version the page drew (BUZ, 2 Oct; spec D): its id and a
   // hash of its content ride in the form. If the child changed it since the
   // page was rendered, nothing publishes and the parent is back on the
@@ -45,9 +48,9 @@ export async function approveChange(formData: FormData) {
 // An under-16's guardian only, asked of the database (fn_record_author, 0169):
 // for a 16–17 the player shares and the guardian sees (John, 2 Oct, §5, the
 // principle of N-10; doc 14 E15). Their guardian keeps everything else
-// requireRecordActor gives them — this page, approving, the controls, the
-// off-switch — and loses only this press. A refused press goes home and
-// writes nothing, exactly as a stranger's does (D-77).
+// requireRecordActor gives them — the controls, the off-switch — and has no
+// waiting version to review or approve here either (doc 14 R13). A refused
+// press goes home and writes nothing, exactly as a stranger's does (D-77).
 export async function issueShareLink(formData: FormData) {
   const recordId = String(formData.get('recordId') ?? '');
   const { personId, actor } = await requireRecordAuthor(recordId);

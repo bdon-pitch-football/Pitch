@@ -130,3 +130,12 @@ export function changedKinds(d: PendingDiff): string[] {
     d.achievements.length && 'achievements', d.otherFootball.length && 'otherFootball', d.details.length && 'details',
   ].filter((k): k is string => typeof k === 'string');
 }
+
+/**
+ * Whether a waiting version waits on a guardian: it exists and differs from
+ * the approved one in a kind the review draws. The ONE definition every
+ * surface uses (lib/cv-build waitingRecords; the review; the §30 email).
+ */
+export function isWaiting(approved: Content, pending: Content): boolean {
+  return Boolean(pending) && changedKinds(pendingDiff(approved, pending)).length > 0;
+}

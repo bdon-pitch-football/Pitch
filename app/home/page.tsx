@@ -18,6 +18,7 @@
 import Link from 'next/link';
 import { SUPPORT_EMAIL } from '@/lib/support';
 import { db } from '@/lib/db';
+import { waitingRecords } from '@/lib/cv-build';
 import { imageSrc } from '@/lib/storage';
 import { getSessionPersonId } from '@/lib/session';
 import { HeaderMark } from '@/components/Wordmark';
@@ -224,13 +225,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               where dr7.person_id = c.id and st.revoked_at is null and st.paused = false
                 and st.expires_at is not null and st.expires_at > now()
               order by st.issued_at desc limit 1),
-           'pendingAt', (select max(pv.created_at) from profile_version pv
-              join development_record dr6 on dr6.id = pv.record_id
-              where dr6.person_id = c.id and pv.status = 'pending'),
            'registers', (select count(*)::int from registration r5 where r5.player_id = c.id and r5.withdrawn_at is null),
-           'hasPending', exists(select 1 from profile_version pv
-              join development_record dr2 on dr2.id = pv.record_id
-              where dr2.person_id = c.id and pv.status = 'pending'),
            'invitation', (select row_to_json(q3) from (
               select i.id, i.created_at as at, cl2.name as club,
                 exists(select 1 from invitation_reply ird where ird.invitation_id = i.id and ird.approved_at is null) as draft
@@ -265,6 +260,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   // an approved, unrevoked guardian of.
   me.photo_path = await imageSrc(me.photo_path);
   for (const c of me.children as { photo: string | null }[]) c.photo = await imageSrc(c.photo);
+  // "{child} changed the page" is listed only when something waits on this
+  // parent by the ONE answer the review gives (lib/cv-build waitingRecords,
+  // Leo 2 Oct): never for a change only to which stats are shown, or to the
+  // club line, which /g/pending does not draw and calls "Nothing is waiting".
+  {
+    const kids = me.children as { recordId: string | null; hasPending?: boolean; pendingAt?: string | null }[];
+    const waiting = await waitingRecords(kids.map((c) => c.recordId).filter((x): x is string => Boolean(x)));
+    for (const c of kids) { c.pendingAt = c.recordId ? waiting.get(c.recordId) ?? null : null; c.hasPending = c.pendingAt !== null; }
+  }
   const children: {
     id: string; firstName: string; photo: string | null; recordId: string | null; approvedOn: string;
     linkExpiry: string | null; expiresInDays: number | null; registers: number;

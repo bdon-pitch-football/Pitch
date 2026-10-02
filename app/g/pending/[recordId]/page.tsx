@@ -12,13 +12,13 @@
 // the version drawn here: the form carries that version's id and a hash of
 // its content, and the approval refuses a version that has moved since.
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { HeaderMark } from '@/components/Wordmark';
 import { AskHead, ParentPage, TickGlyph } from '@/components/parent-sheet';
 import { approveChange, issueShareLink } from './actions';
 import ClipFacade from './ClipFacade';
-import { recordAuthor, requireRecordActor } from '@/lib/record-guard';
+import { requireRecordAuthor } from '@/lib/record-guard';
 import { imageSrc } from '@/lib/storage';
 import { isPrivatePhoto } from '@/lib/player-photo';
 import { EMPTY, changedKinds, pendingDiff, type ListChange } from '@/lib/pending-diff';
@@ -48,8 +48,14 @@ export default async function PendingReview({ params, searchParams }: {
 }) {
   const { recordId } = await params;
   // Guardian only: silence never auto-publishes and the child never
-  // approves their own edit (D-119).
-  await requireRecordActor(recordId, ['guardian']);
+  // approves their own edit (D-119). And an UNDER-16's guardian only — the
+  // author rule, as E15 asks it (doc 14 R13; safety review of the review,
+  // S-1): a 16–17's page is the live record, so their guardian has no
+  // version to review or approve, and must not be drawn one left over from
+  // before the sixteenth birthday (R4, R8, R11). Anyone else goes home,
+  // exactly as for a record that is not theirs (D-77).
+  const { actor } = await requireRecordAuthor(recordId);
+  if (actor !== 'guardian') redirect('/home');
   const { done, link } = await searchParams;
 
   const { rows } = await db.query(
@@ -82,12 +88,11 @@ export default async function PendingReview({ params, searchParams }: {
   }
 
   if (done) {
-    // approved state: confirmation + the share-link affordance — for an
-    // under-16's guardian only. A 16–17's guardian is never offered the press
-    // issueShareLink refuses them (doc 14 E15; fn_record_author, 0169).
+    // approved state: confirmation + the share-link affordance. Only an
+    // under-16's guardian reaches this page at all (the author rule above),
+    // the same guardian issueShareLink lets mint (doc 14 E15), so a 16–17's
+    // guardian is never offered the press it refuses.
     const issue = issueShareLink;
-    const author = await recordAuthor(recordId);
-    const mayIssue = author !== null && author !== 'no-session' && author.actor === 'guardian';
     return (
       <ParentPage>
         <HeaderMark back={{ href: '/home', label: 'Your family' }} />
@@ -103,12 +108,12 @@ export default async function PendingReview({ params, searchParams }: {
             <div className="pd-link pd-mono" style={{ fontSize: 13 }}>pitchfootball.com.au/p/{link}</div>
             <div style={{ fontSize: 11.5, color: T.muted, fontWeight: 500 }}>Expires in 90 days. You can pause or regenerate it any time.</div>
           </div>
-        ) : mayIssue ? (
+        ) : (
           // A step that gives nothing away: the charter primary, and the glow.
           <form action={issue}><input type="hidden" name="recordId" value={recordId} />
             <button type="submit" className="btn btn-primary fl-glow">Get the share link</button>
           </form>
-        ) : null}
+        )}
       </ParentPage>
     );
   }
