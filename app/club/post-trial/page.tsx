@@ -123,9 +123,11 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
                   {error === 'ages' ? 'Pick at least one age group, so families can find it.' : 'Fill in the title, date, time and ground.'}
                 </div>
               )}
+              {/* The notice's title stands on its own; "Which squad" heads the
+                  squad pickers it names (audit ruling 20), not the title. */}
+              <label className="field"><div className="field-label">Notice title</div><input name="title" aria-label="Notice title" placeholder="U14 & U15 Boys trials" defaultValue={editing?.title} required /></label>
               <div className="pt-sec">
                 <div className="panel-h">Which squad</div>
-                <label className="field"><div className="field-label">Notice title</div><input name="title" aria-label="Notice title" placeholder="U14 & U15 Boys trials" defaultValue={editing?.title} required /></label>
                 <fieldset className="field pt-fieldset">
                   <legend className="field-label">Age groups — pick every one it&rsquo;s for</legend>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, clear: 'both' }}>

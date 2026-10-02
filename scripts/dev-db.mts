@@ -883,6 +883,16 @@ await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,
 const tarrowvaleTm = randomUUID();
 await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Tomas','Villa','1975-03-09','tarrowvale.tm@example.com')`, [tarrowvaleTm]);
 await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'team_manager')`, [tarrowvaleTm, tarrowvale]);
+// A coach at a club whose Working With Children Check the club has not
+// confirmed yet, so /coach/edit's "Waiting on {club}" heading has a seat to be
+// read from (BUZ, 2 Oct: "Confirmed once you join a club" replaces it only
+// for a coach with no club). Accepting a club's invitation always attests,
+// so no product path reaches this state from the seed; it is a fixture.
+// Fictional, an adult, no grants and no squad: a page and a membership.
+const tarrowvaleCoach = randomUUID();
+await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Hollis','Brennan','1990-11-04','tarrowvale.coach@example.com')`, [tarrowvaleCoach]);
+await db.query(`insert into coach_profile (person_id) values ($1)`, [tarrowvaleCoach]);
+await db.query(`insert into membership (person_id, club_id, role) values ($1,$2,'coach')`, [tarrowvaleCoach, tarrowvale]);
 
 // Demo mode (npm run demo): rename the club to the one BUZ is meeting, and
 // serve on the demo port so a demo and the dev database never meet.

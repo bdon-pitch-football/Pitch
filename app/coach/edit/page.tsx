@@ -296,7 +296,9 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
         </section>
 
         <section className="stack8">
-          <h2 className="sec-h">Sessions &amp; clips · {clips.length} of {COACH_CLIP_CAP}</h2>
+          {/* D-162 (spec E as amended, audit ruling 2): "· 0 of 5" prints a
+              zero as a value, so the count is said only once there is one. */}
+          <h2 className="sec-h">Sessions &amp; clips{clips.length > 0 && <> · {clips.length} of {COACH_CLIP_CAP}</>}</h2>
           {clips.length > 0 && (
             <div className="card rows">
               {clips.map((v) => (
@@ -331,7 +333,8 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
               </div>
             </form>
           )}
-          {/* D-164 (4): two locked Premium rows, an adult's page only. A
+          {/* D-164 (4): the locked Premium row, an adult's page only — and
+              off for everyone while D-163 stands (lib/premium, John 2 Oct). A
               16–17 who coaches MiniRoos never sees a paid surface (D-82). */}
           {c.adult && <PremiumRows on="coach" tapped={first === '1'} />}
         </section>
@@ -379,7 +382,9 @@ export default async function CoachEdit({ searchParams }: { searchParams: Promis
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={c.wwcc ? T.accent : T.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2 L20 6 V11 C20 16.5 16.6 20.6 12 22 C7.4 20.6 4 16.5 4 11 V6 Z" /><path d="M9 12 L11 14 L15 9.5" /></svg>
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800 }}>{c.wwcc ? `Confirmed by ${c.wwcc_club}` : `Waiting on ${c.coach_club ?? 'your club'}`}</div>
+                {/* BUZ, 2 Oct (verbatim): with no club membership there is no
+                    club to wait on, so the heading says when it happens. */}
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{c.wwcc ? `Confirmed by ${c.wwcc_club}` : c.coach_club ? `Waiting on ${c.coach_club}` : 'Confirmed once you join a club'}</div>
               </div>
             </div>
             <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>

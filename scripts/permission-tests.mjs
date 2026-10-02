@@ -9592,11 +9592,24 @@ const componentFilesAll = [];
      (clipsPage.match(/<PremiumRows/g) ?? []).length, (coachPage.match(/<PremiumRows/g) ?? []).length], [true, true, 1, 1]);
   const rowsSrc = codeOnly(srcOf('components/PremiumRows.tsx'));
   const tapSrc = codeOnly(srcOf('components/premium-actions.ts'));
-  check('prem5: at most two rows, no price, and the tap writes nothing but the database\'s count',
-    [(rowsSrc.match(/\['(unlimited_clips|who_viewed)'/g) ?? []).length, /\$\s?\d/.test(rowsSrc),
+  // John (2 Oct): "See who viewed your CV" is not offered — not built, not
+  // promised — until it has its own ruling, so ONE row is left, and the count
+  // of rows the source can draw is now 1 (it was "at most two": 2).
+  check('prem5: one row ("Unlimited clips", never "who viewed"), no price, and the tap writes nothing but the database\'s count',
+    [(rowsSrc.match(/\['(unlimited_clips|who_viewed)'/g) ?? []).length, /who_viewed|who viewed/i.test(rowsSrc), /\$\s?\d/.test(rowsSrc),
      (tapSrc.match(/db\.query\(/g) ?? []).length, /select fn_premium_interest\(\$1, \$2\)/.test(tapSrc), /insert|console\.|headers\(|cookies\(/.test(tapSrc),
      /formData\.get\('back'\)|safePath/.test(tapSrc)],
-    [2, false, 2, true, false, false]);
+    [1, false, false, 2, true, false, false]);
+  // John (2 Oct): while D-163 stands no locked row renders anywhere. ONE
+  // switch, a server constant, off; the rows return nothing and a tap counts
+  // nothing while it is off — both before anything is read or written.
+  // A missing switch is a red check, not a crash of the suite.
+  const premSrc = (() => { try { return codeOnly(srcOf('lib/premium.ts')); } catch { return ''; } })();
+  check('prem6: the Premium rows sit behind one switch, PREMIUM_ROWS_ON, and it is off — the rows render nothing and a tap counts nothing while it is',
+    [/export const PREMIUM_ROWS_ON = (true|false);/.exec(premSrc)?.[1],
+     /export default function PremiumRows\([^)]*\) \{\s*if \(!PREMIUM_ROWS_ON\) return null;/.test(rowsSrc),
+     /export async function tapPremium\(formData: FormData\) \{\s*if \(!PREMIUM_ROWS_ON\) redirect\('\/home'\);/.test(tapSrc)],
+    ['false', true, true]);
 
   // ---- D-164 (3) / D-63: the country step comes first and collects nothing ----
   const joinPage = codeOnly(srcOf('app/join/page.tsx'));

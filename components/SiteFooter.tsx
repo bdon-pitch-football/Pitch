@@ -8,7 +8,7 @@ import { ENTITY_LINE } from '@/lib/entity';
 // option 1). Doc 32 B5 asks that the SITE names the legal person: the public
 // pages, the front page and every legal page still do. B4's "Report a page"
 // stays on every page.
-const SIGNED_IN = ['/home', '/build', '/coach', '/club', '/ops', '/g/', '/squad', '/manage', '/registers', '/send', '/share-card'];
+const SIGNED_IN = ['/home', '/build', '/coach', '/club', '/ops', '/g/', '/squad', '/manage', '/registers', '/send', '/share-card', '/register-interest'];
 export const showsEntity = (path: string | null): boolean =>
   !SIGNED_IN.some((p) => path === p || path?.startsWith(p.endsWith('/') ? p : `${p}/`));
 

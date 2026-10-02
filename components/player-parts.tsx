@@ -64,10 +64,12 @@ export function Who({ guard, icon, title, children }: { guard?: boolean; icon: R
 /** The builder's header, the same on all three steps (C-P2): title, Preview, progress, the step chips. */
 export function BuildHeader({ recordId, title, sub, done, total, here, preview = false }: {
   recordId: string; title: string; sub: string; done: number; total: number;
-  here: 'Your football' | 'Highlights' | 'Achievements'; preview?: boolean;
+  here: 'Your football' | 'Highlights' | 'Your football history'; preview?: boolean;
 }) {
+  // A tab is named what its page is called (audit ruling 14): the third
+  // page's title is "Your football history", an approved phrase.
   const steps: [string, string][] = [
-    ['Your football', `/build/${recordId}`], ['Highlights', `/build/${recordId}/clips`], ['Achievements', `/build/${recordId}/more`],
+    ['Your football', `/build/${recordId}`], ['Highlights', `/build/${recordId}/clips`], ['Your football history', `/build/${recordId}/more`],
   ];
   return (
     <div className="build-top">

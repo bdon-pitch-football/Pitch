@@ -251,3 +251,7 @@ The parent sees every change a child's waiting version makes before approving it
 (Builder: batch-fixes; checks pd-1…pd-6, bf-pend-w0…w6.)
 
 BUZ, 2 Oct: trials board v2 is approved, with all its words (via the Head of Product Design). **"Push first, v2 next":** the full release is reviewed and pushed without it, and v2 ships as its own reviewed push straight after (build/trials-v2). Region and distance filters wait for John.
+
+## 2 Oct — the coach's WWCC heading with no club (BUZ, having seen it verbatim, via Leo)
+
+- On `/coach/edit`, the Working With Children Check panel's heading reads **"Confirmed once you join a club"** when the coach has **no club membership**. It replaces "Waiting on your club" in that state only. A coach with a club whose check is not yet confirmed keeps "Waiting on {club}", a confirmed one keeps "Confirmed by {club}", and the rest of the panel stays as EC4 left it. (Builder: audit-polish; check ap-r3, with a seeded coach in each state.)

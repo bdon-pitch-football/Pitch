@@ -35,7 +35,7 @@ export default async function Support({ searchParams }: { searchParams: Promise<
   const rows = q
     ? (await db.query(
         `select pi.id, pi.first_name, pi.guardian_name,
-           to_char(pi.created_at at time zone 'Australia/Melbourne', 'DD Mon HH24:MI') as created,
+           to_char(pi.created_at at time zone 'Australia/Melbourne', 'FMDD Mon HH24:MI') as created,
            pi.approved_at is not null as approved,
            pi.held_at is not null as held,
            pi.sms_confirmed_at is not null as sms_ok, pi.email_confirmed_at is not null as email_ok,

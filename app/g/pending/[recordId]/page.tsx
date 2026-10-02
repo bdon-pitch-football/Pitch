@@ -159,7 +159,7 @@ export default async function PendingReview({ params, searchParams }: {
   return (
     <ParentPage>
       <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-      <AskHead initial={name[0]} kicker="Waiting on you" title={`${name} changed the page`}
+      <AskHead initial={name[0]} wait kicker="Waiting on you" title={`${name} changed the page`}
         sub="Everything that changed is below. The rest stays exactly as you approved it." />
 
       {diff.about && (

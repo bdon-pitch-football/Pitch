@@ -28,9 +28,10 @@ import { sectionLabel } from '@/lib/ui';
 export const FRONT_DOOR_SEATS = ['player', 'parent', 'coach', 'club'] as const;
 export type FrontDoorSeat = (typeof FRONT_DOOR_SEATS)[number];
 
-// Colour has one job each (D-173 change 4): these mark WHOSE page it is, as a
-// kicker and a tint on the photograph, never as a button.
-const ACCENT: Record<FrontDoorSeat, string> = { player: T.accent, parent: T.purple, coach: T.secondary, club: T.amber };
+// Colour has one job each (D-173 change 4): the persona colour marks WHOSE
+// page it is as a tint on the photograph, never as a button. The persona
+// label above the headline is ink on every landing (audit, 2 Oct): amber and
+// purple are states and green is an action, so none of them is a label.
 const TINT: Record<FrontDoorSeat | 'home', string> = {
   home: 'rgba(61,220,132,.35)', player: 'rgba(61,220,132,.35)', parent: 'rgba(171,135,224,.45)', coach: 'rgba(185,200,191,.25)', club: 'rgba(237,161,0,.4)',
 };
@@ -83,8 +84,8 @@ const cardPad: React.CSSProperties = { padding: '18px 18px' };
 
 // ---- building blocks --------------------------------------------------------
 
-function EntryHero({ photo, kick, kickColor, title, text, children }: {
-  photo: FrontDoorSeat | 'home'; kick: string; kickColor: string; title: React.ReactNode; text: string; children: React.ReactNode;
+function EntryHero({ photo, kick, title, text, children }: {
+  photo: FrontDoorSeat | 'home'; kick: string; title: React.ReactNode; text: string; children: React.ReactNode;
 }) {
   const [src, pos, posM] = PHOTO[photo];
   return (
@@ -93,7 +94,7 @@ function EntryHero({ photo, kick, kickColor, title, text, children }: {
       ['--fl-pos' as string]: pos, ['--fl-pos-m' as string]: posM, ['--fl-tint' as string]: TINT[photo],
     } as React.CSSProperties}>
       <div className="fl-wide fl-hero-in">
-        <div style={kicker(kickColor)}>{kick}</div>
+        <div style={kicker(T.ink)}>{kick}</div>
         <h1 className="fl-rise">{title}</h1>
         <div className="fl-hero-text">{text}</div>
         {children}
@@ -188,7 +189,7 @@ function Parent() {
   const cta: [string, string] = ['Set up your child’s profile', '/join'];
   return (
     <>
-      <EntryHero photo="parent" kick="For parents" kickColor={ACCENT.parent} title={<>Your kid&rsquo;s football, kept properly.</>}
+      <EntryHero photo="parent" kick="For parents" title={<>Your kid&rsquo;s football, kept properly.</>}
         text="Every season, every club, every goal they were proud of — in one record that belongs to them. Not a spreadsheet on someone's laptop that disappears when the coach does.">
         <div className="fl-hero-actions">
           <Link href={cta[1]} className="btn btn-primary fl-glow">{cta[0]}</Link>
@@ -226,7 +227,7 @@ function Player() {
   ];
   return (
     <>
-      <EntryHero photo="player" kick="For players · 18 and over" kickColor={ACCENT.player} title="Stop retyping your football."
+      <EntryHero photo="player" kick="For players · 18 and over" title="Stop retyping your football."
         text="Every preseason you write the same email. Clubs, positions, what you did last year, a highlights link that expires. Build it once, keep it for good, send it in one tap.">
         <div className="fl-hero-actions">
           <Link href={cta[1]} className="btn btn-primary fl-glow">{cta[0]}</Link>
@@ -267,7 +268,7 @@ function Coach() {
   const cta: [string, string] = ['Build my coach CV', '/join'];
   return (
     <>
-      <EntryHero photo="coach" kick="For coaches" kickColor={ACCENT.coach} title="Six years of coaching, on one page."
+      <EntryHero photo="coach" kick="For coaches" title="Six years of coaching, on one page."
         text="Clubs, squads, badges, the way you actually want to play.">
         <div className="fl-hero-actions">
           <Link href={cta[1]} className="btn btn-primary fl-glow">{cta[0]}</Link>
@@ -301,7 +302,7 @@ function Coach() {
 function Club() {
   return (
     <>
-      <EntryHero photo="club" kick="For clubs & technical directors" kickColor={ACCENT.club} title={<>Put your trials where families can find them.</>}
+      <EntryHero photo="club" kick="For clubs & technical directors" title={<>Put your trials where families can find them.</>}
         text="Claim your club’s page, put your trial dates on it, and give families one place to check that isn’t a Facebook post they had to be following you to see.">
         <ClubSearch />
       </EntryHero>
@@ -360,7 +361,7 @@ const DOORS: [FrontDoorSeat, string, string, Icon, string][] = [
 function Chooser() {
   return (
     <>
-      <EntryHero photo="home" kick="For clubs · free" kickColor={T.accent} title={<>Your club&rsquo;s page might <span style={{ color: T.accent }}>already be built.</span></>}
+      <EntryHero photo="home" kick="For clubs · free" title={<>Your club&rsquo;s page might <span style={{ color: T.accent }}>already be built.</span></>}
         text="Search for your club, then claim its page. We email a code to the club’s own address to check it’s you.">
         <ClubSearch />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 18px', marginTop: 2 }}>
@@ -369,7 +370,9 @@ function Chooser() {
       </EntryHero>
       <div className="fl-wide" style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 20, paddingBottom: 40 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h2 style={{ fontSize: 'clamp(24px, 3.4vw, 34px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em', color: T.ink }}>Somebody should be writing this down.</h2>
+          {/* Only the hero headline scales with the width (D-173); this one
+              is the 390 artboard's 24px at every width (audit, 2 Oct). */}
+          <h2 style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.015em', color: T.ink }}>Somebody should be writing this down.</h2>
           <div style={{ fontSize: 15, color: T.secondary, fontWeight: 500, lineHeight: 1.6 }}>Seasons end. Coaches move. Clubs change. The record should be the thing that stays.</div>
         </div>
         <nav aria-label="Who are you?" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -399,7 +402,7 @@ function Chooser() {
             <div style={{ fontSize: 13, color: T.secondary, fontWeight: 500, lineHeight: 1.5 }}>Under 16, nothing exists until a parent approves it.</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: T.muted, fontWeight: 700, minHeight: 44 }}>
-            Already have an account?<Link href="/signin" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Sign in</Link>
+            Already have an account?<Link href="/signin" style={{ color: T.accent, fontWeight: 800, textDecoration: 'none', minHeight: 44, minWidth: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Sign in</Link>
           </div>
         </div>
       </div>

@@ -26,17 +26,19 @@ export function ParentPage({ children, page = false }: { children: ReactNode; pa
   );
 }
 
-// The ask head: the child's tile, then who is asking in purple (a state:
-// waiting on you), then the question and its one line. Every answer screen
-// starts here.
-export function AskHead({ initial, kicker, title, size = 26, sub, children }: {
-  initial?: string; kicker: ReactNode; title: ReactNode; size?: number; sub?: ReactNode; children?: ReactNode;
+// The ask head: the child's tile, then who is asking, then the question and
+// its one line. Every answer screen starts here. The kicker is a state: purple
+// for a club's invitation (spec A part 11), amber (`wait`) for a send, a
+// registration or a page edit waiting on the parent — the tone its notice has
+// on the home (spec D as amended, audit ruling 11, 2 Oct).
+export function AskHead({ initial, kicker, title, size = 26, sub, children, wait = false }: {
+  initial?: string; kicker: ReactNode; title: ReactNode; size?: number; sub?: ReactNode; children?: ReactNode; wait?: boolean;
 }) {
   return (
     <div className="ask">
       <div className="ask-who">
         {initial && <div className="who-tile" aria-hidden>{initial}</div>}
-        <div className="kick-p">{kicker}</div>
+        <div className={wait ? 'kick-p wait' : 'kick-p'}>{kicker}</div>
       </div>
       <h1 style={{ fontSize: size, fontWeight: 900, lineHeight: size >= 27 ? 1.12 : 1.15, letterSpacing: '-0.015em' }}>{title}</h1>
       {sub && <div className="pd-sub">{sub}</div>}

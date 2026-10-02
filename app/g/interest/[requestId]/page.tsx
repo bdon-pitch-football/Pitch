@@ -64,7 +64,7 @@ export default async function GuardianInterest({ params, searchParams }: {
   return (
     <ParentPage>
       <HeaderMark back={{ href: '/home', label: 'Your family' }} />
-      <AskHead initial={name[0]} size={24} kicker={`${name} asked you to send this`}
+      <AskHead initial={name[0]} size={24} wait kicker={`${name} asked you to send this`}
         title={<>Put {name} on {r.club_name.replace(/ FC$| SC$/, '')}&rsquo;s register?</>}
         sub="Nothing has been sent. It only goes if you send it.">
         {/* Doc 14 N2: the consent screen shows the trial at the moment of the
@@ -115,7 +115,9 @@ export default async function GuardianInterest({ params, searchParams }: {
         <div style={{ fontSize: 13.5, fontWeight: 800 }}>What the club receives</div>
         {[
           `A link to ${name}'s CV — not a file, and not a copy. They cannot download or keep one.`,
-          `You can take ${name} off the register any time. Their access ends when you do.`,
+          // BUZ's copy fix (F3), word for word as the sent state and
+          // /register-interest say it: where the control is.
+          `You can take ${name} off the register any time from ${name}’s controls. Their access ends when you do.`,
           `If they invite ${name} to a trial, that invitation comes to you first.`,
         ].map((t) => (
           <div key={t} className="pd-tk"><TickGlyph /><div>{t}</div></div>
