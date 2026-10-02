@@ -10359,6 +10359,44 @@ const componentFilesAll = [];
     [after.approved - before.approved, after.approvals_sent - before.approvals_sent, after.approved <= after.approvals_sent], [1, 1, true]);
   check('ops-t8: the failed text is listed by channel and provider word, and neither its number nor its message is anywhere in the answer',
     [fails.some((f) => f.channel === 'sms' && f.provider_said === 'undelivered'), /\+61400000999|ops fixture body|ops-fixture/.test(JSON.stringify([after, fails]))], [true, false]);
+
+  // 0171 (design audit, 2 Oct, finding 22): "SIGNUPS TODAY 211" over a line
+  // that summed to 194. The total counted every row made today and the line
+  // only the rows with a hat, so a team manager, the club door's account
+  // before its claim, and a row that is nobody's account were in the total
+  // and in no part of it. Each is made here, and the total must be the sum
+  // of its line before and after — on the Today screen, on the 7am count,
+  // and with the test accounts left out. Red on 0110's rule: the total moves
+  // by four and the line by none.
+  {
+    const parts = (r) => r.signups_player + r.signups_parent + r.signups_coach + r.signups_club;
+    const adds = (r) => r.signups_total === parts(r);
+    const mel = `(now() at time zone 'Australia/Melbourne')::date`;
+    const t0 = (await db.query('select * from fn_ops_today()')).rows[0];
+    const club = CLUB.other;
+    const [door, tm, seat, nobody] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+    await db.query(`insert into person (id, first_name, email) values ($1, 'Opsdoor', 'ops-door@example.com'), ($2, 'Opstm', 'ops-tm@example.com'), ($3, 'Opsseat', 'ops-seat@example.com')`, [door, tm, seat]);
+    await db.query(`insert into person (id, first_name) values ($1, 'Opsnobody')`, [nobody]);
+    await db.query(`insert into membership (person_id, club_id, role) values ($1, $3, 'team_manager'), ($2, $3, 'coach')`, [tm, seat, club]);
+    const t1 = (await db.query('select * from fn_ops_today()')).rows[0];
+    check('ops-t9: Signups today is the sum of its line, before and after a club-door account, a team manager, a coach seat with no page and a row that is nobody’s account (0171)',
+      [adds(t0), adds(t1), t1.signups_total - t0.signups_total, t1.signups_club - t0.signups_club, t1.signups_coach - t0.signups_coach],
+      [true, true, 3, 2, 1]);
+    const day = (await db.query(`select * from fn_ops_day(${mel})`)).rows[0];
+    const without = (await db.query(`select * from fn_ops_day(${mel}, array['ops-door@example.com'])`)).rows[0];
+    check('ops-t10: the 7am count adds up the same way, with and without the test accounts, and agrees with the Today screen',
+      [adds(day), adds(without), day.signups_total === t1.signups_total, day.signups_total - without.signups_total, day.signups_club - without.signups_club],
+      [true, true, true, 1, 1]);
+    // One definition, so the three cannot drift apart again (L23): the Today
+    // screen and the one-argument count read the two-argument one.
+    const src = async (sig) => (await db.query(`select prosrc from pg_proc where oid = $1::regprocedure`, [sig])).rows[0].prosrc;
+    check('ops-t11: and the hat rule is written once — fn_ops_today and fn_ops_day(date) read fn_ops_day(date, text[])',
+      [/fn_ops_day\(/.test(await src('fn_ops_today()')), /fn_ops_day\(/.test(await src('fn_ops_day(date)')),
+       /\bcoach_profile\b/.test(await src('fn_ops_today()')), /\bcoach_profile\b/.test(await src('fn_ops_day(date)'))],
+      [true, true, false, false]);
+    await db.query('delete from membership where person_id in ($1, $2)', [tm, seat]);
+    await db.query('delete from person where id in ($1, $2, $3, $4)', [door, tm, seat, nobody]);
+  }
 }
 
 // --- Pitch curates the board (brief I, 29 Sep; 0130; D-64, D-74, D-90). The
