@@ -249,3 +249,5 @@ The parent sees every change a child's waiting version makes before approving it
 - Field rows use the builder's labels ("Positions", "Number", "Preferred foot", and the stat names), with "—" for empty. A changed stat's new value carries the existing "Self-reported" tag.
 
 (Builder: batch-fixes; checks pd-1…pd-6, bf-pend-w0…w6.)
+
+BUZ, 2 Oct: trials board v2 is approved, with all its words (via the Head of Product Design). **"Push first, v2 next":** the full release is reviewed and pushed without it, and v2 ships as its own reviewed push straight after (build/trials-v2). Region and distance filters wait for John.
