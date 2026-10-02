@@ -2112,15 +2112,17 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .cv-head { padding-top: 14px; }
 
 /* ---- roles ---------------------------------------------------------------- */
-.jr { display: flex; flex-direction: column; gap: 11px; }
+/* Scoped to the club console: /jobs draws its own .jr cards (above), and
+   these rules once stacked them at 1024 and up (audit polish, 2 Oct). */
+.cc-page .jr { display: flex; flex-direction: column; gap: 11px; }
 .jr-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 /* /club/roles (audit ruling 8): the panel's row runs its full width, so
    Close sits at the row's end on every role, as on /club/squads, instead of
    wherever its title happened to stop. */
-.jr > .jr-top { align-self: stretch; }
-.jr-t { font-size: 16px; font-weight: 900; letter-spacing: var(--ls-title); }
+.cc-page .jr > .jr-top { align-self: stretch; }
+.cc-page .jr-t { font-size: 16px; font-weight: 900; letter-spacing: var(--ls-title); }
 .jr-l { font-size: 12.5px; font-weight: 500; color: var(--muted); }
-.jr.closed { opacity: .65; }
+.cc-page .jr.closed { opacity: .65; }
 .jr-app { background: var(--surface-sunken); border-radius: var(--r-well); padding: 11px 12px; display: flex; flex-direction: column; gap: 6px; }
 
 /* ---- post a trial --------------------------------------------------------- */
