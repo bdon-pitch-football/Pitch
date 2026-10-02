@@ -10275,7 +10275,7 @@ const componentFilesAll = [];
   // select list, so the bodies are read with their WHERE/ON/EXISTS clauses
   // taken out: what is left is what the function hands back.
   const selected = (src) => src.replace(/--[^\n]*/g, '')
-    .replace(/\bexists\s*\((?:[^()]|\([^()]*\))*\)/gi, 'exists(…)')
+    .replace(/\bexists\s*\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)/gi, 'exists(…)')
     .replace(/\b(where|on)\b[^\n]*/gi, '');
   check(`ops-t3: neither function selects a personal field (${bodies.map((b) => b.proname).join(', ')})`,
     [bodies.length, bodies.filter((b) => PERSONAL.test(selected(b.prosrc))).map((b) => b.proname)], [2, []]);
@@ -10316,8 +10316,16 @@ const componentFilesAll = [];
     const dayCols = [...(await result('fn_ops_day(date)')).matchAll(/(\w+) (\w[\w ]*?)(?:,|\)$)/g)].map((m) => [m[1], m[2]]);
     check(`ops-d1: fn_ops_day returns integers and nothing else (${dayCols.length} columns)`,
       [dayCols.length, dayCols.filter(([, ty]) => ty !== 'integer').map(([c]) => c)], [7, []]);
-    const dayBody = (await db.query(`select prosrc from pg_proc where proname = 'fn_ops_day'`)).rows[0]?.prosrc ?? '';
-    check('ops-d2: and selects no personal field', PERSONAL.test(selected(dayBody)), false);
+    // 0171: the two-argument fn_ops_day holds the rule and the other two read
+    // it, so the rule is what this reads — both overloads, each by name, never
+    // whichever pg_proc happens to return first (safety review, 2 Oct, N-A1).
+    const ruleCols = [...(await result('fn_ops_day(date,text[])')).matchAll(/(\w+) (\w[\w ]*?)(?:,|\)$)/g)].map((m) => [m[1], m[2]]);
+    check(`ops-d1b: and so does the rule it reads, fn_ops_day(date, text[]) (${ruleCols.length} columns)`,
+      [ruleCols.length, ruleCols.filter(([, ty]) => ty !== 'integer').map(([c]) => c)], [7, []]);
+    const dayBodies = (await db.query(`select oid::regprocedure::text as sig, prosrc from pg_proc
+      where oid in ('fn_ops_day(date)'::regprocedure, 'fn_ops_day(date,text[])'::regprocedure)`)).rows;
+    check(`ops-d2: and neither overload selects a personal field (${dayBodies.map((b) => b.sig).join(', ')})`,
+      [dayBodies.length, dayBodies.filter((b) => PERSONAL.test(selected(b.prosrc))).map((b) => b.sig)], [2, []]);
     const mel = `(now() at time zone 'Australia/Melbourne')::date`;
     const d0 = (await db.query(`select * from fn_ops_day(${mel})`)).rows[0];
     const keys = ['signups_total', 'signups_player', 'signups_parent', 'signups_coach', 'signups_club', 'approvals_sent', 'approved'];

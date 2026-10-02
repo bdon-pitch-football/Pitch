@@ -985,7 +985,7 @@ if (!DEMO) {
   await db.query(`insert into achievement (record_id, title, detail, sort) values
     ($1,'Club Player of the Year — U14','Northern United SC, 2025',0), ($1,'Most improved','2024 season',1)`, [ivoRec]);
   await db.query(`insert into experience_entry (record_id, kind, org_name, season_label) values
-    ($1,'futsal','Metro Futsal League U14','Summer 2025–26'), ($1,'previous_club','Northern United SC','2022–2025')`, [ivoRec]);
+    ($1,'futsal','Tarrowvale Indoor Futsal U14','Summer 2025–26'), ($1,'previous_club','Northern United SC','2022–2025')`, [ivoRec]);
   await db.query(`insert into highlight (record_id, url, title, added_as_minor, added_at) values
     ($1,'https://www.youtube.com/watch?v=dev-ivo-1','Season highlights 2026',true, now() - interval '50 days'),
     ($1,'https://www.youtube.com/watch?v=dev-ivo-2','Free kicks, autumn',true, now() - interval '49 days')`, [ivoRec]);

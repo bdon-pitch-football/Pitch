@@ -256,12 +256,25 @@ if (REGISTER) {
     try { return execFileSync('lsof', ['-ti', `:${DB_PORT}`, '-sTCP:LISTEN']).toString().trim().split('\n').filter(Boolean).map(Number); }
     catch { return []; }
   };
+  // Only ever a dev seed on this machine: the base must be local, and every
+  // listener on the port must be dev-db.mts — never a next dev, the demo, or
+  // anything else that happens to hold it (safety review, 2 Oct, N-A4).
+  if (!/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\/?$/.test(BASE)) {
+    console.error(`--register reseeds a local dev database only; ${BASE} is not local. Nothing was stopped.`);
+    process.exit(1);
+  }
+  const cmdOf = (pid) => { try { return execFileSync('ps', ['-o', 'command=', '-p', String(pid)]).toString(); } catch { return ''; } };
+  const strangers = listening().filter((pid) => !cmdOf(pid).includes('dev-db.mts'));
+  if (strangers.length) {
+    console.error(`--register: port ${DB_PORT} is held by something other than dev-db.mts (pid ${strangers.join(', ')}). Nothing was stopped; reseed it yourself.`);
+    process.exit(1);
+  }
   for (const pid of listening()) process.kill(pid);
   for (let i = 0; i < 100 && listening().length; i++) await new Promise((r) => setTimeout(r, 100));
   const log = join(tmpdir(), `pitch-reseed-${DB_PORT}.log`);
   const fd = openSync(log, 'w');
   spawn(process.execPath, [fileURLToPath(new URL('./dev-db.mts', import.meta.url))], {
-    cwd: fileURLToPath(new URL('..', import.meta.url)), env: { ...process.env, PITCH_DEV_DB_PORT: String(DB_PORT) },
+    cwd: fileURLToPath(new URL('..', import.meta.url)), env: { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'DEMO_CLUB')), PITCH_DEV_DB_PORT: String(DB_PORT) },
     detached: true, stdio: ['ignore', fd, fd],
   }).unref();
   closeSync(fd);

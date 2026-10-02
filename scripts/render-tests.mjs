@@ -658,10 +658,11 @@ const georgia = ids.children.georgia;
   check(`free-r1d: the only other exemption is the operator's own SMS spend on /ops/switches (${[...opsCost].slice(0, 2).join(' | ') || 'none'})`,
     [...opsCost].every((l) => /spent this month|limit|cap/i.test(l)), true);
   check(`free-r1b: and the crawl was a crawl (${fetched} pages fetched)`, fetched > 150, true);
-  // The exemption, pinned. /terms states a dollar figure on exactly one line
-  // since brief J: A6.2's GST example, in a clause dormant while Pitch is
-  // free. A new line with a dollar figure on it fails here, and so does the
-  // day that one goes.
+  // The exemption, retired. /terms stated a dollar figure on one line from
+  // brief J (A6.2's GST example) until v2.3 took it out (BUZ, 2 Oct: no GST
+  // amounts while there is no pricing). Zero now, and a line with a dollar
+  // figure on it fails here. /terms is also fetched on its own below, so a
+  // crawl that missed it does not pass this by saying nothing.
   check(`free-r1c: /terms states no dollar figure — v2.3 took out A6.2's GST example (${termsPriced.size} lines)`,
     termsPriced.size, TERMS_PRICED_LINES);
 
