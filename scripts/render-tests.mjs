@@ -1762,6 +1762,13 @@ const tfAll = tfLines(tfBoard);
   check(`tf-region1: Region leads the panel — "Any region", then each region with listings, in the fixed order, with what it would leave (North ${n('mel-north')}, West ${n('mel-west')})`,
     [tfAll.every((x) => of(x)), tfChips(tfGroup(tfBoard, 'Region'))],
     [true, ['*Any region', `Melbourne North ${n('mel-north')}`, `Melbourne West ${n('mel-west')}`]]);
+  // Every listing is in exactly one region's count (Head of Product Design,
+  // 2 Oct: live, Ballarat City's nine listings were in none, and the region
+  // chips summed to 76 of 85). A club whose suburb maps to no region fails
+  // here instead of quietly dropping out of the Region filter.
+  const regionSum = tfChips(tfGroup(tfBoard, 'Region')).filter((c) => !c.startsWith('*')).reduce((a, c) => a + Number(/ (\d+)$/.exec(c)?.[1] ?? NaN), 0);
+  check(`tf-region5: the region counts add up to the board — every listing is in one region (${regionSum} of ${tfAll.length})`,
+    regionSum, tfAll.length);
   const views = [];
   for (const k of ['mel-north', 'mel-west']) {
     const h = tfPlain((await get(`/trials?area=${k}`, null)).html);

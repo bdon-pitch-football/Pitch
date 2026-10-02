@@ -13673,6 +13673,21 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
       [stale, fresh, loadStale.refused.map((r) => r.why), /fn_club_levels_current\(\)/.test(page), /\bclub_level\b/.test(page)],
       [['a'], ['a', 'c'], ['checked_on is more than twelve months ago: re-check it first'], true, false]);
   }
+  // tf-cl8 (2 Oct): a row with no suburb matches the club on Pitch with that
+  // name and no suburb either — the live list has twenty — and never a club
+  // of that name that has one.
+  {
+    const [blank, placed] = (await db.query(`insert into club (name, suburb, state, club_state) values
+      ('Tf Quillmore FC', null, 'VIC', 'unclaimed'), ('Tf Sandhaven SC', 'Bulla', 'VIC', 'unclaimed') returning id`)).rows.map((r) => r.id);
+    const p8 = await planLevels(q, [
+      { club: 'Tf Quillmore FC', suburb: '', level: 'State League', league_as_named: 'State League 6 South-East', source_url: 'https://quillmore.example.au', checked_on: '2026-09-30' },
+      { club: 'Tf Sandhaven SC', suburb: '', level: 'State League', league_as_named: 'State League 7 North-West', source_url: 'https://sandhaven.example.au', checked_on: '2026-09-30' },
+      { club: '', suburb: 'Bulla', level: 'NPL', league_as_named: 'NPL Victoria', source_url: 'https://nobody.example.au', checked_on: '2026-09-30' }], '2026-10-02');
+    await db.query(`delete from club where id = any($1)`, [[blank, placed]]);
+    check('tf-cl8: a blank suburb matches only a club on Pitch with that name and no suburb; a club that has a suburb is not matched by name alone; a row with no name is refused',
+      [p8.add.map((x) => x.club_id === blank), p8.refused.map((r) => `${r.club}: ${r.why}`)],
+      [[true], ['Tf Sandhaven SC: no club on Pitch with that name and suburb', '(no name): no club name']]);
+  }
   check('tf-cl5: the loader plans unless --apply, needs --ca (verified) for anything that is not localhost, and refuses the demo database',
     [/if \(!has\('--apply'\)\) \{[^}]*Nothing changed/.test(ld), /if \(!local\) \{\s*const ca = val\('--ca'\);\s*if \(!ca\)[^\n]*process\.exit\(1\)/.test(ld), /rejectUnauthorized: true/.test(ld), /54323/.test(ld)],
     [true, true, true, true]);
@@ -13713,6 +13728,20 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const css = srcOf('app/globals.css');
   const credits = ['app', 'components'].flatMap((d) => readdirSync(fileURLToPath(new URL(`../${d}`, import.meta.url)), { recursive: true })
     .filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => `${d}/${f}`)).filter((f) => srcOf(f).includes('ABS_CREDIT'));
+  // The club side of Region, read with the real places file (2 Oct): a town
+  // the file knows only by its parts, and a field naming two suburbs, get
+  // their region when it is one; two that disagree, or a blank, get none.
+  {
+    const { placeLookup } = await import('../lib/suburb-region.ts');
+    const L = placeLookup(JSON.parse(readFileSync(fileURLToPath(new URL('../public/places-vic.4306391711.json', import.meta.url)), 'utf8')));
+    const cases = ['Ballarat', 'Albert Park / Port Melbourne', 'Langwarrin (seniors, Centenary Park); Frankston (juniors, Ballam Park/Delacombe Park)',
+      'Parkville (seniors); Avondale Heights (juniors)', 'Narre Warren North (Jack Thomas Reserve)', 'Preston', 'Mount', '', 'Zzqx'];
+    check('tf-region-lookup: Ballarat is the Ballarat region; two suburbs in one field give their region when they agree and none when they do not; a ground in brackets is dropped; a blank or unknown suburb, or a word that is only a prefix of many, gets none',
+      cases.map((c) => L.regionOfSuburb(c)),
+      ['ballarat-region', 'inner-mel', 'mel-south-east', null, 'mel-south-east', 'mel-north', null, null, null]);
+    check('tf-region-centre: a club is placed for distance only by one known point — a town known only by its parts, or two suburbs, have no centre',
+      ['Ballarat', 'Albert Park / Port Melbourne', 'Preston'].map((c) => Boolean(L.centreOf(c))), [false, false, true]);
+  }
   check('tf-near-src4: "about {n} km" is hidden in print, the board does not ask for the device\'s location (Permissions-Policy geolocation=()), and the ABS credit is BUZ\'s words (option A, 2 Oct), drawn by the trials board alone',
     [/@media print \{[^{}]*\.fl-trial-km\b[^{}]*\{ display: none; \}/.test(css), /geolocation=\(\)/.test(srcOf('next.config.mjs')),
      /export const ABS_CREDIT = 'Suburb and postcode data: Australian Bureau of Statistics, CC BY 4\.0\.';/.test(srcOf('lib/places-vic-file.ts')), credits],

@@ -94,7 +94,11 @@ export async function planLevels(q, rows, today = melbourneToday()) {
     const refuse = (why) => plan.refused.push({ club: name || '(no name)', suburb, why });
     const held = HELD.find((h) => h.club.test(name));
     if (held) { refuse(held.why); continue; }
-    if (!name || !suburb) { refuse('no club name or suburb'); continue; }
+    // A blank suburb is read as blank, not refused: the club key
+    // (fn_club_listing_key) then matches only a club on Pitch with that name
+    // and no suburb either, and the listing rule allows one at most (2 Oct:
+    // twenty sourced clubs were refused for a suburb the list never had).
+    if (!name) { refuse('no club name'); continue; }
     if (!source) { refuse('no source_url'); continue; }
     if (!/^https?:\/\/\S+$/.test(source) || source.length > 500) { refuse('source_url is not a web address'); continue; }
     if (!checked) { refuse('no checked_on'); continue; }
