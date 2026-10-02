@@ -37,7 +37,7 @@ const STATES: Record<string, string> = { VIC: 'Victoria', NSW: 'New South Wales'
 // each in the words its section already uses.
 const KINDS: [Kind, string][] = [['trial', 'Trials'], ['eoi', 'Expressions of interest']];
 
-type Params = { age?: string; gender?: string; state?: string; pos?: string; kind?: string; area?: string };
+type Params = { age?: string; gender?: string; state?: string; pos?: string; kind?: string; area?: string; level?: string };
 
 export default async function TrialsBoard({ searchParams }: { searchParams: Promise<Params> }) {
   const raw = await searchParams;
@@ -66,13 +66,23 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
        upper(to_char(t.trial_on, 'Dy')) as wd, to_char(t.trial_on, 'YYYY-MM-DD') as on_date,
        to_char(t.added_on, 'FMDD Mon') as listed, to_char(t.last_checked, 'FMDD Mon') as checked,
        to_char(t.last_checked, 'YYYY-MM-DD') as checked_on,
-       c.id as club_id, c.name as club_name, c.club_state, c.public_slug, c.state, c.suburb
+       c.id as club_id, c.name as club_name, c.club_state, c.public_slug, c.state, c.suburb,
+       cl.level
      from fn_trial_notices_advertised() t join club c on c.id = t.club_id
+     left join club_level cl on cl.club_id = c.id
      order by t.trial_on`,
   );
+  // Club level (0172; John, 2 Oct): the CLUB's senior league, joined to the
+  // listings the board already reads its way, so the filter sees exactly the
+  // clubs the board does. Only the level's code is read — never the league as
+  // its source names it — because no row ever shows the league. A club with
+  // no source has no row, so no level, and is in no level chip. The levels
+  // are the lookup's, in its order (D-73).
+  const levels = (await db.query(`select code, label from competition_tier order by sort`)).rows as { code: string; label: string }[];
+  const level = levels.some((l) => l.code === raw.level) ? raw.level! : null;
   type Row = {
     title: string; time_venue: string; source: string; source_url: string | null; mon: string; day: string; wd: string; on_date: string; age_groups: string[];
-    competition_gender: string | null; position_needs: string[]; state: string | null; suburb: string | null;
+    competition_gender: string | null; position_needs: string[]; state: string | null; suburb: string | null; level: string | null;
     id: string; listed: string; checked: string; checked_on: string; club_id: string; club_name: string; club_state: string; public_slug: string | null;
   };
   // Each listing carries its facets: public facts about it and its CLUB
@@ -80,14 +90,14 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   type Listing = Row & { f: Facets };
   const upcoming: Listing[] = (rows as Row[]).map((l) => ({ ...l, f: {
     ages: l.age_groups, gender: l.competition_gender, pos: l.position_needs ?? [], state: l.state,
-    kind: isEoi(l.time_venue) ? 'eoi' : 'trial', area: regionOfSuburb(l.suburb), level: null, at: null,
+    kind: isEoi(l.time_venue) ? 'eoi' : 'trial', area: regionOfSuburb(l.suburb), level: l.level, at: null,
   } }));
   // The age filter offers the groups the board holds right now, in the
   // lookup's order — not a fixed list that missed U17 and seniors.
   const lookup = (await db.query(`select code, sort from age_group order by sort`)).rows as { code: string }[];
   const agesHere = lookup.map((a) => a.code).filter((code) => upcoming.some((l) => l.age_groups.includes(code)));
   const age = raw.age && lookup.some((a) => a.code === raw.age) ? raw.age : null;
-  const current: Chosen = { ...NONE, age, gender, state, pos, kind, area };
+  const current: Chosen = { ...NONE, age, gender, state, pos, kind, area, level };
   const listings = upcoming.filter((l) => matches(l.f, current));
   // Each listing's kind is said once, by its section (BUZ, 2 Oct): the
   // trials, by trial date, then the expressions of interest, by closing date.
@@ -123,6 +133,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   // is chosen, so it can be taken off.
   const kindsHere = KINDS.filter(([k]) => count({ kind: k }) > 0);
   const regionsHere = REGIONS.filter((r) => count({ area: r.key }) > 0);
+  const levelsHere = levels.filter((l) => count({ level: l.code }) > 0);
   // Every region is Victorian. When a second state's listings arrive, State
   // leads and Region waits for Victoria to be chosen, so the chips of two
   // states never mix (proposal §5).
@@ -135,6 +146,9 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
     area && { key: 'area', label: REGIONS.find((r) => r.key === area)!.name, clear: href({ area: null }) },
     age && { key: 'age', label: age === 'SEN' ? 'Seniors' : age, clear: href({ age: null }) },
     kind && { key: 'kind', label: KINDS.find(([v]) => v === kind)![1], clear: href({ kind: null }) },
+    // "NPL clubs", never "NPL": the chip is what a family sees with the panel
+    // shut, above a list of junior trials (§7b's honesty).
+    level && { key: 'level', label: `${levels.find((l) => l.code === level)!.label} clubs`, clear: href({ level: null }) },
     gender && { key: 'gender', label: GENDERS.find(([v]) => v === gender)![1], clear: href({ gender: null }) },
     pos && { key: 'pos', label: `${pos} wanted`, clear: href({ pos: null }) },
   ].filter(Boolean) as { key: string; label: string; clear: string }[];
@@ -149,13 +163,25 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
     </div>
   );
   // The narrower questions sit behind one fold, More filters (HoPD, 2 Oct;
-  // B2: Competition folds, Show stays out). Its second line names what is
-  // inside in the groups' own headings, so nothing is folded away unnamed —
-  // a group hidden at zero is not named — and it opens itself whenever
-  // something inside it is chosen, so a choice is never hidden. A <details>,
-  // so it works with no JavaScript, and the same markup on a phone and in
-  // the laptop rail (D-147).
+  // B2: Club level and Competition fold, Show stays out). Its second line
+  // names what is inside in the groups' own headings, so nothing is folded
+  // away unnamed — a group hidden at zero is not named — and it opens itself
+  // whenever something inside it is chosen, so a choice is never hidden. A
+  // <details>, so it works with no JavaScript, and the same markup on a
+  // phone and in the laptop rail (D-147).
   const folded = [
+    // Club level: the club's senior league, said so in one line under the
+    // heading. Offered while two or more levels have listings, like Show.
+    (levelsHere.length > 1 || level) && { name: 'Club level', on: Boolean(level), body: (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div className="kicker">Club level</div>
+        <div className="tb-fnote">The club&rsquo;s senior league, not the trial&rsquo;s.</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+          <Chip to={href({ level: null })} on={!level}>Any level</Chip>
+          {levels.filter((l) => shows(count({ level: l.code }), level === l.code)).map((l) => <Chip key={l.code} to={href({ level: level === l.code ? null : l.code })} on={level === l.code}>{l.label}{num(count({ level: l.code }))}</Chip>)}
+        </div>
+      </div>
+    ) },
     { name: 'Competition', on: Boolean(gender), body: (
       <Group name="Competition">
         <Chip to={href({ gender: null })} on={!gender}>All</Chip>

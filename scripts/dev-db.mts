@@ -836,6 +836,22 @@ v2('kestrelford-athletic-sc', (await db.query(
   `select fn_ops_add_notice($1, 'td@example.com', $2, 'U14 Boys expressions of interest', array['U14'], 'boys',
      greatest('2026-12-07'::date, (now() at time zone 'Australia/Melbourne')::date + 37),
      'EOI closes', 'Online — see the club''s notice', '{}', 'https://kestrelfordathletic.example.au/eoi') as id`, [td, kestrelford])).rows[0].id as string);
+// Club level (0172): each club's senior league, with its source and the day
+// it was checked, written the way production writes it — through
+// scripts/load-club-levels.mjs (L13). The clubs are invented and the
+// leagues real; the sources are reserved fictions. Westgate Rangers gets no
+// row: a club with no source has no level, and the render suite holds it out
+// of every level chip (tf-level3).
+{
+  const { planLevels, applyLevels } = await import('./load-club-levels.mjs');
+  const plan = await planLevels((sql: string, p?: unknown[]) => db.query(sql, p), [
+    { club: 'Riverside FC', suburb: 'Brunswick', league_as_named: 'State League 2 North-West', source_url: 'https://riversidefc.example.au/seniors', checked_on: '2026-09-30' },
+    { club: 'Kingsway Rovers FC', suburb: 'Brunswick West', league_as_named: 'Victoria Premier League 2', source_url: 'https://kingswayrovers.example.au/seniors', checked_on: '2026-09-30' },
+    { club: 'Kestrelford Athletic SC', suburb: 'Preston', league_as_named: 'NPL Victoria', source_url: 'https://kestrelfordathletic.example.au/seniors', checked_on: '2026-09-30' },
+  ]);
+  if (plan.add.length !== 3) throw new Error(`club levels: the seed's three did not plan (${JSON.stringify(plan.refused)})`);
+  await applyLevels((sql: string, p?: unknown[]) => db.query(sql, p), plan);
+}
 const wrenmoor = randomUUID();
 await db.query(`insert into club (id, name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
   values ($1,'Wrenmoor Wanderers FC','Altona','VIC','unclaimed','secretary@wrenmoorwanderers.example.au','wrenmoor-wanderers-fc','club website /contact (fixture)', now())`, [wrenmoor]);

@@ -1748,6 +1748,8 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .tb-more-chev { flex-shrink: 0; transition: transform .16s var(--ease); }
 .tb-more[open] .tb-more-chev { transform: rotate(180deg); }
 .tb-more-b { display: flex; flex-direction: column; gap: 14px; padding: 6px 0 2px 0; }
+/* Club level's one line: whose league it is (John, 2 Oct). */
+.tb-fnote { font-size: 12px; font-weight: 500; color: var(--muted); line-height: 1.5; }
 .tb-how { display: flex; align-items: flex-start; gap: 9px; padding: 13px 14px; font-size: 11.5px; font-weight: 700; color: var(--muted); line-height: 1.5; }
 .tb-how > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .tb-how p { margin: 0; }

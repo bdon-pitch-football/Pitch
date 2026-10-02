@@ -1787,20 +1787,61 @@ const tfAll = tfLines(tfBoard);
     const rail = /<div class="d-only fl-card">([\s\S]*?)<\/aside>/.exec(h)?.[1] ?? '';
     return [...rail.matchAll(/<div class="kicker">([^<]*)<\/div>|<span class="tb-more-h">([^<]*)<\/span>/g)].map((m) => m[1] ?? `[${m[2]}]`);
   };
-  check('tf-order1: the panel reads Region, Age group, Show, then More filters holding Competition and Positions wanted — the same markup in the phone panel and the laptop rail',
+  check('tf-order1: the panel reads Region, Age group, Show, then More filters holding Club level, Competition and Positions wanted — the same markup in the phone panel and the laptop rail',
     [order(tfBoard), (tfBoard.match(/<details class="tb-more"/g) ?? []).length],
-    [['Region', 'Age group', 'Show', '[More filters]', 'Competition', 'Positions wanted'], 2]);
+    [['Region', 'Age group', 'Show', '[More filters]', 'Club level', 'Competition', 'Positions wanted'], 2]);
   const fold = (h) => [...h.matchAll(/<details class="tb-more"( open="")?><summary><span class="tb-more-t"><span class="tb-more-h">More filters<\/span><span class="tb-more-s">([^<]*)<\/span>/g)]
     .map((m) => `${m[1] ? 'open' : 'shut'}: ${m[2]}`);
   const states = [];
-  for (const q of ['', '?age=U14', '?area=mel-north', '?kind=trial', '?gender=girls', '?pos=GK']) states.push(fold(q ? tfPlain((await get(`/trials${q}`, null)).html) : tfBoard)[0] ?? null);
-  check('tf-fold1: More filters names what is inside in the groups\' own headings, stays shut while nothing in it is chosen, and opens itself when something inside it is — Competition (Girls, whose listings name no position) or Positions wanted (GK)',
-    states, ['shut: Competition · Positions wanted', 'shut: Competition · Positions wanted', 'shut: Competition · Positions wanted', 'shut: Competition · Positions wanted',
-      'open: Competition', 'open: Competition · Positions wanted']);
+  for (const q of ['', '?age=U14', '?area=mel-north', '?kind=trial', '?gender=girls', '?pos=GK', '?level=sl']) states.push(fold(q ? tfPlain((await get(`/trials${q}`, null)).html) : tfBoard)[0] ?? null);
+  check('tf-fold1: More filters names what is inside in the groups\' own headings, stays shut while nothing in it is chosen, and opens itself when something inside it is — Competition (Girls: one club with a level, and no position named, so only Competition is in it), Positions wanted (GK) or Club level (State League)',
+    states, ['shut: Club level · Competition · Positions wanted', 'shut: Club level · Competition · Positions wanted', 'shut: Club level · Competition · Positions wanted',
+      'shut: Club level · Competition · Positions wanted', 'open: Competition', 'open: Club level · Competition · Positions wanted', 'open: Club level · Competition · Positions wanted']);
   // A group the fold would hide at zero is not named: Women leaves no
   // listing that names a position, so Positions wanted is not offered.
   check('tf-fold2: a group hidden at zero is not named in the fold (Women: no listing names a position)',
     fold(tfPlain((await get('/trials?gender=women', null)).html)), ['open: Competition', 'open: Competition']);
+}
+
+// Club level (§7b; John, 2 Oct): the CLUB's senior league, loaded with its
+// source and checked date (0172). The seed loads Riverside (State League),
+// Kingsway (Victoria Premier League) and Kestrelford (NPL) through the
+// loader, and gives Westgate Rangers no source — so no level.
+{
+  const LEVEL_OF = { 'Riverside FC': 'sl', 'Kingsway Rovers FC': 'vpl', 'Kestrelford Athletic SC': 'npl' };
+  const LABEL = { npl: 'NPL', vpl: 'Victoria Premier League', sl: 'State League', community: 'Community' };
+  const of = (x) => LEVEL_OF[x.split('|')[2]] ?? null;
+  const n = (k) => tfAll.filter((x) => of(x) === k).length;
+  const lvl = /<div class="kicker">Club level<\/div><div class="tb-fnote">The club’s senior league, not the trial’s\.<\/div><div[^>]*>([\s\S]*?)<\/div><\/div>/;
+  check(`tf-level1: Club level sits in More filters with its one line — "The club’s senior league, not the trial’s." — then Any level and each level with listings, top league first (NPL ${n('npl')}, VPL ${n('vpl')}, SL ${n('sl')}; Community has none, so is not drawn)`,
+    [tfChips(lvl.exec(tfBoard)?.[1]), /<span class="tb-more-s">Club level · Competition · Positions wanted<\/span>/.test(tfBoard)],
+    [['*Any level', `NPL ${n('npl')}`, `Victoria Premier League ${n('vpl')}`, `State League ${n('sl')}`], true]);
+  const views = [];
+  for (const k of ['npl', 'vpl', 'sl']) {
+    const h = tfPlain((await get(`/trials?level=${k}`, null)).html);
+    views.push([tfLines(h), new RegExp(`aria-label="Remove ${LABEL[k]} clubs"[^>]*href="/trials"[^>]*>${LABEL[k]} clubs<|href="/trials"[^>]*aria-label="Remove ${LABEL[k]} clubs"[^>]*>${LABEL[k]} clubs<`).test(h),
+      /<details class="tb-more" open="">/.test(h)]);
+  }
+  check('tf-level2: a level narrows to its clubs\' listings and keeps the board\'s order; the chip above the list says "{level} clubs", never the bare league, and More filters has opened itself',
+    views, ['npl', 'vpl', 'sl'].map((k) => [tfAll.filter((x) => of(x) === k), true, true]));
+  // John's condition: a club with no source has no level and is in no level
+  // chip. Westgate is on the board and in none of the views above.
+  check('tf-level3: a club with no league source (Westgate Rangers) is on the board and in no level\'s view; an unknown level is ignored',
+    [tfAll.some((x) => x.split('|')[2] === 'Westgate Rangers'), views.flatMap(([ls]) => ls).filter((x) => x.split('|')[2] === 'Westgate Rangers'),
+     tfLines(tfPlain((await get('/trials?level=elite', null)).html)), /Remove /.test(tfPlain((await get('/trials?level=elite', null)).html))],
+    [true, [], tfAll, false]);
+  // Rows never show the league (John, 2 Oct): no row's markup names one.
+  const leagueOnRow = [];
+  for (const q of ['', '?level=npl', '?level=sl']) {
+    const h = q ? tfPlain((await get(`/trials${q}`, null)).html) : tfBoard;
+    for (const m of h.matchAll(/<article\b[^>]*>[\s\S]*?<\/article>/g)) if (/\bNPL\b|Premier League|State League|Community/.test(m[0])) leagueOnRow.push(q || '/trials');
+  }
+  check('tf-level4: no row names a league — on the whole board or under a level', leagueOnRow, []);
+  // Fewer than two levels under the other choices: no group. The West is
+  // Westgate alone, which has no level; U12 is one Westgate trial.
+  const west = tfPlain((await get('/trials?area=mel-west', null)).html);
+  check('tf-level5: Club level is hidden when fewer than two levels have listings under the other choices (Melbourne West: one club, no level), and the fold no longer names it',
+    [lvl.test(west), /<span class="tb-more-s">Competition/.test(west)], [false, true]);
 }
 
 // D-162 on the chips themselves: a chosen chip whose choices leave nothing
