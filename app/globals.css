@@ -1735,6 +1735,19 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .tb-list { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .tb-filters { display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 18px 16px; }
 .tb-countrow { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+/* More filters (HoPD, 2 Oct): the narrower questions behind one <details>.
+   Its summary names what is inside in the groups' own headings, and is a
+   52px target. */
+.tb-more { border-top: 1px solid var(--line); padding-top: 2px; }
+.tb-more > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; cursor: pointer; color: var(--muted); }
+.tb-more > summary::-webkit-details-marker { display: none; }
+.tb-more > summary::marker { content: ''; }
+.tb-more-t { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.tb-more-h { font-size: 14px; font-weight: 700; color: var(--ink); }
+.tb-more-s { font-size: 12px; font-weight: 500; color: var(--muted); }
+.tb-more-chev { flex-shrink: 0; transition: transform .16s var(--ease); }
+.tb-more[open] .tb-more-chev { transform: rotate(180deg); }
+.tb-more-b { display: flex; flex-direction: column; gap: 14px; padding: 6px 0 2px 0; }
 .tb-how { display: flex; align-items: flex-start; gap: 9px; padding: 13px 14px; font-size: 11.5px; font-weight: 700; color: var(--muted); line-height: 1.5; }
 .tb-how > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .tb-how p { margin: 0; }
@@ -1750,7 +1763,11 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 @container (min-width: 1024px) {
   .tb { padding-top: 34px; }
   .tb-body { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
-  .tb-rail { position: sticky; top: 84px; }
+  /* Sticky only while it fits the window (HoPD ruling 1, 2 Oct): taller
+     than the window, the rail scrolls on its own, so its bottom filters are
+     reachable without reaching the end of the board. No filter is
+     laptop-only (D-147). */
+  .tb-rail { position: sticky; top: 84px; max-height: calc(100dvh - 84px - 16px); overflow-y: auto; overscroll-behavior: contain; }
   .tb-body.tb-bare { display: flex; }
 }
 /* A short window: a pinned rail could hold chips below the fold. */

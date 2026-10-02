@@ -13529,5 +13529,51 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     ['coach_verified', true, null, 'self_reported']);
 }
 
+// ---------------------------------------------------------------------------
+// The trials board's filters package (BUZ approved 2 Oct; docs/design/
+// reports/2026-10-02-proposal-trials-v2.md §5–§7; John's two rulings, 2 Oct).
+// The static half: the places file, the regions, the rail. What the board
+// serves is the render suite's tf checks; what a browser does, the layout
+// check's.
+// ---------------------------------------------------------------------------
+{
+  const { REGIONS } = await import('../lib/regions.ts');
+  // The places file: the name lib/places-vic-file gives the browser and the
+  // file lib/places-vic reads on the server are one file, it is there, and
+  // its name is its contents' hash (a new edition is a new address).
+  const named = /PLACES_FILE = '\/(places-vic\.([0-9a-f]+)\.json)'/.exec(srcOf('lib/places-vic-file.ts'));
+  const imported = /from '@\/public\/(places-vic\.[0-9a-f]+\.json)'/.exec(srcOf('lib/places-vic.ts'))?.[1];
+  const onDisk = readdirSync(fileURLToPath(new URL('../public', import.meta.url))).filter((f) => /^places-vic\./.test(f));
+  const body = named && onDisk.includes(named[1]) ? srcOf(`public/${named[1]}`) : '';
+  const file = body ? JSON.parse(body) : { councils: [], places: [] };
+  check(`tf-pv1: the places file is one file, named by its contents' hash, read by the server and fetched by the browser under the same name, and says where it came from (${file.places.length} places, ${file.councils.length} councils)`,
+    [onDisk, imported, Boolean(named) && createHash('sha256').update(body).digest('hex').slice(0, 10) === named[2],
+     /Australian Statistical Geography Standard|ASGS/.test(file.v ?? ''), file.licence, (file.src ?? []).every((u) => u.startsWith('https://geo.abs.gov.au/')),
+     file.places.length > 2900, file.places.every((p) => p[1] >= 3000 && p[1] <= 3999 && p[2] < -33 && p[2] > -39.3 && p[3] > 140.9 && p[3] < 150.1)],
+    [[named?.[1]], named?.[1], true, true, 'CC BY 4.0', true, true, true]);
+  // John, 2 Oct (Q3): "the region list never gets finer than a council
+  // group". Every region is whole councils, named as the ABS names them;
+  // every Victorian council is in exactly one region; and nothing in the
+  // list is a suburb (a region that named a suburb would make the address a
+  // locator, and goes back to John).
+  const councils = REGIONS.flatMap((r) => r.councils);
+  const real = new Set(file.councils);
+  const suburbs = new Set(file.places.map((p) => p[0].toLowerCase()));
+  check(`tf-rg1: no region is finer than a council group — ${REGIONS.length} regions of whole councils, every council in exactly one, and no address key a suburb's name (John, 2 Oct)`,
+    [REGIONS.every((r) => r.councils.length >= 1), councils.filter((c) => !real.has(c)), councils.length - new Set(councils).size,
+     file.councils.filter((c) => c !== 'Unincorporated Vic' && !councils.includes(c)),
+     REGIONS.filter((r) => !/^[a-z-]+$/.test(r.key) || suburbs.has(r.key.replace(/-/g, ' '))).map((r) => r.key),
+     /suburb|places-vic/.test(srcOf('lib/regions.ts').replace(/\/\/.*$/gm, ''))],
+    [true, [], 0, [], [], false]);
+  // HoPD ruling 1 (2 Oct): the laptop rail is sticky only while it fits the
+  // window; taller, it scrolls on its own, so its bottom is reachable. The
+  // layout check measures it at 1280×800.
+  const railRule = /@container \(min-width: 1024px\) \{[\s\S]*?\n {2}\.tb-rail \{([^}]*)\}/.exec(srcOf('app/globals.css'))?.[1] ?? '';
+  const top = /top:\s*(\d+)px/.exec(railRule)?.[1];
+  check(`tf-rail1: the laptop rail scrolls when it does not fit — max-height calc(100dvh - its sticky top - 16px), its own overflow (top ${top}px)`,
+    [/position:\s*sticky/.test(railRule), new RegExp(`max-height:\\s*calc\\(100dvh - ${top}px - 16px\\)`).test(railRule), /overflow-y:\s*auto/.test(railRule)],
+    [true, true, true]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);
 process.exit(fail === 0 ? 0 : 1);

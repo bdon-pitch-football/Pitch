@@ -195,6 +195,12 @@ async function reach(who, extra = []) {
       // it was before the door existed; the door itself is walked by hm9 and
       // hm-w2b, and the parent can open what it points at (hm9b, hm-w2b).
       if (who === ids.people.alex && /^\/build\/[0-9a-f-]{36}$/.test(h)) continue;
+      // Nor the trials board's new filtered views (filters package, BUZ 2
+      // Oct): Region, Show and Club level put a chip per option on /trials,
+      // each a GET view with no form. Followed, they would spend some of
+      // the 60 pages and move which seat meets Jordan's forms first — L32:
+      // a page is a fixture. The render suite reads every one of them.
+      if (/^\/trials\?(?:[^"]*&(?:amp;)?)?(?:area|kind|level)=/.test(h)) continue;
       if (!seen.has(h)) queue.push(h);
     }
   }

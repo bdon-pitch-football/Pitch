@@ -1100,6 +1100,55 @@ for (const width of widths) {
 }
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
 
+// tf — THE TRIALS BOARD'S FILTERS (BUZ approved 2 Oct). What only a browser
+// can say about them.
+//
+// tf-rail2 — the laptop rail's bottom is reachable at 1280×800 (HoPD ruling
+// 1, 2 Oct). The live panel was 1,097px tall before the fold, 1,168px with it
+// (the proposal's measurement); the seed's is shorter. So the rail is first
+// read as the seed draws it with every fold open — sticky, and never taller
+// than the window under its sticky top — and then made as tall as the live panel by a spacer at its top,
+// the page scrolled until the rail is stuck, the rail scrolled to its own
+// end, and its last chip must then be on the screen: reachable without
+// reaching the end of the board.
+const tfFails = [];
+let tfChecked = 0;
+{
+  await cdp('Network.clearBrowserCookies');
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+  await visit('/trials'); tfChecked++;
+  const fit = await eval_(`JSON.stringify((() => {
+    const rail = document.querySelector('aside.tb-rail');
+    if (!rail) return { none: true };
+    document.querySelectorAll('aside.tb-rail .d-only details').forEach((d) => { d.open = true; });
+    const cs = getComputedStyle(rail);
+    return { sticky: cs.position, h: Math.round(rail.getBoundingClientRect().height), room: window.innerHeight - parseFloat(cs.top) - 16 };
+  })())`);
+  if (fit.none) tfFails.push({ width: 1280, what: 'tf-rail2: /trials drew no rail' });
+  else if (fit.sticky !== 'sticky' || fit.h > fit.room + 1) tfFails.push({ width: 1280, what: `tf-rail2: the rail is ${fit.sticky} and ${fit.h}px tall, with ${fit.room}px under its sticky top` });
+  const tall = JSON.parse((await cdp('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `(async () => JSON.stringify(await (async () => {
+    const rail = document.querySelector('aside.tb-rail');
+    const card = rail?.querySelector('.d-only .tb-filters');
+    if (!card) return { none: true };
+    const spacer = document.createElement('div');
+    spacer.style.height = Math.max(0, 1168 - rail.getBoundingClientRect().height) + 'px';
+    card.prepend(spacer);
+    window.scrollTo({ top: 400, behavior: 'instant' });
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    rail.scrollTop = rail.scrollHeight;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const chips = [...card.querySelectorAll('.chip')];
+    const last = chips[chips.length - 1].getBoundingClientRect(), box = rail.getBoundingClientRect();
+    return { vh: window.innerHeight, top: Math.round(box.top), bottom: Math.round(box.bottom), last: Math.round(last.bottom),
+      lastText: chips[chips.length - 1].textContent.trim(), page: Math.round(document.documentElement.scrollHeight - window.innerHeight - window.scrollY) };
+  })()))()` })).result.result.value);
+  if (tall.none) tfFails.push({ width: 1280, what: 'tf-rail2: no filters in the rail' });
+  else if (tall.last > tall.vh || tall.last > tall.bottom + 1 || tall.bottom > tall.vh) {
+    tfFails.push({ width: 1280, what: `tf-rail2: a 1,168px rail at 1280×800 — its last chip ("${tall.lastText}") ends at ${tall.last}px, the rail at ${tall.bottom}px, the window at ${tall.vh}px, with ${tall.page}px of board still below` });
+  }
+}
+await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
+
 // ---------------------------------------------------------------------------
 // ap — THE POST-RELEASE AUDIT'S RULINGS, MEASURED (docs/design/reports/
 // 2026-10-02-audit-live-*.md, Head of Product Design; BUZ, 2 Oct). Only a
@@ -1304,6 +1353,8 @@ console.log(`call sheet   · cs1: ${sheetChecked} views — the claim and the TD
 for (const f of sheetFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 console.log(`trial rows   · tb-foot: ${footChecked} rows on /trials — no divider, the notice link and the button on one line, each a 44px target`);
 for (const f of footFails) console.log(`FAIL ${f.width}px · ${f.what}`);
+console.log(`filters      · tf: ${tfChecked} views of /trials — the laptop rail's bottom reachable at 1280×800`);
+for (const f of tfFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 // One line per distinct control, not one per view: the same component fails on
 // every screen it is on, at every width, and a hundred lines saying so is a
 // wall nobody reads.
@@ -1321,7 +1372,7 @@ const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what}
   (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
 console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
 for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
-const chromeBad = footFails.length + apFails.length + sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + waysFails.length + squeezeKeys.length + motionFails.length;
+const chromeBad = tfFails.length + footFails.length + apFails.length + sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + waysFails.length + squeezeKeys.length + motionFails.length;
 if (failures.length === 0 && chromeBad === 0) {
   console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, no Premium row is offered while D-163 stands, and the call sheet keeps its claim and TD where the operator can see them');
   process.exit(0);
@@ -1331,5 +1382,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, ways in ${waysFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length}, trial rows ${footFails.length}, audit ${apFails.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, ways in ${waysFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length}, trial rows ${footFails.length}, filters ${tfFails.length}, audit ${apFails.length})`);
 process.exit(1);

@@ -1750,6 +1750,71 @@ const tfAll = tfLines(tfBoard);
     [tfChips(tfGroup(both, 'Show')), tfLines(both).length], [['All', '*Expressions of interest 1'], 1]);
 }
 
+// Region (§5): the CLUB's region — its suburb, its council, the council's
+// group. The seed's clubs are invented and their suburbs real: Riverside
+// (Brunswick), Kingsway (Brunswick West) and Kestrelford (Preston) are in
+// Melbourne North, Westgate (Altona) in Melbourne West.
+{
+  const REGION_OF = { 'Riverside FC': 'mel-north', 'Kingsway Rovers FC': 'mel-north', 'Kestrelford Athletic SC': 'mel-north', 'Westgate Rangers': 'mel-west' };
+  const NAME = { 'mel-north': 'Melbourne North', 'mel-west': 'Melbourne West' };
+  const of = (x) => REGION_OF[x.split('|')[2]] ?? null;
+  const n = (k) => tfAll.filter((x) => of(x) === k).length;
+  check(`tf-region1: Region leads the panel — "Any region", then each region with listings, in the fixed order, with what it would leave (North ${n('mel-north')}, West ${n('mel-west')})`,
+    [tfAll.every((x) => of(x)), tfChips(tfGroup(tfBoard, 'Region'))],
+    [true, ['*Any region', `Melbourne North ${n('mel-north')}`, `Melbourne West ${n('mel-west')}`]]);
+  const views = [];
+  for (const k of ['mel-north', 'mel-west']) {
+    const h = tfPlain((await get(`/trials?area=${k}`, null)).html);
+    views.push([tfLines(h), new RegExp(`aria-label="Remove ${NAME[k]}"[^>]*href="/trials"|href="/trials"[^>]*aria-label="Remove ${NAME[k]}"`).test(h)]);
+  }
+  check('tf-region2: a region narrows to its clubs\' listings and keeps the board\'s order — the address is /trials?area=…, and its chip above the list takes only itself off',
+    views, ['mel-north', 'mel-west'].map((k) => [tfAll.filter((x) => of(x) === k), true]));
+  // A suburb is not a region (John, 2 Oct, Q3): ?area= takes only the list.
+  const sub = tfPlain((await get('/trials?area=preston', null)).html), junk = tfPlain((await get('/trials?area=%3Cb%3E', null)).html);
+  check('tf-region3: an area that is not a region — a suburb, or junk — is ignored, never trusted',
+    [tfLines(sub), /Remove /.test(sub), tfLines(junk), /Remove /.test(junk)], [tfAll, false, tfAll, false]);
+  // U12 is one Westgate trial: one region, so no group. U14 has nothing in
+  // the West: chosen, West stays (to be taken off) and carries no "0".
+  const u12 = tfPlain((await get('/trials?age=U12', null)).html), w14 = tfPlain((await get('/trials?area=mel-west&age=U14', null)).html);
+  check('tf-region4: Region is hidden when fewer than two regions have listings under the other choices (U12), and a chosen region with nothing stays without a zero (West + U14)',
+    [tfGroup(u12, 'Region'), tfChips(tfGroup(w14, 'Region')), tfLines(w14).length],
+    [null, ['Any region', `Melbourne North ${tfLines(tfPlain((await get('/trials?age=U14', null)).html)).length}`, '*Melbourne West'], 0]);
+}
+
+// The panel order and the More filters fold (§7a; HoPD rulings, 2 Oct).
+{
+  const order = (h) => {
+    const rail = /<div class="d-only fl-card">([\s\S]*?)<\/aside>/.exec(h)?.[1] ?? '';
+    return [...rail.matchAll(/<div class="kicker">([^<]*)<\/div>|<span class="tb-more-h">([^<]*)<\/span>/g)].map((m) => m[1] ?? `[${m[2]}]`);
+  };
+  check('tf-order1: the panel reads Region, Age group, Show, then More filters holding Competition and Positions wanted — the same markup in the phone panel and the laptop rail',
+    [order(tfBoard), (tfBoard.match(/<details class="tb-more"/g) ?? []).length],
+    [['Region', 'Age group', 'Show', '[More filters]', 'Competition', 'Positions wanted'], 2]);
+  const fold = (h) => [...h.matchAll(/<details class="tb-more"( open="")?><summary><span class="tb-more-t"><span class="tb-more-h">More filters<\/span><span class="tb-more-s">([^<]*)<\/span>/g)]
+    .map((m) => `${m[1] ? 'open' : 'shut'}: ${m[2]}`);
+  const states = [];
+  for (const q of ['', '?age=U14', '?area=mel-north', '?kind=trial', '?gender=girls', '?pos=GK']) states.push(fold(q ? tfPlain((await get(`/trials${q}`, null)).html) : tfBoard)[0] ?? null);
+  check('tf-fold1: More filters names what is inside in the groups\' own headings, stays shut while nothing in it is chosen, and opens itself when something inside it is — Competition (Girls, whose listings name no position) or Positions wanted (GK)',
+    states, ['shut: Competition · Positions wanted', 'shut: Competition · Positions wanted', 'shut: Competition · Positions wanted', 'shut: Competition · Positions wanted',
+      'open: Competition', 'open: Competition · Positions wanted']);
+  // A group the fold would hide at zero is not named: Women leaves no
+  // listing that names a position, so Positions wanted is not offered.
+  check('tf-fold2: a group hidden at zero is not named in the fold (Women: no listing names a position)',
+    fold(tfPlain((await get('/trials?gender=women', null)).html)), ['open: Competition', 'open: Competition']);
+}
+
+// D-162 on the chips themselves: a chosen chip whose choices leave nothing
+// stays, so it can be taken off, but never carries a "0".
+{
+  const zeros = [];
+  for (const q of ['?gender=men', '?gender=women&pos=GK', '?area=mel-west&age=U14', '?kind=eoi&age=U12']) {
+    const h = tfPlain((await get(`/trials${q}`, null)).html);
+    zeros.push(`${q} ${(h.match(/class="chip-count">0</g) ?? []).length} zero, ${(h.match(/<a class="chip" aria-pressed="true"/g) ?? []).length} chosen`);
+  }
+  check('tf-zero1: no chip carries a zero, chosen ones included (four views that choose something with nothing behind it)',
+    zeros.map((z) => / 0 zero,/.test(z)), [true, true, true, true]);
+}
+
 // A link a screen SHOWS is a promise — a coach pastes it, a TD prints it.
 // Four screens showed pitchfootball.com.au/<name>, which does not exist: the
 // pages live at /c/<name> and /fc/<name>. Every full link shown must open.

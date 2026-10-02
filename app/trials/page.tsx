@@ -16,6 +16,9 @@ import PublicAnalytics from '@/components/PublicAnalytics';
 import SiteNav from '@/components/floodlit/SiteNav';
 import TrialRow from '@/components/floodlit/TrialRow';
 import { groupByClubDay, isEoi } from '@/lib/trials-board';
+import { NONE, hrefFor, matches, type Chosen, type Facets, type Kind } from '@/lib/trials-filter';
+import { REGIONS } from '@/lib/regions';
+import { regionOfSuburb } from '@/lib/places-vic';
 import { getSessionPersonId } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -33,21 +36,21 @@ const STATES: Record<string, string> = { VIC: 'Victoria', NSW: 'New South Wales'
 // location"): the two kinds a listing can be, in the board's section order,
 // each in the words its section already uses.
 const KINDS: [Kind, string][] = [['trial', 'Trials'], ['eoi', 'Expressions of interest']];
-type Kind = 'trial' | 'eoi';
 
-type Params = { age?: string; gender?: string; state?: string; pos?: string; kind?: string };
+type Params = { age?: string; gender?: string; state?: string; pos?: string; kind?: string; area?: string };
 
 export default async function TrialsBoard({ searchParams }: { searchParams: Promise<Params> }) {
   const raw = await searchParams;
   // D-74: the board's day-one filters are age group, region, competition
-  // gender and positions wanted. It shipped with two of the four. Region is
-  // the club's STATE — Victoria and New South Wales first (D-04) — because no
-  // region taxonomy exists yet and inventing one here would be a guess.
-  // Anything not on these lists is ignored rather than trusted (D-94 §6).
+  // gender and positions wanted. Region is the club's region (lib/regions:
+  // its suburb, its council, the council's group, BUZ approved 2 Oct), under
+  // the club's state while the board holds one state. Anything not on these
+  // lists is ignored rather than trusted (D-94 §6).
   const gender = GENDERS.some(([v]) => v === raw.gender) ? raw.gender! : null;
   const state = raw.state && raw.state in STATES ? raw.state : null;
   const pos = raw.pos && raw.pos in POSITIONS ? raw.pos : null;
   const kind = KINDS.some(([v]) => v === raw.kind) ? raw.kind as Kind : null;
+  const area = REGIONS.some((r) => r.key === raw.area) ? raw.area! : null;
 
   // Chronological and filtered only by what the family chose. No recommender,
   // no personalisation, ever (D-74).
@@ -63,28 +66,29 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
        upper(to_char(t.trial_on, 'Dy')) as wd, to_char(t.trial_on, 'YYYY-MM-DD') as on_date,
        to_char(t.added_on, 'FMDD Mon') as listed, to_char(t.last_checked, 'FMDD Mon') as checked,
        to_char(t.last_checked, 'YYYY-MM-DD') as checked_on,
-       c.id as club_id, c.name as club_name, c.club_state, c.public_slug, c.state
+       c.id as club_id, c.name as club_name, c.club_state, c.public_slug, c.state, c.suburb
      from fn_trial_notices_advertised() t join club c on c.id = t.club_id
      order by t.trial_on`,
   );
-  type Listing = {
+  type Row = {
     title: string; time_venue: string; source: string; source_url: string | null; mon: string; day: string; wd: string; on_date: string; age_groups: string[];
-    competition_gender: string | null; position_needs: string[]; state: string | null;
+    competition_gender: string | null; position_needs: string[]; state: string | null; suburb: string | null;
     id: string; listed: string; checked: string; checked_on: string; club_id: string; club_name: string; club_state: string; public_slug: string | null;
   };
-  const upcoming = rows as Listing[];
+  // Each listing carries its facets: public facts about it and its CLUB
+  // (lib/trials-filter). The region is the club's, from the club's suburb.
+  type Listing = Row & { f: Facets };
+  const upcoming: Listing[] = (rows as Row[]).map((l) => ({ ...l, f: {
+    ages: l.age_groups, gender: l.competition_gender, pos: l.position_needs ?? [], state: l.state,
+    kind: isEoi(l.time_venue) ? 'eoi' : 'trial', area: regionOfSuburb(l.suburb), level: null, at: null,
+  } }));
   // The age filter offers the groups the board holds right now, in the
   // lookup's order — not a fixed list that missed U17 and seniors.
   const lookup = (await db.query(`select code, sort from age_group order by sort`)).rows as { code: string }[];
   const agesHere = lookup.map((a) => a.code).filter((code) => upcoming.some((l) => l.age_groups.includes(code)));
   const age = raw.age && lookup.some((a) => a.code === raw.age) ? raw.age : null;
-  const kindOf = (l: Listing): Kind => (isEoi(l.time_venue) ? 'eoi' : 'trial');
-  const matches = (l: Listing, f: { age: string | null; gender: string | null; state: string | null; pos: string | null; kind: Kind | null }) =>
-    (!f.age || l.age_groups.includes(f.age)) && (!f.gender || l.competition_gender === f.gender)
-    && (!f.state || l.state === f.state) && (!f.pos || (l.position_needs ?? []).includes(f.pos))
-    && (!f.kind || kindOf(l) === f.kind);
-  const current = { age, gender, state, pos, kind };
-  const listings = upcoming.filter((l) => matches(l, current));
+  const current: Chosen = { ...NONE, age, gender, state, pos, kind, area };
+  const listings = upcoming.filter((l) => matches(l.f, current));
   // Each listing's kind is said once, by its section (BUZ, 2 Oct): the
   // trials, by trial date, then the expressions of interest, by closing date.
   // A filter matches listing by listing, so a row shows only its matching
@@ -92,8 +96,8 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   // trial listings; the second section's heading carries its own number.
   // Show hides the other kind's section entirely, and only ever narrows: the
   // listings left keep the order they had (D-21, D-74).
-  const trials = listings.filter((l) => kindOf(l) === 'trial');
-  const eois = listings.filter((l) => kindOf(l) === 'eoi');
+  const trials = listings.filter((l) => l.f.kind === 'trial');
+  const eois = listings.filter((l) => l.f.kind === 'eoi');
   const eoiOnly = kind === 'eoi';
   // The most recent check across what is shown — not the last row's, which
   // is the furthest-out trial and made a fresh board read stale (HoPD, 2 Oct).
@@ -102,86 +106,110 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
 
   // Each option shows how many trials it would leave, given the other
   // choices already made — so nobody taps their way into an empty board.
-  const count = (next: Partial<typeof current>) => upcoming.filter((l) => matches(l, { ...current, ...next })).length;
+  const count = (next: Partial<Chosen>) => upcoming.filter((l) => matches(l.f, { ...current, ...next })).length;
   // D-162: a filter chip whose count is zero is not shown — an option that
   // cannot change what you see is not an option. "Men 0" and "Women 0" sat
   // here as tappable chips leading to an empty board. A chip that is currently
   // SELECTED always stays, whatever its count, or it could not be taken off.
   const shows = (n: number, on: boolean) => n > 0 || on;
+  // And the number on a chip is never a zero: a chosen chip whose choices
+  // leave nothing ("Men" with nothing for men) stays without one (D-162).
+  const num = (n: number) => n > 0 && <span className="chip-count">{n}</span>;
   const statesHere = Object.keys(STATES).filter((k) => upcoming.some((l) => l.state === k));
   const posHere = (Object.keys(POSITIONS) as PositionCode[]).filter((c) => upcoming.some((l) => (l.position_needs ?? []).includes(c)));
-  // Show is offered only while both kinds are on the board under the other
-  // choices — with one kind at zero it could not change what you see (D-162)
-  // — and stays while one is chosen, so it can be taken off.
+  // Show, and Region, are offered only while two or more of their options
+  // have listings under the other choices — with one, the group could not
+  // change what you see (D-162), as State already does — and stay while one
+  // is chosen, so it can be taken off.
   const kindsHere = KINDS.filter(([k]) => count({ kind: k }) > 0);
+  const regionsHere = REGIONS.filter((r) => count({ area: r.key }) > 0);
+  // Every region is Victorian. When a second state's listings arrive, State
+  // leads and Region waits for Victoria to be chosen, so the chips of two
+  // states never mix (proposal §5).
+  const regionGroup = (regionsHere.length > 1 || area) && (statesHere.length < 2 || state === 'VIC');
 
-  const href = (next: Partial<typeof current>) => {
-    const p = new URLSearchParams();
-    const merged = { ...current, ...next };
-    if (merged.age) p.set('age', merged.age);
-    if (merged.gender) p.set('gender', merged.gender);
-    if (merged.state) p.set('state', merged.state);
-    if (merged.pos) p.set('pos', merged.pos);
-    if (merged.kind) p.set('kind', merged.kind);
-    const qs = p.toString();
-    return qs ? `/trials?${qs}` : '/trials';
-  };
+  const href = (next: Partial<Chosen>) => hrefFor({ ...current, ...next });
 
   const active = [
-    age && { key: 'age', label: age === 'SEN' ? 'Seniors' : age, clear: href({ age: null }) },
-    gender && { key: 'gender', label: GENDERS.find(([v]) => v === gender)![1], clear: href({ gender: null }) },
     state && { key: 'state', label: STATES[state], clear: href({ state: null }) },
-    pos && { key: 'pos', label: `${pos} wanted`, clear: href({ pos: null }) },
+    area && { key: 'area', label: REGIONS.find((r) => r.key === area)!.name, clear: href({ area: null }) },
+    age && { key: 'age', label: age === 'SEN' ? 'Seniors' : age, clear: href({ age: null }) },
     kind && { key: 'kind', label: KINDS.find(([v]) => v === kind)![1], clear: href({ kind: null }) },
+    gender && { key: 'gender', label: GENDERS.find(([v]) => v === gender)![1], clear: href({ gender: null }) },
+    pos && { key: 'pos', label: `${pos} wanted`, clear: href({ pos: null }) },
   ].filter(Boolean) as { key: string; label: string; clear: string }[];
 
   const Chip = ({ to, on, children, title }: { to: string; on: boolean; children: React.ReactNode; title?: string }) => (
     <Link href={to} className="chip" aria-pressed={on} title={title}>{children}</Link>
   );
+  const Group = ({ name, children }: { name: string; children: React.ReactNode }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div className="kicker">{name}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>{children}</div>
+    </div>
+  );
+  // The narrower questions sit behind one fold, More filters (HoPD, 2 Oct;
+  // B2: Competition folds, Show stays out). Its second line names what is
+  // inside in the groups' own headings, so nothing is folded away unnamed —
+  // a group hidden at zero is not named — and it opens itself whenever
+  // something inside it is chosen, so a choice is never hidden. A <details>,
+  // so it works with no JavaScript, and the same markup on a phone and in
+  // the laptop rail (D-147).
+  const folded = [
+    { name: 'Competition', on: Boolean(gender), body: (
+      <Group name="Competition">
+        <Chip to={href({ gender: null })} on={!gender}>All</Chip>
+        {GENDERS.filter(([v]) => shows(count({ gender: v }), gender === v)).map(([v, t]) => <Chip key={v} to={href({ gender: gender === v ? null : v })} on={gender === v}>{t}{num(count({ gender: v }))}</Chip>)}
+      </Group>
+    ) },
+    // Positions wanted stays hidden while no listing under the other choices
+    // names a position — and so is not named in the fold either.
+    (posHere.some((c) => count({ pos: c }) > 0) || pos) && { name: 'Positions wanted', on: Boolean(pos), body: (
+      <Group name="Positions wanted">
+        <Chip to={href({ pos: null })} on={!pos}>Any</Chip>
+        {posHere.filter((c) => shows(count({ pos: c }), pos === c)).map((c) => <Chip key={c} to={href({ pos: pos === c ? null : c })} on={pos === c} title={POSITIONS[c].label}>{c}{num(count({ pos: c }))}</Chip>)}
+      </Group>
+    ) },
+  ].filter(Boolean) as { name: string; on: boolean; body: React.ReactNode }[];
   // A link, not a control, like the club's register: every filtered view has
   // its own address, works with no JavaScript, and can be sent to a parent.
+  // The order (HoPD, 2 Oct): where first, then the age every family picks,
+  // then Show, then the fold.
   const groups = (
     <div className="tb-filters">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        <div className="kicker">Age group</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-          <Chip to={href({ age: null })} on={!age}>Any age</Chip>
-          {agesHere.filter((a) => shows(count({ age: a }), age === a)).map((a) => <Chip key={a} to={href({ age: age === a ? null : a })} on={age === a}>{a === 'SEN' ? 'Seniors' : a}<span className="chip-count">{count({ age: a })}</span></Chip>)}
-        </div>
-      </div>
-      {(kindsHere.length > 1 || kind) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div className="kicker">Show</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-            <Chip to={href({ kind: null })} on={!kind}>All</Chip>
-            {KINDS.filter(([k]) => shows(count({ kind: k }), kind === k)).map(([k, t]) => <Chip key={k} to={href({ kind: kind === k ? null : k })} on={kind === k}>{t}<span className="chip-count">{count({ kind: k })}</span></Chip>)}
-          </div>
-        </div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        <div className="kicker">Competition</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-          <Chip to={href({ gender: null })} on={!gender}>All</Chip>
-          {GENDERS.filter(([v]) => shows(count({ gender: v }), gender === v)).map(([v, t]) => <Chip key={v} to={href({ gender: gender === v ? null : v })} on={gender === v}>{t}<span className="chip-count">{count({ gender: v })}</span></Chip>)}
-        </div>
-      </div>
       {statesHere.length > 1 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div className="kicker">State</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-            <Chip to={href({ state: null })} on={!state}>Both</Chip>
-            {statesHere.filter((k) => shows(count({ state: k }), state === k)).map((k) => <Chip key={k} to={href({ state: state === k ? null : k })} on={state === k}>{STATES[k]}<span className="chip-count">{count({ state: k })}</span></Chip>)}
-          </div>
-        </div>
+        <Group name="State">
+          <Chip to={href({ state: null })} on={!state}>Both</Chip>
+          {statesHere.filter((k) => shows(count({ state: k }), state === k)).map((k) => <Chip key={k} to={href({ state: state === k ? null : k })} on={state === k}>{STATES[k]}{num(count({ state: k }))}</Chip>)}
+        </Group>
       )}
-      {posHere.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div className="kicker">Positions wanted</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-            <Chip to={href({ pos: null })} on={!pos}>Any</Chip>
-            {posHere.filter((c) => shows(count({ pos: c }), pos === c)).map((c) => <Chip key={c} to={href({ pos: pos === c ? null : c })} on={pos === c} title={POSITIONS[c].label}>{c}<span className="chip-count">{count({ pos: c })}</span></Chip>)}
-          </div>
-        </div>
+      {regionGroup && (
+        <Group name="Region">
+          <Chip to={href({ area: null })} on={!area}>Any region</Chip>
+          {REGIONS.filter((r) => shows(count({ area: r.key }), area === r.key)).map((r) => <Chip key={r.key} to={href({ area: area === r.key ? null : r.key })} on={area === r.key}>{r.name}{num(count({ area: r.key }))}</Chip>)}
+        </Group>
+      )}
+      <Group name="Age group">
+        <Chip to={href({ age: null })} on={!age}>Any age</Chip>
+        {agesHere.filter((a) => shows(count({ age: a }), age === a)).map((a) => <Chip key={a} to={href({ age: age === a ? null : a })} on={age === a}>{a === 'SEN' ? 'Seniors' : a}{num(count({ age: a }))}</Chip>)}
+      </Group>
+      {(kindsHere.length > 1 || kind) && (
+        <Group name="Show">
+          <Chip to={href({ kind: null })} on={!kind}>All</Chip>
+          {KINDS.filter(([k]) => shows(count({ kind: k }), kind === k)).map(([k, t]) => <Chip key={k} to={href({ kind: kind === k ? null : k })} on={kind === k}>{t}{num(count({ kind: k }))}</Chip>)}
+        </Group>
+      )}
+      {folded.length > 0 && (
+        <details className="tb-more" open={folded.some((g) => g.on)}>
+          <summary>
+            <span className="tb-more-t">
+              <span className="tb-more-h">More filters</span>
+              <span className="tb-more-s">{folded.map((g) => g.name).join(' · ')}</span>
+            </span>
+            <svg className="tb-more-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 9l6 6 6-6" /></svg>
+          </summary>
+          <div className="tb-more-b">{folded.map((g) => <div key={g.name}>{g.body}</div>)}</div>
+        </details>
       )}
     </div>
   );
