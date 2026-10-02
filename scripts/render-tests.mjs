@@ -4069,6 +4069,112 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// wi-r — THE WAYS IN, Floodlit (BUZ, 1 Oct: floodlit-join-signin-claim.html
+// with P2; built 2 Oct after the post-release audit found /join, /signin and
+// /claim still on the pre-Floodlit shell: no bar, the logo top right of a
+// 604px column at 1280, no panel, no glow). Each check below is red on that
+// markup. The pixel position of the logo from 1024 is the layout check's
+// (wi-l1); what a fetch can prove is that the logo is the top bar's, a link
+// home, first in the bar (FLOODLIT orders it first from 1024), and that no
+// page draws a second mark in its column.
+// ---------------------------------------------------------------------------
+{
+  const robin = ids.people.robin;
+  const mk = (h) => h.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<!-- -->/g, '');
+  const bodyOf = (h) => mk(h).replace(/^[\s\S]*?<body[^>]*>/, '');
+  const navOf = (h) => (bodyOf(h).match(/<header class="fl-nav[\s\S]*?<\/header>/) ?? [''])[0];
+  const hrefsOf = (h) => [...h.matchAll(/href="([^"]*)"/g)].map((m) => m[1]).sort();
+  const doorsIn = (h) => (bodyOf(h).match(/<(div|form) class="door[ "]/g) ?? []).length;
+  const glowsOn = (h) => [...bodyOf(h).matchAll(/class="[^"]*\bfl-glow\b[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1]);
+  const pages = {
+    '/signin': await get('/signin'),
+    '/signin?claim=westgate-rangers': await get('/signin?claim=westgate-rangers'),
+    '/signin?refused=1': await get('/signin?refused=1'),
+    '/join': await get('/join'),
+    '/claim': await get('/claim'),
+    '/claim?q=rovers': await get('/claim?q=rovers'),
+    '/claim?q=Zzqxw (signed in)': await get('/claim?q=Zzqxw', robin),
+    '/claim?asked=ok': await get('/claim?asked=ok&club=Glenmarsh%20United', robin),
+    '/claim/westgate-rangers': await get('/claim/westgate-rangers', robin),
+    '/claim/westgate-rangers?sent=1': await get('/claim/westgate-rangers?sent=1', robin),
+    '/claim/westgate-rangers?claimed=1': await get('/claim/westgate-rangers?claimed=1', robin),
+    '/claim/westgate-rangers?noaddress=1': await get('/claim/westgate-rangers?noaddress=1', robin),
+  };
+  const doorPages = Object.keys(pages).filter((p) => !p.startsWith('/claim?') && p !== '/claim');
+  const listPages = Object.keys(pages).filter((p) => p.startsWith('/claim?') || p === '/claim');
+
+  // wi-r1: the top bar. One header, the logo in it as a link home and first
+  // in the bar, the page root marked .has-topbar (so no page header draws a
+  // second mark), and nothing else on a door: the logo-only bar (spec A
+  // part 5, P2). Old markup: no header at all, the mark in the column.
+  const bar = (h) => {
+    const n = navOf(h);
+    return [(bodyOf(h).match(/<header class="fl-nav/g) ?? []).length,
+      /^<header class="fl-nav"><div class="fl-wide fl-nav-in"><a href="\/" class="fl-nav-brand" aria-label="Pitch, home">/.test(n),
+      /class="floodlight has-topbar door-page"/.test(bodyOf(h)), /class="pg-head-mark"/.test(bodyOf(h).replace(n, ''))];
+  };
+  check('wi-r1: every way in has one top bar, its first thing the logo as a link home, on a .has-topbar page with no second mark',
+    Object.fromEntries(Object.entries(pages).map(([p, r]) => [p, bar(r.html)])),
+    Object.fromEntries(Object.keys(pages).map((p) => [p, [1, true, true, false]])));
+  check('wi-r1b: the doors (sign-in, sign-up, every claim step) carry the logo-only bar — the logo home and nothing else (P2)',
+    Object.fromEntries(doorPages.map((p) => [p, hrefsOf(navOf(pages[p].html))])),
+    Object.fromEntries(doorPages.map((p) => [p, ['/']])));
+
+  // wi-r2: Find your club carries the public bar (P2): Find your club as the
+  // page you are on, Trials, and Sign in when signed out — the same three
+  // ways as the front door and the club page.
+  const pubBar = (h) => [hrefsOf(navOf(h)), /<a href="\/claim" class="fl-nav-link" aria-current="page">Find your club<\/a>/.test(navOf(h)),
+    /<nav class="fl-nav-links" aria-label="Pitch">/.test(navOf(h))];
+  check('wi-r2: /claim carries Find your club (here) · Trials · Sign in signed out, and drops Sign in signed in',
+    [pubBar(pages['/claim'].html), pubBar(pages['/claim?q=rovers'].html), pubBar(pages['/claim?q=Zzqxw (signed in)'].html)],
+    [[['/', '/claim', '/signin', '/trials'], true, true], [['/', '/claim', '/signin', '/trials'], true, true], [['/', '/claim', '/trials'], true, true]]);
+
+  // wi-r3: a form is a door, a list is a page (part 20). One door panel on
+  // every step that asks for something; none on Find your club, which sits
+  // in the reading column instead.
+  check('wi-r3: one door panel on every door, none on Find your club (a list is a page), which is the reading column',
+    [Object.fromEntries(doorPages.map((p) => [p, doorsIn(pages[p].html)])),
+     Object.fromEntries(listPages.map((p) => [p, [doorsIn(pages[p].html), /<div class="door-col">/.test(bodyOf(pages[p].html))]]))],
+    [Object.fromEntries(doorPages.map((p) => [p, 1])), Object.fromEntries(listPages.map((p) => [p, [0, true]]))]);
+
+  // wi-r4: one glow, on the screen's one action — Sign in, Search, Send me
+  // the code, Claim {club}, Go to your club, Send (never: Search glows first).
+  // None on the country question (no primary) or on a club with no address
+  // (no button), and never on a Claim in a result row (ruling 1).
+  check('wi-r4: one glow per way in, on its one action',
+    Object.fromEntries(Object.entries(pages).map(([p, r]) => [p, glowsOn(r.html)])),
+    { '/signin': ['Sign in'], '/signin?claim=westgate-rangers': ['Sign in'], '/signin?refused=1': ['Sign in'], '/join': [],
+      '/claim': ['Search'], '/claim?q=rovers': ['Search'], '/claim?q=Zzqxw (signed in)': ['Search'], '/claim?asked=ok': ['Search'],
+      '/claim/westgate-rangers': ['Send me the code'], '/claim/westgate-rangers?sent=1': ['Claim Westgate Rangers'],
+      '/claim/westgate-rangers?claimed=1': ['Go to your club'], '/claim/westgate-rangers?noaddress=1': [] });
+  const rows = bodyOf(pages['/claim?q=rovers'].html);
+  check('wi-r4b: a result row’s Claim is the charter primary at its own 50px — not forced to 44, not glowing — and the search is the front door’s light field',
+    [/<a (?:href="\/claim\/brindlewood-rovers-sc" class="btn btn-primary btn-auto"|class="btn btn-primary btn-auto" href="\/claim\/brindlewood-rovers-sc")>Claim<\/a>/.test(rows), /height:44px/.test(rows),
+     /<form(?=[^>]*role="search")(?=[^>]*class="fl-search")(?=[^>]*action="\/claim")(?=[^>]*method="get")[^>]*><label class="fl-search-field">/.test(rows)],
+    [true, false, true]);
+
+  // wi-r5: F7's door shows which club, before anything is asked: the claim
+  // step's own dashed initials tile and the Unclaimed pill (#c-signin) — no
+  // image, no colour (D-172). The ordinary door carries no club.
+  const clubRow = (h) => [/<div class="card clubrow"><div class="club-tile empty-tile" aria-hidden="true">WR<\/div>/.test(bodyOf(h)),
+    /<span class="pill pill-wait">Unclaimed<\/span>/.test(bodyOf(h)), /<img/.test(bodyOf(h))];
+  check('wi-r5: the claim’s sign-in door and its first step name the club with the dashed tile and Unclaimed pill — no image, no colour (D-172); the plain door names none',
+    [clubRow(pages['/signin?claim=westgate-rangers'].html), clubRow(pages['/claim/westgate-rangers'].html), /class="card clubrow"/.test(bodyOf(pages['/signin'].html))],
+    [[true, true, false], [true, true, false], false]);
+
+  // wi-r6: the two audit rulings that are markup. No font-weight 600 on
+  // /claim (Archivo loads 500/700/800/900: 600 was rendering as 700 by
+  // accident), and "New to Pitch? Create an account" follows the content
+  // inside the door instead of being pushed to the foot of the screen.
+  const w600 = (h) => /font-weight:\s*600/.test(bodyOf(h));
+  check('wi-r6: no font-weight 600 anywhere on Find your club, and sign-in’s "Create an account" is in the door, not pinned to the foot',
+    [listPages.map((p) => w600(pages[p].html)),
+     /<div class="orline">New to Pitch\? <a href="\/join">Create an account<\/a><\/div><\/div><\/main>/.test(bodyOf(pages['/signin'].html)),
+     /margin-top:\s*auto/.test(bodyOf(pages['/signin'].html))],
+    [listPages.map(() => false), true, false]);
+}
+
+// ---------------------------------------------------------------------------
 // addr-r1 — no page this crawl was served sends a share token into an address
 // bar: not in a redirect, and not in a link it carries (brief D; L38/L42).
 // ---------------------------------------------------------------------------

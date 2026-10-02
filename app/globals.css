@@ -2117,3 +2117,84 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .cv-invite { padding-top: 12px; }
 .cv-invite-sent { display: flex; align-items: center; min-height: 44px; font-size: 13px; font-weight: 800; color: var(--secondary); }
 @media (min-width: 1024px) { .cv-invite .btn { width: auto; padding: 0 22px; } }
+
+/* ===========================================================================
+   THE WAYS IN — /join, /signin, /claim and /claim/[slug], Floodlit (approved
+   by BUZ 1 Oct with P1–P4 and the copy fixes: floodlit-join-signin-claim.html
+   on design/player-cv). One idea: a form is a door, a list is a page. Every
+   step that asks for something sits in the door panel (part 20); Find your
+   club is a list, so it sits on the page in the reading column (.door-col).
+   The top bar is SiteNav (part 5): the logo-only bar on the doors, the public
+   bar (Find your club · Trials · Sign in) on /claim (P2). On a phone there is
+   no panel: the 390 artboard is the column as drawn.
+   --------------------------------------------------------------------------- */
+.door-page { min-height: 100dvh; display: flex; flex-direction: column; color: var(--ink); }
+.door-flow { flex: 1; padding-top: 22px; padding-bottom: 40px; }
+.door-col { width: 100%; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+@media (min-width: 1024px) { .door-col { max-width: 640px; margin-top: 26px; } }
+.door-col .fl-search { max-width: none; }
+.door-hd { display: flex; flex-direction: column; gap: 7px; }
+.door-kick { font-size: 11px; font-weight: 800; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--accent); }
+.door-h1s { font-size: 22px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.2; }
+.door-h24 { font-size: 24px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.2; }
+.door-form { display: flex; flex-direction: column; gap: 18px; }
+.door-stack { display: flex; flex-direction: column; gap: 9px; }
+.door-small { font-size: 12px; font-weight: 500; color: var(--muted); line-height: 1.5; }
+.door-small b { color: var(--secondary); font-weight: 700; }
+/* A note in a door: a panel with a state edge (part 11), at the note's size. */
+.door-note { font-size: 12.5px; font-weight: 500; color: var(--secondary); line-height: 1.55; padding: 13px 14px; }
+.door-note b { color: var(--ink); font-weight: 800; }
+.door-note-l { font-size: 13.5px; font-weight: 700; color: var(--secondary); line-height: 1.5; padding: 13px 14px; }
+/* The sunken well with its icon: read this, nothing to press. */
+.door-info { display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; font-weight: 500; color: var(--muted); line-height: 1.55; }
+.door-info.is-sec { color: var(--secondary); }
+.door-info b { color: var(--ink); font-weight: 800; }
+.door-info svg { flex-shrink: 0; margin-top: 1px; }
+/* "Forgotten your password? Reset it": each link is a 44px target (audit
+   2 Oct, G-C8: they were 14px tall, and they are this page's other doors). */
+.orline { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; column-gap: 6px; min-height: 44px; font-size: 13px; font-weight: 700; color: var(--muted); text-align: center; }
+.orline a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 800; color: var(--accent); text-decoration: none; }
+.door-rule { height: 1px; background: var(--line); border: 0; margin: 0; }
+/* The consent tick: the label is the target, 44px (D-147). */
+.tick { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--muted); }
+.tick input { width: 17px; height: 17px; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
+.tick a { color: var(--accent); font-weight: 700; text-decoration: none; }
+/* The country and role cards are the choice card (THE CLUB DEMO's .choice).
+   The country rows are one line, so they take the 44px floor, not 64. The
+   picked role carries the accent edge; inside a door the card goes up one
+   step and drops its shadow, as .door .card does. */
+.choice.is-line { min-height: 44px; }
+.choice.on { border: 1.5px solid var(--accent); padding: 14.5px 13.5px; }
+.choice.on .ic { background: rgba(61,220,132,.14); color: var(--accent); }
+.choice .s-m { font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+@media (min-width: 640px) { .door .choice { background: var(--surface-2); box-shadow: none; } .door .choice:not(.on) .ic { background: var(--surface-hover); } }
+.door-ticks { display: flex; flex-direction: column; gap: 9px; }
+.door-ticks > div { display: flex; align-items: flex-start; gap: 9px; font-size: 12.5px; font-weight: 500; color: var(--secondary); line-height: 1.5; }
+.door-ticks svg { flex-shrink: 0; margin-top: 2px; }
+/* The club, named on the claim and on the sign-in door that carries it (F7):
+   the club page's initials tile, dashed while unclaimed (D-172: never an
+   image), and the Unclaimed pill. */
+.clubrow { display: flex; align-items: center; gap: 12px; }
+.clubrow-n { font-size: 16px; font-weight: 800; }
+.clubrow-w { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.club-tile { width: 52px; height: 52px; border-radius: var(--r-card); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 900; color: var(--secondary); background: var(--surface-2); }
+.club-tile.empty-tile { border-radius: var(--r-card); background: rgba(255,255,255,.04); }
+.club-addr { margin-top: 3px; font-size: 14px; font-weight: 800; color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+/* The claim code: one field, not six boxes, so paste and the phone's
+   one-time-code autofill work with no JavaScript. The digits are the 34px
+   display numeral. */
+.field input.claim-code { font-size: 34px; font-weight: 900; letter-spacing: var(--ls-caps); font-variant-numeric: tabular-nums; min-height: 44px; }
+.field input.claim-code::placeholder { color: var(--placeholder); opacity: .45; font-weight: 900; }
+.field.is-code { padding: 12px 14px; }
+/* Find your club: a result is a lifted row; the Claim in it is a primary
+   at the charter's 50px, never forced to 44 (audit 2 Oct #9), and it never
+   glows (a button in a row, ruling 1). */
+.result { display: flex; align-items: center; gap: 12px; padding: 15px 16px; }
+.result-n { font-size: 15px; font-weight: 800; }
+.result-w { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.result-taken { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+/* "Not here? Tell us your club" signed in: a form, so from 640 it is a panel. */
+.tellus { display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 640px) { .tellus { padding: 24px 24px 26px; background: var(--fl-surface); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-card); } }
+/* The text button standing alone under a form (Send it again), part 18. */
+button.pg-back { background: none; border: 0; padding: 0 8px 0 0; font-family: inherit; cursor: pointer; }

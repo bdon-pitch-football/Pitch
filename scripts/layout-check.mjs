@@ -795,6 +795,72 @@ for (const width of [390, 1280]) {
 }
 
 // ---------------------------------------------------------------------------
+// THE WAYS IN, MEASURED (2 Oct: floodlit-join-signin-claim.html, BUZ 1 Oct).
+// The post-release audit measured /join, /signin and /claim with the logo
+// top right of a 604px column at 1280 (left 877, right 338) and 68–87% of
+// the first screen empty. What only a browser can say, at every width this
+// run was given:
+//   · wi-l1  the logo is the top bar's, a link home, at the top: from 1024 it
+//            leads the bar on the left; below 1024 it sits on the right
+//            (D-173 (3)) — within 40px of that edge (G-C10).
+//   · wi-l2  a door is a lifted panel from 640 (part 20: background and the
+//            floating shadow); on a phone it is the column as drawn. Find
+//            your club is a list, on the page, in no panel.
+//   · wi-l3  exactly one glow is drawn, and it is on screen-visible ground.
+//   · wi-l4  on sign-in, "New to Pitch? Create an account" follows the
+//            content, within 40px of the well above it — it was pinned to the
+//            foot of the screen, ~590px below it at 820 (audit #11).
+// ---------------------------------------------------------------------------
+const waysFails = [];
+let waysChecked = 0;
+const WAYS = [
+  ['/signin', null, 'door'], ['/signin?claim=westgate-rangers', null, 'door'], ['/join', null, 'door'],
+  ['/claim', null, 'list'], ['/claim?q=rovers', null, 'list'],
+  ['/claim/westgate-rangers', ids.people.robin, 'door'], ['/claim/westgate-rangers?sent=1', ids.people.robin, 'door'],
+  ['/claim/westgate-rangers?claimed=1', ids.people.robin, 'door'],
+];
+const WAYS_MEASURE = `JSON.stringify((() => {
+  const vw = document.documentElement.clientWidth;
+  const bar = document.querySelector('header.fl-nav');
+  const brand = bar?.querySelector('a.fl-nav-brand[href="/"]');
+  const b = brand?.getBoundingClientRect(), hb = bar?.getBoundingClientRect();
+  const door = [...document.querySelectorAll('.door')].filter((d) => d.getBoundingClientRect().height > 0);
+  const ds = door[0] ? getComputedStyle(door[0]) : null;
+  const glows = [...document.querySelectorAll('.fl-glow')].filter((g) => { const r = g.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+  const info = document.querySelector('.door .door-info');
+  const lines = [...document.querySelectorAll('.door .orline')];
+  const foot = lines[lines.length - 1];
+  return { vw, bar: Boolean(hb), brand: b ? { l: Math.round(b.left), r: Math.round(vw - b.right), t: Math.round(b.top - hb.top), inBar: b.bottom <= hb.bottom + 1 } : null,
+    leftmost: bar ? Math.min(...[...bar.querySelectorAll('a, button')].filter((e) => e.getBoundingClientRect().width > 0).map((e) => Math.round(e.getBoundingClientRect().left))) : null,
+    doors: door.length, panel: ds ? { bg: ds.backgroundImage !== 'none' || ds.backgroundColor !== 'rgba(0, 0, 0, 0)', shadow: ds.boxShadow !== 'none' } : null,
+    col: Boolean(document.querySelector('.door-col')), glows: glows.length,
+    footGap: info && foot ? Math.round(foot.getBoundingClientRect().top - info.getBoundingClientRect().bottom) : null };
+})())`;
+for (const width of widths) {
+  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
+  for (const [path, who, kind] of WAYS) {
+    await cdp('Network.clearBrowserCookies');
+    if (who) await cdp('Network.setCookie', { name: 'pitch_session', value: cookieFor(who), url: BASE });
+    await visit(path);
+    await cspDrain(width, who ? 'brand new' : 'signed out', path);
+    const m = await eval_(WAYS_MEASURE);
+    const bad = (what) => waysFails.push({ width, path, what });
+    waysChecked++;
+    if (!m.bar || !m.brand) bad('wi-l1 no top bar with the logo as a link home');
+    else if (!m.brand.inBar || m.brand.t > 16) bad(`wi-l1 the logo is not at the top of the bar (${m.brand.t}px down)`);
+    else if (width >= 1024 && (m.brand.l !== m.leftmost || m.brand.l > (m.vw - Math.min(m.vw, 1200)) / 2 + 41)) bad(`wi-l1 from 1024 the logo leads the bar on the left — it is ${m.brand.l}px from the left, the bar's first control at ${m.leftmost}`);
+    else if (width < 1024 && m.brand.r > 40) bad(`wi-l1 below 1024 the logo sits top right — it is ${m.brand.r}px from the right edge`);
+    if (kind === 'door') {
+      if (m.doors !== 1) bad(`wi-l2 ${m.doors} door panels drawn, not 1`);
+      else if (width >= 640 && !(m.panel.bg && m.panel.shadow)) bad('wi-l2 from 640 the door is not a lifted panel (no surface or no floating shadow)');
+      else if (width < 640 && m.panel.shadow) bad('wi-l2 on a phone the door is the column as drawn, not a panel');
+    } else if (m.doors !== 0 || !m.col) bad(`wi-l2 Find your club is a list on the page: ${m.doors} door panels, reading column ${m.col}`);
+    if (m.glows !== (path === '/join' ? 0 : 1)) bad(`wi-l3 ${m.glows} glows drawn`);
+    if (path.startsWith('/signin') && (m.footGap === null || m.footGap > 40)) bad(`wi-l4 "Create an account" is ${m.footGap}px below the well above it — pinned, not following the content`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // TWO THINGS BUZ SAW IN THE WALKTHROUGH (brief H, 29 Sep), which only a
 // browser can see.
 //   · st1  A stat tile counted up from 0, so for a moment a child's CV said
@@ -1032,6 +1098,8 @@ for (const f of ringFails) {
 }
 console.log(`join pass    · ${joinChecked} presses on /join at 390 and 1280 — Continue is never silent, the role chips are named what they show, and Somewhere else has a way back`);
 for (const f of joinFails) console.log(`FAIL ${f.width}px · /join — ${f.what}`);
+console.log(`ways in      · ${waysChecked} views of /signin, /join, /claim and /claim/[slug] — the logo is the bar's (left from 1024, right below), a door is a panel from 640 and a list is not, one glow, and sign-in's foot follows its content`);
+for (const f of waysFails) console.log(`FAIL ${f.width}px · ${f.path} — ${f.what}`);
 console.log(`walkthrough  · ${motionChecked} views at 390 and 1280 — a stat tile shows only its real value from the first frame and is still under reduced motion, and a Premium tap lands with its answer in view`);
 for (const f of motionFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 for (const f of labelFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — ${f.labels.length} .field-label not at 10px: ${f.labels.map((l) => `"${l.text}" ${l.size}/${l.weight}`).join(', ')}`);
@@ -1057,7 +1125,7 @@ const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what}
   (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
 console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
 for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
-const chromeBad = sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length + motionFails.length;
+const chromeBad = sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + waysFails.length + squeezeKeys.length + motionFails.length;
 if (failures.length === 0 && chromeBad === 0) {
   console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, a Premium tap lands in view, and the call sheet keeps its claim and TD where the operator can see them');
   process.exit(0);
@@ -1067,5 +1135,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, ways in ${waysFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length})`);
 process.exit(1);

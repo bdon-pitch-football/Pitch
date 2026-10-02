@@ -2,20 +2,23 @@
 // taps their club and claims it (/claim/[slug], unchanged: the code goes to
 // the club's own public address, and verification is still a phone call,
 // D-126). A club that is not listed can be asked for; BUZ adds it (0159).
+//
+// Floodlit (BUZ, 1 Oct: floodlit-join-signin-claim.html #c-start … #c-asked,
+// P2). A list is a page, so this sits on the page in the reading column, not
+// in a door panel. The bar is the public one (Find your club · Trials · Sign
+// in, as on / and the club page), and the search is the front door's light
+// field in the same words, so the club that typed on / lands on the same
+// field. Search is the one glow; a Claim in a result row never glows.
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
-import { HeaderMark } from '@/components/Wordmark';
-import { T } from '@/lib/palette';
-import { card, sectionLabel as label } from '@/lib/ui';
+import SiteNav from '@/components/floodlit/SiteNav';
 import { askForClub } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Find your club', robots: { index: false, follow: false } };
 
 type Row = { name: string; suburb: string | null; state: string | null; public_slug: string; club_state: string };
-
-const input = { background: 'transparent', border: 'none', color: T.ink, fontSize: 15, fontWeight: 600, padding: 0, width: '100%', minHeight: 44, fontFamily: 'inherit' } as const;
 
 export default async function FindYourClub({ searchParams }: {
   searchParams: Promise<{ q?: string; asked?: string; club?: string }>;
@@ -27,90 +30,93 @@ export default async function FindYourClub({ searchParams }: {
   const searched = q.length >= 2;
 
   return (
-    <div className="floodlight" style={{ minHeight: '100dvh', color: T.ink, display: 'flex', justifyContent: 'center' }}>
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.015em' }}>Find your club</h1>
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500, lineHeight: 1.55 }}>
-            Search for your club, then claim its page. We email a code to the club&rsquo;s own address to check it&rsquo;s you.
+    <div className="floodlight has-topbar door-page">
+      <SiteNav signIn={!me} links={[{ href: '/claim', label: 'Find your club', current: true }, { href: '/trials', label: 'Trials' }]} />
+      <main className="fl-wide door-flow">
+        <div className="door-col">
+          <div className="door-hd">
+            <h1 className="pg-title">Find your club</h1>
+            <div className="pg-sub">
+              Search for your club, then claim its page. We email a code to the club&rsquo;s own address to check it&rsquo;s you.
+            </div>
           </div>
-        </div>
 
-        {asked === 'ok' && (
-          <div role="status" style={{ ...card, border: `1px solid ${T.accent}`, fontSize: 13.5, fontWeight: 600, color: T.secondary, lineHeight: 1.5 }}>
-            Thanks. We&rsquo;ll add {club || 'your club'} within a day. Search for it here then, and press Claim.
-          </div>
-        )}
+          {asked === 'ok' && (
+            <div role="status" className="card card-accent door-note-l">
+              Thanks. We&rsquo;ll add {club || 'your club'} within a day. Search for it here then, and press Claim.
+            </div>
+          )}
 
-        <form method="get" action="/claim" role="search" style={{ display: 'flex', gap: 10 }}>
-          <div style={{ ...card, flex: 1, display: 'flex', alignItems: 'center' }}>
-            <input id="club-q" name="q" aria-label="Club name or suburb" defaultValue={q} placeholder="Club name or suburb" autoComplete="off" minLength={2} maxLength={80} style={{ ...input, minHeight: 44 }} />
-          </div>
-          <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0 20px' }}>Search</button>
-        </form>
+          <form method="get" action="/claim" role="search" className="fl-search">
+            <label className="fl-search-field">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}><circle cx="11" cy="11" r="6.5" /><path d="M20 20 L15.8 15.8" /></svg>
+              <input id="club-q" name="q" aria-label="Club name or suburb" defaultValue={q} placeholder="Club name or suburb" autoComplete="off" minLength={2} maxLength={80} />
+            </label>
+            <button type="submit" className="btn btn-primary fl-glow">Search</button>
+          </form>
 
-        {searched && rows.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {rows.map((c) => (
-              <div key={c.public_slug} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{c.name}</div>
-                  <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{[c.suburb, c.state].filter(Boolean).join(' ')}</div>
+          {searched && rows.length > 0 && (
+            <div className="stack8" style={{ gap: 10 }}>
+              {rows.map((c) => (
+                <div key={c.public_slug} className="fl-card result">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="result-n">{c.name}</div>
+                    <div className="result-w">{[c.suburb, c.state].filter(Boolean).join(' ')}</div>
+                  </div>
+                  {c.club_state === 'unclaimed'
+                    ? <Link href={`/claim/${c.public_slug}`} className="btn btn-primary btn-auto">Claim</Link>
+                    : <div className="result-taken">Already claimed</div>}
                 </div>
-                {c.club_state === 'unclaimed'
-                  ? <Link href={`/claim/${c.public_slug}`} className="btn btn-primary" style={{ width: 'auto', padding: '0 18px', height: 44, display: 'inline-flex', alignItems: 'center' }}>Claim</Link>
-                  : <div style={{ fontSize: 12.5, fontWeight: 700, color: T.muted }}>Already claimed</div>}
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {searched && rows.length === 0 && (
-          <div style={{ fontSize: 14, color: T.secondary, fontWeight: 500 }}>We couldn&rsquo;t find &ldquo;{q}&rdquo;.</div>
-        )}
+          {searched && rows.length === 0 && (
+            <div className="pg-sub">We couldn&rsquo;t find &ldquo;{q}&rdquo;.</div>
+          )}
 
-        {(searched || asked) && asked !== 'ok' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={label}>Not here? Tell us your club</div>
-            {asked && asked !== 'ok' && (
-              <div role="alert" style={{ ...card, border: `1px solid ${T.amber}`, fontSize: 13, fontWeight: 700, color: T.secondary }}>
-                {asked === 'listed' ? 'That club is already listed. Search for it above.'
-                  : asked === 'many' ? 'You’ve already asked for three clubs. We’ll get to them soon.'
-                  : asked === 'account' ? 'Confirm your email address first, then ask again.'
-                  : 'Check the club’s name, suburb and email address.'}
-              </div>
-            )}
-            {me ? (
-              <form action={askForClub} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <label htmlFor="ask-name" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={label}>Club name</span>
-                  <input id="ask-name" name="name" required minLength={2} maxLength={120} defaultValue={searched ? q : ''} style={input} />
-                </label>
-                <label htmlFor="ask-suburb" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={label}>Suburb</span>
-                  <input id="ask-suburb" name="suburb" required minLength={2} maxLength={80} style={input} />
-                </label>
-                <label htmlFor="ask-state" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={label}>State</span>
-                  <select id="ask-state" name="state" defaultValue="VIC" style={{ ...input, appearance: 'auto' }}>
-                    <option value="VIC">Victoria</option>
-                    <option value="NSW">New South Wales</option>
-                  </select>
-                </label>
-                <label htmlFor="ask-email" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={label}>The club&rsquo;s email address</span>
-                  <input id="ask-email" name="email" type="email" required maxLength={254} style={input} />
-                  <span style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>The club&rsquo;s own address, the one on its website. We send the claim code there.</span>
-                </label>
-                <button type="submit" className="btn btn-primary">Send</button>
-              </form>
-            ) : (
-              <Link href="/signin" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Sign in to tell us your club</Link>
-            )}
-          </div>
-        )}
-      </div>
+          {(searched || asked) && asked !== 'ok' && (
+            <div className={me ? 'tellus' : 'stack8'} style={me ? undefined : { gap: 10 }}>
+              <div className="panel-h">Not here? Tell us your club</div>
+              {asked && asked !== 'ok' && (
+                <div role="alert" className="card card-amber door-note-l" style={{ fontSize: 13 }}>
+                  {asked === 'listed' ? 'That club is already listed. Search for it above.'
+                    : asked === 'many' ? 'You’ve already asked for three clubs. We’ll get to them soon.'
+                    : asked === 'account' ? 'Confirm your email address first, then ask again.'
+                    : 'Check the club’s name, suburb and email address.'}
+                </div>
+              )}
+              {me ? (
+                <form action={askForClub} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <label htmlFor="ask-name" className="field">
+                    <span className="field-label">Club name</span>
+                    <input id="ask-name" name="name" required minLength={2} maxLength={120} defaultValue={searched ? q : ''} />
+                  </label>
+                  <label htmlFor="ask-suburb" className="field">
+                    <span className="field-label">Suburb</span>
+                    <input id="ask-suburb" name="suburb" required minLength={2} maxLength={80} />
+                  </label>
+                  <label htmlFor="ask-state" className="field">
+                    <span className="field-label">State</span>
+                    <select id="ask-state" name="state" defaultValue="VIC">
+                      <option value="VIC">Victoria</option>
+                      <option value="NSW">New South Wales</option>
+                    </select>
+                  </label>
+                  <label htmlFor="ask-email" className="field">
+                    <span className="field-label">The club&rsquo;s email address</span>
+                    <input id="ask-email" name="email" type="email" required maxLength={254} />
+                    <span className="door-small" style={{ marginTop: 4 }}>The club&rsquo;s own address, the one on its website. We send the claim code there.</span>
+                  </label>
+                  <button type="submit" className="btn btn-primary">Send</button>
+                </form>
+              ) : (
+                <Link href="/signin" className="btn btn-secondary">Sign in to tell us your club</Link>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
