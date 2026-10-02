@@ -5415,7 +5415,8 @@ check('store5: the bucket is configurable, not hardcoded to one project',
     [rec, JSON.stringify({ firstName: 'Photo', photoPath: approvedPhoto })]);
   const servedBefore = (await db.query('select fn_approved_cv($1) as c', [rec])).rows[0].c;
   // The route's own statement, run as the route runs it — not a copy of it.
-  const stmt = /db\.query\(\s*`([^`]*update person set photo_path[^`]*)`/.exec(photoRouteRaw)?.[1];
+  // MOVED (2 Oct): the route writes through writeRecord, on its client.
+  const stmt = /(?:db|client)\.query\(\s*`([^`]*update person set photo_path[^`]*)`/.exec(photoRouteRaw)?.[1];
   const ran = stmt ? (await db.query(stmt, [rec, newPhoto])).rows : [];
   const servedAfter = (await db.query('select fn_approved_cv($1) as c', [rec])).rows[0].c;
   check('photo4: an under-16’s upload never touches what fn_approved_cv returns — the approved snapshot names the photo it was approved with, at an address the upload did not write',
@@ -5451,9 +5452,12 @@ check('store5: the bucket is configurable, not hardcoded to one project',
   // (publishGuardianChange, 0169), whose rule for a waiting child's change it
   // shares. And only an author uploads (N-10, doc 14 R12): a 16–17's
   // guardian may not set their photo.
-  check('photo8: the route asks authorship (recordAuthor, fn_record_author) and publishes a guardian\u2019s photo only through publishGuardianChange — no second publish path exists',
-    [/const who = await recordAuthor\(recordId\);/.test(photoRoute), /if \(who\.actor === 'guardian'\) await publishGuardianChange\(recordId, who\.personId, \{ set: \{ photoPath: rel \} \}\);/.test(photoRoute),
-     /recordActor\(/.test(codeOnly(photoRoute)), /publishGuardianPhoto/.test(cvBuildSrc + photoRoute)],
+  // MOVED (2 Oct, B): the route writes through writeRecord, the door every
+  // page write takes — the guardian's photo is published as its one change
+  // there, and the child's opens the waiting version there.
+  check('photo8: the route asks authorship (recordAuthor, fn_record_author) and writes only through writeRecord, handing over the photo as its one change — no second publish path exists',
+    [/const who = await recordAuthor\(recordId\);/.test(photoRoute), /await writeRecord\(recordId, who, async \(client\) => \{[\s\S]*?return \{ set: \{ photoPath: rel \} \};\s*\}\);/.test(photoRoute),
+     /recordActor\(|publishGuardianChange|db\.query\(\s*`[^`]*update person/.test(codeOnly(photoRoute)), /publishGuardianPhoto/.test(cvBuildSrc + photoRoute)],
     [true, true, false, false]);
   const pgc = /export async function publishGuardianChange[\s\S]*?\n\}\n/.exec(cvBuildSrc)?.[0] ?? '';
   // MOVED with B-1's race (2 Oct): the photos are read inside publishWith,
@@ -5507,6 +5511,9 @@ check('store5: the bucket is configurable, not hardcoded to one project',
     // write or carry a path, never draw it
     'app/build/[recordId]/photo/route.ts': 'writes', 'app/coach/edit/photo/route.ts': 'writes', 'lib/cv-build.ts': 'writes',
     'app/build/[recordId]/actions.ts': 'flag', 'lib/build-progress.ts': 'flag', 'lib/fixtures.ts': 'type', 'lib/player-photo.ts': 'rules',
+    // the parent's review (BUZ, 2 Oct): draws both sides of a photo change,
+    // minted after the guardian check; and the pure diff it reads
+    'app/g/pending/[recordId]/page.tsx': 'mints', 'lib/pending-diff.ts': 'rules',
     // reads the paths an erasure is about to unname, to delete the files (D-26)
     'app/g/controls/[childId]/actions.ts': 'erases',
   };
@@ -5524,7 +5531,7 @@ check('store5: the bucket is configurable, not hardcoded to one project',
   // Who mints at all: only those files, and never a card.
   const minters = tsSourceFiles().filter((f) => f !== 'lib/storage.ts' && /imageSrc\(/.test(srcCode(f))).sort();
   check(`photo13c: imageSrc is called only where a read has been allowed (${minters.join(', ')})`,
-    minters, ['app/build/[recordId]/page.tsx', 'app/coach/edit/page.tsx', 'app/home/page.tsx', 'components/player-shell.tsx', 'lib/record-read.ts']);
+    minters, ['app/build/[recordId]/page.tsx', 'app/coach/edit/page.tsx', 'app/g/pending/[recordId]/page.tsx', 'app/home/page.tsx', 'components/player-shell.tsx', 'lib/record-read.ts']);
 
   // D-89 (BUZ and Product Design, 1 Oct): no photo — public or signed — on
   // any card, for anyone under 18. Every card route, enumerated: the Open
@@ -13023,10 +13030,12 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     const ap = cvbF.slice(cvbF.indexOf('export async function approvePendingVersion('), cvbF.indexOf('export async function forgetPlayerPhoto('));
     const actionFiles = ['app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/actions.ts'].map((f) => codeOnly(srcOf(f)));
     check('bf-s2-1: a guardian’s clip, achievement or other-football write and its publication are ONE transaction with the record’s lock first (writeRecord); no action writes outside it or publishes on its own; and the approval takes the record’s lock before it touches a version, the order every version writer takes',
-      [/await client\.query\('begin'\);\s*await client\.query\('select 1 from development_record where id = \$1 for update', \[recordId\]\);\s*const patch = await write\(client\);\s*if \(author\.actor === 'guardian' && patch\) \(\{ replaced \} = await publishPatch\(client, recordId, author\.personId, patch, '2026'\)\);\s*await client\.query\('commit'\);/.test(wr),
+      // MOVED (2 Oct, B): the lock now comes with the age band, and a child's
+      // own write opens the waiting version in the same transaction.
+      [/await client\.query\('begin'\);\s*const band = \(await client\.query\(\s*`select fn_age_band\(p\.dob\) as band from development_record dr join person p on p\.id = dr\.person_id\s*where dr\.id = \$1 for update of dr`,[\s\S]*?const patch = await write\(client\);\s*if \(band === 'u16' && patch && author\.actor === 'guardian'\) \{\s*\(\{ replaced \} = await publishPatch\(client, recordId, author\.personId, patch, '2026'\)\);[\s\S]*?await client\.query\('commit'\);/.test(wr),
        actionFiles.map((src) => [/publishGuardianChange|db\.connect|db\.query\(\s*`(insert|delete)/.test(src)]),
        ap.indexOf("'select 1 from development_record where id = $1 for update'") > -1
-         && ap.indexOf("'select 1 from development_record where id = $1 for update'") < ap.indexOf('from profile_version where record_id=$1 and status=\'pending\' for update')],
+         && ap.indexOf("'select 1 from development_record where id = $1 for update'") < ap.indexOf("from profile_version where record_id=$1 and status='pending'")],
       [true, [[false], [false]], true]);
 
     // S-2 (b): an add is idempotent — a clip the child's own save already
@@ -13257,6 +13266,171 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const row = async (id) => (await db.query(`select to_address, encode(number_hash, 'hex') as h from message_outbox where id = $1`, [id])).rows[0];
   check('fp-30d: past 30 days a sent text keeps neither its address nor a fingerprint of the number; inside 30 days it keeps both, for support',
     [await row(old), await row(young)], [{ to_address: '', h: '00' }, { to_address: '+61400999000', h: fp.toString('hex') }]);
+}
+
+// ---------------------------------------------------------------------------
+// The full /g/pending review (BUZ, 2 Oct: the parent sees every change), every
+// child write opening the waiting version, and an edited stat losing its
+// verification (doc 14 D14; John, 2 Oct).
+// ---------------------------------------------------------------------------
+{
+  const one = async (sql, args = []) => (await db.query(sql, args)).rows[0];
+  const pd = await import('../lib/pending-diff.ts').catch(() => null);
+  const kindsOf = (a, p) => (pd ? pd.changedKinds(pd.pendingDiff(a, p)) : null);
+  const BASE = {
+    about: 'Left back.', photoPath: 'pitch-private:player/x-aa.jpg', positions: ['LB'], squadNumber: 3, foot: 'Left', surfacedStats: ['apps'],
+    stats: [{ season: '2026', key: 'apps', value: 12, provenance: 'coach_verified', verifiedClub: 'Riverside FC' }],
+    highlights: [{ title: 'Cup final', url: 'https://youtu.be/a' }], highlightsUsed: 1,
+    previousClubs: [{ orgName: 'Kingsway Rovers FC', period: '2024' }], achievements: [{ title: 'B&F', detail: null }],
+    otherFootball: [{ kind: 'futsal', orgName: 'Coburg Futsal', period: '2025', note: null }], club: 'Riverside FC',
+  };
+  const w = (over) => ({ ...BASE, ...over });
+  const EACH = {
+    about: w({ about: 'Left back, both feet.' }), photo: w({ photoPath: 'pitch-private:player/x-bb.jpg' }),
+    highlights: w({ highlights: [...BASE.highlights, { title: 'New clip', url: 'https://youtu.be/b' }], highlightsUsed: 2 }),
+    previousClubs: w({ previousClubs: [] }), achievements: w({ achievements: [...BASE.achievements, { title: 'Top scorer', detail: '2026' }] }),
+    otherFootball: w({ otherFootball: [] }), details: w({ squadNumber: 7 }),
+  };
+  check('pd-1: one section per kind that changed and no other — a waiting version that changes only the About, only the photo, only a clip, only a previous club, only an achievement, only other football or only a football detail renders exactly that section; all of them render all seven, in the page’s order; an identical one renders none',
+    [Object.entries(EACH).map(([k, p]) => [k, kindsOf(BASE, p)]),
+     kindsOf(BASE, { ...EACH.about, ...EACH.photo, highlights: EACH.highlights.highlights, previousClubs: [], achievements: EACH.achievements.achievements, otherFootball: [], squadNumber: 7, about: 'x' }),
+     kindsOf(BASE, { ...BASE })],
+    [Object.keys(EACH).map((k) => [k, [k]]), ['about', 'photo', 'highlights', 'previousClubs', 'achievements', 'otherFootball', 'details'], []]);
+  const d = pd ? pd.pendingDiff(BASE, w({ about: '', photoPath: 'pitch-private:player/x-cc.jpg' })) : null;
+  check('pd-2: a blank About with a changed photo renders the About and the photo — never "Nothing is waiting on you." because the About is blank (7b) — and the version with only a different club, name or highlight count renders nothing (not the child’s to change)',
+    [d ? pd.changedKinds(d) : null, kindsOf(BASE, w({ club: 'Kingsway Rovers FC', firstName: 'Other', highlightsUsed: 9 }))],
+    [['about', 'photo'], []]);
+  const det = pd ? pd.pendingDiff(BASE, w({
+    stats: [{ season: '2026', key: 'apps', value: 14, provenance: 'self_reported' }, { season: '2026', key: 'goals', value: 0, provenance: 'self_reported' }],
+    foot: null, positions: ['LB', 'CB'] })).details : null;
+  check('pd-3: Football details read "{label}: {old} → {new}" with the builder’s labels, "—" for empty and never a zero (a 0 stat is "—", and 0 → nothing is no change), and an edited stat’s new value shows as self-reported',
+    det, [{ label: 'Positions', from: 'Left back', to: 'Left back · Centre back', toProvenance: null },
+          { label: 'Preferred foot', from: 'Left', to: '—', toProvenance: null },
+          { label: 'Appearances', from: '12', to: '14', toProvenance: 'Self-reported' }]);
+  const school = pd ? pd.changedKinds(pd.pendingDiff(BASE, w({ otherFootball: [...BASE.otherFootball, { kind: 'school', orgName: 'St Kilda Secondary', period: '2026', note: null }] }))) : null;
+  const first = pd ? pd.changedKinds(pd.pendingDiff(null, w({ previousClubs: [], otherFootball: [] }))) : null;
+  const twice = pd ? pd.pendingDiff(BASE, w({ highlights: [...BASE.highlights, ...BASE.highlights] })).highlights.map((c) => [c.item.title, c.change]) : null;
+  check('pd-4: a school entry never renders or counts for an under-18 (D-161); with nothing approved yet, everything the waiting version holds is new; and a second copy of an entry is a change of its own',
+    [school, first, twice], [[], ['about', 'photo', 'highlights', 'achievements', 'details'], [['Cup final', 'added']]]);
+
+  // The page: sections from the diff alone; the empty state only when no kind
+  // changed; photos only at minted private addresses; clips only as façades.
+  const pg = codeOnly(srcOf('app/g/pending/[recordId]/page.tsx'));
+  const facade = (() => { try { return codeOnly(srcOf('app/g/pending/[recordId]/ClipFacade.tsx')); } catch { return ''; } })();
+  check('pd-5: /g/pending draws each section only from the diff, shows "Nothing is waiting on you." only when no waiting version differs, mints both photos as signed private addresses and never draws a public one, and draws every clip as a click-to-play façade — no iframe, no embed, nothing loaded on render',
+    [/if \(!done && \(!r\.pending_id \|\| kinds\.length === 0\)\)/.test(pg), /pending_about/.test(pg),
+     /const mint = async \(path: string \| null\) => \(path && isPrivatePhoto\(path\) \? await imageSrc\(path\) : null\);/.test(pg),
+     /<iframe|embed/i.test(pg + facade), /window\.open\(url, '_blank', 'noopener,noreferrer'\)/.test(facade),
+     ['diff.about &&', "diff.photo && section('The photo'", "section('Highlights'", "section('Clubs before this one'", "section('Achievements'", "section('Other football'", "section('Football details'"]
+       .map((x) => pg.indexOf(x)).every((i, k, a) => i > -1 && (k === 0 || i > a[k - 1]))],
+    [true, false, true, false, true, true]);
+
+  // Approve publishes EXACTLY the version drawn: the form carries its id and
+  // content hash, and the approval refuses a version that has moved.
+  const cvbP = codeOnly(srcOf('lib/cv-build.ts'));
+  const apSql = /`(select id from profile_version where record_id=\$1 and status='pending'[\s\S]*?for update)`/.exec(cvbP)?.[1];
+  const k1 = crypto.randomUUID(), r1 = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Vera',$2)`, [k1, yearsAgo(13)]);
+  await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [r1, k1]);
+  const pv = await one(`insert into profile_version (record_id, content, status) values ($1,'{"about":"Shown"}','pending') returning id, md5(content::text) as h`, [r1]);
+  const found = async (id, h) => { try { return apSql ? (await db.query(apSql, [r1, id, h])).rows.length : null; } catch { return 'no such statement'; } };
+  const shown = await found(pv.id, pv.h);
+  await db.query(`update profile_version set content = '{"about":"Shown","highlights":[{"title":"Later","url":"https://youtu.be/l"}]}' where id = $1`, [pv.id]);
+  const moved = await found(pv.id, pv.h);
+  const act = codeOnly(srcOf('app/g/pending/[recordId]/actions.ts'));
+  check('pd-6: approval publishes exactly the version the page drew — the form carries its id and content hash, the approval finds the waiting version only by both, a version the child changed since is refused, and a refused press lands back on the review',
+    [/name="version" value=\{`\$\{r\.pending_id\}:\$\{r\.pending_hash\}`\}/.test(pg), shown, moved, await found(crypto.randomUUID(), pv.h),
+     /redirect\(approved \? `\/g\/pending\/\$\{recordId\}\?done=1` : `\/g\/pending\/\$\{recordId\}`\);/.test(act)],
+    [true, 1, 0, 0, true]);
+
+  // A waiting version the guardian's change has made identical to the page
+  // holds nothing of the child's: it stops waiting. One that still holds
+  // something of theirs keeps waiting.
+  {
+    const kk = crypto.randomUUID(), rr = crypto.randomUUID(), gg = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,'Wyn',$2), ($3,'Wyn parent',$4)`, [kk, yearsAgo(13), gg, yearsAgo(40)]);
+    await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rr, kk]);
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [gg, kk]);
+    await db.query(`insert into profile_version (record_id, content, status, approved_at) values ($1,'{"about":"Old","foot":"Left"}','approved',now()),
+      ($1,'{"about":"Child new","foot":"Left"}','pending',null)`, [rr]);
+    const waiting = async () => (await one(`select count(*)::int as n from profile_version where record_id = $1 and status = 'pending'`, [rr])).n;
+    await db.query(`select fn_publish_guardian_change($1,$2,'{"set":{"foot":"Right"}}'::jsonb)`, [rr, gg]);
+    const stillWaits = await waiting();
+    await db.query(`select fn_publish_guardian_change($1,$2,'{"set":{"about":"Parent decided"}}'::jsonb)`, [rr, gg]);
+    check('pd-7: when the guardian\u2019s change leaves the waiting version identical to the page — the child\u2019s one change was a field the guardian then decided — nothing of the child\u2019s waits any more and the waiting version goes; while it still holds something of theirs, it waits',
+      [stillWaits, await waiting(), (await one(`select content from profile_version where record_id = $1 and status = 'approved'`, [rr])).content],
+      [1, 0, { foot: 'Right', about: 'Parent decided' }]);
+  }
+
+  // B: every write a child makes for themselves opens the waiting version,
+  // through the one path the build form's save uses.
+  const wrB = /export async function writeRecord[\s\S]*?\n\}\n/.exec(cvbP)?.[0] ?? '';
+  const saveB = cvbP.slice(cvbP.indexOf('export async function saveCvDraft('), cvbP.indexOf('export const EDIT_WAITING_TO'));
+  const route = codeOnly(srcOf('app/build/[recordId]/photo/route.ts'));
+  check('pb-1: a child’s own clip, achievement, other football and photo open the waiting version and tell the guardians, through the same submitChildChange the build form’s save uses — every clips and more action and the photo route write through writeRecord — so no change of a child’s waits unseen on the live record to ride the next save',
+    [/else if \(band === 'u16' && patch && author\.actor === 'self'\) \{[\s\S]*?replaced = await submitChildChange\(client, recordId, '2026'\);\s*waits = true;/.test(wrB),
+     /if \(waits\) await tellGuardiansItWaits\(recordId\);/.test(wrB),
+     /replaced\.push\(\.\.\.\(await submitChildChange\(client, recordId, draft\.season\)\)\);/.test(saveB),
+     (cvbP.match(/insert into profile_version \(record_id, content, status\)\s*values \(\$1, \$2, 'pending'\)\s*on conflict \(record_id\) where status = 'pending'\s*do update/g) ?? []).length,
+     /await writeRecord\(recordId, who,/.test(route)],
+    [true, true, true, 1, true]);
+
+  // ---- doc 14 D14: an edited verified stat is self-reported again ----
+  // Its own small world: a verified club, a squad, an under-16 in it, their
+  // guardian, and a WWCC-attested coach of that squad (as round B builds it).
+  const V = {};
+  for (const k of ['club', 'call', 'squad', 'kid', 'rec', 'guardian', 'coach', 'admin']) V[k] = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, dob) values ($1,'Dara',$2), ($3,'Dara parent',$4), ($5,'Dara coach',$4), ($6,'Dara admin',$4)`,
+    [V.kid, yearsAgo(13), V.guardian, yearsAgo(41), V.coach, V.admin]);
+  await db.query(`insert into club (id, name, club_state) values ($1,'D14 Park FC','claimed')`, [V.club]);
+  await db.query(`insert into verification_call (id, club_id, called_at, operator, number_called, number_source, outcome, policy_version)
+    values ($1,$2,now(),'BUZ','03 9000 0000','FV club directory','verified','27@v1.0')`, [V.call, V.club]);
+  await db.query(`update club set club_state='verified', verified_call_id=$1 where id=$2`, [V.call, V.club]);
+  await db.query(`insert into squad (id, club_id, name, age_group, competition_gender, season) values ($1,$2,'D14 U14','U14','boys','2026')`, [V.squad, V.club]);
+  for (const [p, role] of [[V.kid, 'player'], [V.coach, 'coach']]) {
+    await db.query(`insert into membership (person_id, club_id, squad_id, role) values ($1,$2,$3,$4)`, [p, V.club, V.squad, role]);
+  }
+  await db.query(`insert into membership (person_id, club_id, squad_id, role) values ($1,$2,null,'club_admin')`, [V.admin, V.club]);
+  await db.query(`insert into wwcc_attestation (person_id, club_id, attested_by) values ($1,$2,$3)`, [V.coach, V.club, V.admin]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [V.guardian, V.kid]);
+  await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CM'])`, [V.rec, V.kid]);
+  await db.query(`insert into profile_version (record_id, content, status, approved_at) values ($1,'{"about":"Dara","stats":[]}','approved',now())`, [V.rec]);
+  const upsert = /`(insert into player_stat \(record_id, season, stat_key, value, provenance\)[\s\S]*?do update set value = excluded\.value)`/.exec(cvbP)?.[1];
+  const sid = (await one(`insert into player_stat (record_id, season, stat_key, value, provenance) values ($1,'2026','goals',6,'self_reported') returning id`, [V.rec])).id;
+  const verify = async () => (await one('select fn_verify_stat($1, $2) as ok', [V.coach, sid])).ok;
+  const stat = async () => one(`select value, provenance, verified_club_id is not null as club, verified_by is not null as coach, verified_at is not null as at from player_stat where id = $1`, [sid]);
+  const save = async (v) => db.query(upsert, [V.rec, '2026', 'goals', v]);
+  const v0 = await verify();
+  await save(6);
+  const same = await stat();
+  await save(9);
+  const changed = await stat();
+  const history = await one(`select count(*)::int as n from player_stat_history where record_id = $1`, [V.rec]);
+  check('D14: a player’s save that changes a coach-verified stat’s value makes it self-reported and drops the club, the coach and the date — the build form’s own statement — while a save of the same value keeps the verification; the coach’s number stays in the history',
+    [Boolean(upsert), v0, [same.value, same.provenance, same.club, same.coach, same.at], [changed.value, changed.provenance, changed.club, changed.coach, changed.at], history.n],
+    [true, true, [6, 'coach_verified', true, true, true], [9, 'self_reported', false, false, false], 1]);
+  // An under-16's guardian saving the form runs the same statement, and the
+  // patch they publish carries the entry as the page shows it — self-reported.
+  const reverified = await verify();
+  const before = await one(`select content->'stats' as s from profile_version where record_id = $1 and status = 'approved'`, [V.rec]);
+  await save(12);
+  const entries = (await one(`select coalesce(jsonb_agg(e), '[]'::jsonb) as e from jsonb_array_elements(fn_stat_public($1)) e where e->>'season' = '2026' and e->>'key' = 'goals'`, [V.rec])).e;
+  const published = (await one(`select fn_publish_guardian_change($1, $2, $3::jsonb) as r`,
+    [V.rec, V.guardian, JSON.stringify({ stats: { season: '2026', keys: ['goals'], entries } })])).r;
+  const onPage = (await one(`select e from profile_version pv, jsonb_array_elements(pv.content->'stats') e
+    where pv.record_id = $1 and pv.status = 'approved' and e->>'season' = '2026' and e->>'key' = 'goals'`, [V.rec]))?.e;
+  check('D14b: an under-16’s guardian changing a coach-verified stat’s value saves it self-reported too — the same statement — and the change they publish puts it on the page self-reported, with no verifying club',
+    [reverified, Boolean(before), (await stat()).provenance, published, onPage?.value, onPage?.provenance, onPage?.verifiedClub ?? null],
+    [true, true, 'self_reported', 'published', 12, 'self_reported', null]);
+  // A coach confirms a number only through fn_verify_stat, and has no other
+  // write: no author right on the page, and a value change in any session
+  // comes back self-reported.
+  const coachVerified = await verify();
+  await db.query(`update player_stat set value = 15 where id = $1`, [sid]);
+  check('D14c: a verified coach of the player’s squad holds the verify pen (fn_write_provenance) and confirms a number through fn_verify_stat, which keeps it coach-verified — but has no author right on the page (fn_record_author), and a changed value, whoever’s session writes it, comes back self-reported: no coach edits a number in their own name',
+    [(await one('select fn_write_provenance($1, $2) as p', [V.coach, V.rec])).p, coachVerified,
+     (await one('select fn_record_author($1, $2) as a', [V.coach, V.rec])).a, (await stat()).provenance],
+    ['coach_verified', true, null, 'self_reported']);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

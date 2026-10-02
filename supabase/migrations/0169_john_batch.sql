@@ -229,7 +229,8 @@ begin
   end if;
   if v_item is null or jsonb_typeof(v_item) <> 'object' then raise exception 'fn_cv_patch: no item'; end if;
 
-  if v_op = 'add' and exists (select 1 from jsonb_array_elements(coalesce(v->v_list, '[]'::jsonb)) e where e = v_item) then
+  if v_op = 'add' and exists (select 1 from jsonb_array_elements(coalesce(v->v_list, '[]'::jsonb)) e
+                              where jsonb_strip_nulls(e) = jsonb_strip_nulls(v_item)) then
     -- Already there: an add is idempotent, so a clip the guardian added that
     -- a child's own save then copied into the waiting version never lands
     -- in it twice (safety review of "parent's change only", S-2).
@@ -247,10 +248,12 @@ begin
       v := jsonb_set(v, array[v_list], coalesce(v->v_list, '[]'::jsonb) || jsonb_build_array(v_item), true);
     end if;
   else
-    -- One entry, the first equal to the item: never every look-alike.
+    -- One entry, the first equal to the item: never every look-alike. Equal
+    -- by its fields, a null and an absent key alike (a version written before
+    -- a field existed has no key for it).
     select (o - 1)::int into v_idx
       from jsonb_array_elements(coalesce(v->v_list, '[]'::jsonb)) with ordinality t(e, o)
-     where e = v_item order by o limit 1;
+     where jsonb_strip_nulls(e) = jsonb_strip_nulls(v_item) order by o limit 1;
     if v_idx is not null then v := v #- array[v_list, v_idx::text]; end if;
   end if;
   if v_list = 'highlights' then
@@ -287,6 +290,14 @@ begin
   end if;
 
   v_new := fn_cv_patch(v_old, p_patch);
+
+  -- A waiting version the guardian's change has made identical to the page
+  -- holds nothing of the child's any more — on the one field they both
+  -- touched, the guardian decided it (John's condition 2) — so it no longer
+  -- waits: nothing is left for /g/pending to show or for anyone to approve,
+  -- and /home stops saying something waits (BUZ, 2 Oct, the full review).
+  delete from profile_version where record_id = p_record and status = 'pending' and content = v_new;
+
   if v_new = v_old then return 'unchanged'; end if;
 
   update profile_version set status = 'superseded' where id = v_id;

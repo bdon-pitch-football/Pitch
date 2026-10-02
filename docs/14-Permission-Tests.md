@@ -136,6 +136,7 @@ The core table. **Read as: this actor, on a player in this age band, gets this.*
 | D11 | Edit an entry by anyone other than its author, at any time | **Denied** |
 | D12 | Write an entry referencing a competency by name/slug | **Rejected at the schema level.** Entries reference `(competency_id, framework_version)` only (D-71) |
 | D13 | Two entries for the same `(record_id, competency_id, block_id)` | **Permitted.** Assert no unique constraint exists — that absence is the moderation hook (D-71) |
+| D14 | A non-coach edit to a coach-verified stat's value — the player, or an under-16's guardian, saving a different number | **Provenance becomes `self_reported`** and the verification goes (no club, no coach, no date); the coach's number is kept in the stat history. A save that posts the same value changes nothing and keeps the verification. A verified coach of the player's squad confirms a number only through `fn_verify_stat`, which already holds that pen; no other path writes `coach_verified`, and no coach edits a value in their own name (John, 2 Oct; D-62, D-160, D-94 §3; 0083). The guardian's page review shows the new value as self-reported |
 
 ---
 

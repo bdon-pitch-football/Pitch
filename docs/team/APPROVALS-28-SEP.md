@@ -232,3 +232,16 @@ BUZ, 2 Oct: the parent's review screen (`/g/pending`) shows every change before 
 ## 2 Oct — the other guardian's approval line (BUZ, via Leo; John confirmed in `13-Board-Room/JOHN-to-LEO-two-confirmations-2-oct.md`)
 
 - When one guardian approves the child's waiting change, the OTHER guardian's family history on `/g/controls` says: **"{first name} approved a change."** The approver's first name only. The approver's own history keeps **"You approved a change"**. The approval event now names the child, so both reach the history (D-51, "both notified", by history, with no message). If the approver is no longer a guardian of the child, the other guardian sees the existing fallback "Something was recorded". (Builder: batch-fixes; checks bf-appr-1, bf-appr-w1.)
+
+## 2 Oct — the full /g/pending review (BUZ: "Yes", via Leo; design: floodlit-parent.html #sec-pend-all, artboards 7–7e; spec D)
+
+The parent sees every change a child's waiting version makes before approving it. The words, verbatim:
+
+- The sub under "{name} changed the page": **"Everything that changed is below. The rest stays exactly as you approved it."** It replaces "Only this change needs you. Everything else stays exactly as you approved it."
+- Section headings: **"The photo"** and **"Football details"**. The other headings are the builder's own: "The About section", "Highlights", "Clubs before this one", "Achievements", "Other football".
+- Row pills: **"Added"** and **"Removed"**.
+- The empty photo tile: **"No photo yet"**.
+- Unchanged: the ask head, "Until you approve it…", "Saying no leaves…", "Approve the change", "Not this one", and "Nothing is waiting on you." (which now shows only when no kind of change waits).
+- Field rows use the builder's labels ("Positions", "Number", "Preferred foot", and the stat names), with "—" for empty. A changed stat's new value carries the existing "Self-reported" tag.
+
+(Builder: batch-fixes; checks pd-1…pd-6, bf-pend-w0…w6.)

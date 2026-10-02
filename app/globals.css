@@ -1294,6 +1294,34 @@ h1, h2, h3, h4, h5, h6 {
 .pill-live  { background: rgba(61,220,132,.16);  color: var(--accent); }
 .pill-wait  { background: rgba(237,161,0,.16);   color: var(--amber); }
 .pill-guard { background: rgba(171,135,224,.16); color: var(--purple); }
+.pill-chg::before { display: none; }
+
+/* THE PENDING REVIEW (/g/pending, BUZ 2 Oct: every change; spec D,
+   floodlit-parent.html #sec-pend-all). Each changed kind is the About's own
+   purple diff card; inside it, the photo pair, the change rows and the
+   football-detail rows. Added/Removed are neutral pills: green is an action,
+   and a removal is not an error. */
+.row.chg { padding: 10px 0; min-height: 0; }
+.row.chg:first-child { padding-top: 0; }
+.row.chg:last-child { padding-bottom: 0; }
+.row-t.gone { color: var(--muted); text-decoration: line-through; font-weight: 500; }
+.ph-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ph-pair figure { margin: 0; min-width: 0; }
+.ph { aspect-ratio: 1 / 1; border-radius: var(--r-well); display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); overflow: hidden; background: var(--surface-2); color: var(--muted); }
+.ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ph-none { background: var(--surface-sunken); flex-direction: column; gap: 8px; font-size: 12px; font-weight: 700; text-align: center; padding: 8px; }
+.facade { min-width: 76px; height: 48px; box-sizing: border-box; flex-shrink: 0; border-radius: var(--r-well); background: var(--surface-sunken); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--secondary); font-size: 10px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; cursor: pointer; padding: 0 8px; font-family: inherit; }
+.facade:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.det { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 4px 10px; padding: 8px 0; }
+.det:first-child { padding-top: 0; }
+.det:last-child { padding-bottom: 0; }
+.det-l { font-size: 12.5px; font-weight: 700; color: var(--secondary); flex-shrink: 0; }
+.det-v { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 13.5px; line-height: 1.4; min-width: 0; }
+.det-o { color: var(--muted); }
+.det-o s { color: var(--muted); }
+.det-ar { color: var(--muted); }
+.det-n { color: var(--ink); font-weight: 700; }
+.det-p { font-size: 11.5px; font-weight: 500; color: var(--muted); }
 .pill-stop  { background: rgba(227,119,118,.16); color: var(--red); }
 /* A sentence-long state (the club seat card's "Awaiting verification —
    registrations are held"): it wraps, at the line's own 11px/800. */

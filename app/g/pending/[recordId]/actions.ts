@@ -31,8 +31,12 @@ export async function approveChange(formData: FormData) {
   // Guardian only. A child never approves their own edit, and silence never
   // publishes on its own.
   const { personId } = await requireRecordActor(recordId, ['guardian']);
-  await approvePendingVersion(recordId, personId);
-  redirect(`/g/pending/${recordId}?done=1`);
+  // EXACTLY the version the page drew (BUZ, 2 Oct; spec D): its id and a
+  // hash of its content ride in the form. If the child changed it since the
+  // page was rendered, nothing publishes and the parent is back on the
+  // review, which now draws the version that waits — no new words.
+  const approved = await approvePendingVersion(recordId, personId, String(formData.get('version') ?? ''));
+  redirect(approved ? `/g/pending/${recordId}?done=1` : `/g/pending/${recordId}`);
 }
 
 // Share-link issuance (D-53): >=128-bit random token, stored hashed; the raw
