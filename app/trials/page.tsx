@@ -222,9 +222,13 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
               </Link>
             ))}
-            <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 700, color: T.muted, padding: '0 4px' }}>
-              {trials.length} {trials.length === 1 ? 'trial' : 'trials'}
-            </div>
+            {/* D-162 (Product Design, 2 Oct): never "0 trials". With no trial
+                to count, the line below says so in words instead. */}
+            {trials.length > 0 && (
+              <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 700, color: T.muted, padding: '0 4px' }}>
+                {trials.length} {trials.length === 1 ? 'trial' : 'trials'}
+              </div>
+            )}
             {active.length > 1 && <Link href="/trials" style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', padding: '0 4px' }}>Clear</Link>}
           </div>
 
@@ -243,8 +247,11 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
           {/* The empty line is ONE element, its first sentence set as a title
               inside it, so it still reads as one sentence. N1 (BUZ, 1 Oct):
               "No trials listed yet." when nothing is chosen; the approved
-              "No trials listed for that yet." when something is. */}
-          {listings.length === 0 && (boardEmpty ? (
+              "No trials listed for that yet." when something is. Drawn where
+              the trial list would be whenever no TRIAL is shown, so a view
+              that leaves only expressions of interest says it in words and
+              they follow below it (Product Design, 2 Oct). */}
+          {trials.length === 0 && (boardEmpty ? (
             <div className="fl-card tb-emptyb">
               <div className="tb-art" aria-hidden><div className="fl-dash" /><div className="fl-dash" /><div className="fl-dash" /></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
@@ -255,7 +262,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
           ) : (
             <div className="fl-card tb-empty">
               <div className="fl-dash" aria-hidden />
-              <p><b>No trials listed for that yet.</b> An empty week is honest — we only list what a club has posted or published itself.</p>
+              <p><b>{active.length ? 'No trials listed for that yet.' : 'No trials listed yet.'}</b> An empty week is honest — we only list what a club has posted or published itself.</p>
             </div>
           ))}
           {doors && (

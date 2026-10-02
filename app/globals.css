@@ -1055,7 +1055,10 @@ h1, h2, h3, h4, h5, h6 {
 .fl-pitch-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .fl-rise { animation: rise .45s var(--ease) both; }
 @media (prefers-reduced-motion: reduce) { .fl-rise { animation: none; } }
-@media (max-width: 1023px) { .fl-aside-first-m { order: -1; } }
+/* An unclaimed page's claim panel comes FIRST in the DOM, so what a screen
+   reader reads is what a phone shows (post-release audit #6, ruled 2 Oct).
+   From 1024 it is placed in the right column; nothing is reordered. */
+@media (min-width: 1024px) { .fl-aside-first { grid-column: 2; grid-row: 1; } .fl-aside-first + .fl-main { grid-column: 1; grid-row: 1; } }
 
 /* ===========================================================================
    THE PLAYER CARD — the public CV, Floodlit (D-173 as extended 1 Oct: the CV
@@ -1723,7 +1726,9 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .fl-trial-date { text-align: center; padding-top: 1px; align-self: start; }
 .fl-trial-wd { font-size: 10px; font-weight: 900; letter-spacing: var(--ls-label); color: var(--muted); margin-bottom: 5px; }
 .fl-trial-day { font-size: 28px; color: var(--ink); }
-.fl-trial-mon { font-size: 10px; font-weight: 900; letter-spacing: var(--ls-label); color: var(--accent); margin-top: 5px; }
+/* The month is part of the date, not an action: muted, like the weekday
+   (D-173 (4): green is an action; post-release audit #5, ruled 2 Oct). */
+.fl-trial-mon { font-size: 10px; font-weight: 900; letter-spacing: var(--ls-label); color: var(--muted); margin-top: 5px; }
 .fl-trial-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .fl-trial-club { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 0; min-width: 0; }
 .fl-trial-cn { font-size: 16px; font-weight: 800; line-height: 1.3; min-width: 0; }

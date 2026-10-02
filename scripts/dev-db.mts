@@ -625,8 +625,9 @@ await db.query(
 // off through the operator's Remove before its sweep, because its crawl stops
 // at 60 pages a seat and every page a fixture adds moves which seat meets
 // Jordan's forms first (L32). The render and layout suites read them.
-const boardV2Notices: string[] = [];
-boardV2Notices.push((await db.query(
+const boardV2Notices: { club: string; id: string }[] = [];
+const v2 = (club: string, id: string) => boardV2Notices.push({ club, id });
+v2('westgate-rangers', (await db.query(
   `select fn_ops_add_notice($1, 'td@example.com', $2, 'U12 Boys trials', array['U12'], 'boys',
      greatest('2026-10-12'::date, (now() at time zone 'Australia/Melbourne')::date),
      'Mon 4:30 PM', 'Grant Reserve', '{}', 'https://westgaterangers.example.au/trials') as id`, [td, westgate])).rows[0].id as string);
@@ -634,7 +635,7 @@ for (const [title, ages, gender, url] of [
   ['Senior women expressions of interest', ['SEN'], 'women', 'https://westgaterangers.example.au/women'],
   ['U16 Girls expressions of interest', ['U16'], 'girls', 'https://westgaterangers.example.au/girls'],
 ] as const) {
-  boardV2Notices.push((await db.query(
+  v2('westgate-rangers', (await db.query(
     `select fn_ops_add_notice($1, 'td@example.com', $2, $3, $4::text[], $5,
        greatest('2026-11-30'::date, (now() at time zone 'Australia/Melbourne')::date + 30),
        'EOI closes', 'Online — see the club''s notice', '{}', $6) as id`, [td, westgate, title, [...ages], gender, url])).rows[0].id as string);
@@ -826,6 +827,15 @@ await db.query(`insert into club_slug_former (slug, club_id) select 'brindlewood
 const kestrelford = randomUUID();
 await db.query(`insert into club (id, name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
   values ($1,'Kestrelford Athletic SC','Preston','VIC','unclaimed','j.whitcombe@kestrelfordathletic.example.au','kestrelford-athletic-sc','club website /contact (fixture)', now())`, [kestrelford]);
+// Trials board v2 on the club page (Product Design, 2 Oct): an unclaimed club
+// whose only notice is an expression of interest — its page shows no "Trials
+// coming" and only the EOI block. Closing a week after Westgate's, so the
+// board's second section has an order to keep. Removed before the write
+// sweep with the other v2 fixtures (boardV2Notices, L32).
+v2('kestrelford-athletic-sc', (await db.query(
+  `select fn_ops_add_notice($1, 'td@example.com', $2, 'U14 Boys expressions of interest', array['U14'], 'boys',
+     greatest('2026-12-07'::date, (now() at time zone 'Australia/Melbourne')::date + 37),
+     'EOI closes', 'Online — see the club''s notice', '{}', 'https://kestrelfordathletic.example.au/eoi') as id`, [td, kestrelford])).rows[0].id as string);
 const wrenmoor = randomUUID();
 await db.query(`insert into club (id, name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
   values ($1,'Wrenmoor Wanderers FC','Altona','VIC','unclaimed','secretary@wrenmoorwanderers.example.au','wrenmoor-wanderers-fc','club website /contact (fixture)', now())`, [wrenmoor]);

@@ -23,13 +23,17 @@ export default function SiteFooter({ onFrontPage = false }: { onFrontPage?: bool
   // a report must never store one (0010). The CV page's own link sends the
   // token's hash instead.
   const safe = path && (/^\/(c|fc)\/[a-z0-9-]+$/.test(path) || ['/trials', '/jobs'].includes(path)) ? path : '';
+  // A club page carries its own one report link — the D-172 banner's on an
+  // unclaimed page, "Report this page" on any other — so the footer does not
+  // say it a second time (post-release audit #13, ruled 2 Oct: say it once).
+  const clubPage = Boolean(path && /^\/fc\/[a-z0-9-]+$/.test(path));
   return (
     <footer className="site-foot">
       {showsEntity(path) && <div>{ENTITY_LINE}</div>}
       <nav aria-label="Legal">
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
-        <a href={safe ? `/report?page=${encodeURIComponent(safe)}` : '/report'}>Report a page</a>
+        {!clubPage && <a href={safe ? `/report?page=${encodeURIComponent(safe)}` : '/report'}>Report a page</a>}
       </nav>
     </footer>
   );

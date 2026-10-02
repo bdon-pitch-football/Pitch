@@ -220,19 +220,23 @@ function check(name, actual, expected) {
 // the sweep walks the board it has always walked.
 // ---------------------------------------------------------------------------
 {
-  const op = ids.people.marina, westgate = ids.clubs['westgate-rangers'];
+  const op = ids.people.marina;
   const v2 = ids.boardV2Notices ?? [];
-  for (const id of v2) {
-    const rm = forms((await get(`/ops/clubs/${westgate}`, op)).html).find((f) => f.fields.notice_id === id && f.submit === 'Remove');
+  let removed = 0;
+  for (const { club, id } of v2) {
+    const screen = `/ops/clubs/${ids.clubs[club]}`;
+    const rm = forms((await get(screen, op)).html).find((f) => f.fields.notice_id === id && f.submit === 'Remove');
     if (!rm) continue;
     const fd = new FormData();
     for (const [k, v] of Object.entries(rm.fields)) fd.append(k, v);
-    await (await fetch(BASE + `/ops/clubs/${westgate}`, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(op) } })).text();
+    const r = await fetch(BASE + screen, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(op) } });
+    await r.text();
+    if (r.status === 303) removed++;
   }
   const board = (await get('/trials', null)).html;
-  check(`tv-w0: the seed's three board v2 notices are taken off before the sweep, and the board is the one it walked before them (${v2.length} removed)`,
-    [v2.length, board.includes('U12 Boys'), /class="tb-sec"/.test(board), (board.match(/<li\b[^>]*data-listing=""/g) ?? []).length],
-    [3, false, false, 4]);
+  check(`tv-w0: the seed's four board v2 notices (Westgate three, Kestrelford one) are taken off before the sweep, and the board is the one it walked before them (${removed} of ${v2.length} removed)`,
+    [v2.length, removed, board.includes('U12 Boys'), /class="tb-sec"/.test(board), (board.match(/<li\b[^>]*data-listing=""/g) ?? []).length],
+    [4, 4, false, false, 4]);
 }
 
 // ---------------------------------------------------------------------------
@@ -5173,7 +5177,9 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
       const out = plain((await get('/trials', null)).html);
       const line = /<p><b>No trials listed yet\.<\/b> An empty week is honest — we only list what a club has posted or published itself\.<\/p>/;
       check(`empty-w0: with every club that listed a notice suspended (${listed.join(', ') || 'none listed'}), the board is empty`,
-        [listed.length > 0, /(\d+) trials?</.exec(out)?.[1], /href="\/fc\/[^"]+#play"/.test(out)], [true, '0', false]);
+        // No count line at all, rather than "0 trials" (D-162; Product
+        // Design, 2 Oct): the empty line says it in words (empty-w1).
+        [listed.length > 0, /(\d+) trials?</.exec(out)?.[1] ?? null, /href="\/fc\/[^"]+#play"/.test(out)], [true, null, false]);
       check('empty-w1: the empty board shows no filters and no note about buttons that are not there, and says "No trials listed yet." as one sentence in one element (P3, N1)',
         [/trial-filters/.test(out), ['Age group', 'Competition', 'Positions wanted'].filter((g) => out.includes(g)), out.includes('the button on each listing'),
          line.test(out), out.includes('No trials listed for that yet.')],

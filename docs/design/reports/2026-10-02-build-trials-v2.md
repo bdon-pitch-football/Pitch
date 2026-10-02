@@ -139,3 +139,106 @@ Compared with the mockup's default state at 390 and 1280:
   - the "N" in the corner is `next dev`'s overlay.
 
 The servers are stopped, and `.next` and `.next-check` are deleted.
+
+---
+
+# Round two (2 Oct, afternoon): the Product Design rulings, the /fc split, and the audit's items
+
+Leo merged `app` (the live full release) into this branch as e826ec6, then sent three sets of instructions:
+- Product Design's rulings on round one's three calls;
+- the post-release audit's items that sit in these files;
+- a hold on Region and Distance.
+
+## Region and Distance: held, and nothing exists
+
+BUZ wants the trials filters approved as one package before any of it is built: Region, Distance, club level, and trials or EOIs. John had cleared the four location questions (`13-Board-Room/JOHN-to-PRODUCT-DESIGN-trials-location-four-answers-2-oct.md`). The hold came before any code was written:
+- **No Region or Distance code exists**, on this branch or any other, so there is no `build/trials-filters-wip` branch;
+- the only step taken was downloading the ABS 2021 allocation files and the suburbs-and-localities boundary file to the session scratchpad (outside the repo), to check the design's data was obtainable. It is (abs.gov.au, ASGS Edition 3). The files were deleted.
+
+**For whoever builds that package:**
+- The ABS data is CC BY 4.0, and the design notes it needs an attribution line on an about or credits page. **That line isn't among the approved words**, so it needs BUZ.
+- The design's region table has two single-council regions: Mornington Peninsula and Yarra Ranges. Neither names a single suburb, but John asked to see anything near that line.
+- "Bendigo" and "Ballarat" are each a region of 4–5 councils and also the name of a locality.
+
+## What changed
+
+| File | What |
+|---|---|
+| `app/trials/page.tsx` | **No "0 trials" (D-162):** the count line shows only when there is at least one trial. When no trial is shown, the empty card stands where the trial list would be: "No trials listed for that yet." with a filter, "No trials listed yet." without one. Both lines are approved. The EOI section follows below. |
+| `app/fc/[slug]/page.tsx` | **The /fc split:**<br>• notices are ordered by date, then start time (`groupByClubDay(...).flat()`, the board's one ordering rule);<br>• `isEoi` from `lib/trials-board` splits them, so the board and the club page can't disagree;<br>• "Trials coming" counts trials only and is hidden at zero;<br>• EOIs sit in their own `<section data-eoi-section>` under "Expressions of interest" and "By closing date.", below Trials, in the trials area;<br>• an unclaimed page with only EOIs shows no numeral and no Trials list;<br>• the row markup is shared, and "How to register" goes under the EOI card when there are no trials.<br><br>**The audit's items:**<br>• the numeral is `FMDD` ("7", not "07");<br>• "Trials coming" is ink;<br>• the month is muted (a claimed club's own trim still applies);<br>• on an unclaimed page the send panel's door is `.btn-secondary`, so the claim is the one glow and the one primary;<br>• the claim panel (the aside) is **first in the DOM** on an unclaimed page, so the reading order is the order a phone shows;<br>• there is one report link per club page. |
+| `app/globals.css` | `.fl-trial-mon` goes from accent to `var(--muted)`. This reaches every date block that uses the class: board, post-trial, `/home` and the hero preview. `.fl-aside-first-m { order: -1 }` is replaced by `.fl-aside-first`, which from 1024px places the aside in column 2 by grid placement; nothing is reordered. |
+| `components/SiteFooter.tsx` | On `/fc/<slug>` only, the footer drops "Report a page", because the club page carries its own one report link. Privacy and Terms stay. Every other page's footer is unchanged (B4, g32-r3). |
+| `scripts/dev-db.mts` | Kestrelford Athletic SC (fictional, unclaimed) gets one expression of interest: "U14 Boys expressions of interest", closing `greatest(7 Dec, today + 37)`. `boardV2Notices` is now `{club, id}` pairs. |
+| `scripts/render-tests.mjs` | tv3b rewritten, tb3 moved, and new tv6–tv13 (below). |
+| `scripts/write-tests.mjs` | tv-w0 now removes all four v2 fixtures through each club's ops screen. empty-w0 moved. |
+
+**One report link per club page, as built.** The ruling was "say it once, one quiet report link".
+- **An unclaimed page:** the D-172 banner's "Ask us to update or remove it" (U6 requires it). The mid-page "Report this page" and the footer's "Report a page" are gone.
+- **Any other club page:** the quiet "Report this page", now carrying the page's path (`page=%2Ffc%2F<slug>`, where it carried a bare slug). The footer's link is gone.
+- **For Product Design to confirm:** on unclaimed pages the one link is the banner's green link, not a quiet one. U6 needs that door, so I kept it rather than adding a second.
+
+**Round one's "Left" items now resolved on `/fc`:** EOIs among the trials and in the count, the "05" numeral, and insertion order within a day. Still untouched: `/home` (`chp-row`), the post-trial "Your trials" list and `ClubHeroPreview`. They have no weekday; their month is now muted through the shared class.
+
+## Strings
+
+**No new words.** These are now shown in new places:
+- "Expressions of interest" and "By closing date." on the club page;
+- "No trials listed for that yet." and "No trials listed yet." when only EOIs are shown.
+
+**Removed:**
+- "0 trials" / "{n} trials" when n is 0;
+- on club pages, the footer's "Report a page", plus the mid-page "Report this page" on unclaimed pages.
+
+## Tests, each shown red
+
+**Against the committed code (e826ec6),** with the new seed and suites: render went 834 passed, 6 failed, and the 6 were exactly these:
+
+| Check | What it holds | On the committed code |
+|---|---|---|
+| tb3 (moved) | Filtered to nothing, there is **no count line**, the filters, the note and the approved line. It was `'0'`, and is now `null` because the ruling removes "0 trials" (D-162). | `"0"` |
+| tv3b (rewritten) | Women: no count line, the approved line placed before the EOI section, the section with 1, no "0 trials" anywhere. Men: no count line, the approved line, no section. | `"0"`, no line |
+| tv6 | Westgate `/fc`: "Trials coming" = 2 (trials only), no EOI line in the Trials list, an EOI block below it with its heading and "By closing date.", 2 EOIs. | `"4"`, 4 trials, 0 EOIs |
+| tv7 | Westgate `/fc`, 12 Oct: U12 (4:30, written after) before U13 (5:30). | U13, U12, then the EOIs |
+| tv8 | Kestrelford (unclaimed, EOIs only): no "Trials coming", no Trials list, the EOI block after the D-172 banner, weekday present. | `"1"`, a Trials list |
+| tv9 | One helper: the only source in `app`, `components` and `lib` naming "EOI closes" is `lib/trials-board.ts`, and both pages import and call `isEoi`. | `/fc` doesn't use it |
+
+**Against the pre-audit markup** (this round's page, with the committed CSS and footer): render went 840 passed, 4 failed, exactly these:
+
+| Check | What it holds | On the pre-audit markup |
+|---|---|---|
+| tv10 | The `.fl-trial-mon` rule is muted or ink; every `/fc` month and the "Trials coming" numeral are the muted or ink token. | `var(--accent)`, `#3ddc84`, accent |
+| tv11 | No date numeral on `/trials` or five club pages starts with 0. | `/fc/kestrelford-athletic-sc 07` |
+| tv12 | Three unclaimed pages, signed out and as a parent: one glow and one primary (the claim); the claim before "Want to play here?", Trials and EOIs in the DOM; no `order: -1` rule left. | 2 primaries signed out, 3 as a parent, DOM order false |
+| tv13 | Exactly one `/report` link on each of five club pages: the banner's on unclaimed pages, "Report this page" with the path on the others. | 2–3 links each |
+
+**Mutation (M6):** `/fc` given its own copy of the EOI test (`/^EOI closes/`) instead of `isEoi`. tv9 went red, naming `app/fc/[slug]/page.tsx`. Removed.
+
+**write empty-w0 (moved):** the empty board has no count line (`null`; it was `'0'`). On the committed code it was red: `[true, "0", false]`.
+
+**Seen once, not mine, for Leo:**
+- In one of four write runs, **x2** reported `parent /g/pending/<id> "Approve the change"` as changed by another account's identical post.
+- That run had this round's board and club pages swapped back to the committed versions; `/g/pending` was not touched by either.
+- The other three runs were all green:
+  - this round's code: 664/664;
+  - the pure merged base e826ec6, with its own seed: 664/664;
+  - the final run: 664/664.
+- It looks intermittent, on the `/g/pending` code the merge brought in. Since x2 is an authorisation check on a child's pending change, it's worth a look by its owner.
+
+## The counts (round two, TRAINING order)
+
+| Step | Result |
+|---|---|
+| fresh reseed, perms | 2209 / 2209 |
+| render | 844 / 844 |
+| write | 664 / 664 |
+| reseed, next dev restarted, layout 375 1280 | 274 views, 0 failed; tb-foot 12 rows |
+| timing (dedicated 12 GB-heap dev server on 3391) | 23 passed, 1 inconclusive: **J61** (a held club's `/home` and `/club/register`, pages this change doesn't serve). It found no difference (p = 0.36 and 0.99) but resolved only 1.64/1.52 ms against the 0.8 target, at load average 7. Rerun alone on a fresh seed and a fresh 12 GB server (`TIMING_ROWS=J61 TIMING_MAX_ROUNDS=3000`): **4/4 green, resolution 0.86/0.82 ms**. That's a partial run, which the script says is never a gate result, so J61 should be confirmed on a quieter machine. |
+| reseed, palette, tsc, `.next-check` build, csp-prod, corpus, secret scan, gate coverage | ALL GREEN · 0 errors · built · 5/5 · 0 failures · clean · 267/267 |
+
+## Screens (round two)
+
+`docs/design/reports/2026-10-02-trials-v2-shots/`, untracked, all on the fresh seed after reseed 2:
+- `r2-trials-eoi-only-{390,1280}.png`: `/trials?gender=women`. The Women chip, the note, "No trials listed for that yet." where the trials would be, then "Expressions of interest 1". No count line.
+- `r2-fc-trials-and-eois-{390,1280}.png`: Westgate. "2 Trials coming" in ink, the claim panel first, Trials (U12 then U13, muted months), then the EOI block, then "Want to play here?" with the secondary "Sign in to send your CV". The footer shows Privacy and Terms only.
+- `r2-fc-eois-only-{390,1280}.png`: Kestrelford. No numeral and no Trials list, only the EOI block, "7 DEC" (not "07"), and the claim as the one glow.
+- `r2-trials-{390,1280}.png`: the full board with the muted month.
