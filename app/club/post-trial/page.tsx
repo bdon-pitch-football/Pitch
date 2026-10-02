@@ -77,10 +77,11 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
     // and only this club's own notice. Its button is inert and secondary.
     const shown = posted && trial && isUuid(trial) ? (await db.query(
       `select t.id, t.title, t.time_venue, upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
-         to_char(t.added_on, 'DD Mon') as listed, to_char(t.last_checked, 'DD Mon') as checked
+         upper(to_char(t.trial_on, 'Dy')) as wd,
+         to_char(t.added_on, 'FMDD Mon') as listed, to_char(t.last_checked, 'FMDD Mon') as checked
        from fn_trial_notices_advertised() t where t.id = $1 and t.club_id = $2 and t.source = 'club'`,
       [trial, c.id],
-    )).rows[0] as { id: string; title: string; time_venue: string; mon: string; day: string; listed: string; checked: string } | undefined : undefined;
+    )).rows[0] as { id: string; title: string; time_venue: string; mon: string; day: string; wd: string; listed: string; checked: string } | undefined : undefined;
     return (
       <ClubConsole active="post-trial">
         <div className="console cc-page">
@@ -89,9 +90,9 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
             <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: 'var(--ls-title)', lineHeight: 1.2 }}>{updated ? 'Saved. The change shows everywhere the trial does.' : 'Posted. It’s on your club page and the trials board now.'}</h1>
             {shown && (
               <div className="pt-posted">
-                <TrialRow id={shown.id} day={shown.day} mon={shown.mon}
-                  title={`${c.name} · ${shown.title.replace(' trials', '')}`} timeVenue={shown.time_venue}
-                  listed={shown.listed} checked={shown.checked} notice={null}
+                <TrialRow wd={shown.wd} day={shown.day} mon={shown.mon} club={c.name}
+                  lines={[{ id: shown.id, title: shown.title.replace(' trials', ''), timeVenue: shown.time_venue,
+                    listed: shown.listed, checked: shown.checked, notice: null }]}
                   clubState={c.club_state} slug={c.public_slug} inert />
               </div>
             )}

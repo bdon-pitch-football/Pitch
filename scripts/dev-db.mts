@@ -614,6 +614,32 @@ await db.query(
   `select fn_ops_add_notice($1, 'td@example.com', $2, 'U13 Boys trials', array['U13'], 'boys',
      greatest('2026-10-12'::date, (now() at time zone 'Australia/Melbourne')::date),
      'Mon 5:30 PM', 'Grant Reserve', '{}', 'https://westgaterangers.example.au/trials')`, [td, westgate]);
+// Trials board v2 (BUZ, 2 Oct): one row per club per day, and expressions of
+// interest in their own section. A second notice from the same club, the same
+// day and the same public notice — written AFTER the U13s but starting an hour
+// earlier, so the row has to order its lines by time, not by insertion. Then
+// two expressions of interest closing the same day from two different
+// notices, so each line keeps its own stamp and link. "EOI closes" is how the
+// desk writes one (the design's interim, until trial_notice carries a kind).
+// Their ids go to .dev-ids.json as boardV2Notices: the write suite takes them
+// off through the operator's Remove before its sweep, because its crawl stops
+// at 60 pages a seat and every page a fixture adds moves which seat meets
+// Jordan's forms first (L32). The render and layout suites read them.
+const boardV2Notices: { club: string; id: string }[] = [];
+const v2 = (club: string, id: string) => boardV2Notices.push({ club, id });
+v2('westgate-rangers', (await db.query(
+  `select fn_ops_add_notice($1, 'td@example.com', $2, 'U12 Boys trials', array['U12'], 'boys',
+     greatest('2026-10-12'::date, (now() at time zone 'Australia/Melbourne')::date),
+     'Mon 4:30 PM', 'Grant Reserve', '{}', 'https://westgaterangers.example.au/trials') as id`, [td, westgate])).rows[0].id as string);
+for (const [title, ages, gender, url] of [
+  ['Senior women expressions of interest', ['SEN'], 'women', 'https://westgaterangers.example.au/women'],
+  ['U16 Girls expressions of interest', ['U16'], 'girls', 'https://westgaterangers.example.au/girls'],
+] as const) {
+  v2('westgate-rangers', (await db.query(
+    `select fn_ops_add_notice($1, 'td@example.com', $2, $3, $4::text[], $5,
+       greatest('2026-11-30'::date, (now() at time zone 'Australia/Melbourne')::date + 30),
+       'EOI closes', 'Online — see the club''s notice', '{}', $6) as id`, [td, westgate, title, [...ages], gender, url])).rows[0].id as string);
+}
 
 // --- walkthrough states: one of each waiting card, so every journey has
 // something real to open. All fictional (doc 16 §4).
@@ -801,6 +827,15 @@ await db.query(`insert into club_slug_former (slug, club_id) select 'brindlewood
 const kestrelford = randomUUID();
 await db.query(`insert into club (id, name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
   values ($1,'Kestrelford Athletic SC','Preston','VIC','unclaimed','j.whitcombe@kestrelfordathletic.example.au','kestrelford-athletic-sc','club website /contact (fixture)', now())`, [kestrelford]);
+// Trials board v2 on the club page (Product Design, 2 Oct): an unclaimed club
+// whose only notice is an expression of interest — its page shows no "Trials
+// coming" and only the EOI block. Closing a week after Westgate's, so the
+// board's second section has an order to keep. Removed before the write
+// sweep with the other v2 fixtures (boardV2Notices, L32).
+v2('kestrelford-athletic-sc', (await db.query(
+  `select fn_ops_add_notice($1, 'td@example.com', $2, 'U14 Boys expressions of interest', array['U14'], 'boys',
+     greatest('2026-12-07'::date, (now() at time zone 'Australia/Melbourne')::date + 37),
+     'EOI closes', 'Online — see the club''s notice', '{}', 'https://kestrelfordathletic.example.au/eoi') as id`, [td, kestrelford])).rows[0].id as string);
 const wrenmoor = randomUUID();
 await db.query(`insert into club (id, name, suburb, state, club_state, contact_email, public_slug, listing_source, listed_at)
   values ($1,'Wrenmoor Wanderers FC','Altona','VIC','unclaimed','secretary@wrenmoorwanderers.example.au','wrenmoor-wanderers-fc','club website /contact (fixture)', now())`, [wrenmoor]);
@@ -1267,6 +1302,9 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
       // The every-kind waiting change (design audit, 2 Oct): Noemi's review
       // is /g/pending/<record>, signed in as <guardian>. Read by no suite.
       pendingReview,
+      // Trials board v2's three Westgate fixtures (above): the write suite
+      // removes them before its sweep (L32).
+      boardV2Notices,
       adultPlayers: (await db.query(
         `select p.id as person_id, dr.id as record_id from person p join development_record dr on dr.person_id = p.id
          where p.dob is not null and fn_age_band(p.dob) = '18plus' order by p.first_name, p.id`)).rows,

@@ -1085,6 +1085,38 @@ for (const path of ['/fc/brindlewood-rovers-sc', '/fc/kestrelford-athletic-sc', 
 }
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
 
+// tb-foot — THE SHORTER CARD (trials board v2, BUZ 2 Oct). Only a browser can
+// say the row's foot is one line: in every row whose foot holds the club's own
+// notice and the button, the two boxes share a line, each is a 44px target or
+// more (the notice link's box, not its words), and no divider sits above it.
+const footFails = [];
+let footChecked = 0;
+await cdp('Network.clearBrowserCookies');
+for (const width of widths) {
+  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
+  await visit('/trials');
+  const feet = await eval_(`JSON.stringify([...document.querySelectorAll('article.fl-trial')].map((a) => {
+    const f = a.querySelector(':scope > .fl-trial-foot');
+    if (!f) return { none: true };
+    const box = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return { t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) }; };
+    return { club: a.querySelector('.fl-trial-cn')?.textContent ?? '?', own: box(f.querySelector('.fl-own')), btn: box(f.querySelector('.btn')),
+      lineOwn: [...a.querySelectorAll('.fl-trial-line .fl-own')].map(box), divider: parseFloat(getComputedStyle(f).borderTopWidth) || 0 };
+  }))`);
+  for (const f of feet) {
+    footChecked++;
+    const bad = [];
+    if (f.none) bad.push('a row with no foot');
+    else {
+      if (f.divider) bad.push(`a ${f.divider}px divider above the foot`);
+      for (const [what, b] of [['the notice link', f.own], ['the button', f.btn], ...f.lineOwn.map((b) => ['a line\'s notice link', b])]) if (b && (b.h < 44 || b.w < 44)) bad.push(`${what} is ${b.w}x${b.h}`);
+      if (f.own && f.btn && (f.own.b <= f.btn.t || f.own.t >= f.btn.b)) bad.push(`the notice link (${f.own.t}–${f.own.b}) and the button (${f.btn.t}–${f.btn.b}) are not on one line`);
+    }
+    if (bad.length) footFails.push({ width, what: `tb-foot ${f.club ?? ''}: ${bad.join('; ')}` });
+  }
+  if (feet.length === 0) footFails.push({ width, what: 'tb-foot: /trials drew no rows to measure' });
+}
+await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
+
 stop();
 console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px (${failureChecks} of them failure-path views)`);
 console.log(`analytics    · ${analyticsRead} views read · started in ${analyticsOn} · it may start only for a signed-out visitor on the front door, /trials, /jobs or a club page, and must start there`);
@@ -1108,6 +1140,8 @@ for (const f of foldFails) console.log(`FAIL 375×667 · ${f.path} — ${f.missi
 console.log(`fold         · U5b: the unclaimed banner's first line inside the first screen at 375×667 on 3 unclaimed pages`);
 console.log(`call sheet   · cs1: ${sheetChecked} views — the claim and the TD in a 320px aside at ≥1024 with the claim kept in view, and one column claim → TD → form below it`);
 for (const f of sheetFails) console.log(`FAIL ${f.width}px · ${f.what}`);
+console.log(`trial rows   · tb-foot: ${footChecked} rows on /trials — no divider, the notice link and the button on one line, each a 44px target`);
+for (const f of footFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 // One line per distinct control, not one per view: the same component fails on
 // every screen it is on, at every width, and a hundred lines saying so is a
 // wall nobody reads.
@@ -1125,7 +1159,7 @@ const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what}
   (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
 console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
 for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
-const chromeBad = sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + waysFails.length + squeezeKeys.length + motionFails.length;
+const chromeBad = footFails.length + sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + waysFails.length + squeezeKeys.length + motionFails.length;
 if (failures.length === 0 && chromeBad === 0) {
   console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, a Premium tap lands in view, and the call sheet keeps its claim and TD where the operator can see them');
   process.exit(0);
@@ -1135,5 +1169,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, ways in ${waysFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, ways in ${waysFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length}, trial rows ${footFails.length})`);
 process.exit(1);

@@ -21,6 +21,7 @@ import SiteNav from '@/components/floodlit/SiteNav';
 import { clubTheme } from '@/lib/club-colours';
 import { T } from '@/lib/palette';
 import { sectionLabel } from '@/lib/ui';
+import { groupByClubDay, isEoi } from '@/lib/trials-board';
 import PublicAnalytics from '@/components/PublicAnalytics';
 
 export const dynamic = 'force-dynamic';
@@ -80,7 +81,8 @@ export default async function ClubPage({ params, searchParams }: {
        -- none at all while the club is suspended, of whatever class.
        (select coalesce(json_agg(json_build_object(
            'id', t.id, 'title', t.title, 'timeVenue', t.time_venue,
-           'mon', upper(to_char(t.trial_on, 'Mon')), 'day', to_char(t.trial_on, 'DD'),
+           'mon', upper(to_char(t.trial_on, 'Mon')), 'day', to_char(t.trial_on, 'FMDD'), 'wd', upper(to_char(t.trial_on, 'Dy')),
+           'on', to_char(t.trial_on, 'YYYY-MM-DD'),
            'how', t.how_to_register, 'checked', to_char(t.last_checked, 'FMDD Mon'),
            'notice', case when t.source <> 'club' then t.source_url end) order by t.trial_on), '[]'::json)
         from fn_trial_notices_advertised() t where t.club_id = c.id) as trials,
@@ -103,7 +105,18 @@ export default async function ClubPage({ params, searchParams }: {
   }
   const c = rows[0];
   const squads: { id: string; name: string; gender: string }[] = c.squads;
-  const trials: { id: string; title: string; timeVenue: string; mon: string; day: string; how: string | null; checked: string; notice: string | null }[] = c.trials;
+  type Notice = { id: string; title: string; timeVenue: string; mon: string; day: string; wd: string; on: string; how: string | null; checked: string; notice: string | null };
+  // Trials board v2, on the club page (Product Design, 2 Oct): the same
+  // split and the same order as the board. Within a day, by start time, not
+  // by the order they were written (lib/trials-board's one rule). An
+  // expression of interest is told by lib/trials-board's isEoi — the board's
+  // own test, so the two can never disagree — and leaves the trials for its
+  // own block, by closing date. "Trials coming" counts trials only.
+  const notices: Notice[] = groupByClubDay((c.trials as Notice[]).map((t) => ({
+    ...t, club_id: c.id as string, club_name: c.name as string, on_date: t.on, time_venue: t.timeVenue,
+  }))).flat();
+  const trials = notices.filter((t) => !isEoi(t.timeVenue));
+  const eois = notices.filter((t) => isEoi(t.timeVenue));
   const wanted: { title: string; detail: string | null }[] = c.wanted;
   const alumni: { line: string; detail: string | null }[] = c.alumni;
   const videos: { url: string; title: string }[] = c.videos;
@@ -143,7 +156,7 @@ export default async function ClubPage({ params, searchParams }: {
   const picked = squads.find((s) => s.id === squadParam) ?? null;
   // D-153: a trial chosen on the board or below travels into the registration,
   // so the club can invite to it — and on the free tier, invite at all.
-  const pickedTrial = trials.find((t) => t.id === trialParam) ?? null;
+  const pickedTrial = notices.find((t) => t.id === trialParam) ?? null;
   const squadQuery = `${picked ? `&squad=${picked.id}` : ''}${pickedTrial ? `&trial=${pickedTrial.id}` : ''}`;
   // An unclaimed listing has no register anybody reads. That family sends a CV.
   const onPitch = c.club_state === 'claimed' || c.club_state === 'verified';
@@ -159,13 +172,90 @@ export default async function ClubPage({ params, searchParams }: {
   const unclaimed = c.club_state === 'unclaimed';
   // One glow per screen, on the first primary in 390 reading order (spec A
   // part 18; Head of Product Design ruling 1). On an unclaimed page the claim
-  // card leads at 390 (.fl-aside-first-m), so it keeps the glow and the send
+  // card leads at 390 (.fl-aside-first, first in the DOM), so it keeps the glow and the send
   // panel's primary is the same button without it.
-  const playPrimary = unclaimed ? 'btn btn-primary' : 'btn btn-primary fl-glow';
+  // Post-release audit #6 (ruled 2 Oct): one primary as well as one glow —
+  // on an unclaimed page the send panel's door is the secondary.
+  const playPrimary = unclaimed ? 'btn btn-secondary' : 'btn btn-primary fl-glow';
   const place = [c.suburb, c.state].filter(Boolean).join(' ');
   // A claimed club's own colours (0160, D-173). null for an unclaimed or
   // suspended club, or one that has not picked any: Pitch's hero then.
   const theme = clubTheme({ primary: c.colour_primary, secondary: c.colour_secondary }, c.club_state);
+
+  // One notice on the page: the trials' rows and the expressions of
+  // interest are drawn alike, each linking to itself on the page (D-153).
+  const noticeRow = (t: Notice, i: number) => (
+    <div key={t.id} style={{ padding: '14px 0 8px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
+      <Link href={pickedTrial?.id === t.id ? `/fc/${slug}#play` : `/fc/${slug}?trial=${t.id}#play`} style={{ display: 'flex', alignItems: 'center', gap: 16, textDecoration: 'none', color: 'inherit', minHeight: 44 }}>
+        <div style={{ width: 54, textAlign: 'center', flexShrink: 0 }}>
+          {/* The weekday over the numeral, as the board draws it (BUZ, 2 Oct). */}
+          <div className="fl-trial-wd">{t.wd}</div>
+          <div className="numeral numeral-s tnum" style={{ fontSize: 28, color: T.ink }}>{t.day}</div>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', color: theme ? theme.trim : T.muted, marginTop: 3 }}>{t.mon}</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>{t.title}</div>
+          <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, marginTop: 2 }}>{t.timeVenue}</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={pickedTrial?.id === t.id ? T.accent : T.muted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}><path d="M9 6 l6 6 l-6 6" /></svg>
+      </Link>
+      {/* John, 30 Sep: "last checked" is visible to the reader, and a
+          notice Pitch compiled links to the club's own notice —
+          labelled as the club's, opening the club's own page, never
+          styled as a Pitch action. */}
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 10, paddingLeft: 70, fontSize: 11, fontWeight: 700, color: T.muted }}>
+        <span>checked {t.checked}</span>
+        {t.notice && (
+          <a href={t.notice} target="_blank" rel="noopener noreferrer" style={{ color: T.secondary, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>The club&rsquo;s own notice</a>
+        )}
+      </div>
+    </div>
+  );
+  const howToRegister = (
+    <div style={{ borderTop: `1px solid ${T.line}`, padding: '12px 0 14px 0', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
+      <b style={{ color: T.secondary }}>How to register:</b> go on {c.name}&rsquo;s register below and your CV goes with you. The club works one list all year — you do not have to catch a particular week.
+    </div>
+  );
+
+  // Who the club is (the right column from 1024). On an unclaimed page it
+  // leads, in the DOM as on a phone (audit #6); otherwise it follows the
+  // dated things.
+  const aside = (
+    <aside className={`fl-aside${unclaimed ? ' fl-aside-first' : ''}`}>
+      <div className="fl-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {unclaimed && (
+          // What claiming turns on, said once, for the club's own people.
+          // D-172: nothing here says the club is with us.
+          <div className="fl-card fl-float" style={{ padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15 }}>Claim {c.name}</div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {['Your crest and your philosophy', 'Every squad you run'].map((t, i) => (
+                <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
+                  <span aria-hidden style={{ width: 22, height: 22, borderRadius: 999, border: '1.5px dashed rgba(255,255,255,.3)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: T.secondary }}>{t}</span>
+                </div>
+              ))}
+            </div>
+            <Link href={`/claim/${slug}`} className="btn btn-primary fl-glow">This is our club — claim it</Link>
+            {/* Only where it is true: a club with no public address gets a
+                phone call instead (/claim/[slug]), so the line is not said. */}
+            {c.contact_email && <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>We email a code to the club&rsquo;s own address to check it&rsquo;s you.</div>}
+          </div>
+        )}
+
+        {c.open_roles > 0 && (
+          <Link href="/jobs" className="fl-card lift" style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 900, color: T.ink }}>{c.name} is looking for coaches</div>
+              <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{c.open_roles} open {c.open_roles === 1 ? 'role' : 'roles'}</div>
+            </div>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>See them</div>
+          </Link>
+        )}
+
+      </div>
+    </aside>
+  );
 
   // Floodlit (D-173). The page uses the laptop: the hero runs the full width,
   // and from 1024px the dated things and the way in sit on the left with who
@@ -241,7 +331,7 @@ export default async function ClubPage({ params, searchParams }: {
                 )}
                 {trials.length > 0 && (
                   <div>
-                    <div className="numeral numeral-l" style={{ color: 'var(--accent)' }}>{trials.length}</div>
+                    <div className="numeral numeral-l" style={{ color: T.ink }}>{trials.length}</div>
                     <div className="kicker" style={{ marginTop: 6, color: 'rgba(255,255,255,.6)' }}>Trials coming</div>
                   </div>
                 )}
@@ -271,6 +361,7 @@ export default async function ClubPage({ params, searchParams }: {
       </section>
 
       <div className="fl-wide fl-club-body">
+        {unclaimed && aside}
         {/* ---- left: the dated things and the way in -------------------- */}
         <div className="fl-main">
           {/* Trials are the only dated thing on the page, so they lead. */}
@@ -278,37 +369,23 @@ export default async function ClubPage({ params, searchParams }: {
             <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <h2 style={label}>Trials</h2>
               <div className="fl-card" style={{ padding: '4px 18px', display: 'flex', flexDirection: 'column' }}>
-                {trials.map((t, i) => (
-                  <div key={t.id} style={{ padding: '14px 0 8px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
-                    <Link href={pickedTrial?.id === t.id ? `/fc/${slug}#play` : `/fc/${slug}?trial=${t.id}#play`} style={{ display: 'flex', alignItems: 'center', gap: 16, textDecoration: 'none', color: 'inherit', minHeight: 44 }}>
-                      <div style={{ width: 54, textAlign: 'center', flexShrink: 0 }}>
-                        <div className="numeral numeral-s tnum" style={{ fontSize: 28, color: T.ink }}>{t.day}</div>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', color: theme ? theme.trim : T.accent, marginTop: 3 }}>{t.mon}</div>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 16, fontWeight: 800 }}>{t.title}</div>
-                        <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, marginTop: 2 }}>{t.timeVenue}</div>
-                      </div>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={pickedTrial?.id === t.id ? T.accent : T.muted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}><path d="M9 6 l6 6 l-6 6" /></svg>
-                    </Link>
-                    {/* John, 30 Sep: "last checked" is visible to the reader, and a
-                        notice Pitch compiled links to the club's own notice —
-                        labelled as the club's, opening the club's own page, never
-                        styled as a Pitch action. */}
-                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 10, paddingLeft: 70, fontSize: 11, fontWeight: 700, color: T.muted }}>
-                      <span>checked {t.checked}</span>
-                      {t.notice && (
-                        <a href={t.notice} target="_blank" rel="noopener noreferrer" style={{ color: T.secondary, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>The club&rsquo;s own notice</a>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                {trials.map(noticeRow)}
                 {/* Only where there is a register to go on (QA F13). */}
-                {onPitch && (
-                  <div style={{ borderTop: `1px solid ${T.line}`, padding: '12px 0 14px 0', fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>
-                    <b style={{ color: T.secondary }}>How to register:</b> go on {c.name}&rsquo;s register below and your CV goes with you. The club works one list all year — you do not have to catch a particular week.
-                  </div>
-                )}
+                {onPitch && howToRegister}
+              </div>
+            </section>
+          )}
+          {/* The expressions of interest, in the trials area, below the trials
+              and by closing date (trials board v2, Product Design 2 Oct). */}
+          {eois.length > 0 && (
+            <section data-eoi-section="" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <h2 style={label}>Expressions of interest</h2>
+                <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>By closing date.</div>
+              </div>
+              <div className="fl-card" style={{ padding: '4px 18px', display: 'flex', flexDirection: 'column' }}>
+                {eois.map(noticeRow)}
+                {onPitch && trials.length === 0 && howToRegister}
               </div>
             </section>
           )}
@@ -356,7 +433,7 @@ export default async function ClubPage({ params, searchParams }: {
                 // One glow per screen (spec A part 18): the first child's
                 // button, in reading order. The others are the same primary.
                 children.map((k, i) => (
-                  <Link key={k.recordId} href={`/send/${k.recordId}?club=${c.public_slug}`} className={i === 0 ? playPrimary : 'btn btn-primary'}>Send {k.name}&rsquo;s CV to {c.name}</Link>
+                  <Link key={k.recordId} href={`/send/${k.recordId}?club=${c.public_slug}`} className={i === 0 || unclaimed ? playPrimary : 'btn btn-primary'}>Send {k.name}&rsquo;s CV to {c.name}</Link>
                 ))
               ) : (
                 <Link href="/join" className={playPrimary}>Build a CV first — it is what the club reads</Link>
@@ -483,45 +560,18 @@ export default async function ClubPage({ params, searchParams }: {
           )}
         </div>
 
-        {/* ---- right: who the club is ------------------------------------- */}
-        <aside className={`fl-aside${unclaimed ? ' fl-aside-first-m' : ''}`}>
-          <div className="fl-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {unclaimed && (
-              // What claiming turns on, said once, for the club's own people.
-              // D-172: nothing here says the club is with us.
-              <div className="fl-card fl-float" style={{ padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em', lineHeight: 1.15 }}>Claim {c.name}</div>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {['Your crest and your philosophy', 'Every squad you run'].map((t, i) => (
-                    <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
-                      <span aria-hidden style={{ width: 22, height: 22, borderRadius: 999, border: '1.5px dashed rgba(255,255,255,.3)', flexShrink: 0 }} />
-                      <span style={{ fontSize: 14, fontWeight: 700, color: T.secondary }}>{t}</span>
-                    </div>
-                  ))}
-                </div>
-                <Link href={`/claim/${slug}`} className="btn btn-primary fl-glow">This is our club — claim it</Link>
-                {/* Only where it is true: a club with no public address gets a
-                    phone call instead (/claim/[slug]), so the line is not said. */}
-                {c.contact_email && <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>We email a code to the club&rsquo;s own address to check it&rsquo;s you.</div>}
-              </div>
-            )}
-
-            {c.open_roles > 0 && (
-              <Link href="/jobs" className="fl-card lift" style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none' }}>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: T.ink }}>{c.name} is looking for coaches</div>
-                  <div style={{ fontSize: 12.5, color: T.muted, fontWeight: 500 }}>{c.open_roles} open {c.open_roles === 1 ? 'role' : 'roles'}</div>
-                </div>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: T.accent, flexShrink: 0 }}>See them</div>
-              </Link>
-            )}
-
-          </div>
-        </aside>
+        {!unclaimed && aside}
       </div>
-      <div className="fl-wide" style={{ paddingBottom: 24 }}>
-        <a href={`/report?kind=club_page&page=${encodeURIComponent(slug)}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, fontSize: 11.5, color: T.muted, fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
-      </div>
+      {/* Say it once (post-release audit #13, ruled 2 Oct): ONE report link
+          per club page. An unclaimed page's is the banner's "Ask us to update
+          or remove it" (D-172 U6); every other club page carries this quiet
+          one, with the page's path. The site footer leaves its "Report a
+          page" off a club page for that reason (components/SiteFooter). */}
+      {!unclaimed && (
+        <div className="fl-wide" style={{ paddingBottom: 24 }}>
+          <a href={`/report?kind=club_page&page=${encodeURIComponent(`/fc/${slug}`)}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, fontSize: 11.5, color: T.muted, fontWeight: 700, textDecoration: 'none' }}>Report this page</a>
+        </div>
+      )}
     </div>
     <PublicAnalytics />
     </>

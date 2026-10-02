@@ -18,7 +18,8 @@
 // processes the walkthrough uses — and they read .dev-ids.json, which the
 // seed writes, because every reseed mints fresh uuids.
 import { createHmac } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { watchForTokens } from './token-in-url.mjs';
 
@@ -1445,14 +1446,244 @@ const georgia = ids.children.georgia;
     [true, 0, true, true]);
   const none = plain((await get('/trials?gender=girls&pos=GK', null)).html);
   check('tb3: filtered to nothing, the board keeps its filters and its note, and says the approved line as one sentence in one element',
-    [/(\d+) trials?</.exec(none)?.[1], /<details[^>]*class="[^"]*trial-filters/.test(none), none.includes('Positions wanted'),
+    // No count line rather than "0 trials" (D-162; Product Design, 2 Oct):
+    // the approved line below says it in words. Was '0'.
+    [/(\d+) trials?</.exec(none)?.[1] ?? null, /<details[^>]*class="[^"]*trial-filters/.test(none), none.includes('Positions wanted'),
      none.includes('the button on each listing tells you which'),
      /<p><b>No trials listed for that yet\.<\/b> An empty week is honest — we only list what a club has posted or published itself\.<\/p>/.test(none),
      none.includes('No trials listed yet.')],
-    ['0', true, true, true, true, false]);
+    [null, true, true, true, true, false]);
   check('tb4: the two doors are the empty board\'s alone — not on a board with trials, not on one filtered to nothing (P4)',
     [out, none].map((h) => [h.includes('Build a CV first — it is what the club reads'), h.includes('Claim your club page'), h.includes('For clubs &amp; technical directors')]),
     [[false, false, false], [false, false, false]]);
+}
+
+// The trials board, v2 (BUZ, 2 Oct: "yes"; John's ruling the same day). Say
+// each thing once: one quiet "Unclaimed" on an unclaimed club's row, with
+// data-unclaimed on the row and its lines (D-64: the listing metadata) and the
+// sentence once in the note; a weekday in every date block; expressions of
+// interest in their own section; one row per club per day, filtered and
+// counted listing by listing; and the shorter card. The seed gives Westgate
+// Rangers (compiled, unclaimed) two trials on one day — the later one written
+// first — and two expressions of interest closing on one day from two
+// different notices.
+{
+  const plain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+  const rowsOf = (h) => [...h.matchAll(/<article\b[^>]*>[\s\S]*?<\/article>/g)].map((m) => {
+    const a = m[0];
+    return {
+      html: a, at: m.index, unclaimed: /^<article [^>]*data-unclaimed=""/.test(a),
+      wd: /<div class="fl-trial-wd">([^<]*)<\/div>/.exec(a)?.[1] ?? null,
+      day: /<div class="numeral fl-trial-day">([^<]*)<\/div>/.exec(a)?.[1] ?? null,
+      mon: /<div class="fl-trial-mon">([^<]*)<\/div>/.exec(a)?.[1] ?? null,
+      club: /<span class="fl-trial-cn">([^<]*)<\/span>/.exec(a)?.[1] ?? null,
+      lines: [...a.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/g)].map((l) => ({
+        attrs: l[1], html: l[2], title: /<div class="fl-trial-lt">([^<]*)</.exec(l[2])?.[1] ?? null,
+        meta: /<div class="fl-trial-lm">([^<]*)</.exec(l[2])?.[1] ?? null })),
+    };
+  });
+  const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const WEEK = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  // The board shows nothing past, so a day and month is the next one on or
+  // after today in Melbourne.
+  const today = new Date(`${new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })}T00:00:00Z`);
+  const dateOf = (r) => {
+    const m = MONTHS.indexOf(r.mon), d = Number(r.day);
+    if (m < 0 || !d) return null;
+    const y = today.getUTCFullYear();
+    const near = new Date(Date.UTC(y, m, d));
+    return near < today ? new Date(Date.UTC(y + 1, m, d)) : near;
+  };
+  const inOrder = (rs) => rs.every((r, i) => i === 0 || (dateOf(rs[i - 1]) && dateOf(r) && dateOf(rs[i - 1]) <= dateOf(r)));
+  const shownCount = (h) => /(\d+) trials?</.exec(h)?.[1] ?? null;   // null: no count line (D-162)
+  const listingLines = (h) => (h.match(/<li\b[^>]*\bdata-listing=""/g) ?? []).length;
+  const SEC = /<div class="tb-sec"><h2>Expressions of interest<span class="tb-sec-n">(\d+)<\/span><\/h2><div class="tb-sec-sub">By closing date\.<\/div><\/div>/;
+  const split = (h) => {
+    const sec = SEC.exec(h), rs = rowsOf(h);
+    return { sec, n: sec ? Number(sec[1]) : 0, trials: rs.filter((r) => !sec || r.at < sec.index), eois: sec ? rs.filter((r) => r.at > sec.index) : [] };
+  };
+
+  const all = plain((await get('/trials', null)).html);
+  const rows = rowsOf(all);
+  const { sec, n: eoiN, trials, eois } = split(all);
+
+  // 1 · the marker, once per row, and the metadata.
+  const un = rows.filter((r) => r.unclaimed);
+  const ver = rows.filter((r) => r.html.includes('On Pitch — verified club'));
+  check(`tv1: an unclaimed club's row says "Unclaimed" once, in the grey state style, and carries data-unclaimed on the row and on every line; a verified row carries neither, and keeps "On Pitch — verified club" (${un.length} unclaimed, ${ver.length} verified rows)`,
+    [un.length > 0, ver.length > 0,
+     rows.filter((r) => (r.html.match(/<span class="fl-trial-state un">Unclaimed<\/span>/g) ?? []).length !== (r.unclaimed ? 1 : 0)).length,
+     un.filter((r) => r.lines.length === 0 || r.lines.some((l) => !/\bdata-unclaimed=""/.test(l.attrs))).length,
+     ver.filter((r) => /data-unclaimed/.test(r.html) || !/<span class="fl-trial-state">On Pitch — verified club<\/span>/.test(r.html)).length,
+     // The retired line, in either half ("Unclaimed listings are compiled…"
+     // in the note is the approved sentence, so the whole word is matched).
+     all.includes('Unclaimed listing ·'), all.includes('register via club')],
+    [true, true, 0, 0, 0, false, false]);
+  check('tv1b: and the note says it once, in body text: "Unclaimed listings are compiled by Pitch from each club’s own public notice. Those clubs have not claimed their page."',
+    (all.match(/<p>Unclaimed listings are compiled by Pitch from each club’s own public notice\. Those clubs have not claimed their page\.( Last checked \d{1,2} [A-Z][a-z]{2}\.)?<\/p>/g) ?? []).length, 1);
+
+  // 2 · the weekday, derived from the date, in every date block — the board's
+  // and the club page's.
+  const wrongDay = (rs) => rs.filter((r) => !r.wd || !dateOf(r) || WEEK[dateOf(r).getUTCDay()] !== r.wd).map((r) => `${r.wd} ${r.day} ${r.mon}`);
+  const fcDays = async (slug) => {
+    const h = plain((await get(`/fc/${slug}`, null)).html);
+    const blocks = (h.match(/<div class="numeral numeral-s tnum" style="font-size:28px/g) ?? []).length;
+    const dated = [...h.matchAll(/<div class="fl-trial-wd">([A-Z]{3})<\/div><div class="numeral numeral-s tnum"[^>]*>(\d{1,2})<\/div><div[^>]*>([A-Z]{3})<\/div>/g)]
+      .map((m) => ({ wd: m[1], day: m[2], mon: m[3] }));
+    return [blocks > 0 && blocks === dated.length, wrongDay(dated)];
+  };
+  check(`tv2: every date block leads with its own weekday, MON–SUN — on the board (${rows.length} rows) and on the club page (Riverside, Westgate)`,
+    [rows.length >= 4, wrongDay(rows), await fcDays('riverside-fc'), await fcDays('westgate-rangers')],
+    [true, [], [true, []], [true, []]]);
+
+  // 3 · expressions of interest, in their own section.
+  const isEoi = (l) => /^EOI closes/.test(l.meta ?? '');
+  const ownStamp = /class="fl-trial-stamp"><span>Listed \d{1,2} [A-Z][a-z]{2} · checked \d{1,2} [A-Z][a-z]{2}<\/span><a href="https:[^"]+" target="_blank" rel="noopener noreferrer" class="fl-own">The club’s own notice<\/a>/;
+  const stamped = (r, l) => ownStamp.test(l.html) || ownStamp.test(/<div class="fl-trial-foot[\s\S]*$/.exec(r.html)?.[0] ?? '');
+  check(`tv3: expressions of interest sit in their own section below the trials — "Expressions of interest", its own number, "By closing date." — in closing-date order, each keeping its "checked" stamp and the club’s own notice (${eoiN} in it)`,
+    [Boolean(sec), trials.flatMap((r) => r.lines).filter(isEoi).length,
+     eois.length > 0 && eois.every((r) => r.lines.length > 0 && r.lines.every(isEoi)),
+     eoiN > 0 && eoiN === eois.flatMap((r) => r.lines).length,
+     eois.every((r) => r.lines.every((l) => stamped(r, l))), inOrder(eois)],
+    [true, 0, true, true, true, true]);
+  const women = plain((await get('/trials?gender=women', null)).html), men = plain((await get('/trials?gender=men', null)).html);
+  // Product Design, 2 Oct: a view that leaves only expressions of interest
+  // never says "0 trials" (D-162). The approved filtered-empty line stands
+  // where the trial list would be, and the section follows it.
+  const EMPTY = '<p><b>No trials listed for that yet.</b> An empty week is honest — we only list what a club has posted or published itself.</p>';
+  check('tv3b: a filter applies to both sections and a section with nothing in it is not drawn — Women (one expression of interest, no trial): no count line, the approved line where the trials would be, then the section; Men (neither): no count line, the approved line, no section',
+    [shownCount(women), SEC.exec(women)?.[1] ?? null, rowsOf(women).length, women.includes(EMPTY),
+     women.indexOf(EMPTY) > -1 && SEC.exec(women) !== null && women.indexOf(EMPTY) < SEC.exec(women).index,
+     /\b0 trials?\b/.test(women.replace(/<[^>]+>/g, ' ')),
+     shownCount(men), /class="tb-sec"/.test(men), rowsOf(men).length, men.includes(EMPTY)],
+    [null, '1', 1, true, true, false, null, false, 0, true]);
+
+  // 4 · one row per club per day, listing by listing.
+  const key = (r, kind) => `${kind}|${r.club}|${r.day} ${r.mon}`;
+  const keys = [...trials.map((r) => key(r, 'trial')), ...eois.map((r) => key(r, 'eoi'))];
+  const wgOf = (h) => split(h).trials.filter((r) => r.club === 'Westgate Rangers').map((r) => r.lines.map((l) => l.title));
+  check(`tv4: one row per club per day — no listing lost (${listingLines(all)} lines = ${shownCount(all)} trials + ${eoiN} expressions of interest), no club twice on one day, a row's lines in start-time order, the rows in date order`,
+    [listingLines(all) > 0 && listingLines(all) === Number(shownCount(all)) + eoiN, rows.every((r) => r.club) && new Set(keys).size === keys.length,
+     rows.some((r) => r.lines.length > 1), wgOf(all), inOrder(trials)],
+    [true, true, true, [['U12 Boys', 'U13 Boys']], true]);
+  const u13 = plain((await get('/trials?age=U13', null)).html), u12 = plain((await get('/trials?age=U12', null)).html), u17 = plain((await get('/trials?age=U17', null)).html);
+  check('tv4b: a filter matches the lines inside a row — U13 draws Westgate’s U13 line alone, U12 its U12 line alone — a row with no matching line is not drawn (U17), and the count is of listings',
+    [wgOf(u13), wgOf(u12), wgOf(u17), [u13, u12, u17].map((h) => listingLines(h) === Number(shownCount(h)) + split(h).n)],
+    [[['U13 Boys']], [['U12 Boys']], [], [true, true, true]]);
+  // The chips count listings in both sections: a chip's number is the lines
+  // the board it opens draws (D-162 still hides a zero).
+  const chips = [...new Map([...all.matchAll(/<a class="chip" aria-pressed="false"[^>]*href="(\/trials\?(?:age|gender)=[^"]+)"[^>]*>[^<]*<span class="chip-count">(\d+)<\/span>/g)]
+    .map((m) => [m[1], Number(m[2])])).entries()];
+  const off = [];
+  for (const [href, n] of chips) {
+    const drawn = listingLines(plain((await get(href.replace(/&amp;/g, '&'), null)).html));
+    if (drawn !== n) off.push(`${href} says ${n}, draws ${drawn}`);
+  }
+  check(`tv4c: every age and competition chip's number is the listings the board it opens draws, in both sections (${chips.length} chips)`, [chips.length > 3, off], [true, []]);
+
+  // 5 · the shorter card. The rendered half — the link and the button on one
+  // line, each a 44px box — is the layout suite's tb-foot.
+  const css = readFileSync(fileURLToPath(new URL('../app/globals.css', import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel) => new RegExp(`(?:^|\\n)${sel.replace(/\./g, '\\.')} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+  const foot = rule('.fl-trial-foot'), own = rule('.fl-own');
+  const footOf = (r) => /<div class="fl-trial-foot(?: solo)?">([\s\S]*)<\/div><\/article>$/.exec(r.html)?.[1] ?? null;
+  const badFoot = rows.filter((r) => {
+    const f = footOf(r);
+    if (f === null) return true;
+    const doors = (r.html.match(/class="btn btn-(primary|secondary)"/g) ?? []).length;
+    if (doors === 1 && (f.match(/class="btn btn-(primary|secondary)"/g) ?? []).length !== 1) return true;
+    // A notice every line shares is said once, in the foot, beside the button.
+    return /class="fl-trial-foot-l"/.test(f) && /class="fl-own"/.test(r.html) && !/class="fl-own"/.test(f);
+  }).map((r) => r.club ?? r.html.slice(0, 60));
+  check(`tv5: the shorter card — no divider over the foot, and the foot is one line holding the row's notice and its one button; the notice link is a 44px box (${rows.length} rows)`,
+    [/border-top/.test(foot), /flex-direction:\s*column/.test(foot), Number(/min-height:\s*(\d+)px/.exec(own)?.[1] ?? 0) >= 44, rows.length > 0, badFoot],
+    [false, false, true, true, []]);
+
+  // 6 · the club page gets the same split (Product Design, 2 Oct). Westgate
+  // (unclaimed) has two trials on one day — the later one written first — and
+  // two expressions of interest; Kestrelford (unclaimed) has only an
+  // expression of interest.
+  const fcOf = async (slug) => {
+    const h = plain((await get(`/fc/${slug}`, null)).html);
+    const rowsIn = (sec) => [...(sec ?? '').matchAll(/<div class="fl-trial-wd">([A-Z]{3})<\/div>[\s\S]*?font-weight:800">([^<]*)<\/div><div style="font-size:13px[^"]*">([^<]*)<\/div>/g)]
+      .map((m) => ({ wd: m[1], title: m[2], tv: m[3].replace(/&#x27;/g, '’') }));
+    const trialsSec = /<section[^>]*><h2[^>]*>Trials<\/h2>[\s\S]*?<\/section>/.exec(h);
+    const eoiSec = /<section data-eoi-section=""[^>]*>[\s\S]*?<\/section>/.exec(h);
+    return {
+      h, coming: /numeral-l"[^>]*>(\d+)<\/div><div class="kicker"[^>]*>Trials coming</.exec(h)?.[1] ?? null,
+      trials: rowsIn(trialsSec?.[0]), eois: rowsIn(eoiSec?.[0]),
+      trialsAt: trialsSec?.index ?? -1, eoiAt: eoiSec?.index ?? -1,
+      eoiHead: /<h2[^>]*>Expressions of interest<\/h2><div[^>]*>By closing date\.<\/div>/.test(eoiSec?.[0] ?? ''),
+      bannerAt: h.indexOf('data-unclaimed-banner'),
+    };
+  };
+  const wgFc = await fcOf('westgate-rangers'), kfFc = await fcOf('kestrelford-athletic-sc');
+  const eoiLine = (r) => /^EOI closes/.test(r.tv);
+  check(`tv6: on the club page, "Trials coming" counts trials only, and the expressions of interest leave the trials list for their own block below it — "Expressions of interest", "By closing date." (Westgate: ${wgFc.trials.length} trials, ${wgFc.eois.length} EOIs)`,
+    [wgFc.coming, wgFc.trials.length, wgFc.trials.filter(eoiLine).length, wgFc.eoiHead, wgFc.eois.length, wgFc.eois.every(eoiLine), wgFc.trialsAt > -1 && wgFc.trialsAt < wgFc.eoiAt],
+    ['2', 2, 0, true, 2, true, true]);
+  check('tv7: within a day the club page orders notices by start time, not by the order they were written (Westgate, 12 Oct: U12 at 4:30, written after U13 at 5:30)',
+    wgFc.trials.map((r) => r.title), ['U12 Boys trials', 'U13 Boys trials']);
+  check('tv8: an unclaimed club with only expressions of interest shows no "Trials coming" numeral and no trials list — only the EOI block, after the D-172 banner, with its weekday',
+    [kfFc.coming, /Trials coming/.test(kfFc.h), kfFc.trialsAt, kfFc.eoiHead, kfFc.eois.length, kfFc.bannerAt > -1 && kfFc.bannerAt < kfFc.eoiAt,
+     kfFc.eois.every((r) => /^(MON|TUE|WED|THU|FRI|SAT|SUN)$/.test(r.wd))],
+    [null, false, -1, true, 1, true, true]);
+  // 7 · one test for "is this an expression of interest", in one place, used
+  // by the board and the club page — so the two can never disagree.
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const srcFiles = (d) => readdirSync(join(root, d), { withFileTypes: true }).flatMap((e) =>
+    e.name === 'node_modules' || e.name.startsWith('.') ? [] : e.isDirectory() ? srcFiles(join(d, e.name)) : /\.(ts|tsx)$/.test(e.name) ? [join(d, e.name)] : []);
+  const src = (f) => readFileSync(join(root, f), 'utf8');
+  const knowsEoi = ['app', 'components', 'lib'].flatMap(srcFiles).filter((f) => /EOI closes/i.test(src(f))).sort();
+  const usesHelper = (f) => /import \{[^}]*\bisEoi\b[^}]*\} from '@\/lib\/trials-board'/.test(src(f)) && /\bisEoi\(/.test(src(f).replace(/import[^;]*;/g, ''));
+  check(`tv9: one helper decides what is an expression of interest — lib/trials-board's isEoi, the only source that names "EOI closes" (${knowsEoi.join(', ')}), used by the board and the club page`,
+    [knowsEoi, usesHelper('app/trials/page.tsx'), usesHelper('app/fc/[slug]/page.tsx')],
+    [['lib/trials-board.ts'], true, true]);
+
+  // 8 · the post-release audit's items in these files (ruled 2 Oct).
+  const { T: PAL } = await import('../lib/palette.ts');
+  const FC = ['riverside-fc', 'kingsway-rovers', 'westgate-rangers', 'kestrelford-athletic-sc', 'brindlewood-rovers-sc'];
+  const UNCLAIMED = ['westgate-rangers', 'kestrelford-athletic-sc', 'brindlewood-rovers-sc'];
+  const fcHtml = {};
+  for (const slug of FC) fcHtml[slug] = plain((await get(`/fc/${slug}`, null)).html);
+  // #5 · green is an action: the month in a trials date block, and "N trials
+  // coming", are ink or muted. Westgate is unclaimed, so no club colours.
+  const monRule = rule('.fl-trial-mon');
+  const fcMonths = [...fcHtml['westgate-rangers'].matchAll(/<div style="font-size:10px;font-weight:900;letter-spacing:0.06em;color:([^;"]+)[^"]*">[A-Z]{3}<\/div>/g)].map((m) => m[1]);
+  const coming = /<div class="numeral numeral-l" style="color:([^;"]+)[^"]*">\d+<\/div><div class="kicker"[^>]*>Trials coming</.exec(fcHtml['westgate-rangers'])?.[1] ?? null;
+  check(`tv10: the month in every trials date block and the club page's "N trials coming" are ink or muted, never the accent (board rule: ${/color:\s*([^;]+)/.exec(monRule)?.[1]}; club page months: ${[...new Set(fcMonths)].join(', ')}; count: ${coming})`,
+    [/color:\s*var\(--(muted|ink)\)/.test(monRule), fcMonths.length > 0 && fcMonths.every((c) => [PAL.muted, PAL.ink].includes(c)), [PAL.muted, PAL.ink].includes(coming)],
+    [true, true, true]);
+  // One date format, no leading zero: every date numeral on the board and the
+  // club pages ("7", never "07").
+  const zeroDays = [['/trials', all], ...FC.map((slug) => [`/fc/${slug}`, fcHtml[slug]])]
+    .flatMap(([path, h]) => [...h.matchAll(/class="numeral[^"]*"[^>]*>(0\d)</g)].map((m) => `${path} ${m[1]}`));
+  check('tv11: one date format with no leading zero — no date numeral on the board or a club page starts with 0', zeroDays, []);
+  // #6 · an unclaimed club page: ONE glow and ONE primary (the claim), and
+  // the claim panel first in the DOM — so the reading order is the order a
+  // phone shows — with no CSS reordering left to undo it.
+  const glowOn = (h) => [...h.matchAll(/<a [^>]*class="btn btn-primary fl-glow"[^>]*>([^<]*)</g)].map((m) => m[1]);
+  const prims = (h) => (h.match(/class="btn btn-primary/g) ?? []).length;
+  const parentFc = {};
+  for (const slug of UNCLAIMED) parentFc[slug] = plain((await get(`/fc/${slug}`, ids.people.alex)).html);
+  const orderOk = (h) => {
+    const at = (w) => h.indexOf(w);
+    const claim = at('This is our club — claim it');
+    return claim > -1 && [at('Want to play here?'), at('>Trials</h2>'), at('data-eoi-section')].filter((i) => i > -1).every((i) => claim < i);
+  };
+  check(`tv12: an unclaimed club page has one glow and one primary — "This is our club — claim it" — signed out and for a parent, and the claim panel comes first in the DOM (${UNCLAIMED.length} pages)`,
+    [UNCLAIMED.map((slug) => [glowOn(fcHtml[slug]), prims(fcHtml[slug]), glowOn(parentFc[slug]), prims(parentFc[slug]), orderOk(fcHtml[slug])]),
+     /fl-aside-first-m|order:\s*-1/.test(rule('.fl-aside-first-m') + (/@media \(max-width: 1023px\) \{ \.fl-aside-first[^}]*\}/.exec(css)?.[0] ?? ''))],
+    [UNCLAIMED.map(() => [['This is our club — claim it'], 1, ['This is our club — claim it'], 1, true]), false]);
+  // #13 · say it once: ONE report link per club page — the D-172 banner's on
+  // an unclaimed page, the quiet "Report this page" (with the page's path)
+  // on any other. The footer does not add a second.
+  const reports = (slug) => [...fcHtml[slug].matchAll(/<a [^>]*href="(\/report[^"]*)"[^>]*>([^<]*)</g)].map((m) => `${m[2]} → ${m[1].replace(/&amp;/g, '&')}`);
+  check(`tv13: one report link per club page (${FC.length} pages)`,
+    FC.map(reports),
+    FC.map((slug) => [UNCLAIMED.includes(slug)
+      ? `Ask us to update or remove it → /report?page=%2Ffc%2F${slug}`
+      : `Report this page → /report?kind=club_page&page=%2Ffc%2F${slug}`]));
 }
 
 // A link a screen SHOWS is a promise — a coach pastes it, a TD prints it.
@@ -2873,7 +3104,10 @@ const georgia = ids.children.georgia;
     [wg.status, /checked \d{1,2} [A-Z][a-z]{2}/.test(wgv), ownLink.test(wgv)], [200, true, true]);
   const board = (await get('/trials')).html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
   check('link-n2: the trials board links the same notice to the club’s own page, and a club’s own notice carries no such link',
-    [ownLink.test(board), board.split('>Listed ').slice(1).filter((card) => card.includes('On Pitch — verified club') && card.includes('The club’s own notice')).length === 0],
+    // Read row by row. The board v2 (BUZ, 2 Oct) puts a row's state beside the
+    // club's name, ABOVE its stamp, so splitting at ">Listed " handed each
+    // verified row's "On Pitch" to the row before it; a row is an <article>.
+    [ownLink.test(board), board.split('<article').slice(1).filter((card) => card.includes('On Pitch — verified club') && card.includes('The club’s own notice')).length === 0],
     [true, true]);
   // HoPD, 2 Oct (live bugs): the board's dates read "2 Oct", never "02 Oct",
   // and "Last checked" is the most recent check shown — not the last row's,
