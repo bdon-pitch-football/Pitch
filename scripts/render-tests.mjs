@@ -89,7 +89,7 @@ async function get(path, personId) {
 // reach the database) and put it back. The answer is read back, so a switch
 // that did not flip stops the run rather than testing the wrong product.
 // How many lines of /terms state a dollar figure today (see free-r1c).
-const TERMS_PRICED_LINES = 1; // Brief J (29 Sep, doc 37's defaults): of v2.1's seven, the A6.1 history note, Schedule A's opening banner (the ACL maximum) and the open items table go as drafting, and the $2,000 floor and its counsel note are held. Left: A6.2's dormant GST example, John's clause text
+const TERMS_PRICED_LINES = 0; // Terms v2.3 (John, 2 Oct; BUZ: "No GST amounts as we have no pricing yet"): A6.2's GST example went too, so /terms states no dollar figure at all. Before that — Brief J (29 Sep, doc 37's defaults): of v2.1's seven, the A6.1 history note, Schedule A's opening banner (the ACL maximum) and the open items table go as drafting, and the $2,000 floor and its counsel note are held. Left: A6.2's dormant GST example, John's clause text
 async function billingSwitch(on) {
   const r = await fetch(`${BASE}/dev/billing?on=${on ? 1 : 0}`, { method: 'POST' });
   const j = r.ok ? await r.json() : null;
@@ -662,7 +662,7 @@ const georgia = ids.children.georgia;
   // since brief J: A6.2's GST example, in a clause dormant while Pitch is
   // free. A new line with a dollar figure on it fails here, and so does the
   // day that one goes.
-  check(`free-r1c: /terms is the one exemption — ${termsPriced.size} line states a dollar figure (A6.2's dormant GST example)`,
+  check(`free-r1c: /terms states no dollar figure — v2.3 took out A6.2's GST example (${termsPriced.size} lines)`,
     termsPriced.size, TERMS_PRICED_LINES);
 
   // A bound action renders $ACTION_REF_n plus encrypted arguments only the
