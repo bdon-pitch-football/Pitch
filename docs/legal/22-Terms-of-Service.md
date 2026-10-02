@@ -1,5 +1,7 @@
 # PITCH — Terms of Service
 
+> **⚠️ v2.3, 2 October 2026 — no GST amounts while there is no price.** BUZ, 2 Oct: "No GST amounts as we have no pricing yet." A6.2 named the GST inside $54 and $329 ($4.91 and $29.91), so anyone could work the old price back out of a contract that says Pitch is free (D-163). The figures come out; the rule that a charge would show its GST as its own figure stays, because it is true of any price that returns. **Materiality (John, 2 October): not material, nobody is re-asked.** A6.2 is dormant (there is no paid plan, A6.1), and removing two example figures changes no right, duty or price of anyone who accepted v2.2.
+>
 > **⚠️ v2.2, 1 October 2026 — clause 5.6 is widened from trial notices to unclaimed club pages (D-172).** 183 unclaimed club pages are live, and 5.6 described trial notices only. It now states the closed list of what such a page may contain, what it never contains, that it is not listed in search engines until claimed, and **a removal period of one business day in place of "promptly"**. *A club reading this is entitled to a number rather than an adverb.*
 >
 > **"Any image of or from the club", not "any image",** follows BUZ's clarification of D-172 on 1 October: Pitch's own generic drawing, identical on every unclaimed page, is not an image of the club, and a clause must never say something the page beside it contradicts. **Senior fixtures and results, and "anything evaluative about the club", are restored** from D-172's two lists; the 30 September draft had dropped them.
@@ -314,7 +316,7 @@ Where a child's safety is involved we may act immediately and without notice, an
 - the words **Tax invoice**;
 - **Pitch Football** and **ABN 65 701 879 718** — the same words as the charge on the bank statement, so the two reconcile without anybody having to work out that they are the same supplier. *The ABN identifies the legal person, EBSD Enterprises Pty Ltd, which clause 0.1 names and which we will confirm in writing on request* (D-149);
 - the date, and what was supplied;
-- the total, and **the GST included in it, shown as its own figure** — $4.91 on a monthly charge, $29.91 on an annual one.
+- the total, and **the GST included in it, shown as its own figure**.
 
 **Where we refund you** — under the 14-day cooling-off at A5.1, under A6 or A7, or because we cancelled — **we issue an adjustment note for the refunded amount and the GST in it**, so a club's own books and BAS can be reconciled without anybody having to ask us for a document. A club may request a copy of any tax invoice or adjustment note at any time, including after cancellation, and we will provide it.
 
@@ -403,4 +405,4 @@ Where a child's safety is involved we may act immediately and without notice, an
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v2.2 · 1 October 2026 · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · terms of service · doc 22 · v2.3 · 2 October 2026 · for legal review · revised on Leo's entity-and-GST brief and reconciled to register v4.1 (D-148, D-109 as amended)*
