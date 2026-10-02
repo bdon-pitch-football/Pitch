@@ -1112,7 +1112,7 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, devi
 // end, and its last chip must then be on the screen: reachable without
 // reaching the end of the board.
 const tfFails = [];
-let tfChecked = 0;
+let tfChecked = 0, tfNearRequests = 0;
 {
   await cdp('Network.clearBrowserCookies');
   await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
@@ -1147,7 +1147,146 @@ let tfChecked = 0;
     tfFails.push({ width: 1280, what: `tf-rail2: a 1,168px rail at 1280×800 — its last chip ("${tall.lastText}") ends at ${tall.last}px, the rail at ${tall.bottom}px, the window at ${tall.vh}px, with ${tall.page}px of board still below` });
   }
 }
+// tf-near — DISTANCE, AND JOHN'S TEST (John, 2 Oct, Q1: "a test that types a
+// suburb, interacts, and checks that the URL, both web-storage areas, cookies
+// and every outgoing request (fetch, beacon) are free of it"). At 390 and
+// 1280, signed out: open the panel, focus the field, type a suburb a key at a
+// time, pick it, change the radius, tap an age chip (a soft navigation), then
+// read everything that could have carried it — the address and the history
+// entry, local and session storage, every cookie (the browser's own list,
+// not just document.cookie), IndexedDB, and every request and websocket
+// frame the page sent from its first byte (URL, headers and body). Then the
+// rest of what Distance promises: the field's attributes, the chip without
+// the place, the list narrowed in the board's order, "about {n} km" on screen
+// and not in print, chips at zero hidden, the wider radius offered when
+// nothing is in range, and a reload that forgets it.
+{
+  const NEEDLES = ['preston', '3072'];
+  const tapAt = async (sel) => {
+    const box = await eval_(`JSON.stringify((() => { const el = [...document.querySelectorAll(${JSON.stringify(sel)})].find((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden');
+      if (!el) return null; el.scrollIntoView({ block: 'center', behavior: 'instant' }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })())`);
+    if (!box) return false;
+    for (const type of ['mousePressed', 'mouseReleased']) await cdp('Input.dispatchMouseEvent', { type, x: box.x, y: box.y, button: 'left', clickCount: 1 });
+    return true;
+  };
+  const settle = (ms = 400) => new Promise((r) => setTimeout(r, ms));
+  const typeText = async (text) => { for (const ch of text) { await cdp('Input.insertText', { text: ch }); await settle(40); } await settle(300); };
+  const linesNow = `JSON.stringify([...document.querySelectorAll('article.fl-trial')].filter((a) => a.getClientRects().length).flatMap((a) => {
+    const club = a.querySelector('.fl-trial-cn')?.textContent ?? '?'; const day = a.querySelector('.fl-trial-day')?.textContent + ' ' + a.querySelector('.fl-trial-mon')?.textContent;
+    return [...a.querySelectorAll('.fl-trial-lt')].map((l) => day + '|' + club + '|' + l.textContent); }))`;
+  const openPanel = async (width) => { if (width < 768) await tapAt('details.trial-filters > summary'); await settle(200); };
+  const field = 'input.near-in';
+  for (const width of widths.includes(375) || widths.includes(390) ? [390, 1280] : [1280]) {
+    // A fresh visitor: no cookie and nothing stored for this origin. next
+    // dev's own IndexedDB keeps every response of the walk above (a club
+    // page prints its suburb), so it is emptied first and read after.
+    await cdp('Network.clearBrowserCookies');
+    await cdp('Storage.clearDataForOrigin', { origin: new URL(BASE).origin, storageTypes: 'all' });
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 768 });
+    // Its own listener: the walk's event list is trimmed at every load.
+    const frames = [], sent = [];
+    const onFrame = (m) => { const msg = JSON.parse(m.data);
+      if (msg.method === 'Network.webSocketFrameSent') frames.push(msg.params.response?.payloadData ?? '');
+      if (msg.method === 'Network.requestWillBeSent') sent.push(msg.params.request); };
+    ws.addEventListener('message', onFrame);
+    await visit('/trials'); tfChecked++;
+    const whole = await eval_(linesNow);
+    await openPanel(width);
+    const fieldThere = await tapAt(field);
+    if (!fieldThere) { tfFails.push({ width, what: 'tf-near1: no Distance field to type into' }); ws.removeEventListener('message', onFrame); continue; }
+    await settle(600);                                   // the places file, fetched on focus
+    const attrs = await eval_(`JSON.stringify((() => { const i = document.activeElement; return { tag: i?.tagName, name: i?.getAttribute('name'), form: Boolean(i?.form || i?.closest('form')),
+      ac: i?.getAttribute('autocomplete'), sc: i?.getAttribute('spellcheck'), acorr: i?.getAttribute('autocorrect'), acap: i?.getAttribute('autocapitalize') }; })())`);
+    await typeText('Preston');
+    const option = await eval_(`JSON.stringify([...document.querySelectorAll('[role=option]')].filter((o) => o.getClientRects().length).map((o) => o.textContent))`);
+    await tapAt('[role=option]');
+    await settle();
+    const radios = await eval_(`JSON.stringify([...document.querySelectorAll('button.chip')].filter((b) => b.getClientRects().length && / km/.test(b.textContent) && !b.getAttribute('aria-label')).map((b) => (b.getAttribute('aria-pressed') === 'true' ? '*' : '') + b.textContent))`);
+    // 10 km: the board's own order, narrowed.
+    await eval_(`JSON.stringify([...document.querySelectorAll('button.chip')].find((b) => b.getClientRects().length && /^10 km/.test(b.textContent))?.scrollIntoView({ block: 'center', behavior: 'instant' }) ?? true)`);
+    const ten = await eval_(`JSON.stringify((() => { const b = [...document.querySelectorAll('button.chip')].find((x) => x.getClientRects().length && /^10 km/.test(x.textContent)); if (!b) return false; b.click(); return true; })())`);
+    await settle();
+    const inTen = await eval_(linesNow);
+    const shown = await eval_(`JSON.stringify({ chip: [...document.querySelectorAll('.tb-countrow .chip')].map((c) => c.textContent.trim() + ' / ' + (c.getAttribute('aria-label') ?? '')),
+      about: [...document.querySelectorAll('article.fl-trial')].filter((a) => a.getClientRects().length).map((a) => a.querySelector('.fl-trial-km')?.textContent ?? null),
+      regions: [...document.querySelectorAll('.kicker')].filter((k) => k.getClientRects().length).map((k) => k.textContent) })`);
+    await cdp('Emulation.setEmulatedMedia', { media: 'print' });
+    const inPrint = await eval_(`JSON.stringify([...document.querySelectorAll('.fl-trial-km')].map((k) => getComputedStyle(k).display))`);
+    await cdp('Emulation.setEmulatedMedia', { media: '' });
+    // A soft navigation: an age chip, tapped as a person taps it.
+    const ageTapped = await tapAt('a.chip[href^="/trials?age=U14"]');
+    await settle(1500);
+    const afterNav = await eval_(`JSON.stringify({ href: location.href, chip: [...document.querySelectorAll('.tb-countrow .chip')].map((c) => c.textContent.trim()) })`);
+    // Everything that could have carried it.
+    const stores = JSON.parse((await cdp('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `(async () => JSON.stringify({ href: location.href, hist: JSON.stringify(history.state ?? null),
+      local: JSON.stringify({ ...localStorage }), session: JSON.stringify({ ...sessionStorage }), cookie: document.cookie,
+      // IndexedDB is read, not just listed: next dev keeps a database of its
+      // own (the server's responses, as bytes), so every store of every
+      // database is read whole, bytes as text.
+      idb: await Promise.all((indexedDB.databases ? await indexedDB.databases() : []).map((d) => new Promise((done) => {
+        const req = indexedDB.open(d.name);
+        req.onerror = () => done({ name: d.name, body: 'unreadable' });
+        req.onsuccess = async () => { const db = req.result; const body = [];
+          for (const s of db.objectStoreNames) body.push(await new Promise((ok) => { const g = db.transaction(s).objectStore(s).getAll(); g.onsuccess = () => ok(JSON.stringify(g.result, (k, v) => (ArrayBuffer.isView(v) ? new TextDecoder().decode(v) : v))); g.onerror = () => ok('unreadable'); }));
+          db.close(); done({ name: d.name, body: body.join('') }); };
+      }))) }))()` })).result.result.value);
+    const jar = (await cdp('Network.getAllCookies')).result?.cookies ?? [];
+    ws.removeEventListener('message', onFrame);
+    const has = (s) => NEEDLES.some((n) => String(s ?? '').toLowerCase().includes(n));
+    const leaks = [
+      ...['href', 'hist', 'local', 'session', 'cookie'].filter((k) => has(stores?.[k])).map((k) => k),
+      ...jar.filter((c) => has(c.name) || has(c.value)).map((c) => `cookie ${c.name}`),
+      ...(stores?.idb ?? []).filter((d) => has(d.name) || has(d.body) || d.body === 'unreadable').map((d) => `IndexedDB ${d.name}`),
+      ...sent.filter((r) => has(r.url) || has(r.postData) || has(JSON.stringify(r.headers))).map((r) => `request ${r.method} ${r.url.replace(BASE, '')}`),
+      ...frames.filter(has).map(() => 'a websocket frame'),
+    ];
+    const bad = [];
+    if (leaks.length) bad.push(`the suburb left the page: ${leaks.join(', ')}`);
+    if (sent.length === 0) bad.push('no request was seen at all, so none was read');
+    if (attrs.tag !== 'INPUT' || attrs.name !== null || attrs.form || attrs.ac !== 'off' || attrs.sc !== 'false' || attrs.acorr !== 'off' || attrs.acap !== 'off') bad.push(`the field is ${JSON.stringify(attrs)}`);
+    if (!option.some((o) => /^Preston\s*3072$/.test(o))) bad.push(`typing "Preston" offered ${JSON.stringify(option)}`);
+    if (!radios.some((r) => /^\*20 km/.test(r))) bad.push(`after the pick, the radii are ${JSON.stringify(radios)} (20 km chosen first)`);
+    if (!ten) bad.push('no 10 km chip to press');
+    const sub = (part, all) => { let i = 0; for (const x of all) if (x === part[i]) i++; return part.length > 0 && i === part.length; };
+    if (!sub(inTen, whole) || inTen.length >= whole.length || inTen.some((l) => l.includes('Westgate'))) bad.push(`10 km of Preston drew ${JSON.stringify(inTen)}, not a narrowing of the board in its order without Westgate (Altona)`);
+    if (!shown.chip.includes('Within 10 km / Remove Within 10 km') || shown.chip.some((c) => has(c))) bad.push(`the chips above the list read ${JSON.stringify(shown.chip)}`);
+    if (shown.about.length === 0 || shown.about.some((a) => a !== null && !/^about \d+ km$/.test(a)) || shown.about.some((a) => a === 'about 0 km')) bad.push(`the rows say ${JSON.stringify(shown.about)}`);
+    if (inPrint.length === 0 || inPrint.some((d) => d !== 'none')) bad.push(`in print, "about {n} km" is ${JSON.stringify(inPrint)}`);
+    if (shown.regions.includes('Region')) bad.push('Region is still offered with one region in range (its chips are not recounted with the distance)');
+    if (!ageTapped || !/\/trials\?age=U14$/.test(afterNav.href) || !afterNav.chip.includes('Within 10 km')) bad.push(`after an age chip, the address is ${afterNav.href} and the chips ${JSON.stringify(afterNav.chip)} (the distance should survive a tap, out of the address)`);
+    // A reload forgets it.
+    await visit('/trials?age=U14');
+    const reloaded = await eval_(`JSON.stringify({ chip: [...document.querySelectorAll('.tb-countrow .chip')].map((c) => c.textContent.trim()), value: [...document.querySelectorAll('input.near-in')].map((i) => i.value) })`);
+    if (reloaded.chip.some((c) => /^Within/.test(c)) || reloaded.value.some((v) => v)) bad.push(`a reload kept ${JSON.stringify(reloaded)}`);
+    for (const b of bad) tfFails.push({ width, what: `tf-near1: ${b}` });
+    tfNearRequests += sent.length;
+  }
+  // Nothing in range (Melton, 20 km): 10 km is hidden (zero), the chosen 20
+  // km stays without a number, the approved line, and the next radius with
+  // its count. And a name that is not a Victorian place says so.
+  {
+    const width = 1280;
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: false });
+    await visit('/trials'); tfChecked++;
+    await tapAt(field); await settle(600);
+    await typeText('Zzqx');
+    const none = await eval_(`JSON.stringify([...document.querySelectorAll('.near-none')].filter((e) => e.getClientRects().length).map((e) => e.textContent))`);
+    await eval_(`JSON.stringify([...document.querySelectorAll('button.near-x')].find((b) => b.getClientRects().length)?.click() ?? true)`);
+    await settle();
+    await tapAt(field); await typeText('Melton'); await tapAt('[role=option]'); await settle();
+    const far = await eval_(`JSON.stringify({ radii: [...document.querySelectorAll('.tb-filters button.chip')].filter((b) => b.getClientRects().length).map((b) => (b.getAttribute('aria-pressed') === 'true' ? '*' : '') + b.textContent),
+      empty: [...document.querySelectorAll('.tb-empty')].map((e) => e.textContent), wider: [...document.querySelectorAll('.tb-empty button.chip')].map((b) => b.textContent),
+      rows: document.querySelectorAll('article.fl-trial').length, zeros: document.querySelectorAll('.chip-count').length - [...document.querySelectorAll('.chip-count')].filter((c) => c.textContent.trim() !== '0').length })`);
+    const bad = [];
+    if (JSON.stringify(none) !== JSON.stringify(['No Victorian suburb or postcode matches that.'])) bad.push(`"Zzqx" said ${JSON.stringify(none)}`);
+    if (JSON.stringify(far.radii.filter((r) => / km/.test(r))) !== JSON.stringify(['*20 km', far.radii.find((r) => /^40 km\d+$/.test(r))]) || !far.radii.some((r) => /^40 km\d+$/.test(r))) bad.push(`Melton's radii are ${JSON.stringify(far.radii)} (10 km hidden at zero, 20 km chosen with no number, 40 km with its count)`);
+    if (!far.empty.some((e) => e.startsWith('No trials listed for that yet.')) || far.wider.length !== 1 || !/^40 km\d+$/.test(far.wider[0])) bad.push(`nothing in range shows ${JSON.stringify(far.empty)} and offers ${JSON.stringify(far.wider)}`);
+    if (far.zeros) bad.push(`${far.zeros} chip(s) carry a zero`);
+    for (const b of bad) tfFails.push({ width, what: `tf-near2: ${b}` });
+  }
+}
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
+
 
 // ---------------------------------------------------------------------------
 // ap — THE POST-RELEASE AUDIT'S RULINGS, MEASURED (docs/design/reports/
@@ -1353,7 +1492,7 @@ console.log(`call sheet   · cs1: ${sheetChecked} views — the claim and the TD
 for (const f of sheetFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 console.log(`trial rows   · tb-foot: ${footChecked} rows on /trials — no divider, the notice link and the button on one line, each a 44px target`);
 for (const f of footFails) console.log(`FAIL ${f.width}px · ${f.what}`);
-console.log(`filters      · tf: ${tfChecked} views of /trials — the laptop rail's bottom reachable at 1280×800`);
+console.log(`filters      · tf: ${tfChecked} views of /trials — the laptop rail's bottom reachable at 1280×800; a suburb typed, picked, narrowed and carried across a chip tap, and none of the ${tfNearRequests} requests, the address, storage or cookies carried it`);
 for (const f of tfFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 // One line per distinct control, not one per view: the same component fails on
 // every screen it is on, at every width, and a hundred lines saying so is a

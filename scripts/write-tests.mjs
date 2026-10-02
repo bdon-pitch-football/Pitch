@@ -2289,7 +2289,12 @@ let realParentPress = null;
     return r.headers.get('location') ?? '';
   };
   const base = { trial_on: '2026-11-21', time: '9:00 AM', ground: 'Riverside Park, Pitch 3', how: '', cv_email: 'football@riversidefc.example.au' };
-  const board = async (q) => (await get(`/trials${q}`, null)).html;
+  // What the board DRAWS, not its script payload (filters package, 2 Oct):
+  // the board is drawn in the browser too, for Distance, so every filtered
+  // view ships every upcoming listing's public facets — the listings the
+  // unfiltered board shows anyone — and "not under another" is a question
+  // about the rows on the page (L32, L33: the page moved, the rule did not).
+  const board = async (q) => (await get(`/trials${q}`, null)).html.replace(/<script[\s\S]*?<\/script>/g, ' ');
 
   const ok = await postIt({ ...base, title: 'Agegroup sweep U12 and U13 trial', ages: ['U12', 'U13'], gender: 'boys', positions: ['gk', 'CAM', 'ST'] });
   check('ag1: a trial posted with two age groups goes up', /posted=1/.test(ok), true);

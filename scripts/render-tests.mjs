@@ -1844,6 +1844,18 @@ const tfAll = tfLines(tfBoard);
     [lvl.test(west), /<span class="tb-more-s">Competition/.test(west)], [false, true]);
 }
 
+// Distance (§6): worked out in the browser only. As served — the board with
+// no JavaScript — there is no Distance group and nothing of a place in it;
+// what the page does ship is each listing's public facets, its club's centre
+// point among them, and never the club's suburb itself. The browser half is
+// the layout check's tf-near1-2.
+{
+  const raw = (await get('/trials', null)).html;
+  check('tf-near-ssr: with no JavaScript there is no Distance group (Region answers instead); the page ships each listing\'s club centre point for the browser to measure from, and no suburb',
+    [/Distance<|Suburb or postcode|near-in|Within \d+ km|about \d+ km/.test(tfBoard), (raw.match(/\\"at\\":\[-3\d\.\d+,1\d\d\.\d+\]/g) ?? []).length >= tfAll.length - 1, /\\"suburb\\"/.test(raw)],
+    [false, true, false]);
+}
+
 // D-162 on the chips themselves: a chosen chip whose choices leave nothing
 // stays, so it can be taken off, but never carries a "0".
 {

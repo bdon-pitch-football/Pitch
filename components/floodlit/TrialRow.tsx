@@ -48,12 +48,16 @@ export type TrialRowProps = {
   // the row exactly as the board draws it, with the button inert and drawn
   // secondary, so the confirmation keeps no second primary and no new door.
   inert?: boolean;
+  // With a distance set on the board (filters package, BUZ 2 Oct), how far
+  // the club's suburb is, in whole km, worked out on the family's device. On
+  // screen only: the stylesheet hides it in print (John, 2 Oct, Q2).
+  about?: number;
 };
 
 const stampOf = (l: TrialLine) => (l.listed ? `Listed ${l.listed} · checked ${l.checked}` : `checked ${l.checked}`);
 const flag = (on: boolean) => (on ? '' : undefined);
 
-export default function TrialRow({ wd, day, mon, club, lines, clubState, slug, inert }: TrialRowProps) {
+export default function TrialRow({ wd, day, mon, club, lines, clubState, slug, inert, about }: TrialRowProps) {
   const verified = clubState === 'verified';
   const onPitch = verified || clubState === 'claimed';
   const unclaimed = !onPitch;
@@ -110,9 +114,14 @@ export default function TrialRow({ wd, day, mon, club, lines, clubState, slug, i
           ))}
         </ul>
       </div>
-      {(sharedStamp || footDoor) && (
-        <div className={sharedStamp ? 'fl-trial-foot' : 'fl-trial-foot solo'}>
-          {sharedStamp && <div className="fl-trial-foot-l">{stamp(lines[0])}</div>}
+      {(sharedStamp || footDoor || about) && (
+        <div className={sharedStamp || about ? 'fl-trial-foot' : 'fl-trial-foot solo'}>
+          {(sharedStamp || about) && (
+            <div className="fl-trial-foot-l">
+              {about && <span className="fl-trial-km">about {about} km</span>}
+              {sharedStamp && stamp(lines[0])}
+            </div>
+          )}
           {footDoor}
         </div>
       )}

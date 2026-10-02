@@ -1748,6 +1748,21 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .tb-more-chev { flex-shrink: 0; transition: transform .16s var(--ease); }
 .tb-more[open] .tb-more-chev { transform: rotate(180deg); }
 .tb-more-b { display: flex; flex-direction: column; gap: 14px; padding: 6px 0 2px 0; }
+/* Distance (filters package, BUZ 2 Oct): one field, worked out on the
+   device. A combobox over the places file; its options are 44px targets. */
+.near { display: flex; flex-direction: column; gap: 8px; }
+.near-field { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 2px 0 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-well); }
+.near-field.on { border-color: var(--accent); }
+.near-ic { flex-shrink: 0; color: var(--muted); }
+.near-in { flex: 1; min-width: 0; height: 44px; padding: 0; background: none; border: 0; color: var(--ink); font: inherit; font-size: 14.5px; font-weight: 700; }
+.near-in::placeholder { color: var(--placeholder); font-weight: 500; }
+.near-x { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; background: none; border: 0; color: var(--muted); cursor: pointer; }
+.near-list { list-style: none; margin: 0; padding: 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-well); box-shadow: var(--shadow-float); overflow: hidden; }
+.near-opt { min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 14px; font-size: 14px; font-weight: 500; color: var(--secondary); cursor: pointer; }
+.near-opt[aria-selected="true"] { background: var(--surface-hover); color: var(--ink); }
+.near-opt .pc { margin-left: auto; color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+.near-none { font-size: 12.5px; font-weight: 500; color: var(--secondary); line-height: 1.5; }
+.near-note { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; font-weight: 500; color: var(--muted); line-height: 1.5; }
 /* Club level's one line: whose league it is (John, 2 Oct). */
 .tb-fnote { font-size: 12px; font-weight: 500; color: var(--muted); line-height: 1.5; }
 .tb-how { display: flex; align-items: flex-start; gap: 9px; padding: 13px 14px; font-size: 11.5px; font-weight: 700; color: var(--muted); line-height: 1.5; }
@@ -1814,6 +1829,10 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .fl-trial-foot-l { min-width: 0; }
 .fl-trial-foot-l .fl-trial-stamp { flex-direction: column; align-items: flex-start; }
 .fl-trial-foot .btn { width: auto; padding: 0 18px; flex-shrink: 0; }
+/* "about {n} km" (filters package, BUZ 2 Oct): the first line of the foot,
+   on screen only — never in print (John, 2 Oct, Q2). */
+.fl-trial-km { display: inline-flex; align-items: center; min-height: 16px; font-size: 11px; font-weight: 700; color: var(--secondary); }
+@media print { .fl-trial-km { display: none; } }
 /* The glow is the screen's one primary (Head of Product Design, 1 Oct): a
    row's "I'm interested" is the solid primary and carries no .fl-glow at all
    (components/floodlit/TrialRow), so four rows do not compete with each
