@@ -55,7 +55,7 @@ export default async function ClaimClub({ params, searchParams }: {
   if (!me) redirect(`/signin${claimQuery(slug)}`);
 
   const { rows } = await db.query(
-    `select name, suburb, state, club_state, contact_email,
+    `select id, name, suburb, state, club_state, contact_email,
        (select count(*)::int from squad s where s.club_id = club.id) as teams
      from club where public_slug = $1`,
     [slug],
@@ -76,17 +76,25 @@ export default async function ClaimClub({ params, searchParams }: {
   // with ?taken=1. This used to depend on the query string, so opening the
   // claim page for an already-claimed club fell through to the forms below
   // and offered to claim it again.
-  if (claimed || c.club_state !== 'unclaimed') {
+  // "is yours to run" is said only to someone who runs it: the query string
+  // alone once let any signed-in account open ?claimed=1 on any club and
+  // screenshot the club calling it theirs (safety review, 2 Oct, N6).
+  const yours = Boolean(claimed) && c.club_state !== 'unclaimed' && (await db.query(
+    `select exists(select 1 from membership m where m.club_id = $1 and m.person_id = $2
+       and m.role in ('club_admin','technical_director') and m.ended_at is null) as y`,
+    [c.id, me],
+  )).rows[0].y === true;
+  if (yours || c.club_state !== 'unclaimed') {
     return (
       <Door>
-        {claimed && (
+        {yours && (
           <GlyphTile state="done"><span style={{ fontSize: 22, fontWeight: 900 }}>{initials(c.name).slice(0, 1)}</span></GlyphTile>
         )}
-        <h1 className="door-h24">{claimed ? `${c.name} is yours to run.` : 'This page has already been claimed.'}</h1>
-        {claimed && <div className="pg-sub" style={{ fontSize: 13 }}>You can edit the page now. Posting trials, and anything to do with players, waits for verification — a phone call from us. We ring {c.name} on a number we find ourselves, so let the club know to expect us.</div>}
-        {claimed && shared && <div className="card-sunken door-info is-sec">{SHARED_ADDRESS_WARNING}</div>}
+        <h1 className="door-h24">{yours ? `${c.name} is yours to run.` : 'This page has already been claimed.'}</h1>
+        {yours && <div className="pg-sub" style={{ fontSize: 13 }}>You can edit the page now. Posting trials, and anything to do with players, waits for verification — a phone call from us. We ring {c.name} on a number we find ourselves, so let the club know to expect us.</div>}
+        {yours && shared && <div className="card-sunken door-info is-sec">{SHARED_ADDRESS_WARNING}</div>}
         {/* The claimed screen was a dead end (30 Sep preview). */}
-        {claimed && <Link href="/home" className="btn btn-primary fl-glow">Go to your club</Link>}
+        {yours && <Link href="/home" className="btn btn-primary fl-glow">Go to your club</Link>}
       </Door>
     );
   }

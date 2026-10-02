@@ -1692,7 +1692,7 @@ const georgia = ids.children.georgia;
   check(`tv13: one report link per club page (${FC.length} pages)`,
     FC.map(reports),
     FC.map((slug) => [UNCLAIMED.includes(slug)
-      ? `Ask us to update or remove it → /report?page=%2Ffc%2F${slug}`
+      ? `Ask us to update or remove it → /report?kind=club_page&page=%2Ffc%2F${slug}`
       : `Report this page → /report?kind=club_page&page=%2Ffc%2F${slug}`]));
 }
 
@@ -3105,7 +3105,7 @@ const georgia = ids.children.georgia;
      ['>Trials</h2>', 'Want to play here?', 'This is our club'].map((w) => brind.html.indexOf(w)).filter((i) => i >= 0).every((i) => bannerAt < i)],
     [true, true, true, true]);
   check('U6: the take-it-down door is on the page and needs no account — it is /report',
-    [/href="\/report\?page=%2Ffc%2Fbrindlewood-rovers-sc"[^>]*>Ask us to update or remove it</.test(brind.html), (await get('/report?page=%2Ffc%2Fbrindlewood-rovers-sc')).status],
+    [/href="\/report\?kind=club_page&amp;page=%2Ffc%2Fbrindlewood-rovers-sc"[^>]*>Ask us to update or remove it</.test(brind.html), (await get('/report?kind=club_page&page=%2Ffc%2Fbrindlewood-rovers-sc')).status],
     [true, 200]);
   // John, 30 Sep: a compiled notice shows when it was last checked, and links
   // to the club's own notice — labelled as the club's, opening the club's own
@@ -4344,7 +4344,9 @@ const georgia = ids.children.georgia;
     '/claim?asked=ok': await get('/claim?asked=ok&club=Glenmarsh%20United', robin),
     '/claim/westgate-rangers': await get('/claim/westgate-rangers', robin),
     '/claim/westgate-rangers?sent=1': await get('/claim/westgate-rangers?sent=1', robin),
-    '/claim/westgate-rangers?claimed=1': await get('/claim/westgate-rangers?claimed=1', robin),
+    // The claimed screen, as its claimant sees it: Marina runs Riverside.
+    // (Robin opening ?claimed=1 on a club Robin does not run is ccl-r1.)
+    '/claim/riverside-fc?claimed=1': await get('/claim/riverside-fc?claimed=1', ids.people.marina),
     '/claim/westgate-rangers?noaddress=1': await get('/claim/westgate-rangers?noaddress=1', robin),
   };
   const doorPages = Object.keys(pages).filter((p) => !p.startsWith('/claim?') && p !== '/claim');
@@ -4393,7 +4395,19 @@ const georgia = ids.children.georgia;
     { '/signin': ['Sign in'], '/signin?claim=westgate-rangers': ['Sign in'], '/signin?refused=1': ['Sign in'], '/join': [],
       '/claim': ['Search'], '/claim?q=rovers': ['Search'], '/claim?q=Zzqxw (signed in)': ['Search'], '/claim?asked=ok': ['Search'],
       '/claim/westgate-rangers': ['Send me the code'], '/claim/westgate-rangers?sent=1': ['Claim Westgate Rangers'],
-      '/claim/westgate-rangers?claimed=1': ['Go to your club'], '/claim/westgate-rangers?noaddress=1': [] });
+      '/claim/riverside-fc?claimed=1': ['Go to your club'], '/claim/westgate-rangers?noaddress=1': [] });
+  // ccl-r1 (safety review, 2 Oct, N6): "?claimed=1" is a query string, so it
+  // says "is yours to run" only to someone who runs the club. Robin, signed
+  // in and running nothing, opening it on an unclaimed club gets the claim
+  // form — and on a club someone else claimed, "already been claimed".
+  {
+    const robinWest = bodyOf((await get('/claim/westgate-rangers?claimed=1', robin)).html);
+    const robinRiv = bodyOf((await get('/claim/riverside-fc?claimed=1', robin)).html);
+    const marinaRiv = bodyOf(pages['/claim/riverside-fc?claimed=1'].html);
+    check('ccl-r1: "is yours to run" is said only to the club\u2019s own administrator — never to whoever types ?claimed=1',
+      [/is yours to run/.test(robinWest), /Send me the code/.test(robinWest), /is yours to run/.test(robinRiv), /already been claimed/.test(robinRiv), /Riverside FC is yours to run/.test(marinaRiv)],
+      [false, true, false, true, true]);
+  }
   const rows = bodyOf(pages['/claim?q=rovers'].html);
   check('wi-r4b: a result row’s Claim is the charter primary at its own 50px — not forced to 44, not glowing — and the search is the front door’s light field',
     [/<a (?:href="\/claim\/brindlewood-rovers-sc" class="btn btn-primary btn-auto"|class="btn btn-primary btn-auto" href="\/claim\/brindlewood-rovers-sc")>Claim<\/a>/.test(rows), /height:44px/.test(rows),

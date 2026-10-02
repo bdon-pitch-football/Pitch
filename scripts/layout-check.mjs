@@ -817,7 +817,7 @@ const WAYS = [
   ['/signin', null, 'door'], ['/signin?claim=westgate-rangers', null, 'door'], ['/join', null, 'door'],
   ['/claim', null, 'list'], ['/claim?q=rovers', null, 'list'],
   ['/claim/westgate-rangers', ids.people.robin, 'door'], ['/claim/westgate-rangers?sent=1', ids.people.robin, 'door'],
-  ['/claim/westgate-rangers?claimed=1', ids.people.robin, 'door'],
+  ['/claim/riverside-fc?claimed=1', ids.people.marina, 'door'],
 ];
 const WAYS_MEASURE = `JSON.stringify((() => {
   const vw = document.documentElement.clientWidth;

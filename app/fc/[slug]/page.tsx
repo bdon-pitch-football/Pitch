@@ -353,7 +353,7 @@ export default async function ClubPage({ params, searchParams }: {
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 18px' }}>
                 <Link href={`/claim/${slug}`} style={{ fontSize: 13, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Claim it</Link>
-                <a href={`/report?page=${encodeURIComponent(`/fc/${slug}`)}`} style={{ fontSize: 13, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Ask us to update or remove it</a>
+                <a href={`/report?kind=club_page&page=${encodeURIComponent(`/fc/${slug}`)}`} style={{ fontSize: 13, fontWeight: 800, color: T.accent, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Ask us to update or remove it</a>
               </div>
             </div>
           )}
