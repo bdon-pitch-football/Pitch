@@ -2866,6 +2866,18 @@ const georgia = ids.children.georgia;
   check('link-n2: the trials board links the same notice to the club’s own page, and a club’s own notice carries no such link',
     [ownLink.test(board), board.split('>Listed ').slice(1).filter((card) => card.includes('On Pitch — verified club') && card.includes('The club’s own notice')).length === 0],
     [true, true]);
+  // HoPD, 2 Oct (live bugs): the board's dates read "2 Oct", never "02 Oct",
+  // and "Last checked" is the most recent check shown — not the last row's,
+  // which is the furthest-out trial and made a fresh board read stale.
+  {
+    const txt = board.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    const stamps = [...txt.matchAll(/checked (\d{1,2} [A-Z][a-z]{2})/g)].map((m) => m[1]);
+    const last = /Last checked (\d{1,2} [A-Z][a-z]{2})\./.exec(txt)?.[1] ?? null;
+    const when = (d) => Date.parse(`${d} 2026`);
+    check('tb-date: no board date carries a leading zero, and "Last checked" is the newest check on the board',
+      [/\b(?:checked|Listed) 0\d /.test(txt), stamps.length > 1, last !== null && stamps.every((d) => when(d) <= when(last))],
+      [false, true, true]);
+  }
   // 0162: an address a listing used to have moves for good to the one it has now.
   const oldFc = await get('/fc/brindlewood-rovers'), oldClaim = await get('/claim/brindlewood-rovers', ids.people.robin);
   check('slug-r1: a club’s former page address moves for good (308) to its address now — the page and its claim screen',

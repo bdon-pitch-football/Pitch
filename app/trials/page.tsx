@@ -51,7 +51,8 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
        array(select ta.age_group from trial_notice_age_group ta join age_group ag on ag.code = ta.age_group
              where ta.trial_notice_id = t.id order by ag.sort) as age_groups,
        upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
-       to_char(t.added_on, 'DD Mon') as listed, to_char(t.last_checked, 'DD Mon') as checked,
+       to_char(t.added_on, 'FMDD Mon') as listed, to_char(t.last_checked, 'FMDD Mon') as checked,
+       to_char(t.last_checked, 'YYYY-MM-DD') as checked_on,
        c.name as club_name, c.club_state, c.public_slug, c.state
      from fn_trial_notices_advertised() t join club c on c.id = t.club_id
      order by t.trial_on`,
@@ -59,7 +60,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   type Listing = {
     title: string; time_venue: string; source: string; source_url: string | null; mon: string; day: string; age_groups: string[];
     competition_gender: string | null; position_needs: string[]; state: string | null;
-    id: string; listed: string; checked: string; club_name: string; club_state: string; public_slug: string | null;
+    id: string; listed: string; checked: string; checked_on: string; club_name: string; club_state: string; public_slug: string | null;
   };
   const upcoming = rows as Listing[];
   // The age filter offers the groups the board holds right now, in the
@@ -72,7 +73,10 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
     && (!f.state || l.state === f.state) && (!f.pos || (l.position_needs ?? []).includes(f.pos));
   const current = { age, gender, state, pos };
   const listings = upcoming.filter((l) => matches(l, current));
-  const lastChecked = listings.length ? listings[listings.length - 1].checked : null;
+  // The most recent check across what is shown — not the last row's, which
+  // is the furthest-out trial and made a fresh board read stale (HoPD, 2 Oct).
+  const newest = listings.reduce<Listing | null>((a, l) => (!a || l.checked_on > a.checked_on ? l : a), null);
+  const lastChecked = newest ? newest.checked : null;
 
   // Each option shows how many trials it would leave, given the other
   // choices already made — so nobody taps their way into an empty board.
