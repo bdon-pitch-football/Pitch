@@ -13650,14 +13650,35 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   // The script's own safeguards, read from its source: plan unless --apply,
   // a remote database only with a verified --ca, never the demo.
   const ld = srcOf('scripts/load-club-levels.mjs');
+  // tf-cl7 (Head of Product Design, 2 Oct): the backstop behind the trials
+  // desk's changeover re-check — a level checked more than twelve months ago
+  // is not shown, so its club drops out of every level chip (fail closed).
+  // Marrowbank (c) has no row above; one is put in and taken out here.
+  {
+    const ago = async (months) => (await db.query(`select to_char(((now() at time zone 'Australia/Melbourne')::date - make_interval(months => $1))::date, 'YYYY-MM-DD') as d`, [months])).rows[0].d;
+    const shown = async () => (await db.query(`select club_id from fn_club_levels_current() where club_id = any($1)`, [[a, c]])).rows.map((r) => r.club_id === a ? 'a' : 'c').sort();
+    await db.query(`insert into club_level (club_id, level, league_as_named, source_url, checked_on) values ($1, 'vpl', 'Victoria Premier League 1', 'https://marrowbank.example.au', $2)`, [c, await ago(13)]);
+    const stale = await shown();
+    await db.query(`update club_level set checked_on = $2 where club_id = $1`, [c, await ago(11)]);
+    const fresh = await shown();
+    await db.query(`delete from club_level where club_id = $1`, [c]);
+    const loadStale = await planLevels(q, [{ club: 'Tf Marrowbank FC', suburb: 'Bulla', league_as_named: 'Victoria Premier League 1', source_url: 'https://marrowbank.example.au', checked_on: await ago(13) }]);
+    const page = srcOf('app/trials/page.tsx');
+    check('tf-cl7: a level checked more than twelve months ago is not shown — fn_club_levels_current leaves it out, the loader will not load one, and /trials reads levels through it and never the table',
+      [stale, fresh, loadStale.refused.map((r) => r.why), /fn_club_levels_current\(\)/.test(page), /join club_level\b/.test(page)],
+      [['a'], ['a', 'c'], ['checked_on is more than twelve months ago: re-check it first'], true, false]);
+  }
   check('tf-cl5: the loader plans unless --apply, needs --ca (verified) for anything that is not localhost, and refuses the demo database',
     [/if \(!has\('--apply'\)\) \{[^}]*Nothing changed/.test(ld), /if \(!local\) \{\s*const ca = val\('--ca'\);\s*if \(!ca\)[^\n]*process\.exit\(1\)/.test(ld), /rejectUnauthorized: true/.test(ld), /54323/.test(ld)],
     [true, true, true, true]);
   // Rows never show the league (John, 2 Oct): the board reads the level
   // code and nothing else from club_level, and a row is given no level.
   const board = srcOf('app/trials/page.tsx'), row = srcOf('components/floodlit/TrialRow.tsx');
+  // Since tf-cl7 it reads them through fn_club_levels_current, which hands
+  // back the club and its level code and nothing else.
+  const lvFn = (await db.query(`select pg_get_function_result('fn_club_levels_current()'::regprocedure) as r`)).rows[0].r;
   check('tf-cl6: the board reads only the level code from club_level — never the league as named, the source or the date — and the trial row takes no level at all',
-    [/left join club_level/.test(board), /league_as_named|source_url as level|cl\.source_url|checked_on as level/.test(board.replace(/\/\/.*$/gm, '')), /level|league/i.test(row.replace(/\/\/.*$/gm, ''))],
+    [/left join fn_club_levels_current\(\) cl/.test(board) && lvFn === 'TABLE(club_id uuid, level text)', /league_as_named|source_url as level|cl\.source_url|checked_on as level/.test(board.replace(/\/\/.*$/gm, '')), /level|league/i.test(row.replace(/\/\/.*$/gm, ''))],
     [true, false, false]);
   await db.query(`delete from club where id = any($1)`, [[a, b, c]]);
 }

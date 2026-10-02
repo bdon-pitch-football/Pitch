@@ -99,6 +99,10 @@ export async function planLevels(q, rows, today = melbourneToday()) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(checked) || Number.isNaN(Date.parse(`${checked}T00:00:00Z`))
       || new Date(`${checked}T00:00:00Z`).toISOString().slice(0, 10) !== checked) { refuse('checked_on is not a date (YYYY-MM-DD)'); continue; }
     if (checked > today) { refuse('checked_on is in the future'); continue; }
+    // The board shows no level checked more than twelve months ago
+    // (fn_club_levels_current, 0172), so loading one would load nothing.
+    const yearAgo = new Date(`${today}T00:00:00Z`); yearAgo.setUTCFullYear(yearAgo.getUTCFullYear() - 1);
+    if (checked <= yearAgo.toISOString().slice(0, 10)) { refuse('checked_on is more than twelve months ago: re-check it first'); continue; }
     const level = levelOf(r);
     if (!level) { refuse('level' in r && !String(r.level ?? '').trim() ? 'no level in the file' : `league not placed in a level: "${r.level || league || ''}"`); continue; }
     if (league.length < 2 || league.length > 120) { refuse('league_as_named missing or too long'); continue; }

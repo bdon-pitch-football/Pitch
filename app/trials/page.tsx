@@ -60,14 +60,15 @@ export default async function TrialsPage({ searchParams }: { searchParams: Promi
        c.id as club_id, c.name as club_name, c.club_state, c.public_slug, c.state, c.suburb,
        cl.level
      from fn_trial_notices_advertised() t join club c on c.id = t.club_id
-     left join club_level cl on cl.club_id = c.id
+     left join fn_club_levels_current() cl on cl.club_id = c.id
      order by t.trial_on`,
   );
   // Club level (0172; John, 2 Oct): the CLUB's senior league, joined to the
   // listings the board already reads its way, so the filter sees exactly the
   // clubs the board does. Only the level's code is read — never the league as
   // its source names it — because no row ever shows the league. A club with
-  // no source has no row, so no level, and is in no level chip. The levels
+  // no source has no row, so no level, and is in no level chip; nor does a
+  // level checked more than twelve months ago (fn_club_levels_current). The levels
   // are the lookup's, in its order (D-73).
   const levels = (await db.query(`select code, label from competition_tier order by sort`)).rows as { code: string; label: string }[];
   type Row = {

@@ -57,3 +57,19 @@ alter table club_level enable row level security;
 
 comment on table club_level is
   '0172 — a club''s senior league, the trials board''s Club level filter (BUZ 2 Oct; John 2 Oct; D-73, D-172). One row per club, each with its source and the day it was checked; no source, no row, no level. Never shown on a row or a club page. Written only by scripts/load-club-levels.mjs.';
+
+-- The level the board may show (Head of Product Design, 2 Oct, on John's
+-- changeover re-check): a level checked more than twelve months ago is not
+-- shown, so a club whose re-check was missed drops out of the level chips
+-- until it is re-checked — failing closed, as "no source, no level" does.
+-- The trials desk's changeover re-check is the control; this is the
+-- backstop. The board reads levels through this and nothing else; it hands
+-- back the level's code and never the league as named.
+create or replace function fn_club_levels_current() returns table (club_id uuid, level text)
+language sql stable as $$
+  select cl.club_id, cl.level from club_level cl
+  where cl.checked_on > ((now() at time zone 'Australia/Melbourne')::date - interval '12 months');
+$$;
+
+comment on function fn_club_levels_current() is
+  '0172 — each club''s level as the trials board may show it: the code only, and only when checked within the last twelve months (fail closed). Read-only.';
