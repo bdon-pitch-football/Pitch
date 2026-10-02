@@ -3478,7 +3478,12 @@ console.log(`     (${all.length - skipped.length} of ${all.length} submitted, up
 const leaked = [];
 // The page's CSP nonce is fresh every request (proxy.ts) and rides in
 // the page payload, so it is taken out before two renders are compared.
-const settled = (h) => { const n = /nonce="([^"]+)"/.exec(h)?.[1]; return strip(n ? h.split(n).join('NONCE') : h); };
+// So is a private photo's signed address (John's ruling §1): minted per read
+// with the second it was made, so two renders a second apart differ there
+// and nowhere else. The photo's own key stays in; only its stamp and
+// signature are taken out (seen as an intermittent x2 on /g/pending, 2 Oct).
+const unstamped = (h) => h.replace(/(\/private-photo\/[^?"\s\\]+)\?e=\d+(&amp;|&|\\u0026)s=[A-Za-z0-9_%=-]+/g, '$1?e=E$2s=S');
+const settled = (h) => { const n = /nonce="([^"]+)"/.exec(h)?.[1]; return strip(unstamped(n ? h.split(n).join('NONCE') : h)); };
 for (const e of all) {
   if (/delete/i.test(e.form.submit)) continue;
   if (endsTd(e)) continue;
