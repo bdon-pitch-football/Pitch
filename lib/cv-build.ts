@@ -18,6 +18,7 @@ import { editWaitingEmail } from './messages';
 import { send } from './messaging';
 import type { RecordActor } from './record-guard';
 import { isPlayerPhotoOf, PHOTO_STILL_SHOWN } from './player-photo';
+import { isWaiting } from './pending-diff';
 import { removeImage } from './storage';
 
 export interface CvDraft {
@@ -96,8 +97,9 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
       const patch = await formPatch(client, recordId, draft.season, before, await formState(client, recordId, draft.season));
       if (patch) replaced.push(...(await publishPatch(client, recordId, author.personId, patch, draft.season)).replaced);
     } else if (band === 'u16') {
-      waitsOnGuardian = true;
-      replaced.push(...(await submitChildChange(client, recordId, draft.season)));
+      const submitted = await submitChildChange(client, recordId, draft.season);
+      replaced.push(...submitted.replaced);
+      waitsOnGuardian = submitted.tell;
     }
     await client.query('commit');
   } catch (e) {
@@ -127,12 +129,28 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
  * next save. On the caller's transaction, under the record's lock. Returns
  * the photo the waiting version named before, to forget after commit.
  */
-async function submitChildChange(client: Client, recordId: string, season: string): Promise<string[]> {
+async function submitChildChange(client: Client, recordId: string, season: string): Promise<{ replaced: string[]; tell: boolean }> {
   const content = await buildSnapshot(client, recordId, season);
-  const was = (await client.query(
-    `select content ->> 'photoPath' as photo from profile_version where record_id = $1 and status = 'pending'`,
+  const versions = (await client.query(
+    `select status, content from profile_version where record_id = $1 and status in ('approved', 'pending')`,
     [recordId],
-  )).rows[0]?.photo as string | null | undefined;
+  )).rows as { status: string; content: Record<string, unknown> }[];
+  const approved = versions.find((v) => v.status === 'approved')?.content ?? null;
+  const before = versions.find((v) => v.status === 'pending')?.content ?? null;
+  const was = (before?.photoPath as string | null | undefined) ?? null;
+
+  // A write that leaves nothing for a guardian to see — an add then a remove,
+  // a change only to which stats are shown — is not a waiting version (the
+  // one answer, lib/pending-diff; safety review of the review, N-3). Any
+  // version that was waiting goes, nothing is sent and nothing new is
+  // logged, so a child looping add and remove cannot flood their parents.
+  // Nothing is lost: the live record keeps the change, and the next version
+  // that does wait is built from it.
+  if (!isWaiting(approved, content)) {
+    await client.query(`delete from profile_version where record_id = $1 and status = 'pending'`, [recordId]);
+    return { replaced: was ? [was] : [], tell: false };
+  }
+
   await client.query(
     `insert into profile_version (record_id, content, status)
      values ($1, $2, 'pending')
@@ -146,7 +164,42 @@ async function submitChildChange(client: Client, recordId: string, season: strin
      from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
     [recordId],
   );
-  return was ? [was] : [];
+  // doc 15 §30 goes ONCE per waiting version (Leo, 2 Oct): when this write
+  // first makes the version one a guardian must see — never again as the
+  // child's later writes update the same waiting version.
+  const tell = !isWaiting(approved, before);
+  return { replaced: was ? [was] : [], tell };
+}
+
+/**
+ * The records among these with a change waiting on a guardian — ONE answer
+ * for every surface that says so: the parent's /home, the review on
+ * /g/pending, the child's "Your parent will see this change", the preview's
+ * waiting line, and the §30 email (Leo, 2 Oct). A waiting version waits only
+ * if it differs from the approved page in something the review draws
+ * (lib/pending-diff): not the club or squad line, which comes from the
+ * membership and not from the child, and not which stats are shown, which
+ * carries nothing the child wrote and rides the next approval. Map: record id
+ * → when the waiting version was last written.
+ */
+export async function waitingRecords(recordIds: readonly string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = recordIds.filter(Boolean);
+  if (ids.length === 0) return out;
+  const { rows } = await db.query(
+    `select record_id::text as record_id, status, content, created_at from profile_version
+     where record_id = any($1::uuid[]) and status in ('approved', 'pending')`,
+    [ids],
+  );
+  const byRecord = new Map<string, { approved?: Record<string, unknown>; pending?: Record<string, unknown>; at?: string }>();
+  for (const r of rows as { record_id: string; status: string; content: Record<string, unknown>; created_at: string }[]) {
+    const v = byRecord.get(r.record_id) ?? {};
+    if (r.status === 'approved') v.approved = r.content;
+    else { v.pending = r.content; v.at = r.created_at; }
+    byRecord.set(r.record_id, v);
+  }
+  for (const [id, v] of byRecord) if (v.pending && isWaiting(v.approved ?? null, v.pending)) out.set(id, v.at!);
+  return out;
 }
 
 // doc 15 §30, after the commit (L1): every approved, unrevoked guardian with
@@ -295,8 +348,9 @@ export async function writeRecord(
     } else if (band === 'u16' && patch && author.actor === 'self') {
       // A child's own clip, achievement, other football or photo waits on a
       // guardian, whole, like every other change of theirs (B; BUZ, 2 Oct).
-      replaced = await submitChildChange(client, recordId, '2026');
-      waits = true;
+      const submitted = await submitChildChange(client, recordId, '2026');
+      replaced = submitted.replaced;
+      waits = submitted.tell;
     }
     await client.query('commit');
   } catch (e) {

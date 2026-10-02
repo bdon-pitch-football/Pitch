@@ -502,6 +502,7 @@ D-103, D-119. **The rule: an under-16 record has an approved version and a pendi
 | R10 | A pending version in any search, index, cache or export | **Cannot appear.** Same rule as A17, one more state |
 | R11 | Band changes between edit and approval | Governed at publication (G1). Composed at 15, approved after the sixteenth birthday, publishes under 16–17 rules |
 | R12 | A guardian writes to a 16–17's record — the page, its clips, achievements or other football | **Denied** (N-10; John, 1 Oct). A 16–17's page is theirs: the guardian keeps visibility, the off-switch, the controls and every approval doc 14 gives them, and loses only authorship. Asserted by the database (`fn_record_author`) and on every `/build` surface |
+| R13 | A guardian of a 16–17 (or a re-granted guardian of an 18+) opens `/g/pending` or presses its Approve | **Denied**: sent home, shown nothing, nothing approved and nothing logged. Only an under-16's guardian reviews or approves a waiting version (R4, R8); a version left from before the sixteenth birthday governs nothing (R11). Asserted by the database's author answer (`fn_record_author`) on the page and on the press (safety review of the /g/pending build, S-1) |
 
 ---
 

@@ -16,6 +16,7 @@ import PlayerCV from '@/components/cv/PlayerCV';
 import { db } from '@/lib/db';
 import { assembleCv, cvClubColours, withSignedPhoto, wornColours, type CvData } from '@/lib/record-read';
 import { requireRecordActor } from '@/lib/record-guard';
+import { waitingRecords } from '@/lib/cv-build';
 import SiteNav from '@/components/floodlit/SiteNav';
 import { PREVIEW_EMPTY_TITLE } from '@/lib/to-confirm';
 
@@ -27,13 +28,15 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
   const { actor } = await requireRecordActor(recordId);
 
   const { rows } = await db.query(
-    `select dr.person_id, p.first_name, fn_age_band(p.dob) as band,
-       exists(select 1 from profile_version where record_id = dr.id and status = 'pending') as has_pending
+    `select dr.person_id, p.first_name, fn_age_band(p.dob) as band
      from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
     [recordId],
   );
   const r = rows[0] as { person_id: string; first_name: string; band: string; has_pending: boolean } | undefined;
   if (!r) notFound();
+  // Waiting is ONE answer everywhere (lib/cv-build waitingRecords, Leo 2 Oct):
+  // a version waits only if it differs in something the review draws.
+  r.has_pending = (await waitingRecords([recordId])).has(recordId);
 
   let cv: CvData | null;
   if (r.band === 'u16') {
