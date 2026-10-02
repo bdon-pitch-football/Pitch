@@ -987,6 +987,7 @@ if (!DEMO) {
 // never wears a real person's face, brand photography included.
 // Not in a club demo, which is about a club and not a family.
 let pendingReview: Record<string, string> | null = null;
+let pendingReviewEmpty: Record<string, string> | null = null;
 if (!DEMO) {
   const { PRIVATE_PREFIX, playerPhotoKey } = await import('../lib/player-photo.ts');
   const sharp = (await import('sharp')).default;
@@ -1009,18 +1010,18 @@ if (!DEMO) {
 
   // A drawn picture through the upload route's own encode (512 square,
   // JPEG), into the private bucket under a key of its own.
-  const photo = async (colour: string) => {
+  const photo = async (colour: string, rec = ivoRec) => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="${colour}"/>`
       + `<circle cx="256" cy="200" r="92" fill="#0b120e" fill-opacity="0.55"/><path d="M96 512 C96 380 176 316 256 316 C336 316 416 380 416 512 Z" fill="#0b120e" fill-opacity="0.55"/></svg>`;
     const out = await sharp(Buffer.from(svg)).resize(512, 512, { fit: 'cover' }).jpeg({ quality: 86 }).toBuffer();
-    const key = playerPhotoKey(ivoRec);
+    const key = playerPhotoKey(rec);
     const dir = fileURLToPath(new URL('../.dev-private-uploads/', import.meta.url));
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, key.replace(/\//g, '-')), out);
     return `${PRIVATE_PREFIX}${key}`;
   };
   // lib/cv-build buildSnapshot's shape, for a child at no club.
-  const snapshot = async () => (await db.query(
+  const snapshot = async (rec = ivoRec) => (await db.query(
     `select jsonb_build_object(
        'slug', 'live', 'dob', '', 'club', '', 'season', '2026',
        'squad', jsonb_build_object('name', '', 'ageGroup', '', 'competitionGender', null),
@@ -1038,7 +1039,7 @@ if (!DEMO) {
        'highlights', (select coalesce(jsonb_agg(jsonb_build_object('title', title, 'url', url) order by added_at), '[]'::jsonb)
                       from highlight where record_id = dr.id),
        'highlightsUsed', (select count(*) from highlight where record_id = dr.id)) as content
-     from development_record dr join person p on p.id = dr.person_id where dr.id = $1`, [ivoRec])).rows[0].content;
+     from development_record dr join person p on p.id = dr.person_id where dr.id = $1`, [rec])).rows[0].content;
 
   // The page Noemi approved.
   await db.query(`update person set photo_path = $2 where id = $1`, [ivo, await photo('#3f5a6b')]);
@@ -1084,6 +1085,70 @@ if (!DEMO) {
     throw new Error(`the every-kind fixture changes ${kinds.join(', ')} with photos ${photos.join(' → ')} — it must change all seven, between two private photos`);
   }
   pendingReview = { guardian: noemi, child: ivo, record: ivoRec };
+
+  // --- THE EMPTY SIDES (follow-up audit #8, 2 Oct) --------------------------
+  // Ivo's change fills every section, so three things the review promises had
+  // still never been drawn: the "—" of an emptied field (and of a stat saved
+  // as 0, the never-zero rule), the "No photo yet" tile of a page approved
+  // without a photo, and a school entry that never shows (D-161). Tobin
+  // Calloway, 12, and his parent Odile — invented — are that fixture, isolated
+  // exactly as Ivo is (L32): Odile is in no suite's list of seats, and Tobin
+  // holds no club, squad, registration or share link.
+  //
+  // The approved page has no photo, a number left empty, his right foot and
+  // two assists, and a school entry. That snapshot is one approved before
+  // 0061, when a school entry could still be written: the live table refuses
+  // one on an under-18's record now, so it is written into the approved
+  // version's content, where an old one would be, and the review must not
+  // draw it. His change since: a photo, a number, his foot cleared and his
+  // assists saved as 0. Nothing else moves, so the review draws The photo and
+  // Football details and no other section.
+  const odile = randomUUID(), tobin = randomUUID(), tobinRec = randomUUID();
+  await db.query(`insert into person (id, first_name, last_name, dob, email) values ($1,'Odile','Calloway','1985-08-21','pending.empty@example.com')`, [odile]);
+  await proveAddress(odile);
+  await db.query(`insert into person (id, first_name, last_name, dob) values ($1,'Tobin','Calloway','2014-03-09')`, [tobin]);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now() - interval '35 days')`, [odile, tobin]);
+  await db.query(
+    `insert into consent_event (at, event, actor_id, subject_id, policy_version) values
+       (now() - interval '36 days', 'invite_created', $1, $2, null),
+       (now() - interval '36 days', 'email_sent',     null, $2, null),
+       (now() - interval '36 days', 'sms_sent',       null, $2, null),
+       (now() - interval '35 days', 'guardian_landed',$1,  $2, null),
+       (now() - interval '35 days', 'tos_accepted',   $1,  $2, '01@v1.0'),
+       (now() - interval '35 days', 'policy_accepted',$1,  $2, '02@v1.0'),
+       (now() - interval '35 days', 'approved',       $1,  $2, null)`,
+    [odile, tobin],
+  );
+  await db.query(`insert into development_record (id, person_id, positions, squad_number, foot, about, surfaced_stats)
+    values ($1,$2,array['CB'],null,'Right','Centre-back who talks all game and likes to step out with the ball.',array['apps','assists'])`, [tobinRec, tobin]);
+  for (const [key, value] of [['apps', 9], ['assists', 2]] as const) {
+    await db.query(`insert into player_stat (record_id, season, stat_key, value, provenance) values ($1,'2026',$2,$3,'self_reported')`, [tobinRec, key, value]);
+  }
+  const TOBIN_SCHOOL = 'Tarrowvale Secondary College';
+  const tobinApproved = await snapshot(tobinRec);
+  tobinApproved.otherFootball = [...tobinApproved.otherFootball, { kind: 'school', orgName: TOBIN_SCHOOL, period: '2026', note: null }];
+  await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at, created_at)
+    values ($1,$2,'approved',$3, now() - interval '20 days', now() - interval '20 days')`, [tobinRec, tobinApproved, odile]);
+  await db.query(`update person set photo_path = $2 where id = $1`, [tobin, await photo('#5a4f3f', tobinRec)]);
+  await db.query(`update development_record set squad_number = 4, foot = null where id = $1`, [tobinRec]);
+  await db.query(`update player_stat set value = 0 where record_id = $1 and season = '2026' and stat_key = 'assists'`, [tobinRec]);
+  await db.query(`insert into profile_version (record_id, content, status, created_at) values ($1,$2,'pending', now() - interval '1 hour')`,
+    [tobinRec, await snapshot(tobinRec)]);
+  // It proves itself too: The photo and Football details and nothing else,
+  // from no photo to a private one, three rows each with a "—" on one side,
+  // and the school in the approved version and in no row of the diff.
+  const t = (await db.query(
+    `select (select content from profile_version where record_id = $1 and status = 'approved') as a,
+            (select content from profile_version where record_id = $1 and status = 'pending') as p`, [tobinRec])).rows[0];
+  const td = pendingDiff(t.a, t.p);
+  const rows = td.details.map((d) => `${d.label}: ${d.from} → ${d.to}`).sort();
+  const want = ['Assists: 2 → —', 'Number: — → 4', 'Preferred foot: Right → —'];
+  if (changedKinds(td).join() !== 'photo,details' || td.photo?.from !== null || !td.photo?.to?.startsWith(PRIVATE_PREFIX)
+      || JSON.stringify(rows) !== JSON.stringify(want)
+      || !t.a.otherFootball.some((e: { kind?: string }) => e.kind === 'school') || JSON.stringify(td).includes(TOBIN_SCHOOL)) {
+    throw new Error(`the empty-sides fixture changes ${changedKinds(td).join(', ')} with rows ${rows.join(' | ')} — it must change the photo (from none) and exactly ${want.join(' | ')}, with its school entry drawn nowhere`);
+  }
+  pendingReviewEmpty = { guardian: odile, child: tobin, record: tobinRec, school: TOBIN_SCHOOL };
 }
 let demoSlug = '';
 if (DEMO) {
@@ -1330,8 +1395,13 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
       // (0160) and checks that opening it stopped nothing.
       georgiaAsk,
       // The every-kind waiting change (design audit, 2 Oct): Noemi's review
-      // is /g/pending/<record>, signed in as <guardian>. Read by no suite.
+      // is /g/pending/<record>, signed in as <guardian>. Read by the render
+      // suite (pp-r), signed in as <guardian>, and never pressed.
       pendingReview,
+      // The empty sides (follow-up audit #8, 2 Oct): Odile's review of
+      // Tobin's change — "—", "No photo yet", and <school> drawn nowhere.
+      // Read by the render suite (pp-r) and never pressed.
+      pendingReviewEmpty,
       // Trials board v2's three Westgate fixtures (above): the write suite
       // removes them before its sweep (L32).
       boardV2Notices,
@@ -1343,3 +1413,4 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
 }
 console.log('  sign-in: guardian@example.com (parent) · player@example.com (adult player) · nate@example.com (16–17 player) · td@example.com (club TD) · coach@example.com (coach) · admin@example.com (club administrator) · quarrymead@example.com (unverified club) · kingsway@example.com (free verified club, TD) · new@example.com (brand-new, nothing yet) · unproved@example.com (signs in nowhere until /confirm/dev-unproved)');
 if (pendingReview) console.log(`  every-kind review: pending.parent@example.com (Noemi, Ivo's parent) · /g/pending/${pendingReview.record}`);
+if (pendingReviewEmpty) console.log(`  empty-sides review: pending.empty@example.com (Odile, Tobin's parent) · /g/pending/${pendingReviewEmpty.record}`);

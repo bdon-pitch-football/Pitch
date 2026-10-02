@@ -1467,6 +1467,109 @@ const apFail = (id, width, path, what) => apFails.push({ id, width, path, what }
   await apWidth(1280);
 }
 
+// ---------------------------------------------------------------------------
+// pp — THE FOLLOW-UP AUDIT, MEASURED (docs/design/reports/2026-10-02-audit-
+// followup-pending-and-register.md, Head of Product Design, 2 Oct). The two
+// registers and the parent's review of a waiting change, at the widths each
+// ruling is about, whatever widths this run was called with. Every check here
+// failed on bbbc10b, the live polish release. /g/pending is read as the two
+// isolated guardians the seed writes for it (pendingReview, pendingReviewEmpty)
+// and nothing on it is pressed (L32).
+// ---------------------------------------------------------------------------
+const ppFails = [];
+let ppChecked = 0;
+const ppFail = (id, width, path, what) => ppFails.push({ id, width, path, what });
+{
+  const marina = ids.people.marina, sam = ids.people.sam;
+  // The register's table, from 768: the status cell holds its pill (ruling 1,
+  // a 116px column: SHORTLISTED is ~109px), and the last cell's content sits
+  // one grid gap after "Open the CV", not pushed to the row's far end
+  // (ruling 4, justify-self: start). The two footer panels end level
+  // (ruling 11, align-items: stretch). And a note is upright: Archivo has no
+  // italic, so font-style: italic was the browser slanting it (ruling 3).
+  await apAs(marina);
+  for (const w of [768, 1024, 1280]) {
+    await apWidth(w); await visit('/club/register'); ppChecked++;
+    const t = await eval_(`JSON.stringify((() => {
+      const rows = [...document.querySelectorAll('.reg-item > .console-row.d-only')].filter((r) => r.getBoundingClientRect().height > 0);
+      let shortlisted = 0; const spill = [], far = [];
+      for (const r of rows) {
+        const [, , st, cv, act] = r.children;
+        const pill = st?.firstElementChild, s = st.getBoundingClientRect(), p = pill?.getBoundingClientRect();
+        if (pill && /shortlisted/i.test(pill.textContent)) shortlisted++;
+        if (!p || p.right > s.right + 0.5 || cv.getBoundingClientRect().left - p.right < 11.5) spill.push(pill?.textContent.trim() + ' ' + Math.round(p?.right - s.right) + 'px past its cell');
+        const first = act?.firstElementChild;
+        if (first) { const gap = first.getBoundingClientRect().left - cv.getBoundingClientRect().right; if (gap > 13) far.push(first.textContent.trim() + ' ' + Math.round(gap) + 'px'); }
+      }
+      const foot = [...(document.querySelector('.reg-foot')?.children ?? [])].map((c) => c.getBoundingClientRect());
+      const italic = [...document.querySelectorAll('.reg-line.has')].filter((e) => getComputedStyle(e).fontStyle !== 'normal').length;
+      return { rows: rows.length, shortlisted, spill: [...new Set(spill)], far: [...new Set(far)], notes: document.querySelectorAll('.reg-line.has').length, italic,
+        foot: foot.length === 2 ? [Math.round(foot[0].top), Math.round(foot[0].bottom), Math.round(foot[1].top), Math.round(foot[1].bottom)] : null };
+    })())`);
+    if (!t.rows || !t.shortlisted) ppFail('pp-l1', w, '/club/register', `measured ${t.rows} table rows, ${t.shortlisted} of them shortlisted — nothing to measure`);
+    if (t.spill.length) ppFail('pp-l1', w, '/club/register', `a status pill leaves its column or crowds "Open the CV": ${t.spill.join(', ')}`);
+    if (t.far.length) ppFail('pp-l2', w, '/club/register', `the last column's button sits more than one 12px gap after "Open the CV": ${t.far.join(', ')}`);
+    if (!t.notes || t.italic) ppFail('pp-l3', w, '/club/register', `${t.italic} of ${t.notes} notes in the table are slanted (font-style not normal)`);
+    if (!t.foot || Math.abs(t.foot[0] - t.foot[2]) > 1 || Math.abs(t.foot[1] - t.foot[3]) > 1) ppFail('pp-l4', w, '/club/register', `the footer's two panels run ${JSON.stringify(t.foot)} (top, bottom, top, bottom) — they must start and end level`);
+  }
+  await apWidth(375); await visit('/club/register'); ppChecked++;
+  const phone = await eval_(`JSON.stringify((() => { const n = [...document.querySelectorAll('.reg-row-note')].filter((e) => e.getBoundingClientRect().height > 0);
+    return { notes: n.length, italic: n.filter((e) => getComputedStyle(e).fontStyle !== 'normal').length }; })())`);
+  if (!phone.notes || phone.italic) ppFail('pp-l3', 375, '/club/register', `${phone.italic} of ${phone.notes} phone-row notes are slanted (font-style not normal)`);
+
+  // Ruling 6: /coach/register's position chips are tight enough that no chip
+  // is left alone on a line at a phone (it was "ST"), and each is still a
+  // 44px target both ways.
+  await apAs(sam); await visit('/coach/register'); ppChecked++;
+  const chips = await eval_(`JSON.stringify((() => { const l = [...document.querySelectorAll('.console-filters .field-label')].find((x) => x.textContent.trim() === 'Where they play');
+    const cs = l ? [...l.nextElementSibling.querySelectorAll('.chip')].map((c) => { const r = c.getBoundingClientRect(); return { t: c.textContent.trim(), top: Math.round(r.top), w: r.width, h: r.height }; }) : [];
+    const lines = [...new Set(cs.map((c) => c.top))].map((top) => cs.filter((c) => c.top === top).map((c) => c.t));
+    return { n: cs.length, lines, small: cs.filter((c) => c.w < 44 || c.h < 44).map((c) => c.t + ' ' + Math.round(c.w) + 'x' + Math.round(c.h)) }; })())`);
+  if (chips.n < 2) ppFail('pp-l5', 375, '/coach/register', `"Where they play" drew ${chips.n} chips — nothing to measure`);
+  else if (chips.lines.some((l) => l.length === 1) || chips.small.length) ppFail('pp-l5', 375, '/coach/register', `position chips by line ${JSON.stringify(chips.lines)}${chips.small.length ? `, under 44px: ${chips.small.join(', ')}` : ''}`);
+
+  // /g/pending (rulings 2, 9 and 10). The two photos start on one line
+  // whatever their captions do — a caption row, then a photo row. Every
+  // details row keeps its arrow on the new value's line, and its label sits
+  // on the value's baseline (read from a zero-height inline-block, which a
+  // browser places exactly on the baseline). And no old value is struck.
+  const BASE_AT = (sel) => `((el) => { if (!el) return null; const m = document.createElement('span'); m.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    el.prepend(m); const y = m.getBoundingClientRect().top; m.remove(); return y; })(${sel})`;
+  for (const [who, rec, name] of [[ids.pendingReview?.guardian, ids.pendingReview?.record, 'Ivo'], [ids.pendingReviewEmpty?.guardian, ids.pendingReviewEmpty?.record, 'Tobin']]) {
+    const path = `/g/pending/${rec}`;
+    if (!who || !rec) { ppFail('pp-l6', 0, '/g/pending', `the seed wrote no ${name} review — reseed`); continue; }
+    await apAs(who);
+    for (const w of [375, 1280]) {
+      await apWidth(w); await visit(path); ppChecked++;
+      const g = await eval_(`JSON.stringify((() => {
+        const pair = document.querySelector('.ph-pair'); const tiles = pair ? [...pair.querySelectorAll('.ph')].map((t) => t.getBoundingClientRect()) : [];
+        const dets = [...document.querySelectorAll('.det')].map((d) => {
+          const ar = d.querySelector('.det-ar')?.getBoundingClientRect(), nv = d.querySelector('.det-n'), first = nv ? [...nv.getClientRects()][0] : null;
+          const mid = ar ? (ar.top + ar.bottom) / 2 : null;
+          // Only a label and a value that share a line can share a baseline:
+          // a long Positions row puts its value on the line under the label,
+          // as the artboard draws it.
+          const lr = d.querySelector('.det-l')?.getBoundingClientRect(), vr = d.querySelector('.det-o') ? [...d.querySelector('.det-o').getClientRects()][0] : null;
+          const beside = Boolean(lr && vr) && vr.top < lr.bottom && vr.bottom > lr.top;
+          const lab = beside ? ${BASE_AT("d.querySelector('.det-l')")} : null, val = beside ? ${BASE_AT("d.querySelector('.det-o')")} : null;
+          const struck = [d.querySelector('.det-o'), ...d.querySelectorAll('.det-o *')].filter((e) => e && getComputedStyle(e).textDecorationLine.includes('line-through')).length;
+          return { row: d.textContent.replace(/\\s+/g, ' ').trim(), withNew: Boolean(first) && mid >= first.top && mid <= first.bottom, beside, drift: beside ? Math.round((lab - val) * 10) / 10 : null, struck };
+        });
+        return { tiles: tiles.map((t) => [Math.round(t.top * 10) / 10, Math.round(t.height * 10) / 10]), dets };
+      })())`);
+      if (g.tiles.length !== 2 || Math.abs(g.tiles[0][0] - g.tiles[1][0]) > 0.5 || Math.abs(g.tiles[0][1] - g.tiles[1][1]) > 0.5) ppFail('pp-l6', w, `/g/pending (${name})`, `the two photos sit at ${JSON.stringify(g.tiles)} (top, height) — they must share a row`);
+      if (!g.dets.filter((d) => d.beside).length) ppFail('pp-l7', w, `/g/pending (${name})`, `no details row with its label beside its value to measure (${g.dets.length} rows)`);
+      for (const d of g.dets) {
+        if (!d.withNew) ppFail('pp-l7', w, `/g/pending (${name})`, `"${d.row}": the arrow is not on the new value's line`);
+        if (d.beside && Math.abs(d.drift) > 0.5) ppFail('pp-l7', w, `/g/pending (${name})`, `"${d.row}": the label sits ${d.drift}px off the value's baseline`);
+        if (d.struck) ppFail('pp-l8', w, `/g/pending (${name})`, `"${d.row}": the old value is struck through`);
+      }
+    }
+  }
+  await cdp('Network.clearBrowserCookies');
+  await apWidth(1280);
+}
+
 stop();
 console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px (${failureChecks} of them failure-path views)`);
 console.log(`analytics    · ${analyticsRead} views read · started in ${analyticsOn} · it may start only for a signed-out visitor on the front door, /trials, /jobs or a club page, and must start there`);
@@ -1490,6 +1593,8 @@ for (const f of foldFails) console.log(`FAIL 375×667 · ${f.path} — ${f.missi
 console.log(`fold         · U5b: the unclaimed banner's first line inside the first screen at 375×667 on 3 unclaimed pages`);
 console.log(`audit        · ap-l1–l11: ${apChecked} views — framed columns centred, the 560 home at 820, the hero pill, the link box, Close at the row's end, /jobs' Back, legal tables full width, one headline that scales, the charter's radii, 44px links, and the home aside that does not repeat the rail`);
 for (const f of apFails) console.log(`FAIL ${f.width}px · ${f.path} — ${f.id} ${f.what}`);
+console.log(`follow-up    · ${ppChecked} views — the register's status pill fits its column, its last button follows Open the CV, its footer ends level and its notes are upright; the coach's position chips leave none alone; /g/pending's photos share a row and its details keep the arrow with the new value, on the label's baseline, unstruck`);
+for (const f of ppFails) console.log(`FAIL ${f.width}px · ${f.path} — ${f.id} ${f.what}`);
 console.log(`call sheet   · cs1: ${sheetChecked} views — the claim and the TD in a 320px aside at ≥1024 with the claim kept in view, and one column claim → TD → form below it`);
 for (const f of sheetFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 console.log(`trial rows   · tb-foot: ${footChecked} rows on /trials — no divider, the notice link and the button on one line, each a 44px target`);
@@ -1513,7 +1618,7 @@ const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what}
   (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
 console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
 for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
-const chromeBad = tfFails.length + footFails.length + apFails.length + sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + waysFails.length + squeezeKeys.length + motionFails.length;
+const chromeBad = tfFails.length + footFails.length + apFails.length + ppFails.length + sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + waysFails.length + squeezeKeys.length + motionFails.length;
 if (failures.length === 0 && chromeBad === 0) {
   console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, no Premium row is offered while D-163 stands, and the call sheet keeps its claim and TD where the operator can see them');
   process.exit(0);
@@ -1523,5 +1628,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, ways in ${waysFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length}, trial rows ${footFails.length}, filters ${tfFails.length}, audit ${apFails.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, ways in ${waysFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length}, trial rows ${footFails.length}, filters ${tfFails.length}, audit ${apFails.length}, follow-up ${ppFails.length})`);
 process.exit(1);

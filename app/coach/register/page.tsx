@@ -94,7 +94,7 @@ export default async function CoachRegister({ searchParams }: {
         </div>
 
         {all.length > 0 && (
-          <div className="console-filters card panel" style={{ gap: 11 }}>
+          <div className="console-filters card panel creg-filters" style={{ gap: 11 }}>
             {teams.length > 1 && (
               <div className="stack8" style={{ gap: 7 }}>
                 <div className="field-label">Which team</div>

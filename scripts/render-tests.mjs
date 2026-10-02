@@ -4745,6 +4745,69 @@ const tfAll = tfLines(tfBoard);
 }
 
 // ---------------------------------------------------------------------------
+// pp-r — THE FOLLOW-UP AUDIT, /g/pending (docs/design/reports/2026-10-02-
+// audit-followup-pending-and-register.md, Head of Product Design; spec D as
+// amended 2 Oct). The two isolated reviews the seed writes for this and
+// nothing else: Noemi's of Ivo's every-kind change, and Odile's of Tobin's
+// empty sides (scripts/dev-db.mts, pendingReview and pendingReviewEmpty).
+// READ-ONLY, ON PURPOSE (L32): each is opened by GET as its own guardian and
+// nothing on either page is pressed, so neither version moves and the write
+// sweep never meets them. pp-r2, pp-r3 and pp-r4 failed on bbbc10b, the live
+// polish release; the register's fixes are CSS and are measured by the layout
+// check (pp-l).
+// ---------------------------------------------------------------------------
+if (ids.pendingReview && ids.pendingReviewEmpty) {
+  const pr = ids.pendingReview, pe = ids.pendingReviewEmpty;
+  const ivo = await get(`/g/pending/${pr.record}`, pr.guardian);
+  const tobin = await get(`/g/pending/${pe.record}`, pe.guardian);
+  const body = (h) => h.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, ' ');
+  const heads = (h) => [...body(h).matchAll(/<h2 class="sec-h">([^<]*)<\/h2>/g)].map((m) => m[1]);
+  // A details row, as a person reads it: tags gone, spaces collapsed.
+  const detRows = (h) => [...body(h).matchAll(/<div class="det">([\s\S]*?)<\/div>/g)]
+    .map((m) => m[1].replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+  const imgs = (h) => [...body(h).matchAll(/<img ([^>]*)>/g)].map((m) => ({
+    src: (/src="([^"]*)"/.exec(m[1])?.[1] ?? '').replace(/&amp;/g, '&'), alt: /alt="([^"]*)"/.exec(m[1])?.[1] ?? null }));
+  check('pp-r1: Noemi’s review of Ivo’s every-kind change renders all seven sections in order, the details rows as "{label}: {old} → {new}", both photos at signed private addresses, and two equal answers with no glow',
+    [ivo.status, heads(ivo.html), detRows(ivo.html), imgs(ivo.html).map((i) => i.src.startsWith('/private-photo/') && /[?&]s=/.test(i.src)),
+     /\/dev-uploads\/|pitch-private:/.test(body(ivo.html)), glowCount(ivo.html),
+     (body(ivo.html).match(/class="btn btn-secondary"[^>]*>(Approve the change|Not this one)</g) ?? []).length],
+    [200, ['The About section', 'The photo', 'Highlights', 'Clubs before this one', 'Achievements', 'Other football', 'Football details'],
+     ['Positions: Central midfielder · Defensive midfielder → Attacking midfielder · Central midfielder', 'Number: 8 → 10', 'Preferred foot: Right → Left', 'Goals: 4 → 7 Self-reported'],
+     [true, true], false, 0, 2]);
+  // #7: the photos are named for a screen reader, in the approved mockup's
+  // words (floodlit-parent.html #pa-all), typographic apostrophe and all. A
+  // side with no photo is the "No photo yet" tile, which has no image to name.
+  check('pp-r2: each photo on /g/pending is named "{name}’s approved photo" / "{name}’s new photo" — never alt="" — and a side with no photo is the "No photo yet" tile',
+    [imgs(ivo.html).map((i) => i.alt), imgs(tobin.html).map((i) => i.alt), (body(tobin.html).match(/<span>No photo yet<\/span>/g) ?? []).length],
+    [['Ivo’s approved photo', 'Ivo’s new photo'], ['Tobin’s new photo'], 1]);
+  // #10, spec D as amended: no strike-through on an old details value; the
+  // arrow already says "was".
+  const struck = (h) => [...body(h).matchAll(/<div class="det">([\s\S]*?)<\/div>/g)].filter((m) => /<s>|line-through/.test(m[1])).length;
+  check('pp-r3: no details row on /g/pending strikes its old value through (Ivo’s four rows, Tobin’s three)',
+    [detRows(ivo.html).length, struck(ivo.html), detRows(tobin.html).length, struck(tobin.html)], [4, 0, 3, 0]);
+  // #9: the arrow travels with the new value — one wrapper holds both, so a
+  // wrap can never leave the arrow at the end of the old line. (Where it
+  // lands on the screen, and the baseline, are measured by pp-l7.)
+  const grouped = (h) => [...body(h).matchAll(/<div class="det">([\s\S]*?)<\/div>/g)]
+    .every((m) => /<span class="det-to"><span class="det-ar" aria-hidden="true">→<\/span><span class="det-n">/.test(m[1]));
+  check('pp-r4: in every details row the arrow and the new value share one wrapper (.det-to), the arrow first and hidden from a screen reader',
+    [grouped(ivo.html), grouped(tobin.html)], [true, true]);
+  // #8: the empty sides, which no fixture showed before. Tobin's page was
+  // approved with no photo and with a school entry (a snapshot from before
+  // 0061); since then he added a photo and a number, cleared his foot and
+  // saved his assists as 0. The review draws The photo and Football details
+  // and nothing else: "No photo yet" on the approved side, "—" for every
+  // empty value and for the 0, and the school nowhere at all (D-161).
+  const firstFigure = /<div class="ph-pair"><figure>([\s\S]*?)<\/figure>/.exec(body(tobin.html))?.[1] ?? '';
+  check('pp-r5: Odile’s review of Tobin’s change draws The photo and Football details only — "No photo yet" on the approved side, "—" for an emptied field and for a stat saved as 0, never a 0 — and his school appears nowhere',
+    [tobin.status, heads(tobin.html), /class="ph ph-none"/.test(firstFigure) && /No photo yet/.test(firstFigure), detRows(tobin.html),
+     /class="det-n">0</.test(tobin.html), tobin.html.includes(pe.school), /Other football/.test(body(tobin.html))],
+    [200, ['The photo', 'Football details'], true, ['Number: — → 4', 'Preferred foot: Right → —', 'Assists: 2 → —'], false, false, false]);
+} else {
+  check('pp-r0: the seed wrote both isolated reviews (.dev-ids.json pendingReview and pendingReviewEmpty) — reseed', false, true);
+}
+
+// ---------------------------------------------------------------------------
 // addr-r1 — no page this crawl was served sends a share token into an address
 // bar: not in a redirect, and not in a link it carries (brief D; L38/L42).
 // ---------------------------------------------------------------------------

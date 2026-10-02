@@ -130,10 +130,12 @@ export default async function PendingReview({ params, searchParams }: {
   const mint = async (path: string | null) => (path && isPrivatePhoto(path) ? await imageSrc(path) : null);
   const photoFrom = diff.photo ? await mint(diff.photo.from) : null;
   const photoTo = diff.photo ? await mint(diff.photo.to) : null;
-  const tile = (path: string | null, src: string | null) => (
+  // Each photo is named for a screen reader in the approved mockup's words
+  // (floodlit-parent.html #pa-all; follow-up audit #7, 2 Oct).
+  const tile = (path: string | null, src: string | null, alt: string) => (
     path === null
       ? <div className="ph ph-none"><CameraGlyph /><span>No photo yet</span></div>
-      : <div className="ph">{src ? <img src={src} alt="" /> : <CameraGlyph />}</div>
+      : <div className="ph">{src ? <img src={src} alt={alt} /> : <CameraGlyph />}</div>
   );
 
   // One row of a list that changed: the entry, and whether it was added or
@@ -180,8 +182,8 @@ export default async function PendingReview({ params, searchParams }: {
 
       {diff.photo && section('The photo', (
         <div className="ph-pair">
-          <figure><SideLabel>{approvedLabel}</SideLabel>{tile(diff.photo.from, photoFrom)}</figure>
-          <figure><SideLabel ink>The new version</SideLabel>{tile(diff.photo.to, photoTo)}</figure>
+          <figure><SideLabel>{approvedLabel}</SideLabel>{tile(diff.photo.from, photoFrom, `${name}’s approved photo`)}</figure>
+          <figure><SideLabel ink>The new version</SideLabel>{tile(diff.photo.to, photoTo, `${name}’s new photo`)}</figure>
         </div>
       ))}
 
@@ -203,13 +205,16 @@ export default async function PendingReview({ params, searchParams }: {
           {title(c, c.item.orgName)}{sub(c.item.period)}
         </>)))}
 
+      {/* Spec D as amended (follow-up audit, 2 Oct): the old value is muted,
+          never struck — the arrow already says "was" — and the arrow is held
+          with the new value (.det-to), so a wrap never strands it at the end
+          of the old line. */}
       {diff.details.length > 0 && section('Football details', diff.details.map((d) => (
         <div className="det" key={d.label + d.from + d.to}>
           <span className="det-l">{d.label}:</span>
           <span className="det-v">
-            <span className="det-o">{d.from === EMPTY ? EMPTY : <s>{d.from}</s>}</span>
-            <span className="det-ar" aria-hidden>→</span>
-            <span className="det-n">{d.to}</span>
+            <span className="det-o">{d.from}</span>
+            <span className="det-to"><span className="det-ar" aria-hidden>→</span><span className="det-n">{d.to}</span></span>
             {d.toProvenance && <span className="det-p">{d.toProvenance}</span>}
           </span>
         </div>
