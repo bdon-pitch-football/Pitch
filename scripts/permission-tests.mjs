@@ -5025,8 +5025,10 @@ for (const f of recordIdSurfaces) {
 
 // D-119: the child never approves their own edit.
 const pendingActions = readFileSync(fileURLToPath(new URL('../app/g/pending/[recordId]/actions.ts', import.meta.url)), 'utf8');
-check('act12: approving a pending edit is guardian-only (D-119)',
-  /requireRecordActor\(recordId, \['guardian'\]\)/.test(pendingActions), true);
+// MOVED (2 Oct, R13): an under-16's guardian only — the author rule.
+check('act12: approving a pending edit is guardian-only (D-119), and an under-16\u2019s guardian only (R13)',
+  /const \{ personId, actor \} = await requireRecordAuthor\(recordId\);\s*if \(actor !== 'guardian'\) redirect\('\/home'\);/.test(
+    codeOnly(pendingActions).slice(codeOnly(pendingActions).indexOf('export async function approveChange('), codeOnly(pendingActions).indexOf('export async function issueShareLink('))), true);
 // D-94 §3: identity comes from the session, never from the caller.
 check('act13: the guardian id is no longer accepted as an argument (D-94 §3)',
   /guardianId: string/.test(pendingActions), false);
@@ -12477,13 +12479,15 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   // it is not forgotten, and checked by its own suite.
   const editors = ['app/build/[recordId]/page.tsx', 'app/build/[recordId]/actions.ts', 'app/build/[recordId]/clips/page.tsx',
     'app/build/[recordId]/clips/actions.ts', 'app/build/[recordId]/more/page.tsx', 'app/build/[recordId]/more/actions.ts'];
-  const readers = ['app/build/[recordId]/preview/page.tsx', 'app/build/[recordId]/ready/page.tsx', 'app/g/pending/[recordId]/page.tsx',
-    'app/g/pending/[recordId]/actions.ts', 'app/share-card/[recordId]/page.tsx', 'app/share-card/[recordId]/actions.ts',
+  // MOVED (2 Oct, R13): /g/pending is no longer a surface a 16–17's guardian
+  // keeps — their child's page is the live record, nothing waits to review.
+  const readers = ['app/build/[recordId]/preview/page.tsx', 'app/build/[recordId]/ready/page.tsx',
+    'app/share-card/[recordId]/page.tsx', 'app/share-card/[recordId]/actions.ts',
     'app/register-interest/[recordId]/page.tsx', 'app/register-interest/[recordId]/actions.ts', 'app/send/[recordId]/page.tsx', 'app/send/[recordId]/actions.ts'];
   check('jb-n10-1: every /build editor (page and actions: the form, clips, achievements and other football) asks fn_record_author through requireRecordAuthor, and none still asks the actor question',
     editors.map((f) => [/requireRecordAuthor\(recordId\)/.test(codeOnly(srcOf(f))), /requireRecordActor\(|recordActor\(/.test(codeOnly(srcOf(f)))]),
     editors.map(() => [true, false]));
-  check('jb-n10-2: and every surface a 16–17’s guardian keeps — preview, ready, pending, share card, register, send — still asks requireRecordActor, unchanged',
+  check('jb-n10-2: and every surface a 16–17’s guardian keeps — preview, ready, share card, register, send — still asks requireRecordActor, unchanged',
     readers.filter((f) => !/requireRecordActor\(|recordActor\(/.test(codeOnly(srcOf(f)))), []);
   const guard = codeOnly(srcOf('lib/record-guard.ts'));
   check('jb-n10-3: requireRecordAuthor asks the database (fn_record_author), sends no session to /signin and anything else to /home — the same two answers as requireRecordActor',
@@ -13193,12 +13197,22 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
      steps.every((i) => i >= 0) && steps.every((i, k) => k === 0 || i > steps[k - 1]), /requireRecordActor\(/.test(issue)],
     [null, 'guardian', 'self', true, false]);
   const pend = codeOnly(srcOf('app/g/pending/[recordId]/page.tsx'));
-  check('E15b: the page offers the press only to the guardian the action would let mint, and the 16–17’s guardian keeps the page itself, approving, and fn_record_actor’s answer everywhere else (R12c)',
-    [/const author = await recordAuthor\(recordId\);\s*const mayIssue = author !== null && author !== 'no-session' && author\.actor === 'guardian';/.test(pend),
-     /\) : mayIssue \? \(\s*<form action=\{issue\}>/.test(pend), /await requireRecordActor\(recordId, \['guardian'\]\);/.test(pend),
-     /requireRecordActor\(recordId, \['guardian'\]\)/.test(act.slice(act.indexOf('export async function approveChange('), act.indexOf('export async function issueShareLink('))),
+  // MOVED (2 Oct, R13; safety review of the /g/pending build, S-1): the page
+  // itself is the author rule now, so the press is offered exactly to the
+  // guardian the action would let mint, and a 16–17's guardian no longer
+  // keeps the page or the approval — they keep fn_record_actor's answer
+  // everywhere else.
+  const approveFn = act.slice(act.indexOf('export async function approveChange('), act.indexOf('export async function issueShareLink('));
+  check('E15b: the page offers the press only to the guardian the action would let mint — the page itself asks the author answer — and the 16–17’s guardian keeps fn_record_actor’s answer everywhere else (R12c)',
+    [/const \{ actor \} = await requireRecordAuthor\(recordId\);\s*if \(actor !== 'guardian'\) redirect\('\/home'\);/.test(pend),
+     /requireRecordActor\(|recordActor\(/.test(pend), /requireRecordAuthor\(recordId\)/.test(approveFn) && !/requireRecordActor\(/.test(approveFn),
      await recActor(ID.guardian, REC.nate)],
-    [true, true, true, true, 'guardian']);
+    [true, false, true, 'guardian']);
+  check('R13: a 16–17’s guardian (and a re-granted guardian of an adult) is refused the review and the approval — both ask the database’s author answer, which is ‘guardian’ only for an under-16’s guardian, and send anyone else home before anything is read, drawn or approved',
+    [await author(ID.guardian, REC.nate), await author(ID.guardian, REC.marcus), await author(ID.guardian, REC.georgia),
+     pend.indexOf("if (actor !== 'guardian') redirect('/home');") > -1 && pend.indexOf("if (actor !== 'guardian') redirect('/home');") < pend.indexOf('from profile_version'),
+     approveFn.indexOf("if (actor !== 'guardian') redirect('/home');") > -1 && approveFn.indexOf("if (actor !== 'guardian') redirect('/home');") < approveFn.indexOf('approvePendingVersion(')],
+    [null, null, 'guardian', true, true]);
 
   // ---- §5: a number goes to Twilio in E.164 — one function for the send, the STOP webhook and the hash ----
   const nh = await import('../lib/number-hash.ts');
@@ -13362,15 +13376,38 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
       [1, 0, { foot: 'Right', about: 'Parent decided' }]);
   }
 
+  // ONE answer to "is something waiting" (Leo, 2 Oct): the review's diff.
+  {
+    const A = { about: 'x', surfacedStats: ['apps'], club: 'Riverside FC', squad: { name: 'U14' }, locality: 'Riverside VIC', stats: [] };
+    const iw = (a, p) => (pd?.isWaiting ? pd.isWaiting(a, p) : null);
+    check('pw-1: a waiting version waits only if it differs in something the review draws — not when it is missing, not for a change only to which stats are shown, not for the club, squad or locality line (from the membership, not the child) — and it does for anything the child wrote; with nothing approved yet, anything at all',
+      [iw(A, null), iw(A, { ...A, surfacedStats: ['apps', 'goals'] }), iw(A, { ...A, club: 'Kingsway Rovers FC', squad: { name: 'U15' }, locality: 'Elsewhere VIC' }),
+       iw(A, { ...A, highlights: [{ title: 'New', url: 'https://youtu.be/n' }] }), iw(null, { about: 'First' })],
+      [false, false, false, true, true]);
+    const src = (f) => codeOnly(srcOf(f));
+    const readers = ['app/home/page.tsx', 'app/build/[recordId]/page.tsx', 'app/build/[recordId]/preview/page.tsx', 'app/build/[recordId]/ready/page.tsx'];
+    const cvbW = src('lib/cv-build.ts');
+    check('pw-2: every surface that says something waits asks that one answer — /home, the builder, the preview and the ready page through waitingRecords, the review through the same diff — none asks only whether a pending row exists; and doc 15 §30 goes once per waiting version, only when a write first makes it wait',
+      [readers.map((f) => [/waitingRecords\(/.test(src(f)), /status\s*=\s*'pending'/.test(src(f))]),
+       /export function isWaiting[\s\S]*changedKinds\(pendingDiff\(approved, pending\)\)\.length > 0/.test(src('lib/pending-diff.ts')),
+       /if \(pending && isWaiting\(v\.approved \?\? null, v\.pending\)\)|if \(v\.pending && isWaiting\(v\.approved \?\? null, v\.pending\)\)/.test(cvbW),
+       /if \(!isWaiting\(approved, content\)\) \{\s*await client\.query\(`delete from profile_version where record_id = \$1 and status = 'pending'`, \[recordId\]\);\s*return \{ replaced: was \? \[was\] : \[\], tell: false \};\s*\}/.test(cvbW)
+         && /const tell = !isWaiting\(approved, before\);/.test(cvbW),
+       /waitsOnGuardian = submitted\.tell;/.test(cvbW), /waits = submitted\.tell;/.test(cvbW)],
+      [readers.map(() => [true, false]), true, true, true, true, true]);
+  }
+
   // B: every write a child makes for themselves opens the waiting version,
   // through the one path the build form's save uses.
   const wrB = /export async function writeRecord[\s\S]*?\n\}\n/.exec(cvbP)?.[0] ?? '';
   const saveB = cvbP.slice(cvbP.indexOf('export async function saveCvDraft('), cvbP.indexOf('export const EDIT_WAITING_TO'));
   const route = codeOnly(srcOf('app/build/[recordId]/photo/route.ts'));
   check('pb-1: a child’s own clip, achievement, other football and photo open the waiting version and tell the guardians, through the same submitChildChange the build form’s save uses — every clips and more action and the photo route write through writeRecord — so no change of a child’s waits unseen on the live record to ride the next save',
-    [/else if \(band === 'u16' && patch && author\.actor === 'self'\) \{[\s\S]*?replaced = await submitChildChange\(client, recordId, '2026'\);\s*waits = true;/.test(wrB),
+    // MOVED (2 Oct): the email goes once per waiting version (pw-2), so
+    // the path hands back whether to tell anyone.
+    [/else if \(band === 'u16' && patch && author\.actor === 'self'\) \{[\s\S]*?const submitted = await submitChildChange\(client, recordId, '2026'\);\s*replaced = submitted\.replaced;\s*waits = submitted\.tell;/.test(wrB),
      /if \(waits\) await tellGuardiansItWaits\(recordId\);/.test(wrB),
-     /replaced\.push\(\.\.\.\(await submitChildChange\(client, recordId, draft\.season\)\)\);/.test(saveB),
+     /const submitted = await submitChildChange\(client, recordId, draft\.season\);/.test(saveB),
      (cvbP.match(/insert into profile_version \(record_id, content, status\)\s*values \(\$1, \$2, 'pending'\)\s*on conflict \(record_id\) where status = 'pending'\s*do update/g) ?? []).length,
      /await writeRecord\(recordId, who,/.test(route)],
     [true, true, true, 1, true]);

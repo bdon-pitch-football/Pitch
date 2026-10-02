@@ -1022,6 +1022,80 @@ const photoReads = [];
     return { club, link, same: club === link, bytes: club ? await bytes(club) : null };
   };
 
+  // ---- One answer to "is something waiting", and one "edit waiting" email
+  // per waiting version (Leo, 2 Oct). Here, before the sweep gives Alex a
+  // coach seat — from then on his /home is the coach console, which lists no
+  // child's changes — so /home can be asked as the parent reads it.
+  {
+    const strip = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+    const homeLists = async () => (await get('/home', alex)).html.includes(`/g/pending/${deniz.record_id}`);
+    const reviewWaits = async () => !strip((await get(`/g/pending/${deniz.record_id}`, alex)).html).includes('Nothing is waiting on you.');
+    const top = async (k) => [...strip((await get('/dev/outbox', alex)).html).matchAll(/doc15\.§(\w+) → (\S+)/g)].slice(0, k).map((m) => `§${m[1]} → ${m[2]}`);
+    // Deniz's seed About change waits: both surfaces say so.
+    const seedAgree = [await homeLists(), await reviewWaits()];
+    // The seed writes that waiting About into the version only, not onto his
+    // live record, which no real save does (a child's save writes live first,
+    // then the version from it). So the About he is approved into is the one
+    // his form must carry, or every later save of his would read as an About
+    // change.
+    const seedAbout = unhtml(/The new version<\/div><div[^>]*>([^<]*)<\/div>/.exec((await get(`/g/pending/${deniz.record_id}`, alex)).html)?.[1] ?? '');
+    await approve();
+    const cleared = [await homeLists(), await reviewWaits()];
+    // His form exactly as the page draws it, then only which stats are shown changed.
+    const { html } = await get(`/build/${deniz.record_id}`, deniz.child_id);
+    const form = forms(html).find((f) => 'positions' in f.fields);
+    const fields = { ...(form?.fields ?? {}) };
+    for (const v of form?.visible ?? []) if (!v.file && v.type !== 'select') fields[v.name] = v.value ?? '';
+    const sel = /<select[^>]*name="foot"[^>]*>([\s\S]*?)<\/select>/.exec(html)?.[1] ?? '';
+    const opt = /<option(?: value="([^"]*)")?[^>]*selected=""[^>]*>([^<]*)</.exec(sel);
+    fields.foot = opt ? (opt[1] ?? opt[2]) : '';
+    fields.about = seedAbout || unhtml(/<textarea[^>]*name="about"[^>]*>([\s\S]*?)<\/textarea>/.exec(html)?.[1] ?? '');
+    const shown = String(fields.surfaced ?? '').split(',').filter(Boolean);
+    const mail0 = await top(3);
+    if (form) await press(`/build/${deniz.record_id}`, deniz.child_id, { ...fields, surfaced: (shown.includes('assists') ? shown.filter((k) => k !== 'assists') : [...shown, 'assists']).join(',') });
+    check('bf-wait-w1: /home and /g/pending give one answer — both list Deniz’s waiting About change, and neither once it is approved; then a change only to which of his stats are shown makes nothing wait: /home lists nothing, the review says "Nothing is waiting on you.", and no "edit waiting" email goes',
+      [seedAgree, cleared, Boolean(form && fields.surfaced && seedAbout), [await homeLists(), await reviewWaits()], JSON.stringify(await top(3)) === JSON.stringify(mail0)],
+      [[true, true], [false, false], true, [false, false], true]);
+    // Three achievements in a row: one waiting version, ONE email per guardian.
+    const more = `/build/${deniz.record_id}/more`;
+    for (const t of ['Mail test one of three', 'Mail test two of three', 'Mail test three of three']) {
+      const f = forms((await get(more, deniz.child_id)).html).find((x) => x.visible.some((v) => v.name === 'title') && x.visible.some((v) => v.name === 'detail'));
+      if (f) await press(more, deniz.child_id, { ...f.fields, title: t, detail: '' });
+    }
+    const mail1 = await top(4);
+    check('bf-mail-w1: three achievements Deniz adds in a row open ONE waiting version and send ONE "edit waiting" email per guardian (doc 15 §30) — not one per write — and /home and the review both list it',
+      [mail1[0], JSON.stringify(mail1.slice(1)) === JSON.stringify(mail0), await homeLists(), await reviewWaits()],
+      ['§30 → guardian@example.com', true, true, true]);
+    // doc 14 R13 (safety review of the /g/pending build, S-1): Nate is 17 and
+    // his page is the live record; his parent is shown no review and can
+    // approve nothing — a crafted press with the review's own form goes home.
+    const deniz4 = forms((await get(`/g/pending/${deniz.record_id}`, alex)).html).find((f) => f.submit === 'Approve the change');
+    const nateReview = await fetch(`${BASE}/g/pending/${nate.record_id}`, { redirect: 'manual', headers: { cookie: cookieFor(alex) } });
+    await nateReview.text();
+    const nateDone = await fetch(`${BASE}/g/pending/${nate.record_id}?done=1`, { redirect: 'manual', headers: { cookie: cookieFor(alex) } });
+    await nateDone.text();
+    const crafted = deniz4 ? await press(`/g/pending/${nate.record_id}`, alex, { ...deniz4.fields, recordId: nate.record_id }) : { location: '' };
+    check('R13: a 16–17’s parent is shown no review of Nate’s page and can approve nothing — /g/pending and its approved state send them home, and a crafted Approve with the review’s own form goes home too',
+      [Boolean(deniz4), [nateReview.status, (nateReview.headers.get('location') ?? '').replace(BASE, '')], [nateDone.status, (nateDone.headers.get('location') ?? '').replace(BASE, '')], crafted.location],
+      [true, [307, '/home'], [307, '/home'], '/home']);
+    await approve();
+    // N-3: an add then a remove leaves nothing to see — no waiting version,
+    // no email, nothing listed; a child looping add and remove floods nobody.
+    const mail3 = await top(3);
+    const f1 = forms((await get(more, deniz.child_id)).html).find((x) => x.visible.some((v) => v.name === 'title') && x.visible.some((v) => v.name === 'detail'));
+    if (f1) await press(more, deniz.child_id, { ...f1.fields, title: 'Added then taken off', detail: '' });
+    const moreHtml = (await get(more, deniz.child_id)).html;
+    const rmForm = forms(moreHtml).filter((f) => 'achievementId' in f.fields).find((f) => {
+      const start = moreHtml.lastIndexOf('<form', moreHtml.indexOf(`value="${f.fields.achievementId}"`));
+      return moreHtml.slice(moreHtml.lastIndexOf('</form>', start), start).includes('Added then taken off');
+    });
+    if (rmForm) await press(more, deniz.child_id, rmForm.fields);
+    const mail4 = await top(4);
+    check('bf-mail-w2: an achievement Deniz adds and then takes off again leaves nothing for his parent to see — nothing waits on /g/pending or /home, and only the add sent an "edit waiting" email: the remove that undid it sent nothing more',
+      [Boolean(f1 && rmForm), await reviewWaits(), await homeLists(), mail4[0], JSON.stringify(mail4.slice(1)) === JSON.stringify(mail3)],
+      [true, false, false, '§30 → guardian@example.com', true]);
+  }
+
   // ---- before: Deniz has an approved photo, the way any family gets one ----
   const opens = await clubSees();
   await upload(`/build/${deniz.record_id}`, deniz.child_id, await red);

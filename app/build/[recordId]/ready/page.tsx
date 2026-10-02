@@ -11,6 +11,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import { waitingRecords } from '@/lib/cv-build';
 import { HeaderMark } from '@/components/Wordmark';
 import { PlayerFrame } from '@/components/player-shell';
 import { requireRecordActor } from '@/lib/record-guard';
@@ -26,7 +27,6 @@ export default async function Ready({ params }: { params: Promise<{ recordId: st
   const { rows } = await db.query(
     `select p.first_name, dr.positions, dr.squad_number,
        (select count(*)::int from highlight h where h.record_id = dr.id) as clips,
-       exists(select 1 from profile_version where record_id = dr.id and status = 'pending') as has_pending,
        (select st.token_hint from share_token st
          where st.record_id = dr.id and st.revoked_at is null and st.paused = false
            and (st.expires_at is null or st.expires_at > now())
@@ -37,7 +37,8 @@ export default async function Ready({ params }: { params: Promise<{ recordId: st
   const r = rows[0];
   if (!r) redirect('/home');
   const live = Boolean(r.hint);
-  const waiting = Boolean(r.has_pending);
+  // Waiting is ONE answer everywhere (lib/cv-build waitingRecords, Leo 2 Oct).
+  const waiting = (await waitingRecords([recordId])).has(recordId);
   // C-P7 (BUZ, 1 Oct): "Send it to a club" only where /send has a screen for
   // this viewer — the same gate /send and its action read. A 16–17 whose
   // parent has not confirmed was offered it and bounced to /home.
