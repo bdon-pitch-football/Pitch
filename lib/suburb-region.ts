@@ -25,8 +25,8 @@ export function placeLookup({ councils, places }: { councils: string[]; places: 
   //
   // Two shapes the live list carries are read, never guessed (Head of Product
   // Design, 2 Oct: Ballarat City's nine listings sat in no region):
-  //   · a town the file only knows by its parts — "Ballarat" is Ballarat
-  //     Central, East and North: the parts' region, when they all share one;
+  //   · a town the file only knows by its compass parts — "Ballarat" is
+  //     Ballarat Central, East and North: their region, when they share one;
   //   · two suburbs in one field — "Albert Park / Port Melbourne", "Langwarrin
   //     (seniors…); Frankston (juniors…)": their region, when they agree.
   // When they do not agree (Parkville; Avondale Heights), there is no region.
@@ -35,7 +35,10 @@ export function placeLookup({ councils, places }: { councils: string[]; places: 
     if (exact) return exact;
     if (!k) return [];
     const family: Place[] = [];
-    for (const [name, ps] of byKey) if (name.startsWith(`${k} `)) family.push(...ps);
+    // Only a town's compass parts — "Ballarat Central", "Ballarat East" —
+    // never any place whose name happens to start with the word: "Park" is
+    // not Park Orchards (safety review, 2 Oct).
+    for (const part of ['central', 'north', 'south', 'east', 'west']) family.push(...(byKey.get(`${k} ${part}`) ?? []));
     return family;
   };
   function regionOfSuburb(suburb: string | null | undefined): string | null {
