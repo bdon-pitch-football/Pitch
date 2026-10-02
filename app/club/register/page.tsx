@@ -394,7 +394,9 @@ export default async function Register({ searchParams }: {
                           <div className={r.note ? 'reg-line has' : 'reg-line'}>{r.note ? `“${r.note}”` : '—'}</div>
                           <div><span className={chip.pill}>{chip.label}</span></div>
                           {may ? <Link href={`/club/register/cv/${r.registration_id}${carry}`} className="console-btn">Open the CV</Link> : <div />}
-                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          {/* The last column starts where it is (justify-self: start,
+                              follow-up audit #4), one gap after Open the CV. */}
+                          <div style={{ display: 'flex' }}>
                             {r.club_status === 'new' && (
                               <form action={setStatus}><input type="hidden" name="registrationId" value={r.registration_id} /><input type="hidden" name="status" value="shortlisted" />
                                 <button type="submit" className="console-btn">Shortlist</button>

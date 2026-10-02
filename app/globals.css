@@ -243,12 +243,17 @@ button:active, a[href]:active { transform: scale(.975); }
          1280 -> 958
        The old minimums came to 744 and overflowed 654 by 90, which spilled 7px
        past the right edge of a 12.9" iPad in portrait and resolved at 1031.
-       These come to 660 and fit the 678 at 768 with 18px to spare. Every
+       These come to 676 and fit the 678 at 768 with 2px to spare. Every
        figure below is at or above what the content actually needs, measured
-       the same way: Shortlisted 94, Open the CV 110, Invite to trial 115. */
-    grid-template-columns: minmax(128px, 1fr) minmax(148px, 1.5fr) 100px 116px minmax(120px, 180px);
+       the same way: the SHORTLISTED pill 109 (follow-up audit #1, 2 Oct: it
+       overflowed the old 100px status column in every shortlisted row, 3px
+       from "Open the CV"), Open the CV 110, Invite to trial 115. */
+    grid-template-columns: minmax(128px, 1fr) minmax(148px, 1.5fr) 116px 116px minmax(120px, 180px);
     align-items: center; gap: 12px; padding: 13px 0;
   }
+  /* Shortlist, Invite to trial and Invitation sent follow "Open the CV" one
+     gap along, rather than at the row's far end ~107px away (audit #4). */
+  .console-row > :last-child { justify-self: start; }
 }
 
 /* THE RAIL — 1024px and up only. */
@@ -1332,22 +1337,31 @@ h1, h2, h3, h4, h5, h6 {
 .row.chg:first-child { padding-top: 0; }
 .row.chg:last-child { padding-bottom: 0; }
 .row-t.gone { color: var(--muted); text-decoration: line-through; font-weight: 500; }
-.ph-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.ph-pair figure { margin: 0; min-width: 0; }
+.ph-pair { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; gap: 0 12px; }
+/* A caption row and a photo row (follow-up audit #2, 2 Oct). Each figure
+   spans both rows of the pair's grid and takes them as its own (subgrid), so
+   the longer caption sets one row for both and the photos start level. The
+   approved side's caption wraps to two lines on a phone and the new side's
+   does not, which used to drop one photo 12px below the other. */
+.ph-pair figure { margin: 0; min-width: 0; display: grid; grid-row: span 2; grid-template-rows: subgrid; }
 .ph { aspect-ratio: 1 / 1; border-radius: var(--r-well); display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); overflow: hidden; background: var(--surface-2); color: var(--muted); }
 .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ph-none { background: var(--surface-sunken); flex-direction: column; gap: 8px; font-size: 12px; font-weight: 700; text-align: center; padding: 8px; }
 .facade { min-width: 76px; height: 48px; box-sizing: border-box; flex-shrink: 0; border-radius: var(--r-well); background: var(--surface-sunken); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--secondary); font-size: 10px; font-weight: 800; letter-spacing: var(--ls-label); text-transform: uppercase; cursor: pointer; padding: 0 8px; font-family: inherit; }
 .facade:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.det { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 4px 10px; padding: 8px 0; }
+/* A details row (follow-up audit #9, #10, 2 Oct): the label sits on the
+   value's baseline, the arrow travels with the new value (.det-to) so a wrap
+   never leaves it at the end of the old line, and the old value is muted, not
+   struck: the arrow already says "was". */
+.det { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; padding: 8px 0; }
 .det:first-child { padding-top: 0; }
 .det:last-child { padding-bottom: 0; }
 .det-l { font-size: 12.5px; font-weight: 700; color: var(--secondary); flex-shrink: 0; }
 .det-v { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 13.5px; line-height: 1.4; min-width: 0; }
 .det-o { color: var(--muted); }
-.det-o s { color: var(--muted); }
-.det-ar { color: var(--muted); }
-.det-n { color: var(--ink); font-weight: 700; }
+.det-to { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.det-ar { color: var(--muted); flex-shrink: 0; }
+.det-n { color: var(--ink); font-weight: 700; min-width: 0; }
 .det-p { font-size: 11.5px; font-weight: 500; color: var(--muted); }
 .pill-stop  { background: rgba(227,119,118,.16); color: var(--red); }
 /* A sentence-long state (the club seat card's "Awaiting verification —
@@ -2020,7 +2034,10 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .reg-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; padding: 14px 0; }
 .reg-row-n { font-size: 15px; font-weight: 800; }
 .reg-row-s { font-size: 12.5px; font-weight: 500; color: var(--muted); }
-.reg-row-note { grid-column: 1 / -1; background: var(--surface-sunken); border-radius: var(--r-well); padding: 10px 12px; font-size: 12.5px; font-style: italic; font-weight: 500; color: var(--secondary); line-height: 1.5; }
+/* No faux italic on a note (follow-up audit #3): Archivo has no italic file,
+   so font-style: italic was the browser slanting it. The quotes stay, as on
+   /coach/register. */
+.reg-row-note { grid-column: 1 / -1; background: var(--surface-sunken); border-radius: var(--r-well); padding: 10px 12px; font-size: 12.5px; font-weight: 500; color: var(--secondary); line-height: 1.5; }
 .reg-row-act { grid-column: 1 / -1; display: flex; gap: 8px; }
 .reg-row-act > .btn, .reg-row-act > form { flex: 1; min-width: 0; }
 .reg-row-act > form { display: flex; }
@@ -2028,11 +2045,18 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .reg-sent { color: var(--secondary); }
 .reg-sent-link { display: inline-flex; align-items: center; min-height: 44px; font-size: 12.5px; font-weight: 800; color: var(--secondary); text-decoration: none; }
 .reg-line { font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--muted); }
-.reg-line.has { font-style: italic; color: var(--secondary); }
+.reg-line.has { color: var(--secondary); }
 .reg-foot { display: flex; flex-direction: column; gap: 10px; }
-@media (min-width: 768px) { .reg-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+/* Side by side, the two panels start and end level (follow-up audit #11). */
+@media (min-width: 768px) { .reg-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; } }
 /* The held count: one text node, in the state's colour. */
 .reg-held-n { font-size: 22px; font-weight: 900; color: var(--amber); }
+/* /coach/register's filter chips, tighter (follow-up audit #6, 2 Oct): at a
+   phone the ten position codes left "ST" alone on a third line. 11px a side
+   instead of 14 brings it back, and min-width keeps a two-letter chip a 44px
+   target: a chip is content-box, so 20px of content + 22 of padding + 2 of
+   border is 44 across. */
+.creg-filters .chip { padding: 0 11px; min-width: 20px; justify-content: center; }
 
 /* ---- squads --------------------------------------------------------------- */
 .card.sq-list { padding: 0 14px; }
