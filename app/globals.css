@@ -1744,6 +1744,9 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 .tb-sec h2 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: var(--ls-title); line-height: 1.2; display: flex; align-items: baseline; gap: 10px; }
 .tb-sec-n { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: normal; font-variant-numeric: tabular-nums; }
 .tb-sec-sub { font-size: 13.5px; font-weight: 500; color: var(--secondary); line-height: 1.55; }
+/* Show on "Expressions of interest": the section is the only one on the
+   page, so no rule sits above it. */
+.tb-sec.first { margin-top: 0; padding-top: 0; border-top: 0; }
 @container (min-width: 1024px) {
   .tb { padding-top: 34px; }
   .tb-body { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }

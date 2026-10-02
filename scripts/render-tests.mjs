@@ -1696,6 +1696,60 @@ const georgia = ids.children.georgia;
       : `Report this page → /report?kind=club_page&page=%2Ffc%2F${slug}`]));
 }
 
+// The trials board's filters package (BUZ approved 2 Oct; docs/design/
+// reports/2026-10-02-proposal-trials-v2.md §5–§7, John's two rulings the same
+// day). Every filter only narrows: the rows a filtered view draws are the
+// rows the whole board draws, in the same order, with some taken out (D-21,
+// D-74). A chip with nothing behind it is not drawn, and a chosen one stays
+// so it can be taken off (D-162).
+const tfPlain = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+// One entry per line of every row, in page order, tagged with its section.
+const tfLines = (h) => {
+  const at = h.search(/<div class="tb-sec[^"]*"><h2>Expressions of interest/);
+  return [...h.matchAll(/<article\b[^>]*>[\s\S]*?<\/article>/g)].flatMap((m) => {
+    const club = /<span class="fl-trial-cn">([^<]*)<\/span>/.exec(m[0])?.[1] ?? '?';
+    const day = /<div class="numeral fl-trial-day">([^<]*)<\/div><div class="fl-trial-mon">([^<]*)</.exec(m[0]);
+    return [...m[0].matchAll(/<div class="fl-trial-lt">([^<]*)</g)].map((l) =>
+      `${at > -1 && m.index > at ? 'eoi' : 'trial'}|${day?.[1]} ${day?.[2]}|${club}|${l[1]}`);
+  });
+};
+// "Narrows without reordering": every line of the filtered view is on the
+// whole board, and they come in the whole board's order.
+const tfSubseq = (part, whole) => { let i = 0; for (const x of whole) if (x === part[i]) i++; return part.length > 0 && i === part.length; };
+const tfGroup = (h, name) => new RegExp(`<div class="kicker">${name}</div><div[^>]*>([\\s\\S]*?)</div></div>`).exec(h)?.[1] ?? null;
+const tfChips = (g) => [...(g ?? '').matchAll(/<a class="chip" aria-pressed="(true|false)"[^>]*>([^<]*)(?:<span class="chip-count">(\d+)<\/span>)?<\/a>/g)]
+  .map((m) => `${m[1] === 'true' ? '*' : ''}${m[2]}${m[3] ? ` ${m[3]}` : ''}`);
+const tfCount = (h) => /(\d+) trials?</.exec(h)?.[1] ?? null;
+const tfBoard = tfPlain((await get('/trials', null)).html);
+const tfAll = tfLines(tfBoard);
+
+// Show (§7c): All, Trials, Expressions of interest.
+{
+  const t = tfAll.filter((x) => x.startsWith('trial|')), e = tfAll.filter((x) => x.startsWith('eoi|'));
+  check(`tf-show1: Show offers All, Trials and Expressions of interest, each with the listings it would leave (${t.length} trials, ${e.length} expressions of interest)`,
+    [t.length > 0 && e.length > 0, tfChips(tfGroup(tfBoard, 'Show'))], [true, ['*All', `Trials ${t.length}`, `Expressions of interest ${e.length}`]]);
+  const tr = tfPlain((await get('/trials?kind=trial', null)).html);
+  check('tf-show2: "Trials" hides the expressions of interest section entirely; the count line stays and the trials keep their order',
+    [tfLines(tr), /class="tb-sec/.test(tr), tfCount(tr), /aria-label="Remove Trials"[^>]*href="\/trials"|href="\/trials"[^>]*aria-label="Remove Trials"/.test(tr)],
+    [t, false, String(t.length), true]);
+  const eo = tfPlain((await get('/trials?kind=eoi', null)).html);
+  check('tf-show3: "Expressions of interest" hides the trials and the count line; the section heading leads with its number, no rule above it, and the number is the live region; the expressions of interest keep their order',
+    [tfLines(eo), tfCount(eo), /<div class="tb-sec first"><h2>Expressions of interest<span class="tb-sec-n" aria-live="polite">(\d+)<\/span>/.exec(eo)?.[1] ?? null,
+     (eo.match(/aria-live=/g) ?? []).length, eo.includes('No trials listed for that yet.')],
+    [e, null, String(e.length), 1, false]);
+  // A view with only one kind left offers no Show group (D-162): U12 is one
+  // Westgate trial, Women one Westgate expression of interest.
+  const u12 = tfPlain((await get('/trials?age=U12', null)).html), women = tfPlain((await get('/trials?gender=women', null)).html);
+  check('tf-show4: Show, on the whole board, is hidden when one kind has nothing under the other choices — U12 (trials only), Women (expressions of interest only) — and an unknown kind is ignored',
+    [tfGroup(tfBoard, 'Show') !== null, tfGroup(u12, 'Show'), tfGroup(women, 'Show'), tfLines(tfPlain((await get('/trials?kind=tryout', null)).html)), /Remove /.test(tfPlain((await get('/trials?kind=tryout', null)).html))],
+    [true, null, null, tfAll, false]);
+  // Chosen, a kind stays offered with the other choices (so it can be
+  // taken off), and every chip it leaves counts with it.
+  const both = tfPlain((await get('/trials?kind=eoi&gender=women', null)).html);
+  check('tf-show5: a chosen kind stays and is counted with the other choices; the chip leading nowhere is not drawn (Women + Expressions of interest)',
+    [tfChips(tfGroup(both, 'Show')), tfLines(both).length], [['All', '*Expressions of interest 1'], 1]);
+}
+
 // A link a screen SHOWS is a promise — a coach pastes it, a TD prints it.
 // Four screens showed pitchfootball.com.au/<name>, which does not exist: the
 // pages live at /c/<name> and /fc/<name>. Every full link shown must open.

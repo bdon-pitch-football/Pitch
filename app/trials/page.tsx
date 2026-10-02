@@ -29,8 +29,13 @@ export const metadata = {
 
 const GENDERS: [string, string][] = [['boys', 'Boys'], ['girls', 'Girls'], ['men', 'Men'], ['women', 'Women']];
 const STATES: Record<string, string> = { VIC: 'Victoria', NSW: 'New South Wales' };
+// Show (BUZ, 2 Oct: "Level, trial or expression of interest on top of the
+// location"): the two kinds a listing can be, in the board's section order,
+// each in the words its section already uses.
+const KINDS: [Kind, string][] = [['trial', 'Trials'], ['eoi', 'Expressions of interest']];
+type Kind = 'trial' | 'eoi';
 
-type Params = { age?: string; gender?: string; state?: string; pos?: string };
+type Params = { age?: string; gender?: string; state?: string; pos?: string; kind?: string };
 
 export default async function TrialsBoard({ searchParams }: { searchParams: Promise<Params> }) {
   const raw = await searchParams;
@@ -42,6 +47,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   const gender = GENDERS.some(([v]) => v === raw.gender) ? raw.gender! : null;
   const state = raw.state && raw.state in STATES ? raw.state : null;
   const pos = raw.pos && raw.pos in POSITIONS ? raw.pos : null;
+  const kind = KINDS.some(([v]) => v === raw.kind) ? raw.kind as Kind : null;
 
   // Chronological and filtered only by what the family chose. No recommender,
   // no personalisation, ever (D-74).
@@ -72,18 +78,23 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   const lookup = (await db.query(`select code, sort from age_group order by sort`)).rows as { code: string }[];
   const agesHere = lookup.map((a) => a.code).filter((code) => upcoming.some((l) => l.age_groups.includes(code)));
   const age = raw.age && lookup.some((a) => a.code === raw.age) ? raw.age : null;
-  const matches = (l: Listing, f: { age: string | null; gender: string | null; state: string | null; pos: string | null }) =>
+  const kindOf = (l: Listing): Kind => (isEoi(l.time_venue) ? 'eoi' : 'trial');
+  const matches = (l: Listing, f: { age: string | null; gender: string | null; state: string | null; pos: string | null; kind: Kind | null }) =>
     (!f.age || l.age_groups.includes(f.age)) && (!f.gender || l.competition_gender === f.gender)
-    && (!f.state || l.state === f.state) && (!f.pos || (l.position_needs ?? []).includes(f.pos));
-  const current = { age, gender, state, pos };
+    && (!f.state || l.state === f.state) && (!f.pos || (l.position_needs ?? []).includes(f.pos))
+    && (!f.kind || kindOf(l) === f.kind);
+  const current = { age, gender, state, pos, kind };
   const listings = upcoming.filter((l) => matches(l, current));
   // Each listing's kind is said once, by its section (BUZ, 2 Oct): the
   // trials, by trial date, then the expressions of interest, by closing date.
   // A filter matches listing by listing, so a row shows only its matching
   // lines and a row or section with none is not drawn. "N trials" counts the
   // trial listings; the second section's heading carries its own number.
-  const trials = listings.filter((l) => !isEoi(l.time_venue));
-  const eois = listings.filter((l) => isEoi(l.time_venue));
+  // Show hides the other kind's section entirely, and only ever narrows: the
+  // listings left keep the order they had (D-21, D-74).
+  const trials = listings.filter((l) => kindOf(l) === 'trial');
+  const eois = listings.filter((l) => kindOf(l) === 'eoi');
+  const eoiOnly = kind === 'eoi';
   // The most recent check across what is shown — not the last row's, which
   // is the furthest-out trial and made a fresh board read stale (HoPD, 2 Oct).
   const newest = listings.reduce<Listing | null>((a, l) => (!a || l.checked_on > a.checked_on ? l : a), null);
@@ -99,6 +110,10 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
   const shows = (n: number, on: boolean) => n > 0 || on;
   const statesHere = Object.keys(STATES).filter((k) => upcoming.some((l) => l.state === k));
   const posHere = (Object.keys(POSITIONS) as PositionCode[]).filter((c) => upcoming.some((l) => (l.position_needs ?? []).includes(c)));
+  // Show is offered only while both kinds are on the board under the other
+  // choices — with one kind at zero it could not change what you see (D-162)
+  // — and stays while one is chosen, so it can be taken off.
+  const kindsHere = KINDS.filter(([k]) => count({ kind: k }) > 0);
 
   const href = (next: Partial<typeof current>) => {
     const p = new URLSearchParams();
@@ -107,6 +122,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
     if (merged.gender) p.set('gender', merged.gender);
     if (merged.state) p.set('state', merged.state);
     if (merged.pos) p.set('pos', merged.pos);
+    if (merged.kind) p.set('kind', merged.kind);
     const qs = p.toString();
     return qs ? `/trials?${qs}` : '/trials';
   };
@@ -116,6 +132,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
     gender && { key: 'gender', label: GENDERS.find(([v]) => v === gender)![1], clear: href({ gender: null }) },
     state && { key: 'state', label: STATES[state], clear: href({ state: null }) },
     pos && { key: 'pos', label: `${pos} wanted`, clear: href({ pos: null }) },
+    kind && { key: 'kind', label: KINDS.find(([v]) => v === kind)![1], clear: href({ kind: null }) },
   ].filter(Boolean) as { key: string; label: string; clear: string }[];
 
   const Chip = ({ to, on, children, title }: { to: string; on: boolean; children: React.ReactNode; title?: string }) => (
@@ -132,6 +149,15 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
           {agesHere.filter((a) => shows(count({ age: a }), age === a)).map((a) => <Chip key={a} to={href({ age: age === a ? null : a })} on={age === a}>{a === 'SEN' ? 'Seniors' : a}<span className="chip-count">{count({ age: a })}</span></Chip>)}
         </div>
       </div>
+      {(kindsHere.length > 1 || kind) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div className="kicker">Show</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            <Chip to={href({ kind: null })} on={!kind}>All</Chip>
+            {KINDS.filter(([k]) => shows(count({ kind: k }), kind === k)).map(([k, t]) => <Chip key={k} to={href({ kind: kind === k ? null : k })} on={kind === k}>{t}<span className="chip-count">{count({ kind: k })}</span></Chip>)}
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
         <div className="kicker">Competition</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
@@ -224,7 +250,7 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
             ))}
             {/* D-162 (Product Design, 2 Oct): never "0 trials". With no trial
                 to count, the line below says so in words instead. */}
-            {trials.length > 0 && (
+            {trials.length > 0 && !eoiOnly && (
               <div aria-live="polite" style={{ fontSize: 12.5, fontWeight: 700, color: T.muted, padding: '0 4px' }}>
                 {trials.length} {trials.length === 1 ? 'trial' : 'trials'}
               </div>
@@ -250,8 +276,10 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
               "No trials listed for that yet." when something is. Drawn where
               the trial list would be whenever no TRIAL is shown, so a view
               that leaves only expressions of interest says it in words and
-              they follow below it (Product Design, 2 Oct). */}
-          {trials.length === 0 && (boardEmpty ? (
+              they follow below it (Product Design, 2 Oct). With Show on
+              "Expressions of interest" there is no trial list to stand in
+              for, so the line is drawn only if nothing at all is left. */}
+          {(eoiOnly ? eois.length === 0 : trials.length === 0) && (boardEmpty ? (
             <div className="fl-card tb-emptyb">
               <div className="tb-art" aria-hidden><div className="fl-dash" /><div className="fl-dash" /><div className="fl-dash" /></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
@@ -280,11 +308,15 @@ export default async function TrialsBoard({ searchParams }: { searchParams: Prom
               no label, as its own page carries none (D-90, D-126, doc 14 M9).
               An unclaimed club's row is marked "Unclaimed". John, 30 Sep: a
               notice Pitch compiled links to the club's own notice. */}
-          {rowsOf(trials)}
+          {!eoiOnly && rowsOf(trials)}
+          {/* Show on "Expressions of interest" (Product Design, 2 Oct): the
+              count line goes, so the heading leads with its number, the
+              rule above it goes (nothing sits above it), and the number is
+              what a screen reader hears change. */}
           {eois.length > 0 && (
             <>
-              <div className="tb-sec">
-                <h2>Expressions of interest<span className="tb-sec-n">{eois.length}</span></h2>
+              <div className={eoiOnly ? 'tb-sec first' : 'tb-sec'}>
+                <h2>Expressions of interest<span className="tb-sec-n" aria-live={eoiOnly ? 'polite' : undefined}>{eois.length}</span></h2>
                 <div className="tb-sec-sub">By closing date.</div>
               </div>
               {rowsOf(eois)}
