@@ -13736,7 +13736,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     const L = placeLookup(JSON.parse(readFileSync(fileURLToPath(new URL('../public/places-vic.4306391711.json', import.meta.url)), 'utf8')));
     const cases = ['Ballarat', 'Albert Park / Port Melbourne', 'Langwarrin (seniors, Centenary Park); Frankston (juniors, Ballam Park/Delacombe Park)',
       'Parkville (seniors); Avondale Heights (juniors)', 'Narre Warren North (Jack Thomas Reserve)', 'Preston', 'Mount', '', 'Zzqx', 'Park', 'Box', 'New', 'Eastern'];
-    check('tf-region-lookup: Ballarat is the Ballarat region; two suburbs in one field give their region when they agree and none when they do not; a ground in brackets is dropped; a blank or unknown suburb, or a word that only starts other places' names (Park, Box, New), gets none',
+    check('tf-region-lookup: Ballarat is the Ballarat region; two suburbs in one field give their region when they agree and none when they do not; a ground in brackets is dropped; a blank or unknown suburb, or a word that only starts other places\u2019 names (Park, Box, New), gets none',
       cases.map((c) => L.regionOfSuburb(c)),
       ['ballarat-region', 'inner-mel', 'mel-south-east', null, 'mel-south-east', 'mel-north', null, null, null, null, null, null, null]);
     check('tf-region-centre: a club is placed for distance only by one known point — a town known only by its parts, or two suburbs, have no centre',
