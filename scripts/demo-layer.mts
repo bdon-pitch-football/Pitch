@@ -60,6 +60,10 @@ async function applyDemoLayer(db: PGlite, o: DemoOptions): Promise<{ slug: strin
     `select id, established from club where name = 'Riverside FC'`);
   if (found.rows.length !== 1) throw new Error('demo: the seed has no Riverside FC to rename');
   const clubId = found.rows[0].id;
+  // The seed's league for Riverside is a fiction; under the real club's name
+  // it would be a claim about a real club (TRAINING §3.1, safety review
+  // 2 Oct, F3). The demo club has no level.
+  await db.query('delete from club_level where club_id = $1', [clubId]);
 
   // Every text and jsonb column in the schema, most specific string first.
   // Tables that refuse updates (the append-only logs) are skipped: nothing in

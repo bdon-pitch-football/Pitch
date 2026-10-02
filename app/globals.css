@@ -1832,7 +1832,9 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 /* "about {n} km" (filters package, BUZ 2 Oct): the first line of the foot,
    on screen only — never in print (John, 2 Oct, Q2). */
 .fl-trial-km { display: inline-flex; align-items: center; min-height: 16px; font-size: 11px; font-weight: 700; color: var(--secondary); }
-@media print { .fl-trial-km { display: none; } }
+/* Nor the place it was measured from (safety review, 2 Oct, F1): the field
+   and its list hold the family's suburb, so neither prints. */
+@media print { .fl-trial-km, .near, .near-list { display: none; } }
 /* The glow is the screen's one primary (Head of Product Design, 1 Oct): a
    row's "I'm interested" is the solid primary and carries no .fl-glow at all
    (components/floodlit/TrialRow), so four rows do not compete with each

@@ -844,10 +844,14 @@ v2('kestrelford-athletic-sc', (await db.query(
 // of every level chip (tf-level3).
 {
   const { planLevels, applyLevels } = await import('./load-club-levels.mjs');
+  // Checked two days ago, whatever today is: a fixed date would pass the
+  // twelve-month backstop (fn_club_levels_current) a year on and stop every
+  // suite at the seed (safety review, N3; L34).
+  const checkedOn = (await db.query(`select to_char((now() at time zone 'Australia/Melbourne')::date - 2, 'YYYY-MM-DD') as d`)).rows[0].d as string;
   const plan = await planLevels((sql: string, p?: unknown[]) => db.query(sql, p), [
-    { club: 'Riverside FC', suburb: 'Brunswick', league_as_named: 'State League 2 North-West', source_url: 'https://riversidefc.example.au/seniors', checked_on: '2026-09-30' },
-    { club: 'Kingsway Rovers FC', suburb: 'Brunswick West', league_as_named: 'Victoria Premier League 2', source_url: 'https://kingswayrovers.example.au/seniors', checked_on: '2026-09-30' },
-    { club: 'Kestrelford Athletic SC', suburb: 'Preston', league_as_named: 'NPL Victoria', source_url: 'https://kestrelfordathletic.example.au/seniors', checked_on: '2026-09-30' },
+    { club: 'Riverside FC', suburb: 'Brunswick', league_as_named: 'State League 2 North-West', source_url: 'https://riversidefc.example.au/seniors', checked_on: checkedOn },
+    { club: 'Kingsway Rovers FC', suburb: 'Brunswick West', league_as_named: 'Victoria Premier League 2', source_url: 'https://kingswayrovers.example.au/seniors', checked_on: checkedOn },
+    { club: 'Kestrelford Athletic SC', suburb: 'Preston', league_as_named: 'NPL Victoria', source_url: 'https://kestrelfordathletic.example.au/seniors', checked_on: checkedOn },
   ]);
   if (plan.add.length !== 3) throw new Error(`club levels: the seed's three did not plan (${JSON.stringify(plan.refused)})`);
   await applyLevels((sql: string, p?: unknown[]) => db.query(sql, p), plan);

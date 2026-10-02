@@ -1212,6 +1212,7 @@ let tfChecked = 0, tfNearRequests = 0;
       regions: [...document.querySelectorAll('.kicker')].filter((k) => k.getClientRects().length).map((k) => k.textContent) })`);
     await cdp('Emulation.setEmulatedMedia', { media: 'print' });
     const inPrint = await eval_(`JSON.stringify([...document.querySelectorAll('.fl-trial-km')].map((k) => getComputedStyle(k).display))`);
+    const placeInPrint = await eval_(`JSON.stringify([...document.querySelectorAll('.near, .near-list')].map((k) => getComputedStyle(k).display))`);
     await cdp('Emulation.setEmulatedMedia', { media: '' });
     // A soft navigation: an age chip, tapped as a person taps it.
     const ageTapped = await tapAt('a.chip[href^="/trials?age=U14"]');
@@ -1252,6 +1253,7 @@ let tfChecked = 0, tfNearRequests = 0;
     if (!shown.chip.includes('Within 10 km / Remove Within 10 km') || shown.chip.some((c) => has(c))) bad.push(`the chips above the list read ${JSON.stringify(shown.chip)}`);
     if (shown.about.length === 0 || shown.about.some((a) => a !== null && !/^about \d+ km$/.test(a)) || shown.about.some((a) => a === 'about 0 km')) bad.push(`the rows say ${JSON.stringify(shown.about)}`);
     if (inPrint.length === 0 || inPrint.some((d) => d !== 'none')) bad.push(`in print, "about {n} km" is ${JSON.stringify(inPrint)}`);
+    if (placeInPrint.length === 0 || placeInPrint.some((d) => d !== 'none')) bad.push(`in print, the suburb field is ${JSON.stringify(placeInPrint)} (John, Q2: print leaves the device)`);
     if (shown.regions.includes('Region')) bad.push('Region is still offered with one region in range (its chips are not recounted with the distance)');
     if (!ageTapped || !/\/trials\?age=U14$/.test(afterNav.href) || !afterNav.chip.includes('Within 10 km')) bad.push(`after an age chip, the address is ${afterNav.href} and the chips ${JSON.stringify(afterNav.chip)} (the distance should survive a tap, out of the address)`);
     // A reload forgets it.

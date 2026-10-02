@@ -13609,7 +13609,10 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     { club: 'Tf Nowhere United', suburb: 'Bulla', league_as_named: 'State League 7 North-West', source_url: 'https://nowhere.example.au', checked_on: '2026-09-30' },
     { club: 'Tf Harbourline FC', suburb: 'Altona', league_as_named: 'State League 2 North-West', source_url: 'https://harbourline.example.au/again', checked_on: '2026-09-30' },
   ];
-  const plan = await planLevels(q, rows);
+  // The fixtures' dates are fixed, so the loader is asked as of a fixed day:
+  // its twelve-month refusal must not turn these red a year on (N3).
+  const AS_OF = '2026-10-02';
+  const plan = await planLevels(q, rows, AS_OF);
   const nothingWritten = (await db.query(`select count(*)::int as n from club_level where club_id = any($1)`, [[a, b, c]])).rows[0].n;
   check('tf-cl3: the loader plans by default and writes nothing — it joins clubs by name and suburb as the operator\'s duplicate check does, reads the level from the league\'s name (a women\'s NPL is NPL), and refuses, with a reason, a row with no source_url, no checked_on, a checked date in the future, a league it cannot place, a club not on Pitch, a club listed twice, and Alamein FC (BUZ, 2 Oct)',
     [plan.add.map((p) => `${p.club}:${p.level}`), plan.refused.map((r) => `${r.club}: ${r.why}`), nothingWritten],
@@ -13628,8 +13631,8 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const written = await applyLevels(q, plan);
   const after = (await db.query(`select c.name, l.level, l.league_as_named, l.source_url, to_char(l.checked_on, 'YYYY-MM-DD') as checked_on
     from club_level l join club c on c.id = l.club_id where l.club_id = any($1) order by c.name`, [[a, b, c]])).rows.map((r) => Object.values(r).join(' | '));
-  const again = await planLevels(q, rows.slice(0, 2));
-  const moved = await planLevels(q, [{ ...rows[0], league_as_named: 'State League 2 North-West', checked_on: '2026-10-01' }]);
+  const again = await planLevels(q, rows.slice(0, 2), AS_OF);
+  const moved = await planLevels(q, [{ ...rows[0], league_as_named: 'State League 2 North-West', checked_on: '2026-10-01' }], AS_OF);
   await applyLevels(q, moved);
   check('tf-cl4: --apply writes the plan in one transaction, each row with its source and checked date; the same load again changes nothing, and a re-check (promotion, relegation) updates the row it says it will',
     [written, after, again.same.length, again.add.length + again.change.length, moved.change.map((p) => `${p.level} · ${p.league} (was ${p.was})`),
@@ -13657,15 +13660,17 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   {
     const ago = async (months) => (await db.query(`select to_char(((now() at time zone 'Australia/Melbourne')::date - make_interval(months => $1))::date, 'YYYY-MM-DD') as d`, [months])).rows[0].d;
     const shown = async () => (await db.query(`select club_id from fn_club_levels_current() where club_id = any($1)`, [[a, c]])).rows.map((r) => r.club_id === a ? 'a' : 'c').sort();
+    // Harbourline (a) checked a month ago, whatever today is: the control.
+    await db.query(`update club_level set checked_on = $2 where club_id = $1`, [a, await ago(1)]);
     await db.query(`insert into club_level (club_id, level, league_as_named, source_url, checked_on) values ($1, 'vpl', 'Victoria Premier League 1', 'https://marrowbank.example.au', $2)`, [c, await ago(13)]);
     const stale = await shown();
     await db.query(`update club_level set checked_on = $2 where club_id = $1`, [c, await ago(11)]);
     const fresh = await shown();
     await db.query(`delete from club_level where club_id = $1`, [c]);
     const loadStale = await planLevels(q, [{ club: 'Tf Marrowbank FC', suburb: 'Bulla', league_as_named: 'Victoria Premier League 1', source_url: 'https://marrowbank.example.au', checked_on: await ago(13) }]);
-    const page = srcOf('app/trials/page.tsx');
+    const page = srcOf('app/trials/page.tsx').replace(/\/\/.*$/gm, '');
     check('tf-cl7: a level checked more than twelve months ago is not shown — fn_club_levels_current leaves it out, the loader will not load one, and /trials reads levels through it and never the table',
-      [stale, fresh, loadStale.refused.map((r) => r.why), /fn_club_levels_current\(\)/.test(page), /join club_level\b/.test(page)],
+      [stale, fresh, loadStale.refused.map((r) => r.why), /fn_club_levels_current\(\)/.test(page), /\bclub_level\b/.test(page)],
       [['a'], ['a', 'c'], ['checked_on is more than twelve months ago: re-check it first'], true, false]);
   }
   check('tf-cl5: the loader plans unless --apply, needs --ca (verified) for anything that is not localhost, and refuses the demo database',

@@ -34,7 +34,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 // BUZ's holds: a club named here gets no level whatever a file says.
-export const HELD = [{ club: /^alamein\b/i, why: 'held by BUZ, 2 Oct: "keep that out of our list for now"' }];
+export const HELD = [{ club: /\balamein\b/i, why: 'held by BUZ, 2 Oct: "keep that out of our list for now"' }];
 
 // The league as its source names it, placed in one of the four levels.
 // "NPL Women Victoria" is NPL: a club's level is the highest league any of
@@ -75,7 +75,9 @@ export function parseCsv(text) {
   }
   row.push(cell); if (row.some((c) => c.trim() !== '')) rows.push(row);
   const [head = [], ...body] = rows;
-  return body.map((r) => Object.fromEntries(head.map((h, i) => [h.trim(), (r[i] ?? '').trim()])));
+  // Headers are read case-blind: a file headed "Level" is a file with a
+  // level column, never one whose levels are guessed (safety review, N2).
+  return body.map((r) => Object.fromEntries(head.map((h, i) => [h.trim().toLowerCase(), (r[i] ?? '').trim()])));
 }
 
 const tidy = (s) => String(s ?? '').trim().replace(/\s+/g, ' ');
@@ -112,6 +114,10 @@ export async function planLevels(q, rows, today = melbourneToday()) {
     if (found.length === 0) { refuse('no club on Pitch with that name and suburb'); continue; }
     if (found.length > 1) { refuse(`${found.length} clubs on Pitch match that name and suburb`); continue; }
     const c = found[0];
+    // And the club as Pitch names it: a hold follows the club, however the
+    // file or a rename spells it (safety review, N1).
+    const heldOnPitch = HELD.find((h) => h.club.test(c.name));
+    if (heldOnPitch) { refuse(heldOnPitch.why); continue; }
     if (seen.has(c.id)) { refuse('listed twice in the file; the first row is loaded'); continue; }
     seen.add(c.id);
     const next = { club_id: c.id, club: c.name, suburb: c.suburb, level, league, source, checked };
