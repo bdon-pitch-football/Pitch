@@ -193,7 +193,8 @@ export default async function ClubRoles({ searchParams }: {
             </form>
           </div>
         )}
-        <Link href="/home" className="btn btn-ghost">Back</Link>
+        {/* No Back here (audit ruling 8): the frame's Home is beside the
+            page at every width — the rail from 1024, the bar below it. */}
       </div>
     </ClubConsole>
   );

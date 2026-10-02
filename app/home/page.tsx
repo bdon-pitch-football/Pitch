@@ -84,8 +84,11 @@ const DoorInner = ({ icon, label, sub, end }: DoorParts) => (
     {end ? <span className="row-end">{end}</span> : <Chev />}
   </>
 );
-const Door = ({ href, ...parts }: DoorParts & { href: string }) => (
-  <Link href={href} className="row"><DoorInner {...parts} /></Link>
+// `rail`: the frame's rail carries this door too, so from 1024 the aside
+// drops it (audit ruling 6, BUZ 2 Oct). A door with a live count or a reason
+// line the rail lacks is never marked. Below 1024 every door shows.
+const Door = ({ href, rail = false, ...parts }: DoorParts & { href: string; rail?: boolean }) => (
+  <Link href={href} className={rail ? 'row rail-dup' : 'row'}><DoorInner {...parts} /></Link>
 );
 
 // The approved TRIAL ROW, date first (the club page's and the board's day
@@ -146,7 +149,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             -- sends people to the route that actually dispatches a link.
             (select row_to_json(tk) from (
                select st.token_hint,
-                 to_char(st.expires_at at time zone 'Australia/Melbourne', 'DD Month') as expires
+                 to_char(st.expires_at at time zone 'Australia/Melbourne', 'FMDD FMMonth') as expires
                from share_token st
                where st.record_id = dr.id and st.revoked_at is null and st.paused = false
                  and (st.expires_at is null or st.expires_at > now())
@@ -211,8 +214,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
        (select coalesce(json_agg(json_build_object(
            'id', c.id, 'firstName', c.first_name, 'photo', c.photo_path,
            'recordId', (select id from development_record where person_id = c.id),
-           'approvedOn', to_char(g.approved_at at time zone 'Australia/Melbourne', 'DD Month'),
-           'linkExpiry', (select to_char(st.expires_at at time zone 'Australia/Melbourne', 'DD Month')
+           'approvedOn', to_char(g.approved_at at time zone 'Australia/Melbourne', 'FMDD FMMonth'),
+           'linkExpiry', (select to_char(st.expires_at at time zone 'Australia/Melbourne', 'FMDD FMMonth')
               from share_token st join development_record dr5 on dr5.id = st.record_id
               where dr5.person_id = c.id and st.revoked_at is null and st.paused = false
                 and (st.expires_at is null or st.expires_at > now())
@@ -492,7 +495,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {trials.map((t, i) => (
               <TrialLine key={t.id} day={t.day} month={t.month} first={i === 0}
-                end={isTd && t.interested > 0 ? <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, flexShrink: 0 }}>{t.interested} interested</div> : undefined}>
+                end={isTd && t.interested > 0 ? <div style={{ fontSize: 12, fontWeight: 800, color: T.muted, flexShrink: 0 }}>{t.interested} interested</div> : undefined}>
                 <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.3 }}>{t.title}</div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{t.time_venue}</div>
               </TrialLine>
@@ -539,7 +542,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     const linkPanel = pageUrl && isTd && (
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{pageUrl}</div>
+          <div className="link-1" style={{ fontSize: 13, fontWeight: 800, color: T.accent }}>{pageUrl}</div>
           <div style={{ fontSize: 11.5, fontWeight: 500, color: T.muted }}>Your club page · public</div>
         </div>
         <CopyLink url={`https://${pageUrl}`} label="Copy" compact />
@@ -551,14 +554,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     // the sidebar — dropping it is A-P2, which is "not now" — but quietly.
     const doors = isTd && (
       <div className="card rows doors">
-        {verified && <Door href="/club/post-trial" icon="trials" label="Post a trial" />}
-        <Door href="/club/squads" icon="children" label="Squads" />
-        <Door href="/club/page-edit" icon="crest" label="Crest & club page" />
-        <Door href="/club/roles" icon="roles" label="Coaching roles" end={openRoles > 0 ? <>{openRoles} open</> : undefined} />
-        {clubSeat.public_slug && <Door href={`/fc/${clubSeat.public_slug}`} icon="page" label="Your club page" />}
+        {verified && <Door href="/club/post-trial" icon="trials" label="Post a trial" rail />}
+        <Door href="/club/squads" icon="children" label="Squads" rail />
+        <Door href="/club/page-edit" icon="crest" label="Crest & club page" rail />
+        <Door href="/club/roles" icon="roles" label="Coaching roles" end={openRoles > 0 ? <>{openRoles} open</> : undefined} rail={!(openRoles > 0)} />
+        {clubSeat.public_slug && <Door href={`/fc/${clubSeat.public_slug}`} icon="page" label="Your club page" rail />}
         {/* D-163: the same switch as the sidebar's door (perms free5d). */}
         {billing && (
-          <Link href="/club/billing" className="row"><DoorInner icon="card" label="Plan & billing" /></Link>
+          <Link href="/club/billing" className="row rail-dup"><DoorInner icon="card" label="Plan & billing" /></Link>
         )}
       </div>
     );
@@ -593,7 +596,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             <h2 className="panel-h">Who can do what here</h2>
             {canDo.map((r, i) => (
               <div key={r.reader_id} style={{ borderTop: i === 0 ? undefined : `1px solid ${T.line}`, paddingTop: i === 0 ? 0 : 11 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: r.reader_id === personId ? T.accent : T.ink }}>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: T.ink }}>
                   {r.reader_id === personId ? 'You' : r.reader_name ?? 'A club member'}
                 </div>
                 <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, marginTop: 2, lineHeight: 1.5 }}>{canDoLine(r)}</div>
@@ -626,7 +629,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
 
     return (
       <ClubConsole active="home">
-        <div className="console h-rise" style={COLUMN}>
+        <div className="console home-col h-rise" style={COLUMN}>
           <HeaderMark />
           {tdHome ? (
             // The verified TD (A-P1): hero, then Register — the seat's one
@@ -713,7 +716,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     const todo = steps.filter((x) => !x.done).slice(0, 2);
     return (
       <CoachConsole active="home">
-        <div className="console h-rise" style={COLUMN}>
+        <div className="console home-col h-rise" style={COLUMN}>
           <HeaderMark />
           <div className="home-grid hg-p1">
           <div className="hg-top">
@@ -733,7 +736,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               {url ? (
                 <div className="hero-well">
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, overflowWrap: 'anywhere' }}>{url}</div>
+                    <div className="link-1" style={{ fontSize: 13, fontWeight: 800, color: T.accent }}>{url}</div>
                     <div style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,.6)' }}>Public · paste it wherever you talk to clubs and families</div>
                   </div>
                   <CopyLink url={`https://${url}`} label="Copy" compact />
@@ -809,8 +812,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           <div className="hg-aside">
             <div className="card rows doors">
               {coachSeat.public_slug && <Door href={`/c/${coachSeat.public_slug}`} icon="page" label="See my public page" />}
-              {coachSeat.register_teams > 0 && <Door href="/coach/register" icon="register" label="Registrations" />}
-              <Door href="/jobs" icon="roles" label="Coaching roles at clubs" end={coachSeat.open_roles > 0 ? <>{coachSeat.open_roles} open</> : undefined} />
+              {coachSeat.register_teams > 0 && <Door href="/coach/register" icon="register" label="Registrations" rail />}
+              <Door href="/jobs" icon="roles" label="Coaching roles at clubs" end={coachSeat.open_roles > 0 ? <>{coachSeat.open_roles} open</> : undefined} rail={!(coachSeat.open_roles > 0)} />
             </div>
           </div>
           </div>
@@ -871,7 +874,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
 
     return (
       <PlayerFrame active="home">
-        <div className="console h-rise" style={COLUMN}>
+        <div className="console home-col h-rise" style={COLUMN}>
           <HeaderMark />
           <div className="home-grid hg-p1">
           <div className="hg-top">
@@ -880,14 +883,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               number (.cv-num, reused as is), drawn only when there is one. */}
           <div className="hero-panel sheen">
             {pg?.squad_number ? <span className="cv-num" aria-hidden>{pg.squad_number}</span> : null}
-            <div className="hero-id" style={{ alignItems: 'flex-start' }}>
+            <div className="hero-id has-pill" style={{ alignItems: 'flex-start' }}>
               {me.photo_path ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={me.photo_path} alt="" width={52} height={52} className="hero-av avatar-ring" />
               ) : (
                 <div aria-hidden className="hero-av">{me.first_name[0]}</div>
               )}
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="hero-t">
                 <h1 className="hero-h">
                   {live ? 'Your page is live' : 'Your page'}
                 </h1>
@@ -1007,8 +1010,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             {/* The four menu cards are one door list: the same four hrefs and
                 labels, each with the frame's own glyph. */}
             <div className="card rows doors">
-              <Door href={`/build/${rec}`} icon="cv" label="Build your CV" />
-              <Door href="/trials" icon="trials" label="Trials near you" />
+              <Door href={`/build/${rec}`} icon="cv" label="Build your CV" rail />
+              <Door href="/trials" icon="trials" label="Trials near you" rail />
               <Door href={`/build/${rec}/clips`} icon="clip" label="Highlights" />
               <Door href={`/build/${rec}/more`} icon="star" label="Achievements" />
             </div>
@@ -1199,7 +1202,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   // children are last.
   return (
     <GuardianFrame active="home">
-      <div className="console h-rise" style={COLUMN}>
+      <div className="console home-col h-rise" style={COLUMN}>
       <HeaderMark />
       <div className="pg-titles">
         <h1 className="pg-title">Your family</h1>

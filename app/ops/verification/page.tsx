@@ -127,7 +127,7 @@ export default async function OpsVerification() {
                 {/* One line, and since 0060 it says where the role landed as
                     well as what was recorded: a club's own address can never
                     hold it, and an account under another name is named. */}
-                <div style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.45, color: r.td_name ? (r.club_mailbox ? T.red : r.ended_at ? T.muted : r.active ? T.accent : T.amber) : T.muted }}>
+                <div style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.45, color: r.td_name ? (r.club_mailbox ? T.red : r.ended_at ? T.muted : r.active ? T.ink : T.amber) : T.muted }}>
                   {r.td_name
                     ? [`Technical Director ${r.td_name}`, tdState(r), `recorded by ${r.recorded_by} on ${day(r.recorded_at)}`].filter(Boolean).join(' · ')
                     : 'No Technical Director recorded'}

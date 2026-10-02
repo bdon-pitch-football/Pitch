@@ -36,10 +36,11 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
 
   return (
     // A flow, so the page wraps this in the Top bar (spec A part 5), not the
-    // seat frame; the form is a door.
-      <div className="reading" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20, padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
-        <HeaderMark back={{ href: '/home' }} />
-        <form action={act} className="door" style={{ marginTop: 0 }}><input type="hidden" name="recordId" value={recordId} />
+    // seat frame; the form is a door. One panel header with /g/* (audit
+    // ruling 19): the way back is the panel's first line, inside it.
+      <main className="fl-wide pd-flow">
+        <form action={act} className="door"><input type="hidden" name="recordId" value={recordId} />
+          <HeaderMark back={{ href: '/home' }} />
           <div className="pg-titles">
             <h1 className="pg-title">{parent ? `Register ${firstName}’s interest` : 'Register your interest'}</h1>
             {!parent && <div className="pg-sub">{club.name} keep a register of players who want to be there. Put your name on it and they have your CV when they&rsquo;re looking.</div>}
@@ -150,6 +151,6 @@ export default function InterestForm({ recordId, club, squads, cvPositions, pres
             <TextLink href="/home">Cancel</TextLink>
           </div>
         </form>
-      </div>
+      </main>
   );
 }

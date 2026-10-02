@@ -276,37 +276,24 @@ async function post(path, who, form) {
 }
 
 // ---------------------------------------------------------------------------
-// D-164 (4): a tap on a locked Premium row (builder-final-b). Pressed as a
-// person would press it — the form on the page, with the row's own value —
-// and the answer read off the page it lands on. It runs FIRST, before any
-// block below turns the adult player into somebody's parent (funnel-w0) and
-// his home stops linking to his own Highlights. The count itself, and that a
-// minor's tap is never counted, are the permission suite's (prem1–prem2c):
-// this file cannot read the database.
+// D-164 (4): a tap on a locked Premium row (builder-final-b) — and since
+// John's ruling (2 Oct; BUZ "go with the best recommendation") there is no row
+// to tap while D-163 stands: lib/premium's one switch is off. prem-w1 used to
+// require the form on an adult's Highlights; it now requires there is none,
+// on the same page. prem-w2, prem-w2b and prem-w3 pressed "Unlimited clips"
+// and read the answer: with no form on any page there is nothing to press, so
+// they are RETIRED, not rewritten. What they guarded stays guarded: the count
+// (prem1–prem3b), the switch and the tap's early return (prem6) in the
+// permission suite, and no row on any page for any seat (render ap-r14). Turn
+// the switch on and these come back from git (c. f8fa273).
 // ---------------------------------------------------------------------------
 {
   const jordan = ids.people.jordan;
   const home = await get('/home', jordan);
   const clipsPath = /href="(\/build\/[0-9a-f-]{36}\/clips)"/.exec(home.html)?.[1];
-  const page = clipsPath ? await get(clipsPath, jordan) : { html: '' };
-  const form = forms(page.html).find((f) => f.fields.on === 'clips');
-  check('prem-w1: an adult\'s Highlights carries the Premium form', Boolean(form), true);
-  if (form) {
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(form.fields)) fd.append(k, v);
-    fd.append('feature', 'unlimited_clips');
-    const r = await fetch(BASE + clipsPath, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(jordan) } });
-    await r.text();
-    const to = (r.headers.get('location') ?? '').replace(BASE, '');
-    // At the rows (#premium), not the top of the page (brief H): the answer
-    // to the tap is on screen. The browser half is the layout check's pr1.
-    check('prem-w2: pressing "Unlimited clips" lands back on the same Highlights, at the rows, saying so', to, `${clipsPath}?first=1#premium`);
-    const landed = await get(to.split('#')[0], jordan);
-    check('prem-w2b: and the rows are the anchor it lands on', /<form[^>]*id="premium"/.test(landed.html), true);
-    check('prem-w3: "Premium is coming. You’re first in line." — and nothing asks for a card or a price',
-      [/Premium is coming\. You(’|&#x27;|&rsquo;)re first in line\./.test(landed.html), /\$\s?\d|card number|checkout/i.test(landed.html.replace(/<script[\s\S]*?<\/script>/g, ''))],
-      [true, false]);
-  }
+  const page = clipsPath ? await get(clipsPath, jordan) : { status: 0, html: '' };
+  check('prem-w1: an adult\'s Highlights carries no Premium form to press while D-163 stands',
+    [page.status, forms(page.html).some((f) => f.fields.on === 'clips'), /name="feature"/.test(page.html)], [200, false, false]);
   // The same press from a 16–17 — who is never shown the rows — goes nowhere
   // a minor could see Premium on, and records nothing (prem2 proves the count).
   const coachPage = await get('/coach/edit', ids.children.nate.child_id);

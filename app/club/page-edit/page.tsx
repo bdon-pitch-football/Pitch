@@ -48,7 +48,7 @@ export default async function ClubPageEdit({ searchParams }: {
        (select count(*)::int from fn_trial_notices_advertised() t where t.club_id = $1) as trials`, [c.id],
   )).rows[0] as { squads: number; trials: number };
   const first = (await db.query(
-    `select to_char(t.trial_on, 'DD') as day, upper(to_char(t.trial_on, 'Mon')) as mon, t.title, t.time_venue
+    `select to_char(t.trial_on, 'FMDD') as day, upper(to_char(t.trial_on, 'Mon')) as mon, t.title, t.time_venue
      from fn_trial_notices_advertised() t where t.club_id = $1 order by t.trial_on limit 1`, [c.id],
   )).rows[0] as { day: string; mon: string; title: string; time_venue: string } | undefined;
 
@@ -159,7 +159,7 @@ export default async function ClubPageEdit({ searchParams }: {
                   return (
                     <label key={p.name} className="pe-preset">
                       <input type="radio" name="preset" value={String(i)} defaultChecked={on} style={{ accentColor: 'var(--accent)' }} />
-                      <span aria-hidden style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, background: `linear-gradient(135deg, ${p.primary} 55%, ${p.secondary} 55%)`, border: '1px solid rgba(255,255,255,.18)' }} />
+                      <span aria-hidden style={{ width: 22, height: 22, borderRadius: 'var(--r-well)', flexShrink: 0, background: `linear-gradient(135deg, ${p.primary} 55%, ${p.secondary} 55%)`, border: '1px solid rgba(255,255,255,.18)' }} />
                       <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--secondary)' }}>{p.name}</span>
                     </label>
                   );

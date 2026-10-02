@@ -236,7 +236,7 @@ export default function PlayerCV({ p, reportRef, clubColours, clubState, head, a
                 ) : p.club ? (
                   // The same line keeps its shape whether or not the club has
                   // uploaded a crest: its initials, from the name already shown.
-                  <span aria-hidden style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, flexShrink: 0 }}>
+                  <span aria-hidden style={{ width: 28, height: 28, borderRadius: 'var(--r-well)', background: 'rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, flexShrink: 0 }}>
                     {p.club.split(/\s+/).filter((w) => /^[A-Za-z]/.test(w) && !/^(FC|SC|AFC|United|City)$/.test(w)).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || p.club[0]}
                   </span>
                 ) : null}
@@ -292,7 +292,7 @@ export default function PlayerCV({ p, reportRef, clubColours, clubState, head, a
               <div className="fl-grid-2">
                 {p.achievements.map((a, i) => (
                   <div key={a.title} className="fl-card" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 16px' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 13, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 'var(--r-well)', background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {i === 0
                         ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M8 21 H16 M12 17 V21 M7 4 H17 V8 A5 5 0 0 1 7 8 Z M7 5 H4 V7 A3 3 0 0 0 7 9 M17 5 H20 V7 A3 3 0 0 1 17 9" /></svg>
                         : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.secondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3 L14.6 8.6 L20.5 9.3 L16.2 13.4 L17.4 19.3 L12 16.3 L6.6 19.3 L7.8 13.4 L3.5 9.3 L9.4 8.6 Z" /></svg>}
@@ -341,8 +341,8 @@ export default function PlayerCV({ p, reportRef, clubColours, clubState, head, a
               {sectionTitle('Other football')}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                 {otherFootball.map((e) => (
-                  <div key={e.orgName} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 14, border: `1px solid ${T.line}`, background: 'rgba(255,255,255,.03)' }}>
-                    <div style={{ background: 'rgba(61,220,132,.12)', color: T.accent, borderRadius: 7, padding: '3px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>{e.kind === 'ntc_academy' ? 'NTC' : e.kind}</div>
+                  <div key={e.orgName} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 'var(--r-card)', border: `1px solid ${T.line}`, background: 'rgba(255,255,255,.03)' }}>
+                    <div style={{ background: 'rgba(61,220,132,.12)', color: T.accent, borderRadius: 'var(--r-pill)', padding: '3px 8px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>{e.kind === 'ntc_academy' ? 'NTC' : e.kind}</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 800 }}>{e.orgName}</div>
                       <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{e.period}{e.note ? ` · ${e.note}` : ''}</div>

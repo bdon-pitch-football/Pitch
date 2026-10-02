@@ -45,7 +45,7 @@ export default async function Switches({ searchParams }: { searchParams: Promise
   )).rows[0];
   const log = (await db.query(
     `select action, operator_email, reason, links_affected, sms_cap_cents,
-       to_char(at at time zone 'Australia/Melbourne', 'DD Mon YYYY HH24:MI') as at
+       to_char(at at time zone 'Australia/Melbourne', 'FMDD Mon YYYY HH24:MI') as at
      from ops_switch_event order by id desc limit 10`,
   )).rows as { action: string; operator_email: string; reason: string; links_affected: number | null; sms_cap_cents: number | null; at: string }[];
   const paused: boolean = state.paused;

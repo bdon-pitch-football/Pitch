@@ -39,7 +39,7 @@ export default async function Controls({ params, searchParams }: {
        (select coalesce((select profile_paused from guardian_setting where child_id = p.id), false)) as paused,
        (select coalesce((select send_disabled from guardian_setting where child_id = p.id), false)) as send_off,
        (select row_to_json(t) from (
-          select token_hint, to_char(expires_at at time zone 'Australia/Melbourne', 'DD Month') as expires
+          select token_hint, to_char(expires_at at time zone 'Australia/Melbourne', 'FMDD FMMonth') as expires
           from share_token st join development_record dr on dr.id = st.record_id
           where dr.person_id = p.id and st.revoked_at is null and st.paused = false
             and (st.expires_at is null or st.expires_at > now())
@@ -56,7 +56,7 @@ export default async function Controls({ params, searchParams }: {
        -- accepted" above "you opened the permission page". Ordering by id
        -- after the timestamp restores insertion order within a second.
        (select coalesce(json_agg(json_build_object(
-           'at', to_char(e.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'event', e.event, 'kind', e.detail->>'kind',
+           'at', to_char(e.at at time zone 'Australia/Melbourne', 'FMDD Mon YYYY'), 'event', e.event, 'kind', e.detail->>'kind',
            -- F14 (0169): a guardian's own edit names that guardian, first
            -- name only; the database leaves it null on every other row.
            'who', e.who,
@@ -77,7 +77,7 @@ export default async function Controls({ params, searchParams }: {
        -- The promise was implemented in the database and unreachable from
        -- the product, which is the one place a parent would look for it.
        (select coalesce(json_agg(json_build_object(
-           'at', to_char(s.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'ts', s.at,
+           'at', to_char(s.at at time zone 'Australia/Melbourne', 'FMDD Mon YYYY'), 'ts', s.at,
            'club', s.club_name, 'recipient', s.recipient, 'tokenId', s.token_id, 'live', s.live) order by s.at desc), '[]'::json)
         from fn_send_log($2, p.id) s) as sends,
        -- A parent's own send that the daily limit held (0046; safety review
@@ -85,7 +85,7 @@ export default async function Controls({ params, searchParams }: {
        -- Read for the person the database says acts for this child as their
        -- guardian, the same answer the send door itself keyed on.
        (select coalesce(json_agg(json_build_object(
-           'at', to_char(h.at at time zone 'Australia/Melbourne', 'DD Mon YYYY'), 'ts', h.at,
+           'at', to_char(h.at at time zone 'Australia/Melbourne', 'FMDD Mon YYYY'), 'ts', h.at,
            'club', h.club_name, 'held', true) order by h.at desc), '[]'::json)
         from send_held h
         where h.person_id = p.id
@@ -160,7 +160,7 @@ export default async function Controls({ params, searchParams }: {
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div className="who-tile" style={{ width: 48, height: 48, borderRadius: 15, fontSize: 17 }}>{name[0]}</div>
+          <div className="who-tile" style={{ width: 48, height: 48, fontSize: 17 }}>{name[0]}</div>
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.015em' }}>{name}</h1>
           </div>

@@ -77,7 +77,7 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
     // and only this club's own notice. Its button is inert and secondary.
     const shown = posted && trial && isUuid(trial) ? (await db.query(
       `select t.id, t.title, t.time_venue, upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
-         to_char(t.added_on, 'DD Mon') as listed, to_char(t.last_checked, 'DD Mon') as checked
+         to_char(t.added_on, 'FMDD Mon') as listed, to_char(t.last_checked, 'FMDD Mon') as checked
        from fn_trial_notices_advertised() t where t.id = $1 and t.club_id = $2 and t.source = 'club'`,
       [trial, c.id],
     )).rows[0] as { id: string; title: string; time_venue: string; mon: string; day: string; listed: string; checked: string } | undefined : undefined;
@@ -122,9 +122,11 @@ export default async function PostATrial({ searchParams }: { searchParams: Promi
                   {error === 'ages' ? 'Pick at least one age group, so families can find it.' : 'Fill in the title, date, time and ground.'}
                 </div>
               )}
+              {/* The notice's title stands on its own; "Which squad" heads the
+                  squad pickers it names (audit ruling 20), not the title. */}
+              <label className="field"><div className="field-label">Notice title</div><input name="title" aria-label="Notice title" placeholder="U14 & U15 Boys trials" defaultValue={editing?.title} required /></label>
               <div className="pt-sec">
                 <div className="panel-h">Which squad</div>
-                <label className="field"><div className="field-label">Notice title</div><input name="title" aria-label="Notice title" placeholder="U14 & U15 Boys trials" defaultValue={editing?.title} required /></label>
                 <fieldset className="field pt-fieldset">
                   <legend className="field-label">Age groups — pick every one it&rsquo;s for</legend>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, clear: 'both' }}>

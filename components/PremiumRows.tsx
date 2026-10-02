@@ -7,15 +7,20 @@
 // page, decided from the band the database derived — and the database refuses
 // a minor's tap anyway, so a form posted from anywhere cannot record a child's
 // interest in a paid feature. Two rows, the most any screen carries.
+//
+// OFF WHILE D-163 STANDS (John, 2 Oct): lib/premium's one switch. Off, this
+// renders nothing at all, wherever a page places it. "See who viewed your CV"
+// is gone from the rows, switch or no switch, until it has its own ruling.
 import { tapPremium } from './premium-actions';
 import { T } from '@/lib/palette';
+import { PREMIUM_ROWS_ON } from '@/lib/premium';
 
 const ROWS = [
   ['unlimited_clips', 'Unlimited clips'],
-  ['who_viewed', 'See who viewed your CV'],
 ] as const;
 
 export default function PremiumRows({ on, tapped }: { on: 'clips' | 'coach'; tapped: boolean }) {
+  if (!PREMIUM_ROWS_ON) return null;
   return (
     // id="premium": where a tap lands (premium-actions), so the answer to it
     // is on screen rather than above the fold. scroll-margin keeps it clear of

@@ -77,7 +77,13 @@ async function get(path, personId) {
     headers: personId ? { cookie: cookieFor(personId) } : {},
   });
   const html = await res.text();
-  served.push({ path, who: personId ?? null, status: res.status, analytics: ANALYTICS_MARK.test(html) });
+  // Two crawl-wide facts, judged at the end (ap-r12, ap-r13; the audit's
+  // rulings, 2 Oct): a locked Premium row (none while D-163 stands, John 2
+  // Oct), and a date printed with a leading zero ("02 Oct").
+  const words = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ');
+  served.push({ path, who: personId ?? null, status: res.status, analytics: ANALYTICS_MARK.test(html),
+    premium: /id="premium"|name="feature"|class="card prem"/.test(html) || /See who viewed your CV|Unlimited clips/.test(words),
+    zeroDate: (/\b0[1-9] (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/.exec(words) ?? [null])[0] });
   const glows = glowCount(html);
   if (glows > 1) glowMany.add(`${path.replace(/[0-9a-f-]{36}/g, '*')} (${glows})`);
   return { status: res.status, location: res.headers.get('location'), csp: res.headers.get('content-security-policy'), robots: res.headers.get('x-robots-tag'), html };
@@ -1053,7 +1059,11 @@ const georgia = ids.children.georgia;
       check(`s15: player ${P} carries the frame`, rail !== null && bar !== null, true);
       if (!rail || !bar) continue;
       const extra = hrefs(rail).filter((h) => !jordanHome.has(h));
-      check(`s16: player ${P} frame offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
+      // Spec A as amended (audit ruling 6, BUZ 2 Oct): the invariant is "below
+      // 1024, /home offers every frame door". From 1024 the aside drops the
+      // doors the rail carries by CSS (.rail-dup), so the markup still holds
+      // every one — read here — and the layout check (ap-l9) reads both widths.
+      check(`s16: player ${P} frame offers no door /home does not offer below 1024 (${extra.join(' ') || 'none'})`, extra.length, 0);
       check(`s17: player ${P} bar and rail are the same four doors`, hrefs(bar), hrefs(rail));
       const marked = [...rail.matchAll(/href="([^"]*)"[^>]*aria-current="page"|aria-current="page"[^>]*href="([^"]*)"/g)].map((m) => m[1] ?? m[2]);
       check(`s18: player ${P} marks ${P} as the current page`, marked, [current]);
@@ -1134,7 +1144,7 @@ const georgia = ids.children.georgia;
       check(`s23: ${seat} ${P} carries the ${label.toLowerCase()} frame and bar`, rail !== null && bar !== null, true);
       if (!rail || !bar) continue;
       const extra = hrefs(rail).filter((h) => !home.has(h));
-      check(`s24: ${seat} ${P} frame offers no door /home does not (${extra.join(' ') || 'none'})`, extra.length, 0);
+      check(`s24: ${seat} ${P} frame offers no door /home does not offer below 1024 (${extra.join(' ') || 'none'})`, extra.length, 0);
       check(`s25: ${seat} ${P} bar and rail are the same doors`,
         hrefs(bar).filter((h) => h !== '/signout'), hrefs(rail).filter((h) => h !== '/signout'));
       // Sign out is not a DOOR — it is the way out, and it is deliberately in
@@ -2778,24 +2788,27 @@ const georgia = ids.children.georgia;
     [false, false, false, false]);
 }
 
-// ---- D-164 (4) / D-82: two Premium rows on an adult's page, never under 18 --
+// ---- D-164 (4) / D-82: the Premium rows — OFF while D-163 stands ------------
+// John's ruling (2 Oct; BUZ "go with the best recommendation"): no locked
+// Premium row renders anywhere while Pitch is free for everyone, for any seat
+// (lib/premium, one switch, off). prem-r1–r4 used to require the rows on an
+// adult's page; they now require the opposite, on the same two pages and the
+// same post-tap address, at the same strength — and ap-r12 reads every page
+// the whole crawl was served. "See who viewed your CV" is gone switch or not.
 {
   const jordanHome = await get('/home', ids.people.jordan);
   const clipsPath = /href="(\/build\/[0-9a-f-]{36}\/clips)"/.exec(jordanHome.html)?.[1];
-  const adultClips = clipsPath ? await get(clipsPath, ids.people.jordan) : { html: '' };
+  const adultClips = clipsPath ? await get(clipsPath, ids.people.jordan) : { status: 0, html: '' };
   const coachEdit = await get('/coach/edit', ids.people.sam);
   const rows = (html) => ['Unlimited clips', 'See who viewed your CV', 'Tap a locked feature to be first in line.'].map((s) => has(html, s));
-  check('prem-r1: an adult player\'s Highlights carries the two locked rows, each tagged and "Coming soon"',
-    [...rows(adultClips.html), (adultClips.html.match(/>Premium</g) ?? []).length, (adultClips.html.match(/>Coming soon</g) ?? []).length],
-    [true, true, true, 2, 2]);
-  check('prem-r2: and so does an adult coach\'s page', rows(coachEdit.html), [true, true, true]);
-  check('prem-r3: at most two rows on a screen, and no price on either', [
-    (adultClips.html.match(/name="feature"/g) ?? []).length <= 2,
-    (coachEdit.html.match(/name="feature"/g) ?? []).length <= 2,
-    [adultClips, coachEdit].some((r) => /\$\s?\d/.test(text(r.html).join(' ')))], [true, true, false]);
-  const tapped = clipsPath ? await get(`${clipsPath}?first=1`, ids.people.jordan) : { html: '' };
-  check('prem-r4: after a tap the line reads "Premium is coming. You’re first in line."',
-    has(tapped.html, 'Premium is coming. You’re first in line.'), true);
+  check('prem-r1: an adult player\'s Highlights carries no locked row — no row, no "Premium" tag, no "Coming soon", no form (D-163; John, 2 Oct)',
+    [adultClips.status, ...rows(adultClips.html), (adultClips.html.match(/>Premium</g) ?? []).length, (adultClips.html.match(/>Coming soon</g) ?? []).length, /name="feature"|id="premium"/.test(adultClips.html)],
+    [200, false, false, false, 0, 0, false]);
+  check('prem-r2: and nor does an adult coach\'s page', [coachEdit.status, ...rows(coachEdit.html), /name="feature"|id="premium"/.test(coachEdit.html)], [200, false, false, false, false]);
+  check('prem-r3: no price on either page', [adultClips, coachEdit].some((r) => /\$\s?\d/.test(text(r.html).join(' '))), false);
+  const tapped = clipsPath ? await get(`${clipsPath}?first=1`, ids.people.jordan) : { status: 0, html: '' };
+  check('prem-r4: and the address a tap used to land on says nothing about Premium either',
+    [tapped.status, has(tapped.html, 'Premium is coming. You’re first in line.'), /name="feature"/.test(tapped.html)], [200, false, false]);
 
   // NEVER UNDER 18. Nate is 16–17: his own Highlights, and the coach page a
   // 16–17 who coaches MiniRoos would open (D-82 names exactly that person).
@@ -4060,6 +4073,142 @@ const georgia = ids.children.georgia;
 }
 
 // ---------------------------------------------------------------------------
+// ap — the post-release audit's rulings (docs/design/reports/2026-10-02-audit-
+// live-signed-in.md and -public.md, with the Head of Product Design's rulings;
+// spec A/D/E deltas; John on Premium; BUZ, 2 Oct). One check per ruled row
+// this suite can read in the markup; the geometry is the layout check's
+// (ap-l*). Every check here was run against f8fa273, the live release, and
+// failed there. Read-only: nothing here presses anything.
+// ---------------------------------------------------------------------------
+{
+  const { T: P } = await import('../lib/palette.ts');
+  const mk = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '');
+  const accent = (style) => style.toLowerCase().includes(P.accent.toLowerCase());
+  const ink = (style) => style.toLowerCase().includes(`color:${P.ink.toLowerCase()}`);
+  const alexHome = (await get('/home', alex)).html;
+  const interestId = /href="\/g\/interest\/([0-9a-f-]{36})"/.exec(alexHome)?.[1];
+  const inviteId = /href="\/g\/invite\/([0-9a-f-]{36})"/.exec(alexHome)?.[1];
+  const gi = interestId ? await get(`/g/interest/${interestId}`, alex) : { status: 0, html: '' };
+
+  // #1 BUZ's copy fix (F3): the answer screen said it without "from …'s
+  // controls"; the sent state and /register-interest already said it whole.
+  const lines = text(gi.html).filter((l) => /off the register any time/.test(l));
+  check('ap-r1: /g/interest, before it is sent, says "You can take {name} off the register any time from {name}’s controls. Their access ends when you do." word for word, and no shorter line',
+    [gi.status, lines.length > 0, lines.every((l) => /^You can take (\S+) off the register any time from \1’s controls\. Their access ends when you do\.$/.test(l))], [200, true, true]);
+
+  // #2 D-162 (spec E as amended): no "· 0 of 5"; a count once there is one.
+  const sec = (h) => /<h2 class="sec-h">(Sessions &amp; clips[^<]*)<\/h2>/.exec(mk(h))?.[1] ?? null;
+  const [robinEdit, samEdit, hollisEdit] = [await get('/coach/edit', ids.people.robin), await get('/coach/edit', ids.people.sam), await get('/coach/edit', ids.people.hollis)];
+  check('ap-r2: /coach/edit heads "Sessions & clips" with no "· 0 of 5" for a coach with no clips, and "· n of 5" for one with clips',
+    [robinEdit.status, sec(robinEdit.html), /^Sessions &amp; clips · [1-5] of 5$/.test(sec(samEdit.html) ?? '')], [200, 'Sessions &amp; clips', true]);
+
+  // BUZ, 2 Oct (verbatim): the WWCC heading for a coach with no club.
+  const wwcc = (h) => text(h).filter((l) => /^(Confirmed by .+|Waiting on .+|Confirmed once you join a club)$/.test(l));
+  check('ap-r3: the WWCC panel reads "Confirmed once you join a club" for a coach with no club, "Waiting on {club}" for one whose club has not confirmed yet, and "Confirmed by {club}" once it has',
+    [wwcc(robinEdit.html), wwcc(hollisEdit.html), wwcc(samEdit.html)],
+    [['Confirmed once you join a club'], ['Waiting on Tarrowvale City FC'], ['Confirmed by Riverside FC']]);
+
+  // #9 / public #5 (D-173 (4)): green is an action, so a state is ink or muted.
+  const patHome = mk((await get('/home', ids.people.pat)).html);
+  const you = [...patHome.matchAll(/<div style="([^"]*)">You<\/div>/g)].map((m) => m[1]);
+  const tdHome = mk((await get('/home', ids.people.marina)).html);
+  // Kingsway's TD has a trial somebody registered for (Riverside's has none).
+  const kingswayHome = mk((await get('/home', ids.people.dana)).html);
+  const interested = [...kingswayHome.matchAll(/<div style="([^"]*)">\d+ interested<\/div>/g)].map((m) => m[1]);
+  const ver = mk((await get('/ops/verification', ids.people.marina)).html);
+  const tdLines = [...ver.matchAll(/<div style="([^"]*)">Technical Director [^<]*· active ·[^<]*<\/div>/g)].map((m) => m[1]);
+  check('ap-r4: "You" on the administrator’s home, "n interested" on the TD’s, and an active Technical Director’s line on /ops/verification are not green',
+    [you.length > 0 && you.every((st) => !accent(st) && ink(st)), interested.length > 0 && interested.every((st) => !accent(st)),
+     tdLines.length > 0 && tdLines.every((st) => !accent(st))], [true, true, true]);
+  const fd = async (on) => {
+    const r = await fetch(`${BASE}/dev/front-door?on=${on ? 1 : 0}`, { method: 'POST' });
+    if ((r.ok ? await r.json() : null)?.frontDoor !== on) throw new Error('the front-door switch did not move');
+  };
+  await fd(true);
+  const kick = {};
+  let second = null;
+  for (const path of ['/', '/?for=player', '/?for=parent', '/?for=coach', '/?for=club']) {
+    const h = mk((await get(path)).html);
+    const m = /<div class="fl-wide fl-hero-in"><div style="([^"]*)">([^<]*)<\/div>/.exec(h);
+    kick[path] = m ? [m[2], ink(m[1])] : null;
+    if (path === '/') second = /<h2 style="([^"]*)">Somebody should be writing this down\.<\/h2>/.exec(h)?.[1] ?? null;
+  }
+  await fd(false);
+  check('ap-r5: the persona label over each landing’s headline is ink — never green, amber or purple',
+    kick, { '/': ['For clubs · free', true], '/?for=player': ['For players · 18 and over', true], '/?for=parent': ['For parents', true],
+      '/?for=coach': ['For coaches', true], '/?for=club': ['For clubs &amp; technical directors', true] });
+  check('ap-r6: the front door’s second headline is 24px at every width — only the hero headline scales (D-173)',
+    [second !== null, /font-size:24px/.test(second ?? ''), /clamp|vw/.test(second ?? '')], [true, true, false]);
+
+  // #11 spec D as amended: "Waiting on you" is amber where the home said so;
+  // purple stays a club's invitation.
+  const kp = (h) => /<div class="(kick-p[^"]*)">/.exec(mk(h))?.[1] ?? null;
+  const gp = await get(`/g/pending/${deniz.record_id}`, alex);
+  const ginv = inviteId ? await get(`/g/invite/${inviteId}`, alex) : { html: '' };
+  check('ap-r7: the parent’s kicker is amber (kick-p wait) on /g/interest and /g/pending, and stays purple on a club’s invitation',
+    [kp(gi.html), kp(gp.html), kp(ginv.html)], ['kick-p wait', 'kick-p wait', 'kick-p']);
+
+  // #14 the tab is named what its page is called.
+  const jordanRec = /href="\/build\/([0-9a-f-]{36})"/.exec((await get('/home', ids.people.jordan)).html)?.[1];
+  const steps = (h) => [.../<nav class="build-steps" aria-label="Build steps">([\s\S]*?)<\/nav>/.exec(mk(h))?.[1]?.matchAll(/>([^<>]+)<\/(?:a|span)>/g) ?? []].map((m) => m[1]);
+  const more = jordanRec ? await get(`/build/${jordanRec}/more`, ids.people.jordan) : { html: '' };
+  check('ap-r8: the build steps read Your football · Highlights · Your football history, and /build/more marks "Your football history" as here',
+    [steps(more.html), /aria-current="page">Your football history</.test(mk(more.html))], [['Your football', 'Highlights', 'Your football history'], true]);
+
+  // #8 /club/roles: no Back under the page — the frame's Home is beside it.
+  // #20 /club/post-trial: "Which squad" heads the squad pickers, not the title.
+  const roles = mk((await get('/club/roles', ids.people.marina)).html);
+  const post = mk((await get('/club/post-trial', ids.people.marina)).html);
+  check('ap-r9: /club/roles carries no Back of its own, and on /club/post-trial "Which squad" sits directly on the age-group picker with the notice title above it',
+    [/>Back<\/a>/.test(roles), /<div class="panel-h">Which squad<\/div><fieldset class="field pt-fieldset"><legend class="field-label">Age groups/.test(post),
+     post.indexOf('aria-label="Notice title"') > -1 && post.indexOf('aria-label="Notice title"') < post.indexOf('>Which squad<')], [false, true, true]);
+
+  // #19 one panel-header pattern, /g/*'s: the way back is the panel's first
+  // line, inside it; and a signed-in screen's footer has no entity line.
+  const opens = (h) => /class="door"[^>]*>(?:<input[^>]*>)*<div class="pg-head"><a href="\/home" class="pg-back">/.test(mk(h));
+  const ri = await get(`/register-interest/${deniz.record_id}?club=${ids.clubs['riverside-fc']}`, alex);
+  const sc = await get(`/share-card/${ids.children.nate.record_id}`, ids.children.nate.child_id);
+  const foot = (h) => /EBSD Enterprises Pty Ltd/.test(/<footer class="site-foot">([\s\S]*?)<\/footer>/.exec(h)?.[1] ?? '');
+  check('ap-r10: /register-interest and /share-card open their panel with the way back inside it, as /g/interest does — and /register-interest’s footer is the signed-in one',
+    [opens(gi.html), opens(ri.html), opens(sc.html), foot(gi.html), foot(ri.html)], [true, true, true, false, false]);
+
+  // #13 the home link box: one line with an ellipsis, Copy beside it.
+  const samHome = mk((await get('/home', ids.people.sam)).html);
+  check('ap-r11: the coach’s and the TD’s home link is one line (.link-1) with Copy beside it, never broken anywhere',
+    [/<div class="link-1" style="[^"]*">pitchfootball\.com\.au\/c\/sam-kaya<\/div>/.test(samHome),
+     /<div class="link-1" style="[^"]*">pitchfootball\.com\.au\/fc\/riverside-fc<\/div>/.test(tdHome),
+     /overflow-wrap:anywhere">pitchfootball\.com\.au\/(c|fc)\//.test(samHome + tdHome)], [true, true, false]);
+
+  // #6 spec A as amended: from 1024 the aside drops each door the rail
+  // carries (.rail-dup), unless it has a live count or a reason line.
+  const asideRule = async (who, label) => {
+    const h = mk((await get('/home', who)).html);
+    const rail = new Set([...(/<nav class="console-nav" aria-label="[^"]*">([\s\S]*?)<\/nav>/.exec(h)?.[1] ?? '').matchAll(/href="([^"]*)"/g)].map((m) => m[1]));
+    const list = /<div class="card rows doors">([\s\S]*?)<\/div>/.exec(h)?.[1] ?? '';
+    const rows = [...list.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)].map(([, attrs, inner]) => {
+      const href = /href="([^"]*)"/.exec(attrs)[1];
+      const dup = /class="[^"]*\brail-dup\b/.test(attrs);
+      const keep = /class="row-end"/.test(inner) || /class="row-s"/.test(inner);
+      return [href, dup === (rail.has(href) && !keep)];
+    });
+    return [label, rows.length > 0, rows.filter(([, ok]) => !ok).map(([href]) => href)];
+  };
+  check('ap-r12: every framed home marks exactly the aside doors the rail already carries (no count, no reason line) as .rail-dup — TD, coach and player',
+    [await asideRule(ids.people.marina, 'TD'), await asideRule(ids.people.sam, 'coach'), await asideRule(ids.people.jordan, 'player')],
+    [['TD', true, []], ['coach', true, []], ['player', true, []]]);
+
+  // Public #14: a legal table sits in a well that scrolls, so the table can
+  // be the well's full width (the layout check measures the hairlines).
+  const tablesWrapped = [];
+  for (const path of ['/privacy', '/privacy/family', '/terms']) {
+    const h = (await get(path)).html;
+    tablesWrapped.push([path, (h.match(/<table>/g) ?? []).length, (h.match(/<div class="legal-table"><table>/g) ?? []).length]);
+  }
+  check('ap-r13: every table on /privacy, /privacy/family and /terms is wrapped in its scrolling well (and there are tables to wrap)',
+    [tablesWrapped.every(([, n, w]) => n === w), tablesWrapped.reduce((a, [, n]) => a + n, 0) > 0], [true, true]);
+}
+
+// ---------------------------------------------------------------------------
 // addr-r1 — no page this crawl was served sends a share token into an address
 // bar: not in a redirect, and not in a link it carries (brief D; L38/L42).
 // ---------------------------------------------------------------------------
@@ -4068,6 +4217,15 @@ const georgia = ids.children.georgia;
 // club page, which carried three and two before the base pass.
 check(`glow1: no page in the render crawl carries more than one fl-glow (${served.length} pages served)`,
   [...glowMany], []);
+
+// ap-r14/ap-r15 — over every page the whole suite was served, every seat.
+// John (2 Oct): no locked Premium row anywhere while D-163 stands. The audit
+// (ruling 17): one date, no leading zero — the trials board and the club page
+// are another builder's this week, and /dev/ is not product.
+check(`ap-r14: no page in the render crawl carries a locked Premium row (${served.length} pages served)`,
+  [...new Set(served.filter((r) => r.premium).map((r) => `${r.path.replace(/[0-9a-f-]{36}/g, '*')} as ${r.who ?? 'nobody'}`))], []);
+check(`ap-r15: no page in the render crawl prints a date with a leading zero, outside /trials and /fc (${served.length} pages served)`,
+  [...new Set(served.filter((r) => r.zeroDate && !/^\/(trials|fc\/|dev\/)/.test(r.path)).map((r) => `${r.path.replace(/[0-9a-f-]{36}/g, '*')} "${r.zeroDate}"`))], []);
 
 check(`addr-r1: no response in the render crawl carries a share token in a Location or in a link's query string (${tokenWatch.pages} pages, ${tokenWatch.redirects} redirects watched)`,
   [tokenWatch.leaks, tokenWatch.pages > 500, tokenWatch.redirects > 20], [[], true, true]);

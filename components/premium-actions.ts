@@ -15,8 +15,12 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getSessionPersonId } from '@/lib/session';
+import { PREMIUM_ROWS_ON } from '@/lib/premium';
 
 export async function tapPremium(formData: FormData) {
+  // With the rows off (lib/premium), a tap posted from anywhere counts
+  // nothing: there is no row it could have come from.
+  if (!PREMIUM_ROWS_ON) redirect('/home');
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
   const feature = String(formData.get('feature') ?? '');

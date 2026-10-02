@@ -851,7 +851,13 @@ for (const width of [390, 1280]) {
   motionChecked++;
   if (moving.length) motionFails.push({ width, what: `st1b with prefers-reduced-motion a stat tile still animates (${[...new Set(moving)].join(', ')})` });
 
-  // pr1 — the Premium tap, on the adult player's Highlights and the coach's page.
+  // pr1 — the Premium tap. It pressed "Unlimited clips" on the adult player's
+  // Highlights and the coach's page and required the answer in view. Since
+  // John's ruling (2 Oct) no locked row renders while D-163 stands
+  // (lib/premium, off), so there is nothing to press: pr1 now requires that,
+  // on the same two pages at the same two widths, in the browser — no row, no
+  // "Premium" tag, no form. Turn the switch on and the press comes back from
+  // git (f8fa273).
   for (const [who, find] of [[ids.people.jordan, 'clips'], [ids.people.sam, 'coach']]) {
     await cdp('Network.setCookie', { name: 'pitch_session', value: cookieFor(who), url: BASE });
     let path = '/coach/edit';
@@ -859,35 +865,12 @@ for (const width of [390, 1280]) {
       await visit('/home');
       path = await eval_(`JSON.stringify(document.querySelector('a[href$="/clips"]')?.getAttribute('href') ?? '')`);
     }
-    await visit(path);
+    if (path) await visit(path);
     dropLoads();
-    // The product scrolls smoothly (globals.css), so clickOn's centre-then-
-    // measure would read a box the page is still scrolling towards and press
-    // beside the row. Scroll instantly, let it settle, then press where it is.
-    const row = byText('button', 'Unlimited clips');
-    await eval_(`JSON.stringify(((${row})()?.scrollIntoView({ block: 'center', behavior: 'instant' }), true))`);
-    await new Promise((r) => setTimeout(r, 300));
-    const box = await eval_(`JSON.stringify((() => { const r = (${row})()?.getBoundingClientRect(); return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null; })())`);
-    if (box) for (const type of ['mousePressed', 'mouseReleased']) await cdp('Input.dispatchMouseEvent', { type, x: box.x, y: box.y, button: 'left', clickCount: 1 });
-    const pressed = Boolean(box);
-    const STATUS = `JSON.stringify((() => {
-        const el = [...document.querySelectorAll('[role=status]')].find((e) => /Premium is coming/.test(e.textContent));
-        if (!el) return { found: false, url: location.pathname + location.search + location.hash };
-        const r = el.getBoundingClientRect();
-        return { found: true, top: Math.round(r.top), bottom: Math.round(r.bottom), vh: window.innerHeight, url: location.pathname + location.search + location.hash };
-      })())`;
-    let seen = null;
-    for (let i = 0; i < 80 && !seen?.found; i++) {
-      await new Promise((r) => setTimeout(r, 150));
-      seen = await eval_(STATUS).catch(() => null);
-    }
-    // Where it comes to rest, not where a smooth scroll happens to be.
-    if (seen?.found) { await new Promise((r) => setTimeout(r, 1500)); seen = await eval_(STATUS).catch(() => seen); }
-    dropLoads();
+    const row = await eval_(`JSON.stringify(Boolean(document.querySelector('#premium, button[name="feature"], .prem')) || [...document.querySelectorAll('button, .pill')].some((e) => /^(Unlimited clips|See who viewed your CV|Premium)/i.test(e.textContent.trim())))`);
     motionChecked++;
-    if (!path || !pressed) motionFails.push({ width, what: `pr1 no locked Premium row to press on ${path || 'the Highlights page'}` });
-    else if (!seen?.found) motionFails.push({ width, what: `pr1 pressing a locked row on ${path} never showed "Premium is coming. You’re first in line." (at ${seen?.url ?? 'nowhere'})` });
-    else if (seen.top < 0 || seen.bottom > seen.vh) motionFails.push({ width, what: `pr1 after the tap on ${path} the confirmation is out of view (${seen.top}–${seen.bottom} on a ${seen.vh}px screen, at ${seen.url})` });
+    if (!path) motionFails.push({ width, what: 'pr1 the adult player’s home links no Highlights page to read' });
+    else if (row) motionFails.push({ width, what: `pr1 a locked Premium row is on ${path} while D-163 stands (John, 2 Oct)` });
     await cdp('Network.clearBrowserCookies');
   }
 }
@@ -1019,6 +1002,183 @@ for (const path of ['/fc/brindlewood-rovers-sc', '/fc/kestrelford-athletic-sc', 
 }
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 844, deviceScaleFactor: 1, mobile: false });
 
+// ---------------------------------------------------------------------------
+// ap — THE POST-RELEASE AUDIT'S RULINGS, MEASURED (docs/design/reports/
+// 2026-10-02-audit-live-*.md, Head of Product Design; BUZ, 2 Oct). Only a
+// browser can say where a column, a pill or a hairline ended up, so each
+// ruling the render suite cannot read in the markup is measured here, at the
+// widths the ruling is about — whatever widths this run was called with.
+// Every check was run against f8fa273, the live release, and failed there.
+// ---------------------------------------------------------------------------
+const apFails = [];
+let apChecked = 0;
+const apAs = async (who) => {
+  await cdp('Network.clearBrowserCookies');
+  if (who) await cdp('Network.setCookie', { name: 'pitch_session', value: cookieFor(who), url: BASE });
+};
+const apWidth = (w) => cdp('Emulation.setDeviceMetricsOverride', { width: w, height: 844, deviceScaleFactor: 1, mobile: w < 768 });
+const apFail = (id, width, path, what) => apFails.push({ id, width, path, what });
+{
+  const jordan = ids.people.jordan;
+  await apAs(jordan);
+  await apWidth(1280);
+  await visit('/home');
+  const rec = await eval_(`JSON.stringify((document.querySelector('a[href^="/build/"]')?.getAttribute('href') ?? '').split('/')[2] ?? '')`);
+
+  // ap-l1 (ruling 5, D-147): a framed reading column is centred in the
+  // content area, as /build is — not against the rail.
+  const COL = `JSON.stringify((() => { const m = document.querySelector('.console-main'); const c = m && [...m.querySelectorAll('.reading')].find((e) => e.getBoundingClientRect().width > 200);
+    if (!c) return null; const a = m.getBoundingClientRect(), b = c.getBoundingClientRect(); return Math.round(((b.left + b.right) - (a.left + a.right)) / 2); })())`;
+  for (const [who, path] of [[jordan, `/build/${rec}`], [jordan, `/build/${rec}/clips`], [jordan, `/build/${rec}/more`], [jordan, `/send/${rec}`],
+    [ids.people.alex, `/g/controls/${ids.children.deniz.child_id}`], [ids.people.sam, '/coach/edit']]) {
+    await apAs(who); await visit(path); apChecked++;
+    const off = await eval_(COL);
+    if (off === null || Math.abs(off) > 1) apFail('ap-l1', 1280, path, `the reading column is ${off === null ? 'not inside the frame' : `${off}px off the content area's centre`}`);
+  }
+
+  // ap-l2 (ruling 7): between 640 and 1023 a framed home is the 560 column,
+  // centred, and its page header's logo sits where /build's does.
+  await apWidth(820);
+  await apAs(jordan); await visit(`/build/${rec}`);
+  const MARK = `JSON.stringify(Math.round(document.querySelector('.pg-head-mark')?.getBoundingClientRect().right ?? -1))`;
+  const buildMark = await eval_(MARK);
+  for (const [who, seat] of [[jordan, 'player'], [ids.people.alex, 'parent'], [ids.people.sam, 'coach'], [ids.people.marina, 'club TD']]) {
+    await apAs(who); await visit('/home'); apChecked++;
+    const g = await eval_(`JSON.stringify((() => { const g = document.querySelector('.home-grid')?.getBoundingClientRect(); return g ? { w: Math.round(g.width), mid: Math.round((g.left + g.right) / 2) } : null; })())`);
+    const mark = await eval_(MARK);
+    if (!g || g.w > 560 || Math.abs(g.mid - 410) > 1 || mark !== buildMark) apFail('ap-l2', 820, `/home (${seat})`, `the home grid is ${g?.w}px wide centred at ${g?.mid} and its logo ends at ${mark}, /build's at ${buildMark}`);
+  }
+
+  // ap-l3 (ruling 16): below 400px the player hero's pill drops under the
+  // title, so "Your page is live" keeps one line; at a laptop it sits beside.
+  await apAs(jordan);
+  for (const w of [375, 1280]) {
+    await apWidth(w); await visit('/home'); apChecked++;
+    const h = await eval_(`JSON.stringify((() => { const t = document.querySelector('.hero-panel .hero-h'), p = document.querySelector('.hero-panel .hero-id > .pill'), v = document.querySelector('.hero-panel .hero-id > .hero-av');
+      if (!t || !p || !v) return null; const a = t.getBoundingClientRect(), b = p.getBoundingClientRect(), c = v.getBoundingClientRect();
+      return { lines: Math.round(a.height / parseFloat(getComputedStyle(t).lineHeight)), pillTop: Math.round(b.top), titleBottom: Math.round(a.bottom),
+        besideAvatar: a.left >= c.right && a.top < c.bottom, pillUnderTitle: Math.abs(b.left - a.left) <= 1 }; })())`);
+    // The title stays beside the avatar at every width; below 400 it keeps
+    // one line and the pill sits under it, on its left edge.
+    const ok = h && h.besideAvatar && (w < 400 ? h.lines === 1 && h.pillTop >= h.titleBottom - 1 && h.pillUnderTitle : h.pillTop < h.titleBottom);
+    if (!ok) apFail('ap-l3', w, '/home (player)', h ? `title ${h.lines} line(s), beside the avatar ${h.besideAvatar}, pill top ${h.pillTop} against the title's bottom ${h.titleBottom}, pill on the title's edge ${h.pillUnderTitle}` : 'no hero title, avatar or pill');
+  }
+
+  // ap-l4 (ruling 13): the coach's and the TD's home link is one line cut
+  // with an ellipsis, with Copy beside it in the same box.
+  await apWidth(375);
+  for (const [who, seat] of [[ids.people.sam, 'coach'], [ids.people.marina, 'club TD']]) {
+    await apAs(who); await visit('/home'); apChecked++;
+    const l = await eval_(`JSON.stringify((() => { const u = [...document.querySelectorAll('div')].find((d) => d.children.length === 0 && /^pitchfootball\\.com\\.au\\/(c|fc)\\//.test(d.textContent.trim()));
+      if (!u) return null; const box = u.closest('.hero-well, .card'), b = box.querySelector('button'), cs = getComputedStyle(u), r = u.getBoundingClientRect();
+      const br = b?.getBoundingClientRect(), kr = box.getBoundingClientRect();
+      return { lines: r.height < parseFloat(cs.fontSize) * 2 ? 1 : Math.round(r.height / parseFloat(cs.fontSize) / 1.3), ellipsis: cs.textOverflow === 'ellipsis' && cs.whiteSpace === 'nowrap', copy: Boolean(b) && /Copy/.test(b.textContent),
+        beside: Boolean(br) && br.left >= r.right - 1 && br.right <= kr.right + 1 && br.top < r.bottom && br.bottom > r.top }; })())`);
+    if (!l || l.lines !== 1 || !l.ellipsis || !l.copy || !l.beside) apFail('ap-l4', 375, `/home (${seat})`, `the link box: ${JSON.stringify(l)}`);
+  }
+
+  // ap-l5 (ruling 8): /club/roles — every Close sits at its row's end.
+  await apWidth(1280); await apAs(ids.people.marina); await visit('/club/roles'); apChecked++;
+  const closes = await eval_(`JSON.stringify([...document.querySelectorAll('.jr .jr-top')].map((t) => { const b = t.querySelector('button'); if (!b) return null;
+    const card = t.closest('.jr'), cs = getComputedStyle(card); return Math.round(card.getBoundingClientRect().right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth) - b.getBoundingClientRect().right); }).filter((x) => x !== null))`);
+  if (closes.length === 0 || closes.some((d) => Math.abs(d) > 1)) apFail('ap-l5', 1280, '/club/roles', `Close is ${JSON.stringify(closes)}px short of its row's end`);
+
+  // ap-l6 (public #10): /jobs' Back is its own width, its word on the
+  // title's left edge — not a 652px ghost floating under nothing.
+  await apAs(null);
+  for (const w of [375, 1280]) {
+    await apWidth(w); await visit('/jobs'); apChecked++;
+    const b = await eval_(`JSON.stringify((() => { const a = document.querySelector('.jb-foot a'), h = document.querySelector('h1'); if (!a || !h) return null;
+      const r = document.createRange(); r.selectNodeContents(a); const t = [...r.getClientRects()].pop(); return { w: Math.round(a.getBoundingClientRect().width), word: Math.round(t.left), title: Math.round(h.getBoundingClientRect().left) }; })())`);
+    if (!b || b.w > 200 || Math.abs(b.word - b.title) > 1) apFail('ap-l6', w, '/jobs', `Back: ${JSON.stringify(b)}`);
+  }
+
+  // ap-l7 (public #14): a legal table is its well's full width at a laptop —
+  // every row's hairline reaches the well's right edge.
+  for (const path of ['/privacy', '/privacy/family', '/terms']) {
+    await visit(path); apChecked++;
+    const short = await eval_(`JSON.stringify([...document.querySelectorAll('.legal-doc table')].flatMap((t) => { const well = t.parentElement; const wr = well.getBoundingClientRect();
+      if (t.scrollWidth > well.clientWidth + 1) return [];
+      const inner = wr.left + well.clientLeft + well.clientWidth; return [...t.querySelectorAll('tr')].filter((tr) => tr.getBoundingClientRect().height > 0).map((tr) => Math.round(inner - tr.lastElementChild.getBoundingClientRect().right)).filter((d) => d > 1); }))`);
+    if (short.length) apFail('ap-l7', 1280, path, `${short.length} table row(s) stop short of the well, by up to ${Math.max(...short)}px`);
+  }
+
+  // ap-l8 (public #4, D-173): the front door's second headline is 24px at
+  // every width; the hero headline still scales. ap-l10 (ruling 6, public
+  // #7): no off-scale radius on the audited screens. ap-l11 (public #15): a
+  // link on a legal page, the approval flow's policy and the front door's
+  // "Sign in" is a 44px target.
+  const RAD = `JSON.stringify((() => { const ok = (v) => { const n = parseFloat(v); return v.endsWith('%') ? v === '50%' : [0, 12, 14, 16, 22].includes(n) || n >= 999; };
+    const out = []; for (const el of document.querySelectorAll('body *')) { const r = el.getBoundingClientRect(); if (!r.width || !r.height || el.closest('svg')) continue;
+      const cs = getComputedStyle(el); const v = ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius'].map((k) => cs[k]).find((x) => !ok(x));
+      if (v) out.push((typeof el.className === 'string' && el.className ? '.' + el.className.split(' ')[0] : el.tagName.toLowerCase()) + ' "' + (el.textContent || '').trim().slice(0, 18) + '" ' + v); }
+    return [...new Set(out)]; })())`;
+  // A link in running text is measured for height (a wrapped fragment can be
+  // narrow and still be pressed by its line); a stand-alone one both ways.
+  const TAPS = (sel, both = false) => `JSON.stringify([...document.querySelectorAll(${JSON.stringify(sel)})].flatMap((a) => [...a.getClientRects()].filter((r) => r.width > 0 && (r.height < 44 || (${both} && r.width < 44))).map((r) => '"' + a.textContent.trim().slice(0, 24) + '" ' + Math.round(r.width * 100) / 100 + 'x' + Math.round(r.height * 100) / 100)))`;
+  const fdOn = async (on) => { await fetch(`${BASE}/dev/front-door?on=${on ? 1 : 0}`, { method: 'POST' }); };
+  const heroSizes = [];
+  await fdOn(true);
+  try {
+    for (const w of [375, 1280]) {
+      await apWidth(w); await apAs(null);
+      await visit('/'); apChecked++;
+      const f = await eval_(`JSON.stringify((() => { const h2 = [...document.querySelectorAll('h2')].find((h) => /^Somebody should be writing this down/.test(h.textContent.trim())); const h1 = document.querySelector('.fl-hero-in h1');
+        return { h2: h2 ? getComputedStyle(h2).fontSize : null, h1: h1 ? getComputedStyle(h1).fontSize : null }; })())`);
+      heroSizes.push(f.h1);
+      if (f.h2 !== '24px') apFail('ap-l8', w, '/', `the second headline is ${f.h2}, not the 24px it is on a phone`);
+      const sign = await eval_(TAPS('.fl-wide a[href="/signin"]', true));
+      if (sign.length) apFail('ap-l11', w, '/', `targets under 44px: ${sign.join(', ')}`);
+      for (const path of ['/', '/?for=club']) {
+        await visit(path); apChecked++;
+        const off = await eval_(RAD);
+        if (off.length) apFail('ap-l10', w, path, `off-scale radii: ${off.join(', ')}`);
+      }
+    }
+  } finally { await fdOn(false); }
+  if (heroSizes[0] === heroSizes[1]) apFail('ap-l8', 1280, '/', `the hero headline no longer scales (${heroSizes.join(' / ')})`);
+  for (const w of [375, 1280]) {
+    await apWidth(w);
+    for (const [who, path] of [[jordan, `/build/${rec}/preview`], [ids.people.alex, `/build/${ids.children.deniz.record_id}/preview`], [ids.people.alex, `/g/controls/${ids.children.deniz.child_id}`],
+      [ids.people.alex, '@interest'], [ids.people.alex, '@invite'], [ids.people.marina, '/club/page-edit']]) {
+      await apAs(who);
+      let p = path;
+      if (p.startsWith('@')) { await visit('/home'); p = await eval_(`JSON.stringify(document.querySelector('a[href^="/g/${p.slice(1)}/"]')?.getAttribute('href') ?? '')`); }
+      if (!p) { apFail('ap-l10', w, path, 'the parent’s home links no such page to measure'); continue; }
+      await visit(p); apChecked++;
+      const off = await eval_(RAD);
+      if (off.length) apFail('ap-l10', w, p.replace(/[0-9a-f-]{36}/g, '*'), `off-scale radii: ${off.join(', ')}`);
+    }
+    await apAs(null);
+    for (const path of ['/privacy', '/privacy/family', '/terms', '/conduct', '/report/policy', '/a/dev-mila-text']) {
+      await visit(path); apChecked++;
+      const small = await eval_(TAPS('.legal-doc a'));
+      if (small.length) apFail('ap-l11', w, path, `${small.length} link fragment(s) under 44px, e.g. ${small.slice(0, 3).join(', ')}`);
+    }
+  }
+
+  // ap-l9 (spec A as amended; BUZ, 2 Oct): at 1280 no door the rail carries
+  // shows in the home's aside unless it has a count or a reason line, and a
+  // list with nothing left is not drawn; at 375 every frame door is still on
+  // /home — in its bar, its More sheet or the page.
+  for (const [who, seat] of [[ids.people.marina, 'club TD'], [ids.people.sam, 'coach'], [jordan, 'player'], [ids.people.alex, 'parent']]) {
+    await apAs(who);
+    for (const w of [1280, 375]) {
+      await apWidth(w); await visit('/home'); apChecked++;
+      const r = await eval_(`JSON.stringify((() => { const rail = [...document.querySelectorAll('.console-nav a[href]')].map((a) => a.getAttribute('href')).filter((h) => h !== '/signout');
+        const shown = (el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0; };
+        const dup = [...document.querySelectorAll('.console-main .doors a.row')].filter((a) => shown(a) && rail.includes(a.getAttribute('href')) && !a.querySelector('.row-end, .row-s')).map((a) => a.getAttribute('href'));
+        const empty = [...document.querySelectorAll('.console-main .doors')].filter((d) => shown(d) && ![...d.querySelectorAll('a.row')].some(shown)).length;
+        const reach = new Set([...document.querySelectorAll('.seat-tabs a[href]')].map((a) => a.getAttribute('href')).concat([...document.querySelectorAll('.console-main a[href]')].filter(shown).map((a) => a.getAttribute('href'))));
+        return { dup, empty, missing: rail.filter((h) => !reach.has(h)) }; })())`);
+      if (w === 1280 && (r.dup.length || r.empty)) apFail('ap-l9', w, `/home (${seat})`, `the aside repeats the rail: ${r.dup.join(', ') || `${r.empty} empty door list(s)`}`);
+      if (w === 375 && r.missing.length) apFail('ap-l9', w, `/home (${seat})`, `frame doors /home no longer offers: ${r.missing.join(', ')}`);
+    }
+  }
+  await cdp('Network.clearBrowserCookies');
+  await apWidth(1280);
+}
+
 stop();
 console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px (${failureChecks} of them failure-path views)`);
 console.log(`analytics    · ${analyticsRead} views read · started in ${analyticsOn} · it may start only for a signed-out visitor on the front door, /trials, /jobs or a club page, and must start there`);
@@ -1032,12 +1192,14 @@ for (const f of ringFails) {
 }
 console.log(`join pass    · ${joinChecked} presses on /join at 390 and 1280 — Continue is never silent, the role chips are named what they show, and Somewhere else has a way back`);
 for (const f of joinFails) console.log(`FAIL ${f.width}px · /join — ${f.what}`);
-console.log(`walkthrough  · ${motionChecked} views at 390 and 1280 — a stat tile shows only its real value from the first frame and is still under reduced motion, and a Premium tap lands with its answer in view`);
+console.log(`walkthrough  · ${motionChecked} views at 390 and 1280 — a stat tile shows only its real value from the first frame and is still under reduced motion, and no locked Premium row is offered to press`);
 for (const f of motionFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 for (const f of labelFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — ${f.labels.length} .field-label not at 10px: ${f.labels.map((l) => `"${l.text}" ${l.size}/${l.weight}`).join(', ')}`);
 for (const f of bodyFails) console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — the page paints ${f.bg}, not --bg ${tokenRgb}`);
 for (const f of foldFails) console.log(`FAIL 375×667 · ${f.path} — ${f.missing ? 'no D-172 banner on the page' : `the banner's first line ends at ${f.bottom}px, below the ${f.vh}px fold`} (U5b)`);
 console.log(`fold         · U5b: the unclaimed banner's first line inside the first screen at 375×667 on 3 unclaimed pages`);
+console.log(`audit        · ap-l1–l11: ${apChecked} views — framed columns centred, the 560 home at 820, the hero pill, the link box, Close at the row's end, /jobs' Back, legal tables full width, one headline that scales, the charter's radii, 44px links, and the home aside that does not repeat the rail`);
+for (const f of apFails) console.log(`FAIL ${f.width}px · ${f.path} — ${f.id} ${f.what}`);
 console.log(`call sheet   · cs1: ${sheetChecked} views — the claim and the TD in a 320px aside at ≥1024 with the claim kept in view, and one column claim → TD → form below it`);
 for (const f of sheetFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 // One line per distinct control, not one per view: the same component fails on
@@ -1057,9 +1219,9 @@ const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what}
   (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
 console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
 for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
-const chromeBad = sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length + motionFails.length;
+const chromeBad = apFails.length + sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + squeezeKeys.length + motionFails.length;
 if (failures.length === 0 && chromeBad === 0) {
-  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, a Premium tap lands in view, and the call sheet keeps its claim and TD where the operator can see them');
+  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, no Premium row is offered while D-163 stands, and the call sheet keeps its claim and TD where the operator can see them');
   process.exit(0);
 }
 for (const f of failures) {
@@ -1067,5 +1229,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length}, audit ${apFails.length})`);
 process.exit(1);

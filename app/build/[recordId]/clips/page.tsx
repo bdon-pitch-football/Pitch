@@ -31,7 +31,7 @@ export default async function Clips({ params, searchParams }: {
   const { rows } = await db.query(
     `select fn_age_band(p.dob) as band,
        (select coalesce(json_agg(json_build_object('id', h.id, 'title', h.title, 'url', h.url,
-          'added', to_char(h.added_at at time zone 'Australia/Melbourne', 'DD Mon')) order by h.added_at desc), '[]'::json)
+          'added', to_char(h.added_at at time zone 'Australia/Melbourne', 'FMDD Mon')) order by h.added_at desc), '[]'::json)
         from highlight h where h.record_id = $1) as clips
      from development_record dr join person p on p.id = dr.person_id where dr.id = $1`,
     [recordId],

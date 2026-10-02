@@ -36,12 +36,13 @@ const LEGAL_CSS = `
         .legal-doc p { margin: 12px 0 0; }
         .legal-doc strong { color: var(--ink); font-weight: 700; }
         .legal-doc em { font-style: normal; color: var(--ink); }
-        .legal-doc a { color: var(--accent); font-weight: 700; }
-        .legal-doc a.cell-link { display: inline-flex; align-items: center; min-height: 44px; }
+        .legal-doc a { color: var(--accent); font-weight: 700; padding-block: 15px; }
+        .legal-doc a.cell-link { display: inline-flex; align-items: center; min-height: 44px; padding-block: 0; }
         .legal-doc ul, .legal-doc ol { padding-left: 20px; margin: 10px 0 0; }
         .legal-doc li { margin: 5px 0; }
-        .legal-doc table { display: block; overflow-x: auto; border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; margin-top: 14px; border: 1px solid var(--line); border-radius: var(--r-well); background: var(--surface-sunken); }
-        .legal-doc th, .legal-doc td { border-bottom: 1px solid var(--line); padding: 9px 12px; text-align: left; vertical-align: top; min-width: 150px; }
+        .legal-doc .legal-table { overflow-x: auto; margin-top: 14px; border: 1px solid var(--line); border-radius: var(--r-well); background: var(--surface-sunken); }
+        .legal-doc table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
+        .legal-doc th, .legal-doc td { border-bottom: 1px solid var(--line); padding: 9px 12px; text-align: left; vertical-align: baseline; min-width: 150px; }
         .legal-doc tr:last-child td { border-bottom: 0; }
         .legal-doc thead:has(th:empty) { display: none; }
         .legal-doc code { background: var(--surface-2); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
@@ -50,9 +51,18 @@ const LEGAL_CSS = `
 
 // A link that is the whole of a table cell (the contact table's email) is a
 // control, not a word in a sentence, so it gets a 44px box (layout check, 1 Oct).
-// Only a class is added; the text is untouched.
+// Only a class is added; the text is untouched. A link inside a sentence keeps
+// its line and gets the same 44px to press: 15px of padding above and below,
+// which a line box does not lay out (audit, 2 Oct — they measured 15–16px).
+//
+// Every table goes in a well that scrolls sideways (audit, 2 Oct). The table
+// used to BE the scrolling block, and its rows then sized to their content,
+// so on a laptop the hairlines stopped ~100px short of the well's edge. Now
+// the well scrolls and the table inside it is the full width. A wrapper only;
+// the text is untouched. A key/value row's value sits on its label's line.
 const cellLinks = (html: string) =>
-  html.replace(/<td>((?:<strong>)?)<a ([^>]*>[^<]*<\/a>(?:<\/strong>)?<\/td>)/g, '<td>$1<a class="cell-link" $2');
+  html.replace(/<td>((?:<strong>)?)<a ([^>]*>[^<]*<\/a>(?:<\/strong>)?<\/td>)/g, '<td>$1<a class="cell-link" $2')
+    .replace(/<table>/g, '<div class="legal-table"><table>').replace(/<\/table>/g, '</table></div>');
 
 // A document rendered inside another page (doc 32 B3: doc 21 is SHOWN in the
 // approval flow, not merely linked). Same source, same renderer, same styles.

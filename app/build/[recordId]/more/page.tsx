@@ -60,7 +60,7 @@ export default async function More({ params }: { params: Promise<{ recordId: str
       <div className="reading build-col" style={{ width: '100%', padding: '22px 18px 30px 18px', boxSizing: 'border-box' }}>
         <HeaderMark back={{ href: `/build/${recordId}`, label: 'Back to the CV' }} />
         {/* C-P2 (BUZ, 1 Oct): the builder's header on all three steps. */}
-        <BuildHeader recordId={recordId} title="Your football history" sub="The clubs you’ve been at, what you’ve won, and the football outside your club." done={done} total={total} here="Achievements" />
+        <BuildHeader recordId={recordId} title="Your football history" sub="The clubs you’ve been at, what you’ve won, and the football outside your club." done={done} total={total} here="Your football history" />
 
         {/* Three lists on the page, each a Panel list, each add form a panel
             under its list. No primary on this page, so nothing glows. */}

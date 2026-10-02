@@ -37,7 +37,7 @@ export default function ClipCard({ title, sub, url, gradientAlt }: {
     </>
   );
   return (
-    <div className="fl-card" style={{ borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div className="fl-card" style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {playing && ytId ? (
         <>
           <iframe

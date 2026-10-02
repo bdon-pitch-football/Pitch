@@ -67,9 +67,13 @@ export default async function ShareCard({ params, searchParams }: {
   }
 
   const act = requestCard;
+  // The question is a door with /g/*'s panel header (audit ruling 19): the
+  // way back is the panel's first line, inside it, not floating above.
   return (
-    <Page>
-      <form action={act} className="door" style={{ marginTop: 0 }}><input type="hidden" name="recordId" value={recordId} />
+    <TopBarShell>
+    <main className="fl-wide pd-flow">
+      <form action={act} className="door"><input type="hidden" name="recordId" value={recordId} />
+        <HeaderMark back={{ href: '/home' }} />
         <div className="pg-titles">
           <h1 className="pg-title">Share my CV</h1>
           <div className="pg-sub">Pitch makes you a card. You post it wherever you like — Instagram, Snap, a group chat, anywhere.</div>
@@ -108,6 +112,7 @@ export default async function ShareCard({ params, searchParams }: {
           <TextLink href="/home">Cancel</TextLink>
         </div>
       </form>
-    </Page>
+    </main>
+    </TopBarShell>
   );
 }
