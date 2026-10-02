@@ -13714,7 +13714,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const credits = ['app', 'components'].flatMap((d) => readdirSync(fileURLToPath(new URL(`../${d}`, import.meta.url)), { recursive: true })
     .filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => `${d}/${f}`)).filter((f) => srcOf(f).includes('ABS_CREDIT'));
   check('tf-near-src4: "about {n} km" is hidden in print, the board does not ask for the device\'s location (Permissions-Policy geolocation=()), and the pending ABS credit is rendered nowhere yet',
-    [/@media print \{[^}]*\.fl-trial-km \{ display: none; \}/.test(css), /geolocation=\(\)/.test(srcOf('next.config.mjs')),
+    [/@media print \{[^{}]*\.fl-trial-km\b[^{}]*\{ display: none; \}/.test(css), /geolocation=\(\)/.test(srcOf('next.config.mjs')),
      /ABS_CREDIT_PENDING_BUZ_WORDS/.test(srcOf('lib/places-vic-file.ts')), credits],
     [true, true, true, []]);
 }
