@@ -1771,8 +1771,8 @@ const tfAll = tfLines(tfBoard);
     views, ['mel-north', 'mel-west'].map((k) => [tfAll.filter((x) => of(x) === k), true]));
   // A suburb is not a region (John, 2 Oct, Q3): ?area= takes only the list.
   const sub = tfPlain((await get('/trials?area=preston', null)).html), junk = tfPlain((await get('/trials?area=%3Cb%3E', null)).html);
-  check('tf-region3: an area that is not a region — a suburb, or junk — is ignored, never trusted',
-    [tfLines(sub), /Remove /.test(sub), tfLines(junk), /Remove /.test(junk)], [tfAll, false, tfAll, false]);
+  check('tf-region3: an area that is not a region — a suburb, or junk — is ignored, never trusted, where a region\'s key narrows',
+    [tfLines(sub), /Remove /.test(sub), tfLines(junk), /Remove /.test(junk), views[1][0].length < tfAll.length], [tfAll, false, tfAll, false, true]);
   // U12 is one Westgate trial: one region, so no group. U14 has nothing in
   // the West: chosen, West stays (to be taken off) and carries no "0".
   const u12 = tfPlain((await get('/trials?age=U12', null)).html), w14 = tfPlain((await get('/trials?area=mel-west&age=U14', null)).html);
@@ -1836,7 +1836,8 @@ const tfAll = tfLines(tfBoard);
     const h = q ? tfPlain((await get(`/trials${q}`, null)).html) : tfBoard;
     for (const m of h.matchAll(/<article\b[^>]*>[\s\S]*?<\/article>/g)) if (/\bNPL\b|Premier League|State League|Community/.test(m[0])) leagueOnRow.push(q || '/trials');
   }
-  check('tf-level4: no row names a league — on the whole board or under a level', leagueOnRow, []);
+  check('tf-level4: no row names a league — on the whole board or under a level (which narrows it)',
+    [leagueOnRow, views.every(([ls]) => ls.length > 0 && ls.length < tfAll.length)], [[], true]);
   // Fewer than two levels under the other choices: no group. The West is
   // Westgate alone, which has no level; U12 is one Westgate trial.
   const west = tfPlain((await get('/trials?area=mel-west', null)).html);
