@@ -708,12 +708,15 @@ const georgiaAsk = (await db.query(
   [georgiaRec],
 )).rows[0].id as string;
 
-// 3. Nate has asked to go on a club register (D-108 via D-91)
-const nateRec = await recOf('Nate');
+// 3. Georgia has asked to go on a club register (D-108 via D-91). An
+// under-16's request waits on the parent; a 16–17 registers themself (doc 14
+// N4), so a 17-year-old's request waiting on a parent is one composed at 15,
+// void from the birthday (safety review F3, 4 Oct). It was Nate's until then.
+const georgiaInterestRec = await recOf('Georgia');
 await db.query(
   `insert into registration_request (record_id, club_id, positions, note, created_at)
-   values ($1, $2, array['GK'], 'Been on the bench behind a keeper two years older. Want game time.', now() - interval '6 days')`,
-  [nateRec, riverside],
+   values ($1, $2, array['CM','DM'], 'I can play in midfield or further back. Want game time.', now() - interval '6 days')`,
+  [georgiaInterestRec, riverside],
 );
 
 // 4. Riverside has invited Georgia to a trial — waiting on her guardian (D-117)
