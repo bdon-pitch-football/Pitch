@@ -179,6 +179,8 @@ export async function resolveTokenForNotice(rawToken: string): Promise<AccessNot
     `select st.id as token_id, p.first_name,
        (select p2.email from guardianship_link g join person p2 on p2.id = g.guardian_id
         where g.child_id = p.id and g.approved_at is not null and g.revoked_at is null
+          -- 0177 (safety review F2): never an adult's parent, re-granted or not.
+          and fn_guardian_controls(g.guardian_id, p.id)
           and p2.email is not null limit 1) as guardian_email
      from (select $1::bytea as token_hash) asked
      left join share_token st on st.token_hash = asked.token_hash

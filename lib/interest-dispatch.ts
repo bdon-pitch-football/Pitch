@@ -24,7 +24,12 @@ export async function dispatchInterestRequest(client: PoolClient, requestId: str
        rr.trial_notice_id, (select tn.trial_on from trial_notice tn where tn.id = rr.trial_notice_id) as trial_on
      from registration_request rr
      join development_record dr on dr.id = rr.record_id
+     join person p on p.id = dr.person_id
      where rr.id = $1 and rr.dispatched_at is null
+       -- Safety review F3 (4 Oct): a guardian dispatches for an under-16 only
+       -- (D-91, doc 14 N4). From 16 the player registers, so a request
+       -- composed at 15 is sent by nobody — the F1 rule, for the register.
+       and fn_age_band(p.dob) = 'u16'
        -- 0177: a guardian who acts for this child — never an adult's parent,
        -- even holding a request the child made before 18 (D-49, P15).
        and fn_guardian_controls($2, dr.person_id)

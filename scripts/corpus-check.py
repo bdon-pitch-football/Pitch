@@ -45,9 +45,10 @@ SKIP = ('_superseded', '_archive', '13-Board-Room', '_to_delete', 'repo', 'conte
 # of the billing page would carry the identical string and nobody would call it
 # a claim about the launch date. The design *reports* are still checked, and
 # should be: they argue.
-FALSE_POSITIVES_FIXED = 13  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
+FALSE_POSITIVES_FIXED = 14  # 5 in v1, 3 in v2 (S2 over-broad, S10 "not current", S12 quoting the old domain),
                             # +1 S13 scaffolding, +1 S2 flagging a document's own dateline,
-                            # 1 in v3 (S2 exempting by filename, so the register stopped being exempt when renamed)
+                            # 1 in v3 (S2 exempting by filename, so the register stopped being exempt when renamed),
+                            # +1 4 Oct (S2 reading the PIA's "revised 15 September" revision history as the runway)
 FALSE_NEGATIVES_FIXED = 1   # v3: S4 joined ROOT to a guessed 'legal/' and skipped the whole pack in the repo.
 # The v3 pair are the same defect wearing two faces: this file identified documents
 # by the name of their file rather than by which document they are. Run from the
@@ -293,7 +294,11 @@ def s2():
                 # (doc 35 ruling 1) put a new date in it. Markdown bold around the
                 # label is allowed; the list stays closed, so a date after any
                 # other lead-in is still a failure.
-                if re.search(r'\b(?:current as of|as at|as of|dated|last updated:?)(?:\*\*)?\s+$',
+                # 'revised' joined it 4 Oct: the PIA's own revision history
+                # ("25 August 2026 · revised 27 August · revised 15 September")
+                # is the same class — when the document changed, past tense,
+                # promising nobody anything. Still a closed list.
+                if re.search(r'\b(?:current as of|as at|as of|dated|last updated:?|revised)(?:\*\*)?\s+$',
                              before, re.I):
                     continue
                 # False positive #11: the date a decision was TAKEN. "BUZ accepted

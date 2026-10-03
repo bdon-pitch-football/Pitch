@@ -276,7 +276,20 @@ declare
       continue;
     end;
     return next;',
-     '%exception when others then%']
+     '%exception when others then%'],
+    -- B1 (safety review, 4 Oct): the share-card gate asked fn_can_dispatch,
+    -- which after F1 answers a 16–17 alone, so nobody could approve a 16–17's
+    -- card (doc 14 §Q: an under-18 card is approved by a guardian). It now
+    -- asks the guardian rule itself, and keeps the pause fn_can_dispatch gave it.
+    array['public.share_card_approval_gate()',
+'if new.approved_by is not null and not fn_can_dispatch(new.approved_by, new.record_id) then',
+'if new.approved_by is not null and not (
+       fn_guardian_controls(new.approved_by,
+         (select dr.person_id from development_record dr where dr.id = new.record_id))
+       and not coalesce((select gs.profile_paused from guardian_setting gs
+                          join development_record dr on dr.person_id = gs.child_id
+                          where dr.id = new.record_id), false)) then',
+     '%fn_guardian_controls(new.approved_by,%']
   ];
   v_fn  regprocedure;
   v_def text;

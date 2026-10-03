@@ -14422,10 +14422,24 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const gFiles = tsSourceFiles().filter((f) => f.startsWith('app/g/') || f === 'lib/interest-dispatch.ts');
   const ownJoin = gFiles.filter((f) => /guardianship_link[\s\S]{0,160}?guardian_id\s*=\s*\$\d/.test(codeOnly(srcOf(f))));
   const asks = ['app/g/controls/[childId]/page.tsx', 'app/g/card/[cardId]/page.tsx', 'app/g/card/[cardId]/actions.ts', 'app/g/card/[cardId]/image/route.tsx',
-    'app/g/send/[requestId]/page.tsx', 'app/g/send/[requestId]/actions.ts', 'app/g/interest/[requestId]/page.tsx', 'lib/interest-dispatch.ts', 'app/home/page.tsx']
+    'app/g/send/[requestId]/page.tsx', 'app/g/send/[requestId]/actions.ts', 'app/g/interest/[requestId]/page.tsx', 'lib/interest-dispatch.ts', 'app/home/page.tsx',
+    // Safety review F1 and F2 (4 Oct): the parent's tabs, and who a stranger's
+    // access request on a dead link is emailed to.
+    'components/player-shell.tsx', 'lib/record-read.ts']
     .filter((f) => !/fn_guardian_controls\(/.test(codeOnly(srcOf(f))));
   check(`G12/ag-1g: /home and every /g/* door ask fn_guardian_controls, and none joins the guardian link on the session person itself (${ownJoin.join(', ') || 'none'})`,
     [ownJoin, asks], [[], []]);
+  // Safety review F3 (4 Oct): a register-interest request waiting on a parent
+  // is the parent's to send only while the child is under 16 (D-91, doc 14
+  // N4) — in the one dispatch, on /g/interest and on the parent's home.
+  const u16Only = (f, anchor) => {
+    const src = codeOnly(srcOf(f));
+    const at = src.indexOf(anchor);
+    return at >= 0 && /fn_age_band\((?:p|c)\.dob\) = 'u16'/.test(src.slice(at, at + 900));
+  };
+  check('ag-1h: a register-interest request composed before 16 is dispatched by nobody — the dispatch, /g/interest and the parent\u2019s home card all ask for an under-16 (safety review F3)',
+    [u16Only('lib/interest-dispatch.ts', 'from registration_request rr'), u16Only('app/g/interest/[requestId]/page.tsx', 'from registration_request rr'),
+     u16Only('app/home/page.tsx', "'interestRequest'")], [true, true, true]);
 
   // ---- ag-2 · the 18+ parent: the erasure and the two reads ----------------
   check('G12/G13/ag-2: the parent of an 18-year-old (no re-grant) calls fn_erase_child, fn_consent_timeline and fn_who_looked — the erasure raises and the person still exists; both reads return no rows, while the adult reads both of their own (G12, G13)',
@@ -14437,6 +14451,24 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
      await tryWrite('select fn_withdraw_registration($1,$2) as ok', [a18.kid, a18.reg]),
      (await one('select fn_can_dispatch($1,$2) as ok', [a18.kid, a18.rec])).ok],
     ['self', [true, true, true, true, true], true, true]);
+  // ag-2d (safety review B1, 4 Oct): the share-card gate asked fn_can_dispatch,
+  // which after F1 answers a 16–17 alone, so nobody could approve a 16–17's
+  // card. Doc 14 §Q: an under-18 card is approved by a guardian. Each try is
+  // its own transaction, rolled back, so nothing here moves the fixtures.
+  const approveCard = async (f, who, paused = false) => {
+    await db.exec('begin');
+    try {
+      if (paused) await db.query(`insert into guardian_setting (child_id, profile_paused) values ($1, true)
+        on conflict (child_id) do update set profile_paused = true`, [f.kid]);
+      const id = (await db.query(`insert into share_card_approval (record_id, requested_by, card_kind) values ($1,$2,'story') returning id`, [f.rec, f.kid])).rows[0].id;
+      await db.query('update share_card_approval set approved_by = $2, approved_at = now() where id = $1', [id, who]);
+      return 'approved';
+    } catch { return 'refused'; } finally { await db.exec('rollback'); }
+  };
+  check('ag-2d: a share card — an under-16’s parent and a 16–17’s parent approve it; the 16–17 themself, an 18-year-old’s parent and a parent whose child’s page is paused cannot (doc 14 §Q; safety review B1)',
+    [await approveCard(k15, k15.parent), await approveCard(k17, k17.parent), await approveCard(k17, k17.kid),
+     await approveCard(a18, a18.parent), await approveCard(k15, k15.parent, true)],
+    ['approved', 'approved', 'refused', 'refused', 'refused']);
   check('ag-2c: and an under-18’s parent is unchanged — acts as guardian, reads the timeline, who-looked, the send log and the register readers, and can still erase',
     [(await one('select fn_record_actor($1,$2) as a', [k15.parent, k15.rec])).a, (await one('select fn_record_actor($1,$2) as a', [k17.parent, k17.rec])).a,
      (await reads(k15.parent, k15)).slice(0, 3), (await reads(k17.parent, k17)).slice(0, 4),

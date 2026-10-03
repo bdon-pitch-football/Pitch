@@ -38,7 +38,9 @@ export default async function GuardianInterest({ params, searchParams }: {
      join development_record dr on dr.id = rr.record_id
      join person p on p.id = dr.person_id
      join club c on c.id = rr.club_id
-     where rr.id = $1 and fn_guardian_controls($2, p.id)  -- 0177: never an adult's parent`,
+     where rr.id = $1 and fn_guardian_controls($2, p.id)  -- 0177: never an adult's parent
+       -- F3: one still waiting is the parent's to send only while the child is under 16.
+       and (rr.dispatched_at is not null or fn_age_band(p.dob) = 'u16')`,
     [requestId, me],
   );
   if (rows.length === 0) notFound();

@@ -255,6 +255,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               join development_record dr4 on dr4.id = rr.record_id
               join club cl on cl.id = rr.club_id
               where dr4.person_id = c.id and rr.dispatched_at is null
+                -- F3: as sendRequest — from 16 nothing waits on the parent.
+                and fn_age_band(c.dob) = 'u16'
               order by rr.created_at desc limit 1) q2)
          )), '[]'::json)
         from guardianship_link g join person c on c.id = g.child_id

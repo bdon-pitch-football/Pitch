@@ -38,7 +38,10 @@ async function resolveSeat(): Promise<Seat> {
        not (fn_age_band(p.dob) = '16_17' and not fn_has_approved_guardian(p.id)) as can_send,
        (select coalesce(json_agg(json_build_object('id', c.id, 'firstName', c.first_name) order by g.approved_at), '[]'::json)
           from guardianship_link g join person c on c.id = g.child_id
-         where g.guardian_id = p.id and g.approved_at is not null and g.revoked_at is null) as children
+         where g.guardian_id = p.id and g.approved_at is not null and g.revoked_at is null
+           -- 0177 (safety review F1): an adult's parent holds no controls, so
+           -- no tab to /g/controls for them (John's condition 5).
+           and fn_guardian_controls(p.id, c.id)) as children
      from person p where p.id = $1`,
     [me],
   );
