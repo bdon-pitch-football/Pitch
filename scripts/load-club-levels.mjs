@@ -17,8 +17,10 @@
 //   - the club must be on Pitch already, found by name and suburb the way
 //     the operator's own duplicate check finds it (fn_club_listing_key, 0130),
 //     and found once; a club listed twice in the file is loaded once
-//   - Alamein FC is refused, whatever the row says (BUZ, 2 Oct: "keep that
-//     out of our list for now"): it gets no level and stays in no level chip
+//   - a club BUZ holds (HELD below) is refused, whatever the row says. None
+//     is held today: Alamein FC's 2 Oct hold ended on 3 Oct, when BUZ ruled
+//     that a club's level is the highest league any of its senior teams
+//     plays in, men's or women's
 //   - a league the script cannot place in NPL, Victoria Premier League,
 //     State League or Community is refused, never guessed
 // A re-check (season changeover) is the same load again: a club already
@@ -34,7 +36,10 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 // BUZ's holds: a club named here gets no level whatever a file says.
-export const HELD = [{ club: /\balamein\b/i, why: 'held by BUZ, 2 Oct: "keep that out of our list for now"' }];
+// BUZ's holds: a club named here gets no level whatever a file says. Empty
+// since 3 Oct (the women-only clubs, Alamein FC with them, take their
+// women's league as their level).
+export const HELD = [];
 
 // The league as its source names it, placed in one of the four levels.
 // "NPL Women Victoria" is NPL: a club's level is the highest league any of
