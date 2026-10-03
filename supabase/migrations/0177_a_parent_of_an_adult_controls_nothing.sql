@@ -49,8 +49,9 @@
 -- result is checked. Nothing else in the bodies changes, so 0084's erasure,
 -- 0169's timeline and 0095's withdrawal keep every other line.
 --
--- PRODUCTION (after 0174–0176). One new function and eight
--- `create or replace function` on unchanged signatures, in the runner's
+-- PRODUCTION (after 0174–0176). One new function and eleven
+-- `create or replace function` (eight here, three in the folded block at the
+-- end) on unchanged signatures, in the runner's
 -- single transaction. No table is locked or rewritten, and grants and owners
 -- are kept. fn_erase_child's revokes from anon and authenticated (0067, 0084)
 -- survive a replace. A re-run is refused by the ledger and by the guards,
@@ -206,3 +207,112 @@ begin
     raise exception '0177: fn_erase_child became callable by authenticated';
   end if;
 end $m$;
+
+-- ---------------------------------------------------------------------------
+-- Folded in (Leo, 3 Oct), from build/john-four's safety review
+-- (safety-john-four.md): the same family, a guardian's controls.
+--
+-- F1 · A 16–17's guardian never sends (doc 14 L5–L7, E16; John's 3 Oct §3
+-- table: a 16–17's guardian may not "Make a link" or "Send the CV").
+-- fn_can_dispatch (0048) let any approved guardian dispatch a 16_17 record,
+-- so /g/send could make a link and send it in two ways: a request the child
+-- composed at 15 still waiting at 16, and a 16–17's own send left behind when
+-- the switch went off. For 16_17 it now answers the player alone, and the
+-- switch stops them. A request composed for a guardian to send, before the
+-- 16th birthday, is void from the birthday: nobody can send it (fail closed,
+-- G7), and fn_lapse_send_requests clears it with the 14-day lapses.
+--
+-- N3 · One record's failure no longer stops the birthday clear. Each record
+-- in fn_clear_waiting_at_16 (0174) runs in its own subtransaction: a failure
+-- is rolled back for that record alone, logged with its SQLSTATE only (never
+-- an id), and the loop goes on. The daily job also carries on past the whole
+-- step (app/api/jobs/daily/route.ts).
+--
+-- N1 · The write functions 0174 and 0175 added lose the default EXECUTE for
+-- PUBLIC, as 0122, 0167, 0169 and 0170 do. No exploit was found; it is the
+-- standing pattern, and fn_guardian_replace_link takes the guardian's id as an
+-- argument.
+-- ---------------------------------------------------------------------------
+do $m$
+declare
+  v_edits constant text[][] := array[
+    array['public.fn_can_dispatch(uuid, uuid)',
+'-- L6/L7: the send switch. Off stops the PLAYER sending; the guardian can
+  -- still send, because the switch exists to route sending through them
+  -- rather than to stop the family sending at all.
+  if v_band = ''16_17'' and p_actor = v_person then
+    return not coalesce((select send_disabled from guardian_setting where child_id = v_person), false);
+  end if;',
+'-- L5–L7, E16 (John, 3 Oct; 0177, safety review F1): a 16–17 sends, and their
+  -- guardian never does. The switch stops the player sending; a request left
+  -- behind, or one composed before 16 for a guardian to send, is sent by nobody.
+  if v_band = ''16_17'' then
+    return p_actor = v_person
+       and not coalesce((select send_disabled from guardian_setting where child_id = v_person), false);
+  end if;',
+     '%if v_band = ''16_17'' then%'],
+    array['public.fn_lapse_send_requests()',
+'where dispatched_at is null and created_at < now() - interval ''14 days''',
+'where dispatched_at is null
+      and (created_at < now() - interval ''14 days''
+           -- 0177 (F1): composed before the 16th birthday for a guardian to
+           -- send. Void from the birthday (Melbourne, G9).
+           or exists (select 1 from development_record dr join person p on p.id = dr.person_id
+                       where dr.id = share_request.record_id and p.dob is not null
+                         and fn_age_band(p.dob) <> ''u16''
+                         and (share_request.created_at at time zone ''Australia/Melbourne'')::date < (p.dob + interval ''16 years'')::date))',
+     '%0177 (F1)%'],
+    array['public.fn_clear_waiting_at_16()',
+'record_id := r.rec;
+    photo := fn_clear_waiting(r.rec);
+    return next;',
+'record_id := r.rec;
+    -- 0177 (N3): one record''s failure is rolled back for that record alone,
+    -- logged by SQLSTATE (never an id), and the rest go on.
+    begin
+      photo := fn_clear_waiting(r.rec);
+    exception when others then
+      raise warning ''0177: the birthday clear failed for one record (%); the rest go on'', sqlstate;
+      continue;
+    end;
+    return next;',
+     '%exception when others then%']
+  ];
+  v_fn  regprocedure;
+  v_def text;
+  v_n   int;
+  i     int;
+begin
+  for i in 1 .. array_length(v_edits, 1) loop
+    v_fn := v_edits[i][1]::regprocedure;
+    v_def := pg_get_functiondef(v_fn);
+    v_n := (length(v_def) - length(replace(v_def, v_edits[i][2], ''))) / length(v_edits[i][2]);
+    if v_n <> 1 then
+      raise exception '0177: expected the clause exactly once in %, found %', v_edits[i][1], v_n;
+    end if;
+    execute replace(v_def, v_edits[i][2], v_edits[i][3]);
+    if pg_get_functiondef(v_fn) not like v_edits[i][4] then
+      raise exception '0177: % did not take its change', v_edits[i][1];
+    end if;
+  end loop;
+end $m$;
+
+-- N1: nothing outside the server calls these.
+revoke all on function fn_clear_waiting(uuid) from public;
+revoke all on function fn_clear_waiting_at_16() from public;
+revoke all on function fn_release_own_page(uuid, uuid) from public;
+revoke all on function fn_guardian_replace_link(uuid, uuid, bytea, text) from public;
+revoke all on function fn_guardian_renew_link(uuid, uuid) from public;
+do $$
+declare f text;
+begin
+  foreach f in array array['fn_clear_waiting(uuid)', 'fn_clear_waiting_at_16()', 'fn_release_own_page(uuid, uuid)',
+                           'fn_guardian_replace_link(uuid, uuid, bytea, text)', 'fn_guardian_renew_link(uuid, uuid)'] loop
+    if exists (select 1 from pg_roles where rolname = 'anon') then
+      execute format('revoke all on function %s from anon', f);
+    end if;
+    if exists (select 1 from pg_roles where rolname = 'authenticated') then
+      execute format('revoke all on function %s from authenticated', f);
+    end if;
+  end loop;
+end $$;

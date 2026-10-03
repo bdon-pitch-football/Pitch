@@ -56,8 +56,18 @@ export async function GET(request: Request) {
   // version a guardian approved, and the read path holds that whether or not
   // this ran (G7). The photo a deleted version named goes only if nothing
   // still shows it — never the one the live record names (S-3).
-  const { rows: cleared } = await db.query('select record_id, photo from fn_clear_waiting_at_16()');
-  for (const c of cleared as { record_id: string; photo: string | null }[]) await forgetPlayerPhoto(c.record_id, c.photo);
+  // N3 (0177): one failure never stops the rest of the job. The function
+  // already goes on past a record that fails; this carries the job past the
+  // step itself, and past one photo that will not go. Logged without an id.
+  let cleared: { record_id: string; photo: string | null }[] = [];
+  try {
+    cleared = (await db.query('select record_id, photo from fn_clear_waiting_at_16()')).rows;
+  } catch {
+    console.error('daily: the birthday clear did not run; the rest of the job goes on');
+  }
+  for (const c of cleared) {
+    try { await forgetPlayerPhoto(c.record_id, c.photo); } catch { console.error('daily: one photo from the birthday clear was not removed; the rest go on'); }
+  }
 
   // doc 15 §13, thirty days before a sixteenth birthday. The transition to
   // discoverable is gated on this having DELIVERED (doc 14 §B11), so the

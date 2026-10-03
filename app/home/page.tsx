@@ -246,6 +246,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               select sr.id, sr.created_at as at, sr.destination from share_request sr
               join development_record dr3 on dr3.id = sr.record_id
               where dr3.person_id = c.id and sr.dispatched_at is null
+                -- 0177 (F1): a guardian sends only for an under-16 (L1/L3);
+                -- at 16 the player sends, so nothing waits on the parent.
+                and fn_age_band(c.dob) = 'u16'
               order by sr.created_at desc limit 1) q),
            'interestRequest', (select row_to_json(q2) from (
               select rr.id, rr.created_at as at, cl.name as club from registration_request rr

@@ -3135,7 +3135,9 @@ await db.query(`insert into guardian_setting (child_id, send_disabled, updated_b
   on conflict (child_id) do update set send_disabled = true`, [ID.nate, ID.guardian2]);
 check('L6: with the send switch off, the 16-17 cannot send', await dispatchOk(ID.nate, REC.nate), false);
 check('L7: one guardian setting it is enough — most restrictive wins', await dispatchOk(ID.nate, REC.nate), false);
-check('L6b: the guardian can still send while the switch is off', await dispatchOk(ID.guardian, REC.nate), true);
+// MOVED (0177; John's 3 Oct §3 table, john-four safety review F1): a 16–17's
+// guardian never sends — L5–L7 give the send to the player alone.
+check('L6b: and the guardian does not send in their place while the switch is off', await dispatchOk(ID.guardian, REC.nate), false);
 await db.query(`update guardian_setting set send_disabled = false where child_id = $1`, [ID.nate]);
 check('L6c: switching it back on restores the player’s own send', await dispatchOk(ID.nate, REC.nate), true);
 
@@ -4446,7 +4448,8 @@ check('L2: the guardian sends for the u16', await canSend(ID.guardian, REC.deniz
 check('L3: either guardian may send (equal visibility, D-51)', await canSend(ID.guardian2, REC.deniz), true);
 check('L4: a revoked guardian cannot send', await canSend(ID.exGuardian, REC.deniz), false);
 check('L5: a 16–17 player sends for themselves', await canSend(ID.nate, REC.nate), true);
-check('L6: and their guardian can too', await canSend(ID.guardian, REC.nate), true);
+// MOVED (0177; John's 3 Oct §3 table, F1): the player sends; the guardian never does.
+check('L6: and their guardian does not', await canSend(ID.guardian, REC.nate), false);
 check('L7: an adult sends alone', await canSend(ID.marcus, REC.marcus), true);
 check('L8: a guardianship lapsed at 18 cannot send (D-49)', await canSend(ID.guardian, REC.marcus), false);
 check('L9: the club cannot send a child\u2019s CV anywhere', await canSend(ID.td, REC.deniz), false);
@@ -14020,7 +14023,11 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     await db.query(`insert into consent_event (event, subject_id, detail) values ('edit_submitted',$1, jsonb_build_object('record_id',$2::uuid))`, [id, rec]);
     return { id, rec, tag: `n5-${name}-${rec.slice(0, 8)}` };
   };
-  const linkFor = async (k) => db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() + interval '90 days')`, [k.rec, sha(k.tag), ID.guardian]);
+  // MOVED (0177, F1): issued by whoever may make one today — the guardian for
+  // an under-16, the player from 16 (a 16–17's guardian never starts a link).
+  const linkFor = async (k) => db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at)
+    select $1, $2, case when fn_age_band(p.dob) = 'u16' then $3::uuid else p.id end, now() + interval '90 days'
+      from development_record dr join person p on p.id = dr.person_id where dr.id = $1`, [k.rec, sha(k.tag), ID.guardian]);
   const read = async (k) => (await one('select fn_token_read($1) as r', [sha(k.tag)])).r;
   // What a link-holder is served, minus the two things stamped at read from
   // the date of birth (the band and the birth quarter): moving the clock in
@@ -14082,7 +14089,8 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const daily = codeOnly(srcOf('app/api/jobs/daily/route.ts'));
   check('n5-2b: and it is the daily job’s, idempotent — a second run deletes nothing and writes nothing — and every photo it hands back goes through forgetPlayerPhoto, the one door that deletes a file only when nothing still shows it',
     [(await rowsOf('select * from fn_clear_waiting_at_16()')).filter((r) => r.error || [ivy.rec, bea.rec].includes(r.record_id)).length, (await events(ivy, 'edit_deleted')).length,
-     /const \{ rows: cleared \} = await db\.query\('select record_id, photo from fn_clear_waiting_at_16\(\)'\);\s*for \(const c of cleared as [^)]*\) await forgetPlayerPhoto\(c\.record_id, c\.photo\);/.test(daily)],
+     // MOVED (0177, N3): the step is wrapped so one failure never stops the job; the door is the same.
+     /cleared = \(await db\.query\('select record_id, photo from fn_clear_waiting_at_16\(\)'\)\)\.rows;[\s\S]{0,200}for \(const c of cleared\) \{\s*try \{ await forgetPlayerPhoto\(c\.record_id, c\.photo\); \}/.test(daily)],
     [0, 1, true]);
 
   // ---- n5-3: the player's first own write at 16 publishes ----
@@ -14197,7 +14205,10 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`, [id, name, dob]);
     await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, id]);
     await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rec, id]);
-    await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() + interval '6 days 12 hours')`, [rec, sha(`e16-remind-${name}`), ID.guardian]);
+    // MOVED (0177, F1): the guardian makes an under-16's link; a 16–17 makes their own.
+    await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at)
+      select $1, $2, case when fn_age_band(p.dob) = 'u16' then $3::uuid else p.id end, now() + interval '6 days 12 hours'
+        from person p where p.id = $4`, [rec, sha(`e16-remind-${name}`), ID.guardian, id]);
     return id;
   };
   const r16 = await remindKid('Rory', yearsAgo(17)), r15 = await remindKid('Remy', yearsAgo(14));
@@ -14347,11 +14358,11 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     await proveAddress(parent);
     await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now() - interval '3 years')`, [parent, kid]);
     await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CB'])`, [rec, kid]);
-    // Issued by whoever may issue it today (share_token_issuer_entitled): the
-    // parent for a child, the adult for themself.
-    const adultNow = (await db.query(`select fn_age_band($1::date) = '18plus' as a`, [dob])).rows[0].a;
+    // Issued by whoever may issue it today (share_token_issuer_entitled, which
+    // asks fn_can_dispatch): the parent for an under-16, the person from 16.
+    const under16 = (await db.query(`select fn_age_band($1::date) = 'u16' as a`, [dob])).rows[0].a;
     await db.query(`insert into share_token (id, record_id, token_hash, issued_by, issued_at, expires_at) values ($1,$2,$3,$4, now() - interval '10 days', now() + interval '80 days')`,
-      [tok, rec, sha(`ag-${kid}`), adultNow ? kid : parent]);
+      [tok, rec, sha(`ag-${kid}`), under16 ? parent : kid]);
     await db.query(`insert into consent_event (event, actor_id, subject_id, detail) values ('share_dispatched',$1,$2,
       jsonb_build_object('club_name','Riverside FC','recipient','registrar@riverside.example','token_id',$3::uuid,'band_at_send','16_17'))`, [parent, kid, tok]);
     let reg = null;
@@ -14482,6 +14493,69 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     where n.nspname = 'public' and p.prosrc like '%regranted_at%' order by 1`)).rows.map((r) => r.proname);
   check(`ag-5: fn_read_level is the only database function that reads regranted_at (${regrantReaders.join(', ')}) — a re-grant restores the record and nothing else (G13)`,
     regrantReaders, ['fn_read_level']);
+
+  // ---- f1 · a 16–17's guardian never sends (john-four safety review F1) ----
+  // John's 3 Oct §3 table: a 16–17's guardian may not make a link or send the
+  // CV (L5–L7, E16). Amara turned 16 two days ago. One request was composed
+  // at 15 for her parent to send; one is her own, left behind at 16 when the
+  // switch went off.
+  const sender = await family('Amara', yearsAgo(16, -2));
+  const atFifteen = crypto.randomUUID(), atSixteen = crypto.randomUUID();
+  await db.query(`insert into share_request (id, record_id, requested_by, destination, created_at) values
+    ($1,$3,$4,'registrar@kingsway.example', now() - interval '5 days'), ($2,$3,$4,'registrar@kingsway.example', now() - interval '1 day')`,
+    [atFifteen, atSixteen, sender.rec, sender.kid]);
+  const canSend = async (who, f) => (await one('select fn_can_dispatch($1,$2) as ok', [who, f.rec])).ok;
+  const switchTo = async (off) => db.query(`insert into guardian_setting (child_id, send_disabled, updated_by) values ($1,$2,$3)
+    on conflict (child_id) do update set send_disabled = $2`, [sender.kid, off, sender.parent]);
+  const switchOn = [await canSend(sender.parent, sender), await canSend(sender.kid, sender)];
+  await switchTo(true);
+  const switchOff = [await canSend(sender.parent, sender), await canSend(sender.kid, sender)];
+  await switchTo(false);
+  check('f1: a 16–17’s guardian never sends, switch on or off; the player sends, and the switch stops them; an under-16’s guardian still sends; an adult sends alone (L5–L7, E16; John 3 Oct; 0177)',
+    [switchOn, switchOff, await canSend(k15.parent, k15), [await canSend(a18.parent, a18), await canSend(a18.kid, a18)]],
+    [[false, true], [false, false], true, [false, true]]);
+  await db.exec('begin');
+  let lapsed;
+  try {
+    await db.query('select fn_lapse_send_requests()');
+    lapsed = (await db.query(`select id from share_request where id = any($1)`, [[atFifteen, atSixteen]])).rows.map((r) => r.id === atFifteen ? 'at15' : 'at16');
+  } finally { await db.exec('rollback'); }
+  check('f1b: a request composed before the 16th birthday for a parent to send is void from the birthday — the daily lapse clears it the day it runs, and leaves the player’s own until its fourteen days',
+    lapsed, ['at16']);
+  check('f1c: /home offers a parent a waiting send only for an under-16',
+    /and fn_age_band\(c\.dob\) = 'u16'/.test(srcOf('app/home/page.tsx').slice(srcOf('app/home/page.tsx').indexOf("'sendRequest'"), srcOf('app/home/page.tsx').indexOf("'interestRequest'"))), true);
+
+  // ---- n3 · one failure does not stop the birthday clear (review N3) ------
+  // Two 16-year-olds each with a waiting version left from under 16; the
+  // first one's deletion is made to fail, for this transaction only.
+  const w1 = await family('Ines', yearsAgo(16, -1), { register: false }), w2 = await family('Iolo', yearsAgo(16, -1), { register: false });
+  for (const w of [w1, w2]) await db.query(`insert into profile_version (record_id, content, status) values ($1,'{}','pending')`, [w.rec]);
+  await db.exec('begin');
+  let survived;
+  try {
+    await db.exec(`create function ag_boom() returns trigger language plpgsql as $$
+      begin if old.record_id = '${w1.rec}' then raise exception 'boom'; end if; return old; end $$;
+      create trigger ag_boom before delete on profile_version for each row execute function ag_boom();`);
+    await db.exec('savepoint c');
+    let got;
+    try { got = (await db.query('select record_id from fn_clear_waiting_at_16()')).rows.map((r) => r.record_id); }
+    catch { got = 'raised'; await db.exec('rollback to savepoint c'); }
+    const left = (await db.query(`select record_id from profile_version where record_id = any($1) and status = 'pending'`, [[w1.rec, w2.rec]])).rows.map((r) => r.record_id);
+    survived = [got === 'raised' ? got : [got.includes(w1.rec), got.includes(w2.rec)], [left.includes(w1.rec), left.includes(w2.rec)]];
+  } finally { await db.exec('rollback'); }
+  const daily = codeOnly(srcOf('app/api/jobs/daily/route.ts'));
+  check('n3: one record’s failure in the birthday clear is rolled back for that record alone and the rest go on — the other waiting version is still deleted — and the daily job carries on past the step and past a photo that will not go',
+    [survived, /try \{\s*cleared = \(await db\.query\('select record_id, photo from fn_clear_waiting_at_16\(\)'\)\)\.rows;\s*\} catch/.test(daily),
+     /try \{ await forgetPlayerPhoto\(c\.record_id, c\.photo\); \} catch/.test(daily)],
+    [[[false, true], [true, false]], true, true]);
+
+  // ---- n1 · the write functions 0174 and 0175 added (review N1) -----------
+  const openToPublic = (await db.query(`select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname in ('fn_clear_waiting','fn_clear_waiting_at_16','fn_release_own_page','fn_guardian_replace_link','fn_guardian_renew_link','fn_guardian_controls')
+      and (p.proacl is null or exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0))
+    order by 1`)).rows.map((r) => r.proname);
+  check(`n1: nothing outside the server may execute the guardian and birthday write functions, nor fn_guardian_controls — no EXECUTE for PUBLIC (${openToPublic.join(', ') || 'none'})`,
+    openToPublic, []);
 
   // ---- agc · the count BUZ runs first (John §3) ----------------------------
   // The script's own queries, run here read-only before and after one case of

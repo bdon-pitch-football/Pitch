@@ -216,6 +216,63 @@ function check(name, actual, expected) {
 }
 
 // ---------------------------------------------------------------------------
+// ag-1w (doc 14 G12; John, 3 Oct; 0177) — an adult's parent controls nothing.
+// FIRST in the crawl: later blocks switch every link off and sign seats out.
+// Lachlan turned 18 three days ago; Ruth's link to him is approved and
+// unrevoked, never re-granted. She calls every /g/controls action directly,
+// with valid ids: the server actions are taken from the controls screens of
+// two children she does not hold (an exported action is a public endpoint,
+// D-94 §3) and pressed with Lachlan's child, record and link ids. Every press
+// gets the not-yours answer (/home), the controls screen is the same
+// not-found as a stranger's, his card is not on her home, and afterwards his
+// link still serves his CV and he still signs in: nothing was paused,
+// switched off, replaced or erased. Red on da07100: pause and the send
+// switch land, the screen opens, and the erasure takes his record.
+// ---------------------------------------------------------------------------
+if (ids.adultGuardian) {
+  const { adult, parent, record_id: rec, token_id: tok } = ids.adultGuardian;
+  const ctl = `/g/controls/${adult}`;
+  const pressAs = async (who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) for (const x of [].concat(v)) fd.append(k, x);
+    const r = await fetch(BASE + ctl, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return (r.headers.get('location') ?? '').replace(BASE, '');
+  };
+  const alex = ids.people.alex;
+  // Every distinct controls action, from the two under-18 screens Alex holds
+  // (Deniz under 16, Nate 16-17), keyed by the action's id, the erasure last.
+  const seen = new Map();
+  for (const kid of [ids.children.deniz.child_id, ids.children.nate.child_id]) {
+    for (const f of forms((await get(`/g/controls/${kid}`, alex)).html)) {
+      const key = Object.keys(f.fields).find((k) => k.startsWith('$ACTION_ID_'));
+      if (key && 'childId' in f.fields && !seen.has(key)) seen.set(key, f.fields);
+    }
+  }
+  // The erasure is the form that carries nothing but the child: pressed last,
+  // so on the old code the presses before it still have someone to land on.
+  const onlyChild = (f) => Object.keys(f).filter((k) => !k.startsWith('$ACTION_')).join() === 'childId';
+  const actions = [...seen.values()].sort((a, b) => Number(onlyChild(a)) - Number(onlyChild(b)));
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ');
+  const lachlanCv = async () => words((await get('/p/dev-lachlan', null)).html).includes('Lachlan');
+  check('ag-1w0: before — the controls screens offer actions to press, Lachlan’s link serves his CV, and he signs in',
+    [actions.length >= 5, actions.filter(onlyChild).length, await lachlanCv(), (await get('/home', adult)).status], [true, 1, true, 200]);
+  const answers = [];
+  for (const f of actions) {
+    answers.push(await pressAs(parent, { ...f, childId: adult, recordId: rec, ...(tok ? { tokenId: tok } : {}), paused: 'true', sendOff: 'true' }));
+  }
+  check(`ag-1w: Ruth calls each of the ${actions.length} /g/controls actions directly on her adult son, with valid ids, and every one gets the not-yours answer (G12)`,
+    answers, answers.map(() => '/home'));
+  check('ag-1w2: and nothing happened — his link still serves his CV (not paused, not switched off, not replaced) and he still signs in (not erased)',
+    [await lachlanCv(), (await get('/home', adult)).status, words((await get('/home', adult)).html).includes('Lachlan')], [true, 200, true]);
+  check('ag-1w3: the controls screen is the same not-found as a stranger’s, and his card is not on her home (G12, John’s condition 5)',
+    [(await get(ctl, parent)).status, (await get(ctl, ids.people.alex)).status, words((await get('/home', parent)).html).includes('Lachlan')],
+    [404, 404, false]);
+} else {
+  check('ag-1w: the seed carries G12’s fixture (Lachlan and Ruth)', false, true);
+}
+
+// ---------------------------------------------------------------------------
 // tv-w0 — trials board v2's fixtures come off first (BUZ, 2 Oct). The seed
 // gives Westgate Rangers a second trial on the same day and two expressions of
 // interest, for the render and layout suites to read one row per club per day
@@ -5479,62 +5536,6 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
       check(`empty-w: the empty-board block ran to its end (${e.message})`, false, true);
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// ag-1w (doc 14 G12; John, 3 Oct; 0177) — an adult's parent controls nothing.
-// Lachlan turned 18 three days ago; Ruth's link to him is approved and
-// unrevoked, never re-granted. She calls every /g/controls action directly,
-// with valid ids: the server actions are taken from the controls screens of
-// two children she does not hold (an exported action is a public endpoint,
-// D-94 §3) and pressed with Lachlan's child, record and link ids. Every press
-// gets the not-yours answer (/home), the controls screen is the same
-// not-found as a stranger's, his card is not on her home, and afterwards his
-// link still serves his CV and he still signs in: nothing was paused,
-// switched off, replaced or erased. Red on da07100: pause and the send
-// switch land, the screen opens, and the erasure takes his record.
-// ---------------------------------------------------------------------------
-if (ids.adultGuardian) {
-  const { adult, parent, record_id: rec, token_id: tok } = ids.adultGuardian;
-  const ctl = `/g/controls/${adult}`;
-  const pressAs = async (who, fields) => {
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(fields)) for (const x of [].concat(v)) fd.append(k, x);
-    const r = await fetch(BASE + ctl, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
-    await r.text();
-    return (r.headers.get('location') ?? '').replace(BASE, '');
-  };
-  const alex = ids.people.alex;
-  // Every distinct controls action, from the two under-18 screens Alex holds
-  // (Deniz under 16, Nate 16-17), keyed by the action's id, the erasure last.
-  const seen = new Map();
-  for (const kid of [ids.children.deniz.child_id, ids.children.nate.child_id]) {
-    for (const f of forms((await get(`/g/controls/${kid}`, alex)).html)) {
-      const key = Object.keys(f.fields).find((k) => k.startsWith('$ACTION_ID_'));
-      if (key && 'childId' in f.fields && !seen.has(key)) seen.set(key, f.fields);
-    }
-  }
-  // The erasure is the form that carries nothing but the child: pressed last,
-  // so on the old code the presses before it still have someone to land on.
-  const onlyChild = (f) => Object.keys(f).filter((k) => !k.startsWith('$ACTION_')).join() === 'childId';
-  const actions = [...seen.values()].sort((a, b) => Number(onlyChild(a)) - Number(onlyChild(b)));
-  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ');
-  const lachlanCv = async () => words((await get('/p/dev-lachlan', null)).html).includes('Lachlan');
-  check('ag-1w0: before — the controls screens offer actions to press, Lachlan’s link serves his CV, and he signs in',
-    [actions.length >= 5, actions.filter(onlyChild).length, await lachlanCv(), (await get('/home', adult)).status], [true, 1, true, 200]);
-  const answers = [];
-  for (const f of actions) {
-    answers.push(await pressAs(parent, { ...f, childId: adult, recordId: rec, ...(tok ? { tokenId: tok } : {}), paused: 'true', sendOff: 'true' }));
-  }
-  check(`ag-1w: Ruth calls each of the ${actions.length} /g/controls actions directly on her adult son, with valid ids, and every one gets the not-yours answer (G12)`,
-    answers, answers.map(() => '/home'));
-  check('ag-1w2: and nothing happened — his link still serves his CV (not paused, not switched off, not replaced) and he still signs in (not erased)',
-    [await lachlanCv(), (await get('/home', adult)).status, words((await get('/home', adult)).html).includes('Lachlan')], [true, 200, true]);
-  check('ag-1w3: the controls screen is the same not-found as a stranger’s, and his card is not on her home (G12, John’s condition 5)',
-    [(await get(ctl, parent)).status, (await get(ctl, ids.people.alex)).status, words((await get('/home', parent)).html).includes('Lachlan')],
-    [404, 404, false]);
-} else {
-  check('ag-1w: the seed carries G12’s fixture (Lachlan and Ruth)', false, true);
 }
 
 // ---------------------------------------------------------------------------

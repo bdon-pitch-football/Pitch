@@ -204,9 +204,11 @@ for (const p of PLAYER_FIXTURES) {
     await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,$2,'approved',$3,now())`,
       [recordId, JSON.stringify(p), guardian]);
   }
-  // The adult issues their own link. Nobody else can.
+  // The adult issues their own link. Nobody else can. From 16 the player
+  // makes their own as well: a 16–17's guardian never starts a link (E16;
+  // 0177, which made the database refuse it). The guardian makes an under-16's.
   await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() + interval '90 days')`,
-    [recordId, sha(`dev-${p.slug}`), isAdult ? personId : guardian]);
+    [recordId, sha(`dev-${p.slug}`), isU16 ? guardian : personId]);
   if (p.slug === 'deniz') {
     await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() - interval '1 day')`,
       [recordId, sha('dev-expired'), guardian]);
@@ -1385,9 +1387,10 @@ for (const r of (await db.query(`select id from person where email is not null a
 // Lachlan turned 18 three days ago in Melbourne. Ruth approved him at
 // fifteen and has not been re-granted; the link is approved and unrevoked,
 // as every real one is the morning after an 18th birthday, because the
-// expiry is computed and never stored (D-49). The link to his CV was made
-// before the birthday and stays live (G6). The write suite presses every
-// /g/controls action as Ruth on Lachlan and expects nothing to happen.
+// expiry is computed and never stored (D-49). He has a live link to his CV
+// (his own: share_token_issuer_entitled will not record one from Ruth now
+// that he is 18). The write suite presses every /g/controls action as Ruth
+// on Lachlan and expects nothing to happen.
 if (!DEMO) {
   const lachlan = randomUUID(), ruth = randomUUID(), lachlanRec = randomUUID();
   await db.query(
@@ -1400,7 +1403,7 @@ if (!DEMO) {
   await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now() - interval '3 years')`, [ruth, lachlan]);
   await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CB'])`, [lachlanRec, lachlan]);
   await db.query(`insert into share_token (record_id, token_hash, issued_by, issued_at, expires_at) values ($1,$2,$3, now() - interval '10 days', now() + interval '80 days')`,
-    [lachlanRec, sha('dev-lachlan'), ruth]);
+    [lachlanRec, sha('dev-lachlan'), lachlan]);
 }
 
 console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')} dev-expired dev-revoked`);
