@@ -1,5 +1,7 @@
 # PITCH — Retention Statement
 
+> **⚠️ v1.8, 3 October 2026 — a row that promised a deletion nothing performed.** The pending-version row said a child's unapproved edit was kept "until approved, rejected, or 60 days … then discarded". **Nothing ever discarded a waiting edit at 60 days, and there is no reject.** The row now says what happens: the waiting copy is kept on the child's own record, seen only by the child and their guardians, until a guardian approves it, the child changes it back, or the child turns 16, when it is deleted and **nothing publishes because of the birthday**. *No 60-day discard is built, deliberately: a clock may delete a copy, but only a person may change a record (John, 3 Oct, "the sixty days").* **This version goes live only with the birthday read-path rule** (the four rulings of 3 October, §2), because the new row relies on it; a copy of v1.8 served without that rule would be untrue at midnight on a sixteenth birthday. **Pinned by sx-2 and sx-3** — from this version, each line in this document gets a named test before it syncs. *Also: the "Version" stamp in the body still read 1.5 through v1.6 and v1.7. It now says 1.8, and header, body and footer agree again.*
+>
 > **⚠️ v1.7, 1 October 2026 — also: a pending request a parent ends ("No, end this request").** It is deleted at once by the same deletion as the 14-day purge, with the messages sent for it, and only a subjectless `purged` event remains. The SMS meter and STOP rows now say what they keep: a keyed fingerprint, never the number. *An unkeyed sha256 of an Australian mobile was recovered in 168 ms in review; that is the number, not a fingerprint of it.*
 >
 > **⚠️ v1.7, 1 October 2026 — the investigation trail.** Who looked at a child's record, when and under which report **survives the child's erasure**, with the free text wiped and no key reaching the child. *A promise to tell a guardian who looked is worth nothing if the answer is deleted with the record, and the question is asked after something has gone wrong.*
@@ -34,7 +36,7 @@
 
 **The short version.** We keep a player's record while they are using Pitch, and for two years after they stop. We delete it sooner the moment anyone asks. Deleted things are gone from the live product immediately and gone from our backups within 35 days. The only thing that outlives a deletion is the note saying a consent was given or withdrawn, which holds nothing about anyone's football.
 
-**Last updated:** [date] · **Version:** 1.5
+**Last updated:** [date] · **Version:** 1.8
 
 ---
 
@@ -247,4 +249,4 @@ A hold is recorded, is limited to what the hold actually needs, and ends when th
 
 ---
 
-*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · retention statement · doc 23 · v1.7 draft · 1 October 2026 · not yet published · every period here is enforced by a job, or it is not a period*
+*Pitch Football · a registered business name of EBSD Enterprises Pty Ltd (ACN 701 879 718) · retention statement · doc 23 · v1.8 draft · 3 October 2026 · not yet published · every period here is enforced by a job, or it is not a period*
