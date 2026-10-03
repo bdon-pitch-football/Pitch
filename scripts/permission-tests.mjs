@@ -14401,7 +14401,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     await tryWrite('select fn_erase_child($1,$2)', [f.parent, f.kid])];
   const before18 = await footprint(a18);
   const byAge = [await controls(k15), await controls(k17), await controls(a18)];
-  check('ag-1: a parent with no re-grant, by age — under 16 every control works; 16–17 every one but Renew and Replace (E16); 18+ none: fn_guardian_controls says no, the erasure is refused, renew, replace and withdraw answer false, and no row moves in share_token, guardian_setting, consent_event or person (G12; John, 3 Oct)',
+  check('G12/ag-1: a parent with no re-grant, by age — under 16 every control works; 16–17 every one but Renew and Replace (E16); 18+ none: fn_guardian_controls says no, the erasure is refused, renew, replace and withdraw answer false, and no row moves in share_token, guardian_setting, consent_event or person (G12; John, 3 Oct)',
     [byAge, JSON.stringify(await footprint(a18)) === JSON.stringify(before18)],
     [[[true, true, true, 'n/a', ''], [true, false, false, true, ''], [false, false, false, false, 'refused']], true]);
 
@@ -14413,7 +14413,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const exported = [...ctlSrc.matchAll(/export async function (\w+)\(formData: FormData\) \{([\s\S]*?)\n\}/g)];
   const gatedFirst = exported.map(([, n, body]) => [n, body.indexOf('await assertGuardian(childId)') >= 0
     && body.indexOf('await assertGuardian(childId)') < Math.min(...['db.query', 'switchOffOneLink', 'db.connect'].map((w) => (body.indexOf(w) + 1 || Infinity) - 1))]);
-  check('ag-1s: every /g/controls action asks assertGuardian before it touches anything, and assertGuardian asks fn_guardian_controls and nothing else',
+  check('G12/ag-1s: every /g/controls action asks assertGuardian before it touches anything, and assertGuardian asks fn_guardian_controls and nothing else',
     [gatedFirst.length, gatedFirst.filter(([, ok]) => !ok).map(([n]) => n),
      /select fn_guardian_controls\(\$1, \$2\) as ok/.test(assertBody), /guardianship_link/.test(assertBody)],
     [6, [], true, false]);
@@ -14424,11 +14424,11 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const asks = ['app/g/controls/[childId]/page.tsx', 'app/g/card/[cardId]/page.tsx', 'app/g/card/[cardId]/actions.ts', 'app/g/card/[cardId]/image/route.tsx',
     'app/g/send/[requestId]/page.tsx', 'app/g/send/[requestId]/actions.ts', 'app/g/interest/[requestId]/page.tsx', 'lib/interest-dispatch.ts', 'app/home/page.tsx']
     .filter((f) => !/fn_guardian_controls\(/.test(codeOnly(srcOf(f))));
-  check(`ag-1g: /home and every /g/* door ask fn_guardian_controls, and none joins the guardian link on the session person itself (${ownJoin.join(', ') || 'none'})`,
+  check(`G12/ag-1g: /home and every /g/* door ask fn_guardian_controls, and none joins the guardian link on the session person itself (${ownJoin.join(', ') || 'none'})`,
     [ownJoin, asks], [[], []]);
 
   // ---- ag-2 · the 18+ parent: the erasure and the two reads ----------------
-  check('ag-2: the parent of an 18-year-old (no re-grant) calls fn_erase_child, fn_consent_timeline and fn_who_looked — the erasure raises and the person still exists; both reads return no rows, while the adult reads both of their own (G12, G13)',
+  check('G12/G13/ag-2: the parent of an 18-year-old (no re-grant) calls fn_erase_child, fn_consent_timeline and fn_who_looked — the erasure raises and the person still exists; both reads return no rows, while the adult reads both of their own (G12, G13)',
     [await tryWrite('select fn_erase_child($1,$2)', [a18.parent, a18.kid]), (await footprint(a18)).person,
      (await reads(a18.parent, a18)).slice(0, 2), (await reads(a18.kid, a18)).slice(0, 2)],
     ['refused', 1, [false, false], [true, true]]);
@@ -14467,14 +14467,14 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
       return [band, ok, tl, erase];
     } finally { await db.exec('rollback'); }
   };
-  check('ag-3: the clock passes the 18th birthday at Melbourne midnight with no job run — at 23:59:30 the parent still holds the controls and the timeline; at 00:00:30 (still the 9th in UTC) the erasure is refused and the timeline is empty (G7, G9)',
+  check('G12/ag-3: the clock passes the 18th birthday at Melbourne midnight with no job run — at 23:59:30 the parent still holds the controls and the timeline; at 00:00:30 (still the 9th in UTC) the erasure is refused and the timeline is empty (G7, G9)',
     [await at('2026-10-09T12:59:30Z'), await at('2026-10-09T13:00:30Z'), (await one(`select count(*)::int as n from pg_namespace where nspname = 'frozen_clock'`)).n],
     [['16_17', true, true, ''], ['18plus', false, false, 'refused'], 0]);
 
   // ---- ag-4 · a re-grant: the record, and nothing else ---------------------
   const rg = await family('Anouk', yearsAgo(19));
   await db.query(`update guardianship_link set regranted_at = now() where guardian_id = $1 and child_id = $2`, [rg.parent, rg.kid]);
-  check('ag-4: the adult re-grants — the parent reads the record in full, fn_record_actor does not make them a guardian (so /build and every family write refuses them), all five logs return nothing, and every control is still refused (G12, G13)',
+  check('G12/G13/ag-4: the adult re-grants — the parent reads the record in full, fn_record_actor does not make them a guardian (so /build and every family write refuses them), all five logs return nothing, and every control is still refused (G12, G13)',
     [(await one('select fn_read_level($1,$2) as l', [rg.parent, rg.kid])).l, (await one('select fn_record_actor($1,$2) as a', [rg.parent, rg.rec])).a,
      await reads(rg.parent, rg), await controls(rg)],
     ['full', null, [false, false, false, false, false], [false, false, false, false, 'refused']]);
@@ -14485,7 +14485,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const guard = codeOnly(srcOf('lib/record-guard.ts'));
   const actorWrites = ['app/register-interest/[recordId]/actions.ts', 'app/share-card/[recordId]/actions.ts', 'app/send/[recordId]/actions.ts']
     .map((f) => /requireRecordActor\(/.test(codeOnly(srcOf(f))));
-  check('ag-4b: so a re-granted parent writes nothing — the page (/build) asks fn_record_author, which names them nobody, and register interest, the share card and a send ask fn_record_actor through lib/record-guard, which no longer names them a guardian',
+  check('G12/ag-4b: so a re-granted parent writes nothing — the page (/build) asks fn_record_author, which names them nobody, and register interest, the share card and a send ask fn_record_actor through lib/record-guard, which no longer names them a guardian',
     [(await one('select fn_record_author($1,$2) as a', [rg.parent, rg.rec])).a, /select fn_record_actor\(\$1,\$2\) as actor/.test(guard), actorWrites,
      (await one('select fn_record_actor($1,$2) as a', [rg.parent, rg.rec])).a],
     [null, true, [true, true, true], null]);
@@ -14493,7 +14493,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   // ---- ag-5 · only fn_read_level reads a re-grant (static) -----------------
   const regrantReaders = (await db.query(`select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.prosrc like '%regranted_at%' order by 1`)).rows.map((r) => r.proname);
-  check(`ag-5: fn_read_level is the only database function that reads regranted_at (${regrantReaders.join(', ')}) — a re-grant restores the record and nothing else (G13)`,
+  check(`G13/ag-5: fn_read_level is the only database function that reads regranted_at (${regrantReaders.join(', ')}) — a re-grant restores the record and nothing else (G13)`,
     regrantReaders, ['fn_read_level']);
 
   // ---- f1 · a 16–17's guardian never sends (john-four safety review F1) ----

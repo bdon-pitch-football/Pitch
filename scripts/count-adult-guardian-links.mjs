@@ -5,7 +5,7 @@
 // of birth. BUZ runs it before 0177 ships, and the numbers go to John and
 // BUZ.
 //
-//   node --env-file=.env.production-db.local scripts/count-adult-guardian-links.mjs --ca supabase/prod-ca.crt
+//   node --env-file=.env.production-db.local scripts/count-adult-guardian-links.mjs --ca supabase/rehearsal-ca.crt
 //
 // What it counts, all since launch (30 Sep 2026, Melbourne):
 //   1  exposure     people aged 18+ today with an approved, unrevoked guardian

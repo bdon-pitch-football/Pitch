@@ -261,7 +261,7 @@ if (ids.adultGuardian) {
   for (const f of actions) {
     answers.push(await pressAs(parent, { ...f, childId: adult, recordId: rec, ...(tok ? { tokenId: tok } : {}), paused: 'true', sendOff: 'true' }));
   }
-  check(`ag-1w: Ruth calls each of the ${actions.length} /g/controls actions directly on her adult son, with valid ids, and every one gets the not-yours answer (G12)`,
+  check(`G12/ag-1w: Ruth calls each of the ${actions.length} /g/controls actions directly on her adult son, with valid ids, and every one gets the not-yours answer (G12)`,
     answers, answers.map(() => '/home'));
   check('ag-1w2: and nothing happened — his link still serves his CV (not paused, not switched off, not replaced) and he still signs in (not erased)',
     [await lachlanCv(), (await get('/home', adult)).status, words((await get('/home', adult)).html).includes('Lachlan')], [true, 200, true]);
