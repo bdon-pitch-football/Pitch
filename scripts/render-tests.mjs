@@ -2017,6 +2017,17 @@ const tfAll = tfLines(tfBoard);
     [Boolean(tid), /can invite you to it/.test(picked)], [true, false]);
 }
 
+// R3 and the /join default (BUZ, 3 Oct): the parent landing's one action
+// reads "Start it with your child", and /join picks no role for anyone.
+{
+  const parent = (await get('/?for=parent', null)).html.replace(/<!-- -->/g, '');
+  const joinSrc = readFileSync(fileURLToPath(new URL('../app/join/page.tsx', import.meta.url)), 'utf8');
+  check('pj-1: the parent landing\u2019s action reads "Start it with your child" (hero and close) and never "Set up your child\u2019s profile"; /join starts with no role and Continue disabled until one is picked',
+    [(parent.match(/>Start it with your child</g) ?? []).length >= 2, /Set up your child/.test(parent),
+     /useState\(''\)/.test(joinSrc.split('const [step')[0]), /disabled=\{doorClosed \|\| !role\}/.test(joinSrc)],
+    [true, false, true, true]);
+}
+
 // A link a screen SHOWS is a promise — a coach pastes it, a TD prints it.
 // Four screens showed pitchfootball.com.au/<name>, which does not exist: the
 // pages live at /c/<name> and /fc/<name>. Every full link shown must open.

@@ -38,7 +38,9 @@ const ROLES = [
 const COUNTRIES = [['AU', 'Australia'], ['elsewhere', 'Somewhere else']] as const;
 
 export default function Join() {
-  const [role, setRole] = useState('player');
+  // No door is picked for anyone (BUZ, 3 Oct): a default of Player turned a
+  // parent who filled in the form into an adult player account in their own name.
+  const [role, setRole] = useState('');
   const [step, setStep] = useState<'country' | 'elsewhere' | 'signup' | 'parent' | 'account'>('country');
   const [firstName, setFirstName] = useState('');
   const [dob, setDob] = useState('');
@@ -212,7 +214,7 @@ export default function Join() {
               )}
               {/* The one glow, unless the door is closed: a screen whose only
                   primary is unavailable has no glow (A part 18). */}
-              <button type="submit" disabled={doorClosed} className={doorClosed ? 'btn btn-primary' : 'btn btn-primary fl-glow'} style={{ opacity: canContinue ? 1 : 0.45 }}>Continue</button>
+              <button type="submit" disabled={doorClosed || !role} className={doorClosed || !role ? 'btn btn-primary' : 'btn btn-primary fl-glow'} style={{ opacity: canContinue ? 1 : 0.45 }}>Continue</button>
             </form>
           </>
         ) : step === 'account' ? (

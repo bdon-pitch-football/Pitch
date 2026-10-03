@@ -186,7 +186,9 @@ const Secondary = ({ href, children }: { href: string; children: React.ReactNode
 // ---- the four landings ------------------------------------------------------
 
 function Parent() {
-  const cta: [string, string] = ['Set up your child’s profile', '/join'];
+  // R3 (BUZ, 3 Oct): the parent starts it with the child — /join has no
+  // parent door, and this button once led parents into an adult player account.
+  const cta: [string, string] = ['Start it with your child', '/join'];
   return (
     <>
       <EntryHero photo="parent" kick="For parents" title={<>Your kid&rsquo;s football, kept properly.</>}
