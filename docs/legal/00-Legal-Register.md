@@ -50,8 +50,8 @@ Registered office **111/1150 Pascoe Vale Road, Coolaroo VIC 3048**. Contact **bu
 | | Document | Version | What it governs |
 |---|---|---|---|
 | **18** | **Solicitor Brief (D-27)** | **v1.4** | Fifteen questions for external counsel. Undated, so it does not go stale on the shelf. **Not our answers — our questions.** |
-| **19** | **Privacy Impact Assessment** | **v2.4** | The assessment behind the design. **Four launch-blocking recommendations: 1, 2, 3 and 12.** Re-run on any change to what is collected or who can see it. |
-| **23** | **Retention Statement** | **v1.7** | **Every deletion job implements a row of this table.** If a job and this document disagree, the document is right and the job is a bug. |
+| **19** | **Privacy Impact Assessment** | **v2.5** | The assessment behind the design. **Four launch-blocking recommendations: 1, 2, 3 and 12.** Re-run on any change to what is collected or who can see it. |
+| **23** | **Retention Statement** | **v1.8** | **Every deletion job implements a row of this table.** If a job and this document disagree, the document is right and the job is a bug. **v1.8 (3 Oct) is served only together with the birthday read-path rule (`fn_cv_held`, 0174)**: same release, never ahead of it. From v1.8, each line gets a named test before it syncs. |
 | **26** | **Access Model** | **v1.7** | Who can see what, in prose. Doc 14 is the enforceable version; this is the one a human can check it against. |
 | **28** | **Founder IP Assignment Deed** | **v1.2** | **NOT EXECUTED.** Assigns everything made before incorporation to the company. Two blanks, both BUZ's at signing. |
 | **30** | **Open decisions blocking the gate** | **v1.1** | The eleven questions doc 14 declined to answer. Answered at doc 31. |

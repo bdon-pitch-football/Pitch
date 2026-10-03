@@ -2,7 +2,7 @@
 // numbers and nothing else (John, 1 Oct). It never changes a row and never
 // prints a name, an address, a number or a body.
 //
-//   node --env-file=.env.production-db.local scripts/release-counts.mjs --ca supabase/prod-ca.crt
+//   node --env-file=.env.production-db.local scripts/release-counts.mjs --ca supabase/rehearsal-ca.crt
 //
 //   s4  messages sent for a pending invitation whose invitation is gone,
 //       but which still hold a body, subject or address (purges before 0167

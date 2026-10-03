@@ -3,8 +3,8 @@
 // 1 Oct, §5.1; safety review of John's batch, S-4 and S-5, 2 Oct; John, 2 Oct,
 // §3: addresses kept 30 days, then cleared, the try count kept).
 //
-//   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/scrub-sent-bodies.mjs --ca supabase/prod-ca.crt            # plan only
-//   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/scrub-sent-bodies.mjs --ca supabase/prod-ca.crt --apply    # clear
+//   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/scrub-sent-bodies.mjs --ca supabase/rehearsal-ca.crt            # plan only
+//   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/scrub-sent-bodies.mjs --ca supabase/rehearsal-ca.crt --apply    # clear
 //
 // WHY IT EXISTS. The release applies 0169 and then deploys. 0169 clears every
 // sent, closed and given-up message's body and subject, once. In the gap
