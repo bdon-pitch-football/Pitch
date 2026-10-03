@@ -2240,6 +2240,18 @@ for (const f of billingRoutes) {
 }
 
 {
+  // app/dev/birthday (John, 3 Oct, N-5 n5-1) rewrites a seeded child's date of
+  // birth for the write suite. In production it would rewrite anyone's age,
+  // so it must not exist there at all (release order review, 4 Oct).
+  const devBday = srcOf('app/dev/birthday/route.ts');
+  check('dev4: the birthday the write suite moves does not exist in production or in a club demo, answers POST only, and refuses before it writes',
+    [/if \(process\.env\.NODE_ENV === 'production' \|\| isDemo\(\)\) return new NextResponse\(null, \{ status: 404 \}\);/.test(devBday),
+     /export async function (GET|PUT|PATCH|DELETE)\b/.test(devBday), /export async function POST\b/.test(devBday),
+     devBday.indexOf('status: 404') < devBday.indexOf('db.query')],
+    [true, false, true, true]);
+}
+
+{
   // 0155: the club line on every CV is fn_cv_club's answer. assembleCv (the
   // 16-17 and adult CV on the share link, the preview, the register and the
   // squad screen) and the CV email's "currently at" read it; the under-16
@@ -14437,7 +14449,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     const at = src.indexOf(anchor);
     return at >= 0 && /fn_age_band\((?:p|c)\.dob\) = 'u16'/.test(src.slice(at, at + 900));
   };
-  check('ag-1h: a register-interest request composed before 16 is dispatched by nobody — the dispatch, /g/interest and the parent\u2019s home card all ask for an under-16 (safety review F3)',
+  check('N4b/ag-1h: a register-interest request composed before 16 is dispatched by nobody — the dispatch, /g/interest and the parent\u2019s home card all ask for an under-16 (safety review F3)',
     [u16Only('lib/interest-dispatch.ts', 'from registration_request rr'), u16Only('app/g/interest/[requestId]/page.tsx', 'from registration_request rr'),
      u16Only('app/home/page.tsx', "'interestRequest'")], [true, true, true]);
 
@@ -14465,7 +14477,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
       return 'approved';
     } catch { return 'refused'; } finally { await db.exec('rollback'); }
   };
-  check('ag-2d: a share card — an under-16’s parent, a 16–17’s parent and the 16–17 themself approve it (Q9); an 18-year-old’s parent and a parent whose child’s page is paused cannot (doc 14 §Q; safety review B1)',
+  check('Q11/ag-2d: a share card — an under-16’s parent, a 16–17’s parent and the 16–17 themself approve it (Q9); an 18-year-old’s parent and a parent whose child’s page is paused cannot (doc 14 §Q; safety review B1)',
     [await approveCard(k15, k15.parent), await approveCard(k17, k17.parent), await approveCard(k17, k17.kid),
      await approveCard(a18, a18.parent), await approveCard(k15, k15.parent, true)],
     ['approved', 'approved', 'approved', 'refused', 'refused']);
