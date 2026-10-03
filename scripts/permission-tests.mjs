@@ -13580,7 +13580,7 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
 // writes it. Fixture clubs only; the one real name here is the club BUZ held
 // out on 2 Oct, and the check is that it is refused before anything is read.
 {
-  const { planLevels, applyLevels, levelOf } = await import('./load-club-levels.mjs');
+  const { planLevels, applyLevels, levelOf, HELD } = await import('./load-club-levels.mjs');
   const q = (sql, p) => db.query(sql, p);
   check('tf-cl1: the levels are a lookup table (D-73), in a fixed order — NPL, Victoria Premier League, State League, Community',
     (await db.query(`select code, label from competition_tier order by sort`)).rows.map((r) => `${r.code}:${r.label}`),
@@ -13605,7 +13605,6 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     { club: 'Tf Marrowbank FC', suburb: 'Bulla', league_as_named: 'Victoria Premier League 1', source_url: 'https://marrowbank.example.au', checked_on: '' },
     { club: 'Tf Marrowbank FC', suburb: 'Bulla', league_as_named: 'Victoria Premier League 1', source_url: 'https://marrowbank.example.au', checked_on: '2999-01-01' },
     { club: 'Tf Marrowbank FC', suburb: 'Bulla', league_as_named: 'Sunday Social League', source_url: 'https://marrowbank.example.au', checked_on: '2026-09-30' },
-    { club: 'Alamein FC', suburb: 'Ashburton', league_as_named: 'NPL Women Victoria', source_url: 'https://www.footballvictoria.com.au/', checked_on: '2026-09-30' },
     { club: 'Tf Nowhere United', suburb: 'Bulla', league_as_named: 'State League 7 North-West', source_url: 'https://nowhere.example.au', checked_on: '2026-09-30' },
     { club: 'Tf Harbourline FC', suburb: 'Altona', league_as_named: 'State League 2 North-West', source_url: 'https://harbourline.example.au/again', checked_on: '2026-09-30' },
   ];
@@ -13614,20 +13613,23 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const AS_OF = '2026-10-02';
   const plan = await planLevels(q, rows, AS_OF);
   const nothingWritten = (await db.query(`select count(*)::int as n from club_level where club_id = any($1)`, [[a, b, c]])).rows[0].n;
-  check('tf-cl3: the loader plans by default and writes nothing — it joins clubs by name and suburb as the operator\'s duplicate check does, reads the level from the league\'s name (a women\'s NPL is NPL), and refuses, with a reason, a row with no source_url, no checked_on, a checked date in the future, a league it cannot place, a club not on Pitch, a club listed twice, and Alamein FC (BUZ, 2 Oct)',
+  check('tf-cl3: the loader plans by default and writes nothing — it joins clubs by name and suburb as the operator\'s duplicate check does, reads the level from the league\'s name (a women\'s NPL is NPL), and refuses, with a reason, a row with no source_url, no checked_on, a checked date in the future, a league it cannot place, a club not on Pitch, and a club listed twice',
     [plan.add.map((p) => `${p.club}:${p.level}`), plan.refused.map((r) => `${r.club}: ${r.why}`), nothingWritten],
     [['Tf Harbourline FC:sl', 'Tf Ridgeway SC:npl'],
      ['Tf Marrowbank FC: no source_url', 'Tf Marrowbank FC: no checked_on', 'Tf Marrowbank FC: checked_on is in the future',
-      'Tf Marrowbank FC: league not placed in a level: "Sunday Social League"', 'Alamein FC: held by BUZ, 2 Oct: "keep that out of our list for now"',
+      'Tf Marrowbank FC: league not placed in a level: "Sunday Social League"',
       'Tf Nowhere United: no club on Pitch with that name and suburb', 'Tf Harbourline FC: listed twice in the file; the first row is loaded'],
      0]);
-  // Alamein is refused before the database is asked anything: whatever its
-  // row says, and however its name is written.
-  const held = await planLevels(async () => { throw new Error('asked the database'); }, [
-    { club: 'ALAMEIN  FC', suburb: 'Ashburton', league_as_named: 'NPL Victoria', source_url: 'https://alameinfc.example.au', checked_on: '2026-09-30' },
-    { club: 'Alamein Football Club', suburb: 'Ashburton', level: 'npl', league_as_named: 'NPL Women Victoria', source_url: 'https://alameinfc.example.au', checked_on: '2026-09-30' }]);
-  check('tf-cl3b: Alamein FC is refused however it is written, before any lookup — it gets no level and is in no level chip (BUZ, 2 Oct)',
-    [held.add.length, held.change.length, held.refused.length], [0, 0, 2]);
+  // tf-cl3b (BUZ, 3 Oct, reversing the 2 Oct hold): a women-only club takes
+  // its women's league as its level, Alamein FC included — loaded like any
+  // other club, with its source and checked date, and nothing holds it.
+  {
+    const al = (await db.query(`insert into club (name, suburb, state, club_state) values ('Alamein FC', 'Ashburton', 'VIC', 'unclaimed') returning id`)).rows[0].id;
+    const p3 = await planLevels(q, [{ club: 'Alamein FC', suburb: 'Ashburton', level: 'NPL', league_as_named: 'NPLW Victoria', source_url: 'https://www.footballvictoria.com.au/nplw-2026', checked_on: '2026-09-30' }], AS_OF);
+    await db.query(`delete from club where id = $1`, [al]);
+    check('tf-cl3b: a women-only club takes its women\u2019s league as its level — Alamein FC is planned like any club, with its source, and no club is held (BUZ, 3 Oct)',
+      [p3.add.map((x) => `${x.club}:${x.level}`), p3.refused.length, HELD.length], [['Alamein FC:npl'], 0, 0]);
+  }
   const written = await applyLevels(q, plan);
   const after = (await db.query(`select c.name, l.level, l.league_as_named, l.source_url, to_char(l.checked_on, 'YYYY-MM-DD') as checked_on
     from club_level l join club c on c.id = l.club_id where l.club_id = any($1) order by c.name`, [[a, b, c]])).rows.map((r) => Object.values(r).join(' | '));
