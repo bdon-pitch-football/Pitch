@@ -27,7 +27,9 @@ export const metadata = { title: { absolute: 'Waiting for your parent · Pitch F
 const TEXT_WAITING = 'We\u2019ve emailed your parent. Their text follows shortly.';
 
 const maskPhone = (p: string) => {
-  const d = p.replace(/\s/g, '');
+  // Stored as E.164 (+614…, John 3 Oct §4); shown as the family typed it, 04…
+  // — how a number looks is presentation (§4.6), and this keeps it as it was.
+  const d = p.replace(/\s/g, '').replace(/^\+61(?=4)/, '0');
   return d.length >= 7 ? `${d.slice(0, 4)} ··· ${d.slice(-3)}` : '····';
 };
 

@@ -3,6 +3,7 @@
 // time; the 30-day birthday notifications join this route with messaging.
 import { NextResponse } from 'next/server';
 import { cronAllowed } from '@/lib/cron-policy';
+import { forgetPlayerPhoto } from '@/lib/cv-build';
 import { db } from '@/lib/db';
 import { isHeld, linkExpiringToClubsEmail, linkRenewalEmail, pendingNudgeSms, sixteenthBirthdayEmail } from '@/lib/messages';
 import { reissueChannelToken } from '@/lib/guardian-flow';
@@ -47,6 +48,16 @@ export async function GET(request: Request) {
   // seven days so a missed morning is caught up, and the band is the
   // idempotency key, so nothing is ever written twice (0065).
   const { rows: bands } = await db.query('select fn_record_age_transitions() as n');
+  // A birthday publishes nothing (John, 3 Oct, N-5 (A); doc 14 R11). The
+  // waiting version left from under 16 can never be approved after the
+  // birthday (R13), so it is deleted, with one content-free event on the
+  // child (fn_clear_waiting_at_16, 0174). It never publishes: until the
+  // player's own first write at 16 or over, every surface serves the last
+  // version a guardian approved, and the read path holds that whether or not
+  // this ran (G7). The photo a deleted version named goes only if nothing
+  // still shows it — never the one the live record names (S-3).
+  const { rows: cleared } = await db.query('select record_id, photo from fn_clear_waiting_at_16()');
+  for (const c of cleared as { record_id: string; photo: string | null }[]) await forgetPlayerPhoto(c.record_id, c.photo);
 
   // doc 15 §13, thirty days before a sixteenth birthday. The transition to
   // discoverable is gated on this having DELIVERED (doc 14 §B11), so the
@@ -116,6 +127,7 @@ export async function GET(request: Request) {
     abuseSignalsPurged: abuse[0].n,
     sessionsPurged: sessions[0].n,
     ageTransitionsLogged: bands[0].n,
+    waitingVersionsClearedAt16: cleared.length,
     birthdayNotices: noticed,
     // Says so out loud, so a run that sends nothing is not read as a run that
     // found nobody (doc 14 §B11 depends on the difference).

@@ -125,7 +125,9 @@ export async function readCvByToken(rawToken: string, opts: PhotoOption = {}): P
     | null;
   if (!bundle) return null;
 
-  // u16: the guardian-approved snapshot is the page (D-119). The band is
+  // A held page — an under-16's, or one kept under 16 until its player's own
+  // first write at 16 or over (fn_cv_held, 0174; John, 3 Oct, N-5) — is the
+  // guardian-approved snapshot (D-119). The band is
   // stamped on the way OUT rather than frozen into the snapshot — it is
   // derived from DOB at read time and must never be stored (doc 14 §J1), and
   // a child who turns 16 must not keep a stale band because their snapshot
@@ -190,6 +192,33 @@ export async function resolveTokenForNotice(rawToken: string): Promise<AccessNot
 }
 
 /**
+ * The page a club, a link-holder or a card may see, for a caller that has
+ * already been authorised (the club's register CV and squad CV, the family's
+ * preview): the last guardian-approved snapshot while the database says the
+ * page is held, or null if there is none; the live record otherwise.
+ *
+ * Held is ONE answer, fn_cv_held (0174; John, 3 Oct, N-5 (A), doc 14 R11):
+ * an under-16's page, and a page kept under 16 until its player's own first
+ * write at 16 or over — so a birthday publishes nothing. These routes used to
+ * split on the band themselves, which is how midnight on the sixteenth
+ * birthday put every unreviewed change in front of every club (L23).
+ */
+export async function servedCv(recordId: string, personId: string, band: string, opts: PhotoOption = {}): Promise<CvData | null> {
+  const { rows } = await db.query('select fn_cv_held($1) as held', [recordId]);
+  if (rows[0]?.held !== false) {
+    // The approved snapshot as it is served everywhere (fn_approved_cv: the
+    // club line following the membership, 0054), the band stamped on the way
+    // out, the club's colours (D-174, 0165), and its photo as an address for
+    // this read only (John's ruling §1).
+    const v = await db.query('select fn_approved_cv($1) as content', [recordId]);
+    const content = (v.rows[0]?.content as CvData | null) ?? null;
+    if (!content) return null;
+    return photoFor({ ...content, band: band as CvData['band'], ...(await cvClubColours(personId)) }, opts);
+  }
+  return assembleCv(recordId, personId, band, opts);
+}
+
+/**
  * Assemble a live record into the shape PlayerCV renders.
  *
  * 16–17 and 18+ have NO approved snapshot — lib/cv-build writes one only for
@@ -203,7 +232,8 @@ export async function resolveTokenForNotice(rawToken: string): Promise<AccessNot
  *
  * EXPORTED so there is one assembly rather than two. The AUTHORISATION stays
  * with the caller — fn_token_read for a share link, fn_can_work_register for
- * a club. This function is the shape, never the permission.
+ * a club. This function is the shape, never the permission, and it never
+ * decides WHICH version a page is: servedCv and fn_token_read ask fn_cv_held.
  */
 export async function assembleCv(recordId: string, personId: string, band: string, opts: PhotoOption = {}): Promise<CvData | null> {
   const bundle = { record_id: recordId, person_id: personId, band };

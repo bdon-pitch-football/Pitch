@@ -4589,6 +4589,238 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 }
 
 // ---------------------------------------------------------------------------
+// John's four rulings (3 Oct) and the sixty days, pressed as the family, the
+// club and the operator press them (report 2026-10-03-builder-john-four). Each
+// check red on f46b4c3. Here, while Alex's session is live: the block after
+// this one signs him out. In order, because the last part makes Deniz sixteen:
+//   sx-1  a guardian removes, by their own edit, each kind of thing a child adds
+//   E16   what a 16–17's guardian keeps, and the crafted Renew and Replace
+//   ph-2  a text's outbox address is the E.164 form it went to
+//   n5    the clock passes Deniz's sixteenth birthday
+// ---------------------------------------------------------------------------
+{
+  const alex = ids.people.alex, marina = ids.people.marina, nate = ids.children.nate, georgia = ids.children.georgia, deniz = ids.children.deniz;
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&#39;|&rsquo;/g, '’').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
+  const unhtml = (t) => t.replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const postAs = async (path, who, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const r = await fetch(BASE + path, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } });
+    await r.text();
+    return { status: r.status, location: (r.headers.get('location') ?? '').replace(BASE, '') };
+  };
+  // The build form as a browser posts it: every field as the page drew it.
+  const faithful = async (rec, who) => {
+    const { html } = await get(`/build/${rec}`, who);
+    const form = forms(html).find((f) => 'positions' in f.fields);
+    if (!form) return null;
+    const fields = { ...form.fields };
+    for (const v of form.visible) if (!v.file && v.type !== 'select') fields[v.name] = v.value ?? '';
+    const sel = /<select[^>]*name="foot"[^>]*>([\s\S]*?)<\/select>/.exec(html)?.[1] ?? '';
+    const opt = /<option(?: value="([^"]*)")?[^>]*selected=""[^>]*>([^<]*)</.exec(sel);
+    fields.foot = opt ? (opt[1] ?? opt[2]) : '';
+    fields.about = unhtml(/<textarea[^>]*name="about"[^>]*>([\s\S]*?)<\/textarea>/.exec(html)?.[1] ?? '');
+    return fields;
+  };
+  const box = async () => [...words((await get('/dev/outbox', alex)).html).matchAll(/doc15\.§(\w+) → (\S+)/g)].map((m) => `§${m[1]} → ${m[2]}`);
+  // The remove form whose row carries this text: the form after it, before the next.
+  const removeFor = (html, field, text) => forms(html).filter((f) => field in f.fields).find((f) => {
+    const start = html.lastIndexOf('<form', html.indexOf(`value="${f.fields[field]}"`));
+    return html.slice(html.lastIndexOf('</form>', start), start).includes(text);
+  });
+  const photoKey = (html, rec) => new RegExp(`<img[^>]*src="([^"?]*player[-/]${rec}[^"?]*)`).exec(html.replace(/<script[\s\S]*?<\/script>/g, ' '))?.[1] ?? null;
+  const sharp = (await import('sharp')).default;
+  const upload = async (rec, who, rgb) => {
+    const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: rgb } }).png().toBuffer();
+    const up = forms((await get(`/build/${rec}`, who)).html).find((f) => /\/photo$/.test(f.action ?? ''));
+    if (!up) return false;
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(up.fields)) fd.append(k, v);
+    fd.append('photo', new Blob([png], { type: 'image/png' }), 'photo.png');
+    await (await fetch(BASE + up.action, { method: 'POST', body: fd, redirect: 'manual', headers: { cookie: cookieFor(who) } })).text();
+    return true;
+  };
+
+  // ---- sx-1 / doc 14 R6: a guardian's own edit removes what a child added ----
+  {
+    const rec = georgia.record_id, gBuild = `/build/${rec}`, pendingPage = `/g/pending/${rec}`;
+    const preview = async () => words((await get(`${gBuild}/preview`, alex)).html);
+    const review = async () => words((await get(pendingPage, alex)).html);
+    const approveHers = async () => {
+      const f = forms((await get(pendingPage, alex)).html).find((x) => x.submit === 'Approve the change');
+      return f ? postAs(pendingPage, alex, f.fields) : { location: '' };
+    };
+    // Nothing of hers waits to begin with.
+    if (!(await review()).includes('Nothing is waiting on you.')) await approveHers();
+    const box0 = await box();
+    const results = [];
+    // About: she rewrites it; her parent puts the approved words back.
+    const approvedForm = await faithful(rec, alex);
+    const SX_ABOUT = 'sx-1 About Georgia wrote that her parent takes back.';
+    const kf = await faithful(rec, georgia.child_id);
+    if (kf) await postAs(gBuild, georgia.child_id, { ...kf, about: SX_ABOUT });
+    const waitedA = (await review()).includes(SX_ABOUT);
+    const af = await faithful(rec, alex);
+    if (af && approvedForm) await postAs(gBuild, alex, { ...af, about: approvedForm.about });
+    results.push(['About', waitedA, (await preview()).includes(SX_ABOUT), (await review()).includes(SX_ABOUT)]);
+    // A stat: she enters 77 goals; her parent puts the approved number back.
+    const kf2 = await faithful(rec, georgia.child_id);
+    if (kf2) await postAs(gBuild, georgia.child_id, { ...kf2, stat_goals: '77' });
+    const waitedS = /Goals: [^→]*→ 77/.test(await review());
+    const af2 = await faithful(rec, alex);
+    if (af2 && approvedForm) await postAs(gBuild, alex, { ...af2, stat_goals: approvedForm.stat_goals ?? '' });
+    results.push(['a stat', waitedS, /\b77\b/.test(await preview()), /Goals: [^→]*→ 77/.test(await review())]);
+    // A clip, an achievement and an other-football entry: she adds each; her
+    // parent removes it with the page's own Remove.
+    const lists = [
+      ['a clip', `${gBuild}/clips`, 'clipId', 'sx-1 clip Georgia added', (f) => f.visible.some((v) => v.name === 'url'),
+        (t) => ({ url: `https://www.youtube.com/watch?v=sx1clip${Date.now() % 1000}`, title: t })],
+      ['an achievement', `${gBuild}/more`, 'achievementId', 'sx-1 achievement Georgia added', (f) => f.visible.some((v) => v.name === 'title') && f.visible.some((v) => v.name === 'detail'),
+        (t) => ({ title: t, detail: '' })],
+      ['an other-football entry', `${gBuild}/more`, 'experienceId', 'sx-1 Futsal Georgia added', (f) => !('kind' in f.fields) && f.visible.some((v) => v.name === 'kind' && v.type === 'radio'),
+        (t) => ({ kind: 'futsal', orgName: t, period: '' })],
+    ];
+    for (const [kind, page, field, text, isAdd, extra] of lists) {
+      const add = forms((await get(page, georgia.child_id)).html).find(isAdd);
+      if (add) await postAs(page, georgia.child_id, { ...add.fields, ...extra(text) });
+      const waited = (await review()).includes(text);
+      const html = (await get(page, alex)).html;
+      const rm = removeFor(html, field, text);
+      if (rm) await postAs(page, alex, rm.fields);
+      results.push([kind, Boolean(add) && Boolean(rm) && waited, (await preview()).includes(text), (await review()).includes(text)]);
+    }
+    const box1 = await box();
+    const sent = box1.slice(0, box1.findIndex((x, i) => box1.slice(i, i + box0.length).join('|') === box0.join('|')));
+    check('R6/sx-1: for the About, a stat, a clip, an achievement and an other-football entry, a child adds or changes it, it waits, and the guardian removes or reverts it by their own edit — the approved page and the waiting version both lose it; nothing is sent to the child or to any club (only the "edit waiting" email to the guardian)',
+      [results, (await review()).includes('Nothing is waiting on you.'), sent.filter((x) => x !== '§30 → guardian@example.com')],
+      [[['About', true, false, false], ['a stat', true, false, false], ['a clip', true, false, false], ['an achievement', true, false, false], ['an other-football entry', true, false, false]], true, []]);
+    // The photo: she uploads one; her parent's upload overrules it in both
+    // versions. There is no control that takes a photo away to none — that
+    // gap is reported, not asserted (sx-1, John's condition).
+    const before = photoKey((await get(`${gBuild}/preview`, alex)).html, rec);
+    await upload(rec, georgia.child_id, { r: 200, g: 40, b: 40 });
+    const hers = photoKey((await get(gBuild, georgia.child_id)).html, rec);
+    const herReview = (await get(pendingPage, alex)).html.includes(hers ?? '-');
+    await upload(rec, alex, { r: 40, g: 40, b: 200 });
+    const his = photoKey((await get(`${gBuild}/preview`, alex)).html, rec);
+    const reviewHtml = (await get(pendingPage, alex)).html;
+    check('sx-1 photo: a photo Georgia uploads waits, and her parent’s own upload overrules it in both versions — the page clubs read shows the parent’s, the waiting version names hers nowhere',
+      [Boolean(hers) && hers !== before, herReview, his !== hers && his !== before, reviewHtml.includes(hers ?? '-')],
+      [true, true, true, false]);
+  }
+
+  // ---- E16: what a 16–17's guardian keeps, and what they cannot press ----
+  {
+    const nCard = async () => (await get(`/g/controls/${nate.child_id}`, alex)).html;
+    const linkPart = (h) => h.split(/<h2 class="sec-h">(?:[^<]|<!-- -->)*link<\/h2>/)[1]?.split('<h2 class="sec-h">')[0] ?? null;
+    const history = (h) => words(h).split('Everything that’s happened')[1]?.split('Delete everything')[0] ?? '';
+    const g = forms((await get(`/g/controls/${georgia.child_id}`, alex)).html);
+    const renewF = g.find((f) => f.submit === 'Renew'), replaceF = g.find((f) => f.submit === 'Replace');
+    const c0 = await nCard();
+    const crafted = [];
+    for (const f of [renewF, replaceF]) {
+      crafted.push(f ? await postAs(`/g/controls/${nate.child_id}`, alex, { ...f.fields, childId: nate.child_id, recordId: nate.record_id }) : null);
+    }
+    const stranger = renewF ? await postAs(`/g/controls/${nate.child_id}`, marina, { ...renewF.fields, childId: nate.child_id, recordId: nate.record_id }) : null;
+    const c1 = await nCard();
+    check('E16w: Alex, Nate’s parent, crafts a Renew and a Replace for Nate with valid ids — both go home exactly as a stranger’s press does, the link card (hint and expiry) is unchanged and Nate’s history gains nothing; for Georgia (15) the buttons are there to press',
+      [Boolean(renewF && replaceF), crafted.map((x) => x && [x.status, x.location]), stranger && [stranger.status, stranger.location],
+       linkPart(c1) !== null && linkPart(c1) === linkPart(c0), history(c1) === history(c0)],
+      [true, [[303, '/home'], [303, '/home']], [303, '/home'], true, true]);
+    // What he keeps: pause (and undo his own pause), the sending switch, and
+    // the per-link switch-off on Nate's send list.
+    const pauseF = forms(c1).find((f) => 'paused' in f.fields), sendF = forms(c1).find((f) => 'sendOff' in f.fields);
+    const paused = pauseF ? await postAs(`/g/controls/${nate.child_id}`, alex, pauseF.fields) : { status: 0 };
+    const nowPaused = words(await nCard()).includes('Nate’s page is paused');
+    const unpauseF = forms(await nCard()).find((f) => 'paused' in f.fields);
+    if (unpauseF) await postAs(`/g/controls/${nate.child_id}`, alex, unpauseF.fields);
+    const live = words(await nCard()).includes('Nate’s page is live');
+    const sent = sendF ? await postAs(`/g/controls/${nate.child_id}`, alex, sendF.fields) : { status: 0 };
+    const off = /Sending is off/.test(words(await nCard()));
+    const sendBack = forms(await nCard()).find((f) => 'sendOff' in f.fields);
+    if (sendBack) await postAs(`/g/controls/${nate.child_id}`, alex, sendBack.fields);
+    // A live link on Nate's send list to switch off: he sends one if none is left.
+    if (!forms(await nCard()).some((f) => 'tokenId' in f.fields)) {
+      const f = forms((await get(`/send/${nate.record_id}?club=kestrelford-athletic-sc`, nate.child_id)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+      if (f) await postAs(`/send/${nate.record_id}`, nate.child_id, { ...f.fields, ...Object.fromEntries(f.visible.filter((v) => v.value !== undefined).map((v) => [v.name, v.value])) });
+    }
+    const switchF = forms(await nCard()).find((f) => 'tokenId' in f.fields);
+    const switched = switchF ? await postAs(`/g/controls/${nate.child_id}`, alex, switchF.fields) : null;
+    check('E16w2: and Alex keeps what E16 gives him for Nate — pause and its undo, the sending switch, and the per-link switch-off on Nate’s send list all still work',
+      [Boolean(pauseF && sendF), paused.status, nowPaused, live, sent.status, off, switched && [switched.status, switched.location]],
+      [true, 303, true, true, 303, true, [303, `/g/controls/${nate.child_id}?off=1`]]);
+  }
+
+  // ---- ph-2: a text's outbox address is the form it went to ----
+  {
+    const look = (await get(`/ops/support?q=${encodeURIComponent('0412 345 678')}`, marina)).html;
+    const resend = forms(look).find((f) => f.submit.startsWith('Resend the approval request'));
+    if (resend) await postAs(`/ops/support?q=${encodeURIComponent('0412 345 678')}`, marina, resend.fields);
+    const top = (await box()).slice(0, 2);
+    check('ph-2w: the operator resends Mila’s approval request, found by her parent’s number as typed — the text’s outbox row holds +61412345678, the exact string Twilio is handed, and no form of the number as typed',
+      [Boolean(resend), top.filter((x) => x.startsWith('§1 → ')), top.some((x) => /0412|412 345/.test(x))],
+      [true, ['§1 → +61412345678'], false]);
+  }
+
+  // ---- n5: the clock passes Deniz's sixteenth birthday ----
+  {
+    const rec = deniz.record_id, dBuild = `/build/${rec}`;
+    const N5 = 'n5 Deniz’s own change, never approved — must not publish on his birthday.';
+    const tokenWords = async () => words((await get('/p/dev-deniz', null)).html);
+    const printWords = async () => words((await get('/p/dev-deniz/print', null)).html);
+    const og = async () => Buffer.from(await (await fetch(`${BASE}/p/dev-deniz/opengraph-image`)).arrayBuffer());
+    // The club's register row for Deniz, and the squad sheet that holds him.
+    const regHtml = (await get('/club/register', marina)).html;
+    const regLink = [...regHtml.matchAll(/href="(\/club\/register\/cv\/[0-9a-f-]{36})[^"]*"/g)]
+      .find((m) => words(regHtml.slice(m.index, m.index + 600)).trim().startsWith('Deniz'))?.[1] ?? null;
+    const squadsHtml = (await get('/club/squads', marina)).html;
+    let squadCv = null;
+    for (const m of squadsHtml.matchAll(/href="(\/club\/squads\/[0-9a-f-]{36})"/g)) {
+      const h = (await get(m[1], marina)).html;
+      if (h.includes(`/cv/${deniz.child_id}`)) { squadCv = `${m[1]}/cv/${deniz.child_id}`; break; }
+    }
+    const clubWords = async () => [regLink ? words((await get(regLink, marina)).html) : '', squadCv ? words((await get(squadCv, marina)).html) : ''];
+    const previewWords = async () => words((await get(`${dBuild}/preview`, alex)).html);
+    const ogPre = await og();
+    const photoPre = photoKey((await get('/p/dev-deniz', null)).html, rec);
+    // At fifteen, Deniz changes his About and his number and uploads a photo; nobody approves.
+    const kf = await faithful(rec, deniz.child_id);
+    if (kf) await postAs(dBuild, deniz.child_id, { ...kf, about: N5, squadNumber: '91' });
+    await upload(rec, deniz.child_id, { r: 250, g: 200, b: 0 });
+    const hisPhoto = photoKey((await get(dBuild, deniz.child_id)).html, rec);
+    const at15 = [(await tokenWords()).includes(N5), (await og()).equals(ogPre)];
+    // Melbourne midnight passes. The job does not run.
+    const bday = await (await fetch(`${BASE}/dev/birthday?child=${deniz.child_id}`, { method: 'POST' })).json().catch(() => null);
+    const club = await clubWords();
+    const tokenPhoto = photoKey((await get('/p/dev-deniz', null)).html, rec);
+    check('n5-1w: Deniz, fifteen, changes his About and his number and uploads a photo, and nobody approves; the clock passes his sixteenth birthday with the job not run — his link, its card (byte for byte), its print, the club’s register CV and squad CV, and his parent’s preview all serve the approved version, old photo included, and none of the change',
+      [Boolean(kf), Boolean(hisPhoto) && hisPhoto !== photoPre, at15, bday?.band, (await tokenWords()).includes(N5), (await og()).equals(ogPre), (await printWords()).includes(N5),
+       [Boolean(regLink), Boolean(squadCv)], club.map((w) => w.includes(N5)), (await previewWords()).includes(N5), tokenPhoto === photoPre, tokenPhoto === hisPhoto],
+      [true, true, [false, true], '16_17', false, true, false, [true, true], [false, false], false, true, false]);
+    // R13 at sixteen: his parent opens and approves nothing.
+    const opened = await fetch(`${BASE}/g/pending/${rec}`, { redirect: 'manual', headers: { cookie: cookieFor(alex) } });
+    await opened.text();
+    check('n5-4w: and R13 holds — his parent is sent home from the review, so nothing he wrote at fifteen can be approved now',
+      [opened.status, (opened.headers.get('location') ?? '').replace(BASE, '')], [307, '/home']);
+    // The job runs.
+    const job = await (await fetch(BASE + '/api/jobs/daily')).json().catch(() => ({}));
+    const ownImg = /<img[^>]*src="([^"]*player[-/][^"]*)"/.exec((await get(dBuild, deniz.child_id)).html.replace(/<script[\s\S]*?<\/script>/g, ' '))?.[1]?.replace(/&amp;/g, '&');
+    const ownStatus = ownImg ? (await fetch(BASE + ownImg)).status : null;
+    check('n5-2w: the daily job deletes the waiting version (it says how many it cleared), the page still serves the approved version, and the photo his live record names is still there on his own page',
+      [typeof job.waitingVersionsClearedAt16, (job.waitingVersionsClearedAt16 ?? 0) >= 1, (await tokenWords()).includes(N5), ownStatus],
+      ['number', true, false, 200]);
+    // His own first save at sixteen publishes.
+    const N5b = 'n5 Deniz at sixteen, publishing his own page.';
+    const kf2 = await faithful(rec, deniz.child_id);
+    const saved = kf2 ? await postAs(dBuild, deniz.child_id, { ...kf2, about: N5b }) : { status: 0 };
+    check('n5-3w: Deniz’s own first save at sixteen publishes (R8) — his link now serves his live record, his own words and his own photo, and the old approved version no longer serves',
+      [saved.status, (await tokenWords()).includes(N5b), photoKey((await get('/p/dev-deniz', null)).html, rec) === hisPhoto, (await og()).equals(ogPre)],
+      [303, true, true, false]);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // A parent gets the other person out (0062; QA's F1 and F2, 28 Sept).
 //
 // The four properties the bug hunt measured false, pressed through the product

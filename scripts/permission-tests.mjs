@@ -375,7 +375,8 @@ await db.query(`delete from profile_version where record_id=$1 and status='pendi
 
 // A u16 with NO approved version has a dead link even when the token lives
 await db.query(`update profile_version set status='superseded' where record_id=$1 and status='approved'`, [REC.deniz]);
-check('R6 no approved version = dead link, even for a live token', await tok(t.live), null);
+// Relabelled 3 Oct: doc 14 R6 is the guardian's no (John, 3 Oct, sixty days) — pinned below.
+check('dead-no-approved: no approved version = dead link, even for a live token', await tok(t.live), null);
 await db.query(`update profile_version set status='approved' where record_id=$1 and status='superseded'`, [REC.deniz]);
 
 // ---------------------------------------------------------------------------
@@ -1689,10 +1690,11 @@ await db.query(`delete from development_record where id = $1`, [r9Rec]);
 check('R9: both versions purge with the record — no orphan pending row',
   (await db.query('select count(*)::int as n from profile_version where record_id=$1', [r9Rec])).rows[0].n, 0);
 
-// R11 — the band is read at PUBLICATION, not at composition. An edit composed
-// at 15 and approved after the sixteenth birthday publishes under the band in
-// force when it is approved, because the band is computed and never stored.
-check('R11: no band is stored on a profile version — it is computed at read',
+// The band is computed and never stored, so a version carries none. This was
+// labelled R11 until John rewrote the row (3 Oct, N-5): a version composed
+// under 16 is now never approved after the birthday at all, and R11 is pinned
+// by n5-1 and n5-4 below (L4).
+check('band-unstored: no band is stored on a profile version — it is computed at read',
   /band/.test((await db.query(
     `select coalesce(string_agg(column_name,','),'') as c from information_schema.columns
      where table_name='profile_version'`)).rows[0].c), false);
@@ -3285,7 +3287,7 @@ check('E11: the link-state page is handed nothing about a person',
 check('E11b: and names no field of a record — no initials, no squad number',
   /first_name|last_name|initials|squad_number|shirt|photo_path|age_group|\bdob\b|positions/i.test(codeOnly(linkStateSrc)), false);
 check('dead5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
-check('dead6: and the page itself sends no referrer (D-94 §5) — the YouTube player alone sends the site\u2019s origin, never the address (yt-2)',
+check('dead6: and the page itself sends no referrer (D-94 §5) — the YouTube player alone sends the site\u2019s origin, never the address (yt-2; served header: render yt-3)',
   /no-referrer/.test(readFileSync(fileURLToPath(new URL('../next.config.mjs', import.meta.url)), 'utf8')), true);
 
 // E14: the OG endpoint outlives revocation in every social platform's cache,
@@ -4726,18 +4728,23 @@ check('dead4: the page branches on one boolean, never on WHY the link is dead',
   await expectFail('E1: an under-16 cannot generate their own link — the token exists only on the guardian’s action (D-91)',
     `insert into share_token (record_id, token_hash, issued_by) values ('${eRec}', decode(md5('e1-child'),'hex'), '${eChild}')`);
   await mint(eRec, ID.guardian, 'e2-guardian');
+  // MOVED (3 Oct, doc 14 E16): Replace is the database's now —
+  // fn_guardian_replace_link (0175), which asks the author answer first —
+  // and the action only hands it a hash and a hint.
   const replaceSrc = codeOnly(srcOf('app/g/controls/[childId]/actions.ts')).split('export async function replaceLink')[1]?.split('export async function')[0] ?? '';
+  const replaceFn = await procSrc('fn_guardian_replace_link');
   check('E2: the guardian generates one, and the product mints it with a 90-day expiry (D-53)',
-    [await live('e2-guardian'), /insert into share_token[\s\S]*now\(\) \+ interval '90 days'/.test(replaceSrc)], [true, true]);
+    [await live('e2-guardian'), /insert into share_token[\s\S]*now\(\) \+ interval '90 days'/.test(replaceFn),
+     /db\.query\('select fn_guardian_replace_link\(\$1, \$2, \$3, \$4\) as ok', \[guardianId, recordId, t\.hash, t\.hint\]\)/.test(replaceSrc)], [true, true, true]);
   await mint(REC.nate, ID.nate, 'e3-teen');
   await db.query(`insert into consent_event (event, actor_id, subject_id, detail)
     values ('share_dispatched',$1,$1, jsonb_build_object('club_name','Etable FC','recipient','club@etable.example','band_at_send','16_17'))`, [ID.nate]);
   check('E3: a 16–17 generates their own, and it is visible to their guardian in the consent log',
     [await live('e3-teen'), (await db.query('select * from fn_send_log($1,$2)', [ID.guardian, ID.nate])).rows
       .some((r) => r.club_name === 'Etable FC' && r.sending_actor === ID.nate)], [true, true]);
-  // E4: regenerate is replaceLink's two statements, in its one transaction.
-  const regen = /update share_token set revoked_at=now\(\) where record_id=\$1 and revoked_at is null[\s\S]*insert into share_token/.test(replaceSrc)
-    && replaceSrc.indexOf("'begin'") < replaceSrc.indexOf('update share_token') && replaceSrc.indexOf("'commit'") > replaceSrc.indexOf('insert into share_token');
+  // E4: regenerate is one function's two statements, so one transaction
+  // (0175; it was replaceLink's begin/commit until E16 moved it).
+  const regen = /update share_token set revoked_at = now\(\) where record_id = p_record and revoked_at is null;\s*insert into share_token/.test(replaceFn);
   await db.query(`update share_token set revoked_at=now() where record_id=$1 and revoked_at is null`, [eRec]);
   await mint(eRec, ID.guardian, 'e4-new');
   let e4err = null; let old = 'unread';
@@ -4969,7 +4976,9 @@ check('job13: and the cap is enforced in the action, not just hidden in the form
 for (const h of ['youtube\\.com', 'youtu\\.be', 'instagram\\.com', 'veo\\.co']) {
   check(`job14: coach clips accept only allowlisted hosts (${h.replace('\\', '')})`, coachActions.includes(h), true);
 }
-// yt-1/yt-2 (BUZ, 3 Oct: "the video wont work"). Every YouTube shape a
+// yt-shapes and yt-2 (BUZ, 3 Oct: "the video wont work"; John's yt-1 to
+// yt-3, 3 Oct: yt-1 is the trace in scripts/layout-check.mjs, yt-3 the
+// served header in the render suite). Every YouTube shape a
 // family pastes plays inline, and the player tells YouTube which SITE it is
 // on — never the page — because YouTube refuses an embed with no referrer
 // (its Error 153) and a CV's address can carry a share token.
@@ -4980,14 +4989,27 @@ for (const h of ['youtube\\.com', 'youtu\\.be', 'instagram\\.com', 'veo\\.co']) 
     `https://youtube.com/shorts/${V}?si=x`, `https://www.youtube.com/live/${V}`, `https://m.youtube.com/watch?v=${V}`, `https://www.youtube.com/embed/${V}`];
   const junk = [`http://www.youtube.com/watch?v=${V}`, 'https://www.youtube.com/watch?v=short', `https://www.youtube.com/@club/videos`,
     `https://evil.example/watch?v=${V}`, `https://www.youtube.com.evil.example/watch?v=${V}`, `https://www.youtube.com/watch?v=${V}%22onload%3D1`, 'not a link'];
-  check('yt-1: every YouTube link shape plays inline (watch?v= anywhere among the parameters, youtu.be, Shorts, live, embed, m.), and nothing else yields an id — not http, a short id, a channel page, another host or an id with anything after it',
+  check('yt-shapes: every YouTube link shape plays inline (watch?v= anywhere among the parameters, youtu.be, Shorts, live, embed, m.), and nothing else yields an id — not http, a short id, a channel page, another host or an id with anything after it',
     [shapes.map((u) => youtubeId(u)), junk.map((u) => youtubeId(u))], [shapes.map(() => V), junk.map(() => null)]);
   const card = readFileSync(fileURLToPath(new URL('../components/cv/ClipCard.tsx', import.meta.url)), 'utf8');
-  const policies = [...card.matchAll(/referrerPolicy="([^"]+)"/g)].map((m) => m[1]);
-  check('yt-2: the YouTube player sends this site\u2019s origin only (strict-origin) — never the page address, never unsafe-url — and only from youtube-nocookie, after a press',
-    [policies, /src=\{`https:\/\/www\.youtube-nocookie\.com\/embed\/\$\{ytId\}/.test(card), /playing && ytId \?/.test(card), /unsafe-url|no-referrer-when-downgrade|origin-when-cross-origin|referrerPolicy="origin"/.test(card)],
-    [['strict-origin'], true, true, false]);
-  check('yt-3: a link copied from a phone (m.youtube.com) is accepted on all three clip paths — player, coach and club',
+  // yt-2 as John pinned it (3 Oct, §1; doc 14 J14): EXACTLY ONE element in the
+  // codebase has a referrer policy other than no-referrer — the YouTube
+  // iframe in ClipCard, at strict-origin — and a second fails this. Every
+  // element that names a policy, in any spelling, anywhere in app/,
+  // components/ or lib/; every iframe; and every window.open, which must say
+  // noreferrer. A second exception needs a ruling, not a config change.
+  const elementPolicies = tsSourceFiles().flatMap((f) => [...codeOnly(srcOf(f)).matchAll(/referrer-?policy=\{?["'`]([^"'`]+)["'`]/gi)]
+    .map((m) => `${f}: ${m[1]}`)).filter((x) => !/: no-referrer$/.test(x));
+  const iframes = tsSourceFiles().flatMap((f) => [...codeOnly(srcOf(f)).matchAll(/<iframe\b/g)].map(() => f));
+  const opens = tsSourceFiles().flatMap((f) => [...codeOnly(srcOf(f)).matchAll(/window\.open\(([^)]*)\)/g)].map((m) => [f, /noreferrer/.test(m[1])]));
+  check('yt-2: exactly one element in the codebase has a referrer policy other than no-referrer — the YouTube iframe in components/cv/ClipCard.tsx, set to strict-origin, the only iframe, loaded from youtube-nocookie only after a press — and every window.open says noreferrer',
+    [elementPolicies, iframes, opens.filter(([, ok]) => !ok).map(([f]) => f), opens.length > 0,
+     /src=\{`https:\/\/www\.youtube-nocookie\.com\/embed\/\$\{ytId\}/.test(card), /playing && ytId \?/.test(card),
+     // L19: the scan sees a second exception in any spelling, and passes no-referrer.
+     ['<iframe referrerPolicy="unsafe-url" />', "<img referrerpolicy='origin'>", '<a referrerPolicy={"no-referrer-when-downgrade"}>', '<iframe referrerPolicy="no-referrer" />']
+       .map((x) => [...x.matchAll(/referrer-?policy=\{?["'`]([^"'`]+)["'`]/gi)].map((m) => m[1]).filter((v) => v !== 'no-referrer').length)],
+    [['components/cv/ClipCard.tsx: strict-origin'], ['components/cv/ClipCard.tsx'], [], true, true, true, [1, 1, 1, 0]]);
+  check('yt-shapes-m: a link copied from a phone (m.youtube.com) is accepted on all three clip paths — player, coach and club',
     ['app/build/[recordId]/clips/actions.ts', 'app/coach/edit/actions.ts', 'app/club/page-edit/actions.ts'].map((f) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8').includes('(www\\.|m\\.)?(youtube\\.com')),
     [true, true, true]);
 }
@@ -5548,10 +5570,19 @@ check('store5: the bucket is configurable, not hardcoded to one project',
      Object.entries(PHOTO_FILES).filter(([, k]) => k === 'mints').filter(([f]) => !/imageSrc\(|photoFor\(|withSignedPhoto\(/.test(srcCode(f))).map(([f]) => f),
      /if \(isPrivatePhoto\(c\.photo_path\)\) c\.photo_path = null;/.test(srcCode('app/c/[slug]/page.tsx')) && !/imageSrc/.test(srcCode('app/c/[slug]/page.tsx'))],
     [[], [], true]);
-  // An approved snapshot is served by four pages; each mints its photo.
-  const approvedReaders = tsSourceFiles().filter((f) => f.startsWith('app/') && /fn_approved_cv/.test(srcCode(f)));
-  check(`photo13b: every page that serves an approved snapshot mints its photo after its own check (${approvedReaders.join(', ')})`,
-    [approvedReaders.length >= 3, approvedReaders.filter((f) => !/withSignedPhoto\(cv\)/.test(srcCode(f)))], [true, []]);
+  // An approved snapshot is served by the share link and by three pages, and
+  // each mints its photo after its own check. MOVED (3 Oct, N-5 (A)): the
+  // three pages no longer read the snapshot themselves — they ask servedCv
+  // (lib/record-read), which asks fn_cv_held and mints the snapshot's photo
+  // with photoFor, after the page's own authorisation has run.
+  const approvedReaders = tsSourceFiles().filter((f) => /fn_approved_cv/.test(srcCode(f)));
+  const rrCode = srcCode('lib/record-read.ts');
+  const servedFn = rrCode.slice(rrCode.indexOf('export async function servedCv('), rrCode.indexOf('export async function assembleCv('));
+  const servedCallers = tsSourceFiles().filter((f) => f.startsWith('app/') && /await servedCv\(/.test(srcCode(f)));
+  check(`photo13b: every page that serves an approved snapshot mints its photo after its own check (${servedCallers.join(', ')})`,
+    [approvedReaders, /return photoFor\(\{ \.\.\.content, band: band as CvData\['band'\], \.\.\.\(await cvClubColours\(personId\)\) \}, opts\);/.test(servedFn),
+     servedCallers.length >= 3, servedCallers.filter((f) => srcCode(f).indexOf('await servedCv(') < srcCode(f).search(/requireRecordActor\(|fn_can_read_registration\(|fn_can_read_squad_player\(/))],
+    [['lib/record-read.ts'], true, true, []]);
   // Who mints at all: only those files, and never a card.
   const minters = tsSourceFiles().filter((f) => f !== 'lib/storage.ts' && /imageSrc\(/.test(srcCode(f))).sort();
   check(`photo13c: imageSrc is called only where a read has been allowed (${minters.join(', ')})`,
@@ -6081,9 +6112,19 @@ check('ctl4: and it has a stable tiebreak within the same second',
     where conrelid = 'consent_event'::regclass and conname = 'consent_event_event_check'`)).rows[0]?.d ?? '';
   const vocab = [...def.matchAll(/'([a-z_]+)'::text/g)].map((x) => x[1]);
   check('ctl5: the consent vocabulary was actually found', vocab.length > 20, true);
-  const missing = vocab.filter((e) => !gControlsPage.includes(`${e}:`));
+  // A word whose line is BUZ's to write, named with the reason, as F8f names
+  // a word nothing writes. It renders "Something was recorded" until then,
+  // and it leaves this list the day its line exists (ctl6b).
+  //   edit_deleted (0174): the waiting version left from under 16, deleted at
+  //   the birthday — "how the guardian's history names this event" is BUZ's
+  //   call (John, 3 Oct, N-5 §2.6), with John's two guardrails: nothing
+  //   tells a club, and nothing says or implies a parent chose not to approve.
+  const LINE_AWAITING_BUZ = ['edit_deleted'];
+  const missing = vocab.filter((e) => !gControlsPage.includes(`${e}:`) && !LINE_AWAITING_BUZ.includes(e));
   check(`ctl6: every consent event has a plain-English line (missing: ${missing.join(', ') || 'none'})`,
     missing.length, 0);
+  check('ctl6b: and every word excused while BUZ writes its line is in the vocabulary and still has no line, so the excuse cannot outlive the wait',
+    LINE_AWAITING_BUZ.map((e) => [vocab.includes(e), gControlsPage.includes(`${e}:`)]), LINE_AWAITING_BUZ.map(() => [true, false]));
 }
 
 // D-25: gender is not a field we hold about a child, so there is nothing to
@@ -6893,6 +6934,12 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     const goalsId = (await db.query(`select id from player_stat where record_id = $1 and stat_key = 'goals' and season = '2026'`, [kidRec])).rows[0].id;
     check('prov-sq0: the fixture\'s coach-verified number is written the way the product writes one',
       (await db.query('select fn_verify_stat($1, $2) as ok', [ID.td, goalsId])).rows[0].ok, true);
+    // MOVED (3 Oct, N-5 (A)): an under-16's squad sheet reads the approved
+    // version, as its CV does (fn_cv_held, 0174), and a version a guardian
+    // approves carries each number's source the way the live page does
+    // (lib/cv-build takes fn_stat_public, 0083). The fixture approves one, as
+    // a guardian would, and takes it away again for SQ22's own.
+    await db.query(`insert into profile_version (record_id, content, status) values ($1, jsonb_build_object('stats', fn_stat_public($1)), 'approved')`, [kidRec]);
     const row = async (who) => (await gated(who)).find((x) => x.player_id === kid);
     const td = await row(ID.td);
     check('prov-sq1: every stat the squad list returns carries the provenance of the row it came from',
@@ -6903,6 +6950,7 @@ check('D-98: no code references a WWCC number', wwccNum, 0);
     check('prov-sq1c: an administrator gets no provenance — it is gated with the number it describes (L2)',
       [admin?.apps, admin?.apps_provenance, admin?.goals_provenance], [null, null, null]);
     await db.query(`delete from player_stat where record_id = $1 and season = '2026' and stat_key in ('apps','goals')`, [kidRec]);
+    await db.query(`delete from profile_version where record_id = $1 and status = 'approved'`, [kidRec]);
     const squadPage = codeOnly(srcOf('app/club/squads/[squadId]/page.tsx'));
     check('prov-sq1d: the squad screen reads each source from lib/football, as the CV does, and types none of its own',
       [/sharedProvenance\(stats\)/.test(squadPage), /provenanceLabel\(provenance\)/.test(squadPage),
@@ -9940,7 +9988,8 @@ const componentFilesAll = [];
       [/if \(result\.queued && !result\.waiting\) \{/.test(sendCode), /'sms_sent'/.test(await procSrc('fn_sms_release'))], [true, true]);
     const guardianFlow = codeOnly(srcOf('lib/guardian-flow.ts'));
     check('q2c: both of the sign-up’s texts carry their invitation, so both can wait (the child’s door and a 16–17 naming a parent)',
-      (guardianFlow.match(/sendAndLog\(sms\(.*?\), \{ address: input\.guardianPhone\.trim\(\), invitationId \}, 'sms_sent'/g) ?? []).length, 1);
+      // MOVED (3 Oct, §4): the address is the E.164 form the invitation stores.
+      (guardianFlow.match(/sendAndLog\(sms\(.*?\), \{ address: guardianPhone, invitationId \}, 'sms_sent'/g) ?? []).length, 1);
 
     const PHONE = '0400 616 161';
     const inv = await invite(PHONE);
@@ -10198,7 +10247,7 @@ const componentFilesAll = [];
   // absurd string is looked up as a hash nothing matches rather than answered
   // without a query.
   const readSrc = codeOnly(srcOf('lib/record-read.ts'));
-  const notice = readSrc.slice(readSrc.indexOf('export async function resolveTokenForNotice('), readSrc.indexOf('export async function assembleCv('));
+  const notice = readSrc.slice(readSrc.indexOf('export async function resolveTokenForNotice('), readSrc.indexOf('export async function servedCv('));
   check('tok-one2: the notice lookup runs one query of one shape for every token — never existed, dead or live — and selects nothing from the record',
     [(notice.match(/db\.query\(/g) ?? []).length, /return null/.test(notice.slice(0, notice.indexOf('db.query('))),
      /from \(select \$1::bytea as token_hash\) asked\s+left join share_token st on st\.token_hash = asked\.token_hash/.test(notice),
@@ -11922,7 +11971,12 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('wt-b1a: the child\u2019s controls page has a door to build the child\u2019s page',
     /href=\{`\/build\/\$\{c\.record_id\}`\}[^>]*>Build \{name\}&rsquo;s page</.test(controls), true);
   check('wt-b1b: an under-16 with no approved version gets the empty preview and the build door, not notFound()',
-    [/if \(!cv && r\.band === 'u16'\)/.test(preview), /\{PREVIEW_EMPTY_TITLE\}/.test(preview), />Build \{r\.first_name\}&rsquo;s page</.test(preview)], [true, true, true]);
+    // MOVED (3 Oct, N-5 (A)): "no approved version" is the database's held
+    // answer now (servedCv), so a page held at sixteen with nothing approved
+    // gets the same empty preview; the build door is offered only to someone
+    // who may write the page (a 16–17's guardian may not, R12).
+    [/const cv: CvData \| null = await servedCv\(recordId, r\.person_id, r\.band\);\s*if \(!cv\) \{/.test(preview), /\{PREVIEW_EMPTY_TITLE\}/.test(preview),
+     /\{\(actor === 'self' \|\| r\.band === 'u16'\) && <Link href=\{`\/build\/\$\{recordId\}`\} className="btn btn-primary fl-glow">Build \{r\.first_name\}&rsquo;s page<\/Link>\}/.test(preview)], [true, true, true]);
   const pending = /export const STILL_TO_CONFIRM = \[([^\]]*)\]/.exec(codeOnly(srcOf('lib/to-confirm.ts')))?.[1].trim() ?? '';
   check(`tc1: no draft wording waits for BUZ in lib/to-confirm.ts (still to confirm: ${pending || 'none'})`, pending, '');
 }
@@ -13398,7 +13452,8 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     `insert into message_outbox (message_key, channel, to_address, body, invitation_id, attempts, created_at, sent_at)
      values ($1, $2, $3, '', $4, 1, now() - interval '20 days', now() - interval '20 days') returning id`, [key, channel, to, invitation])).id;
   const sup = [await msg('doc15.§1', 'sms', '0400 727 272', inv), await msg('doc15.§2', 'email', 'ja-gwen@example.au', inv), await msg('doc15.§2', 'email', 'ja-gwen@example.au', null)];
-  const counted = async () => (supportSql ? await Promise.all([inv, blank].map(async (id) => (await one(`select messages from (${supportSql.replace('limit 10', '')}) s`, [id])).messages)) : null);
+  // $2 is the query as a number (3 Oct, §4: ph-3); an id is not one.
+  const counted = async () => (supportSql ? await Promise.all([inv, blank].map(async (id) => (await one(`select messages from (${supportSql.replace('limit 10', '')}) s`, [id, null])).messages)) : null);
   const inside = await counted();
   await db.query(`update message_outbox set sent_at = now() - interval '31 days', created_at = now() - interval '31 days' where id = any($1::uuid[])`, [sup]);
   if (sb) await db.query(sb.SCRUB_SENT_BODIES);
@@ -13456,12 +13511,15 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   const msgCode = codeOnly(srcOf('lib/messaging.ts')), hook = codeOnly(srcOf('app/api/webhooks/sms/route.ts'));
   const disp = msgCode.slice(msgCode.indexOf('export async function dispatch('), msgCode.indexOf('export async function releaseWaitingTexts('));
   const sendCode = msgCode.slice(msgCode.indexOf('export async function send('), msgCode.indexOf('export async function dispatch('));
-  const refuse = sendCode.indexOf("if (!normaliseNumber(to.address)) return { queued: false, reason: 'sms_not_a_mobile' };");
+  // MOVED (3 Oct, §4): the refusal now keeps the E.164 form it computed, and
+  // the rest of send() uses it (ph-2).
+  const refuse = sendCode.indexOf("if (!e164) return { queued: false, reason: 'sms_not_a_mobile' };");
   const callers = tsSourceFiles().filter((f) => f !== 'lib/providers.ts' && /\bsendSms\(/.test(codeOnly(srcOf(f))));
   check('ja-e164-3: dispatch() — the only door to Twilio — hands it the E.164 form and never the address as typed, and refuses a row whose address is not a mobile for good without calling the provider; send() refuses one before the fingerprint, the STOP list, the queue, the meter or the outbox',
     [/const smsTo = mail === null \? normaliseNumber\(address\) : null;/.test(disp), /smsTo \? await sendSms\(smsTo, body\) : \{ ok: false, reason: 'not_a_mobile', permanent: true \}/.test(disp),
      /sendSms\(address/.test(msgCode), callers,
-     refuse > 0 && ['numberHash(to.address)', 'from sms_opt_out', 'fn_sms_queue', 'insert into sms_meter', 'insert into message_outbox'].every((s) => refuse < sendCode.indexOf(s))],
+     refuse > 0 && sendCode.indexOf('const e164 = normaliseNumber(to.address);') > 0 && sendCode.indexOf('const e164 = normaliseNumber(to.address);') < refuse
+       && ['numberHash(to.address)', 'from sms_opt_out', 'fn_sms_queue', 'insert into sms_meter', 'insert into message_outbox'].every((s) => refuse < sendCode.indexOf(s))],
     [true, true, false, ['lib/messaging.ts'], true]);
   check('ja-e164-4: the STOP webhook reads its sender through the same function before it hashes, records or replies — and a sender that is not a mobile is answered and not read',
     [/import \{ normaliseNumber \} from '@\/lib\/number-hash';/.test(hook), /const from = normaliseNumber\(params\.From \?\? ''\);/.test(hook),
@@ -13918,6 +13976,334 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [/@media print \{[^{}]*\.fl-trial-km\b[^{}]*\{ display: none; \}/.test(css), /geolocation=\(\)/.test(srcOf('next.config.mjs')),
      /export const ABS_CREDIT = 'Suburb and postcode data: Australian Bureau of Statistics, CC BY 4\.0\.';/.test(srcOf('lib/places-vic-file.ts')), credits],
     [true, true, true, ['components/floodlit/TrialsBoard.tsx']]);
+}
+
+// ---------------------------------------------------------------------------
+// John's four rulings (3 Oct, JOHN-to-LEO-four-rulings-3-oct.md) and the
+// sixty days (JOHN-to-LEO-sixty-days-3-oct.md), at the database. Each check
+// red on f46b4c3 (report 2026-10-03-builder-john-four).
+//   §2 N-5 (A): a birthday publishes nothing — n5-1 … n5-5, sx-2, sx-3, pc16
+//   §3 E16: a 16–17's guardian stops a link, never starts or extends one
+//   §4 ph-1 … ph-4: one number, one form
+// The browser trace (yt-1) is scripts/layout-check.mjs; the pressed and
+// rendered halves are the write and render suites.
+// ---------------------------------------------------------------------------
+{
+  // Every read here survives a function that does not exist yet, so on the
+  // code before this build each check is red rather than the run stopping.
+  const rowsOf = async (sql, args = []) => { try { return (await db.query(sql, args)).rows; } catch (e) { return [{ error: String(e.message).slice(0, 80) }]; } };
+  const one = async (sql, args = []) => (await rowsOf(sql, args))[0];
+  const author = async (who, rec) => (await one('select fn_record_author($1,$2) as a', [who, rec])).a;
+  const pp = await import('../lib/player-photo.ts');
+  // A page kept since the child was fifteen: an approved version with its own
+  // photo, then a change of the child's that no guardian acted on — a new
+  // About, number, position, a clip and a photo — on the live record and in
+  // the waiting version, as lib/cv-build writes them.
+  const APPROVED = (rec) => ({ firstName: 'Ivy', lastName: 'Fixture', about: 'Approved About (n5).', positions: ['CM'], squadNumber: 4, foot: 'Left',
+    photoPath: `pitch-private:player/${rec}-${'a'.repeat(32)}.jpg`, surfacedStats: ['apps'], highlights: [], achievements: [], otherFootball: [], previousClubs: [],
+    stats: [{ season: '2026', key: 'apps', value: 7, provenance: 'self_reported' }] });
+  const WAITING = (rec, photo) => ({ ...APPROVED(rec), about: 'Unreviewed About — never approved (n5).', positions: ['ST'], squadNumber: 9,
+    photoPath: photo ?? `pitch-private:player/${rec}-${'b'.repeat(32)}.jpg`, highlights: [{ title: 'Unreviewed clip (n5)', url: 'https://youtu.be/aqz-KE-bpKQ' }],
+    stats: [{ season: '2026', key: 'apps', value: 30, provenance: 'self_reported' }] });
+  const keptKid = async (name, dob, { livePhoto, pendingPhoto, created = '1 year', approved = true } = {}) => {
+    const id = crypto.randomUUID(), rec = crypto.randomUUID();
+    const w = WAITING(rec, pendingPhoto);
+    await db.query(`insert into person (id, first_name, last_name, dob, photo_path) values ($1,$2,'Fixture',$3,$4)`, [id, name, dob, livePhoto ?? w.photoPath]);
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, id]);
+    await db.query(`insert into development_record (id, person_id, positions, squad_number, foot, about, surfaced_stats, created_at)
+      values ($1,$2,array['ST'],9,'Left',$3,array['apps'], now() - $4::interval)`, [rec, id, w.about, created]);
+    await db.query(`insert into highlight (record_id, url, title, added_as_minor) values ($1,'https://youtu.be/aqz-KE-bpKQ','Unreviewed clip (n5)',true)`, [rec]);
+    await db.query(`insert into player_stat (record_id, season, stat_key, value, provenance) values ($1,'2026','apps',30,'self_reported')`, [rec]);
+    if (approved) await db.query(`insert into profile_version (record_id, content, status, approved_by, approved_at) values ($1,$2,'approved',$3,now() - interval '30 days')`, [rec, JSON.stringify(APPROVED(rec)), ID.guardian]);
+    await db.query(`insert into profile_version (record_id, content, status) values ($1,$2,'pending')`, [rec, JSON.stringify(w)]);
+    await db.query(`insert into consent_event (event, subject_id, detail) values ('edit_submitted',$1, jsonb_build_object('record_id',$2::uuid))`, [id, rec]);
+    return { id, rec, tag: `n5-${name}-${rec.slice(0, 8)}` };
+  };
+  const linkFor = async (k) => db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() + interval '90 days')`, [k.rec, sha(k.tag), ID.guardian]);
+  const read = async (k) => (await one('select fn_token_read($1) as r', [sha(k.tag)])).r;
+  // What a link-holder is served, minus the two things stamped at read from
+  // the date of birth (the band and the birth quarter): moving the clock in
+  // a test moves the date of birth, and in life neither moves.
+  const page = (r) => (r?.approved_content ? Object.fromEntries(Object.entries(r.approved_content).filter(([k]) => k !== 'birthQuarter')) : r);
+  const held = async (k) => (await one('select fn_cv_held($1) as h', [k.rec])).h;
+  const roster = async (k) => (await rowsOf(`select positions, squad_number, clips, apps from fn_squad_roster($1,$2) where player_id = $3`, [ID.td, SQUAD.u15, k.id]))[0];
+  const clipsMark = async (k) => (await one('select fn_cv_shows_clips($1) as c', [k.rec])).c;
+  const versions = async (k) => (await rowsOf(`select status from profile_version where record_id = $1 order by status`, [k.rec])).map((r) => r.status);
+  const events = async (k, ev) => (await rowsOf(`select actor_id, detail from consent_event where subject_id = $1 and event = $2 order by id`, [k.id, ev])).filter((r) => !r.error);
+
+  // ---- n5-1: the clock passes the birthday, the job does not run ----
+  const ivy = await keptKid('Ivy', yearsAgo(16, 1));
+  await linkFor(ivy);
+  await mem(ivy.id, CLUB.riverside, SQUAD.u15, 'player');
+  const at15 = [page(await read(ivy)), await roster(ivy), await clipsMark(ivy)];
+  // Melbourne midnight passes: today is the sixteenth birthday (G9). Nothing else changes.
+  await db.query(`update person set dob = $2 where id = $1`, [ivy.id, yearsAgo(16)]);
+  const band16 = (await one(`select fn_age_band(dob) as b from person where id = $1`, [ivy.id])).b;
+  const at16 = [page(await read(ivy)), await roster(ivy), await clipsMark(ivy)];
+  check('R11/n5-1: a 15-year-old with an approved page changes their About, number, position, a clip and their photo, no guardian acts, and the clock passes the 16th birthday with the job NOT run — the token read (the page, its card and its print), the squad sheet and the register’s clips mark serve the approved version byte for byte, old photo included, and none of the change (G7: the read path, not the job)',
+    [band16, JSON.stringify(at16) === JSON.stringify(at15), at16[0]?.about, at16[0]?.photoPath, at16[0]?.squadNumber, at16[1], at16[2],
+     JSON.stringify(await read(ivy)).includes('Unreviewed'), (await read(ivy))?.band],
+    ['16_17', true, 'Approved About (n5).', APPROVED(ivy.rec).photoPath, 4, { positions: ['CM'], squad_number: 4, clips: 0, apps: 7 }, false, false, '16_17']);
+  // The TS surfaces — the club's register CV and squad CV, the family's
+  // preview, the share card, the CV email — ask the same answer and no
+  // longer split on the band themselves (L23).
+  const rr = srcOf('lib/record-read.ts');
+  const served = rr.slice(rr.indexOf('export async function servedCv('), rr.indexOf('export async function assembleCv('));
+  const surfaces = ['app/club/register/cv/[registrationId]/page.tsx', 'app/club/squads/[squadId]/cv/[playerId]/page.tsx', 'app/build/[recordId]/preview/page.tsx']
+    .map((f) => [f, /await servedCv\(/.test(codeOnly(srcOf(f))), /fn_approved_cv|assembleCv\(|band === 'u16' \?|\.band === 'u16'\) \{\s*\/\/ The approved/.test(codeOnly(srcOf(f)))]);
+  check('n5-1b: every other surface that serves the page asks the one answer — the club’s register CV, its squad CV and the family’s preview through servedCv (fn_cv_held, then the approved snapshot or nothing), the share card and the CV email’s positions through fn_cv_held — and the token read through fn_token_read',
+    [surfaces, /select fn_cv_held\(\$1\) as held/.test(served) && /if \(rows\[0\]\?\.held !== false\)/.test(served) && /if \(!content\) return null;/.test(served),
+     /fn_cv_held\(dr\.id\)/.test(codeOnly(srcOf('app/g/card/[cardId]/image/route.tsx'))) && /if \(c\.held && !c\.approved\) notFound\(\);/.test(srcOf('app/g/card/[cardId]/image/route.tsx')),
+     /case when fn_cv_held\(dr\.id\)\s*then array\(select jsonb_array_elements_text/.test(srcOf('lib/send-dispatch.ts')),
+     /if fn_cv_held\(v_record\) then/.test(await procSrc('fn_token_read'))],
+    [surfaces.map(([f]) => [f, true, false]), true, true, true, true]);
+
+  // ---- n5-4: R13 still holds while the leftover waits ----
+  check('R11/R13/n5-4: R13 still holds at sixteen — the leftover waiting version is there until the job runs, and the guardian can neither open nor approve it (the author answer is null for a 16–17’s guardian), so nothing published it',
+    [await versions(ivy), await author(ID.guardian, ivy.rec), await author(ivy.id, ivy.rec)], [['approved', 'pending'], null, 'self']);
+
+  // ---- n5-2: the job runs ----
+  // Bea's waiting version names a photo nothing else does; her live record
+  // names another. Ivy's names the same photo as her live record.
+  const beaLive = `pitch-private:player/${crypto.randomUUID()}-${'c'.repeat(32)}.jpg`;
+  const bea = await keptKid('Bea', yearsAgo(16), { livePhoto: beaLive });
+  const beaOnlyPending = WAITING(bea.rec).photoPath;
+  const shown = async (path) => (await one(pp.PHOTO_STILL_SHOWN, [path])).shown;
+  const ran = await rowsOf('select record_id, photo from fn_clear_waiting_at_16()');
+  const ranFor = (k) => ran.filter((r) => r.record_id === k.rec).map((r) => r.photo);
+  const ivyEv = await events(ivy, 'edit_deleted');
+  check('n5-2: the job runs — no waiting version remains, one consent_event per child, `edit_deleted` with the reason and nothing else (no content, no photo path, no guardian), the photo the live record names still exists, and a file only the deleted version named is handed on to go',
+    [await versions(ivy), await versions(bea), ivyEv.length, ivyEv[0]?.detail, ivyEv[0]?.actor_id,
+     ranFor(ivy), await shown(WAITING(ivy.rec).photoPath), ranFor(bea), await shown(beaOnlyPending), await shown(beaLive),
+     page(await read(ivy))?.about],
+    [['approved'], ['approved'], 1, { reason: 'turned_16' }, null,
+     [WAITING(ivy.rec).photoPath], true, [beaOnlyPending], false, true, 'Approved About (n5).']);
+  const daily = codeOnly(srcOf('app/api/jobs/daily/route.ts'));
+  check('n5-2b: and it is the daily job’s, idempotent — a second run deletes nothing and writes nothing — and every photo it hands back goes through forgetPlayerPhoto, the one door that deletes a file only when nothing still shows it',
+    [(await rowsOf('select * from fn_clear_waiting_at_16()')).filter((r) => r.error || [ivy.rec, bea.rec].includes(r.record_id)).length, (await events(ivy, 'edit_deleted')).length,
+     /const \{ rows: cleared \} = await db\.query\('select record_id, photo from fn_clear_waiting_at_16\(\)'\);\s*for \(const c of cleared as [^)]*\) await forgetPlayerPhoto\(c\.record_id, c\.photo\);/.test(daily)],
+    [0, 1, true]);
+
+  // ---- n5-3: the player's first own write at 16 publishes ----
+  const coachCall = (await rowsOf('select * from fn_release_own_page($1,$2)', [ID.coachV, ivy.rec])).filter((r) => !r.error);
+  const guardianCall = (await rowsOf('select * from fn_release_own_page($1,$2)', [ID.guardian, ivy.rec])).filter((r) => !r.error);
+  const stillHeld = [await held(ivy), page(await read(ivy))?.about];
+  const released = (await rowsOf('select photo from fn_release_own_page($1,$2)', [ivy.id, ivy.rec])).map((r) => r.photo ?? r.error);
+  const after = await read(ivy);
+  check('n5-3: a write by anyone else — a coach, the guardian — releases nothing; the player’s own first write at 16 does (R8): the page is the live record from then on, the snapshot no longer serves (superseded, its photo handed on to go if nothing shows it), and a second call does nothing',
+    [coachCall.length, guardianCall.length, stillHeld, released, await held(ivy), after?.approved_content, await versions(ivy),
+     (await rowsOf('select * from fn_release_own_page($1,$2)', [ivy.id, ivy.rec])).length, (await roster(ivy))?.squad_number, await clipsMark(ivy)],
+    [0, 0, [true, 'Approved About (n5).'], [APPROVED(ivy.rec).photoPath], false, null, ['superseded'], 0, 9, true]);
+  // The first own write before the job: it clears the leftover itself, once.
+  const cal = await keptKid('Cal', yearsAgo(16));
+  await rowsOf('select * from fn_release_own_page($1,$2)', [cal.id, cal.rec]);
+  check('n5-3b: whichever comes first — the player writes before the job has run, and that write deletes the leftover with the same one event; the job then finds nothing',
+    [await versions(cal), (await events(cal, 'edit_deleted')).map((e) => e.detail), (await rowsOf('select * from fn_clear_waiting_at_16()')).filter((r) => r.error || r.record_id === cal.rec).length],
+    [['superseded'], [{ reason: 'turned_16' }], 0]);
+  const cvb = codeOnly(srcOf('lib/cv-build.ts'));
+  const saveFn = cvb.slice(cvb.indexOf('export async function saveCvDraft('), cvb.indexOf('async function submitChildChange('));
+  const writeFn = cvb.slice(cvb.indexOf('export async function writeRecord('), cvb.indexOf('export async function publishGuardianChange('));
+  check('n5-3c: the release rides the player’s own writes and nothing else — the build form and every list, clip and photo write (writeRecord), only for the record’s own author at 16 or over, inside the write’s transaction',
+    [/\} else if \(author\.actor === 'self'\) \{\s*replaced\.push\(\.\.\.\(await releaseOwnPage\(client, recordId, author\.personId\)\)\);/.test(saveFn),
+     /\} else if \(band !== 'u16' && patch && author\.actor === 'self'\) \{\s*replaced = await releaseOwnPage\(client, recordId, author\.personId\);/.test(writeFn),
+     saveFn.indexOf('releaseOwnPage(') < saveFn.indexOf("client.query('commit')"), writeFn.indexOf('releaseOwnPage(') < writeFn.indexOf("client.query('commit')"),
+     /if fn_record_author\(p_person, p_record\) is distinct from 'self' then return; end if;/.test(await procSrc('fn_release_own_page'))],
+    [true, true, true, true, true]);
+
+  // ---- n5-5: Melbourne, and 29 February ----
+  const dan = await keptKid('Dan', yearsAgo(16, 1));
+  const early = (await rowsOf('select * from fn_clear_waiting_at_16()')).filter((r) => r.error || r.record_id === dan.rec).length;
+  // Born 29 Feb 2008: sixteen on 29 Feb 2024. A page made at 23:30 on the
+  // 28th in Melbourne was kept under 16; one made at 00:30 on the 29th — still
+  // the 28th in UTC — was not.
+  const leap = async (name, made) => {
+    const k = await keptKid(name, '2008-02-29', { approved: true });
+    await db.query(`update development_record set created_at = ($2::timestamp at time zone 'Australia/Melbourne') where id = $1`, [k.rec, made]);
+    return k;
+  };
+  const before29 = await leap('Leapa', '2024-02-28 23:30'), on29 = await leap('Leapb', '2024-02-29 00:30');
+  check('n5-5: the transition runs on Melbourne time (G9) — a child who turns 16 tomorrow is untouched by today’s run and still held — and a 29 February birthday turns 16 on 29 February (G8): a page made at 23:30 on the 28th Melbourne time was kept under 16 and stays held, one made at 00:30 on the 29th (still the 28th in UTC) was not',
+    [early, await held(dan), (await one(`select ('2008-02-29'::date + interval '16 years')::date::text as d`)).d, await held(before29), await held(on29),
+     (await one(`select ('2008-02-29'::date + interval '17 years')::date::text as d`)).d],
+    [0, true, '2024-02-29', true, false, '2025-02-28']);
+
+  // ---- sx-2 / sx-3: doc 23 v1.8's row, pinned ----
+  const old = await keptKid('Ola', yearsAgo(14));
+  await db.query(`update profile_version set created_at = now() - interval '61 days' where record_id = $1 and status = 'pending'`, [old.rec]);
+  await linkFor(old);
+  for (const f of ['fn_purge_pending', 'fn_purge_sessions', 'fn_lapse_send_requests', 'fn_lapse_interest_requests', 'fn_clear_waiting_at_16']) await rowsOf(`select * from ${f}()`);
+  const oldTok = await read(old);
+  check('sx-2: a waiting edit 61 days old is still there — nothing discards it on a clock (doc 23 v1.8) — and it is served to nobody else: the link reads the approved version, the club’s squad sheet and clips mark too, and no daily step touches it',
+    [await versions(old), JSON.stringify(oldTok).includes('Unreviewed'), page(oldTok)?.about, await clipsMark(old),
+     /profile_version/.test(await procSrc('fn_purge_pending')), /60 days|interval '60/.test(daily)],
+    [['approved', 'pending'], false, 'Approved About (n5).', false, false, false]);
+  check('sx-3: doc 23’s end date is the sixteenth birthday — the waiting copy is deleted then (n5-2) and nothing publishes because of it (n5-1); the row says so, and no longer says 60 days or "rejected"',
+    [srcOf('docs/legal/23-Retention-Statement.md').includes('until a guardian approves it, the child changes it back, or the child turns 16.** At 16 the waiting copy is deleted, and nothing publishes because of the birthday'),
+     /Until approved, rejected, or \*\*60 days\*\*/.test(srcOf('docs/legal/23-Retention-Statement.md'))],
+    [true, false]);
+
+  // ---- pc16: the count BUZ runs first, on the same statement ----
+  // Pia turned 16 today with her change still waiting and a live link; the
+  // job has not run for her. Dan turns 16 tomorrow; Ola is fourteen; the
+  // others above were cleared. Nothing else in this file is counted.
+  const pia = await keptKid('Pia', yearsAgo(16));
+  await linkFor(pia);
+  const countMod = await import('./count-pending-at-16.mjs').catch(() => null);
+  const counted = countMod ? await one(countMod.COUNT_PENDING_AT_16, [yearsAgo(0, -2)]) : null;
+  let countSrc = '';
+  try { countSrc = srcOf('scripts/count-pending-at-16.mjs'); } catch { /* not built */ }
+  check('pc16-1: scripts/count-pending-at-16.mjs counts the children who turned 16 since launch with a change still waiting (and of those, how many have a live link and how many nothing approved), on a database at 0173 or later, read-only, counts only, and refuses a remote database without --ca as apply-migrations does',
+    [counted && { waiting: counted.waiting, linked: counted.linked, none: counted.none }, (counted?.turned16 ?? 0) >= 4,
+     /await client\.query\('begin read only'\)/.test(countSrc), /refusing: this script only counts/.test(countSrc),
+     /if \(!ca\) \{ console\.error\('refusing: a remote database needs --ca/.test(countSrc), /console\.log\([^)]*(first_name|dob|email|about|record_id)/.test(countSrc),
+     /fn_cv_held|released_at|fn_clear_waiting/.test(countMod?.COUNT_PENDING_AT_16 ?? 'fn_cv_held')],
+    [{ waiting: 1, linked: 1, none: 0 }, true, true, true, true, false, false]);
+
+  // ---- §3, doc 14 E16: a 16–17's guardian stops a link, never starts one ----
+  const tokState = async (rec) => one(`select count(*)::int as n, max(expires_at)::text as last, count(*) filter (where revoked_at is null)::int as live from share_token where record_id = $1`, [rec]);
+  const evCount = async () => (await one(`select count(*)::int as n from consent_event`)).n;
+  await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() + interval '20 days')`, [REC.nate, sha('e16-nate'), ID.nate]);
+  const t0 = await tokState(REC.nate), e0 = await evCount();
+  const replaced16 = (await one('select fn_guardian_replace_link($1,$2,$3,$4) as ok', [ID.guardian, REC.nate, sha('e16-guardian-made'), 'e16·mine'])).ok;
+  const renewed16 = (await one('select fn_guardian_renew_link($1,$2) as ok', [ID.guardian, REC.nate])).ok;
+  const ctl = codeOnly(srcOf('app/g/controls/[childId]/actions.ts'));
+  const ctlFn = (name) => ctl.slice(ctl.indexOf(`export async function ${name}(`), ctl.indexOf('export async function', ctl.indexOf(`export async function ${name}(`) + 10));
+  check('E16: a 16–17’s guardian presses Renew or Replace on /g/controls with valid ids — the database (fn_record_author) refuses both: no token is created or extended, nothing is logged, and the press goes home exactly as a stranger’s does',
+    [replaced16, renewed16, await tokState(REC.nate), (await evCount()) - e0, await readTok(sha('e16-guardian-made')),
+     ['replaceLink', 'renewLink'].map((f) => /if \(rows\[0\]\?\.ok !== true\) redirect\('\/home'\);/.test(ctlFn(f)) && !/insert into share_token|update share_token/.test(ctlFn(f))),
+     /if \(rows\.length === 0\) redirect\('\/home'\); \/\/ not yours/.test(srcOf('app/g/controls/[childId]/actions.ts'))],
+    [false, false, t0, 0, null, [true, true], true]);
+  const ivyU = await keptKid('Una', yearsAgo(13));
+  await linkFor(ivyU);
+  const u0 = await tokState(ivyU.rec);
+  const uRep = (await one('select fn_guardian_replace_link($1,$2,$3,$4) as ok', [ID.guardian, ivyU.rec, sha('e16-u16-new'), 'u16·new'])).ok;
+  const uOld = await read(ivyU), uNew = await readTok(sha('e16-u16-new'));
+  const uRen = (await one('select fn_guardian_renew_link($1,$2) as ok', [ID.guardian, ivyU.rec])).ok;
+  check('E16b: under 16 nothing changes (E2, E4) — the guardian replaces (the old link dead at once, the new one live for 90 days, two events) and renews',
+    [u0.live, uRep, uOld, uNew !== null, (await tokState(ivyU.rec)).live, uRen,
+     (await rowsOf(`select event from consent_event where actor_id = $1 and subject_id = $2 and event in ('share_revoked','share_issued') order by id`, [ID.guardian, ivyU.id])).map((r) => r.event)],
+    [1, true, null, true, 1, true, ['share_revoked', 'share_issued', 'share_issued']]);
+  // What the guardian keeps (doc 14 E16's list): pause, the per-link
+  // switch-off and the sending switch ask nothing of the author answer.
+  check('E16c: and a 16–17’s guardian keeps what E16 lists — pause, the sending switch and the per-link switch-off take the guardianship check alone (no author answer), and the link’s hint and expiry and the send list still draw for them',
+    [['setPause', 'setSendSwitch', 'switchOffOne'].map((f) => /await assertGuardian\(childId\)/.test(ctlFn(f)) && !/fn_record_author|requireRecordAuthor/.test(ctlFn(f))),
+     /from fn_send_log\(\$2, p\.id\) s\) as sends/.test(srcOf('app/g/controls/[childId]/page.tsx')), /token_hint, to_char\(expires_at/.test(srcOf('app/g/controls/[childId]/page.tsx'))],
+    [[true, true, true], true, true]);
+  // The reminder.
+  const remindKid = async (name, dob) => {
+    const id = crypto.randomUUID(), rec = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, dob) values ($1,$2,$3)`, [id, name, dob]);
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2,now())`, [ID.guardian, id]);
+    await db.query(`insert into development_record (id, person_id) values ($1,$2)`, [rec, id]);
+    await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() + interval '6 days 12 hours')`, [rec, sha(`e16-remind-${name}`), ID.guardian]);
+    return id;
+  };
+  const r16 = await remindKid('Rory', yearsAgo(17)), r15 = await remindKid('Remy', yearsAgo(14));
+  const reminded = (await rowsOf('select child_id from fn_links_to_remind()')).map((r) => r.child_id);
+  check('E16d: no renew email goes to a 16–17’s guardians — fn_links_to_remind returns an under-16’s link a week out and never a 16–17’s',
+    [reminded.includes(r15), reminded.includes(r16)], [true, false]);
+  // The birthday: a link the guardian made at 15.
+  const bday = await keptKid('Wren', yearsAgo(16, 1));
+  await db.query(`insert into share_token (id, record_id, token_hash, issued_by, expires_at) values ($1,$2,$3,$4, now() + interval '40 days')`,
+    [crypto.randomUUID(), bday.rec, sha(bday.tag), ID.guardian]);
+  const bTok = (await one('select id from share_token where token_hash = $1', [sha(bday.tag)])).id;
+  await db.query(`insert into consent_event (event, actor_id, subject_id, detail) values ('share_dispatched',$1,$2, jsonb_build_object('token_id',$3::text,'club_name','Wren FC','recipient','club@wren.example','band_at_send','u16'))`, [ID.guardian, bday.id, bTok]);
+  await db.query(`update person set dob = $2 where id = $1`, [bday.id, yearsAgo(16)]);
+  const exp0 = (await one('select expires_at::text as e from share_token where id = $1', [bTok])).e;
+  const bRenew = (await one('select fn_guardian_renew_link($1,$2) as ok', [ID.guardian, bday.rec])).ok;
+  const playerSees = (await rowsOf(`select token_id::text as t, live from fn_send_log($1,$1)`, [bday.id])).find((r) => r.t === bTok);
+  const ls = codeOnly(srcOf('lib/link-switch.ts'));
+  const liveAt16 = (await read(bday)) !== null;
+  // The player's switch-off is lib/link-switch's: their own send log, then the revoke.
+  await db.query(`update share_token set revoked_at = now() where id = $1 and revoked_at is null`, [bTok]);
+  check('E16e: a link a guardian made at 15 is still live at 16; the guardian’s Renew is refused and its expiry is unchanged; the player’s own switch-off works — the link is on their send log, live, and lib/link-switch lets a player of 16 or over switch it off',
+    [liveAt16, bRenew, (await one('select expires_at::text as e from share_token where id = $1', [bTok])).e === exp0, playerSees?.live,
+     /if \(band === 'u16'\) \{ await client\.query\('rollback'\); return false; \}/.test(ls) && /from fn_send_log\(\$1, \$2\) where token_id = \$3 and live/.test(ls),
+     await read(bday)],
+    [true, false, true, true, true, null]);
+
+  // ---- doc 14 R6 as John placed it (3 Oct, sixty days): no Decline yet ----
+  const pendActs = codeOnly(srcOf('app/g/pending/[recordId]/actions.ts'));
+  const pendingDeleters = (await rowsOf(`select proname from pg_proc where prosrc ~* 'delete from profile_version' order by proname`)).map((r) => r.proname);
+  check('R6: a guardian decline is not built — /g/pending exports Approve and the share link and nothing that discards; no guardian path deletes a waiting version (only the child’s own write that leaves nothing waiting, the birthday, a guardian’s edit that leaves it identical to the page, and the record’s erasure, by cascade); a guardian’s no is their own edit, patched onto the waiting version first so their value wins there (F14), or silence (R7)',
+    [[...pendActs.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]),
+     tsSourceFiles().filter((f) => /delete from profile_version/.test(codeOnly(srcOf(f)))),
+     pendingDeleters,
+     /update profile_version set content = fn_cv_patch\(content, p_patch\)\s*where record_id = p_record and status = 'pending';/.test(await procSrc('fn_publish_guardian_change'))],
+    [['approveChange', 'issueShareLink'], ['lib/cv-build.ts'], ['fn_clear_waiting', 'fn_publish_guardian_change'], true]);
+  // ---- doc 14 E4 as qualified (John, 3 Oct): or a 16–17 regenerates their own ----
+  const lsw = codeOnly(srcOf('lib/link-switch.ts'));
+  const own = lsw.slice(lsw.indexOf('export async function replaceOwnLinks('));
+  await db.query(`insert into share_token (record_id, token_hash, issued_by, expires_at) values ($1,$2,$3, now() + interval '30 days')`, [REC.nate, sha('e4b-old'), ID.nate]);
+  await db.query('begin');
+  await db.query(`update share_token set revoked_at = now() where record_id = $1 and revoked_at is null`, [REC.nate]);
+  await db.query(`insert into share_token (record_id, token_hash, token_hint, issued_by, expires_at) values ($1,$2,'e4b·new',$3, now() + interval '90 days')`, [REC.nate, sha('e4b-new'), ID.nate]);
+  await db.query('commit');
+  let e4bErr = null, e4bOld = 'unread';
+  try { e4bOld = await readTok(sha('e4b-old')); } catch (e) { e4bErr = e.message; }
+  check('E4b: a 16–17 regenerates their own (17 Sep; E16) — lib/link-switch replaceOwnLinks, for the record’s own player at 16 or over, stops every live link and makes one, in one transaction; the old token is the link-state page at once, the same null as a token that never existed',
+    [/fn_age_band\(p\.dob\) <> 'u16'/.test(own), own.indexOf("'begin'") < own.indexOf('update share_token set revoked_at = now() where record_id = $1 and revoked_at is null')
+       && own.indexOf('update share_token') < own.indexOf('insert into share_token') && own.indexOf('insert into share_token') < own.indexOf("'commit'"),
+     e4bErr, e4bOld, await readTok(sha('never-a-token-e4b')), (await readTok(sha('e4b-new'))) !== null],
+    [true, true, null, null, null, true]);
+
+  // ---- §4: one number, one form ----
+  const nh = await import('../lib/number-hash.ts');
+  const gf = codeOnly(srcOf('lib/guardian-flow.ts'));
+  const create = gf.slice(gf.indexOf('export async function createPendingInvitation('), gf.indexOf('export async function reissueChannelToken('));
+  const joinActs = codeOnly(srcOf('app/join/actions.ts'));
+  check('ph-1: "0400 818 181", "+61 400 818 181" and "61400818181" each store +61400818181 — createPendingInvitation writes normaliseNumber’s form and no copy as typed, and both doors (under 16, 16–17) come through it',
+    [['0400 818 181', '+61 400 818 181', '61400818181'].map((x) => nh.normaliseNumber(x)),
+     /const guardianPhone = normaliseNumber\(input\.guardianPhone\);\s*if \(!guardianPhone\) throw new Error/.test(create),
+     /input\.guardianName\.trim\(\), guardianPhone, input\.guardianEmail\.trim\(\)/.test(create), /input\.guardianPhone\.trim\(\)/.test(create),
+     /\{ address: guardianPhone, invitationId \}/.test(create), (joinActs.match(/await createPendingInvitation\(\{/g) ?? []).length],
+    [['+61400818181', '+61400818181', '+61400818181'], true, true, false, true, 2]);
+  const msgSend = codeOnly(srcOf('lib/messaging.ts'));
+  const sendPart = msgSend.slice(msgSend.indexOf('export async function send('), msgSend.indexOf('export async function dispatch('));
+  check('ph-2: an SMS outbox row’s to_address is the exact string handed to Twilio — send() makes the address the E.164 form before the queue and the insert, and dispatch hands Twilio normaliseNumber of the row’s address, which leaves an E.164 string as it is',
+    [/to = \{ \.\.\.to, address: e164 \};/.test(sendPart), sendPart.indexOf('to = { ...to, address: e164 };') < sendPart.indexOf('fn_sms_queue'),
+     sendPart.indexOf('to = { ...to, address: e164 };') < sendPart.indexOf('insert into message_outbox'),
+     ['+61400818181', '+61412345678'].map((x) => nh.normaliseNumber(x))],
+    [true, true, true, ['+61400818181', '+61412345678']]);
+  const lookupSql = /db\.query\(\s*`(select pi\.id, pi\.first_name[\s\S]*?)`,/.exec(srcOf('app/ops/support/page.tsx'))?.[1];
+  const supportPage = codeOnly(srcOf('app/ops/support/page.tsx'));
+  const phInv = (await one(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email) values ('Phoebe',$1,'Pat','+61400818181','ph-pat@example.au') returning id`, [yearsAgo(13)])).id;
+  const look = async (q) => (lookupSql ? (await rowsOf(lookupSql, [q.trim(), nh.normaliseNumber(q.trim())])).filter((r) => r.error || r.id === phInv).length : null);
+  const finds = [];
+  for (const q of ['0400 818 181', '+61 400 818 181', '61400818181']) finds.push(await look(q));
+  const misses = [];
+  for (const q of ['0400 818', '0400%', '%', '+61400818%', '818181', 'ph-pat', '%@example.au']) misses.push(await look(q));
+  check('ph-3: the support lookup finds the invitation from any of the three forms — the query normalised the same way — and finds nothing for "0400 818", "0400%", "%" or any other partial, prefix or wildcard, on a number or an address',
+    [finds, misses, /\[q\.trim\(\), normaliseNumber\(q\.trim\(\)\)\]/.test(supportPage), /\blike\b|ilike|~\*|position\(|strpos/i.test(lookupSql ?? 'like')],
+    [[1, 1, 1], [0, 0, 0, 0, 0, 0, 0], true, false]);
+  // ph-4: the migration on rows typed before it.
+  const typed = async (phone, days = 1) => (await one(`insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, created_at) values ('Typed',$1,'T',$2, now() - make_interval(days => $3)) returning id`, [yearsAgo(13), phone, days])).id;
+  const outRow = async (to, days = 1) => (await one(`insert into message_outbox (message_key, channel, to_address, body, attempts, created_at, sent_at) values ('doc15.§1','sms',$1,'',1, now() - make_interval(days => $2), now() - make_interval(days => $2)) returning id`, [to, days])).id;
+  const P = { spaced: await typed('0400 818 181'), intl: await typed('+61 400 818 181'), bare: await typed('61400818181'), nbsp: await typed('0400 818 181'),
+    land: await typed('03 9876 5432'), landOld: await typed('03 9876 5432', 15) };
+  const O = { spaced: await outRow('0400 818 181'), land: await outRow('03 9876 5432'), landOld: await outRow('03 9876 5432', 31) };
+  const notices = [];
+  const mig176 = (() => { try { return srcOf('supabase/migrations/0176_one_number_one_form.sql'); } catch { return 'select 1'; } })();
+  await db.exec(mig176, { onNotice: (n) => notices.push(n.message) });
+  const phoneOf = async (id) => (await one('select guardian_phone as p from pending_invitation where id = $1', [id]))?.p;
+  const addrOf = async (id) => (await one('select to_address as a from message_outbox where id = $1', [id]))?.a;
+  const afterRows = [await phoneOf(P.spaced), await phoneOf(P.intl), await phoneOf(P.bare), await phoneOf(P.nbsp), await phoneOf(P.land), await addrOf(O.spaced), await addrOf(O.land)];
+  const second = [];
+  await db.exec(mig176, { onNotice: (n) => second.push(n.message) });
+  await db.query('select fn_purge_pending()');
+  const sbm = await import('../lib/sent-bodies.ts');
+  await db.query(sbm.SCRUB_SENT_BODIES);
+  const corpus = ['0400 818 181', '+61 400 818 181', '61400818181', '0400 818 181', '﻿0400818181', '(04) 0081 8181', '04.00.818.181',
+    '0400\t818\n181', '03 9876 5432', '+447700900123', '0400 818 18', '', 'STOP', '+61 (0)400 818 181', '0400_818_181', '０４００８１８１８１', '0400​818181'];
+  const disagree = [];
+  for (const c of corpus) if ((await one('select fn_e164($1) as e', [c]))?.e !== nh.normaliseNumber(c)) disagree.push(c);
+  check('ph-4: after the migration no typed number survives — every row that normalises reads +614…, in the invitation and the outbox — the count is printed (counts only), a second run rewrites nothing, fn_e164 answers exactly as normaliseNumber on every shape, and rows that do not normalise are untouched and still cleared on their clocks (14 days, 30 days)',
+    [afterRows, notices.filter((m) => /^0176:/.test(m)).map((m) => m.slice(0, 6) + m.slice(6).replace(/\d+/g, 'n')), notices.some((m) => /4\d{8}|\+61/.test(m)),
+     second.filter((m) => /^0176: wrote 0 invitation number\(s\) and 0 text address\(es\)/.test(m)).length, disagree,
+     await phoneOf(P.landOld), await addrOf(O.landOld)],
+    [['+61400818181', '+61400818181', '+61400818181', '+61400818181', '03 9876 5432', '+61400818181', '03 9876 5432'],
+     ['0176: wrote n invitation number(s) and n text address(es) as E.n; n and n did not normalise and were left on their clocks.'], false,
+     1, [], undefined, '']);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

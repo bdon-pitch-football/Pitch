@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PlayerCV from '@/components/cv/PlayerCV';
 import { db } from '@/lib/db';
-import { assembleCv, cvClubColours, withSignedPhoto, wornColours, type CvData } from '@/lib/record-read';
+import { servedCv, wornColours, type CvData } from '@/lib/record-read';
 import { requireRecordActor } from '@/lib/record-guard';
 import { waitingRecords } from '@/lib/cv-build';
 import SiteNav from '@/components/floodlit/SiteNav';
@@ -38,23 +38,18 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
   // a version waits only if it differs in something the review draws.
   r.has_pending = (await waitingRecords([recordId])).has(recordId);
 
-  let cv: CvData | null;
-  if (r.band === 'u16') {
-    // The approved snapshot as a club actually reads it, club line and all
-    // (0054): this page's whole claim is that it is what a club sees.
-    const v = await db.query(`select fn_approved_cv($1) as content`, [recordId]);
-    cv = (v.rows[0]?.content as CvData | null) ?? null;
-    // And in the club's colours, as a club sees it (D-174, 0165).
-    if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(r.person_id)) };
-    // Its photo as an address for this read only (John's ruling §1).
-    if (cv) cv = await withSignedPhoto(cv);
-  } else {
-    cv = await assembleCv(recordId, r.person_id, r.band);
-  }
+  // What a club actually reads, club line and colours and all (0054, 0165) —
+  // this page's whole claim is that it is what a club sees: the approved
+  // snapshot while the page is held (under 16, and from 16 until the
+  // player's own first write; John, 3 Oct, N-5), the live record otherwise.
+  // The database decides which (servedCv → fn_cv_held, 0174).
+  const cv: CvData | null = await servedCv(recordId, r.person_id, r.band);
   // B1 (BUZ, 1 Oct): an under-16 with no approved version yet has nothing
   // to preview — say so and offer the way to start, instead of a 404. The
   // top bar and the reading column, as every unframed page (spec A part 5).
-  if (!cv && r.band === 'u16') {
+  // The same for a page held at sixteen with nothing approved (N-5): a club
+  // sees nothing there either, until the player's own first write.
+  if (!cv) {
     return (
       <div className="floodlight has-topbar" style={{ minHeight: '100dvh', color: 'var(--ink)' }}>
         <SiteNav links={[]} signIn={false} />
@@ -64,12 +59,13 @@ export default async function PreviewPage({ params }: { params: Promise<{ record
             {actor === 'self' ? 'Back to editing' : `Back to ${r.first_name}`}
           </Link>
           <div className="pg-titles"><h1 className="pg-title" style={{ margin: 0 }}>{PREVIEW_EMPTY_TITLE}</h1></div>
-          <Link href={`/build/${recordId}`} className="btn btn-primary fl-glow">Build {r.first_name}&rsquo;s page</Link>
+          {/* Only someone who may write it is offered the door: a 16–17's
+              guardian builds nothing (N-10, R12). */}
+          {(actor === 'self' || r.band === 'u16') && <Link href={`/build/${recordId}`} className="btn btn-primary fl-glow">Build {r.first_name}&rsquo;s page</Link>}
         </main>
       </div>
     );
   }
-  if (!cv) notFound();
 
   const mine = actor === 'self';
   const back = mine ? `/build/${recordId}` : `/g/controls/${r.person_id}`;

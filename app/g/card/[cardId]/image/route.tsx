@@ -37,14 +37,31 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
   const me = await getSessionPersonId();
   if (!me) redirect('/signin');
 
+  // What the card draws is what a club may see of the page (fn_cv_held,
+  // 0174; John, 3 Oct, N-5: "link-holders, clubs and cards see the last
+  // version a guardian approved"): the approved snapshot while the page is
+  // held — under 16, and from 16 until the player's own first write — and
+  // the live record otherwise. A held page with nothing approved has nothing
+  // to draw.
   const { rows } = await db.query(
-    `select sca.card_kind, p.first_name, coalesce(p.last_name,'') as last_name,
-       dr.positions, dr.squad_number, dr.surfaced_stats,
-       (select coalesce(json_agg(json_build_object('key', stat_key, 'value', value, 'provenance', provenance)), '[]'::json)
-        from player_stat where record_id = dr.id and value > 0) as stats
+    `select sca.card_kind, p.first_name, coalesce(p.last_name,'') as last_name, h.held, pv.id is not null as approved,
+       case when h.held then array(select jsonb_array_elements_text(coalesce(pv.content -> 'positions', '[]'::jsonb)))
+            else dr.positions end as positions,
+       case when h.held then (pv.content ->> 'squadNumber')::int else dr.squad_number end as squad_number,
+       case when h.held then array(select jsonb_array_elements_text(coalesce(pv.content -> 'surfacedStats', '[]'::jsonb)))
+            else dr.surfaced_stats end as surfaced_stats,
+       case when h.held then
+         (select coalesce(json_agg(json_build_object('key', e ->> 'key', 'value', (e ->> 'value')::int, 'provenance', e ->> 'provenance')), '[]'::json)
+          from jsonb_array_elements(coalesce(pv.content -> 'stats', '[]'::jsonb)) e where (e ->> 'value')::int > 0)
+       else
+         (select coalesce(json_agg(json_build_object('key', stat_key, 'value', value, 'provenance', provenance)), '[]'::json)
+          from player_stat where record_id = dr.id and value > 0)
+       end as stats
      from share_card_approval sca
      join development_record dr on dr.id = sca.record_id
      join person p on p.id = dr.person_id
+     cross join lateral (select fn_cv_held(dr.id) as held) h
+     left join profile_version pv on pv.record_id = dr.id and pv.status = 'approved'
      left join guardianship_link g on g.child_id = p.id and g.guardian_id = $2
        and g.approved_at is not null and g.revoked_at is null
      where sca.id = $1 and (g.id is not null or p.id = $2)`,
@@ -52,6 +69,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
   );
   if (rows.length === 0) notFound();
   const c = rows[0];
+  if (c.held && !c.approved) notFound();
 
   const size = SIZES[c.card_kind] ?? SIZES.story;
   const name = `${c.first_name}${c.last_name ? ` ${c.last_name[0]}.` : ''}`;

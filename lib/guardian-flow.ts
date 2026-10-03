@@ -14,6 +14,7 @@ import { isUuid } from './ids';
 import { createHash, randomBytes } from 'node:crypto';
 import { guardianApprovalEmail, guardianApprovalSms, guardianConfirmEmail16, guardianConfirmSms16 } from './messages';
 import { sendAndLog } from './messaging';
+import { normaliseNumber } from './number-hash';
 
 // Consent stamps (doc 32 B2): the registered version bound to the bytes of
 // the file actually served — lib/legal-stamp. They were hand-kept strings
@@ -35,6 +36,13 @@ export async function createPendingInvitation(input: {
   guardianEmail: string; // required (D-157)
   childId?: string;      // a 16–17 who already has an account (D-155 as amended)
 }): Promise<{ id: string }> {
+  // One number, one form (John, 3 Oct, §4): E.164, written here at the point
+  // of entry by the function that makes Twilio's To and the STOP fingerprint
+  // (lib/number-hash). No "as typed" copy is kept. Every door that reaches
+  // this has already refused anything but an Australian mobile, so a number
+  // that does not normalise is a bug, and nothing is written for it.
+  const guardianPhone = normaliseNumber(input.guardianPhone);
+  if (!guardianPhone) throw new Error('not an Australian mobile');
   const smsToken = newToken();
   const emailToken = newToken();
   let invitationId = '';
@@ -44,7 +52,7 @@ export async function createPendingInvitation(input: {
     const { rows } = await client.query(
       `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, sms_token_hash, email_token_hash, child_id)
        values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
-      [input.firstName.trim(), input.dob, input.guardianName.trim(), input.guardianPhone.trim(), input.guardianEmail.trim(),
+      [input.firstName.trim(), input.dob, input.guardianName.trim(), guardianPhone, input.guardianEmail.trim(),
         hashToken(smsToken), hashToken(emailToken), input.childId ?? null],
     );
     await client.query(
@@ -80,7 +88,7 @@ export async function createPendingInvitation(input: {
   // decision 8) — linked, never rewritten — so the parent's "We emailed you"
   // line is there on the controls screen.
   const subject = input.childId;
-  await sendAndLog(sms(input.firstName.trim(), age, smsToken), { address: input.guardianPhone.trim(), invitationId }, 'sms_sent', subject);
+  await sendAndLog(sms(input.firstName.trim(), age, smsToken), { address: guardianPhone, invitationId }, 'sms_sent', subject);
   await sendAndLog(email(input.firstName.trim(), age, emailToken), { address: input.guardianEmail.trim(), invitationId }, 'email_sent', subject);
   return { id: invitationId };
 }

@@ -5,7 +5,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { isUuid } from '@/lib/ids';
 import { db } from '@/lib/db';
-import { assembleCv, cvClubColours, withSignedPhoto, wornColours } from '@/lib/record-read';
+import { servedCv, wornColours } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import PlayerCV from '@/components/cv/PlayerCV';
 import type { CvData } from '@/lib/record-read';
@@ -46,27 +46,18 @@ export default async function RegisterCv({ params, searchParams }: {
   const a = auth.rows[0];
 
   // The club never sees a pending edit (D-119) — but "approved snapshot" is
-  // only how a u16's page exists. 16-17 and 18+ have no profile_version at
-  // all, so reading one and 404ing otherwise meant a club could open the CV
-  // of a fifteen-year-old and NOBODY ELSE on the list it pays for. On this
-  // register, 97 of 100 rows answered 404 to the club's own TD.
+  // only how a held page exists. 16-17 and 18+ who joined at 16 or over have
+  // no profile_version at all, so reading one and 404ing otherwise meant a
+  // club could open the CV of a fifteen-year-old and NOBODY ELSE on the list
+  // it pays for. On this register, 97 of 100 rows answered 404 to the club's
+  // own TD.
   //
-  // Same split the share link uses, and now the same code: snapshot for u16,
-  // live assembly above it. One assembly, two authorisations.
-  let cv: CvData | null;
-  if (a.band === 'u16') {
-    // The approved snapshot, with the club line following the membership
-    // (BUZ's decision 2, 23 Sep): a club that has confirmed a player shows on
-    // their page at once, and comes off it when they are removed (D-158).
-    const v = await db.query(`select fn_approved_cv($1) as content`, [a.record_id]);
-    cv = (v.rows[0]?.content as CvData | null) ?? null;
-    // The club's colours follow the membership too (D-174, 0165).
-    if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(a.player_id)) };
-    // Its photo as an address for this read only (John's ruling §1).
-    if (cv) cv = await withSignedPhoto(cv);
-  } else {
-    cv = await assembleCv(a.record_id, a.player_id, a.band);
-  }
+  // Which version is the database's answer (servedCv → fn_cv_held, 0174):
+  // the approved snapshot while the page is held — under 16, and from 16
+  // until the player's own first write (John, 3 Oct, N-5: a birthday
+  // publishes nothing) — and the live record otherwise. One assembly, two
+  // authorisations.
+  const cv: CvData | null = await servedCv(a.record_id, a.player_id, a.band);
   if (!cv) notFound();
 
   await db.query(

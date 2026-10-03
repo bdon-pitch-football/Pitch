@@ -117,10 +117,12 @@ Where those pull against each other, the first wins.
 
 | What | How long |
 |---|---|
-| An edit a child has made that a guardian has not yet approved | Until approved, rejected, or **60 days**, whichever comes first — then discarded |
+| An edit a child under 16 has made that no guardian has approved | **Kept on the child's own record, seen only by the child and their guardians, until a guardian approves it, the child changes it back, or the child turns 16.** At 16 the waiting copy is deleted, and nothing publishes because of the birthday: the change reaches the page only if the young person publishes it themselves. Deleted with the record at any time. |
 | Version history of approved pages | With the record |
 
 **A pending edit is personal information about a child that no adult has approved**, so it inherits the same protections as the pre-approval draft: unreachable by every query in the system, rendered to exactly two people — the child who typed it and the guardian being asked — and never visible to a club, a coach, a search, a support console or a share card. A club holding a link keeps seeing the last approved version.
+
+*Corrected at v1.8, 3 October 2026: this row said 60 days and "rejected". Nothing ever discarded a waiting edit at 60 days, and there is no reject. It now says what happens.*
 
 ### A coach or club
 

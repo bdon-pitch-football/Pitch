@@ -17,7 +17,7 @@ import { notFound, redirect } from 'next/navigation';
 import PlayerCV from '@/components/cv/PlayerCV';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
-import { assembleCv, cvClubColours, withSignedPhoto, wornColours, type CvData } from '@/lib/record-read';
+import { servedCv, wornColours, type CvData } from '@/lib/record-read';
 import { getSessionPersonId } from '@/lib/session';
 import { STAT_LABELS, type StatKey } from '@/lib/football';
 import { HeaderMark } from '@/components/Wordmark';
@@ -46,20 +46,13 @@ export default async function SquadCv({ params }: { params: Promise<{ squadId: s
   if (!row) notFound();
   const recordId = row.record_id;
 
-  let cv: CvData | null;
-  if (row.band === 'u16') {
-    // The approved snapshot, with the club line following the membership
-    // (BUZ, 23 Sep) — one function, so the club's view, the family's preview
-    // and the share link cannot drift apart.
-    const v = await db.query(`select fn_approved_cv($1) as content`, [recordId]);
-    cv = (v.rows[0]?.content as CvData | null) ?? null;
-    // The club's colours follow the membership too (D-174, 0165).
-    if (cv) cv = { ...cv, band: 'u16', ...(await cvClubColours(playerId)) };
-    // Its photo as an address for this read only (John's ruling §1).
-    if (cv) cv = await withSignedPhoto(cv);
-  } else {
-    cv = await assembleCv(recordId, playerId, row.band);
-  }
+  // The version a club may see is the database's answer (servedCv →
+  // fn_cv_held, 0174): the approved snapshot while the page is held — under
+  // 16, and from 16 until the player's own first write (John, 3 Oct, N-5) —
+  // with the club line and colours following the membership (BUZ, 23 Sep;
+  // D-174), so the club's view, the family's preview and the share link
+  // cannot drift apart.
+  const cv: CvData | null = await servedCv(recordId, playerId, row.band);
   if (!cv) notFound();
 
   // Every read of a child's record carries a name, and the family can ask for

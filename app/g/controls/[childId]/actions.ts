@@ -1,7 +1,9 @@
 'use server';
-// Guardian controls (D-53, D-26). Renew extends life on a fresh token;
+// Guardian controls (D-53, D-26). Renew extends a live link's life;
 // Replace kills the old one in the same transaction — anyone holding it
-// stops being able to open the page immediately. Pause stops everything
+// stops being able to open the page immediately. Both are an under-16's
+// guardian's alone (doc 14 E16): a 16–17's guardian stops a link, never
+// starts or lengthens one. Pause stops everything
 // outward-facing (A16). Deletion cascades the record and keeps two things:
 // the consent-log proof that permission was given and withdrawn, and the
 // complaints investigation trail with no link to the child (0067, U-6).
@@ -65,48 +67,30 @@ export async function replaceLink(formData: FormData) {
   const guardianId = await assertGuardian(childId);
   await assertChildsRecord(childId, recordId);
   const t = newToken();
-  const client = await db.connect();
-  try {
-    await client.query('begin');
-    await client.query(`update share_token set revoked_at=now() where record_id=$1 and revoked_at is null`, [recordId]);
-    await client.query(
-      `insert into share_token (record_id, token_hash, token_hint, issued_by, expires_at) values ($1,$2,$3,$4, now() + interval '90 days')`,
-      [recordId, t.hash, t.hint, guardianId],
-    );
-    await client.query(
-      `insert into consent_event (event, actor_id, subject_id, detail) values ('share_revoked',$1,$2,'{}'), ('share_issued',$1,$2,'{}')`,
-      [guardianId, childId],
-    );
-    await client.query('commit');
-  } catch (e) {
-    await client.query('rollback');
-    throw e;
-  } finally {
-    client.release();
-  }
+  // An under-16's guardian only, asked of the database (fn_guardian_replace_link,
+  // 0175; John, 3 Oct; doc 14 E16): for a 16–17 the player makes, renews and
+  // replaces their link and the guardian sees it. It revokes every live link
+  // and makes the new one in one transaction (E4), or — for anyone the author
+  // answer does not call this child's guardian — writes nothing and says no,
+  // and the press goes home exactly as a stranger's does (D-77).
+  const { rows } = await db.query('select fn_guardian_replace_link($1, $2, $3, $4) as ok', [guardianId, recordId, t.hash, t.hint]);
+  if (rows[0]?.ok !== true) redirect('/home');
   redirect(`/g/controls/${childId}?link=${t.raw}`);
 }
 
 // Renew: same link, another 90 days. No new token needed — nothing to show.
+// Only a link that is still ALIVE gets another 90 days: a link handed out 91
+// days ago never silently gets access back, which is the opposite of what a
+// parent pressing "Renew" believes they are doing. And only an under-16's
+// guardian may (fn_guardian_renew_link, 0175; doc 14 E16): lengthening a
+// 16–17's link decides for the player how long their page stays open.
 export async function renewLink(formData: FormData) {
   const childId = String(formData.get('childId') ?? '');
   const recordId = String(formData.get('recordId') ?? '');
   const guardianId = await assertGuardian(childId);
   await assertChildsRecord(childId, recordId);
-  // Only a link that is still ALIVE gets another 90 days. Without the expiry
-  // clause this also revived tokens that had already lapsed — someone handed
-  // a link 91 days ago would silently get access back, which is the opposite
-  // of what a parent pressing "Renew" believes they are doing.
-  await db.query(
-    `update share_token set expires_at = now() + interval '90 days'
-     where record_id=$1 and revoked_at is null and paused=false
-       and (expires_at is null or expires_at > now())`,
-    [recordId],
-  );
-  await db.query(
-    `insert into consent_event (event, actor_id, subject_id, detail) values ('share_issued',$1,$2, jsonb_build_object('renewed',true))`,
-    [guardianId, childId],
-  );
+  const { rows } = await db.query('select fn_guardian_renew_link($1, $2) as ok', [guardianId, recordId]);
+  if (rows[0]?.ok !== true) redirect('/home');
   redirect(`/g/controls/${childId}`);
 }
 

@@ -104,7 +104,13 @@ export async function send(msg: Composed, to: { address: string; personId?: stri
     // lib/number-hash reads is the one Twilio is given, and a number it
     // cannot read is refused here, before anything is written or metered —
     // the same answer /join gives it.
-    if (!normaliseNumber(to.address)) return { queued: false, reason: 'sms_not_a_mobile' };
+    const e164 = normaliseNumber(to.address);
+    if (!e164) return { queued: false, reason: 'sms_not_a_mobile' };
+    // And from here on the number IS that form (John, 3 Oct, §4): the outbox
+    // row, the queue, the fingerprint and the provider's To are one string,
+    // so the outbox says exactly where a text went and nothing keeps the
+    // number as it was typed.
+    to = { ...to, address: e164 };
     const cap = smsCapCents(process.env.SMS_MONTHLY_CAP_CENTS);
     // The operator's switch (0070), read on every SMS so it takes effect on
     // the next one, not the next deploy. Off is off whichever side said it;

@@ -15,6 +15,7 @@ import { db } from '@/lib/db';
 import { OpsConsole, OpsHeader } from '@/components/console-shell';
 import { resendApproval } from './actions';
 import { requireOperator } from '@/lib/ops-guard';
+import { normaliseNumber } from '@/lib/number-hash';
 import { T } from '@/lib/palette';
 
 export const dynamic = 'force-dynamic';
@@ -44,9 +45,15 @@ export default async function Support({ searchParams }: { searchParams: Promise<
               and (mo.invitation_id = pi.id
                    or (mo.to_address <> '' and mo.to_address in (pi.guardian_phone, pi.guardian_email)))) as messages
          from pending_invitation pi
-         where pi.id::text = $1 or lower(pi.guardian_email) = lower($1) or pi.guardian_phone = $1
+         where pi.id::text = $1 or lower(pi.guardian_email) = lower($1) or pi.guardian_phone = $2
          order by pi.created_at desc limit 10`,
-        [q.trim()],
+        // A number is looked up in the one form it is stored in (John, 3 Oct,
+        // §4): the query normalised by lib/number-hash, and matched exactly.
+        // Anything that is not a whole Australian mobile — a fragment, a
+        // prefix, a wildcard — normalises to nothing and finds nothing. No
+        // partial match on a number or an address, ever; and what is shown
+        // does not change: state and the resend, never the number.
+        [q.trim(), normaliseNumber(q.trim())],
       )).rows
     : [];
 

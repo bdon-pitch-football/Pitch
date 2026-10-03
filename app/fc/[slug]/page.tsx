@@ -416,7 +416,7 @@ export default async function ClubPage({ params, searchParams }: {
           {/* The expressions of interest, in the trials area, below the trials
               and by closing date (trials board v2, Product Design 2 Oct). */}
           {/* "By closing date." only over dated ones; the open-now group
-              follows with its own heading and order line (BUZ, 3 Oct). */}
+              follows with its own heading and line (BUZ, 3 Oct). */}
           {(eois.length > 0 || openNow.length > 0) && (
             <section data-eoi-section="" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -433,7 +433,9 @@ export default async function ClubPage({ params, searchParams }: {
                 <>
                   <div data-open-now="" style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: eois.length > 0 ? 6 : 0 }}>
                     <h3 style={label}>Open now</h3>
-                    <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>No closing date given. By club name.</div>
+                    {/* No "By club name.": on a club's own page every row is
+                        that club's (BUZ, 3 Oct). /trials keeps it. */}
+                    <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>No closing date given.</div>
                   </div>
                   <div className="fl-card" style={{ padding: '4px 18px', display: 'flex', flexDirection: 'column' }}>
                     {openNow.map(openRow)}

@@ -161,8 +161,8 @@
   <tr>
     <td><strong>R10</strong></td>
     <td><strong>Third-party video embeds on a child's page</strong> hand the viewer's connection to YouTube, Instagram or Veo, and may set cookies, on a page whose subject is a minor.</td>
-    <td><span class="pill p-md">Medium</span></td>
-    <td><strong>Not yet designed.</strong> Recommendation 12 — click-to-play façades, no third-party load before a viewer interacts.</td>
+    <td><span class="pill p-lo">Low</span></td>
+    <td>Built. Click-to-play façades (D-97, recommendation 12): nothing loads from a third party before a viewer presses play. Since 3 October the YouTube player sends the site's origin, never the path.</td>
   </tr>
 </table>
 </div>
@@ -459,8 +459,8 @@
   <tr><td><strong>R10</strong></td>
     <td><strong>Third-party video embeds</strong> on a minor's CV hand the viewer's connection — and potentially cookies — to YouTube, Instagram or Veo on a page whose subject is a child. <strong>Worse, and this is the part that matters:</strong> a minor's CV carries a live share token in its URL, and a default browser hands that entire URL to the embed host as a referrer. A working key to a child's page then sits permanently in a foreign company's server logs.</td>
     <td>Material; physical</td><td><span class="pill p-hi">High</span></td>
-    <td><strong>Partial.</strong> D-94 requires <code>Referrer-Policy: no-referrer</code> on every tokenised page, privacy-enhanced embed hosts and sandboxed iframes — which closes the token leak. It does not stop the connection being made at all.</td>
-    <td><span class="pill p-md">Medium</span> → low with rec. 12</td></tr>
+    <td><strong>Partial.</strong> D-94 requires <code>Referrer-Policy: no-referrer</code> on every tokenised page, privacy-enhanced embed hosts and sandboxed iframes — which closes the token leak. Since 3 October the YouTube player alone sends the site's origin, <code>https://pitchfootball.com.au/</code>, and never the path, because YouTube refuses to play an embed that sends no referrer. YouTube therefore learns that a clip was played on Pitch, but never which page or which child, and never a token: the token leak stays closed. Instagram and Veo still open in a new tab and send nothing. The click-to-play façade (D-97, recommendation 12) is built: nothing reaches YouTube, Instagram or Veo until a viewer presses play.</td>
+    <td><span class="pill p-lo">Low</span></td></tr>
 
   <tr><td><strong>R11</strong></td>
     <td>Club alumni walls and unclaimed trial listings name identifiable people, some of them minors, who are not our users and have not consented.</td>
@@ -537,7 +537,7 @@
   <tr><td><strong>R24</strong></td>
     <td><strong>The pending version, and the pre-approval draft.</strong> Two states now exist in which a full record about a child sits in our database with no adult having approved it — a page built before a guardian is asked, and an edit made after approval.</td>
     <td>Material</td><td><span class="pill p-md">Medium</span></td>
-    <td>Both are unreachable by every query in the system and rendered to exactly two people: the child who typed it and the guardian being asked. Never a club, a coach, a search, a support console, an image or a link. The pre-approval draft purges at 14 days; a pending edit at 60. A club holding a link keeps seeing the last approved version — never the unreviewed edit, and never a blank page. <em>The consent gain is real: a guardian now approves the words, not just the account.</em></td>
+    <td>Both are unreachable by every query in the system and rendered to exactly two people: the child who typed it and the guardian being asked. Never a club, a coach, a search, a support console, an image or a link. The pre-approval draft purges at 14 days. A pending edit stays on the child's own record, seen only by the child and their guardians, until a guardian approves it, the child changes it back, or the child turns 16, when the waiting copy is deleted and nothing publishes because of the birthday (John, 3 Oct). <em>Corrected at v2.5: this cell said a pending edit purged at 60 days, and nothing did.</em> A club holding a link keeps seeing the last approved version — never the unreviewed edit, and never a blank page. <em>The consent gain is real: a guardian now approves the words, not just the account.</em></td>
     <td><span class="pill p-lo">Low</span></td></tr>
 
   <tr><td><strong>R25</strong></td>

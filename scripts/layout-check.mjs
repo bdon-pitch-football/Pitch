@@ -1570,6 +1570,138 @@ const ppFail = (id, width, path, what) => ppFails.push({ id, width, path, what }
   await apWidth(1280);
 }
 
+// ---------------------------------------------------------------------------
+// yt-1 · THE J14 TRACE (John, 3 Oct, §1; doc 14 J14). A real network trace,
+// never the header config: a tokenised page with a YouTube, an Instagram and
+// a Veo clip, read by a stranger. Before any press there are ZERO requests to
+// a third party (D-97). After the YouTube press, the player's request sends
+// `Referer` exactly this site's origin and nothing more (strict-origin —
+// https://pitchfootball.com.au/ in production, this app's origin here). The
+// Instagram and Veo opens, new tabs, send no `Referer` at all. And the token
+// is in no header, query or fragment of any request.
+//
+// Every third-party request is answered here with a stub and never leaves the
+// machine (Fetch interception), so the trace needs no network and tells no
+// one we looked. The popups are caught before they navigate: a browser-level
+// session auto-attaches to every new tab, paused, and arms interception on it
+// before it runs (Puppeteer's order — the enables are sent together with the
+// release, so the target processes them first). A synthetic click is not a
+// user gesture and the popup blocker eats window.open, so the press is
+// evaluated as one.
+//
+// Nate (17) is the page: his live record is the page, so his own clips form
+// adds the three clips in the browser, and they are removed again after.
+// ---------------------------------------------------------------------------
+const ytFails = [];
+let ytChecked = 0;
+{
+  const TOKEN = 'dev-nate';
+  const nate = ids.children.nate;
+  const ver = await (await fetch(`http://127.0.0.1:${PORT}/json/version`)).json();
+  const bws = new WebSocket(ver.webSocketDebuggerUrl);
+  await new Promise((r) => bws.addEventListener('open', r, { once: true }));
+  let bseq = 0;
+  const bwait = new Map();
+  const reqs = [];
+  const sessions = new Map();
+  const bcdp = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
+    const id = ++bseq;
+    const timer = setTimeout(() => { bwait.delete(id); reject(new Error(`yt-1: ${method} got no reply`)); }, CDP_TIMEOUT_MS);
+    bwait.set(id, (msg) => { clearTimeout(timer); resolve(msg); });
+    bws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
+  });
+  const thirdParty = (u) => { try { const h = new URL(u).hostname; return /^https?:/.test(u) && !['localhost', '127.0.0.1'].includes(h); } catch { return false; } };
+  bws.addEventListener('message', (m) => {
+    const msg = JSON.parse(m.data);
+    if (msg.id && bwait.has(msg.id)) { const w = bwait.get(msg.id); bwait.delete(msg.id); w(msg); return; }
+    if (msg.method === 'Target.attachedToTarget') {
+      const s = msg.params.sessionId;
+      sessions.set(msg.params.targetInfo.targetId, s);
+      Promise.all([bcdp('Network.enable', {}, s), bcdp('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] }, s),
+        bcdp('Runtime.runIfWaitingForDebugger', {}, s)]).catch(() => {});
+    }
+    if (msg.method === 'Fetch.requestPaused') {
+      const { requestId, request } = msg.params;
+      const referer = Object.entries(request.headers ?? {}).find(([k]) => k.toLowerCase() === 'referer')?.[1] ?? null;
+      reqs.push({ url: request.url, referer, headers: request.headers ?? {}, third: thirdParty(request.url), session: msg.sessionId });
+      (thirdParty(request.url)
+        ? bcdp('Fetch.fulfillRequest', { requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'text/html' }], body: Buffer.from('<p>yt-1 stub</p>').toString('base64') }, msg.sessionId)
+        : bcdp('Fetch.continueRequest', { requestId }, msg.sessionId)).catch(() => {});
+    }
+  });
+  try {
+    await bcdp('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
+    const { result: { targetId } } = await bcdp('Target.createTarget', { url: 'about:blank' });
+    for (let i = 0; i < 100 && !sessions.has(targetId); i++) await new Promise((r) => setTimeout(r, 50));
+    const S = sessions.get(targetId);
+    const ev = async (expr) => (await bcdp('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true, userGesture: true }, S)).result?.result?.value;
+    const go = async (path, ready) => {
+      await bcdp('Page.navigate', { url: BASE + path }, S);
+      for (let i = 0; i < 120; i++) { if (await ev(ready).catch(() => false)) return true; await new Promise((r) => setTimeout(r, 250)); }
+      return false;
+    };
+    await bcdp('Page.enable', {}, S);
+    const CLIPS = [['https://youtu.be/aqz-KE-bpKQ', 'yt-1 YouTube clip'], ['https://www.instagram.com/reel/yt1trace/', 'yt-1 Instagram clip'], ['https://veo.co/matches/yt1trace', 'yt-1 Veo clip']];
+    // Nate adds the three clips through his own form.
+    await bcdp('Network.setCookie', { name: 'pitch_session', value: cookieFor(nate.child_id), url: BASE }, S);
+    const clipsPage = `/build/${nate.record_id}/clips`;
+    for (const [url, title] of CLIPS) {
+      await go(clipsPage, `Boolean(document.querySelector('input[name=url]'))`);
+      await ev(`(() => { const f = document.querySelector('input[name=url]').form; f.querySelector('input[name=url]').value = ${JSON.stringify(url)}; f.querySelector('input[name=title]').value = ${JSON.stringify(title)}; f.requestSubmit(); return true; })()`);
+      for (let i = 0; i < 60 && !(await ev(`document.body.innerText.includes(${JSON.stringify(title)})`).catch(() => false)); i++) await new Promise((r) => setTimeout(r, 250));
+    }
+    await bcdp('Network.clearBrowserCookies', {}, S);
+    // A stranger opens the link. Nothing is pressed.
+    reqs.length = 0;
+    const PLAY = (t) => `button[aria-label="Play ${t}"]`;
+    const loadedPage = await go(`/p/${TOKEN}`, `(() => { const b = document.querySelector(${JSON.stringify(PLAY(CLIPS[2][1]))}); return Boolean(b) && Object.keys(b).some((k) => k.startsWith('__reactProps')); })()`);
+    await new Promise((r) => setTimeout(r, 1500));
+    const beforePress = reqs.filter((r) => r.third).map((r) => r.url);
+    const pageReqs = reqs.length;
+    const press = async (title) => {
+      reqs.length = 0;
+      await ev(`document.querySelector(${JSON.stringify(PLAY(title))}).click()`);
+      for (let i = 0; i < 40 && !reqs.some((r) => r.third); i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 400));
+      return reqs.slice();
+    };
+    const yt = (await press(CLIPS[0][1])).filter((r) => r.third);
+    const ig = (await press(CLIPS[1][1])).filter((r) => r.third);
+    const veo = (await press(CLIPS[2][1])).filter((r) => r.third);
+    const all = [...yt, ...ig, ...veo];
+    const origin = `${new URL(BASE).origin}/`;
+    ytChecked = pageReqs + all.length;
+    if (!loadedPage) ytFails.push(`the page /p/${TOKEN} never showed its three clips, so nothing was traced`);
+    if (beforePress.length) ytFails.push(`before any press the page made ${beforePress.length} third-party request(s): ${beforePress.slice(0, 3).join(', ')}`);
+    const ytEmbed = yt.find((r) => r.url.startsWith('https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ'));
+    if (!ytEmbed) ytFails.push(`the YouTube press made no request to youtube-nocookie (${yt.map((r) => r.url).join(', ') || 'none'})`);
+    else if (ytEmbed.referer !== origin) ytFails.push(`the YouTube player sent Referer ${JSON.stringify(ytEmbed.referer)}, not exactly the origin ${origin}`);
+    if (yt.some((r) => r.session !== S || !/youtube-nocookie\.com$/.test(new URL(r.url).hostname))) ytFails.push(`the YouTube press reached a host other than youtube-nocookie, or opened a tab: ${yt.map((r) => r.url).join(', ')}`);
+    for (const [name, list, host] of [['Instagram', ig, 'www.instagram.com'], ['Veo', veo, 'veo.co']]) {
+      const open = list.find((r) => new URL(r.url).hostname === host && r.session !== S);
+      if (!open) ytFails.push(`the ${name} press opened no new tab to ${host} (${list.map((r) => r.url).join(', ') || 'nothing'})`);
+      else if (open.referer !== null) ytFails.push(`the ${name} open sent Referer ${JSON.stringify(open.referer)}`);
+    }
+    // The token: in no header of any request, and in no query or fragment.
+    for (const r of all.concat(reqs)) {
+      const u = new URL(r.url);
+      if ((u.search + u.hash).includes(TOKEN)) ytFails.push(`${r.url} carries the token in its query or fragment`);
+      for (const [k, v] of Object.entries(r.headers)) if (String(v).includes(TOKEN)) ytFails.push(`${r.url} carries the token in its ${k} header`);
+    }
+    // Leave Nate's page as it was: his own Remove, for each clip added.
+    await bcdp('Network.setCookie', { name: 'pitch_session', value: cookieFor(nate.child_id), url: BASE }, S);
+    for (const [, title] of CLIPS) {
+      await go(clipsPage, `Boolean(document.querySelector('input[name=url]'))`);
+      await ev(`(() => { const row = [...document.querySelectorAll('form')].find((f) => f.querySelector('input[name=clipId]') && (f.parentElement?.innerText ?? '').includes(${JSON.stringify(title)})); if (row) row.requestSubmit(); return Boolean(row); })()`);
+      for (let i = 0; i < 40 && (await ev(`document.body.innerText.includes(${JSON.stringify(title)})`).catch(() => false)); i++) await new Promise((r) => setTimeout(r, 250));
+    }
+    await bcdp('Target.closeTarget', { targetId });
+  } catch (e) {
+    ytFails.push(`the trace did not run to its end (${e.message})`);
+  }
+  try { bws.close(); } catch { /* gone */ }
+}
+
 stop();
 console.log(`\nlayout check · ${checked} page views at ${widths.join(', ')}px (${failureChecks} of them failure-path views)`);
 console.log(`analytics    · ${analyticsRead} views read · started in ${analyticsOn} · it may start only for a signed-out visitor on the front door, /trials, /jobs or a club page, and must start there`);
@@ -1597,6 +1729,8 @@ console.log(`follow-up    · ${ppChecked} views — the register's status pill f
 for (const f of ppFails) console.log(`FAIL ${f.width}px · ${f.path} — ${f.id} ${f.what}`);
 console.log(`call sheet   · cs1: ${sheetChecked} views — the claim and the TD in a 320px aside at ≥1024 with the claim kept in view, and one column claim → TD → form below it`);
 for (const f of sheetFails) console.log(`FAIL ${f.width}px · ${f.what}`);
+console.log(`J14 trace    · yt-1: ${ytChecked} requests traced on /p/dev-nate in a real browser — none to a third party before a press; the YouTube player sends this origin and nothing more; Instagram and Veo open with no Referer; the token in no header, query or fragment`);
+for (const f of ytFails) console.log(`FAIL yt-1 · ${f}`);
 console.log(`trial rows   · tb-foot: ${footChecked} rows on /trials — no divider, the notice link and the button on one line, each a 44px target`);
 for (const f of footFails) console.log(`FAIL ${f.width}px · ${f.what}`);
 console.log(`filters      · tf: ${tfChecked} views of /trials — the laptop rail's bottom reachable at 1280×800; a suburb typed, picked, narrowed and carried across a chip tap, and none of the ${tfNearRequests} requests, the address, storage or cookies carried it`);
@@ -1618,9 +1752,9 @@ const squeezeKeys = [...squeezeFails.reduce((m, f) => m.set(`${f.path} ${f.what}
   (m.get(`${f.path} ${f.what} "${f.text}"`) ?? []).concat(`${f.width}px ${f.w}px wide, ${f.lines} lines, as ${f.seat}`)), new Map())];
 console.log(`squeeze      · every view read for text narrower than ${SQUEEZE_MIN_WIDTH}px wrapping to more than ${SQUEEZE_MAX_LINES} lines`);
 for (const [what, where] of squeezeKeys) console.log(`FAIL squeezed column: ${what} — ${where.join('; ')}`);
-const chromeBad = tfFails.length + footFails.length + apFails.length + ppFails.length + sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + waysFails.length + squeezeKeys.length + motionFails.length;
+const chromeBad = ytFails.length + tfFails.length + footFails.length + apFails.length + ppFails.length + sheetFails.length + foldFails.length + ringFails.length + labelFails.length + bodyFails.length + byWhat(tapFails).length + cspFails.length + analyticsFails.length + joinFails.length + waysFails.length + squeezeKeys.length + motionFails.length;
 if (failures.length === 0 && chromeBad === 0) {
-  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, no Premium row is offered while D-163 stands, and the call sheet keeps its claim and TD where the operator can see them');
+  console.log('ALL GREEN — nothing is wider than the screen, every control the keyboard reaches shows its ring, every caption is 10px, every page paints --bg, every control and phone link is a 44px target, no column of words is squeezed under 120px, no page broke its Content-Security-Policy, analytics started only on the four public pages, signed out, /join answers every press, the stat tiles never show a number that is not theirs, no Premium row is offered while D-163 stands, and the call sheet keeps its claim and TD where the operator can see them; and the J14 trace sent nothing to a third party before a press, the YouTube player only this origin, and Instagram and Veo nothing');
   process.exit(0);
 }
 for (const f of failures) {
@@ -1628,5 +1762,5 @@ for (const f of failures) {
   console.log(`FAIL ${f.width}px · ${f.seat} · ${f.path} — page ${f.doc}px wide on a ${f.vw}px screen; widest: ${f.widest} by ${f.over}px${f.text ? ` ("${f.text}")` : ''}`);
 }
 console.log(`\n${failures.length} page${failures.length === 1 ? '' : 's'} failed (too wide, or never rendered)`
-  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, ways in ${waysFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length}, trial rows ${footFails.length}, filters ${tfFails.length}, audit ${apFails.length}, follow-up ${ppFails.length})`);
+  + `, ${chromeBad} chrome failure${chromeBad === 1 ? '' : 's'} (focus ring ${ringFails.length}, .field-label ${labelFails.length}, page colour ${bodyFails.length}, touch targets ${byWhat(tapFails).length}, policy refusals ${cspFails.length}, /join ${joinFails.length}, ways in ${waysFails.length}, squeezed ${squeezeKeys.length}, walkthrough ${motionFails.length}, call sheet ${sheetFails.length}, trial rows ${footFails.length}, filters ${tfFails.length}, J14 trace ${ytFails.length}, audit ${apFails.length}, follow-up ${ppFails.length})`);
 process.exit(1);

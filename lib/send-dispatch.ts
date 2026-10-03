@@ -96,7 +96,15 @@ export async function dispatchShareRequest(requestId: string, actorId: string, i
   // the transaction would wait on a connection only this code holds.
   const d = await db.query(
     `select sr.destination, p.first_name, p.email,
-       date_part('year', age(p.dob))::int as age, dr.positions,
+       date_part('year', age(p.dob))::int as age,
+       -- The positions the club's page shows (fn_cv_held, 0174; John, 3 Oct,
+       -- N-5): the approved snapshot's while the page is held, so the email
+       -- never names a position the link it carries does not.
+       case when fn_cv_held(dr.id)
+            then array(select jsonb_array_elements_text(coalesce(
+                   (select pv.content -> 'positions' from profile_version pv
+                     where pv.record_id = dr.id and pv.status = 'approved'), '[]'::jsonb)))
+            else dr.positions end as positions,
        -- The CV's own club line (fn_cv_club): none while the club is
        -- suspended or taken down (0155), so the email and the page agree.
        coalesce(fn_cv_club(p.id)->>'club', '') as club

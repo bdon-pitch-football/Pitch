@@ -147,7 +147,7 @@ The core table. **Read as: this actor, on a player in this age band, gets this.*
 | E1 | u16, `self` attempts to generate a link | **The child may request; the guardian dispatches** (D-91). Assert the token is created only on the guardian's action |
 | E2 | u16, `guardian` generates | Token created, default 90-day expiry (D-53) |
 | E3 | 16–17, `self` generates | Permitted, guardian visible in the consent log |
-| E4 | Guardian regenerates | Old token → link-state page immediately. **Assert the old token does not 404 and does not error differently** |
+| E4 | A u16's guardian regenerates, or a 16–17 regenerates their own (17 Sep; E16) | Old token → link-state page immediately. **Assert the old token does not 404 and does not error differently** |
 | E5 | Guardian disables the profile | Every live token → link-state page |
 | E6 | Token 89 days old | Live. Renewal reminder queued |
 | E7 | Token 91 days old | Link-state page. **No grace period** |
@@ -159,6 +159,7 @@ The core table. **Read as: this actor, on a player in this age band, gets this.*
 | E13 | OG card for 18+ | Full detail |
 | E14 | OG card requested for a dead token | Generic Pitch card. Never a cached identity |
 | E15 | 16–17, `guardian` presses "Get the share link" on `/g/pending` | **Denied** (John, 2 Oct; the principle of N-10): for a 16–17 the player shares and the guardian sees. No token is created, nothing is logged, and the press answers like any other refusal. The guardian keeps everything else this file gives them. Asserted by the database (`fn_record_author`) |
+| E16 | 16–17, `guardian` presses Renew or Replace on `/g/controls` | **Denied** (John, 3 Oct; the principle of E15 and N-10): for a 16–17 the player makes, renews and replaces their link, and the guardian sees it. No token is created or extended, nothing is logged, and the press answers like any other refusal. The guardian keeps the link's hint and expiry, the send list (L57), notice of every send (L5), the per-link switch-off, pause (E5), the sending switch (L6/L7), discoverability (B6) and deletion. Asserted by the database (`fn_record_author`) |
 
 ---
 
@@ -495,12 +496,12 @@ D-103, D-119. **The rule: an under-16 record has an approved version and a pendi
 | R3 | The record does not blank during pending | Assert the approved version renders in full. An edit must never take a child's page down |
 | R4 | Who may read `pending` | **Exactly two:** the child, and the approving guardian. Every other actor denied at the query layer |
 | R5 | Guardian approves | `pending` becomes `approved` atomically. Assert no window serves both or neither |
-| R6 | Guardian declines | Approved version stands, pending discarded. The child is told; no club learns an edit was attempted |
+| R6 | Guardian declines | **Not built** (John, 3 Oct). Until it is, a guardian's "no" is their own edit, which wins over the child's waiting value (F14 clash rule), or silence, which never publishes (R7, R11). If built: the approved version stands, the waiting version, the photo only it names and the live-record fields it changed all return to the approved page, the child is told, and no club learns an edit was attempted |
 | R7 | Guardian ignores | Approved version stands indefinitely. **Assert no timeout auto-publishes** — silence never approves |
 | R8 | 16–17 and 18+ edit | Publish immediately, no pending version. Assert the machinery is reachable only for u16 |
 | R9 | Deletion during pending | Both versions purge together. No orphan pending row survives |
 | R10 | A pending version in any search, index, cache or export | **Cannot appear.** Same rule as A17, one more state |
-| R11 | Band changes between edit and approval | Governed at publication (G1). Composed at 15, approved after the sixteenth birthday, publishes under 16–17 rules |
+| R11 | Band changes between edit and approval | A waiting version composed under 16 is **never approved after the sixteenth birthday** (R13) and **never publishes because the birthday passed.** The transition deletes it; until the player publishes for themselves at 16 or over, every surface serves the last version a guardian approved. Asserted on the read path, not only by the job (G7) (John, 3 Oct, N-5) |
 | R12 | A guardian writes to a 16–17's record — the page, its clips, achievements or other football | **Denied** (N-10; John, 1 Oct). A 16–17's page is theirs: the guardian keeps visibility, the off-switch, the controls and every approval doc 14 gives them, and loses only authorship. Asserted by the database (`fn_record_author`) and on every `/build` surface |
 | R13 | A guardian of a 16–17 (or a re-granted guardian of an 18+) opens `/g/pending` or presses its Approve | **Denied**: sent home, shown nothing, nothing approved and nothing logged. Only an under-16's guardian reviews or approves a waiting version (R4, R8); a version left from before the sixteenth birthday governs nothing (R11). Asserted by the database's author answer (`fn_record_author`) on the page and on the press (safety review of the /g/pending build, S-1) |
 
@@ -522,7 +523,7 @@ These are the ones that actually leak. Each asserts the absence of something.
 - **J10** No minor is named on any public surface other than their own CV — assert against club pages, alumni entries and trial notices (D-74).
 - **J11** The strings "potential", "insights", "struggling" appear in no user-facing copy; "elite" appears on nothing under U13; "talent identification" on nothing under 10 (D-85). Assert in CI against the built output.
 - **J12** No minor-facing list is ordered by anything other than chronology (D-21).
-- **J14** No request from a tokenised page sends a `Referer` header to any third party. Verify against a real network trace with the YouTube, Instagram and Veo embeds live — **not** by reading the header config (D-94).
+- **J14** No request from a tokenised page carries any part of the page's address beyond the site's origin to any third party: not before a press, not after one, and not through a redirect. The page is served `Referrer-Policy: no-referrer`. **One exception:** the YouTube player, loaded from `youtube-nocookie.com` only after a press (D-97), sends `Referer: https://pitchfootball.com.au/`, the origin alone, because YouTube refuses an embed with no referrer (John, 3 Oct). Every other request (Instagram, Veo, every link, image and script) sends no `Referer` at all, and a second exception needs a ruling, not a config change. Verify against a real network trace with the YouTube, Instagram and Veo embeds live and the YouTube clip pressed — **not** by reading the header config (D-94).
 - **J15** The OG image endpoint re-checks the token on every request, is not cacheable beyond a short window, and returns a generic card — never a real identity — for any token that is not live.
 - **J16** No secret, share token, or personal datum appears in any log line, error message or stack trace, including third-party error reporting.
 - **J17** The service-role key appears in **exactly one file**, and that file exports **exactly one** token read path (J3). Enforced by a repo-wide static check in CI on every commit — J3 asserts the shape, J17 keeps it from decaying.

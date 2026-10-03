@@ -1800,15 +1800,25 @@ const georgia = ids.children.georgia;
   const fcOpen = (h) => {
     const sec = /<section data-eoi-section=""[^>]*>[\s\S]*?<\/section>/.exec(h)?.[0] ?? '';
     return [/By closing date\./.test(sec),
-      /<div data-open-now=""[^>]*><h3[^>]*>Open now<\/h3><div[^>]*>No closing date given\. By club name\.<\/div><\/div>/.test(sec),
+      // BUZ, 3 Oct: on a club's own page every row is that club's, so the
+      // group's line is "No closing date given." alone (fc-open-r1).
+      /<div data-open-now=""[^>]*><h3[^>]*>Open now<\/h3><div[^>]*>No closing date given\.<\/div><\/div>/.test(sec),
       [...sec.matchAll(/<div class="fl-trial-date open"[^>]*><div class="fl-trial-wd">OPEN<\/div><div class="fl-trial-ic" aria-hidden="true">[\s\S]*?<\/div><div[^>]*>NOW<\/div><\/div><div[^>]*><div[^>]*>([^<]*)<\/div>/g)].map((m) => m[1]),
       /\?trial=/.test(sec), /Trials coming/.test(h),
       h.indexOf('The club’s own notice') > -1 && h.indexOf('The club’s own notice') < h.indexOf('Want to play here?')];
   };
-  check('on-r7: on an unclaimed club\'s page the open-now ones sit under Expressions of interest as "Open now", "No closing date given. By club name." — no "By closing date." over nothing — with OPEN/NOW blocks, by title, no row a door onto a trial, no "Trials coming", and the club\'s own notice before the way to send a CV',
+  check('on-r7: on an unclaimed club\'s page the open-now ones sit under Expressions of interest as "Open now", "No closing date given." — no "By closing date." over nothing — with OPEN/NOW blocks, by title, no row a door onto a trial, no "Trials coming", and the club\'s own notice before the way to send a CV',
     [fcOpen(fcQ), fcOpen(fcO)],
     [[false, true, ['U13 Boys expressions of interest', 'U15 Boys expressions of interest'], false, false, true],
      [false, true, ['U13 and U15 expressions of interest'], false, false, true]]);
+  // BUZ, 3 Oct: a club's own page drops "By club name." from its open-now
+  // group — every row there is that club's — and /trials keeps it, because
+  // the board's rows are many clubs'.
+  const openLine = (h) => /<div data-open-now=""[^>]*><h3[^>]*>Open now<\/h3><div[^>]*>([^<]*)<\/div><\/div>/.exec(h)?.[1] ?? null;
+  const boardLine = /<div class="tb-grp"><h3>Open now<span class="tb-sec-n">\d+<\/span><\/h3><div class="tb-sec-sub">([^<]*)<\/div><\/div>/.exec(all)?.[1] ?? null;
+  check('fc-open-r1: on a club’s own page (/fc/[slug]) the "Open now" group says only "No closing date given." — no "By club name." anywhere on the page — and /trials is unchanged, "No closing date given. By club name."',
+    [openLine(fcQ), openLine(fcO), /By club name\./.test(fcQ) || /By club name\./.test(fcO), boardLine],
+    ['No closing date given.', 'No closing date given.', false, 'No closing date given. By club name.']);
 }
 
 // The trials board's filters package (BUZ approved 2 Oct; docs/design/
@@ -4943,6 +4953,51 @@ if (ids.pendingReview && ids.pendingReviewEmpty) {
     [200, ['The photo', 'Football details'], true, ['Number: — → 4', 'Preferred foot: Right → —', 'Assists: 2 → —'], false, false, false]);
 } else {
   check('pp-r0: the seed wrote both isolated reviews (.dev-ids.json pendingReview and pendingReviewEmpty) — reseed', false, true);
+}
+
+// ---------------------------------------------------------------------------
+// John's four rulings (3 Oct) as a seat is served them (report
+// 2026-10-03-builder-john-four). Each check red on f46b4c3.
+// ---------------------------------------------------------------------------
+{
+  const words = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ')
+    .replace(/&rsquo;|&#x27;|&#39;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  // yt-3 (J14, D-94 §5): the header a tokenised page is SERVED with, read off
+  // the response — a live link, a dead one and the print page.
+  const policyOf = async (path) => { const r = await fetch(BASE + path, { redirect: 'manual' }); await r.text(); return r.headers.get('referrer-policy'); };
+  check('yt-3: /p/:token* is still served Referrer-Policy: no-referrer — a live link, a link that was never one, and the print page; only the YouTube player itself sends the origin (yt-2)',
+    [await policyOf('/p/dev-deniz'), await policyOf('/p/never-a-token-yt3'), await policyOf('/p/dev-deniz/print')],
+    ['no-referrer', 'no-referrer', 'no-referrer']);
+
+  // E16: Renew and Replace come off a 16–17's guardian's card.
+  const alex = ids.people.alex;
+  const card = async (child) => (await get(`/g/controls/${child}`, alex)).html;
+  const nateCard = await card(ids.children.nate.child_id), georgiaCard = await card(ids.children.georgia.child_id);
+  const linkControls = (h) => [/<button type="submit" class="btn btn-secondary">Renew<\/button>/.test(h), /<button type="submit" class="btn btn-secondary">Replace<\/button>/.test(h),
+    /Replacing it kills the old one immediately\./.test(h)];
+  const keeps = (h) => [/pitchfootball\.com\.au\/p\//.test(h), /aria-label="Pause toggle"/.test(h)];
+  check('E16r: the Renew and Replace buttons and their help line are absent for a 16–17’s guardian (Alex, for Nate) and present for an under-16’s (Alex, for Georgia); both cards keep the link’s hint and pause, and Nate’s keeps the sending switch',
+    [linkControls(nateCard), linkControls(georgiaCard), keeps(nateCard), keeps(georgiaCard), /aria-label="Sending toggle"/.test(nateCard)],
+    [[false, false, false], [true, true, true], [true, true], [true, true], true]);
+
+  // ph-3 / ph-5: the support lookup, as the operator presses it. The seed's
+  // invitation for Mila holds +61412345678, typed as 0412 345 678.
+  const op = ids.people.marina;
+  const lookup = async (q) => (await get(`/ops/support?q=${encodeURIComponent(q)}`, op)).html;
+  const results = (h) => (h.split('<div class="ops-table">')[1] ?? '');
+  const finds = async (q) => /<div style="[^"]*">Mila<\/div>/.test(results(await lookup(q)));
+  const forms = [];
+  for (const q of ['0412 345 678', '+61 412 345 678', '61412345678']) forms.push(await finds(q));
+  const partial = [];
+  for (const q of ['0412 345', '0412%', '%', '412345678', 'priya@', '%@example.com']) partial.push(await finds(q));
+  check('ph-3r: the operator’s lookup finds Mila’s invitation from any of the three ways her parent’s number is written, and nothing from a fragment, a prefix, a wildcard or part of an address',
+    [forms, partial], [[true, true, true], [false, false, false, false, false, false]]);
+  const shown = await lookup('0412 345 678');
+  const outsideTheBox = shown.replace(/<input[^>]*name="q"[^>]*>/g, '');
+  check('ph-5: the lookup screen shows no phone number — the stored +61412345678 appears nowhere on it, no form of the number appears outside the operator’s own search box, and the result is the invitation’s state and the resend',
+    [/\+?61\s?412\s?345\s?678|0412\s?345\s?678|412\s?345\s?678/.test(outsideTheBox), shown.includes('+61412345678'), /Waiting on the guardian/.test(results(shown)),
+     /Resend the approval request/.test(results(shown))],
+    [false, false, true, true]);
 }
 
 // ---------------------------------------------------------------------------

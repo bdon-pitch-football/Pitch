@@ -1272,7 +1272,9 @@ let pendingInvitationId = '';
     // Two links, one per channel (D-156), with KNOWN dev tokens like the
     // dev share links: /a/dev-mila-text and /a/dev-mila-email.
     `insert into pending_invitation (first_name, dob, guardian_name, guardian_phone, guardian_email, sms_token_hash, email_token_hash)
-     values ('Mila','2013-04-18','Priya Raman','0412 345 678','priya@example.com',$1,$2) returning id`,
+     -- E.164, the one form the product stores (John, 3 Oct, §4; L13): she
+     -- typed 0412 345 678.
+     values ('Mila','2013-04-18','Priya Raman','+61412345678','priya@example.com',$1,$2) returning id`,
     [sha('dev-mila-text'), sha('dev-mila-email')],
   );
   console.log(`  approve: /a/dev-mila-text and /a/dev-mila-email (both needed) · no channel: /a/${inv.rows[0].id}`);

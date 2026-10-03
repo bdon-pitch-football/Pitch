@@ -11,6 +11,10 @@
 //    is emailed that something waits — nothing does. ONLY that change
 //    (BUZ, 2 Oct, "parent's change only"; John confirmed): it is patched
 //    onto the page, and nothing the child added rides with it.
+// 4. A birthday publishes nothing (John, 3 Oct, N-5 (A)). A page kept under
+//    16 stays the last version a guardian approved until the PLAYER's own
+//    first write at 16 or over; that write releases it (releaseOwnPage), and
+//    from then on their live record is the page (doc 14 R8, R11).
 import 'server-only';
 import { db } from './db';
 import { MAX_POSITIONS, POSITIONS, STAT_KEYS, type StatKey } from './football';
@@ -100,6 +104,8 @@ export async function saveCvDraft(recordId: string, draft: CvDraft, author: { pe
       const submitted = await submitChildChange(client, recordId, draft.season);
       replaced.push(...submitted.replaced);
       waitsOnGuardian = submitted.tell;
+    } else if (author.actor === 'self') {
+      replaced.push(...(await releaseOwnPage(client, recordId, author.personId)));
     }
     await client.query('commit');
   } catch (e) {
@@ -169,6 +175,22 @@ async function submitChildChange(client: Client, recordId: string, season: strin
   // child's later writes update the same waiting version.
   const tell = !isWaiting(approved, before);
   return { replaced: was ? [was] : [], tell };
+}
+
+/**
+ * The player's own write at 16 or over releases their page (John, 3 Oct,
+ * N-5 (A)). The first time, the database (fn_release_own_page, 0174) deletes
+ * the waiting version left from under 16 — one content-free `edit_deleted`
+ * on the child, unless the daily job got there first — retires the approved
+ * snapshot, and stamps when; every later call does nothing. It asks the
+ * author answer itself, so only the record's owner, and only at 16 or over,
+ * changes anything. On the caller's transaction, under the record's lock.
+ * Returns the photos those versions named, to forget after commit (S-3): a
+ * file goes only if nothing still shows it, never the live record's.
+ */
+async function releaseOwnPage(client: Client, recordId: string, personId: string): Promise<string[]> {
+  const { rows } = await client.query('select photo from fn_release_own_page($1, $2)', [personId, recordId]);
+  return rows.map((r) => r.photo as string | null).filter((p): p is string => Boolean(p));
 }
 
 /**
@@ -351,6 +373,9 @@ export async function writeRecord(
       const submitted = await submitChildChange(client, recordId, '2026');
       replaced = submitted.replaced;
       waits = submitted.tell;
+    } else if (band !== 'u16' && patch && author.actor === 'self') {
+      // A player of 16 or over writing their own page (N-5 (A)).
+      replaced = await releaseOwnPage(client, recordId, author.personId);
     }
     await client.query('commit');
   } catch (e) {

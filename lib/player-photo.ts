@@ -109,8 +109,9 @@ export function isPlayerPhotoOf(recordId: string, path: string): boolean {
 /**
  * Does anything that can still be shown name this photo? The live record
  * (anybody's person.photo_path), or a pending or approved version — the
- * approved one is what a club reads for an under-16, and the pending one is
- * what the guardian is about to approve. A superseded version is served to
+ * approved one is what a club reads while a page is held (under 16, and from
+ * 16 until the player's own first write: fn_cv_held, 0174), and the pending
+ * one is what the guardian is about to approve. A superseded version is served to
  * nobody and keeps nothing alive. $1 is the stored path.
  */
 export const PHOTO_STILL_SHOWN = `

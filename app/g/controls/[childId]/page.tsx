@@ -36,6 +36,10 @@ export default async function Controls({ params, searchParams }: {
   const { rows } = await db.query(
     `select p.first_name, fn_age_band(p.dob) as band,
        (select id from development_record where person_id = p.id) as record_id,
+       -- Renew and Replace are an under-16's guardian's alone (doc 14 E16;
+       -- John, 3 Oct): the database's author answer, the same one the two
+       -- actions ask (fn_guardian_renew_link, fn_guardian_replace_link, 0175).
+       fn_record_author($2, (select id from development_record where person_id = p.id)) = 'guardian' as may_link,
        (select coalesce((select profile_paused from guardian_setting where child_id = p.id), false)) as paused,
        (select coalesce((select send_disabled from guardian_setting where child_id = p.id), false)) as send_off,
        (select row_to_json(t) from (
@@ -192,12 +196,19 @@ export default async function Controls({ params, searchParams }: {
                 <div style={{ fontSize: 12.5, color: T.secondary, fontWeight: 500 }}>Expires {c.token.expires?.trim()} · 90 days from when you made it</div>
               </div>
             )}
-            {/* The charter secondary pair, not a hand-built third button. */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <form action={renewLink} style={{ display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" className="btn btn-secondary">Renew</button></form>
-              <form action={replaceLink} style={{ display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" className="btn btn-secondary">Replace</button></form>
-            </div>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Replacing it kills the old one immediately. Anyone holding it stops being able to open the page.</div>
+            {/* The charter secondary pair, not a hand-built third button —
+                and only for the guardian who may press it. A 16–17's
+                guardian stops a link (pause, the per-link switch-off below)
+                and never makes, renews or replaces one (doc 14 E16). */}
+            {c.may_link && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <form action={renewLink} style={{ display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" className="btn btn-secondary">Renew</button></form>
+                  <form action={replaceLink} style={{ display: 'flex' }}><input type="hidden" name="childId" value={childId} /><input type="hidden" name="recordId" value={c.record_id} /><button type="submit" className="btn btn-secondary">Replace</button></form>
+                </div>
+                <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>Replacing it kills the old one immediately. Anyone holding it stops being able to open the page.</div>
+              </>
+            )}
           </div>
         </div>
 
