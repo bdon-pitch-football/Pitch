@@ -95,8 +95,8 @@ export default async function Controls({ params, searchParams }: {
         where h.person_id = p.id
           and fn_record_actor($2, (select id from development_record where person_id = p.id)) = 'guardian') as held
      from person p
-     join guardianship_link g on g.child_id = p.id and g.guardian_id = $2 and g.approved_at is not null and g.revoked_at is null
-     where p.id = $1`,
+     -- fn_guardian_controls (0177): never an adult's parent (D-49, P15).
+     where p.id = $1 and fn_guardian_controls($2, p.id)`,
     [childId, me],
   );
   if (rows.length === 0) notFound();

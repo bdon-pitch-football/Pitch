@@ -255,7 +255,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               order by rr.created_at desc limit 1) q2)
          )), '[]'::json)
         from guardianship_link g join person c on c.id = g.child_id
-        where g.guardian_id = p.id and g.approved_at is not null and g.revoked_at is null) as children
+        -- 0177: the children a parent acts for — never one who is 18 (D-49).
+        where g.guardian_id = p.id and fn_guardian_controls(p.id, c.id)) as children
      from person p where p.id = $1`,
     [personId],
   );

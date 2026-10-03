@@ -62,9 +62,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
      join person p on p.id = dr.person_id
      cross join lateral (select fn_cv_held(dr.id) as held) h
      left join profile_version pv on pv.record_id = dr.id and pv.status = 'approved'
-     left join guardianship_link g on g.child_id = p.id and g.guardian_id = $2
-       and g.approved_at is not null and g.revoked_at is null
-     where sca.id = $1 and (g.id is not null or p.id = $2)`,
+     -- The person themself, or a guardian who acts for them (0177: never an
+     -- adult's parent).
+     where sca.id = $1 and (p.id = $2 or fn_guardian_controls($2, p.id))`,
     [cardId, me],
   );
   if (rows.length === 0) notFound();

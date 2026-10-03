@@ -19,11 +19,12 @@ import { send } from '@/lib/messaging';
 async function assertGuardian(childId: string): Promise<string> {
   const g = await getSessionPersonId();
   if (!g) redirect('/signin');
-  const { rows } = await db.query(
-    `select 1 from guardianship_link where guardian_id=$1 and child_id=$2 and approved_at is not null and revoked_at is null`,
-    [g, childId],
-  );
-  if (rows.length === 0) redirect('/home'); // not yours — same answer as not existing
+  // fn_guardian_controls (0177): a guardian of someone under 18. At 18 the
+  // controls are the adult's own (D-49, P15), re-granted or not — so an
+  // adult's parent gets the same answer as a stranger (L23: the rule lives in
+  // Postgres, not here).
+  const { rows } = await db.query(`select fn_guardian_controls($1, $2) as ok`, [g, childId]);
+  if (rows[0]?.ok !== true) redirect('/home'); // not yours — same answer as not existing
   return g;
 }
 

@@ -5603,13 +5603,14 @@ check('store5: the bucket is configurable, not hardcoded to one project',
 
   // A guardian whose link was revoked is nobody to this record: no actor,
   // and the home screen's children (whose photos it mints) are only those of
-  // an approved, unrevoked link.
+  // an approved, unrevoked link. MOVED (0177, John 3 Oct): /home asks
+  // fn_guardian_controls, which is that and under 18 as well (G12).
   const g2 = crypto.randomUUID();
   await db.query(`insert into person (id, first_name, dob) values ($1,'Revoked',$2)`, [g2, yearsAgo(40)]);
   await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at, revoked_at) values ($1,$2,now() - interval '2 days',now())`, [g2, child]);
   check('photo15: a revoked guardian mints nothing — the database names them no actor on the record, and the only list of children whose photos /home draws is approved and unrevoked',
     [(await db.query('select fn_record_actor($1,$2) as a', [g2, rec])).rows[0].a,
-     /'photo', c\.photo_path,[\s\S]{0,4000}?g\.approved_at is not null and g\.revoked_at is null\) as children/.test(srcCode('app/home/page.tsx'))],
+     /'photo', c\.photo_path,[\s\S]{0,4000}?g\.guardian_id = p\.id and fn_guardian_controls\(p\.id, c\.id\)\) as children/.test(srcCode('app/home/page.tsx'))],
     [null, true]);
 
   // The move of the public copies: which paths, and every row repointed.
@@ -14171,7 +14172,8 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check('E16: a 16–17’s guardian presses Renew or Replace on /g/controls with valid ids — the database (fn_record_author) refuses both: no token is created or extended, nothing is logged, and the press goes home exactly as a stranger’s does',
     [replaced16, renewed16, await tokState(REC.nate), (await evCount()) - e0, await readTok(sha('e16-guardian-made')),
      ['replaceLink', 'renewLink'].map((f) => /if \(rows\[0\]\?\.ok !== true\) redirect\('\/home'\);/.test(ctlFn(f)) && !/insert into share_token|update share_token/.test(ctlFn(f))),
-     /if \(rows\.length === 0\) redirect\('\/home'\); \/\/ not yours/.test(srcOf('app/g/controls/[childId]/actions.ts'))],
+     // MOVED (0177): assertGuardian asks fn_guardian_controls; the answer is unchanged.
+     /if \(rows\[0\]\?\.ok !== true\) redirect\('\/home'\); \/\/ not yours/.test(srcOf('app/g/controls/[childId]/actions.ts'))],
     [false, false, t0, 0, null, [true, true], true]);
   const ivyU = await keptKid('Una', yearsAgo(13));
   await linkFor(ivyU);
@@ -14304,6 +14306,213 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     [['+61400818181', '+61400818181', '+61400818181', '+61400818181', '03 9876 5432', '+61400818181', '03 9876 5432'],
      ['0176: wrote n invitation number(s) and n text address(es) as E.n; n and n did not normalise and were left on their clocks.'], false,
      1, [], undefined, '']);
+}
+
+// ---------------------------------------------------------------------------
+// An adult's parent controls nothing, and a re-grant shows the record only
+// (0177; John, 3 Oct, JOHN-to-LEO-adult-guardian-3-oct.md; doc 14 A5, G12,
+// G13). The link a parent was approved on is never revoked at 18 (the expiry
+// is computed, D-49), so every gate that asked only "approved and not
+// revoked" kept handing an adult's parent the controls: the erasure, the
+// timeline, who-looked, and every /g/controls action. Each check red on
+// da07100 (report: build/adult-guardian-hotfix).
+//   ag-1: 15, 17, 18 — the controls by age (E16 holds for the 17)
+//   ag-2: the 18+ parent's erasure and the two reads
+//   ag-3: the birthday at Melbourne midnight, no job run (G7, G9)
+//   ag-4: a re-grant reads the record and nothing else
+//   ag-5: only fn_read_level reads a re-grant
+// ---------------------------------------------------------------------------
+{
+  const rowsOf = async (sql, args = []) => { try { return (await db.query(sql, args)).rows; } catch (e) { return [{ error: String(e.message).slice(0, 90) }]; } };
+  const one = async (sql, args = []) => (await rowsOf(sql, args))[0];
+  // A call that writes, in a transaction that is always rolled back: what it
+  // answered, and whether it raised.
+  const tryWrite = async (sql, args) => {
+    await db.exec('begin');
+    try { const r = (await db.query(sql, args)).rows[0]; return r ? Object.values(r)[0] : 'ran'; }
+    catch (e) { return 'refused'; }
+    finally { await db.exec('rollback'); }
+  };
+  const report = crypto.randomUUID();
+  await db.query(`insert into report (id, subject_kind, subject_ref, reason) values ($1,'club_page','riverside-fc','ag fixture')`, [report]);
+  // A parent, proved, with one child; the child's record, a live link made
+  // by the parent, one dispatched send on it, a registration, a consent row
+  // and one logged look by an investigator — so every read below has a row
+  // to return, and "nothing" cannot pass by being empty.
+  const family = async (name, dob, { register = true } = {}) => {
+    const parent = crypto.randomUUID(), kid = crypto.randomUUID(), rec = crypto.randomUUID(), tok = crypto.randomUUID(), grant = crypto.randomUUID();
+    await db.query(`insert into person (id, first_name, last_name, dob) values ($1,$2,'Fixture',$3), ($4,$5,'Fixture','1976-04-04')`,
+      [kid, name, dob, parent, `${name}'s parent`]);
+    await db.query(`update person set email = $2 where id = $1`, [parent, `${name.toLowerCase()}.parent@fixture.example`]);
+    await proveAddress(parent);
+    await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now() - interval '3 years')`, [parent, kid]);
+    await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CB'])`, [rec, kid]);
+    // Issued by whoever may issue it today (share_token_issuer_entitled): the
+    // parent for a child, the adult for themself.
+    const adultNow = (await db.query(`select fn_age_band($1::date) = '18plus' as a`, [dob])).rows[0].a;
+    await db.query(`insert into share_token (id, record_id, token_hash, issued_by, issued_at, expires_at) values ($1,$2,$3,$4, now() - interval '10 days', now() + interval '80 days')`,
+      [tok, rec, sha(`ag-${kid}`), adultNow ? kid : parent]);
+    await db.query(`insert into consent_event (event, actor_id, subject_id, detail) values ('share_dispatched',$1,$2,
+      jsonb_build_object('club_name','Riverside FC','recipient','registrar@riverside.example','token_id',$3::uuid,'band_at_send','16_17'))`, [parent, kid, tok]);
+    let reg = null;
+    if (register) reg = (await db.query(`insert into registration (player_id, club_id, policy_version) values ($1,$2,'20@v2.4') returning id`, [kid, CLUB.riverside])).rows[0].id;
+    await db.query(`insert into investigation_grant (id, report_id, investigator_id, subject_id, expires_at) values ($1,$2,$3,$4, now() + interval '7 days')`, [grant, report, ID.td, kid]);
+    await db.query(`insert into investigation_access (grant_id, what) values ($1,'send rows')`, [grant]);
+    return { parent, kid, rec, tok, reg, name };
+  };
+  const reads = async (viewer, f) => [
+    (await rowsOf('select * from fn_consent_timeline($1,$2)', [viewer, f.kid])).filter((r) => !r.error).length > 0,
+    (await rowsOf('select * from fn_who_looked($1,$2)', [viewer, f.kid])).filter((r) => !r.error).length > 0,
+    (await rowsOf('select * from fn_send_log($1,$2)', [viewer, f.kid])).filter((r) => !r.error).length > 0,
+    (await rowsOf('select * from fn_register_readers($1,$2)', [viewer, f.kid])).filter((r) => !r.error).length > 0,
+    // A viewer's own facts carry no subject; a child's carry the child's name.
+    (await rowsOf(`select * from fn_return_facts($1, now() - interval '1 year')`, [viewer]))
+      .filter((r) => !r.error && r.kind === 'link_expiry' && r.subject === (viewer === f.kid ? null : f.name)).length > 0];
+  // What a refused call may not touch, counted around it.
+  const footprint = async (f) => (await one(`select
+      (select count(*) from share_token st where st.record_id = $2 and st.revoked_at is null and st.paused = false)::int as links,
+      (select count(*) from guardian_setting where child_id = $1)::int as settings,
+      (select count(*) from consent_event where subject_id = $1)::int as events,
+      (select count(*) from person where id = $1)::int as person`, [f.kid, f.rec]));
+
+  const k15 = await family('Agnes', yearsAgo(15), { register: false });
+  const k17 = await family('Aurelio', yearsAgo(17));
+  const a18 = await family('Adaeze', yearsAgo(18, -3));
+
+  // ---- ag-1 · the controls, by age, for a parent with no re-grant ----------
+  const controls = async (f) => [
+    (await one('select fn_guardian_controls($1,$2) as ok', [f.parent, f.kid]))?.ok ?? 'missing',
+    await tryWrite('select fn_guardian_renew_link($1,$2) as ok', [f.parent, f.rec]),
+    await tryWrite('select fn_guardian_replace_link($1,$2,$3,$4) as ok', [f.parent, f.rec, sha(`ag-new-${f.kid}`), 'ag··']),
+    f.reg ? await tryWrite('select fn_withdraw_registration($1,$2) as ok', [f.parent, f.reg]) : 'n/a',
+    await tryWrite('select fn_erase_child($1,$2)', [f.parent, f.kid])];
+  const before18 = await footprint(a18);
+  const byAge = [await controls(k15), await controls(k17), await controls(a18)];
+  check('ag-1: a parent with no re-grant, by age — under 16 every control works; 16–17 every one but Renew and Replace (E16); 18+ none: fn_guardian_controls says no, the erasure is refused, renew, replace and withdraw answer false, and no row moves in share_token, guardian_setting, consent_event or person (G12; John, 3 Oct)',
+    [byAge, JSON.stringify(await footprint(a18)) === JSON.stringify(before18)],
+    [[[true, true, true, 'n/a', ''], [true, false, false, true, ''], [false, false, false, false, 'refused']], true]);
+
+  // The app's half (a server action is a public endpoint, D-94 §3): every
+  // /g/controls action passes assertGuardian before it writes, and
+  // assertGuardian asks the database's one answer and nothing else.
+  const ctlSrc = codeOnly(srcOf('app/g/controls/[childId]/actions.ts'));
+  const assertBody = ctlSrc.slice(ctlSrc.indexOf('async function assertGuardian('), ctlSrc.indexOf('async function assertChildsRecord('));
+  const exported = [...ctlSrc.matchAll(/export async function (\w+)\(formData: FormData\) \{([\s\S]*?)\n\}/g)];
+  const gatedFirst = exported.map(([, n, body]) => [n, body.indexOf('await assertGuardian(childId)') >= 0
+    && body.indexOf('await assertGuardian(childId)') < Math.min(...['db.query', 'switchOffOneLink', 'db.connect'].map((w) => (body.indexOf(w) + 1 || Infinity) - 1))]);
+  check('ag-1s: every /g/controls action asks assertGuardian before it touches anything, and assertGuardian asks fn_guardian_controls and nothing else',
+    [gatedFirst.length, gatedFirst.filter(([, ok]) => !ok).map(([n]) => n),
+     /select fn_guardian_controls\(\$1, \$2\) as ok/.test(assertBody), /guardianship_link/.test(assertBody)],
+    [6, [], true, false]);
+  // John's condition 5: /home and every /g/* route ask the same answer. No
+  // door a guardian walks through joins the link on the session person.
+  const gFiles = tsSourceFiles().filter((f) => f.startsWith('app/g/') || f === 'lib/interest-dispatch.ts');
+  const ownJoin = gFiles.filter((f) => /guardianship_link[\s\S]{0,160}?guardian_id\s*=\s*\$\d/.test(codeOnly(srcOf(f))));
+  const asks = ['app/g/controls/[childId]/page.tsx', 'app/g/card/[cardId]/page.tsx', 'app/g/card/[cardId]/actions.ts', 'app/g/card/[cardId]/image/route.tsx',
+    'app/g/send/[requestId]/page.tsx', 'app/g/send/[requestId]/actions.ts', 'app/g/interest/[requestId]/page.tsx', 'lib/interest-dispatch.ts', 'app/home/page.tsx']
+    .filter((f) => !/fn_guardian_controls\(/.test(codeOnly(srcOf(f))));
+  check(`ag-1g: /home and every /g/* door ask fn_guardian_controls, and none joins the guardian link on the session person itself (${ownJoin.join(', ') || 'none'})`,
+    [ownJoin, asks], [[], []]);
+
+  // ---- ag-2 · the 18+ parent: the erasure and the two reads ----------------
+  check('ag-2: the parent of an 18-year-old (no re-grant) calls fn_erase_child, fn_consent_timeline and fn_who_looked — the erasure raises and the person still exists; both reads return no rows, while the adult reads both of their own (G12, G13)',
+    [await tryWrite('select fn_erase_child($1,$2)', [a18.parent, a18.kid]), (await footprint(a18)).person,
+     (await reads(a18.parent, a18)).slice(0, 2), (await reads(a18.kid, a18)).slice(0, 2)],
+    ['refused', 1, [false, false], [true, true]]);
+  check('ag-2b: and the adult themself still does everything — acts on their own record, reads all five logs, withdraws their own registration and sends',
+    [(await one('select fn_record_actor($1,$2) as a', [a18.kid, a18.rec])).a, await reads(a18.kid, a18),
+     await tryWrite('select fn_withdraw_registration($1,$2) as ok', [a18.kid, a18.reg]),
+     (await one('select fn_can_dispatch($1,$2) as ok', [a18.kid, a18.rec])).ok],
+    ['self', [true, true, true, true, true], true, true]);
+  check('ag-2c: and an under-18’s parent is unchanged — acts as guardian, reads the timeline, who-looked, the send log and the register readers, and can still erase',
+    [(await one('select fn_record_actor($1,$2) as a', [k15.parent, k15.rec])).a, (await one('select fn_record_actor($1,$2) as a', [k17.parent, k17.rec])).a,
+     (await reads(k15.parent, k15)).slice(0, 3), (await reads(k17.parent, k17)).slice(0, 4),
+     await tryWrite('select fn_erase_child($1,$2)', [k17.parent, k17.kid])],
+    ['guardian', 'guardian', [true, true, true], [true, true, true, true], '']);
+
+  // ---- ag-3 · the birthday, at Melbourne midnight, no job run (G7, G9) -----
+  // Born 10 Oct 2008: eighteen at 00:00 on 10 Oct 2026 in Melbourne (AEDT,
+  // UTC+11), which is 13:00 UTC on 9 Oct — still seventeen in UTC. The clock
+  // is frozen either side of it; nothing runs between.
+  const bday = await family('Ambrose', '2008-10-10');
+  const at = async (instant) => {
+    await db.exec('begin');
+    try {
+      await db.exec(`create schema frozen_clock;
+        create function frozen_clock.now() returns timestamptz language sql as $$ select '${instant}'::timestamptz $$;
+        set local search_path = frozen_clock, pg_catalog, public;`);
+      // Each call in its own savepoint, so code without fn_guardian_controls
+      // answers 'missing' here instead of aborting the transaction.
+      const guarded = async (sql, args, pick, onError) => {
+        await db.exec('savepoint s');
+        try { return pick((await db.query(sql, args)).rows); } catch { return onError; } finally { await db.exec('rollback to savepoint s'); }
+      };
+      const band = await guarded('select fn_age_band(dob) as b from person where id = $1', [bday.kid], (r) => r[0].b, 'missing');
+      const ok = await guarded('select fn_guardian_controls($1,$2) as ok', [bday.parent, bday.kid], (r) => r[0].ok, 'missing');
+      const tl = await guarded('select count(*)::int as n from fn_consent_timeline($1,$2)', [bday.parent, bday.kid], (r) => r[0].n > 0, 'missing');
+      const erase = await guarded('select fn_erase_child($1,$2)', [bday.parent, bday.kid], () => '', 'refused');
+      return [band, ok, tl, erase];
+    } finally { await db.exec('rollback'); }
+  };
+  check('ag-3: the clock passes the 18th birthday at Melbourne midnight with no job run — at 23:59:30 the parent still holds the controls and the timeline; at 00:00:30 (still the 9th in UTC) the erasure is refused and the timeline is empty (G7, G9)',
+    [await at('2026-10-09T12:59:30Z'), await at('2026-10-09T13:00:30Z'), (await one(`select count(*)::int as n from pg_namespace where nspname = 'frozen_clock'`)).n],
+    [['16_17', true, true, ''], ['18plus', false, false, 'refused'], 0]);
+
+  // ---- ag-4 · a re-grant: the record, and nothing else ---------------------
+  const rg = await family('Anouk', yearsAgo(19));
+  await db.query(`update guardianship_link set regranted_at = now() where guardian_id = $1 and child_id = $2`, [rg.parent, rg.kid]);
+  check('ag-4: the adult re-grants — the parent reads the record in full, fn_record_actor does not make them a guardian (so /build and every family write refuses them), all five logs return nothing, and every control is still refused (G12, G13)',
+    [(await one('select fn_read_level($1,$2) as l', [rg.parent, rg.kid])).l, (await one('select fn_record_actor($1,$2) as a', [rg.parent, rg.rec])).a,
+     await reads(rg.parent, rg), await controls(rg)],
+    ['full', null, [false, false, false, false, false], [false, false, false, false, 'refused']]);
+  // The page itself (/build, /g/pending) asks fn_record_author (0169), which
+  // never named a re-granted guardian; the other family writes — register
+  // interest, the share card, a send — ask fn_record_actor through
+  // requireRecordActor, and that is what the re-grant used to open.
+  const guard = codeOnly(srcOf('lib/record-guard.ts'));
+  const actorWrites = ['app/register-interest/[recordId]/actions.ts', 'app/share-card/[recordId]/actions.ts', 'app/send/[recordId]/actions.ts']
+    .map((f) => /requireRecordActor\(/.test(codeOnly(srcOf(f))));
+  check('ag-4b: so a re-granted parent writes nothing — the page (/build) asks fn_record_author, which names them nobody, and register interest, the share card and a send ask fn_record_actor through lib/record-guard, which no longer names them a guardian',
+    [(await one('select fn_record_author($1,$2) as a', [rg.parent, rg.rec])).a, /select fn_record_actor\(\$1,\$2\) as actor/.test(guard), actorWrites,
+     (await one('select fn_record_actor($1,$2) as a', [rg.parent, rg.rec])).a],
+    [null, true, [true, true, true], null]);
+
+  // ---- ag-5 · only fn_read_level reads a re-grant (static) -----------------
+  const regrantReaders = (await db.query(`select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.prosrc like '%regranted_at%' order by 1`)).rows.map((r) => r.proname);
+  check(`ag-5: fn_read_level is the only database function that reads regranted_at (${regrantReaders.join(', ')}) — a re-grant restores the record and nothing else (G13)`,
+    regrantReaders, ['fn_read_level']);
+
+  // ---- agc · the count BUZ runs first (John §3) ----------------------------
+  // The script's own queries, run here read-only before and after one case of
+  // each kind is added (and rolled back): an adult with a live link to a
+  // parent who paused their page and issued a link after the birthday, one
+  // who-looked row, and one guardian erasure whose subject is then gone.
+  const ag = await import('../scripts/count-adult-guardian-links.mjs');
+  const countNow = async () => {
+    await db.exec('begin read only');
+    try { return await ag.adultGuardianCounts((sql) => db.query(sql)); } finally { await db.exec('rollback'); }
+  };
+  const c0 = await countNow();
+  await db.exec('begin');
+  let c1;
+  try {
+    const x = await family('Aksel', yearsAgo(18, -2));
+    await db.query(`insert into guardian_setting (child_id, profile_paused, updated_by) values ($1, true, $2)`, [x.kid, x.parent]);
+    await db.query(`insert into consent_event (event, actor_id, subject_id, detail) values ('share_paused',$1,$2,'{"paused":true}')`, [x.parent, x.kid]);
+    await db.query(`update share_token set issued_by = $2, issued_at = now() where id = $1`, [x.tok, x.parent]);
+    await db.query('select fn_erase_child($1,$2)', [k15.parent, k15.kid]);
+    c1 = await ag.adultGuardianCounts((sql) => db.query(sql));
+  } finally { await db.exec('rollback'); }
+  const d = (path) => path.split('.').reduce((o, k) => o?.[k] ?? 0, c1) - path.split('.').reduce((o, k) => o?.[k] ?? 0, c0);
+  const scriptSrc = codeOnly(srcOf('scripts/count-adult-guardian-links.mjs'));
+  const printed = ag.report(c1).join('\n');
+  check('agc: the count finds what it is for — one more adult and link exposed, one pause by a guardian after 18 (as an event and as a changed setting), one link issued by them, one more adult with who-looked rows, one more erasure of unknown age (never zero) — re-grants unchanged; read-only, numbers only, never an id, an address or a name',
+    [d('exposure.adults'), d('exposure.links'), d('exposure.regranted'), d('events.share_paused'), d('onRow.settingsChanged'), d('onRow.linksIssued'),
+     d('whoLooked'), d('erasures.unknownAge'),
+     /await client\.query\('begin read only'\)/.test(scriptSrc), /\b(insert into|update \w+ set|delete from)\b/i.test(scriptSrc),
+     /[0-9a-f]{8}-[0-9a-f]{4}-|@|Aksel|Agnes/.test(printed)],
+    [1, 1, 0, 1, 1, 1, 1, 1, true, false, false]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

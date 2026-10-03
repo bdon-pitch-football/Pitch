@@ -33,9 +33,7 @@ export default async function GuardianSend({ params, searchParams }: {
      from share_request sr
      join development_record dr on dr.id = sr.record_id
      join person p on p.id = dr.person_id
-     join guardianship_link g on g.child_id = p.id and g.guardian_id = $2
-       and g.approved_at is not null and g.revoked_at is null
-     where sr.id = $1`,
+     where sr.id = $1 and fn_guardian_controls($2, p.id)  -- 0177: never an adult's parent`,
     [requestId, me],
   );
   if (rows.length === 0) notFound();

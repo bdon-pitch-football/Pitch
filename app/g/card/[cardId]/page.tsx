@@ -33,9 +33,7 @@ export default async function CardApproval({ params, searchParams }: {
      from share_card_approval sca
      join development_record dr on dr.id = sca.record_id
      join person p on p.id = dr.person_id
-     join guardianship_link g on g.child_id = p.id and g.guardian_id = $2
-       and g.approved_at is not null and g.revoked_at is null
-     where sca.id = $1`,
+     where sca.id = $1 and fn_guardian_controls($2, p.id)  -- 0177: never an adult's parent`,
     [cardId, me],
   );
   if (rows.length === 0) notFound();

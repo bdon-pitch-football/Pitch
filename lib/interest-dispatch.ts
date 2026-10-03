@@ -8,8 +8,8 @@
 // themselves on /register-interest — and both doors call this, so what the
 // club's register and the parent's log receive cannot differ between them.
 //
-// Standing is re-checked HERE, under the row lock: an approved, unrevoked
-// guardian of this child, a child their parents have not paused (L18: a
+// Standing is re-checked HERE, under the row lock: a guardian who acts for
+// this child (fn_guardian_controls, 0177 — so never once they are 18), a child their parents have not paused (L18: a
 // request a pause lands on cannot be dispatched, whichever door it came
 // through; safety review N-3), and a request not already dispatched. Returns the
 // registration id, or null for every way it cannot happen — not yours,
@@ -24,9 +24,10 @@ export async function dispatchInterestRequest(client: PoolClient, requestId: str
        rr.trial_notice_id, (select tn.trial_on from trial_notice tn where tn.id = rr.trial_notice_id) as trial_on
      from registration_request rr
      join development_record dr on dr.id = rr.record_id
-     join guardianship_link g on g.child_id = dr.person_id and g.guardian_id = $2
-       and g.approved_at is not null and g.revoked_at is null
      where rr.id = $1 and rr.dispatched_at is null
+       -- 0177: a guardian who acts for this child — never an adult's parent,
+       -- even holding a request the child made before 18 (D-49, P15).
+       and fn_guardian_controls($2, dr.person_id)
        and not coalesce((select gs.profile_paused from guardian_setting gs where gs.child_id = dr.person_id), false)
      for update of rr`,
     [requestId, guardianId],

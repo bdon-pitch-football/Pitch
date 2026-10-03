@@ -1381,6 +1381,28 @@ for (const r of (await db.query(`select id from person where email is not null a
   }
 }
 
+// An adult whose parent is still linked (0177, doc 14 G12; John, 3 Oct).
+// Lachlan turned 18 three days ago in Melbourne. Ruth approved him at
+// fifteen and has not been re-granted; the link is approved and unrevoked,
+// as every real one is the morning after an 18th birthday, because the
+// expiry is computed and never stored (D-49). The link to his CV was made
+// before the birthday and stays live (G6). The write suite presses every
+// /g/controls action as Ruth on Lachlan and expects nothing to happen.
+if (!DEMO) {
+  const lachlan = randomUUID(), ruth = randomUUID(), lachlanRec = randomUUID();
+  await db.query(
+    `insert into person (id, first_name, last_name, dob, email) values
+       ($1,'Lachlan','Fixture',((now() at time zone 'Australia/Melbourne')::date - interval '18 years' - interval '3 days')::date,'lachlan@example.com'),
+       ($2,'Ruth','Fixture','1976-04-04','ruth@example.com')`,
+    [lachlan, ruth]);
+  await proveAddress(lachlan);
+  await proveAddress(ruth);
+  await db.query(`insert into guardianship_link (guardian_id, child_id, approved_at) values ($1,$2, now() - interval '3 years')`, [ruth, lachlan]);
+  await db.query(`insert into development_record (id, person_id, positions) values ($1,$2,array['CB'])`, [lachlanRec, lachlan]);
+  await db.query(`insert into share_token (record_id, token_hash, issued_by, issued_at, expires_at) values ($1,$2,$3, now() - interval '10 days', now() + interval '80 days')`,
+    [lachlanRec, sha('dev-lachlan'), ruth]);
+}
+
 console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')} dev-expired dev-revoked`);
 // Person ids, because the signed-in surfaces are the ones you cannot reach
 // with a plain URL and every reseed mints fresh uuids.
@@ -1454,9 +1476,18 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
       // Trials board v2's Westgate and Kestrelford fixtures, and the open-now
       // ones (above): the write suite removes them before its sweep (L32).
       boardV2Notices,
+      // Lachlan is G12's fixture, not a sender for the timing suite.
       adultPlayers: (await db.query(
         `select p.id as person_id, dr.id as record_id from person p join development_record dr on dr.person_id = p.id
-         where p.dob is not null and fn_age_band(p.dob) = '18plus' order by p.first_name, p.id`)).rows,
+         where p.dob is not null and fn_age_band(p.dob) = '18plus' and p.email is distinct from 'lachlan@example.com'
+         order by p.first_name, p.id`)).rows,
+      // G12 (0177): an adult whose parent is still linked. The write suite
+      // presses every /g/controls action as Ruth on Lachlan.
+      adultGuardian: (await db.query(
+        `select c.id as adult, g.guardian_id as parent, dr.id as record_id,
+                (select st.id from share_token st where st.record_id = dr.id and st.revoked_at is null limit 1) as token_id
+           from person c join guardianship_link g on g.child_id = c.id join development_record dr on dr.person_id = c.id
+          where c.email = 'lachlan@example.com'`)).rows[0] ?? null,
     }, null, 2) + '\n',
   );
 }

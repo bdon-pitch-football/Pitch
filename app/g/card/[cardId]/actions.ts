@@ -29,9 +29,8 @@ export async function approveCard(formData: FormData) {
      from share_card_approval sca
      join development_record dr on dr.id = sca.record_id
      join person c on c.id = dr.person_id
-     join guardianship_link g on g.child_id = c.id and g.guardian_id = $2
-       and g.approved_at is not null and g.revoked_at is null
-     where sca.id = $1 and sca.approved_at is null`,
+     where sca.id = $1 and sca.approved_at is null
+       and fn_guardian_controls($2, c.id)  -- 0177: never an adult's parent`,
     [cardId, me],
   );
   if (rows.length === 0) redirect('/home');

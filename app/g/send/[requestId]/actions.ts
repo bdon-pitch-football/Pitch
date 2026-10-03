@@ -61,9 +61,8 @@ export async function dispatchSend(formData: FormData) {
   const stopped = !done && isUuid(requestId) && (await db.query(
     `select fn_send_blocked(sr.destination) as b from share_request sr
      join development_record dr on dr.id = sr.record_id
-     join guardianship_link g on g.child_id = dr.person_id and g.guardian_id = $2
-       and g.approved_at is not null and g.revoked_at is null
-     where sr.id = $1 and sr.dispatched_at is null`,
+     where sr.id = $1 and sr.dispatched_at is null
+       and fn_guardian_controls($2, dr.person_id)  -- 0177: never an adult's parent`,
     [requestId, guardianId],
   )).rows[0]?.b === true;
   await answerNoSoonerThan(startedAt);

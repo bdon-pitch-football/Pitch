@@ -56,7 +56,7 @@ The core table. **Read as: this actor, on a player in this age band, gets this.*
 | A2 | `token` (live) | Public CV | Public CV | Public CV |
 | A3 | `token` (expired / disabled / regenerated / never existed) | **Link-state page. Identical body and identical timing in all four cases** (D-77) | Same | Same |
 | A4 | `self` | Own full record | Own full record | Own full record |
-| A5 | `guardian` | Full record + consent log | Full record + consent log | **Nothing** unless the adult re-granted (D-49) |
+| A5 | `guardian` | Full record + consent log | Full record + consent log | **Nothing**: no read, no control, no consent log, no who-looked. **If the adult re-granted (D-49): the full record and their season, read only** (G12, G13) |
 | A6 | `ex_guardian` | **Nothing** | **Nothing** | **Nothing** |
 | A7 | `coach_own_v` | Full record | Full record | Full record |
 | A8 | `coach_own_u` | **Nothing.** Verification is a gate, not a badge (D-22, D-28) | **Nothing** | Public CV only |
@@ -192,6 +192,8 @@ The core table. **Read as: this actor, on a player in this age band, gets this.*
 | G7 | Transition job fails to run | **Fail closed.** The read-time derivation is authoritative; a missed job must never grant access the band would not |
 | G8 | Leap-year birthday, 29 Feb | Transition fires on 28 Feb in non-leap years. One test, because it will otherwise be found in production |
 | G9 | Timezone | All transitions evaluate in **Australia/Melbourne**, not UTC. A Sydney player must not become 16 an hour early or a day late |
+| G12 | 18+, `guardian` (re-granted or not) calls any control: erase, make, renew, replace or switch off a link, pause, the send switch, discoverability, withdraw a registration, write the page | **Denied**, by the database and by every server action, with the same not-found as a stranger. Nothing is created, changed or logged. At 18 the record is the adult's alone (D-49, matrix; John, 3 Oct) |
+| G13 | 18+, a re-granted `guardian` reads | **The record only:** `fn_read_level` full, and `/season` (A29). `fn_consent_timeline`, `fn_who_looked`, `fn_send_log`, `fn_return_facts` and `fn_register_readers` return nothing. Without a re-grant, all of them return nothing, and so does `fn_read_level` (John, 3 Oct; D-49, J-4) |
 
 ---
 

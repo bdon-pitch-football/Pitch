@@ -38,9 +38,7 @@ export default async function GuardianInterest({ params, searchParams }: {
      join development_record dr on dr.id = rr.record_id
      join person p on p.id = dr.person_id
      join club c on c.id = rr.club_id
-     join guardianship_link g on g.child_id = p.id and g.guardian_id = $2
-       and g.approved_at is not null and g.revoked_at is null
-     where rr.id = $1`,
+     where rr.id = $1 and fn_guardian_controls($2, p.id)  -- 0177: never an adult's parent`,
     [requestId, me],
   );
   if (rows.length === 0) notFound();
