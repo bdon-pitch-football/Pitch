@@ -2,9 +2,9 @@
 // and records what it applied — so the same file is never run twice and an
 // edited file is never silently skipped. (release, 22 Sep)
 //
-//   node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/prod-ca.crt            # plan only
-//   node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/prod-ca.crt --apply    # do it
-//   node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/prod-ca.crt --fingerprint
+//   node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/rehearsal-ca.crt            # plan only
+//   node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/rehearsal-ca.crt --apply    # do it
+//   node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/rehearsal-ca.crt --fingerprint
 //   node scripts/apply-migrations.mjs --local-fingerprint     # the same fingerprint from PGlite, for comparison
 //   ... --baseline-waitlist   # production only: 0001 was run by hand on 3 Sep; record it, run 0002 onward
 //

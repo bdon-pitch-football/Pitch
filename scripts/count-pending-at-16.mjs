@@ -3,7 +3,7 @@
 // have, their pages are showing unreviewed content now. Fix those first, and
 // tell me the number."). BUZ runs it against production BEFORE 0174 goes on.
 //
-//   node --env-file=.env.production-db.local scripts/count-pending-at-16.mjs --ca supabase/prod-ca.crt
+//   node --env-file=.env.production-db.local scripts/count-pending-at-16.mjs --ca supabase/rehearsal-ca.crt
 //   ... --since 2026-09-30     # the Melbourne date to count from (default: launch, 30 Sep)
 //
 // Plans only. It runs one read-only transaction, changes nothing, and prints

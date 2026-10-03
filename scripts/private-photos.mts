@@ -4,8 +4,8 @@
 // uploaded before it, which sit in the public bucket at a permanent address
 // that switching a link off never stopped.
 //
-//   node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/private-photos.mts --ca supabase/prod-ca.crt            # plan only
-//   node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/private-photos.mts --ca supabase/prod-ca.crt --apply    # do it
+//   node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/private-photos.mts --ca supabase/rehearsal-ca.crt            # plan only
+//   node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/private-photos.mts --ca supabase/rehearsal-ca.crt --apply    # do it
 //
 // The env file holds the database URL, the project URL, the service-role key
 // and SUPABASE_PRIVATE_BUCKET. This file never reads the key: every bucket

@@ -146,7 +146,7 @@ None added or removed. The dev-only `/private-photo` route answers "Not found" w
 3. **Push/deploy.** If the bucket or the variable is missing, under-18 uploads answer "That file didn't work" and photos show as initials.
 4. **Straight after the deploy:**
    ```
-   node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/private-photos.mts --ca supabase/prod-ca.crt
+   node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.production-db.local scripts/private-photos.mts --ca supabase/rehearsal-ca.crt
    ```
    - The env file needs `SUPABASE_DB_URL`, `NEXT_PUBLIC_SUPABASE_URL`, the service-role key and `SUPABASE_PRIVATE_BUCKET`.
    - Run it again with `--apply`, then once more as a plan, which must read 0.

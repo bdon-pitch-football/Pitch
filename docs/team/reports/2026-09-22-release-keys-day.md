@@ -201,7 +201,7 @@ For BUZ, readable on its own. **BUZ** = you, in a browser or on your phone. **LE
    *Verified when:* Project Settings → General shows Sydney, and Database → Backups shows point-in-time recovery enabled.
 4. **BUZ · Supabase (staging), only if Leo chose it for R2.** Same again, named `pitch-staging`, Sydney, free plan, no add-ons.
 5. **BUZ · Supabase settings (on each project).**
-   - Database → SSL Configuration: switch on **Enforce SSL**, then **Download certificate**. Save it as `supabase/prod-ca.crt` in the repo folder. It's a public certificate, not a key.
+   - Database → SSL Configuration: switch on **Enforce SSL**, then **Download certificate**. Save it as `supabase/rehearsal-ca.crt` in the repo folder. It's a public certificate, not a key.
    - Storage → New bucket `public-images`, **Public** on.
    - Settings → API: check that exposed schemas is `public` only.
 6. **BUZ · Stripe, in test mode.**
@@ -227,13 +227,13 @@ For BUZ, readable on its own. **BUZ** = you, in a browser or on your phone. **LE
    *Verified by LEO:* `git check-ignore -v .env.keysday.local` names the `.env*.local` rule, and `node scripts/secret-scan.mjs` says no secrets.
 9. **LEO · migrations.**
    - Plan (changes nothing):
-     `node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/prod-ca.crt`
+     `node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/rehearsal-ca.crt`
      Expect: `Postgres 17.x` (or whatever Supabase gives), `applied: 0 · pending: 54` (53 plus the R1 fix), and a list of files. This also proves TLS works with the certificate checked.
    - **BUZ says "apply".** Then LEO runs the same command with `--apply`.
      Expect: one `OK` per file, then `done`. On any `FAIL`, that file rolled back. Stop and report. Nothing is retried by hand.
 10. **LEO · the schema matches what the suites tested.**
     `node scripts/apply-migrations.mjs --local-fingerprint` and
-    `node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/prod-ca.crt --fingerprint`
+    `node --env-file=.env.keysday.local scripts/apply-migrations.mjs --ca supabase/rehearsal-ca.crt --fingerprint`
     Expect: the same hash. If they differ, run both with `--dump`, diff them, and explain every line. Known suspects: how Postgres 17 prints some definitions, and `extensions.gen_random_bytes` in the waitlist default. Also check that every `rls|` line ends `:true`.
 11. **LEO · the suites against the real database.**
     - Without staging: `npm run test:perms` locally. That proves the schema, and step 10 proves the live schema is the same one.
