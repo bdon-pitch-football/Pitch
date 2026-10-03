@@ -14451,10 +14451,10 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
      await tryWrite('select fn_withdraw_registration($1,$2) as ok', [a18.kid, a18.reg]),
      (await one('select fn_can_dispatch($1,$2) as ok', [a18.kid, a18.rec])).ok],
     ['self', [true, true, true, true, true], true, true]);
-  // ag-2d (safety review B1, 4 Oct): the share-card gate asked fn_can_dispatch,
-  // which after F1 answers a 16–17 alone, so nobody could approve a 16–17's
-  // card. Doc 14 §Q: an under-18 card is approved by a guardian. Each try is
-  // its own transaction, rolled back, so nothing here moves the fixtures.
+  // ag-2d (safety review B1, 4 Oct): the share-card gate asked fn_can_dispatch
+  // alone, which after F1 never answers a 16–17's guardian, so the parent's
+  // press on /g/card raised. The card keeps what it had before F1 (doc 14 §Q,
+  // Q9), less an adult's parent. Each try is its own transaction, rolled back.
   const approveCard = async (f, who, paused = false) => {
     await db.exec('begin');
     try {
@@ -14465,10 +14465,10 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
       return 'approved';
     } catch { return 'refused'; } finally { await db.exec('rollback'); }
   };
-  check('ag-2d: a share card — an under-16’s parent and a 16–17’s parent approve it; the 16–17 themself, an 18-year-old’s parent and a parent whose child’s page is paused cannot (doc 14 §Q; safety review B1)',
+  check('ag-2d: a share card — an under-16’s parent, a 16–17’s parent and the 16–17 themself approve it (Q9); an 18-year-old’s parent and a parent whose child’s page is paused cannot (doc 14 §Q; safety review B1)',
     [await approveCard(k15, k15.parent), await approveCard(k17, k17.parent), await approveCard(k17, k17.kid),
      await approveCard(a18, a18.parent), await approveCard(k15, k15.parent, true)],
-    ['approved', 'approved', 'refused', 'refused', 'refused']);
+    ['approved', 'approved', 'approved', 'refused', 'refused']);
   check('ag-2c: and an under-18’s parent is unchanged — acts as guardian, reads the timeline, who-looked, the send log and the register readers, and can still erase',
     [(await one('select fn_record_actor($1,$2) as a', [k15.parent, k15.rec])).a, (await one('select fn_record_actor($1,$2) as a', [k17.parent, k17.rec])).a,
      (await reads(k15.parent, k15)).slice(0, 3), (await reads(k17.parent, k17)).slice(0, 4),
