@@ -4993,7 +4993,12 @@ if (ids.pendingReview && ids.pendingReviewEmpty) {
   check('ph-3r: the operator’s lookup finds Mila’s invitation from any of the three ways her parent’s number is written, and nothing from a fragment, a prefix, a wildcard or part of an address',
     [forms, partial], [[true, true, true], [false, false, false, false, false, false]]);
   const shown = await lookup('0412 345 678');
-  const outsideTheBox = shown.replace(/<input[^>]*name="q"[^>]*>/g, '');
+  // What the page SHOWS: its markup, without the search box that echoes the
+  // operator's own query and without the framework's script payload, which
+  // carries the address it was asked for (?q=…) and the box's default value —
+  // the query again, never anything read from the invitation. The stored form
+  // is looked for in the whole response, scripts included.
+  const outsideTheBox = shown.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<input[^>]*name="q"[^>]*>/g, '');
   check('ph-5: the lookup screen shows no phone number — the stored +61412345678 appears nowhere on it, no form of the number appears outside the operator’s own search box, and the result is the invitation’s state and the resend',
     [/\+?61\s?412\s?345\s?678|0412\s?345\s?678|412\s?345\s?678/.test(outsideTheBox), shown.includes('+61412345678'), /Waiting on the guardian/.test(results(shown)),
      /Resend the approval request/.test(results(shown))],

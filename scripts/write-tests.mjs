@@ -4595,8 +4595,8 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
 // this one signs him out. In order, because the last part makes Deniz sixteen:
 //   sx-1  a guardian removes, by their own edit, each kind of thing a child adds
 //   E16   what a 16–17's guardian keeps, and the crafted Renew and Replace
-//   ph-2  a text's outbox address is the E.164 form it went to
-//   n5    the clock passes Deniz's sixteenth birthday
+//   n5    the clock passes Georgia's sixteenth birthday
+// (ph-1 and ph-2 pressed: the SMS drill below, sms-w and ph-*w.)
 // ---------------------------------------------------------------------------
 {
   const alex = ids.people.alex, marina = ids.people.marina, nate = ids.children.nate, georgia = ids.children.georgia, deniz = ids.children.deniz;
@@ -4691,7 +4691,12 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
       results.push([kind, Boolean(add) && Boolean(rm) && waited, (await preview()).includes(text), (await review()).includes(text)]);
     }
     const box1 = await box();
-    const sent = box1.slice(0, box1.findIndex((x, i) => box1.slice(i, i + box0.length).join('|') === box0.join('|')));
+    // What was sent since: what the newest fifty hold now beyond what they
+    // held before, counted (the oldest fall off the bottom, so only the new
+    // ones can be in excess).
+    const had = new Map();
+    for (const x of box0) had.set(x, (had.get(x) ?? 0) + 1);
+    const sent = box1.filter((x) => { const n = had.get(x) ?? 0; had.set(x, n - 1); return n <= 0; });
     check('R6/sx-1: for the About, a stat, a clip, an achievement and an other-football entry, a child adds or changes it, it waits, and the guardian removes or reverts it by their own edit — the approved page and the waiting version both lose it; nothing is sent to the child or to any club (only the "edit waiting" email to the guardian)',
       [results, (await review()).includes('Nothing is waiting on you.'), sent.filter((x) => x !== '§30 → guardian@example.com')],
       [[['About', true, false, false], ['a stat', true, false, false], ['a clip', true, false, false], ['an achievement', true, false, false], ['an other-football entry', true, false, false]], true, []]);
@@ -4729,93 +4734,103 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
        linkPart(c1) !== null && linkPart(c1) === linkPart(c0), history(c1) === history(c0)],
       [true, [[303, '/home'], [303, '/home']], [303, '/home'], true, true]);
     // What he keeps: pause (and undo his own pause), the sending switch, and
-    // the per-link switch-off on Nate's send list.
-    const pauseF = forms(c1).find((f) => 'paused' in f.fields), sendF = forms(c1).find((f) => 'sendOff' in f.fields);
-    const paused = pauseF ? await postAs(`/g/controls/${nate.child_id}`, alex, pauseF.fields) : { status: 0 };
-    const nowPaused = words(await nCard()).includes('Nate’s page is paused');
-    const unpauseF = forms(await nCard()).find((f) => 'paused' in f.fields);
-    if (unpauseF) await postAs(`/g/controls/${nate.child_id}`, alex, unpauseF.fields);
-    const live = words(await nCard()).includes('Nate’s page is live');
-    const sent = sendF ? await postAs(`/g/controls/${nate.child_id}`, alex, sendF.fields) : { status: 0 };
-    const off = /Sending is off/.test(words(await nCard()));
-    const sendBack = forms(await nCard()).find((f) => 'sendOff' in f.fields);
-    if (sendBack) await postAs(`/g/controls/${nate.child_id}`, alex, sendBack.fields);
-    // A live link on Nate's send list to switch off: he sends one if none is left.
-    if (!forms(await nCard()).some((f) => 'tokenId' in f.fields)) {
-      const f = forms((await get(`/send/${nate.record_id}?club=kestrelford-athletic-sc`, nate.child_id)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
+    // the per-link switch-off on Nate's send list. Each is read before it is
+    // pressed and after, and put back: earlier blocks may have left either way.
+    const ctl = `/g/controls/${nate.child_id}`;
+    const flip = async (field, said) => {
+      const f = forms(await nCard()).find((x) => field in x.fields);
+      const was = said(words(await nCard()));
+      const r = f ? await postAs(ctl, alex, f.fields) : { status: 0 };
+      const now = said(words(await nCard()));
+      return { status: r.status, was, now };
+    };
+    const pauseA = await flip('paused', (w) => w.includes('Nate’s page is paused'));
+    const pauseB = await flip('paused', (w) => w.includes('Nate’s page is paused'));
+    const sendA = await flip('sendOff', (w) => w.includes('Sending is off'));
+    const sendB = await flip('sendOff', (w) => w.includes('Sending is off'));
+    // Sending on, so Nate can make a live link if none is left to switch off.
+    if (words(await nCard()).includes('Sending is off')) await flip('sendOff', (w) => w.includes('Sending is off'));
+    // A club with an address on its page that no earlier block asked to stop.
+    for (const club of ['westgate-rangers', 'quillhaven-fc', 'brindlewood-rovers-sc']) {
+      if (forms(await nCard()).some((f) => 'tokenId' in f.fields)) break;
+      const f = forms((await get(`/send/${nate.record_id}?club=${club}`, nate.child_id)).html).find((x) => x.visible.some((v) => v.name === 'clubName'));
       if (f) await postAs(`/send/${nate.record_id}`, nate.child_id, { ...f.fields, ...Object.fromEntries(f.visible.filter((v) => v.value !== undefined).map((v) => [v.name, v.value])) });
     }
     const switchF = forms(await nCard()).find((f) => 'tokenId' in f.fields);
-    const switched = switchF ? await postAs(`/g/controls/${nate.child_id}`, alex, switchF.fields) : null;
-    check('E16w2: and Alex keeps what E16 gives him for Nate — pause and its undo, the sending switch, and the per-link switch-off on Nate’s send list all still work',
-      [Boolean(pauseF && sendF), paused.status, nowPaused, live, sent.status, off, switched && [switched.status, switched.location]],
-      [true, 303, true, true, 303, true, [303, `/g/controls/${nate.child_id}?off=1`]]);
+    const switched = switchF ? await postAs(ctl, alex, switchF.fields) : null;
+    check('E16w2: and Alex keeps what E16 gives him for Nate — pause and its undo, the sending switch both ways, and the per-link switch-off on Nate’s send list all still work',
+      [[pauseA.status, pauseA.now !== pauseA.was], [pauseB.status, pauseB.now === pauseA.was], [sendA.status, sendA.now !== sendA.was], [sendB.status, sendB.now === sendA.was],
+       switched && [switched.status, switched.location]],
+      [[303, true], [303, true], [303, true], [303, true], [303, `${ctl}?off=1`]]);
   }
 
-  // ---- ph-2: a text's outbox address is the form it went to ----
+  // ---- n5: the clock passes Georgia's sixteenth birthday ----
+  // Georgia, not Deniz: Deniz's record is erased earlier in this file (bf-erase).
   {
-    const look = (await get(`/ops/support?q=${encodeURIComponent('0412 345 678')}`, marina)).html;
-    const resend = forms(look).find((f) => f.submit.startsWith('Resend the approval request'));
-    if (resend) await postAs(`/ops/support?q=${encodeURIComponent('0412 345 678')}`, marina, resend.fields);
-    const top = (await box()).slice(0, 2);
-    check('ph-2w: the operator resends Mila’s approval request, found by her parent’s number as typed — the text’s outbox row holds +61412345678, the exact string Twilio is handed, and no form of the number as typed',
-      [Boolean(resend), top.filter((x) => x.startsWith('§1 → ')), top.some((x) => /0412|412 345/.test(x))],
-      [true, ['§1 → +61412345678'], false]);
-  }
-
-  // ---- n5: the clock passes Deniz's sixteenth birthday ----
-  {
-    const rec = deniz.record_id, dBuild = `/build/${rec}`;
-    const N5 = 'n5 Deniz’s own change, never approved — must not publish on his birthday.';
-    const tokenWords = async () => words((await get('/p/dev-deniz', null)).html);
-    const printWords = async () => words((await get('/p/dev-deniz/print', null)).html);
-    const og = async () => Buffer.from(await (await fetch(`${BASE}/p/dev-deniz/opengraph-image`)).arrayBuffer());
-    // The club's register row for Deniz, and the squad sheet that holds him.
+    const kid = georgia, rec = kid.record_id, dBuild = `/build/${rec}`;
+    const N5 = 'n5 Georgia’s own change, never approved — must not publish on her birthday.';
+    // A live link to read her page through: earlier blocks replace and switch
+    // off her links, so her parent makes a fresh one (he may: she is fifteen).
+    // Every read below first shows it is her page, not the dead-link page.
+    const replaceF = forms((await get(`/g/controls/${kid.child_id}`, alex)).html).find((f) => f.submit === 'Replace');
+    const made = replaceF ? await postAs(`/g/controls/${kid.child_id}`, alex, replaceF.fields) : { location: '' };
+    const LINK = /[?&]link=([A-Za-z0-9_-]+)/.exec(made.location)?.[1] ?? 'no-link-made';
+    const tokenWords = async () => words((await get(`/p/${LINK}`, null)).html);
+    const printWords = async () => words((await get(`/p/${LINK}/print`, null)).html);
+    const og = async () => Buffer.from(await (await fetch(`${BASE}/p/${LINK}/opengraph-image`)).arrayBuffer());
+    // The club's register row for Georgia, and the squad sheet that holds her.
     const regHtml = (await get('/club/register', marina)).html;
-    const regLink = [...regHtml.matchAll(/href="(\/club\/register\/cv\/[0-9a-f-]{36})[^"]*"/g)]
-      .find((m) => words(regHtml.slice(m.index, m.index + 600)).trim().startsWith('Deniz'))?.[1] ?? null;
+    const regId = [...regHtml.matchAll(/<div id="r-([0-9a-f-]{36})" class="reg-item">/g)]
+      .find((m) => words(regHtml.slice(m.index, m.index + 600)).trim().startsWith('Georgia'))?.[1] ?? null;
+    const regLink = regId ? `/club/register/cv/${regId}` : null;
     const squadsHtml = (await get('/club/squads', marina)).html;
     let squadCv = null;
     for (const m of squadsHtml.matchAll(/href="(\/club\/squads\/[0-9a-f-]{36})"/g)) {
       const h = (await get(m[1], marina)).html;
-      if (h.includes(`/cv/${deniz.child_id}`)) { squadCv = `${m[1]}/cv/${deniz.child_id}`; break; }
+      if (h.includes(`/cv/${kid.child_id}`)) { squadCv = `${m[1]}/cv/${kid.child_id}`; break; }
     }
-    const clubWords = async () => [regLink ? words((await get(regLink, marina)).html) : '', squadCv ? words((await get(squadCv, marina)).html) : ''];
+    // Her register row at Riverside and a squad sheet of Marina's hold her only
+    // while earlier blocks have left them (one withdraws her registration), so
+    // each club CV is read where it exists; the database's own club surfaces
+    // are n5-1 in the permission suite, whatever this file has done before.
+    const clubWords = async () => [...(regLink ? [words((await get(regLink, marina)).html)] : []), ...(squadCv ? [words((await get(squadCv, marina)).html)] : [])];
     const previewWords = async () => words((await get(`${dBuild}/preview`, alex)).html);
     const ogPre = await og();
-    const photoPre = photoKey((await get('/p/dev-deniz', null)).html, rec);
-    // At fifteen, Deniz changes his About and his number and uploads a photo; nobody approves.
-    const kf = await faithful(rec, deniz.child_id);
-    if (kf) await postAs(dBuild, deniz.child_id, { ...kf, about: N5, squadNumber: '91' });
-    await upload(rec, deniz.child_id, { r: 250, g: 200, b: 0 });
-    const hisPhoto = photoKey((await get(dBuild, deniz.child_id)).html, rec);
+    const livePre = (await tokenWords()).includes('Georgia');
+    const photoPre = photoKey((await get(`/p/${LINK}`, null)).html, rec);
+    // At fifteen, Georgia changes her About and her number and uploads a photo; nobody approves.
+    const kf = await faithful(rec, kid.child_id);
+    if (kf) await postAs(dBuild, kid.child_id, { ...kf, about: N5, squadNumber: '91' });
+    await upload(rec, kid.child_id, { r: 250, g: 200, b: 0 });
+    const herPhoto = photoKey((await get(dBuild, kid.child_id)).html, rec);
     const at15 = [(await tokenWords()).includes(N5), (await og()).equals(ogPre)];
     // Melbourne midnight passes. The job does not run.
-    const bday = await (await fetch(`${BASE}/dev/birthday?child=${deniz.child_id}`, { method: 'POST' })).json().catch(() => null);
+    const bday = await (await fetch(`${BASE}/dev/birthday?child=${kid.child_id}`, { method: 'POST' })).json().catch(() => null);
     const club = await clubWords();
-    const tokenPhoto = photoKey((await get('/p/dev-deniz', null)).html, rec);
-    check('n5-1w: Deniz, fifteen, changes his About and his number and uploads a photo, and nobody approves; the clock passes his sixteenth birthday with the job not run — his link, its card (byte for byte), its print, the club’s register CV and squad CV, and his parent’s preview all serve the approved version, old photo included, and none of the change',
-      [Boolean(kf), Boolean(hisPhoto) && hisPhoto !== photoPre, at15, bday?.band, (await tokenWords()).includes(N5), (await og()).equals(ogPre), (await printWords()).includes(N5),
-       [Boolean(regLink), Boolean(squadCv)], club.map((w) => w.includes(N5)), (await previewWords()).includes(N5), tokenPhoto === photoPre, tokenPhoto === hisPhoto],
-      [true, true, [false, true], '16_17', false, true, false, [true, true], [false, false], false, true, false]);
-    // R13 at sixteen: his parent opens and approves nothing.
+    const tokenPhoto = photoKey((await get(`/p/${LINK}`, null)).html, rec);
+    const liveAt16 = (await tokenWords()).includes('Georgia');
+    check(`n5-1w: Georgia, fifteen, changes her About and her number and uploads a photo, and nobody approves; the clock passes her sixteenth birthday with the job not run — her link, its card (byte for byte), its print, the club’s CVs of her (${club.length} here) and her parent’s preview all serve the approved version, old photo included, and none of the change`,
+      [[livePre, liveAt16], Boolean(kf), Boolean(herPhoto) && herPhoto !== photoPre, at15, bday?.band, (await tokenWords()).includes(N5), (await og()).equals(ogPre), (await printWords()).includes(N5),
+       club.map((w) => w.includes(N5) || !w.includes('Georgia')), (await previewWords()).includes(N5), tokenPhoto === photoPre, tokenPhoto === herPhoto],
+      [[true, true], true, true, [false, true], '16_17', false, true, false, club.map(() => false), false, true, false]);
+    // R13 at sixteen: her parent opens and approves nothing.
     const opened = await fetch(`${BASE}/g/pending/${rec}`, { redirect: 'manual', headers: { cookie: cookieFor(alex) } });
     await opened.text();
-    check('n5-4w: and R13 holds — his parent is sent home from the review, so nothing he wrote at fifteen can be approved now',
+    check('n5-4w: and R13 holds — her parent is sent home from the review, so nothing she wrote at fifteen can be approved now',
       [opened.status, (opened.headers.get('location') ?? '').replace(BASE, '')], [307, '/home']);
     // The job runs.
     const job = await (await fetch(BASE + '/api/jobs/daily')).json().catch(() => ({}));
-    const ownImg = /<img[^>]*src="([^"]*player[-/][^"]*)"/.exec((await get(dBuild, deniz.child_id)).html.replace(/<script[\s\S]*?<\/script>/g, ' '))?.[1]?.replace(/&amp;/g, '&');
+    const ownImg = /<img[^>]*src="([^"]*player[-/][^"]*)"/.exec((await get(dBuild, kid.child_id)).html.replace(/<script[\s\S]*?<\/script>/g, ' '))?.[1]?.replace(/&amp;/g, '&');
     const ownStatus = ownImg ? (await fetch(BASE + ownImg)).status : null;
-    check('n5-2w: the daily job deletes the waiting version (it says how many it cleared), the page still serves the approved version, and the photo his live record names is still there on his own page',
+    check('n5-2w: the daily job deletes the waiting version (it says how many it cleared), the page still serves the approved version, and the photo her live record names is still there on her own page',
       [typeof job.waitingVersionsClearedAt16, (job.waitingVersionsClearedAt16 ?? 0) >= 1, (await tokenWords()).includes(N5), ownStatus],
       ['number', true, false, 200]);
-    // His own first save at sixteen publishes.
-    const N5b = 'n5 Deniz at sixteen, publishing his own page.';
-    const kf2 = await faithful(rec, deniz.child_id);
-    const saved = kf2 ? await postAs(dBuild, deniz.child_id, { ...kf2, about: N5b }) : { status: 0 };
-    check('n5-3w: Deniz’s own first save at sixteen publishes (R8) — his link now serves his live record, his own words and his own photo, and the old approved version no longer serves',
-      [saved.status, (await tokenWords()).includes(N5b), photoKey((await get('/p/dev-deniz', null)).html, rec) === hisPhoto, (await og()).equals(ogPre)],
+    // Her own first save at sixteen publishes.
+    const N5b = 'n5 Georgia at sixteen, publishing her own page.';
+    const kf2 = await faithful(rec, kid.child_id);
+    const saved = kf2 ? await postAs(dBuild, kid.child_id, { ...kf2, about: N5b }) : { status: 0 };
+    check('n5-3w: Georgia’s own first save at sixteen publishes (R8) — her link now serves her live record, her own words and her own photo, and the old approved version no longer serves',
+      [saved.status, (await tokenWords()).includes(N5b), photoKey((await get(`/p/${LINK}`, null)).html, rec) === herPhoto, (await og()).equals(ogPre)],
       [303, true, true, false]);
   }
 }
@@ -5117,7 +5132,10 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   // The rendered "→ number" line of each SMS row, and nothing else: the same
   // number appears again in the page's own payload, and counting both read
   // every text twice (found when this block was proved red, 28 Sep).
-  const texts = async () => (((await get('/dev/outbox', op)).html).match(/>sms<\/span>[\s\S]{0,300}?→ (?:<!-- -->)?0400 707 070</g) ?? []).length;
+  // MOVED (3 Oct, §4: ph-2): a text's row holds the number in the one form
+  // Twilio is handed, +61400707070, never as the parent typed it.
+  const texts = async () => (((await get('/dev/outbox', op)).html).match(/>sms<\/span>[\s\S]{0,300}?→ (?:<!-- -->)?\+61400707070</g) ?? []).length;
+  const typedTexts = async () => (((await get('/dev/outbox', op)).html).match(/>sms<\/span>[\s\S]{0,300}?→ (?:<!-- -->)?0400 707 070</g) ?? []).length;
   const pressSwitch = async (label, extra) => {
     const form = forms((await get('/ops/switches', op)).html).find((f) => f.submit.startsWith(label));
     if (!form) return 'no form';
@@ -5207,6 +5225,12 @@ check(`x2: no form can be driven by another account (${leaked.join(', ') || 'non
   check('jr-3q-w2: and once the text has gone, the emailed link says to open the link we texted, as before',
     [q3after.includes('Your text follows shortly'), /One more step\. Open the link we texted to you/.test(q3after)], [false, true]);
   check('sms-w6: and the support console’s resend now sends a text straight away', [/\/ops\/support/.test(await resend()), await texts()], [true, 2]);
+  // John, 3 Oct, §4, pressed: the sign-up typed "0400 707 070"; what is held
+  // and what went is one form, found by the lookup from any way of writing it.
+  const foundBy = async (q) => (await get(`/ops/support?q=${encodeURIComponent(q)}`, op)).html.includes('Resend the approval request');
+  check('ph-1w/ph-2w: the parent typed "0400 707 070" at sign-up — every text since sits in the outbox as +61400707070, the string handed to Twilio, and none as typed; the lookup finds the invitation from the typed, the international and the bare form, and not from a fragment',
+    [await texts(), await typedTexts(), await foundBy('0400 707 070'), await foundBy('+61 400 707 070'), await foundBy('61400707070'), await foundBy('0400 707')],
+    [2, 0, true, true, true, false]);
 
   check('sms-w7: a limit that is not an amount is refused', /error=cap/.test(await pressSwitch('Set this limit', { dollars: 'lots', reason: 'cap drill' })), true);
   check('sms-w8: a limit of one cent, below this month’s spend, is set', /done=cap-set/.test(await pressSwitch('Set this limit', { dollars: '0.01', reason: 'cap drill' })), true);
