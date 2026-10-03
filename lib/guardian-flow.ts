@@ -321,7 +321,10 @@ export async function approveInvitation(input: {
       [guardianId, childId],
     );
     if (!p.child_id) await client.query(`insert into development_record (person_id) values ($1)`, [childId]);
-    await client.query(`update pending_invitation set approved_at = now() where id = $1`, [p.id]);
+    // approved_child_id (0178): the person this approval was for, every band,
+    // so the invitation goes with them when they are erased (D-26; doc 14 I7).
+    // child_id stays what it has been since 0048, the 16–17 marker.
+    await client.query(`update pending_invitation set approved_at = now(), approved_child_id = $2 where id = $1`, [p.id, childId]);
 
     // The consent log IS the product's proof. Guardian approval is the ToS
     // acceptance on the child's behalf (CLAUDE.md launch scope). The adult

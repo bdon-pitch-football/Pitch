@@ -61,16 +61,19 @@ export async function signIn(formData: FormData) {
     const ua = h.get('user-agent') ?? 'unknown';
     if (await isNewDevice(personId, ua)) {
       const { rows } = await db.query(
-        `select coalesce(
-           (select p2.email from guardianship_link g join person p2 on p2.id = g.guardian_id
-            where g.child_id = p.id and g.approved_at is not null and g.revoked_at is null
-              and p2.email is not null limit 1),
-           -- A parent made at approval has no DOB, which reads as under 16;
-           -- they are still the account holder (see lib/auth createReset).
-           case when fn_age_band(p.dob) = 'u16'
-                 and not (p.dob is null and exists(select 1 from guardianship_link g3
-                   where g3.guardian_id = p.id and g3.approved_at is not null and g3.revoked_at is null))
-                then null else p.email end) as recipient
+        // §33 goes to the guardian only for an under-16 ("It does not go to an
+        // under-16 alone"). From 16 it goes to the account holder, never the
+        // parent, re-granted or not (John, 3 Oct, parent-door §5.1; 0177).
+        // A parent made at approval has no DOB, which reads as under 16; they
+        // are still the account holder (see lib/auth createReset).
+        `select case
+           when fn_age_band(p.dob) = 'u16'
+                and not (p.dob is null and exists(select 1 from guardianship_link g3
+                  where g3.guardian_id = p.id and g3.approved_at is not null and g3.revoked_at is null))
+           then (select p2.email from guardianship_link g join person p2 on p2.id = g.guardian_id
+                  where g.child_id = p.id and g.approved_at is not null and g.revoked_at is null
+                    and p2.email is not null limit 1)
+           else p.email end as recipient
          from person p where p.id = $1`,
         [personId],
       );

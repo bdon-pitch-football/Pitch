@@ -1,5 +1,6 @@
-// Read-only counts for the adult-guardian defect (0177; John, 3 Oct,
-// 13-Board-Room/JOHN-to-LEO-adult-guardian-3-oct.md §3). Numbers only: it
+// Read-only counts for the guardian hotfix (0177, 0178; John, 3 Oct:
+// JOHN-to-LEO-adult-guardian-3-oct.md §3 and JOHN-to-LEO-parent-door-
+// findings-3-oct.md §4, C2 and C4). Numbers only: it
 // never changes a row and never prints a name, an address, an id or a date
 // of birth. BUZ runs it before 0177 ships, and the numbers go to John and
 // BUZ.
@@ -22,6 +23,16 @@
 //                   was 18+ are counted separately.
 //   4  who-looked   of (1), how many adults have any investigation_access row.
 //                   If this is not zero, John hears before anyone else.
+//   C2 invitations  (John, parent-door §4) approved pending_invitation rows:
+//                   in total; with child_id null; orphans, whose `approved`
+//                   subject no longer exists (an erased child's invitation
+//                   left behind); and older than 30 days.
+//   C4 new device   (parent-door §5.1) §33 sign-in emails since launch sent
+//                   to someone other than an account holder who was 16 or
+//                   over at the time; and any whose address is already
+//                   cleared, so who received it is unknown.
+//
+// Run it BEFORE 0177 and 0178: it reads nothing they add.
 //
 // Same connection rules as scripts/release-counts.mjs: SUPABASE_DB_URL, never
 // printed; TLS verified against --ca for anything that is not local; the
@@ -85,7 +96,25 @@ export async function adultGuardianCounts(q) {
   const whoLooked = await n(`select count(distinct g.child_id)::int as n from guardianship_link g join person p on p.id = g.child_id
     where fn_age_band(p.dob) = '18plus' and g.approved_at is not null and g.revoked_at is null
       and exists (select 1 from investigation_grant ig join investigation_access ia on ia.grant_id = ig.id where ig.subject_id = g.child_id)`);
-  return { exposure, events, onRow, erasures, whoLooked };
+  const approvedLogged = (pi) => `exists (select 1 from consent_event ce where ce.event = 'approved' and ce.detail ->> 'invitation_id' = ${pi}.id::text)`;
+  const c2 = {
+    approved: await n(`select count(*)::int as n from pending_invitation where approved_at is not null`),
+    childIdNull: await n(`select count(*)::int as n from pending_invitation where approved_at is not null and child_id is null`),
+    orphans: await n(`select count(*)::int as n from pending_invitation pi where pi.approved_at is not null and ${approvedLogged('pi')}
+      and not exists (select 1 from consent_event ce join person p on p.id = ce.subject_id
+                       where ce.event = 'approved' and ce.detail ->> 'invitation_id' = pi.id::text)`),
+    olderThan30: await n(`select count(*)::int as n from pending_invitation where approved_at is not null and approved_at < now() - interval '30 days'`),
+  };
+  const sixteenAt = (dob, at) => `((${dob}) + interval '16 years' <= ((${at}) at time zone 'Australia/Melbourne')::date)`;
+  const c4 = {
+    toAnother: await n(`select count(*)::int as n from message_outbox mo join person p on p.id = mo.to_person
+      where mo.message_key = 'doc15.§33' and mo.created_at >= ${since} and p.dob is not null and ${sixteenAt('p.dob', 'mo.created_at')}
+        and coalesce(mo.to_address, '') <> '' and lower(mo.to_address) is distinct from lower(p.email)`),
+    addressCleared: await n(`select count(*)::int as n from message_outbox mo join person p on p.id = mo.to_person
+      where mo.message_key = 'doc15.§33' and mo.created_at >= ${since} and p.dob is not null and ${sixteenAt('p.dob', 'mo.created_at')}
+        and coalesce(mo.to_address, '') = ''`),
+  };
+  return { exposure, events, onRow, erasures, whoLooked, c2, c4 };
 }
 
 export function report(c) {
@@ -96,6 +125,8 @@ export function report(c) {
   lines.push(`   on the row itself — links issued ${c.onRow.linksIssued} · settings changed ${c.onRow.settingsChanged} · registrations disclosed ${c.onRow.registrationsDisclosed} · requests dispatched ${c.onRow.requestsDispatched} · share cards approved ${c.onRow.cardsApproved} · sends dispatched ${c.onRow.sendsDispatched}`);
   lines.push(`3  erasures by someone other than the person: age unknown (person row gone; check the backup): ${c.erasures.unknownAge} · subject still there and 18+ at the time: ${c.erasures.adultStillThere}`);
   lines.push(`4  of (1), adults with who-looked rows: ${c.whoLooked}`);
+  lines.push(`C2 approved invitations: ${c.c2.approved} · child_id null: ${c.c2.childIdNull} · orphans (child erased, row left): ${c.c2.orphans} · older than 30 days: ${c.c2.olderThan30}`);
+  lines.push(`C4 new-device emails to someone else about a person 16+ at the time: ${c.c4.toAnother} · address already cleared (recipient unknown): ${c.c4.addressCleared}`);
   return lines;
 }
 

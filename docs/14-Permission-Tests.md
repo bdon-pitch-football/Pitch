@@ -225,6 +225,7 @@ The core table. **Read as: this actor, on a player in this age band, gets this.*
 | I4 | After deletion, a previously live share token | Link-state page, identical to every other dead state |
 | I5 | After deletion, consent log | **Retained** — it is the record that the deletion happened, and it is append-only |
 | I6 | Deletion of a guardian's account while a child is linked | Child's record survives; the link is severed; the second guardian (if any) is unaffected |
+| I7 | An under-16 is erased | **The approved invitation that created them goes in the same transaction** (`child_id` written at approval). No first name, DOB or parent contact survives anywhere, and the support lookup finds nothing by the parent's number or address (D-26; John, 3 Oct) |
 
 ---
 

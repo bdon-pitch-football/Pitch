@@ -1415,6 +1415,8 @@ check('I5b/I3: the consent log survives the deletion',
     'player_stat.verified_by': `insert into player_stat (record_id, season, stat_key, value, provenance, verified_club_id, verified_by, verified_at) values ('${E.otherRec}','2026','goals',4,'coach_verified','${E.club}',$P, now())`,
     'player_stat_history.verified_by': `insert into player_stat_history (record_id, season, stat_key, value, provenance, verified_club_id, verified_by, verified_at) values ('${E.otherRec}','2026','apps',9,'coach_verified','${E.club}',$P, now())`,
     'pending_invitation.child_id': `insert into pending_invitation (first_name, dob, child_id) values ('Erin','${yearsAgo(16, -100)}',$P)`,
+    // 0178: the approval ties the invitation to the child it was for, every band.
+    'pending_invitation.approved_child_id': `insert into pending_invitation (first_name, dob, approved_child_id) values ('Erin','${yearsAgo(16, -100)}',$P)`,
     'players_wanted_notice.added_by': `insert into players_wanted_notice (club_id, title, added_by) values ('${E.club}','Keepers wanted',$P)`,
     'profile_version.approved_by': `insert into profile_version (record_id, content, status, approved_by, approved_at) values ('${E.otherRec}','{}','approved',$P, now())`,
     'profile_version.created_by': `insert into profile_version (record_id, content, status, created_by) values ('${E.otherRec}','{}','pending',$P)`,
@@ -14557,6 +14559,41 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
   check(`n1: nothing outside the server may execute the guardian and birthday write functions, nor fn_guardian_controls — no EXECUTE for PUBLIC (${openToPublic.join(', ') || 'none'})`,
     openToPublic, []);
 
+  // ---- i7 · an erased under-16 leaves no invitation (John, parent-door §3) --
+  // The approval as approveInvitation now writes it (approved_child_id, 0178:
+  // child_id stays the 16–17 marker), then the family's one-tap erasure. The
+  // lookup is support's own query, read from the page.
+  const supportSrc = srcOf('app/ops/support/page.tsx');
+  const lookupSql = supportSrc.slice(supportSrc.indexOf('`select pi.id, pi.first_name, pi.guardian_name,') + 1, supportSrc.indexOf('limit 10`') + 'limit 10'.length);
+  const inv7 = crypto.randomUUID(), kid7 = await family('Iris', yearsAgo(13), { register: false });
+  const phone7 = '+61400777777', mail7 = 'iris.parent@fixture.example';
+  await db.query(`insert into pending_invitation (id, first_name, dob, guardian_name, guardian_email, guardian_phone, sms_token_hash, email_token_hash,
+      sms_confirmed_at, email_confirmed_at, approved_at) values ($1,'Iris',$2,'Iris Parent',$3,$4,$5,$6, now(), now(), now())`,
+    [inv7, yearsAgo(13), mail7, phone7, sha(`i7s-${inv7}`), sha(`i7e-${inv7}`)]);
+  const tied = await rowsOf(`update pending_invitation set approved_child_id = $2 where id = $1 returning id`, [inv7, kid7.kid]);
+  await db.query(`insert into consent_event (event, actor_id, subject_id, detail) values ('approved',$1,$2, jsonb_build_object('invitation_id',$3::uuid))`, [kid7.parent, kid7.kid, inv7]);
+  const found = async () => (await rowsOf(lookupSql, [mail7, phone7])).filter((r) => !r.error).length;
+  const before7 = await found();
+  await db.query('select fn_erase_child($1,$2)', [kid7.parent, kid7.kid]);
+  const flow = codeOnly(srcOf('lib/guardian-flow.ts'));
+  check('I7: an under-16 is erased and the approved invitation that created them goes in the same transaction — no row is left, and support’s lookup finds nothing by the parent’s number or address; approveInvitation ties every approval to its child (D-26; John, 3 Oct)',
+    [tied.length === 1 && !tied[0].error, before7, (await one('select count(*)::int as n from pending_invitation where id = $1', [inv7])).n, await found(),
+     /update pending_invitation set approved_at = now\(\), approved_child_id = \$2 where id = \$1`, \[p\.id, childId\]/.test(flow)],
+    [true, 1, 0, 0, true]);
+
+  // ---- s33 · the new-device email goes to the guardian only under 16 -------
+  // doc 15 §33; John, parent-door §5.1. The recipient query is the sign-in
+  // action's own, read from the source and run here.
+  const signinSrc = srcOf('app/signin/actions.ts');
+  const recAt = signinSrc.indexOf('as recipient');
+  const recipientSql = signinSrc.slice(signinSrc.lastIndexOf('`', recAt) + 1, signinSrc.indexOf('`', recAt));
+  for (const f of [k17, a18, rg]) await db.query(`update person set email = $2 where id = $1`, [f.kid, `${f.name.toLowerCase()}@fixture.example`]);
+  const to = async (who) => (await one(recipientSql, [who]))?.recipient ?? null;
+  const parentOf = async (f) => (await one('select email from person where id = $1', [f.parent])).email;
+  check('s33: a new-device sign-in email goes to the guardian for an under-16, and to the account holder from 16 — never to a 16–17’s parent, an adult’s ex-guardian or a re-granted one (doc 15 §33; John, 3 Oct)',
+    [await to(k15.kid) === await parentOf(k15), await to(k17.kid), await to(a18.kid), await to(rg.kid), await to(k15.parent) === await parentOf(k15)],
+    [true, 'aurelio@fixture.example', 'adaeze@fixture.example', 'anouk@fixture.example', true]);
+
   // ---- agc · the count BUZ runs first (John §3) ----------------------------
   // The script's own queries, run here read-only before and after one case of
   // each kind is added (and rolled back): an adult with a live link to a
@@ -14576,17 +14613,28 @@ check('vq1: the verification queue puts waiting clubs first, longest-waiting at 
     await db.query(`insert into consent_event (event, actor_id, subject_id, detail) values ('share_paused',$1,$2,'{"paused":true}')`, [x.parent, x.kid]);
     await db.query(`update share_token set issued_by = $2, issued_at = now() where id = $1`, [x.tok, x.parent]);
     await db.query('select fn_erase_child($1,$2)', [k15.parent, k15.kid]);
+    // C2: an approved invitation written as it was before 0178 (no tie to
+    // its child), whose child is then erased. C4: a new-device email that
+    // went to an adult's parent.
+    const kc = await family('Cosima', yearsAgo(12), { register: false }), invc = crypto.randomUUID();
+    await db.query(`insert into pending_invitation (id, first_name, dob, guardian_name, guardian_email, guardian_phone, sms_token_hash, email_token_hash,
+        sms_confirmed_at, email_confirmed_at, approved_at) values ($1,'Cosima',$2,'C Parent','c.parent@fixture.example','+61400888888',$3,$4, now(), now(), now())`,
+      [invc, yearsAgo(12), sha(`cs-${invc}`), sha(`ce-${invc}`)]);
+    await db.query(`insert into consent_event (event, actor_id, subject_id, detail) values ('approved',$1,$2, jsonb_build_object('invitation_id',$3::uuid))`, [kc.parent, kc.kid, invc]);
+    await db.query('select fn_erase_child($1,$2)', [kc.parent, kc.kid]);
+    await db.query(`insert into message_outbox (message_key, channel, to_person, to_address, subject, body) values ('doc15.§33','email',$1,$2,'s','b')`,
+      [a18.kid, `${a18.name.toLowerCase()}.parent@fixture.example`]);
     c1 = await ag.adultGuardianCounts((sql) => db.query(sql));
   } finally { await db.exec('rollback'); }
   const d = (path) => path.split('.').reduce((o, k) => o?.[k] ?? 0, c1) - path.split('.').reduce((o, k) => o?.[k] ?? 0, c0);
   const scriptSrc = codeOnly(srcOf('scripts/count-adult-guardian-links.mjs'));
   const printed = ag.report(c1).join('\n');
-  check('agc: the count finds what it is for — one more adult and link exposed, one pause by a guardian after 18 (as an event and as a changed setting), one link issued by them, one more adult with who-looked rows, one more erasure of unknown age (never zero) — re-grants unchanged; read-only, numbers only, never an id, an address or a name',
+  check('agc: the count finds what it is for — one more adult and link exposed, one pause by a guardian after 18 (as an event and as a changed setting), one link issued by them, one more adult with who-looked rows, the erasures of unknown age (never zero), C2’s approved, untied and orphaned invitation, and C4’s new-device email to an adult’s parent — re-grants unchanged; read-only, numbers only, never an id, an address or a name',
     [d('exposure.adults'), d('exposure.links'), d('exposure.regranted'), d('events.share_paused'), d('onRow.settingsChanged'), d('onRow.linksIssued'),
-     d('whoLooked'), d('erasures.unknownAge'),
+     d('whoLooked'), d('erasures.unknownAge'), [d('c2.approved'), d('c2.childIdNull'), d('c2.orphans'), d('c2.olderThan30')], [d('c4.toAnother'), d('c4.addressCleared')],
      /await client\.query\('begin read only'\)/.test(scriptSrc), /\b(insert into|update \w+ set|delete from)\b/i.test(scriptSrc),
      /[0-9a-f]{8}-[0-9a-f]{4}-|@|Aksel|Agnes/.test(printed)],
-    [1, 1, 0, 1, 1, 1, 1, 1, true, false, false]);
+    [1, 1, 0, 1, 1, 1, 1, 2, [1, 1, 1, 0], [1, 0], true, false, false]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed ${fail === 0 ? '— ALL GREEN' : ''}`);

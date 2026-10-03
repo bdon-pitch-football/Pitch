@@ -4480,11 +4480,14 @@ const tfAll = tfLines(tfBoard);
   // Undo tokens in each state, from the dev-only minter (app/dev/undo; it
   // 404s in production — perms jr-dev-undo). MOVED with S-1 (2 Oct): an undo
   // is live only while its holder is the child's guardian, so the minter
-  // issues each to a guardian, and the record named is a child's — Nate's,
-  // whose parent holds him — not an adult's, who has no guardian. The minted
-  // links are thrown away; nothing here presses one.
+  // issues each to a guardian, and the record named is a child's whose parent
+  // holds them — not an adult's, who has no guardian. MOVED (0177, F1): an
+  // under-16's — Deniz's, as the timing suite mints — because a 16–17's
+  // guardian can no longer make a link at all, so a guardian-made link on
+  // Nate is a state the product cannot produce. The minted links are thrown
+  // away; nothing here presses one.
   const mint = async (kind) => {
-    const r = await fetch(`${BASE}/dev/undo?record=${ids.children.nate.record_id}&kind=${kind}&n=1`, { method: 'POST' });
+    const r = await fetch(`${BASE}/dev/undo?record=${ids.children.deniz.record_id}&kind=${kind}&n=1`, { method: 'POST' });
     if (!r.ok) throw new Error(`/dev/undo answered ${r.status} — is this the dev app?`);
     return (await r.json()).tokens[0];
   };
