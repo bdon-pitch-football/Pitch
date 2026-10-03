@@ -9,7 +9,7 @@ import { getSessionPersonId } from '@/lib/session';
 import { isUuid } from '@/lib/ids';
 import { PRESETS, isHex } from '@/lib/club-colours';
 
-const HOSTS = /^(https:\/\/)(www\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
+const HOSTS = /^(https:\/\/)(www\.|m\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
 
 async function clubIManage(personId: string): Promise<string | null> {
   const { rows } = await db.query(

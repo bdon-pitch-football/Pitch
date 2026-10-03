@@ -1,15 +1,12 @@
 'use client';
 // The click-to-play façade (D-97): NOTHING loads from a third party until
 // the viewer presses play. YouTube then embeds via youtube-nocookie in a
-// sandboxed iframe; other allowed hosts open in a new tab (no referrer —
-// the page already sends none, and noreferrer belts it).
+// sandboxed iframe that tells YouTube only which site it is on (see the
+// iframe); other allowed hosts open in a new tab (no referrer — the page
+// already sends none, and noreferrer belts it).
 import { useId, useState } from 'react';
 import { T } from '@/lib/palette';
-
-function youtubeId(url: string): string | null {
-  const m = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,20})/.exec(url);
-  return m?.[1] ?? null;
-}
+import { youtubeId } from '@/lib/youtube-id';
 
 export default function ClipCard({ title, sub, url, gradientAlt }: {
   // sub is optional: a stack of cards repeating one subtitle reads as a bug,
@@ -43,7 +40,12 @@ export default function ClipCard({ title, sub, url, gradientAlt }: {
           <iframe
             src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1`}
             sandbox="allow-scripts allow-same-origin allow-presentation"
-            referrerPolicy="no-referrer"
+            // YouTube refuses an embed that names no site (its "Error 153",
+            // since late 2025), so the player alone is sent this site's
+            // ORIGIN — https://pitchfootball.com.au, never the page's path,
+            // so a share token in a CV's address cannot travel. Every other
+            // request from the page stays no-referrer (next.config.mjs).
+            referrerPolicy="strict-origin"
             allow="autoplay; encrypted-media; picture-in-picture"
             style={{ width: '100%', aspectRatio: '16 / 9', border: 'none', display: 'block' }}
             title={title}

@@ -8,7 +8,7 @@ import { CLIP_LIMIT_ADULT_FREE, CLIP_LIMIT_UNDER_18 } from '@/lib/football';
 import { ITEM_SQL, writeRecord } from '@/lib/cv-build';
 import { requireRecordAuthor } from '@/lib/record-guard';
 
-const HOSTS = /^(https:\/\/)(www\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
+const HOSTS = /^(https:\/\/)(www\.|m\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
 
 //
 // Ids come from the FORM, not from bind(). A bound server action renders
