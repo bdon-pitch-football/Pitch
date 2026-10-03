@@ -4969,6 +4969,28 @@ check('job13: and the cap is enforced in the action, not just hidden in the form
 for (const h of ['youtube\\.com', 'youtu\\.be', 'instagram\\.com', 'veo\\.co']) {
   check(`job14: coach clips accept only allowlisted hosts (${h.replace('\\', '')})`, coachActions.includes(h), true);
 }
+// yt-1/yt-2 (BUZ, 3 Oct: "the video wont work"). Every YouTube shape a
+// family pastes plays inline, and the player tells YouTube which SITE it is
+// on — never the page — because YouTube refuses an embed with no referrer
+// (its Error 153) and a CV's address can carry a share token.
+{
+  const { youtubeId } = await import('../lib/youtube-id.ts');
+  const V = 'aqz-KE-bpKQ';
+  const shapes = [`https://www.youtube.com/watch?v=${V}`, `https://youtu.be/${V}?si=abc`, `https://www.youtube.com/watch?si=abc&v=${V}&t=42`,
+    `https://youtube.com/shorts/${V}?si=x`, `https://www.youtube.com/live/${V}`, `https://m.youtube.com/watch?v=${V}`, `https://www.youtube.com/embed/${V}`];
+  const junk = [`http://www.youtube.com/watch?v=${V}`, 'https://www.youtube.com/watch?v=short', `https://www.youtube.com/@club/videos`,
+    `https://evil.example/watch?v=${V}`, `https://www.youtube.com.evil.example/watch?v=${V}`, `https://www.youtube.com/watch?v=${V}%22onload%3D1`, 'not a link'];
+  check('yt-1: every YouTube link shape plays inline (watch?v= anywhere among the parameters, youtu.be, Shorts, live, embed, m.), and nothing else yields an id — not http, a short id, a channel page, another host or an id with anything after it',
+    [shapes.map((u) => youtubeId(u)), junk.map((u) => youtubeId(u))], [shapes.map(() => V), junk.map(() => null)]);
+  const card = readFileSync(fileURLToPath(new URL('../components/cv/ClipCard.tsx', import.meta.url)), 'utf8');
+  const policies = [...card.matchAll(/referrerPolicy="([^"]+)"/g)].map((m) => m[1]);
+  check('yt-2: the YouTube player sends this site\u2019s origin only (strict-origin-when-cross-origin) — never the page address, never unsafe-url — and only from youtube-nocookie, after a press',
+    [policies, /src=\{`https:\/\/www\.youtube-nocookie\.com\/embed\/\$\{ytId\}/.test(card), /playing && ytId \?/.test(card), /unsafe-url|no-referrer-when-downgrade|"origin-when-cross-origin"/.test(card)],
+    [['strict-origin-when-cross-origin'], true, true, false]);
+  check('yt-3: a link copied from a phone (m.youtube.com) is accepted on all three clip paths — player, coach and club',
+    ['app/build/[recordId]/clips/actions.ts', 'app/coach/edit/actions.ts', 'app/club/page-edit/actions.ts'].map((f) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8').includes('(www\\.|m\\.)?(youtube\\.com')),
+    [true, true, true]);
+}
 check('job15: no file is accepted on the coach clip path', /instanceof File|multipart/.test(coachActions), false);
 
 // ---------------------------------------------------------------------------

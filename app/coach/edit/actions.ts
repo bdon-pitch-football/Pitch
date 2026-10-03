@@ -130,7 +130,7 @@ export async function removeCoachAchievement(formData: FormData) {
 // same allowlist, the same click-to-play façade (D-97). Capped at five: a
 // coach reel is a shortlist, not an archive.
 // ---------------------------------------------------------------------------
-const CLIP_HOSTS = /^(https:\/\/)(www\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
+const CLIP_HOSTS = /^(https:\/\/)(www\.|m\.)?(youtube\.com|youtu\.be|instagram\.com|veo\.co|app\.veo\.co)\//i;
 
 export async function addCoachClip(formData: FormData) {
   const me = await getSessionPersonId();
