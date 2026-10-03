@@ -753,6 +753,15 @@ for (const width of [390, 1280]) {
     joinFails.push({ width, what: `j2 the role chips are announced as ${JSON.stringify(names)}, not ${JSON.stringify(ROLE_TITLES)}` });
   }
 
+  // j0 (BUZ, 3 Oct) — no door is picked for anyone: with no role chosen,
+  // Continue is disabled and no chip is on. Then the Player door is picked
+  // for the steps below, as a person would.
+  const noneOn = await eval_(`JSON.stringify((() => ({ on: document.querySelectorAll('.choice.on').length,
+    disabled: [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Continue')?.disabled ?? null }))())`);
+  joinChecked++;
+  if (noneOn.on !== 0 || noneOn.disabled !== true) joinFails.push({ width, what: `j0 with no role chosen, ${noneOn.on} chip(s) are on and Continue disabled is ${noneOn.disabled}` });
+  await clickOn(byText('button', 'Player'));
+
   // j1 — Continue with the date of birth left empty.
   await eval_(`JSON.stringify((window.__invalid = [], document.addEventListener('invalid', (e) => window.__invalid.push(e.target.type || e.target.tagName.toLowerCase()), true), true))`);
   await clickOn(`() => document.querySelector('input:not([type])')`);
