@@ -1997,6 +1997,16 @@ const tfAll = tfLines(tfBoard);
     zeros.map((z) => / 0 zero,/.test(z)), [true, true, true, true]);
 }
 
+// fc-inv1 (3 Oct): an unclaimed club has no register, so its page never
+// says it "can invite you" to a trial — the line is a claimed club's alone.
+{
+  const plain = (await get('/fc/westgate-rangers')).html;
+  const tid = /\?trial=([0-9a-f-]{36})/.exec(plain)?.[1];
+  const picked = tid ? (await get(`/fc/westgate-rangers?trial=${tid}`)).html : '';
+  check('fc-inv1: an unclaimed club\u2019s page, with a trial picked, never says the club "can invite you to it"',
+    [Boolean(tid), /can invite you to it/.test(picked)], [true, false]);
+}
+
 // A link a screen SHOWS is a promise — a coach pastes it, a TD prints it.
 // Four screens showed pitchfootball.com.au/<name>, which does not exist: the
 // pages live at /c/<name> and /fc/<name>. Every full link shown must open.

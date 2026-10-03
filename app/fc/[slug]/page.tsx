@@ -465,7 +465,9 @@ export default async function ClubPage({ params, searchParams }: {
                 ? <>Go on {c.name}&rsquo;s register and your football goes with you. It is not a trial spot and it is not a decision — there is nothing here to be turned down from.</>
                 : <>{c.name} hasn&rsquo;t claimed this page, so there is no register here. Send them your CV instead — it goes as a link, and you can switch it off.</>}
             </div>
-            {pickedTrial && (
+            {/* Only a club with a register can invite anyone to a trial: on an
+                unclaimed page the line would promise what cannot happen. */}
+            {pickedTrial && onPitch && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.surface2, borderRadius: 12, padding: '9px 12px' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M5 12.5 l4.5 4.5 L19 7" /></svg>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: T.secondary }}>For <b style={{ color: T.ink }}>{pickedTrial.title}</b> — {c.name} can invite you to it.</div>
