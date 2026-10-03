@@ -222,6 +222,14 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
   perform fn_curatable_club(v_old.club_id);
+  -- A lapsed open-now notice stays down (Head of Product Design, 3 Oct, on
+  -- John's D-74 clarification: its date was seven days after it was last
+  -- seen open, and that date has passed). Nothing here brings it back; a
+  -- return is a fresh add, through BUZ's new-notice path.
+  if v_old.trial_on is null and not fn_trial_notice_current(null, v_old.confirmed_open_at) then
+    raise exception 'this open-now notice has lapsed and stays down; if its form is open again, add it as a new notice'
+      using errcode = 'check_violation';
+  end if;
   v_on := case when exists (select 1 from registration r where r.trial_notice_id = p_notice and r.withdrawn_at is null)
                then v_old.trial_on else p_trial_on end;
   v_open := v_on is null;
@@ -255,7 +263,8 @@ end $$;
 -- club's own notice again today and it still says this (D-74). On an
 -- open-now notice that means the form was seen taking responses, so it moves
 -- confirmed_open_at too — the stamp families see and the seven days' start
--- are one fact. A lapsed open-now notice seen open again is back from now.
+-- are one fact. A lapsed open-now notice is refused: it stays down, and a
+-- form seen open again comes back only as a fresh add (BUZ's new list).
 create or replace function fn_ops_check_notice(p_operator uuid, p_email text, p_notice uuid) returns void
 language plpgsql as $$
 declare v_email text; v_old trial_notice%rowtype;
@@ -266,6 +275,14 @@ begin
     raise exception 'only a notice Pitch compiled is checked here (D-90)' using errcode = 'insufficient_privilege';
   end if;
   perform fn_curatable_club(v_old.club_id);
+  -- A lapsed open-now notice stays down (Head of Product Design, 3 Oct, on
+  -- John's D-74 clarification: its date was seven days after it was last
+  -- seen open, and that date has passed). Nothing here brings it back; a
+  -- return is a fresh add, through BUZ's new-notice path.
+  if v_old.trial_on is null and not fn_trial_notice_current(null, v_old.confirmed_open_at) then
+    raise exception 'this open-now notice has lapsed and stays down; if its form is open again, add it as a new notice'
+      using errcode = 'check_violation';
+  end if;
   perform set_config('pitch.curating', 'on', true);
   update trial_notice set
     last_checked = (now() at time zone 'Australia/Melbourne')::date,

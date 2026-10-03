@@ -10916,19 +10916,24 @@ const componentFilesAll = [];
      (await q(`select column_name from information_schema.columns where table_name = 'trial_notice' and column_name ~ '(laps|expir|until|live|hidden|visible|shown)'`))],
     [[['6 days 23 hours 59 minutes', 'ok', 1], ['7 days 1 minute', 'ok', 0], ['30 days', 'ok', 0]], { a: false, b: true }, true, true, []]);
 
-  // The desk's check is the only thing that moves the stamp; it brings a
-  // lapsed notice back the moment the form is seen open again.
+  // A lapsed notice stays down (Head of Product Design, 3 Oct): the desk's
+  // check and the operator's edit are both refused on it, and nothing moves.
   await seenAgo(n1, '8 days');
   const lapsedOff = await onBoard(n1);
   const opsList = async () => { const r = await q('select title from fn_ops_club_notices($1)', [club]); return Array.isArray(r) ? r.map((x) => x.title) : r; };
   const opsLive = async () => (await one('select notices_live from fn_ops_club($1)', [club]))?.notices_live;
   const lapsedOps = [await opsList(), await opsLive()];
-  await state('select fn_ops_check_notice($1,$2,$3)', [...OP, n1]);
-  check('on-db4: a lapsed notice is off the board but still on the operator\'s list of the club\'s notices (so it can be taken down), and not in its live count; the desk\'s check moves "seen open" to now and puts it back',
-    [lapsedOff, lapsedOps, await onBoard(n1), await opsLive(),
-     (await one(`select confirmed_open_at > now() - interval '1 minute' as moved, last_checked = (now() at time zone 'Australia/Melbourne')::date as checked from trial_notice where id = $1`, [n1])),
-     (await one(`select detail ? 'was_open' as was from curation_event where trial_notice_id = $1 and action = 'notice_checked' order by id desc limit 1`, [n1]))?.was],
-    [0, [['U13 Boys expressions of interest'], 0], 1, 1, { moved: true, checked: true }, true]);
+  const before4 = await one(`select confirmed_open_at::text as c, last_checked::text as l from trial_notice where id = $1`, [n1]);
+  const checkSaid = await state('select fn_ops_check_notice($1,$2,$3)', [...OP, n1]);
+  const editSaid = await state(`select fn_ops_edit_notice($1,$2,$3,'U13 Boys expressions of interest',array['U13'],'boys',null,'','Quillhaven Reserve','{}','https://quillhaven.example.au/eoi','https://forms.example.au/q')`, [...OP, n1]);
+  check('on-db4: a lapsed notice is off the board but still on the operator\'s list of the club\'s notices (so it can be taken down), and not in its live count; the desk\'s check and the operator\'s edit are refused on it and change nothing — it stays down',
+    [lapsedOff, lapsedOps, checkSaid, editSaid, await onBoard(n1), await opsLive(),
+     JSON.stringify(await one(`select confirmed_open_at::text as c, last_checked::text as l from trial_notice where id = $1`, [n1])) === JSON.stringify(before4),
+     (await one(`select count(*)::int as n from curation_event where trial_notice_id = $1 and action in ('notice_checked','notice_edited')`, [n1]))?.n],
+    [0, [['U13 Boys expressions of interest'], 0], '23514', '23514', 0, 0, true, 0]);
+  // Seen open again an hour ago (the seed's own way of setting the stamp),
+  // so the take-down below is proved on a notice that is on the board.
+  await seenAgo(n1, '1 hour');
 
   // A closed form, or a club page that no longer links it: the desk's `gone`,
   // which goes live on its own — off the board in the same statement.

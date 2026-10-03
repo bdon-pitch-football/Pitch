@@ -27,8 +27,8 @@
 // club's own page). The export carries form_url, confirmed_open_at (the last
 // time the desk saw the form open) and whether it has lapsed — seven days
 // without a check takes it off the board, in the database's own read, and it
-// stays in the export so a `check` (seen open again) puts it back and a
-// `gone` takes it out. A `check` on one moves confirmed_open_at with "last
+// stays in the export so a `gone` can take it out; a `check` or `edit` on it
+// is refused — it stays down, and an open form comes back as a fresh `add`. A `check` on one moves confirmed_open_at with "last
 // checked"; nothing else here does. The lapsed are listed on every run.
 //
 // A guard for a bad morning: a safe run that would take down more than
@@ -127,7 +127,10 @@ const ages = new Set((await client.query('select code from age_group')).rows.map
 const TEN = ['GK', 'RB', 'CB', 'LB', 'DM', 'CM', 'AM', 'RW', 'LW', 'ST'];
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
 const EMAIL = /[^@\s]+@[^@\s]+\.[a-z]{2,}/i, PHONE = /(\+?61|\b0)[\s-]?[2-478](?:[\s-]?\d){8}\b/;
-const there = new Set((await client.query(`select club_id, coalesce(trial_on::text, '') as on, lower(title) as t from trial_notice`)).rows.map((r) => `${r.club_id}|${r.on}|${r.t}`));
+// What is already listed, for refusing a duplicate add. A lapsed open-now
+// notice is off the board for good, so it does not block its own fresh add.
+const there = new Set((await client.query(`select club_id, coalesce(trial_on::text, '') as on, lower(title) as t from trial_notice t
+  where t.trial_on is not null or fn_trial_notice_current(t.trial_on, t.confirmed_open_at)`)).rows.map((r) => `${r.club_id}|${r.on}|${r.t}`));
 // fn_trial_notice_check's own rules (0130, 0173), checked first — as
 // import-trials does. A blank date is an open-now expression of interest:
 // no time, and the form it watches.
@@ -160,6 +163,9 @@ for (const r of rows) {
     if (!n) { plan.refused.push(`${action} ${id || '(no id)'}: not a compiled notice on the board`); continue; }
     if (seen.has(id)) { plan.refused.push(`${action} ${n.club} ${when(n)}: the same notice twice`); continue; }
     seen.add(id);
+    // A lapsed open-now notice stays down (3 Oct): only `gone` reaches it. If
+    // its form is open again it comes back as a fresh `add`, on BUZ's list.
+    if (n.lapsed && action !== 'gone') { plan.refused.push(`${action} ${n.club} — ${n.title}: lapsed, so it stays down; if the form is open again, list it as a new add (and take this one down with gone)`); continue; }
     if (action === 'edit') {
       const p = full(r); const why = invalid(p);
       if (why.length) { plan.refused.push(`edit ${n.club} ${when(n)}: ${why.join(', ')}`); continue; }

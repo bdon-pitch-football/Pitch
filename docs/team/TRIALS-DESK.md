@@ -77,7 +77,7 @@ Many clubs take expressions of interest on a form that gives no closing date. Th
 - **The club states a real closing date:** an `edit` gives `trial_on` (and `time` `EOI closes`), and the row moves up into the dated group. It goes live on its own, because the title is unchanged.
 - **Trial dates appear:** a new trial notice, which waits for BUZ. The EOI stays while its form is open.
 
-**Lapsed notices.** A notice not confirmed for seven days is off the board but still in the export, marked `lapsed` = `yes`. If the desk sees the same form open again, a `check` puts it back (it goes live on its own, words unchanged, and the checker opens every one). If not, a `gone` removes it. The morning report says "{n} lapsed (7 days without a check)" and lists club and title.
+**Lapsed notices.** A notice not confirmed for seven days is off the board but still in the export, marked `lapsed` = `yes`. It stays down: a `check` or `edit` on it is refused (Head of Product Design, 3 Oct, on John's D-74 clarification — its date has passed). If the desk sees the form open again, it is a fresh `add` on BUZ's new list, and a `gone` takes the lapsed one out. If not, a `gone` removes it. The morning report says "{n} lapsed (7 days without a check)" and lists club and title.
 
 **The brake** (12 notices, or a quarter of the board) still applies to `gone` rows. The seven-day lapse isn't a take-down by the desk, so it sits outside the brake. The brake protects the board from a desk that misread every page; the lapse protects families from a desk that read nothing.
 
