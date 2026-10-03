@@ -34,12 +34,56 @@ A notice carries one date: the next session. Once that date has passed and the c
 3. **The weekday matches the date**, where one is given.
 4. **The venue is in the notice.** An online EOI is `Online — see the club's notice`.
 5. **Ages are the club's.** A stated range ("U7 to U21") counts. An inferred one doesn't.
-6. **An EOI has a real closing date**, not a booking-system default (a year out, 31 Dec, after the season).
+6. **An EOI has a real closing date**, not a booking-system default (a year out, 31 Dec, after the season). An EOI whose club states no closing date can still be listed as **open now**, under its own test below.
 7. **John's rules (D-172):**
    - no person's name, email, phone, fee, poster or photo;
    - nothing about an identifiable child;
    - our words, never the club's prose;
    - none of the banned words (D-85, D-108).
+
+## Open now: an EOI with no closing date (BUZ, 3 Oct; John, 3 Oct; migration 0173)
+
+Many clubs take expressions of interest on a form that gives no closing date. The board lists one as **Open now** while the desk keeps seeing its form open. **D-74, as BUZ clarified it on 3 Oct:** "For an expression of interest with no closing date, its date is seven days after the trials desk last saw its form open." The database works that out each time the board is read; no job runs it.
+
+**What an open-now `add` needs.** It is the strict test above with test 6 replaced. All of these must hold:
+1. **The club's own source.** The form is on the club's own site, or linked from it or from the club's own post (D-90). A form found only by search doesn't count. `source_url` is the club's page or post that links the form, and it is what "The club's own notice" opens. `form_url` is the form itself, which we watch but never show. Link straight to a form only when the club publishes nothing but the form link, from its own post, and then `source_url` is that post. Never list a form that no club page or post points to (John, 3 Oct).
+2. **The ages rule.** The club names the age groups or states a range. "All ages" counts. "Juniors", "players" or "all programs" don't.
+3. **The season.** The club names it (2027). A standing "register your interest" form with no season fails.
+4. **Taking responses today, read logged out.** A form that needs a sign-in to view can't be confirmed, so it can't be listed. The desk never signs in and never submits.
+5. **The club states no closing date.**
+   - If the club states one, it's a dated EOI under test 6.
+   - **A booking system's default close date is never treated as real or stored.** That means a year out, 31 Dec, or after the season. The listing is open now.
+   - A date that applies only to some players (for example "returning players by 31 Oct") doesn't make it dated.
+6. **The club's pages agree** that it's open. If they don't, hold it.
+7. **John's rules (D-172), unchanged.** Our words in the title. `trial_on` and `time` are blank. Ground is `Online — see the club's notice`.
+
+**A new open-now notice waits for BUZ's yes**, like every new notice.
+
+**The seven-day re-confirm.**
+- Open-now notices are re-read on **every morning sweep**, not on the three-hourly runs. They have no date or time to drift.
+- A `check` means all of these still hold: the club's page still links the form, it still names 2027, the ages are unchanged, and the form is still taking responses.
+- Only a `check` or an `edit` moves "seen open" (`confirmed_open_at`) and the "checked" stamp families see. The link checker never does: a closed Google Form still loads.
+- **The checker opens every open-now `check` at least once a week.** For dated checks it's one in five, as now. This is the one place a "page loads" mistake would keep a closed form on the board.
+- **If a page can't be read, there's no row.** The stamp stops moving, families see that, and seven days after the last check the listing comes off by itself.
+
+**Take-down triggers.** Each is a `gone` row, which goes live on its own, as now, and comes off the board at once:
+- the form says it's closed, unavailable, full or "no longer accepting responses";
+- the club's page says closed, full, or "trials have been held";
+- **the club's page no longer links the form,** even if the form is still open, because D-90 breaks;
+- the page or form now names another season, or no ages;
+- the page or form is dead. `check-trial-links.mjs` takes it down; it now checks the form address too.
+
+**Moves, not take-downs.**
+- **The club states a real closing date:** an `edit` gives `trial_on` (and `time` `EOI closes`), and the row moves up into the dated group. It goes live on its own, because the title is unchanged.
+- **Trial dates appear:** a new trial notice, which waits for BUZ. The EOI stays while its form is open.
+
+**Lapsed notices.** A notice not confirmed for seven days is off the board but still in the export, marked `lapsed` = `yes`. If the desk sees the same form open again, a `check` puts it back (it goes live on its own, words unchanged, and the checker opens every one). If not, a `gone` removes it. The morning report says "{n} lapsed (7 days without a check)" and lists club and title.
+
+**The brake** (12 notices, or a quarter of the board) still applies to `gone` rows. The seven-day lapse isn't a take-down by the desk, so it sits outside the brake. The brake protects the board from a desk that misread every page; the lapse protects families from a desk that read nothing.
+
+**The CSVs.**
+- The export gains `form_url`, `confirmed_open_at` and `lapsed`. An open-now notice has a blank `trial_on`.
+- `changes.csv` gains `form_url`. An open-now `add` or `edit` has a blank `trial_on` and a blank `time`, and must give `form_url` (https). `sync-trials.mjs` refuses one without it, or with a time.
 
 ## The one command (BUZ, 1 Oct)
 
@@ -78,6 +122,6 @@ Rows already applied in the safe run are harmless the second time. A `check` re-
 
 ## Honest limits
 
-- **Pages we can't read:** Facebook-only clubs and pages built by script aren't watched. Their notices can't be confirmed, and they go stale on the board. Their "checked" date stops moving, which is visible to families (John, 30 Sep).
+- **Pages we can't read:** Facebook-only clubs and pages built by script aren't watched. Their notices can't be confirmed, and they go stale on the board. Their "checked" date stops moving, which is visible to families (John, 30 Sep). An open-now notice nobody can confirm comes off seven days after its last check.
 - **Runs need the Mac awake:** the schedule runs on BUZ's Mac. A missed run happens when the Mac wakes.
 - **Whose name is on the changes:** changes are made under BUZ's operator account. The curation_event log shows each one.

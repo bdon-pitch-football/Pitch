@@ -1,7 +1,8 @@
 // The public club page — ClubCV.dc.html, copy verbatim where data exists,
 // laid out Floodlit (D-173, 1 Oct): full-width hero, two columns from 1024px.
 // Squads render as first-class rows including girls'/women's teams (D-68);
-// trial notices auto-expire past their date, and a suspended club's never
+// trial notices auto-expire past their date (an open-now one seven days after
+// the trials desk last saw its form open, 0173), and a suspended club's never
 // show (0140); the alumni wall renders only
 // when it has content and its footnote states the naming guardrail plainly.
 // Unclaimed pages carry the D-64 disclaimer instead of the verified chip.
@@ -21,7 +22,7 @@ import SiteNav from '@/components/floodlit/SiteNav';
 import { clubTheme } from '@/lib/club-colours';
 import { T } from '@/lib/palette';
 import { sectionLabel } from '@/lib/ui';
-import { groupByClubDay, isEoi } from '@/lib/trials-board';
+import { groupByClubDay, kindOf } from '@/lib/trials-board';
 import PublicAnalytics from '@/components/PublicAnalytics';
 
 export const dynamic = 'force-dynamic';
@@ -82,8 +83,12 @@ export default async function ClubPage({ params, searchParams }: {
        (select coalesce(json_agg(json_build_object(
            'id', t.id, 'title', t.title, 'timeVenue', t.time_venue,
            'mon', upper(to_char(t.trial_on, 'Mon')), 'day', to_char(t.trial_on, 'FMDD'), 'wd', upper(to_char(t.trial_on, 'Dy')),
-           'on', to_char(t.trial_on, 'YYYY-MM-DD'),
-           'how', t.how_to_register, 'checked', to_char(t.last_checked, 'FMDD Mon'),
+           'on', coalesce(to_char(t.trial_on, 'YYYY-MM-DD'), ''), 'open', t.trial_on is null,
+           -- An open-now notice's "checked" is the day the desk last saw its
+           -- form open (John, 3 Oct), never last_checked.
+           'how', t.how_to_register,
+           'checked', to_char(case when t.trial_on is null then (t.confirmed_open_at at time zone 'Australia/Melbourne')::date
+                                   else t.last_checked end, 'FMDD Mon'),
            'notice', case when t.source <> 'club' then t.source_url end) order by t.trial_on), '[]'::json)
         from fn_trial_notices_advertised() t where t.club_id = c.id) as trials,
        (select coalesce(json_agg(json_build_object('title', w.title, 'detail', w.detail) order by w.created_at), '[]'::json)
@@ -105,18 +110,22 @@ export default async function ClubPage({ params, searchParams }: {
   }
   const c = rows[0];
   const squads: { id: string; name: string; gender: string }[] = c.squads;
-  type Notice = { id: string; title: string; timeVenue: string; mon: string; day: string; wd: string; on: string; how: string | null; checked: string; notice: string | null };
+  type Notice = { id: string; title: string; timeVenue: string; mon: string; day: string; wd: string; on: string; open: boolean; how: string | null; checked: string; notice: string | null };
   // Trials board v2, on the club page (Product Design, 2 Oct): the same
   // split and the same order as the board. Within a day, by start time, not
   // by the order they were written (lib/trials-board's one rule). An
-  // expression of interest is told by lib/trials-board's isEoi — the board's
+  // expression of interest is told by lib/trials-board's kindOf — the board's
   // own test, so the two can never disagree — and leaves the trials for its
-  // own block, by closing date. "Trials coming" counts trials only.
-  const notices: Notice[] = groupByClubDay((c.trials as Notice[]).map((t) => ({
+  // own block, by closing date. "Trials coming" counts trials only. Open now
+  // (BUZ, 3 Oct): an expression of interest with no closing date follows the
+  // dated ones in its own group, by title (the page has one club).
+  const notices: Notice[] = groupByClubDay((c.trials as Notice[]).filter((t) => !t.open).map((t) => ({
     ...t, club_id: c.id as string, club_name: c.name as string, on_date: t.on, time_venue: t.timeVenue,
   }))).flat();
-  const trials = notices.filter((t) => !isEoi(t.timeVenue));
-  const eois = notices.filter((t) => isEoi(t.timeVenue));
+  const openNow: Notice[] = (c.trials as Notice[]).filter((t) => t.open)
+    .sort((a, b) => a.title.localeCompare(b.title, 'en-AU', { sensitivity: 'base' }));
+  const trials = notices.filter((t) => kindOf(t.open, t.timeVenue) === 'trial');
+  const eois = notices.filter((t) => kindOf(t.open, t.timeVenue) === 'eoi');
   const wanted: { title: string; detail: string | null }[] = c.wanted;
   const alumni: { line: string; detail: string | null }[] = c.alumni;
   const videos: { url: string; title: string }[] = c.videos;
@@ -155,7 +164,8 @@ export default async function ClubPage({ params, searchParams }: {
   const hasBanner = Boolean(c.banner_path);
   const picked = squads.find((s) => s.id === squadParam) ?? null;
   // D-153: a trial chosen on the board or below travels into the registration,
-  // so the club can invite to it — and on the free tier, invite at all.
+  // so the club can invite to it — and on the free tier, invite at all. Only
+  // a dated one: an open-now notice is never a trial to be invited to.
   const pickedTrial = notices.find((t) => t.id === trialParam) ?? null;
   const squadQuery = `${picked ? `&squad=${picked.id}` : ''}${pickedTrial ? `&trial=${pickedTrial.id}` : ''}`;
   // An unclaimed listing has no register anybody reads. That family sends a CV.
@@ -203,6 +213,34 @@ export default async function ClubPage({ params, searchParams }: {
           notice Pitch compiled links to the club's own notice —
           labelled as the club's, opening the club's own page, never
           styled as a Pitch action. */}
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 10, paddingLeft: 70, fontSize: 11, fontWeight: 700, color: T.muted }}>
+        <span>checked {t.checked}</span>
+        {t.notice && (
+          <a href={t.notice} target="_blank" rel="noopener noreferrer" style={{ color: T.secondary, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>The club&rsquo;s own notice</a>
+        )}
+      </div>
+    </div>
+  );
+  // Open now (BUZ, 3 Oct; John's ruling the same day): no date, so the block
+  // reads OPEN and NOW around a drawing of a form, as the board draws it. The
+  // row is not a link onto the register: it is not a trial the club can be
+  // asked to invite to, and the club's own notice — the page that links the
+  // club's form — is its one action, ahead of the CV panel below (John).
+  const openRow = (t: Notice, i: number) => (
+    <div key={t.id} style={{ padding: '14px 0 8px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, minHeight: 44 }}>
+        <div className="fl-trial-date open" style={{ width: 54, flexShrink: 0 }}>
+          <div className="fl-trial-wd">OPEN</div>
+          <div className="fl-trial-ic" aria-hidden="true">
+            <svg width="24" height="26" viewBox="0 0 24 26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4.5" y="4" width="15" height="19.5" rx="2.5" /><path d="M9 2.5h6v3.5H9z" /><path d="M8.5 12h7" /><path d="M8.5 16.5h4.5" /></svg>
+          </div>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', color: theme ? theme.trim : T.muted, marginTop: 3 }}>NOW</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>{t.title}</div>
+          <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, marginTop: 2 }}>{t.timeVenue}</div>
+        </div>
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 10, paddingLeft: 70, fontSize: 11, fontWeight: 700, color: T.muted }}>
         <span>checked {t.checked}</span>
         {t.notice && (
@@ -377,16 +415,32 @@ export default async function ClubPage({ params, searchParams }: {
           )}
           {/* The expressions of interest, in the trials area, below the trials
               and by closing date (trials board v2, Product Design 2 Oct). */}
-          {eois.length > 0 && (
+          {/* "By closing date." only over dated ones; the open-now group
+              follows with its own heading and order line (BUZ, 3 Oct). */}
+          {(eois.length > 0 || openNow.length > 0) && (
             <section data-eoi-section="" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <h2 style={label}>Expressions of interest</h2>
-                <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>By closing date.</div>
+                {eois.length > 0 && <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>By closing date.</div>}
               </div>
-              <div className="fl-card" style={{ padding: '4px 18px', display: 'flex', flexDirection: 'column' }}>
-                {eois.map(noticeRow)}
-                {onPitch && trials.length === 0 && howToRegister}
-              </div>
+              {eois.length > 0 && (
+                <div className="fl-card" style={{ padding: '4px 18px', display: 'flex', flexDirection: 'column' }}>
+                  {eois.map(noticeRow)}
+                  {onPitch && trials.length === 0 && openNow.length === 0 && howToRegister}
+                </div>
+              )}
+              {openNow.length > 0 && (
+                <>
+                  <div data-open-now="" style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: eois.length > 0 ? 6 : 0 }}>
+                    <h3 style={label}>Open now</h3>
+                    <div style={{ fontSize: 13, color: T.muted, fontWeight: 500, lineHeight: 1.5 }}>No closing date given. By club name.</div>
+                  </div>
+                  <div className="fl-card" style={{ padding: '4px 18px', display: 'flex', flexDirection: 'column' }}>
+                    {openNow.map(openRow)}
+                    {onPitch && trials.length === 0 && howToRegister}
+                  </div>
+                </>
+              )}
             </section>
           )}
 

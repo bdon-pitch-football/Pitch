@@ -14,6 +14,12 @@
 // up — a slow club website is not a withdrawn trial. A live link does NOT
 // move "last checked": that stamp says a person read the notice, and this
 // only knocked on the door.
+//
+// An open-now expression of interest (0173) has two doors: the club's page
+// that links its form (source_url) and the form itself (form_url). Either
+// one dead takes it down. A live form moves nothing either — above all not
+// confirmed_open_at: a closed Google Form still answers 200, so only the
+// trials desk, reading it, can say it is open.
 import pg from 'pg';
 import { readFileSync } from 'node:fs';
 
@@ -41,9 +47,9 @@ const op = (await client.query('select id from person where lower(email) = $1', 
 if (!op) { console.error('refusing: no account with that operator address'); await client.end(); process.exit(1); }
 
 const notices = (await client.query(
-  `select t.id, t.title, t.trial_on::text as on, t.source_url, c.name as club
+  `select t.id, t.title, coalesce(t.trial_on::text, 'open now') as on, t.source_url, t.form_url, c.name as club
      from fn_trial_notices_advertised() t join club c on c.id = t.club_id
-    where t.source = 'compiled' order by t.trial_on`)).rows;
+    where t.source = 'compiled' order by t.trial_on nulls last`)).rows;
 
 async function knock(u) {
   for (const method of ['HEAD', 'GET']) {
@@ -67,7 +73,13 @@ async function knock(u) {
 const dead = [], unsure = []; let live = 0;
 for (let i = 0; i < notices.length; i += 8) {
   const batch = notices.slice(i, i + 8);
-  const res = await Promise.all(batch.map((n) => knock(n.source_url)));
+  const res = await Promise.all(batch.map(async (n) => {
+    const page = await knock(n.source_url);
+    if (page.dead || !n.form_url) return page;
+    const form = await knock(n.form_url);
+    if (form.dead) return { dead: true, why: `form ${form.why}` };
+    return page.ok && form.ok ? page : { dead: false, why: page.ok ? `form ${form.why}` : page.why };
+  }));
   batch.forEach((n, j) => {
     if (res[j].dead) dead.push({ ...n, why: res[j].why });
     else if (res[j].ok) live++;

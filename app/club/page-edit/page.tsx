@@ -49,7 +49,7 @@ export default async function ClubPageEdit({ searchParams }: {
   )).rows[0] as { squads: number; trials: number };
   const first = (await db.query(
     `select to_char(t.trial_on, 'FMDD') as day, upper(to_char(t.trial_on, 'Mon')) as mon, t.title, t.time_venue
-     from fn_trial_notices_advertised() t where t.club_id = $1 order by t.trial_on limit 1`, [c.id],
+     from fn_trial_notices_advertised() t where t.club_id = $1 and t.trial_on is not null order by t.trial_on limit 1`, [c.id],
   )).rows[0] as { day: string; mon: string; title: string; time_venue: string } | undefined;
 
   // The same arithmetic the public page uses (0160, D-173), so what a club

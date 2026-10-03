@@ -166,6 +166,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           join club cl7 on cl7.id = r7.club_id
           join fn_trial_notices_advertised() tn on tn.club_id = r7.club_id
           where r7.player_id = p.id and r7.withdrawn_at is null
+            -- A trial has a day; an open-now expression of interest (0173)
+            -- has none, so it is never "what is coming up".
+            and tn.trial_on is not null
             -- A-P4 (BUZ, 1 Oct, option a): only a trial for the age group of
             -- the player's own current squad. Age group lives on the squad,
             -- never the person (D-68, D-25), so a player with no squad is
@@ -314,7 +317,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       `select t.id, t.title, to_char(t.trial_on, 'Mon') as month, to_char(t.trial_on, 'FMDD') as day, t.time_venue,
          (select count(*)::int from registration r where r.trial_notice_id = t.id and r.withdrawn_at is null) as interested
        from fn_trial_notices_advertised() t
-       where t.club_id = $1
+       where t.club_id = $1 and t.trial_on is not null
        order by t.trial_on limit 3`,
       [clubSeat.id],
     )).rows as { id: string; title: string; month: string; day: string; time_venue: string; interested: number }[] : [];

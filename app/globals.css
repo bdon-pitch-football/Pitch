@@ -1793,6 +1793,10 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 /* Show on "Expressions of interest": the section is the only one on the
    page, so no rule sits above it. */
 .tb-sec.first { margin-top: 0; padding-top: 0; border-top: 0; }
+/* The open-now group inside it (BUZ, 3 Oct): its heading at the club name's
+   size, its number and its order line in the section's own styles. */
+.tb-grp { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.tb-grp h3 { margin: 0; font-size: 16px; font-weight: 800; line-height: 1.3; display: flex; align-items: baseline; gap: 10px; }
 @container (min-width: 1024px) {
   .tb { padding-top: 34px; }
   .tb-body { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
@@ -1820,6 +1824,11 @@ fieldset.opts > legend { padding: 0; margin-bottom: 8px; }
 /* The month is part of the date, not an action: muted, like the weekday
    (D-173 (4): green is an action; post-release audit #5, ruled 2 Oct). */
 .fl-trial-mon { font-size: 10px; font-weight: 900; letter-spacing: var(--ls-label); color: var(--muted); margin-top: 5px; }
+/* Open now (BUZ approved 3 Oct): no date, so the numeral's slot holds a
+   stroke drawing of a form, in ink, at the numeral's height; OPEN and NOW
+   take the weekday's and the month's own styles. */
+.fl-trial-ic { height: 26px; display: flex; align-items: center; justify-content: center; color: var(--ink); }
+.fl-trial-ic svg { display: block; }
 .fl-trial-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .fl-trial-club { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 0; min-width: 0; }
 .fl-trial-cn { font-size: 16px; font-weight: 800; line-height: 1.3; min-width: 0; }

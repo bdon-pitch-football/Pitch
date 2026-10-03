@@ -83,10 +83,12 @@ export async function composeInterest(formData: FormData) {
     }
   }
 
+  // A trial tag is a dated notice: an open-now expression of interest (0173)
+  // has no day for a club to invite to.
   const trial = isUuid(trialRaw)
     ? ((await db.query(
         `select id, trial_on from fn_trial_notices_advertised()
-         where id = $1 and club_id = $2`,
+         where id = $1 and club_id = $2 and trial_on is not null`,
         [trialRaw, clubId])).rows[0] ?? null)
     : null;
 

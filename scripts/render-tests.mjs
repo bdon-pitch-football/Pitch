@@ -1483,6 +1483,7 @@ const georgia = ids.children.georgia;
     const a = m[0];
     return {
       html: a, at: m.index, unclaimed: /^<article [^>]*data-unclaimed=""/.test(a),
+      open: /<div class="fl-trial-date open">/.test(a),
       wd: /<div class="fl-trial-wd">([^<]*)<\/div>/.exec(a)?.[1] ?? null,
       day: /<div class="numeral fl-trial-day">([^<]*)<\/div>/.exec(a)?.[1] ?? null,
       mon: /<div class="fl-trial-mon">([^<]*)<\/div>/.exec(a)?.[1] ?? null,
@@ -1507,15 +1508,21 @@ const georgia = ids.children.georgia;
   const inOrder = (rs) => rs.every((r, i) => i === 0 || (dateOf(rs[i - 1]) && dateOf(r) && dateOf(rs[i - 1]) <= dateOf(r)));
   const shownCount = (h) => /(\d+) trials?</.exec(h)?.[1] ?? null;   // null: no count line (D-162)
   const listingLines = (h) => (h.match(/<li\b[^>]*\bdata-listing=""/g) ?? []).length;
-  const SEC = /<div class="tb-sec"><h2>Expressions of interest<span class="tb-sec-n">(\d+)<\/span><\/h2><div class="tb-sec-sub">By closing date\.<\/div><\/div>/;
+  // "By closing date." sits over the dated expressions of interest only, and
+  // the open-now group follows them under its own heading (BUZ, 3 Oct), so
+  // the section's line is optional here and its rows stop at the group.
+  const SEC = /<div class="tb-sec"><h2>Expressions of interest<span class="tb-sec-n">(\d+)<\/span><\/h2>(<div class="tb-sec-sub">By closing date\.<\/div>)?<\/div>/;
+  const GRP = /<div class="tb-grp"><h3>Open now<span class="tb-sec-n">(\d+)<\/span><\/h3><div class="tb-sec-sub">No closing date given\. By club name\.<\/div><\/div>/;
   const split = (h) => {
-    const sec = SEC.exec(h), rs = rowsOf(h);
-    return { sec, n: sec ? Number(sec[1]) : 0, trials: rs.filter((r) => !sec || r.at < sec.index), eois: sec ? rs.filter((r) => r.at > sec.index) : [] };
+    const sec = SEC.exec(h), grp = GRP.exec(h), rs = rowsOf(h);
+    const end = grp ? grp.index : Infinity;
+    return { sec, grp, n: sec ? Number(sec[1]) : 0, trials: rs.filter((r) => !sec || r.at < sec.index),
+      eois: sec ? rs.filter((r) => r.at > sec.index && r.at < end) : [], open: grp ? rs.filter((r) => r.at > grp.index) : [] };
   };
 
   const all = plain((await get('/trials', null)).html);
   const rows = rowsOf(all);
-  const { sec, n: eoiN, trials, eois } = split(all);
+  const { sec, n: eoiN, trials, eois, open: openRows } = split(all);
 
   // 1 · the marker, once per row, and the metadata.
   const un = rows.filter((r) => r.unclaimed);
@@ -1542,20 +1549,21 @@ const georgia = ids.children.georgia;
       .map((m) => ({ wd: m[1], day: m[2], mon: m[3] }));
     return [blocks > 0 && blocks === dated.length, wrongDay(dated)];
   };
-  check(`tv2: every date block leads with its own weekday, MON–SUN — on the board (${rows.length} rows) and on the club page (Riverside, Westgate)`,
-    [rows.length >= 4, wrongDay(rows), await fcDays('riverside-fc'), await fcDays('westgate-rangers')],
+  // An open-now row has no date to take a weekday from (on-r2 holds it).
+  check(`tv2: every date block leads with its own weekday, MON–SUN — on the board (${rows.filter((r) => !r.open).length} dated rows) and on the club page (Riverside, Westgate)`,
+    [rows.length >= 4, wrongDay(rows.filter((r) => !r.open)), await fcDays('riverside-fc'), await fcDays('westgate-rangers')],
     [true, [], [true, []], [true, []]]);
 
   // 3 · expressions of interest, in their own section.
   const isEoi = (l) => /^EOI closes/.test(l.meta ?? '');
   const ownStamp = /class="fl-trial-stamp"><span>Listed \d{1,2} [A-Z][a-z]{2} · checked \d{1,2} [A-Z][a-z]{2}<\/span><a href="https:[^"]+" target="_blank" rel="noopener noreferrer" class="fl-own">The club’s own notice<\/a>/;
   const stamped = (r, l) => ownStamp.test(l.html) || ownStamp.test(/<div class="fl-trial-foot[\s\S]*$/.exec(r.html)?.[0] ?? '');
-  check(`tv3: expressions of interest sit in their own section below the trials — "Expressions of interest", its own number, "By closing date." — in closing-date order, each keeping its "checked" stamp and the club’s own notice (${eoiN} in it)`,
-    [Boolean(sec), trials.flatMap((r) => r.lines).filter(isEoi).length,
-     eois.length > 0 && eois.every((r) => r.lines.length > 0 && r.lines.every(isEoi)),
-     eoiN > 0 && eoiN === eois.flatMap((r) => r.lines).length,
+  check(`tv3: expressions of interest sit in their own section below the trials — "Expressions of interest", its own number (both kinds), "By closing date." over the dated ones — in closing-date order, each keeping its "checked" stamp and the club’s own notice (${eoiN} in it)`,
+    [Boolean(sec), Boolean(sec?.[2]), trials.flatMap((r) => r.lines).filter(isEoi).length,
+     eois.length > 0 && eois.every((r) => !r.open && r.lines.length > 0 && r.lines.every(isEoi)),
+     eoiN > 0 && eoiN === [...eois, ...openRows].flatMap((r) => r.lines).length,
      eois.every((r) => r.lines.every((l) => stamped(r, l))), inOrder(eois)],
-    [true, 0, true, true, true, true]);
+    [true, true, 0, true, true, true, true]);
   const women = plain((await get('/trials?gender=women', null)).html), men = plain((await get('/trials?gender=men', null)).html);
   // Product Design, 2 Oct: a view that leaves only expressions of interest
   // never says "0 trials" (D-162). The approved filtered-empty line stands
@@ -1645,8 +1653,10 @@ const georgia = ids.children.georgia;
     e.name === 'node_modules' || e.name.startsWith('.') ? [] : e.isDirectory() ? srcFiles(join(d, e.name)) : /\.(ts|tsx)$/.test(e.name) ? [join(d, e.name)] : []);
   const src = (f) => readFileSync(join(root, f), 'utf8');
   const knowsEoi = ['app', 'components', 'lib'].flatMap(srcFiles).filter((f) => /EOI closes/i.test(src(f))).sort();
-  const usesHelper = (f) => /import \{[^}]*\bisEoi\b[^}]*\} from '@\/lib\/trials-board'/.test(src(f)) && /\bisEoi\(/.test(src(f).replace(/import[^;]*;/g, ''));
-  check(`tv9: one helper decides what is an expression of interest — lib/trials-board's isEoi, the only source that names "EOI closes" (${knowsEoi.join(', ')}), used by the board and the club page`,
+  // kindOf (BUZ, 3 Oct): isEoi, or no date at all — an open-now one.
+  const usesHelper = (f) => /import \{[^}]*\bkindOf\b[^}]*\} from '@\/lib\/trials-board'/.test(src(f)) && /\bkindOf\(/.test(src(f).replace(/import[^;]*;/g, ''))
+    && /export const kindOf = [^\n]*\bisEoi\(timeVenue\)/.test(src('lib/trials-board.ts'));
+  check(`tv9: one helper decides what is an expression of interest — lib/trials-board's kindOf over its isEoi, the only source that names "EOI closes" (${knowsEoi.join(', ')}), used by the board and the club page`,
     [knowsEoi, usesHelper('app/trials/page.tsx'), usesHelper('app/fc/[slug]/page.tsx')],
     [['lib/trials-board.ts'], true, true]);
 
@@ -1694,6 +1704,111 @@ const georgia = ids.children.georgia;
     FC.map((slug) => [UNCLAIMED.includes(slug)
       ? `Ask us to update or remove it → /report?kind=club_page&page=%2Ffc%2F${slug}`
       : `Report this page → /report?kind=club_page&page=%2Ffc%2F${slug}`]));
+
+  // 9 · Open now (0173; BUZ approved 3 Oct, John's ruling the same day). The
+  // seed writes Quillhaven FC first — two open-now lines from one club page,
+  // seen open at the seed and a day before it, one lapsed (seen eight days
+  // before) and one the desk found closed — then Ondabrook United SC, seen
+  // open two days before the seed and re-read at it. Nothing below compares
+  // against today's clock (L34): every date is read off the page itself.
+  const OPEN_BLOCK = /<div class="fl-trial-date open"><div class="fl-trial-wd">OPEN<\/div><div class="fl-trial-ic" aria-hidden="true"><svg [^>]*>[\s\S]*?<\/svg><\/div><div class="fl-trial-mon">NOW<\/div><\/div>/;
+  const GONE = ['U16 Boys expressions of interest', 'U11 Boys expressions of interest'];
+  const { grp } = split(all);
+  const clubsOpen = openRows.map((r) => r.club);
+  check(`on-r1: within Expressions of interest, the dated ones come first under "By closing date.", then the group "Open now" with its own number and "No closing date given. By club name.", its rows by club name, A to Z, and each row's lines by title (${clubsOpen.join(', ')})`,
+    [Boolean(sec?.[2]), grp !== null && sec !== null && grp.index > sec.index, Number(grp?.[1] ?? -1) === openRows.flatMap((r) => r.lines).length,
+     eois.every((r) => !r.open), openRows.length > 0 && openRows.every((r) => r.open), rows.filter((r) => r.open).length === openRows.length,
+     clubsOpen, openRows.map((r) => r.lines.map((l) => l.title))],
+    [true, true, true, true, true, true, ['Ondabrook United SC', 'Quillhaven FC'],
+     [['U13 and U15 expressions of interest'], ['U13 Boys expressions of interest', 'U15 Boys expressions of interest']]]);
+  // The date block says it is open and invents nothing: no numeral, no month,
+  // no weekday, no closing line, no "ongoing" or "∞".
+  const blockText = (r) => /<div class="fl-trial-date open">[\s\S]*?<\/div><\/div>/.exec(r.html)?.[0].replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/) ?? null;
+  check('on-r2: an open-now row\'s date block reads OPEN, a drawing of a form (hidden from a screen reader), NOW — and nothing in the row is a date, a weekday, a month, a closing line, "ongoing" or "∞"',
+    [openRows.length, ...openRows.map((r) => [OPEN_BLOCK.test(r.html), blockText(r), r.day, r.lines.map((l) => l.meta), /numeral/.test(r.html),
+      new RegExp(`\\b(${MONTHS.join('|')}|${WEEK.join('|')}|ongoing|EOI closes)\\b|∞`, 'i')
+        .test(r.html.replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, ' ').replace(/(Listed|checked) \d{1,2} [A-Z][a-z]{2}/g, ''))])],
+    [2, ...openRows.map((r) => [true, ['OPEN', 'NOW'], null, r.lines.map(() => null), false, false])]);
+  // John, 3 Oct: on an open-now row "The club's own notice" comes first and
+  // "Send my CV" second, both in the same footer — even where the lines'
+  // stamps differ (Quillhaven: seen open on two days) — and it links the
+  // club's own page, never the form the desk watches.
+  const footParts = (r) => {
+    const f = /<div class="fl-trial-foot[^"]*">([\s\S]*)<\/div><\/article>$/.exec(r.html)?.[1] ?? '';
+    return [f.indexOf('class="fl-own"'), f.search(/class="btn btn-(?:primary|secondary)"/), (r.html.match(/class="fl-own"/g) ?? []).length,
+      /<a [^>]*class="btn btn-secondary" href="([^"]*)">Send my CV<\/a>/.exec(f)?.[1] ?? null,
+      /<a href="([^"]*)" target="_blank" rel="noopener noreferrer" class="fl-own">The club’s own notice<\/a>/.exec(f)?.[1] ?? null];
+  };
+  const parts = openRows.map(footParts);
+  const fcQ = plain((await get('/fc/quillhaven-fc', null)).html), fcO = plain((await get('/fc/ondabrook-united-sc', null)).html);
+  const forms = [all, fcQ, fcO].map((h) => /forms\.example\.au/.test(h));
+  check(`on-r3: on every open-now row the club's own notice is in the foot, before Send my CV, once — and it opens the club's own page, never the form (${openRows.length} rows)`,
+    [parts.map(([own, btn, n]) => own > -1 && btn > -1 && own < btn && n === 1), parts.map((p) => [p[3], p[4]]), forms,
+     openRows.find((r) => r.club === 'Quillhaven FC')?.lines.map((l) => /class="fl-own"/.test(l.html))],
+    [openRows.map(() => true),
+     [['/fc/ondabrook-united-sc#play', 'https://ondabrookunited.example.au/register'], ['/fc/quillhaven-fc#play', 'https://quillhavenfc.example.au/juniors']],
+     [false, false, false], [false, false]]);
+  // D-74 as clarified 3 Oct: off seven days after the desk last saw the form
+  // open, and off at once when the desk found it closed — on the board, under
+  // every filter that would otherwise draw it, and on the club's own page.
+  const views = ['/trials', '/trials?kind=eoi', '/trials?age=U16', '/trials?age=U11', '/trials?area=mel-north', '/fc/quillhaven-fc'];
+  const shown = [];
+  for (const v of views) {
+    const h = v === '/fc/quillhaven-fc' ? fcQ : plain((await get(v, null)).html);
+    for (const t of GONE) if (h.includes(t)) shown.push(`${v}: ${t}`);
+  }
+  check('on-r4: an open-now notice last seen open eight days ago, and one the desk found closed, show nowhere — not on the board, under any filter, or on the club\'s page — while the same club\'s live ones do (fail closed)',
+    [shown, fcQ.includes('U13 Boys expressions of interest') && fcQ.includes('U15 Boys expressions of interest')], [[], true]);
+  // The stamp's source. Ondabrook was listed at the seed and re-read then
+  // (last_checked), but last seen open two days before: "checked" is the day
+  // it was seen open — on the board and on its page — never last_checked.
+  // Quillhaven's two lines were seen open a day apart, so they differ.
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const dayNo = (s) => { const m = /^(\d{1,2}) ([A-Z][a-z]{2})$/.exec(s ?? ''); return m ? Date.UTC(2026, MON.indexOf(m[2]), Number(m[1])) / 864e5 : NaN; };
+  const daysBefore = (a, b) => ((dayNo(b) - dayNo(a)) % 365 + 365) % 365;
+  const onda = openRows.find((r) => r.club === 'Ondabrook United SC');
+  const [, listedO, checkedO] = /<span>Listed (\d{1,2} [A-Z][a-z]{2}) · checked (\d{1,2} [A-Z][a-z]{2})<\/span>/.exec(onda?.html ?? '') ?? [];
+  const fcCheckedO = /<span>checked (\d{1,2} [A-Z][a-z]{2})<\/span><a href="https:\/\/ondabrookunited\.example\.au\/register"/.exec(fcO)?.[1] ?? null;
+  const quill = openRows.find((r) => r.club === 'Quillhaven FC');
+  const qStamps = quill?.lines.map((l) => /<span>Listed (\d{1,2} [A-Z][a-z]{2}) · checked (\d{1,2} [A-Z][a-z]{2})<\/span>/.exec(l.html)?.slice(1)) ?? [];
+  check(`on-r5: an open-now row's "checked" is the day the desk last saw its form open, never the day it was last re-read — Ondabrook listed ${listedO}, checked ${checkedO} on the board and ${fcCheckedO} on its page; Quillhaven's lines a day apart`,
+    [daysBefore(checkedO, listedO), fcCheckedO === checkedO, qStamps.map((x) => x && daysBefore(x[1], x[0]))],
+    [2, true, [0, 1]]);
+  // Filters, counts and Show treat them as expressions of interest: the
+  // section's number and the Show chip count both kinds, Trials leaves them
+  // out, Region and Age find them, and "By closing date." is drawn only over
+  // dated ones (U13 has none) while the group is drawn only when it has a row
+  // (Women has none).
+  const views2 = {};
+  for (const v of ['/trials?kind=eoi', '/trials?kind=trial', '/trials?age=U13', '/trials?age=U15', '/trials?gender=women', '/trials?area=mel-north&kind=eoi']) views2[v] = plain((await get(v, null)).html);
+  const linesIn = (rs) => rs.flatMap((r) => r.lines.map((l) => `${r.club}|${l.title}`));
+  const openOf = (h) => (GRP.test(h) ? rowsOf(h).filter((r) => r.open) : []);
+  const o13 = split(views2['/trials?age=U13']), o15 = split(views2['/trials?age=U15']);
+  const showChip = /<a class="chip" aria-pressed="false" href="\/trials\?kind=eoi">Expressions of interest<span class="chip-count">(\d+)<\/span><\/a>/.exec(all)?.[1] ?? null;
+  check(`on-r6: open-now rows are expressions of interest to every filter and count — the section number and the Show chip count both kinds (${eoiN}), Show = Expressions of interest keeps the group and Trials drops it, Age and Region find them, "By closing date." only over dated rows, the group only with a row`,
+    [showChip === String(eoiN), linesIn(openOf(views2['/trials?kind=eoi'])), GRP.test(views2['/trials?kind=trial']), rowsOf(views2['/trials?kind=trial']).some((r) => r.open),
+     [Boolean(o13.sec), Boolean(o13.sec?.[2]), o13.eois.length, linesIn(o13.open), Number(o13.grp?.[1] ?? -1), o13.n],
+     linesIn(o15.open), GRP.test(views2['/trials?gender=women']),
+     linesIn(openOf(views2['/trials?area=mel-north&kind=eoi']))],
+    [true, linesIn(openRows), false, false,
+     [true, false, 0, ['Ondabrook United SC|U13 and U15 expressions of interest', 'Quillhaven FC|U13 Boys expressions of interest'], 2, 2],
+     ['Ondabrook United SC|U13 and U15 expressions of interest', 'Quillhaven FC|U15 Boys expressions of interest'], false, linesIn(openRows)]);
+  // The club's own page: the same group under its Expressions of interest,
+  // with no "By closing date." over nothing, the same block, its rows by
+  // title, no row a door onto a trial, and the club's own notice ahead of the
+  // way to send a CV. "Trials coming" counts trials only, so it is not drawn.
+  const fcOpen = (h) => {
+    const sec = /<section data-eoi-section=""[^>]*>[\s\S]*?<\/section>/.exec(h)?.[0] ?? '';
+    return [/By closing date\./.test(sec),
+      /<div data-open-now=""[^>]*><h3[^>]*>Open now<\/h3><div[^>]*>No closing date given\. By club name\.<\/div><\/div>/.test(sec),
+      [...sec.matchAll(/<div class="fl-trial-date open"[^>]*><div class="fl-trial-wd">OPEN<\/div><div class="fl-trial-ic" aria-hidden="true">[\s\S]*?<\/div><div[^>]*>NOW<\/div><\/div><div[^>]*><div[^>]*>([^<]*)<\/div>/g)].map((m) => m[1]),
+      /\?trial=/.test(sec), /Trials coming/.test(h),
+      h.indexOf('The club’s own notice') > -1 && h.indexOf('The club’s own notice') < h.indexOf('Want to play here?')];
+  };
+  check('on-r7: on an unclaimed club\'s page the open-now ones sit under Expressions of interest as "Open now", "No closing date given. By club name." — no "By closing date." over nothing — with OPEN/NOW blocks, by title, no row a door onto a trial, no "Trials coming", and the club\'s own notice before the way to send a CV',
+    [fcOpen(fcQ), fcOpen(fcO)],
+    [[false, true, ['U13 Boys expressions of interest', 'U15 Boys expressions of interest'], false, false, true],
+     [false, true, ['U13 and U15 expressions of interest'], false, false, true]]);
 }
 
 // The trials board's filters package (BUZ approved 2 Oct; docs/design/
@@ -1755,7 +1870,9 @@ const tfAll = tfLines(tfBoard);
 // (Brunswick), Kingsway (Brunswick West) and Kestrelford (Preston) are in
 // Melbourne North, Westgate (Altona) in Melbourne West.
 {
-  const REGION_OF = { 'Riverside FC': 'mel-north', 'Kingsway Rovers FC': 'mel-north', 'Kestrelford Athletic SC': 'mel-north', 'Westgate Rangers': 'mel-west' };
+  const REGION_OF = { 'Riverside FC': 'mel-north', 'Kingsway Rovers FC': 'mel-north', 'Kestrelford Athletic SC': 'mel-north', 'Westgate Rangers': 'mel-west',
+    // The open-now fixtures (0173): Thornbury and Reservoir.
+    'Quillhaven FC': 'mel-north', 'Ondabrook United SC': 'mel-north' };
   const NAME = { 'mel-north': 'Melbourne North', 'mel-west': 'Melbourne West' };
   const of = (x) => REGION_OF[x.split('|')[2]] ?? null;
   const n = (k) => tfAll.filter((x) => of(x) === k).length;

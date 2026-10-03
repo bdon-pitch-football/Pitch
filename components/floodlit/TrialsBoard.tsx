@@ -20,7 +20,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import TrialRow from '@/components/floodlit/TrialRow';
 import NearField, { type Picked } from '@/components/floodlit/NearField';
-import { groupByClubDay } from '@/lib/trials-board';
+import { groupByClubDay, groupOpenNow } from '@/lib/trials-board';
 import { hrefFor, kmBetween, matches, type Chosen, type Facets, type Kind, type Near } from '@/lib/trials-filter';
 import { REGIONS } from '@/lib/regions';
 import { ABS_CREDIT } from '@/lib/places-vic-file';
@@ -29,7 +29,10 @@ import { T } from '@/lib/palette';
 
 export type BoardListing = {
   id: string; title: string; time_venue: string; notice: string | null;
-  mon: string; day: string; wd: string; on_date: string; listed: string; checked: string; checked_on: string;
+  // open: an expression of interest with no closing date (0173), drawn in
+  // the "Open now" group; its date fields are empty and its "checked" is the
+  // day the desk last saw its form open.
+  mon: string; day: string; wd: string; on_date: string; open: boolean; listed: string; checked: string; checked_on: string;
   club_id: string; club_name: string; club_state: string; public_slug: string | null;
   f: Facets;
 };
@@ -75,6 +78,11 @@ export default function TrialsBoard({ upcoming, chosen, ages, positions, levels,
   // narrows: the listings left keep the order they had (D-21, D-74).
   const trials = listings.filter((l) => l.f.kind === 'trial');
   const eois = listings.filter((l) => l.f.kind === 'eoi');
+  // Within the expressions of interest (BUZ, 3 Oct): the dated ones under
+  // "By closing date.", then the open-now group, by club name (B1, B2).
+  // Both are expressions of interest to every filter, count and chip.
+  const datedEois = eois.filter((l) => !l.open);
+  const openEois = eois.filter((l) => l.open);
   const eoiOnly = kind === 'eoi';
   // The most recent check across what is shown — not the last row's, which
   // is the furthest-out trial and made a fresh board read stale (HoPD, 2 Oct).
@@ -239,15 +247,17 @@ export default function TrialsBoard({ upcoming, chosen, ages, positions, levels,
   // per listing, in date order (lib/trials-board). With a distance set, each
   // row says how far its club's suburb is — on screen only, never in print
   // (John, Q2) — and says nothing at all rather than "about 0 km" (D-162).
-  const rowsOf = (ls: BoardListing[]) => groupByClubDay(ls).map((row) => {
+  const rowOf = (row: BoardListing[], open: boolean) => {
     const at = row[0].f.at;
     const about = picked && at ? Math.round(kmBetween(picked.at, at)) : 0;
     return (
-      <TrialRow key={`${row[0].on_date}-${row[0].club_id}`} wd={row[0].wd} day={row[0].day} mon={row[0].mon}
-        club={row[0].club_name} clubState={row[0].club_state} slug={row[0].public_slug} about={about > 0 ? about : undefined}
+      <TrialRow key={open ? `open-${row[0].club_id}-${row[0].notice}` : `${row[0].on_date}-${row[0].club_id}`} wd={row[0].wd} day={row[0].day} mon={row[0].mon}
+        open={open} club={row[0].club_name} clubState={row[0].club_state} slug={row[0].public_slug} about={about > 0 ? about : undefined}
         lines={row.map((l) => ({ id: l.id, title: l.title.replace(' trials', ''), timeVenue: l.time_venue, listed: l.listed, checked: l.checked, notice: l.notice }))} />
     );
-  });
+  };
+  const rowsOf = (ls: BoardListing[]) => groupByClubDay(ls).map((row) => rowOf(row, false));
+  const openRowsOf = (ls: BoardListing[]) => groupOpenNow(ls).map((row) => rowOf(row, true));
   // Nothing in range: the next radius that has something, as the same chip
   // with its count, so the family never taps into another empty board.
   const emptyHere = eoiOnly ? eois.length === 0 : trials.length === 0;
@@ -350,13 +360,25 @@ export default function TrialsBoard({ upcoming, chosen, ages, positions, levels,
             count line goes, so the heading leads with its number, the
             rule above it goes (nothing sits above it), and the number is
             what a screen reader hears change. */}
+        {/* "By closing date." sits over the dated rows only, so it is drawn
+            only when there is one; the section's number counts both kinds
+            (BUZ, 3 Oct, B1). The open-now group follows with its own
+            heading, number and order line, and is drawn only when it has a
+            row. */}
         {eois.length > 0 && (
           <>
             <div className={eoiOnly ? 'tb-sec first' : 'tb-sec'}>
               <h2>Expressions of interest<span className="tb-sec-n" aria-live={eoiOnly ? 'polite' : undefined}>{eois.length}</span></h2>
-              <div className="tb-sec-sub">By closing date.</div>
+              {datedEois.length > 0 && <div className="tb-sec-sub">By closing date.</div>}
             </div>
-            {rowsOf(eois)}
+            {rowsOf(datedEois)}
+            {openEois.length > 0 && (
+              <div className="tb-grp">
+                <h3>Open now<span className="tb-sec-n">{openEois.length}</span></h3>
+                <div className="tb-sec-sub">No closing date given. By club name.</div>
+              </div>
+            )}
+            {openRowsOf(openEois)}
           </>
         )}
       </div>

@@ -3,7 +3,8 @@
 // day, and each listing's kind said once, by its section — the trials, then
 // the expressions of interest. Pure functions over listings the page has
 // already read the board's way (fn_trial_notices_advertised): nothing here
-// reads the database, and nothing here reorders by anything but time.
+// reads the database, and nothing here reorders by anything but time — save
+// the open-now group, which has no time and goes by club name (B2, 3 Oct).
 //
 // Every listing stays present. Grouping only puts a club's listings for one
 // day in one row; the filters still match listing by listing, and the counts
@@ -14,6 +15,13 @@
 // closes" (the design's interim, with no migration). The recommended column,
 // trial_notice.kind, is the tech team's — see the build report.
 export const isEoi = (timeVenue: string) => /^\s*EOI closes\b/i.test(timeVenue);
+
+// Open now (0173; BUZ approved 3 Oct, John's ruling the same day): an
+// expression of interest with no closing date, on the board while the trials
+// desk keeps seeing its form open. It is told by having no date — the
+// database allows no other undated notice — and it is always an expression of
+// interest. The board and the club page both ask this, so they never disagree.
+export const kindOf = (open: boolean, timeVenue: string): 'trial' | 'eoi' => (open || isEoi(timeVenue) ? 'eoi' : 'trial');
 
 // Time and ground are stored joined by " · " (fn_ops_add_notice, and the
 // club's own form). Split at the first one; with none, it is all the time.
@@ -63,4 +71,24 @@ export function groupByClubDay<T extends Groupable>(listings: T[]): T[][] {
   return out.sort((a, b) =>
     a[0].on_date < b[0].on_date ? -1 : a[0].on_date > b[0].on_date ? 1
       : byStart(start(a[0]), start(b[0])) || a[0].club_name.localeCompare(b[0].club_name, 'en-AU'));
+}
+
+export type OpenGroupable = { club_id: string; club_name: string; title: string; notice: string | null };
+
+const byTitle = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title, 'en-AU', { sensitivity: 'base' });
+
+// The open-now group (B2, BUZ 3 Oct): by club name, then title — stable,
+// neutral and easy to find a club in, and not a ranking (D-21, D-74). There
+// is no date to group by, so a row is one club and one notice: every line in
+// it shares the club's own notice, which the row then says once, in its foot,
+// before Send my CV (John, 3 Oct). Lines in a row by title.
+export function groupOpenNow<T extends OpenGroupable>(listings: T[]): T[][] {
+  const rows = new Map<string, T[]>();
+  for (const l of listings) {
+    const key = `${l.club_id}|${l.notice ?? ''}`;
+    const row = rows.get(key);
+    if (row) row.push(l); else rows.set(key, [l]);
+  }
+  return [...rows.values()].map((row) => [...row].sort(byTitle)).sort((a, b) =>
+    a[0].club_name.localeCompare(b[0].club_name, 'en-AU', { sensitivity: 'base' }) || byTitle(a[0], b[0]));
 }

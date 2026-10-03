@@ -10843,6 +10843,145 @@ const componentFilesAll = [];
     [[1, 1, 3, 1, 1], true]);
 }
 
+// --- Open now (0173; BUZ approved 3 Oct, John's ruling the same day; D-74 as
+//     clarified 3 Oct, D-90). An expression of interest with no closing date
+//     is on the board while the trials desk keeps seeing its form open, and
+//     off seven days after it last did — worked out when the board is read,
+//     never stored, never by a job. A closed form comes down at once, through
+//     the desk's own `gone`. What the board and the club page SERVE is the
+//     render suite's (on-r*); these are the rules underneath. Every query is
+//     asked through q(), so on a database without 0173 each check fails by
+//     name instead of stopping the suite.
+{
+  const q = async (sql, args) => { try { return (await db.query(sql, args)).rows; } catch (e) { return e.code ?? 'error'; } };
+  const one = async (sql, args) => { const r = await q(sql, args); return Array.isArray(r) ? r[0] : r; };
+  const state = async (sql, args) => { const r = await q(sql, args); return Array.isArray(r) ? 'ok' : r; };
+  const op = crypto.randomUUID();
+  await db.query(`insert into person (id, first_name, email) values ($1,'Open','open.curator@fixture.example')`, [op]);
+  const OP = [op, 'open.curator@fixture.example'];
+  const club = (await db.query('select fn_ops_add_club($1,$2,$3,$4,$5,$6,$7) as id',
+    [...OP, 'Fenwhistle Athletic', 'Thornbury', 'VIC', null, 'club website /contact'])).rows[0].id;
+  const PAGE = 'https://fenwhistle.example.au/juniors', FORM = 'https://forms.example.au/fenwhistle-2027';
+  const ADD = 'select fn_ops_add_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) as id';
+  const add = async (title, extra = {}) => {
+    const a = { on: null, time: null, ground: 'Online — see the club’s notice', url: PAGE, form: FORM, ...extra };
+    return one(ADD, [...OP, club, title, ['U13'], 'boys', a.on, a.time, a.ground, [], a.url, a.form]);
+  };
+  const onBoard = async (id) => { const r = await one('select count(*)::int as n from fn_trial_notices_advertised() where id = $1', [id]); return r?.n ?? r; };
+  // Seen open some time ago, as only a fixture may write it: inside the wall.
+  const seenAgo = async (id, ago) => {
+    await db.exec('begin;'); await db.query(`select set_config('pitch.curating', 'on', true)`);
+    const r = await state(`update trial_notice set confirmed_open_at = now() - $2::interval where id = $1`, [id, ago]);
+    await db.exec(r === 'ok' ? 'commit;' : 'rollback;');
+    return r;
+  };
+
+  const n1 = (await add('U13 Boys expressions of interest'))?.id ?? null;
+  check('on-db1: the operator adds an open-now expression of interest with no date and no time — stored undated, its ground alone, the form it watches, seen open now, and logged as open now with the form',
+    await one(`select t.trial_on, t.time_venue, t.form_url, t.source_url, t.confirmed_open_at > now() - interval '1 minute' as seen_now,
+                 t.confirmed_open_at <= now() as not_ahead,
+                 (select detail->>'open_now' from curation_event e where e.trial_notice_id = t.id and e.action = 'notice_added') as logged,
+                 (select detail->>'form_url' from curation_event e where e.trial_notice_id = t.id and e.action = 'notice_added') as logged_form
+               from trial_notice t where t.id = $1`, [n1]),
+    { trial_on: null, time_venue: 'Online — see the club’s notice', form_url: FORM, source_url: PAGE, seen_now: true, not_ahead: true, logged: 'true', logged_form: FORM });
+
+  // Only Pitch compiles an undated notice, and only with its form and no time.
+  const soon = (await one(`select ((now() at time zone 'Australia/Melbourne')::date + 10)::text as d`)).d;
+  check('on-db2: an undated notice with no form, a form that is not https, or a time is refused; a club\'s own notice with no date is refused; and a dated notice cannot carry an open-now stamp or a form',
+    [await state(ADD, [...OP, club, 'No form EOI', ['U13'], null, null, null, 'Online', [], PAGE, null]),
+     await state(ADD, [...OP, club, 'Plain form EOI', ['U13'], null, null, null, 'Online', [], PAGE, 'http://forms.example.au/x']),
+     await state(ADD, [...OP, club, 'Timed EOI', ['U13'], null, null, 'EOI closes', 'Online', [], PAGE, FORM]),
+     await state(`insert into trial_notice (club_id, title, trial_on, time_venue, source) values ($1,'Undated own trials',null,'Oval','club')`, [CLUB.riverside]),
+     await (async () => {
+       await db.exec('begin;'); await db.query(`select set_config('pitch.curating', 'on', true)`);
+       const r = await state(`insert into trial_notice (club_id, title, trial_on, time_venue, source, source_url, added_by_email, confirmed_open_at)
+         values ($1,'Dated but open trials',$2,'9:00 AM · Oval','compiled',$3,'open.curator@fixture.example', now())`, [club, soon, PAGE]);
+       await db.exec('rollback;');
+       return r;
+     })(),
+     (await one(`select count(*)::int as n from trial_notice where club_id = $1`, [club]))?.n],
+    ['23514', '23514', '23514', '23514', '23514', 1]);
+
+  // The lapse: seven days after the desk last saw the form open, to the
+  // second, in the board's own read — and a null stamp is never on.
+  const edge = [];
+  for (const ago of ['6 days 23 hours 59 minutes', '7 days 1 minute', '30 days']) {
+    edge.push([ago, await seenAgo(n1, ago), await onBoard(n1)]);
+  }
+  check('on-db3: an open-now notice is on the board until seven days after it was last seen open and off from then — computed in fn_trial_notices_advertised itself (fn_trial_notice_current), with nothing stored and no job',
+    [edge,
+     (await one(`select fn_trial_notice_current(null, null) as a, fn_trial_notice_current(null, now() - interval '1 day') as b`)),
+     /fn_trial_notice_current\(t\.trial_on, t\.confirmed_open_at\)/.test((await one(`select prosrc from pg_proc where proname = 'fn_trial_notices_advertised'`))?.prosrc ?? ''),
+     /interval '7 days'/.test((await one(`select prosrc from pg_proc where proname = 'fn_trial_notice_current'`))?.prosrc ?? ''),
+     (await q(`select column_name from information_schema.columns where table_name = 'trial_notice' and column_name ~ '(laps|expir|until|live|hidden|visible|shown)'`))],
+    [[['6 days 23 hours 59 minutes', 'ok', 1], ['7 days 1 minute', 'ok', 0], ['30 days', 'ok', 0]], { a: false, b: true }, true, true, []]);
+
+  // The desk's check is the only thing that moves the stamp; it brings a
+  // lapsed notice back the moment the form is seen open again.
+  await seenAgo(n1, '8 days');
+  const lapsedOff = await onBoard(n1);
+  const opsList = async () => { const r = await q('select title from fn_ops_club_notices($1)', [club]); return Array.isArray(r) ? r.map((x) => x.title) : r; };
+  const opsLive = async () => (await one('select notices_live from fn_ops_club($1)', [club]))?.notices_live;
+  const lapsedOps = [await opsList(), await opsLive()];
+  await state('select fn_ops_check_notice($1,$2,$3)', [...OP, n1]);
+  check('on-db4: a lapsed notice is off the board but still on the operator\'s list of the club\'s notices (so it can be taken down), and not in its live count; the desk\'s check moves "seen open" to now and puts it back',
+    [lapsedOff, lapsedOps, await onBoard(n1), await opsLive(),
+     (await one(`select confirmed_open_at > now() - interval '1 minute' as moved, last_checked = (now() at time zone 'Australia/Melbourne')::date as checked from trial_notice where id = $1`, [n1])),
+     (await one(`select detail ? 'was_open' as was from curation_event where trial_notice_id = $1 and action = 'notice_checked' order by id desc limit 1`, [n1]))?.was],
+    [0, [['U13 Boys expressions of interest'], 0], 1, 1, { moved: true, checked: true }, true]);
+
+  // A closed form, or a club page that no longer links it: the desk's `gone`,
+  // which goes live on its own — off the board in the same statement.
+  await db.exec('begin;');
+  await state('select fn_ops_remove_notice($1,$2,$3)', [...OP, n1]);
+  const inside = await onBoard(n1);
+  await db.exec('commit;');
+  check('on-db5: a form the desk finds closed comes off at once — off the board inside the take-down\'s own transaction, gone from the table, and the log keeps what it said',
+    [inside, (await one('select count(*)::int as n from trial_notice where id = $1', [n1]))?.n,
+     (await one(`select detail->>'title' as t from curation_event where trial_notice_id = $1 and action = 'notice_removed'`, [n1]))?.t],
+    [0, 0, 'U13 Boys expressions of interest']);
+
+  // A real closing date appears: the edit moves it up into the dated group,
+  // and it stops being open now. And back, only with its form.
+  const n2 = (await add('U15 Boys expressions of interest'))?.id ?? null;
+  const EDIT = 'select fn_ops_edit_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)';
+  const dated = await state(EDIT, [...OP, n2, 'U15 Boys expressions of interest', ['U15'], 'boys', soon, 'EOI closes', 'Online — see the club’s notice', [], PAGE, FORM]);
+  const afterDated = await one(`select trial_on::text as on, time_venue, confirmed_open_at, form_url from trial_notice where id = $1`, [n2]);
+  check('on-db6: an edit that gives a closing date makes it a dated notice — no open-now stamp, no form — and an edit back to no date is refused without its form, and stamps "seen open" with it',
+    [dated, afterDated,
+     await state(EDIT, [...OP, n2, 'U15 Boys expressions of interest', ['U15'], 'boys', null, null, 'Online', [], PAGE, null]),
+     await state(EDIT, [...OP, n2, 'U15 Boys expressions of interest', ['U15'], 'boys', null, null, 'Online', [], PAGE, FORM]),
+     (await one(`select trial_on, confirmed_open_at > now() - interval '1 minute' as seen, form_url from trial_notice where id = $1`, [n2]))],
+    ['ok', { on: soon, time_venue: 'EOI closes · Online — see the club’s notice', confirmed_open_at: null, form_url: null },
+     '23514', 'ok', { trial_on: null, seen: true, form_url: FORM }]);
+  await state('select fn_ops_remove_notice($1,$2,$3)', [...OP, n2]);
+
+  // The wall still holds: nothing but the operator's functions moves the
+  // stamp, and the link checker and the desk's script call only those.
+  const n3 = (await add('U16 Boys expressions of interest'))?.id ?? null;
+  const checker = codeOnly(srcOf('scripts/check-trial-links.mjs')), sync = codeOnly(srcOf('scripts/sync-trials.mjs'));
+  check('on-db7: only the operator\'s functions move "seen open" — a direct write is refused by the wall, the link checker can only take a notice down, and the desk\'s script writes through the functions alone',
+    [await state(`update trial_notice set confirmed_open_at = now() where id = $1`, [n3]),
+     /confirmed_open_at\s*=|update\s+trial_notice|insert\s+into\s+trial_notice/i.test(checker),
+     [...checker.matchAll(/select (fn_\w+)\(/g)].map((m) => m[1]),
+     /confirmed_open_at\s*=|update\s+trial_notice|insert\s+into\s+trial_notice|delete\s+from\s+trial_notice/i.test(sync)],
+    ['42501', false, ['fn_ops_remove_notice'], false]);
+  await state('select fn_ops_remove_notice($1,$2,$3)', [...OP, n3]);
+
+  // Never shown, never linked: "The club's own notice" is the club's own page
+  // (D-90; John: "Never link a form that no club page or post of the club
+  // points to"). No page, component or library reads the form's address.
+  const readsForm = tsSourceFiles().filter((f) => /\bform_url\b/.test(codeOnly(srcOf(f))));
+  // A trial tag is a dated notice: the doors that carry one never take an
+  // undated notice, so no registration is ever tagged to "open now".
+  const tagged = ['app/register-interest/[recordId]/page.tsx', 'app/register-interest/[recordId]/actions.ts']
+    .map((f) => /from fn_trial_notices_advertised\(\)\s+where id = \$1 and club_id = \$2 and trial_on is not null/.test(codeOnly(srcOf(f))));
+  check('on-db8: no page, component or library reads an open-now notice\'s form address, and the register-interest door only ever carries a dated notice as its trial',
+    [readsForm, tagged], [[], [true, true]]);
+  await db.query('select fn_ops_remove_club($1,$2,$3)', OP.concat([club]));
+  await db.query('delete from person where id = $1', [op]);
+}
+
 // --- Brief L's follow-ups (29 Sep): a suspended club hires nobody (0151), its
 //     own page offers no way in, a failed call ends verification at every edge
 //     (0150), and the legal register says where doc 25 is served.

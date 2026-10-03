@@ -223,7 +223,9 @@ function check(name, actual, expected) {
 // each page those notices add (two chips, a ?trial= view each) moved which
 // seat met Jordan's forms first: ks-w0, sq2 and sq3 went red (L32: a page is a
 // fixture). So they come down here, through the operator's own Remove, and
-// the sweep walks the board it has always walked.
+// the sweep walks the board it has always walked. The open-now fixtures
+// (0173, 3 Oct: Quillhaven's two live ones and its lapsed one, Ondabrook's)
+// come down the same way — the operator's list keeps a lapsed one so it can.
 // ---------------------------------------------------------------------------
 {
   const op = ids.people.marina;
@@ -240,9 +242,9 @@ function check(name, actual, expected) {
     if (r.status === 303) removed++;
   }
   const board = (await get('/trials', null)).html;
-  check(`tv-w0: the seed's four board v2 notices (Westgate three, Kestrelford one) are taken off before the sweep, and the board is the one it walked before them (${removed} of ${v2.length} removed)`,
-    [v2.length, removed, board.includes('U12 Boys'), /class="tb-sec"/.test(board), (board.match(/<li\b[^>]*data-listing=""/g) ?? []).length],
-    [4, 4, false, false, 4]);
+  check(`tv-w0: the seed's eight board v2 and open-now notices (Westgate three, Kestrelford one, Quillhaven three, Ondabrook one) are taken off before the sweep, and the board is the one it walked before them (${removed} of ${v2.length} removed)`,
+    [v2.length, removed, board.includes('U12 Boys'), /class="tb-sec"/.test(board), /class="tb-grp"/.test(board), (board.match(/<li\b[^>]*data-listing=""/g) ?? []).length],
+    [8, 8, false, false, false, 4]);
 }
 
 // ---------------------------------------------------------------------------

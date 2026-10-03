@@ -836,6 +836,53 @@ v2('kestrelford-athletic-sc', (await db.query(
   `select fn_ops_add_notice($1, 'td@example.com', $2, 'U14 Boys expressions of interest', array['U14'], 'boys',
      greatest('2026-12-07'::date, (now() at time zone 'Australia/Melbourne')::date + 37),
      'EOI closes', 'Online — see the club''s notice', '{}', 'https://kestrelfordathletic.example.au/eoi') as id`, [td, kestrelford])).rows[0].id as string);
+// Open now (0173; BUZ approved 3 Oct, John's ruling the same day): an
+// expression of interest with no closing date, on the board while the trials
+// desk keeps seeing its form open, and off seven days after it last did. Two
+// invented clubs (localities real, both Melbourne North), written through the
+// operator's own functions as the desk writes them. Quillhaven FC is written
+// first and Ondabrook United SC second, so the group's order by club name is
+// not the order they were written. Quillhaven has two live ones from one club
+// page, seen open today and yesterday (so the row's lines keep their own
+// stamps and the club's own notice is said once, in the foot), one that
+// lapsed (last seen open eight days ago — it must show nowhere) and one the
+// desk found closed (a `gone`, through fn_ops_remove_notice — gone at once).
+// Ondabrook's was seen open two days ago and re-read today: its "checked" must
+// be the day it was seen open, never last_checked. Removed before the write
+// sweep with the v2 fixtures (L32).
+const quillhaven = (await db.query(
+  `select fn_ops_add_club($1, 'td@example.com', 'Quillhaven FC', 'Thornbury', 'VIC',
+     'secretary@quillhavenfc.example.au', 'club website /contact') as id`, [td])).rows[0].id as string;
+const ondabrook = (await db.query(
+  `select fn_ops_add_club($1, 'td@example.com', 'Ondabrook United SC', 'Reservoir', 'VIC',
+     'info@ondabrookunited.example.au', 'club website /contact') as id`, [td])).rows[0].id as string;
+const openNow = async (club: string, title: string, ages: string[], gender: string | null, url: string, form: string) =>
+  (await db.query(
+    `select fn_ops_add_notice($1, 'td@example.com', $2, $3, $4::text[], $5, null, null,
+       'Online — see the club''s notice', '{}', $6, $7) as id`, [td, club, title, ages, gender, url, form])).rows[0].id as string;
+// Seen open some time ago: the desk's stamp, moved back as only a fixture may
+// (inside the wall, as the operator's functions write).
+const seenOpen = async (id: string, ago: string) => {
+  await db.query('begin');
+  await db.query(`select set_config('pitch.curating', 'on', true)`);
+  await db.query(`update trial_notice set confirmed_open_at = now() - $2::interval where id = $1`, [id, ago]);
+  await db.query('commit');
+};
+const quillUrl = 'https://quillhavenfc.example.au/juniors';
+v2('quillhaven-fc', await openNow(quillhaven, 'U13 Boys expressions of interest', ['U13'], 'boys', quillUrl, 'https://forms.example.au/quillhaven-u13'));
+const quillU15 = await openNow(quillhaven, 'U15 Boys expressions of interest', ['U15'], 'boys', quillUrl, 'https://forms.example.au/quillhaven-u15');
+await seenOpen(quillU15, '1 day');
+v2('quillhaven-fc', quillU15);
+const quillLapsed = await openNow(quillhaven, 'U16 Boys expressions of interest', ['U16'], 'boys', quillUrl, 'https://forms.example.au/quillhaven-u16');
+await seenOpen(quillLapsed, '8 days');
+v2('quillhaven-fc', quillLapsed);
+await db.query(`select fn_ops_remove_notice($1, 'td@example.com', $2)`,
+  [td, await openNow(quillhaven, 'U11 Boys expressions of interest', ['U11'], 'boys', quillUrl, 'https://forms.example.au/quillhaven-u11')]);
+const ondaOpen = await openNow(ondabrook, 'U13 and U15 expressions of interest', ['U13', 'U15'], null,
+  'https://ondabrookunited.example.au/register', 'https://forms.example.au/ondabrook-2027');
+await seenOpen(ondaOpen, '2 days');
+v2('ondabrook-united-sc', ondaOpen);
+
 // Club level (0172): each club's senior league, with its source and the day
 // it was checked, written the way production writes it — through
 // scripts/load-club-levels.mjs (L13). The clubs are invented and the
@@ -1402,8 +1449,8 @@ console.log(`  tokens : ${PLAYER_FIXTURES.map((p) => `dev-${p.slug}`).join(' ')}
       // Tobin's change — "—", "No photo yet", and <school> drawn nowhere.
       // Read by the render suite (pp-r) and never pressed.
       pendingReviewEmpty,
-      // Trials board v2's three Westgate fixtures (above): the write suite
-      // removes them before its sweep (L32).
+      // Trials board v2's Westgate and Kestrelford fixtures, and the open-now
+      // ones (above): the write suite removes them before its sweep (L32).
       boardV2Notices,
       adultPlayers: (await db.query(
         `select p.id as person_id, dr.id as record_id from person p join development_record dr on dr.person_id = p.id

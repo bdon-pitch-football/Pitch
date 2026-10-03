@@ -6,7 +6,10 @@
 // "Unclaimed", once, and the note above the list says once what that means
 // (John, 2 Oct). v2 (BUZ, 2 Oct): one row per club per day, and expressions
 // of interest in their own section below the trials. The filters package
-// (BUZ approved 2 Oct): Region, Distance, Show and Club level.
+// (BUZ approved 2 Oct): Region, Distance, Show and Club level. Open now (BUZ
+// approved 3 Oct, 0173): an expression of interest with no closing date is
+// on the board while the trials desk keeps seeing its form open — the
+// database's answer, seven days from the last time it did.
 //
 // This page reads the board and decides what the address asks for; the
 // board itself is drawn by components/floodlit/TrialsBoard, which runs the
@@ -19,7 +22,7 @@ import { T } from '@/lib/palette';
 import PublicAnalytics from '@/components/PublicAnalytics';
 import SiteNav from '@/components/floodlit/SiteNav';
 import TrialsBoard, { type BoardListing } from '@/components/floodlit/TrialsBoard';
-import { isEoi } from '@/lib/trials-board';
+import { kindOf } from '@/lib/trials-board';
 import { NONE, type Chosen, type Kind } from '@/lib/trials-filter';
 import { REGIONS } from '@/lib/regions';
 import { centreOf, regionOfSuburb } from '@/lib/places-vic';
@@ -53,10 +56,17 @@ export default async function TrialsPage({ searchParams }: { searchParams: Promi
     `select t.id, t.title, t.time_venue, t.source, t.source_url, t.competition_gender, t.position_needs,
        array(select ta.age_group from trial_notice_age_group ta join age_group ag on ag.code = ta.age_group
              where ta.trial_notice_id = t.id order by ag.sort) as age_groups,
-       upper(to_char(t.trial_on, 'Mon')) as mon, to_char(t.trial_on, 'FMDD') as day,
-       upper(to_char(t.trial_on, 'Dy')) as wd, to_char(t.trial_on, 'YYYY-MM-DD') as on_date,
-       to_char(t.added_on, 'FMDD Mon') as listed, to_char(t.last_checked, 'FMDD Mon') as checked,
-       to_char(t.last_checked, 'YYYY-MM-DD') as checked_on,
+       coalesce(upper(to_char(t.trial_on, 'Mon')), '') as mon, coalesce(to_char(t.trial_on, 'FMDD'), '') as day,
+       coalesce(upper(to_char(t.trial_on, 'Dy')), '') as wd, coalesce(to_char(t.trial_on, 'YYYY-MM-DD'), '') as on_date,
+       t.trial_on is null as open_now,
+       to_char(t.added_on, 'FMDD Mon') as listed,
+       -- An open-now row's "checked" is the day the desk last saw its form
+       -- open (John, 3 Oct): the stamp and the seven days are one fact. Never
+       -- last_checked, which a dated notice's re-read moves.
+       to_char(case when t.trial_on is null then (t.confirmed_open_at at time zone 'Australia/Melbourne')::date
+                    else t.last_checked end, 'FMDD Mon') as checked,
+       to_char(case when t.trial_on is null then (t.confirmed_open_at at time zone 'Australia/Melbourne')::date
+                    else t.last_checked end, 'YYYY-MM-DD') as checked_on,
        c.id as club_id, c.name as club_name, c.club_state, c.public_slug, c.state, c.suburb,
        cl.level
      from fn_trial_notices_advertised() t join club c on c.id = t.club_id
@@ -73,7 +83,7 @@ export default async function TrialsPage({ searchParams }: { searchParams: Promi
   const levels = (await db.query(`select code, label from competition_tier order by sort`)).rows as { code: string; label: string }[];
   type Row = {
     id: string; title: string; time_venue: string; source: string; source_url: string | null; competition_gender: string | null;
-    position_needs: string[]; age_groups: string[]; mon: string; day: string; wd: string; on_date: string; listed: string; checked: string;
+    position_needs: string[]; age_groups: string[]; mon: string; day: string; wd: string; on_date: string; open_now: boolean; listed: string; checked: string;
     checked_on: string; club_id: string; club_name: string; club_state: string; public_slug: string | null; state: string | null;
     suburb: string | null; level: string | null;
   };
@@ -83,11 +93,11 @@ export default async function TrialsPage({ searchParams }: { searchParams: Promi
   // suburb itself is not sent.
   const upcoming: BoardListing[] = (rows as Row[]).map((l) => ({
     id: l.id, title: l.title, time_venue: l.time_venue, notice: l.source !== 'club' && l.source_url ? l.source_url : null,
-    mon: l.mon, day: l.day, wd: l.wd, on_date: l.on_date, listed: l.listed, checked: l.checked, checked_on: l.checked_on,
+    mon: l.mon, day: l.day, wd: l.wd, on_date: l.on_date, open: l.open_now, listed: l.listed, checked: l.checked, checked_on: l.checked_on,
     club_id: l.club_id, club_name: l.club_name, club_state: l.club_state, public_slug: l.public_slug,
     f: {
       ages: l.age_groups, gender: l.competition_gender, pos: l.position_needs ?? [], state: l.state,
-      kind: isEoi(l.time_venue) ? 'eoi' : 'trial', area: regionOfSuburb(l.suburb), level: l.level, at: centreOf(l.suburb),
+      kind: kindOf(l.open_now, l.time_venue), area: regionOfSuburb(l.suburb), level: l.level, at: centreOf(l.suburb),
     },
   }));
   // The age filter offers the groups the board holds right now, in the
