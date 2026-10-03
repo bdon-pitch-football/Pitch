@@ -38,7 +38,10 @@ export async function dispatchInterestRequest(client: PoolClient, requestId: str
     // so the club can invite to it — and on the free tier, invite at all (D-153).
     `insert into registration (player_id, club_id, squad_target, positions, note, trial_notice_id, trial_on, disclosed_by, policy_version)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
-    [r.person_id, r.club_id, r.squad_target, r.positions, r.note, r.trial_notice_id, r.trial_on, guardianId, legalStamp('20')],
+    // Only a DATED notice is a trial tag (0173): an open-now expression of
+    // interest has no day to invite to, and a tag with no date would never
+    // purge (N14). The belt behind fn_ops_edit_notice's refusal.
+    [r.person_id, r.club_id, r.squad_target, r.positions, r.note, r.trial_on ? r.trial_notice_id : null, r.trial_on ?? null, guardianId, legalStamp('20')],
   );
   await client.query(
     `update registration_request set dispatched_by=$2, dispatched_at=now(), registration_id=$3 where id=$1`,

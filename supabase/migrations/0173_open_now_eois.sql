@@ -230,6 +230,14 @@ begin
     raise exception 'this open-now notice has lapsed and stays down; if its form is open again, add it as a new notice'
       using errcode = 'check_violation';
   end if;
+  -- A dated notice never becomes open now by an edit (safety review, 3 Oct):
+  -- that move would skip BUZ's new list, and a family's request already
+  -- tagged to the dated trial would carry an undated one. It comes down with
+  -- a take-down and goes back up as a fresh open-now add.
+  if v_old.trial_on is not null and p_trial_on is null then
+    raise exception 'a dated notice does not become open now by an edit; take it down and add the open-now notice as new'
+      using errcode = 'check_violation';
+  end if;
   v_on := case when exists (select 1 from registration r where r.trial_notice_id = p_notice and r.withdrawn_at is null)
                then v_old.trial_on else p_trial_on end;
   v_open := v_on is null;

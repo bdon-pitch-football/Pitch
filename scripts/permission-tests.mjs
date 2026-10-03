@@ -10952,14 +10952,18 @@ const componentFilesAll = [];
   const EDIT = 'select fn_ops_edit_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)';
   const dated = await state(EDIT, [...OP, n2, 'U15 Boys expressions of interest', ['U15'], 'boys', soon, 'EOI closes', 'Online — see the club’s notice', [], PAGE, FORM]);
   const afterDated = await one(`select trial_on::text as on, time_venue, confirmed_open_at, form_url from trial_notice where id = $1`, [n2]);
-  check('on-db6: an edit that gives a closing date makes it a dated notice — no open-now stamp, no form — and an edit back to no date is refused without its form, and stamps "seen open" with it',
+  check('on-db6: an edit that gives a closing date makes it a dated notice — no open-now stamp, no form — and an edit back to no date is refused, with or without a form: a dated notice comes down and goes back up as a fresh add, on BUZ\'s list (safety review, 3 Oct)',
     [dated, afterDated,
      await state(EDIT, [...OP, n2, 'U15 Boys expressions of interest', ['U15'], 'boys', null, null, 'Online', [], PAGE, null]),
      await state(EDIT, [...OP, n2, 'U15 Boys expressions of interest', ['U15'], 'boys', null, null, 'Online', [], PAGE, FORM]),
-     (await one(`select trial_on, confirmed_open_at > now() - interval '1 minute' as seen, form_url from trial_notice where id = $1`, [n2]))],
+     (await one(`select trial_on::text as trial_on, confirmed_open_at > now() - interval '1 minute' as seen, form_url from trial_notice where id = $1`, [n2]))],
     ['ok', { on: soon, time_venue: 'EOI closes · Online — see the club’s notice', confirmed_open_at: null, form_url: null },
-     '23514', 'ok', { trial_on: null, seen: true, form_url: FORM }]);
+     '23514', '23514', { trial_on: soon, seen: null, form_url: null }]);
   await state('select fn_ops_remove_notice($1,$2,$3)', [...OP, n2]);
+  // The belt (safety review, 3 Oct): a request dispatched against a notice
+  // carries it as a trial tag only while the notice is dated.
+  check('on-db6b: dispatching a request tags a registration with a notice only while the notice has a date',
+    /r\.trial_on \? r\.trial_notice_id : null, r\.trial_on \?\? null/.test(codeOnly(srcOf('lib/interest-dispatch.ts'))), true);
 
   // The wall still holds: nothing but the operator's functions moves the
   // stamp, and the link checker and the desk's script call only those.

@@ -169,6 +169,8 @@ for (const r of rows) {
     if (action === 'edit') {
       const p = full(r); const why = invalid(p);
       if (why.length) { plan.refused.push(`edit ${n.club} ${when(n)}: ${why.join(', ')}`); continue; }
+      // A dated notice never becomes open now by an edit (3 Oct): gone + a fresh add, on BUZ's list.
+      if (n.on && !p.on) { plan.refused.push(`edit ${n.club} ${when(n)}: a dated notice does not become open now by an edit — list it as gone and a new open-now add`); continue; }
       plan.edit.push({ n, p, retitled: p.title !== n.title });
     } else plan[action].push({ n, reason: tidy(r.reason) });
   } else if (action === 'add') {
@@ -182,7 +184,10 @@ for (const r of rows) {
   } else plan.refused.push(`unknown action "${action}"`);
 }
 const goneLimit = Math.min(MAX_GONE, Math.ceil(shown.length / 4));
-const goneBlocked = scope === 'safe' && plan.gone.length > goneLimit;
+// The brake counts take-downs of notices families can see today: clearing
+// lapsed open-now rows (already off the board) never holds back a real one.
+const liveGone = plan.gone.filter((g) => !g.n.lapsed);
+const goneBlocked = scope === 'safe' && liveGone.length > goneLimit;
 
 console.log(`database: ${url.hostname} · operator: ${operator} · scope: ${scope}`);
 console.log(`board: ${shown.length} compiled · confirm: ${plan.check.length} · take down: ${plan.gone.length} · change: ${plan.edit.length} · add: ${plan.add.length} · refused: ${plan.refused.length}`);
@@ -193,7 +198,7 @@ for (const g of plan.gone) console.log(`  - down    ${when(g.n)}  ${g.n.club} �
 for (const e of plan.edit) console.log(`  ${e.retitled && scope === 'safe' ? '~ waits  ' : '~ change  '}${when(e.n)}→${e.p.on || 'open now'}  ${e.n.club} — ${e.p.title} · ${e.p.time} · ${e.p.ground}${e.p.reason ? ` (${e.p.reason})` : ''}`);
 for (const a of plan.add) console.log(`  + add     ${a.on || 'open now'}  ${a.club} — ${a.title} [${a.ages.join(' ')}${a.gender ? ' · ' + a.gender : ''}]`);
 for (const r of plan.refused) console.log(`  ! refused ${r}`);
-if (goneBlocked) console.log(`HELD: ${plan.gone.length} take-downs is more than the ${goneLimit} a safe run may make. None will be taken down; BUZ decides with --scope all.`);
+if (goneBlocked) console.log(`HELD: ${liveGone.length} take-downs of live notices is more than the ${goneLimit} a safe run may make. None will be taken down (lapsed ones still go); BUZ decides with --scope all.`);
 const waitingEdits = plan.edit.filter((e) => e.retitled).length;
 if (scope === 'safe' && (waitingEdits || plan.add.length)) console.log(`waiting for BUZ: ${waitingEdits} retitled change(s) and ${plan.add.length} addition(s) — run again with --scope all to apply them.`);
 if (!has('--apply')) { console.log('plan only. Nothing changed. Add --apply to do it.'); await client.end(); process.exit(0); }
@@ -204,7 +209,7 @@ async function one(label, sql, params) {
   catch (e) { await client.query('rollback').catch(() => {}); failed.push(`${label}: ${String(e.message).slice(0, 80)}`); return false; }
 }
 for (const c of plan.check) if (await one(`check ${c.n.club} ${when(c.n)}`, 'select fn_ops_check_notice($1, $2, $3)', [op.id, operator, c.n.id])) done.check++;
-if (!goneBlocked) for (const g of plan.gone) if (await one(`down ${g.n.club} ${when(g.n)}`, 'select fn_ops_remove_notice($1, $2, $3)', [op.id, operator, g.n.id])) done.gone++;
+for (const g of plan.gone) if ((!goneBlocked || g.n.lapsed) && await one(`down ${g.n.club} ${when(g.n)}`, 'select fn_ops_remove_notice($1, $2, $3)', [op.id, operator, g.n.id])) done.gone++;
 for (const e of plan.edit) if ((scope === 'all' || !e.retitled) && await one(`change ${e.n.club} ${when(e.n)}`, 'select fn_ops_edit_notice($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
     [op.id, operator, e.n.id, e.p.title, e.p.ages, e.p.gender || null, e.p.on || null, e.p.time || null, e.p.ground, e.p.positions, e.p.source, e.p.form || null])) done.edit++;
 if (scope === 'all') {
