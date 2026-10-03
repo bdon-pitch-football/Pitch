@@ -3285,7 +3285,7 @@ check('E11: the link-state page is handed nothing about a person',
 check('E11b: and names no field of a record — no initials, no squad number',
   /first_name|last_name|initials|squad_number|shirt|photo_path|age_group|\bdob\b|positions/i.test(codeOnly(linkStateSrc)), false);
 check('dead5: every tokenised page is noindex (D-95)', /noindex|robots/.test(deadPage), true);
-check('dead6: and sends no referrer to an embed host (D-94 §5)',
+check('dead6: and the page itself sends no referrer (D-94 §5) — the YouTube player alone sends the site\u2019s origin, never the address (yt-2)',
   /no-referrer/.test(readFileSync(fileURLToPath(new URL('../next.config.mjs', import.meta.url)), 'utf8')), true);
 
 // E14: the OG endpoint outlives revocation in every social platform's cache,
@@ -4984,9 +4984,9 @@ for (const h of ['youtube\\.com', 'youtu\\.be', 'instagram\\.com', 'veo\\.co']) 
     [shapes.map((u) => youtubeId(u)), junk.map((u) => youtubeId(u))], [shapes.map(() => V), junk.map(() => null)]);
   const card = readFileSync(fileURLToPath(new URL('../components/cv/ClipCard.tsx', import.meta.url)), 'utf8');
   const policies = [...card.matchAll(/referrerPolicy="([^"]+)"/g)].map((m) => m[1]);
-  check('yt-2: the YouTube player sends this site\u2019s origin only (strict-origin-when-cross-origin) — never the page address, never unsafe-url — and only from youtube-nocookie, after a press',
-    [policies, /src=\{`https:\/\/www\.youtube-nocookie\.com\/embed\/\$\{ytId\}/.test(card), /playing && ytId \?/.test(card), /unsafe-url|no-referrer-when-downgrade|"origin-when-cross-origin"/.test(card)],
-    [['strict-origin-when-cross-origin'], true, true, false]);
+  check('yt-2: the YouTube player sends this site\u2019s origin only (strict-origin) — never the page address, never unsafe-url — and only from youtube-nocookie, after a press',
+    [policies, /src=\{`https:\/\/www\.youtube-nocookie\.com\/embed\/\$\{ytId\}/.test(card), /playing && ytId \?/.test(card), /unsafe-url|no-referrer-when-downgrade|origin-when-cross-origin|referrerPolicy="origin"/.test(card)],
+    [['strict-origin'], true, true, false]);
   check('yt-3: a link copied from a phone (m.youtube.com) is accepted on all three clip paths — player, coach and club',
     ['app/build/[recordId]/clips/actions.ts', 'app/coach/edit/actions.ts', 'app/club/page-edit/actions.ts'].map((f) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8').includes('(www\\.|m\\.)?(youtube\\.com')),
     [true, true, true]);

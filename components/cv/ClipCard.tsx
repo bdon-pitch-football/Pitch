@@ -45,7 +45,7 @@ export default function ClipCard({ title, sub, url, gradientAlt }: {
             // ORIGIN — https://pitchfootball.com.au, never the page's path,
             // so a share token in a CV's address cannot travel. Every other
             // request from the page stays no-referrer (next.config.mjs).
-            referrerPolicy="strict-origin-when-cross-origin"
+            referrerPolicy="strict-origin"
             allow="autoplay; encrypted-media; picture-in-picture"
             style={{ width: '100%', aspectRatio: '16 / 9', border: 'none', display: 'block' }}
             title={title}
